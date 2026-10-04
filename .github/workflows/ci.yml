@@ -36,6 +36,21 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # ── Turborepo local cache ──────────────────────────────
+      # turbo.json sets no cacheDir, so turbo keeps its local cache in
+      # .turbo/cache. Restoring it lets packages whose task hash is unchanged
+      # replay build and typecheck results. test:ci is never cached, so every
+      # test still runs. The key prefix changes with the lockfile and any
+      # turbo.json, which also bounds how large the reused cache can grow.
+      - name: Restore Turborepo local cache
+        id: turbo-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'turbo.json', 'packages/*/turbo.json', 'apps/*/turbo.json') }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'turbo.json', 'packages/*/turbo.json', 'apps/*/turbo.json') }}-
+
       # ── Build ──────────────────────────────────────────────
       - name: Build core platform
         run: pnpm build:core
@@ -51,6 +66,27 @@ jobs:
 
       - name: Build CI scripts
         run: pnpm build:scripts
+
+      # ── Share build outputs ────────────────────────────────
+      # The jobs below verify this build instead of rebuilding it:
+      # public-release-runtime packs every distribution candidate (Core and
+      # Downstream) from these dist folders, typescript-7-current checks these
+      # declarations and compiles the merged spec (.merged.yaml), and
+      # governance-references runs this oa-gen CLI. Archive before the tests,
+      # some of which rebuild their package. tar keeps repository-relative
+      # paths and the executable bit tsup sets on CLI entrypoints, which
+      # upload-artifact would drop.
+      - name: Archive workspace build outputs
+        run: tar -cf "${RUNNER_TEMP}/workspace-build-outputs.tar" packages/*/dist packages/schemas/src/.merged.yaml
+
+      - name: Upload workspace build outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-build-outputs
+          path: ${{ runner.temp }}/workspace-build-outputs.tar
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: true
 
       # ── Typecheck ──────────────────────────────────────────
       - name: Typecheck core platform
@@ -77,6 +113,16 @@ jobs:
 
       - name: Test application workspaces
         run: pnpm test:internal:ci
+
+      # Last turbo invocation in this job. Save even when a test failed: cache
+      # entries are task results addressed by their input hash and test:ci
+      # writes none, so a red run still hands its builds to the next run.
+      - name: Save Turborepo local cache
+        if: ${{ !cancelled() && steps.turbo-cache.outcome == 'success' && steps.turbo-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: .turbo/cache
+          key: ${{ steps.turbo-cache.outputs.cache-primary-key }}
 
       # ── Schema validation ──────────────────────────────────
       # packages/schemas was already built by build:core. Reuse that exact
@@ -163,9 +209,10 @@ jobs:
         with:
           version: 10.30.3
 
-      # Public artifacts are built and packed with the repository development
-      # toolchain. Only consumer execution is switched to the advertised
-      # engines.node matrix below.
+      # Public artifacts are built (in the ci job) and packed (here) with the
+      # repository development toolchain. Only consumer execution is switched
+      # to the advertised engines.node matrix below. Every matrix leg packs the
+      # one build the ci job verified, as a release publishes one artifact.
       - name: Set up development Node
         uses: actions/setup-node@v4
         with:
@@ -175,8 +222,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build public release candidates
-        run: pnpm build:core
+      - name: Download workspace build outputs
+        uses: actions/download-artifact@v4
+        with:
+          name: workspace-build-outputs
+          path: ${{ runner.temp }}
+
+      - name: Restore public release candidates
+        run: tar -xf "${RUNNER_TEMP}/workspace-build-outputs.tar"
 
       - name: Prepare packed public consumer
         run: node scripts/public-runtime-smoke.mjs prepare "${RUNNER_TEMP}/oa-sdk-public-runtime"
@@ -208,8 +261,19 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build stable Core declarations
-        run: pnpm build:core
+      # The TS 7 lane is a no-emit check of the one declaration surface the
+      # stable lane (Node 24 + TypeScript 5) emits; it does not build
+      # (docs/guides/typescript-compatibility.md). So it checks the
+      # declarations the ci job built instead of rebuilding them on Node 26.
+      # The archive also carries the merged spec for codegen's compile check.
+      - name: Download workspace build outputs
+        uses: actions/download-artifact@v4
+        with:
+          name: workspace-build-outputs
+          path: ${{ runner.temp }}
+
+      - name: Restore stable Core declarations
+        run: tar -xf "${RUNNER_TEMP}/workspace-build-outputs.tar"
 
       - name: Check TypeScript 7 and ttsc compatibility
         run: pnpm check:ts7
@@ -238,8 +302,14 @@ jobs:
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build OA Gen CLI
-        run: pnpm --filter @oa-sdk/codegen... run build
+      - name: Download workspace build outputs
+        uses: actions/download-artifact@v4
+        with:
+          name: workspace-build-outputs
+          path: ${{ runner.temp }}
+
+      - name: Restore OA Gen CLI
+        run: tar -xf "${RUNNER_TEMP}/workspace-build-outputs.tar"
 
       - name: Run NestJS reference governance
         working-directory: apps/nestjs-ref

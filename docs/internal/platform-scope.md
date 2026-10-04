@@ -220,6 +220,16 @@ CI는 네 policy track을 네 실행 그룹으로 표시한다. `internal` 실�
 검증한다. 모든 그룹은 현재 회귀 검증을 통과해야 하지만, 신규 제품 우선순위와
 기본 개발 명령은 Core Platform에만 귀속된다.
 
+CI는 build를 `ci` job에서 한 번만 한다. `ci` job은 네 그룹을 build한 직후
+`packages/*/dist`와 `packages/schemas/src/.merged.yaml`을 `workspace-build-outputs`
+artifact(보존 1일)로 올린다. `public-release-runtime`(Node 22/24/26), `typescript-7-current`,
+`governance-references` job은 다시 build하지 않고 이 artifact를 풀어 같은 build를 검증한다.
+`ci` job은 Turbo local cache(`.turbo/cache`)를 GitHub Actions cache로 run 사이에 보존한다.
+그래서 task hash가 바뀌지 않은 package의 build와 typecheck는 cache에서 재생된다. task hash는
+package의 tracked file 전체와 workspace dependency의 task hash로 정해진다. `test:ci`는
+package 밖의 문서·script도 읽기 때문에 cache하지 않고 매번 실행하며, 실행 전에 해당 package의
+build를 Turbo task로 보장받는다. 원격 cache(`TURBO_TOKEN`)와 테스트 병렬화는 쓰지 않는다.
+
 Turbo는 `@oa-sdk/codegen`의 기존 downstream peer/dev dependency 때문에 Core task 실행 중
 router/client/mock-server의 prerequisite build를 수행할 수 있다. 이는 build graph 정합성 증명이며
 Downstream을 Core product scope로 승격시키거나 maintenance 작업을 포함하는 의미가 아니다.
