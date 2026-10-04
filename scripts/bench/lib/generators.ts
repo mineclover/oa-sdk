@@ -251,3 +251,65 @@ export function generateSyntheticOpenApiSchema(
     },
   };
 }
+
+/**
+ * Generate an OpenAPI 3.2 document whose schemas form a diamond DAG: each level
+ * references the next level twice. Fully inlined expansion grows as 2^depth,
+ * so this fixture exposes any `$ref` expansion that is not shared between use sites.
+ */
+export function generateSharedRefDiamondSchema(depth: number): Record<string, unknown> {
+  const levels = Math.max(1, depth);
+  const schemas: Record<string, unknown> = {
+    [`Level${levels}`]: { type: 'object', properties: { value: { type: 'string' } } },
+  };
+  for (let level = levels - 1; level >= 0; level--) {
+    const next = `#/components/schemas/Level${level + 1}`;
+    schemas[`Level${level}`] = {
+      type: 'object',
+      properties: { left: { $ref: next }, right: { $ref: next } },
+    };
+  }
+  return {
+    openapi: '3.2.0',
+    info: { title: `Shared ref diamond (depth ${levels})`, version: '1.0.0' },
+    paths: {
+      '/root': {
+        get: {
+          operationId: 'getRoot',
+          responses: {
+            '200': {
+              description: 'ok',
+              content: { 'application/json': { schema: { $ref: '#/components/schemas/Level0' } } },
+            },
+          },
+        },
+      },
+    },
+    components: { schemas },
+  };
+}
+
+/**
+ * Generate an OpenAPI 3.2 document whose schemas form a single reference ring
+ * (Model0 -> Model1 -> ... -> Model0). Every component expansion walks the whole
+ * ring before the cycle terminates it.
+ */
+export function generateRefRingSchema(modelCount: number): Record<string, unknown> {
+  const count = Math.max(1, modelCount);
+  const schemas: Record<string, unknown> = {};
+  for (let i = 0; i < count; i++) {
+    schemas[`Model${i}`] = {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        next: { $ref: `#/components/schemas/Model${(i + 1) % count}` },
+      },
+    };
+  }
+  return {
+    openapi: '3.2.0',
+    info: { title: `Ref ring (${count})`, version: '1.0.0' },
+    paths: {},
+    components: { schemas },
+  };
+}
