@@ -109,6 +109,7 @@ marker.
 |------|------|
 | OAS 3.2 타입 | 30개 오브젝트, §별 13파일, 자체 관리 (openapi3-ts 없음) |
 | `parseDocument()` | → ParsedDocument IR (operations, routes, schemas, security, tags, webhooks), `basePath`/`cycleStrategy` 옵션. 모든 parser-produced IR은 `$ref` 해소의 `complete | partial` 상태, `internal | all | custom` scope, diagnostics를 `resolution` evidence로 기록한다. `CompleteParsedDocument`, `isParsedDocumentComplete()`, `assertParsedDocumentComplete()`가 client/router generation의 안전 경계이며 metadata 없는 legacy IR은 complete로 추정하지 않는다. |
+| Route index | `parseDocument()`의 `operations`/`routes`/`webhooks`와 `loadSchema()`는 pipeline 뒤 같은 builder(`route-index.ts`)로 색인한다. route는 `paths`만 대상으로 하고 webhooks는 `/webhooks/{name}` 별도 목록으로 둔다. `additionalOperations`는 원문 key로 색인하되 fixed-field method와 대소문자 무시로 겹치면 무시하고, operation `x-*` 확장은 복사한다. pipeline이 남긴 operation 위치의 로컬 Reference Object(Path Item, parameter, requestBody, response, callback)는 chain을 따라 해소하고 sibling field를 overlay하며, 해소 불가/순환 ref는 생략한다(해소 불가 Path Item `$ref` 옆 operation은 유지). |
 | 브라우저 엔트리 | `@oa-sdk/parser/browser` — 파일시스템 없는 in-memory surface. `parseDocument()`와 `derefInternalSpec()`은 in-memory internal `$ref`를 해소하고 missing/cycle/external-without-loader를 partial로 기록한다. 브라우저 외부 ref는 암묵적으로 fetch하지 않으며 caller-owned async loader contract는 별도 후속 범위다. |
 | `SchemaAlgebra` fold | 스키마 재귀 순회 — 타입별 의미 해석 |
 | `resolveRefGraph()` | 공유 `RefResolver` 기반 내부/외부 `$ref` 그래프 수집, nested external ref 추적, 누락/순환 diagnostic |
@@ -174,6 +175,7 @@ marker.
 | typegen public API | `generateTypes*`, `analyzeExternalSchemaRefs`, `schemaToTs`, `TypegenOptions`, `SchemaToTsOptions`, external ref diagnostic 타입은 root entry와 `@oa-sdk/codegen/typegen`에서 공개. package exports는 `.`, `./drizzle`, `./spec-lens`, `./typegen`, `./typegen/browser`만 지원하고 deep typegen implementation import는 비공개. 공개 option type import는 package import fixture와 API index validation으로 회귀 방지 |
 | typegen browser API | `@oa-sdk/codegen/typegen/browser` — 이미 로드된 OAS 객체만 처리하는 브라우저 안전 typegen. `basePath` 기반 외부 `$ref` 분석은 Node용 `@oa-sdk/codegen/typegen` 책임 |
 | typegen external refs | 외부 YAML/JSON schema-position `$ref` alias 생성 (`#/components/schemas/*`, `#/$defs/*`, 비 components schema root), nested relative ref source 기준 해소, 이름/operation 타입 충돌 시 파일명 기반 deterministic rename + 경고, unsupported pointer는 `unknown` 경고 |
+| typegen operation refs | `generateTypesFromSpec()`은 deref 없이 파싱해 schema `$ref`를 이름 참조로 유지하고, operation 위치의 로컬 Reference Object는 parser route index가 해소한다. `$ref` requestBody → `<Op>Body`와 `<Op>Op.body`, `paths`/`webhooks`의 Path Item `$ref` → 해당 operation 타입, parameter `$ref` 옆 `description` → 참조 대상 설명 override. 로컬 ref에 대해 생성 types는 `generateClient`가 import하는 operation 타입을 모두 선언한다. 다른 파일을 가리키는 operation 위치 `$ref`(Path Item/requestBody/parameter)는 아직 typegen에서 해소하지 않는다 |
 | typegen 중복 방지 | schema 이름과 Op 타입 이름 충돌 시 schema 우선, 중복 생성 방지 |
 | typegen const 중첩 | 중첩 프로퍼티의 `const` → 리터럴 타입 정규화 |
 | additionalProperties | `Record<string, T>` + index signature 타입 생성 |
