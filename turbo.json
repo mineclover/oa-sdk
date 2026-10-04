@@ -22,7 +22,7 @@
       "outputs": []
     },
     "test:ci": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "build"],
       "cache": false
     },
     "dev": {
