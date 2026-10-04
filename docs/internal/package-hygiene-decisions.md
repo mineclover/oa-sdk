@@ -27,7 +27,7 @@ compiler fixture처럼 의존 그래프의 말단에 있는 패키지는 원래 
 | manifest 밖 소비자 | `.github/workflows/ci.yml`, `apps/*`, `scripts/*`, root `vitest.config.ts`와 `tests/`, `.vscode/`, `docs/` |
 | 외부 소비자 | 로컬에 checkout된 형제 저장소 전체의 `package.json`과 source·docs 검색(`browser-studio`, `mineclover/data-governance` 포함), `oa-sdk-releases`의 export 기록, npm registry 조회 |
 | 테스트 비용 | 의존 패키지를 build한 뒤 각 패키지의 `test:ci`를 단독 실행했다. 측정 중 load average가 22~25였으므로 절대값이 아니라 패키지 간 상대 비교로만 쓴다. |
-| 규모 | git이 추적하는 파일 기준. source는 테스트 경로 밖의 `.ts/.tsx/.js/.mjs/.tsp/.sql` 파일(설정 파일 포함)이고, test는 테스트 경로 안의 같은 확장자 파일(fixture 포함)이다. |
+| 규모 | git이 추적하는 파일 기준. source는 테스트 경로 밖의 `.ts/.tsx/.js/.mjs/.tsp/.sql` 파일(설정 파일 포함)이고, test는 테스트 경로 안의 같은 확장자 파일(fixture 포함)이다. 추적 파일보다 설치 비용이 큰 `ttsc-compile-fixture`는 플랫폼별 native binary를 포함한 설치 closure를 함께 적었다. |
 
 ## 후보 재검증
 
@@ -54,7 +54,7 @@ survey에 없던 `@oa-sdk/dpm`도 workspace 의존자가 없다. 그러나 exter
 
 | 제거 대상 | 새로 의존자가 없어지는 패키지 |
 | --- | --- |
-| `mcp-mesh` | `peer-server`, `collab-workspace` (둘 다 `mcp-mesh`만 의존한다) |
+| `mcp-mesh` | `peer-server`, `collab-workspace`, Core `tools` (셋 다 `mcp-mesh`가 유일한 workspace 의존자다). `tools`는 npm `0.1.1`로 배포된 공개 library라 원래 말단이므로 그 자체로 정리 대상은 아니다. `peer-transport`는 `peer-server`의 dependency와 `tools`의 devDependency로 남는다. |
 | `typespec-erd` | `logical-erd-contract` |
 | `chunk-stream-react` | 없음. `chunk-stream-ui`는 `tools`의 devDependency로 남는다. |
 | 나머지 후보 | 없음 |
@@ -70,7 +70,7 @@ survey에 없던 `@oa-sdk/dpm`도 workspace 의존자가 없다. 그러나 exter
 | `typespec-erd` | 18 · 710/158 | data-governance acceptance gate, IDE snippet | 현 상태 유지 (2026-07-28 결정에 owner·종료 조건 있음) |
 | `typespec-tooling` | 11 · 436/70 | 없음. linter 미연결, snippet 사본 drift | 제거. snippet 정본은 `.vscode`로 일원화 |
 | `typia-mock` | 14 · 585/668 | 없음 | 제거(archive). owner를 지정하면 추출 |
-| `ttsc-compile-fixture` | 1 · manifest 11 lines | codegen Core 테스트, `check:ts7` | 현 상태 유지 |
+| `ttsc-compile-fixture` | 1 · manifest 11 lines, 설치 closure 약 210 MB(native binary 포함) | codegen Core 테스트, `check:ts7` | 현 상태 유지. CI 설치 범위 축소는 별도 검토 |
 
 ## 패키지별 판단 자료
 
@@ -89,7 +89,7 @@ survey에 없던 `@oa-sdk/dpm`도 workspace 의존자가 없다. 그러나 exter
 | --- | --- |
 | 현 상태 유지 | 비용은 작다. 다만 chunk-stream 계열에는 WebMCP 패키지와 달리 기록된 scope decision(owner, 종료 조건)이 없어 소비자 없는 공개 패키지가 무기한 남는다. |
 | owner와 종료 조건을 명시하고 유지 | 배포된 `0.1.0`의 지원 책임이 분명해진다. 종료 조건을 넘기면 제거나 추출을 다시 판단할 근거가 생긴다. |
-| 별도 저장소로 추출 | leaf 하나만 떼면 `chunk-stream`, `crdt`, `ui`를 외부에서 다시 소비해야 한다. 추출한다면 chunk-stream 계열 전체를 함께 판단해야 하고, 그 경우 `tools`의 devDependency도 정리해야 한다. |
+| 별도 저장소로 추출 | leaf 하나만 떼면 `chunk-stream`, `crdt`, `ui`를 외부에서 다시 소비해야 한다. 추출한다면 chunk-stream 계열 전체를 함께 판단해야 하고, 그 경우 Core `tools`도 정리해야 한다. `tools`는 `chunk-stream`, `chunk-stream-ui`를 devDependency로 두고 `src/chunk-stream.ts`에서 `chunk-stream-ui`를 dynamic import하며, build 시 `chunk-stream-ui`와 그것이 쓰는 `chunk-stream`의 dist를 lazy chunk로 번들한다. |
 | 제거 | 배포된 버전은 registry에 남으므로 deprecate 공지가 필요하다. release policy, distribution candidate 목록과 `scripts/test-release-policy.ts`, 문서 여러 곳을 함께 고쳐야 한다(아래 "결정 후 작업" 참조). |
 
 **권고: owner와 종료 조건을 명시하고 유지한다.** 이미 npm에 배포된 UI binding이므로 말단인 것이
@@ -120,7 +120,7 @@ deprecate와 제거를 다시 판단)을 기록할 것을 제안한다.
 | 목적 | domain skill과 여러 runtime session을 등록하고 `{domain}__{tool}` 호출을 검증 후 라우팅하는 라이브러리와 `oa-mesh`/`oa-tools` CLI ([WebMCP 아키텍처](../concepts/webmcp-peering-mesh-and-collab.md)) |
 | 규모 | 추적 파일 19개, source 14개 1,350 lines, test 2개 479 lines |
 | Tier/release | Downstream Integration, release-tracked, distribution candidate. npm에는 배포되지 않았다(registry 404). |
-| 실제 소비자 | workspace·app·script·CI·형제 저장소 소비자는 없다. `tools`, `peer-server`, `peer-transport`, `collab-workspace`를 모두 소비하는 WebMCP stack의 통합 진입점이며, `peer-server`와 `collab-workspace`의 유일한 의존자다. |
+| 실제 소비자 | workspace·app·script·CI·형제 저장소 소비자는 없다. `tools`, `peer-server`, `peer-transport`, `collab-workspace`를 모두 소비하는 WebMCP stack의 통합 진입점이며, `peer-server`, `collab-workspace`, Core `tools`의 유일한 workspace 의존자다. 반대 방향 결합도 있다. Core `tools`는 `peer-transport`를 `workspace:*` devDependency로 두고 `src/peer.ts`의 `createWebMcpPeerApp`에서 `await import('@oa-sdk/peer-transport')`로 불러오며(실패하면 local bridge 구현으로 fallback), tsup build가 이 import를 `peer-transport` dist의 lazy chunk로 `tools` dist에 번들한다. |
 | 테스트/CI 비용 | 12 tests, vitest 0.82s. `*:downstream`에 포함된다. |
 | 마지막 의미 있는 변경 | `df77e657` (2026-10-05). git 기록상 최초 commit이지만, 2026-09-22 결정 시점에 이미 미커밋 구현으로 존재했고 D0 정리 때 commit되었다. |
 
@@ -128,11 +128,11 @@ deprecate와 제거를 다시 판단)을 기록할 것을 제안한다.
 | --- | --- |
 | 현 상태 유지 | [2026-09-22 WebMCP libraries hardening 결정](./platform-scope.md#webmcp-libraries-hardening--2026-09-22)이 owner, release/CI, 위치, 종료 조건을 이미 기록했다. 추가 기록이 필요 없다. |
 | owner와 종료 조건을 명시하고 유지 | 위 결정과 중복된다. |
-| 별도 저장소로 추출 | `peer-server`, `collab-workspace`가 의존자 없는 상태가 된다. 추출한다면 WebMCP 네 패키지를 한 단위로 옮겨야 한다. |
-| 제거 | 같은 연쇄 효과가 생기고, 이미 기록된 사용자 결정(네 패키지를 모노레포에 유지)을 뒤집는다. |
+| 별도 저장소로 추출 | `peer-server`, `collab-workspace`가 의존자 없는 상태가 되므로 WebMCP 네 패키지(`mcp-mesh`, `peer-server`, `peer-transport`, `collab-workspace`)를 한 단위로 옮겨야 한다. Core `tools`도 함께 정리해야 한다. `tools`의 `peer-transport` devDependency와 dynamic import를 npm에 배포된 `peer-transport`로 바꾸거나(현재 registry 404이므로 추출 저장소의 배포가 먼저다) 제거해야 하고, 어느 쪽이든 `tools` dist에 번들되던 chunk가 바뀌므로 Core 공개 artifact의 변경으로 다뤄야 한다. |
+| 제거 | 같은 연쇄 효과(`tools`의 workspace 의존자 소실 포함)가 생기고, 이미 기록된 사용자 결정(네 패키지를 모노레포에 유지)을 뒤집는다. 네 패키지를 모두 제거한다면 추출과 같은 `tools` 정리가 필요하다. |
 
-**권고: 현 상태 유지.** 의존자가 없는 것은 통합 진입점이라서다. 결정을 바꾼다면 네 패키지를 한
-단위로 다룬다.
+**권고: 현 상태 유지.** 의존자가 없는 것은 통합 진입점이라서다. 결정을 바꾼다면 네 패키지와 Core
+`tools`의 `peer-transport` 결합을 한 단위로 다룬다.
 
 ### `@oa-sdk/spec-lens`
 
@@ -225,20 +225,24 @@ deprecate와 제거를 다시 판단)을 기록할 것을 제안한다.
 | 항목 | 내용 |
 | --- | --- |
 | 목적 | TypeScript 7.0.2와 `ttsc` 0.26.0을 workspace의 TS 5.9.3과 격리해 설치하는 fixture ([TypeScript 호환 lane](../guides/typescript-compatibility.md)) |
-| 규모 | `package.json` 하나(11 lines). 설치 시 TS 7 native compiler를 포함해 약 8.6 MB |
+| 규모 | 추적 파일은 `package.json` 하나(11 lines)지만 설치 closure가 크다. lockfile에서 `ttsc@0.26.0`과 `typescript@7.0.2`를 직접 지정하는 importer는 이 fixture뿐이고, 두 패키지는 플랫폼별 native binary를 optional dependency로 가져온다. darwin-arm64에서 pnpm store 크기를 재면 약 211 MB다: `@ttsc/darwin-arm64` 176 MB(번들된 `go` 실행 파일 137 MB 포함), TS 7 native compiler `@typescript/typescript-darwin-arm64` 26 MB, JS shim `ttsc` 5.1 MB와 `typescript` 3.5 MB. CI runner(ubuntu-latest, linux-x64)에서는 직접 재지 않았고, npm registry의 `dist.unpackedSize`로는 `@ttsc/linux-x64` 180.0 MB, `@typescript/typescript-linux-x64` 27.9 MB, 합계 약 214 MB다. fixture의 `node_modules`만 재면(`du -shL`) JS shim symlink 두 개(8.6 MB)만 잡히므로 native binary 패키지를 따로 더해야 한다. |
 | Tier/release | Maintenance-only, ignored, `bulkTaskExcluded`. task script가 없어 tier filter에서 빠지는 것이 의도이며, `check:release-policy`가 이 제외를 강제한다. |
-| 실제 소비자 | manifest가 아니라 경로로 소비된다. `packages/codegen/src/__tests__/typegen/compile-check.test.ts`가 fixture 경로에서 `ttsc`와 TS 7을 resolve하고, 이 테스트는 Core `test:core:ci`와 `codegen test:ts7`에서 돈다. `scripts/check-ts7.ts`(`pnpm check:ts7`, CI `typescript-7-current` job)도 같은 경로를 쓴다. |
-| 테스트/CI 비용 | 자체 테스트는 없다. 소비 테스트 `codegen test:ts7`이 3 tests, vitest 3.9s다. |
+| 실제 소비자 | manifest가 아니라 경로로 소비된다. `packages/codegen/src/__tests__/typegen/compile-check.test.ts`가 fixture 경로에서 `ttsc`와 TS 7을 resolve하고, 이 테스트는 Core `test:core:ci`와 `codegen test:ts7`에서 돈다. `scripts/check-ts7.ts`(`pnpm check:ts7`, CI `typescript-7-current` job)도 같은 경로를 쓴다. 이와 별개로 lockfile에서 `packages/schemas`의 `vitest` → `msw` optional peer `typescript`가 `typescript@7.0.2`로 해석되어 있어, fixture를 제거하거나 설치에서 빼면 이 해석도 함께 바뀐다. |
+| 테스트/CI 비용 | 자체 테스트는 없다. 소비 테스트 `codegen test:ts7`이 3 tests, vitest 3.9s다. 주된 유지 비용은 설치다. `.github/workflows/ci.yml`의 job 4개(`ci`, Node 22/24/26 matrix인 `public-release-runtime`, `typescript-7-current`, `governance-references`)가 모두 root에서 `pnpm install --frozen-lockfile`을 실행하므로, matrix를 펼친 job 6개가 CI run마다 이 closure를 설치한다. 이 중 fixture를 쓰는 것은 `ci`(`test:core:ci`의 compile-check)와 `typescript-7-current`(`check:ts7`) 두 job뿐이다. `actions/setup-node`의 `cache: pnpm`이 pnpm store를 캐시하므로 cache 크기와 복원 시간에도 포함되고, 로컬 개발자 설치도 같은 closure를 받는다. |
 | 마지막 의미 있는 변경 | `2489b8ee` (2026-08-11) `ttsc` 0.22.0 → 0.26.0 |
 
 | 선택지 | 결과 |
 | --- | --- |
-| 현 상태 유지 | Core 테스트와 TS 7 CI job이 계속 동작한다. |
+| 현 상태 유지 | Core 테스트와 TS 7 CI job이 계속 동작한다. 약 210 MB 설치가 fixture를 쓰지 않는 job 4개(matrix를 펼친 기준)를 포함한 모든 job에서 계속된다. |
 | owner와 종료 조건을 명시하고 유지 | [typescript-compatibility.md](../guides/typescript-compatibility.md)가 이미 책임과 갱신 절차를 정의한다. |
+| 유지하되 설치 범위 축소 | TS 7 lane 설치를 필요한 job으로 한정한다. 예를 들어 fixture를 쓰지 않는 `public-release-runtime`, `governance-references`에서는 pnpm filter 등으로 fixture importer를 설치 대상에서 빼고, compile-check의 ttsc 검증을 `typescript-7-current` job으로 옮기면 TS 7 closure는 그 job에서만 설치된다. compile-check는 module 로드 시점에 fixture에서 `ttsc`를 resolve하므로, fixture가 없을 때 ttsc 단계를 건너뛰거나 test를 나누는 코드 변경이 필요하다. 그러면 `test:core:ci`가 보장하던 TS 7 검증이 `typescript-7-current` job으로 옮겨진다. `schemas`의 `typescript@7.0.2` peer 해석 때문에 TS 7 패키지 일부는 계속 설치될 수 있으므로, 적용할 때 실제 설치 결과를 확인해야 한다. |
 | 별도 저장소로 추출 | 경로 기반 resolve가 깨지고, 격리 목적(TS 5 `node_modules/.bin/tsc`를 덮어쓰지 않기)을 다른 방식으로 다시 구현해야 한다. |
 | 제거 | `test:core:ci`의 compile-check와 `typescript-7-current` job이 실패한다. |
 
-**권고: 현 상태 유지.** tier에 속하지 않는 것은 설계상 의도이고, manifest에 보이지 않는 Core 소비자가 있다.
+**권고: 패키지는 현 상태 유지.** tier에 속하지 않는 것은 설계상 의도이고, manifest에 보이지 않는 Core
+소비자가 있다. 다만 이 패키지의 주된 비용은 테스트가 아니라 모든 CI job의 약 210 MB 설치이므로,
+"유지하되 설치 범위 축소"를 별도 CI 개선 후보로 기록할 것을 제안한다. 이는 Core 테스트의 TS 7 보장
+위치를 바꾸는 결정이라 이번 범위에서는 수행하지 않는다.
 
 ## 결정 후 작업
 
@@ -254,6 +258,15 @@ deprecate와 제거를 다시 판단)을 기록할 것을 제안한다.
   (`pnpm check:feature-tests`)
 - [library-entrypoints.md](../guides/library-entrypoints.md). `pnpm check:docs`의 package entrypoint gate가 workspace 목록과 대조한다.
 - root `README.md`, `.agents/skills/` 문서, `pnpm-lock.yaml`
+- [`type-registry-baseline.json`](./type-registry-baseline.json). 제거나 추출로 TypeScript source가 사라지면
+  baseline drift가 되어 CI `ci` job의 `pnpm type-registry:check`가 실패한다. 변경을 검토한 뒤 같은 변경에서
+  `pnpm type-registry:write`로 baseline을 다시 써야 한다([Type Registry governance](./type-registry-governance.md)).
+  기준 commit의 baseline에 항목이 있는 후보는 `spec-lens`, `typespec-erd`, `typespec-tooling`, `typia-mock`이고,
+  `typespec-erd`를 제거하거나 추출하면 함께 다뤄야 하는 `logical-erd-contract` 항목도 바뀐다. `chunk-stream-react`,
+  `chunk-stream-timeseries`, `mcp-mesh`는 아직 baseline에 없지만 기존 drift를 정리해 baseline에 들어간 뒤에는
+  같은 절차가 필요하다. `ttsc-compile-fixture`는 TypeScript source가 없어 해당하지 않는다. 기준 commit에서는
+  이 gate가 이미 실패하므로(아래 "부수 관찰"), 기존 drift를 먼저 따로 검토해야 baseline 재작성 때 무관한
+  변경이 함께 승인되지 않는다.
 - npm에 배포된 패키지(`chunk-stream-react`, `chunk-stream-timeseries`)는 배포된 버전이 남으므로 `oa-sdk-releases` 쪽에서 deprecate 공지를 함께 결정한다.
 - 결정 내용은 [platform-scope.md](./platform-scope.md)에 기록하고, 이 문서의 상태를 결정 결과에 맞게 갱신한다.
 
@@ -269,3 +282,5 @@ deprecate와 제거를 다시 판단)을 기록할 것을 제안한다.
 | typia-mock 종료 조건의 저장소 이름이 문서 안에서 다르다. | `platform-scope.md`의 typia 표(`typia-tools`/`samchon-adapter`)와 Repository Separation 표(`typia-adapter`) |
 | Maintenance 패키지 설명이 Core codegen e2e 테스트의 문서 assertion에 묶여 있다. | `typia-benchmark-docs.e2e.test.ts` F17, T2-F17, T4-03 |
 | root vitest의 `@oa-sdk/spec-lens` alias를 쓰는 `tests/e2e/samchon-improvements`를 실행하는 script나 CI step이 없다. | root `package.json`의 `test:e2e`는 `tests/e2e/typespec-ecosystem`만 실행한다. |
+| 기준 commit에서 `pnpm type-registry:check`가 이미 실패한다. baseline이 2026-09-20 이후 갱신되지 않아 `chunk-stream` 계열 5개, WebMCP 4개, `surface-ir`의 source가 baseline에 없고(added 352, removed 2, semantic 22 등), boundary budget 3종도 초과한다(`any` 223/183, double-assertion 47/38, unvalidated-deserialize 142/121). | baseline 마지막 변경 `949bf77c`(2026-09-20), 2026-10-05 `scripts/type-registry-governance.ts --output-dir <임시 경로>` 실행 결과(exit 1) |
+| `ttsc-compile-fixture`의 약 210 MB TS 7 closure를 fixture를 쓰지 않는 CI job도 설치한다. | `.github/workflows/ci.yml`의 job별 `pnpm install --frozen-lockfile`, `pnpm-lock.yaml`의 `packages/ttsc-compile-fixture` importer |
