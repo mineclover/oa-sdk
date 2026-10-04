@@ -59,7 +59,13 @@ export type OperationEntry = {
 
 // ─── Route Index ───────────────────────────────────────────────────────────
 
-/** openApiPath → method → OperationEntry */
+/**
+ * openApiPath → method → OperationEntry (`paths` only; webhooks are excluded).
+ *
+ * Fixed-field operations use their lowercase field name. OAS 3.2
+ * `additionalOperations` entries keep their verbatim method token, which can
+ * fall outside the `HttpMethod` union.
+ */
 export type RouteIndex = Map<string, Map<HttpMethod, OperationEntry>>
 
 export type MatchResult =
@@ -123,9 +129,9 @@ export type ParsedDocument = {
   info: OasInfo
   servers: OasServer[]
   tags: Map<string, OasTag>
-  /** 평탄화된 오퍼레이션 목록 (webhooks 포함) */
+  /** `paths`의 평탄화된 오퍼레이션 목록 (webhooks는 `webhooks`에 별도) */
   operations: OperationEntry[]
-  /** 경로 기반 라우팅 인덱스 */
+  /** 경로 기반 라우팅 인덱스 (`operations`와 같은 엔트리, webhooks 미포함) */
   routes: RouteIndex
   /** components/schemas ($ref 해결됨) */
   schemas: Record<string, OasSchema>
@@ -145,7 +151,7 @@ export type ParsedDocument = {
     pathItems: Record<string, OasPathItem>
     mediaTypes: Record<string, OasMediaType>
   }
-  /** 웹훅 오퍼레이션 */
+  /** 웹훅 오퍼레이션 (`openApiPath`는 `/webhooks/{name}` 가상 경로) */
   webhooks: OperationEntry[]
   /** 원본 문서 참조 (필요 시 raw 접근) */
   raw: RawOasDocument

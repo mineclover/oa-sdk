@@ -128,7 +128,8 @@ Extraction 전 migration은 package name/import compatibility와 소비자 검�
 | `src/parse-core.ts` | pipeline 후 OAS 객체 또는 browser no-deref 객체를 ParsedDocument IR로 구성하는 순수 코어 |
 | `src/browser.ts` | 브라우저 안전 parser entry. no-deref parse + query/fold/route match + internal-only deref |
 | `src/deref-internal.ts` | 파일시스템 없이 internal `$ref`만 인라인 전개 |
-| `src/schema-loader.ts` | loadSchema() + route-match re-export |
+| `src/route-index.ts` | parseDocument와 loadSchema가 공유하는 route-index builder (paths → RouteIndex, webhooks 별도 추출) |
+| `src/schema-loader.ts` | loadSchema() = pipeline + 공유 route-index builder, route-match re-export |
 | `src/schema-loader-browser.ts` | browser no-deref RouteIndex loader |
 | `src/route-match.ts` | HTTP_METHODS + RouteIndex matchRoute() |
 | `src/deref.ts` | $ref 역참조 + 순환 감지 |
