@@ -33,7 +33,9 @@ export type DerefOptions = {
  * Internal $ref (#/...) 인라인 전개 Folder.
  *
  * - 외부 참조 (./file.yaml, ../file.json): basePath 옵션이 있으면 상대 경로 해결
- * - 순환 참조는 cycle stack으로 감지하며 기본적으로 빈 스키마({})로 대체
+ * - 순환 참조는 cycle stack으로 감지하며 기본적으로 빈 스키마({})로 대체.
+ *   stack 키는 (문서, pointer)다. 외부 문서 안의 `#/...`는 그 문서의 대상이고,
+ *   외부 ref로 다시 들어온 진입 파일은 진입 문서와 같은 문서다 (RefResolution.cacheKey)
  * - 순환 경로가 instance 하위로 내려가면 유효한 재귀 스키마로 보고 진단하지 않는다
  * - $ref sibling 필드는 해소된 대상에 병합하여 구조 정보를 보존
  * - 같은 대상의 전개 결과는 RefExpansionMemo로 사용처 간에 공유한다.
@@ -65,6 +67,8 @@ export class DerefFolder extends SchemaFolder {
     this.resolver = createRefResolver({
       ...(options.basePath ? { entryPath: options.basePath } : {}),
       documentCache: this.fileCache,
+      // Diagnostic format only: internal-ref diagnostics carry `sourceFilePath`, not
+      // `filePath`. Cycle keys still name the document the ref is in.
       includeInternalFilePath: false,
     })
   }

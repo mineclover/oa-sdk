@@ -34,7 +34,11 @@ type ExpansionEntry<D> = {
 }
 
 export type ExpandRefOptions = {
-  /** false이면 이 전개와 모든 상위 전개를 메모하지 않는다 (예: 외부 문서 전개). */
+  /**
+   * false이면 이 전개는 저장된 결과를 재사용하지 않고, 이 전개와 모든 상위 전개를
+   * 메모하지 않는다 (예: 외부 문서 전개). 외부 ref는 진입 문서와 같은 키를 가질 수
+   * 있지만 대상은 파일에서 읽으므로 메모의 메모리 전개 결과로 대신할 수 없다.
+   */
   cacheable?: boolean
 }
 
@@ -86,7 +90,7 @@ export class RefExpansionMemo<D> {
     replay: (diagnostic: D) => void,
     options: ExpandRefOptions = {},
   ): unknown {
-    const entry = this.reusableEntry(key)
+    const entry = options.cacheable === false ? undefined : this.reusableEntry(key)
     if (entry) {
       if (this.frames.length > 0) this.keyLog.push(entry.keys)
       for (const diagnostic of entry.diagnostics) replay(diagnostic)

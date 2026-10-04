@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, relative } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createRefResolver } from '../ref-resolver.js'
 
@@ -199,6 +199,77 @@ describe('RefResolver contract', () => {
         resolved: false,
         diagnostic: { code: 'ref-cycle' },
       })
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it.each([true, false])(
+    'keys internal refs by their document (includeInternalFilePath: %s only changes reporting)',
+    (includeInternalFilePath) => {
+      const entryPath = join(tmpdir(), 'oa-sdk-ref-identity', 'api.yaml')
+      const sharedPath = join(tmpdir(), 'oa-sdk-ref-identity', 'shared.yaml')
+      const ref = '#/components/schemas/Node'
+      const entry = { components: { schemas: { Node: { type: 'object' } } } }
+      const shared = { components: { schemas: { Node: { type: 'string' } } } }
+      const resolver = createRefResolver({ entryPath, includeInternalFilePath })
+
+      const inEntry = resolver.resolve({ ref, sourcePointer: '#/a/$ref', root: entry, basePath: entryPath })
+      const inShared = resolver.resolve({ ref, sourcePointer: '#/b/$ref', root: shared, basePath: sharedPath })
+
+      expect(inEntry).toMatchObject({ resolved: true, cacheKey: `<root>${ref}`, target: { type: 'object' } })
+      expect(inEntry.filePath).toBeUndefined()
+      expect(inShared).toMatchObject({ resolved: true, cacheKey: `${sharedPath}${ref}`, target: { type: 'string' } })
+      expect(inShared.filePath).toBe(includeInternalFilePath ? sharedPath : undefined)
+
+      // The entry document's pointer on the stack is not the shared document's pointer.
+      const sharedRequest = { ref, sourcePointer: '#/b/$ref', root: shared, basePath: sharedPath }
+      expect(resolver.resolve({ ...sharedRequest, stack: [inEntry.cacheKey] }).diagnostic).toBeUndefined()
+      const cycle = resolver.resolve({ ...sharedRequest, stack: [inShared.cacheKey] })
+      expect(cycle.diagnostic).toMatchObject({ code: 'ref-cycle', ref, pointer: ref, sourceFilePath: sharedPath })
+      expect(cycle.diagnostic?.filePath).toBe(includeInternalFilePath ? sharedPath : undefined)
+    },
+  )
+
+  it('keys the entry file as the entry document however it is addressed', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-ref-resolver-'))
+    const entryPath = join(tmp, 'api.yaml')
+    const sharedPath = join(tmp, 'shared.yaml')
+    writeFileSync(entryPath, [
+      'components:',
+      '  schemas:',
+      '    Node:',
+      '      type: object',
+      '',
+    ].join('\n'))
+
+    try {
+      for (const configuredEntryPath of [entryPath, relative(process.cwd(), entryPath)]) {
+        const resolver = createRefResolver({ entryPath: configuredEntryPath })
+        const backRef = resolver.resolve({
+          ref: './api.yaml#/components/schemas/Node',
+          sourcePointer: '#/components/schemas/Back/$ref',
+          root: {},
+          basePath: sharedPath,
+        })
+        expect(backRef).toMatchObject({
+          kind: 'external',
+          resolved: true,
+          cacheKey: '<root>#/components/schemas/Node',
+          filePath: entryPath,
+          documentCacheKey: entryPath,
+          target: { type: 'object' },
+        })
+
+        // The entry loaded through that ref keeps the entry document's keys.
+        const internal = resolver.resolve({
+          ref: '#/components/schemas/Node',
+          sourcePointer: '#/components/schemas/Node/$ref',
+          root: backRef.documentRoot,
+          basePath: entryPath,
+        })
+        expect(internal.cacheKey).toBe('<root>#/components/schemas/Node')
+      }
     } finally {
       rmSync(tmp, { recursive: true, force: true })
     }

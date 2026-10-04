@@ -28,8 +28,13 @@ export type RefResolverDiagnostic = {
 export type RefDocumentCache = Map<string, unknown>
 
 export type RefResolverOptions = {
+  /** File of the in-memory entry document (`root` of requests without another `basePath`). */
   entryPath?: string
   documentCache?: RefDocumentCache
+  /**
+   * Report `filePath`/`documentCacheKey` for internal refs inside non-entry documents
+   * (default true). Reporting only: `cacheKey` always names the target document.
+   */
   includeInternalFilePath?: boolean
   lookupSourceLocation?: (filePath: string, pointer: string) => { line: number; column: number } | undefined
 }
@@ -48,6 +53,12 @@ export type RefResolution = {
   kind: RefResolverKind
   sourcePointer: string
   resolved: boolean
+  /**
+   * Target identity: document key + canonical pointer. The entry document is
+   * `<root>` whether it is the in-memory root or its file reached through an
+   * external ref; any other document is keyed by its file path. Cycle stacks
+   * compare these keys, so the same pointer in two documents never collides.
+   */
   cacheKey: string
   documentCacheKey?: string
   basePath?: string
@@ -64,9 +75,24 @@ export interface RefResolver {
   loadExternalDocument(filePath: string): unknown
 }
 
+const ENTRY_DOCUMENT_KEY = '<root>'
+
 export function createRefResolver(options: RefResolverOptions = {}): RefResolver {
   const documentCache = options.documentCache ?? new Map<string, unknown>()
   const includeInternalFilePath = options.includeInternalFilePath ?? true
+  const entryFilePath = options.entryPath === undefined ? undefined : resolve(options.entryPath)
+  const documentKeys = new Map<string, string>()
+
+  /** Cache key prefix of the document at `filePath`; the entry file is `<root>` however it is spelled. */
+  function documentKey(filePath: string | undefined): string {
+    if (!filePath || filePath === options.entryPath) return ENTRY_DOCUMENT_KEY
+    let key = documentKeys.get(filePath)
+    if (key === undefined) {
+      key = resolve(filePath) === entryFilePath ? ENTRY_DOCUMENT_KEY : filePath
+      documentKeys.set(filePath, key)
+    }
+    return key
+  }
 
   function loadExternalDocument(filePath: string): unknown {
     if (documentCache.has(filePath)) return documentCache.get(filePath)
@@ -100,7 +126,7 @@ export function createRefResolver(options: RefResolverOptions = {}): RefResolver
     const filePath = includeInternalFilePath && request.basePath && request.basePath !== options.entryPath
       ? request.basePath
       : undefined
-    const cacheKey = filePath ? `${filePath}${pointer}` : `<root>${pointer}`
+    const cacheKey = `${documentKey(request.basePath)}${pointer}`
     const baseDetails = {
       cacheKey,
       pointer,
@@ -167,7 +193,7 @@ export function createRefResolver(options: RefResolverOptions = {}): RefResolver
     const fragment = hashIndex === -1 ? '' : request.ref.slice(hashIndex + 1)
     const rawPointer = fragment === '' ? '#' : `#${fragment}`
     const pointer = canonicalJsonPointerFragment(rawPointer) ?? rawPointer
-    const cacheKey = `${filePath}${pointer}`
+    const cacheKey = `${documentKey(filePath)}${pointer}`
     const baseDetails = {
       cacheKey,
       documentCacheKey: filePath,
