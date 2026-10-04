@@ -28,15 +28,17 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import { execSync, spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { createRequire } from 'node:module'
 import { validateDocument } from '@oa-sdk/parser'
 import { validateOpenApiProjection } from '@oa-sdk/openapi-projection-contract'
 import { auditCspSourceSync, getTs } from '../cli/commands/audit-csp.js'
 import { generateStandaloneGuards } from '../standalone-guards/index.js'
+import { BROWSER_STUDIO_GUARDS_DIR, BROWSER_STUDIO_ROOT } from './helpers/browser-studio.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-const browserStudioRoot = '/Users/junwoobang/workflow/browser-studio'
+const browserStudioRoot = BROWSER_STUDIO_ROOT
 const distCli = path.resolve(__dirname, '../../dist/cli/index.js')
 const srcCli = path.resolve(__dirname, '../cli/index.ts')
 const cliExecutable = fs.existsSync(distCli) ? `node "${distCli}"` : `npx tsx "${srcCli}"`
@@ -277,12 +279,21 @@ describe('Empirical Adversarial Challenger M4: Domain Profiles, Standalone Guard
   // ===========================================================================
   describe.skipIf(!fs.existsSync(browserStudioRoot))('2. Standalone Type Guards Execution Under Mocked Sandbox Environments', () => {
     let guardsModule: Record<string, (data: unknown) => boolean>
+    const guardsIndexPath = path.join(BROWSER_STUDIO_GUARDS_DIR, 'index.js')
 
     beforeAll(async () => {
-      const guardsIndexPath = path.join(browserStudioRoot, 'dist/guards/index.js')
       expect(fs.existsSync(guardsIndexPath)).toBe(true)
       guardsModule = await import(guardsIndexPath)
     }, 60_000)
+
+    it('loads the prebuilt guard bundle through Node natively, not through the vitest module transform', () => {
+      // vitest.config의 server.deps.external에서 빠지면 vitest가 73 MB 번들을 SSR 변환해 별도 인스턴스로 평가한다.
+      // 부하 평균 37~173에서 변환만 107초가 걸려 위 60초 훅이 시간 초과됐다. Node의 require(esm)는 Node 자체
+      // ESM 캐시를 쓰므로, Node가 직접 불러온 같은 인스턴스일 때만 내보낸 함수가 동일하다.
+      const nativeGuards = createRequire(import.meta.url)(guardsIndexPath) as typeof guardsModule
+      expect(guardsModule.isSurfaceAnchor).toBeTypeOf('function')
+      expect(nativeGuards.isSurfaceAnchor).toBe(guardsModule.isSurfaceAnchor)
+    })
 
     it('confirms standalone guard module exports at least 23 compiled pure ESM guards', () => {
       const guardNames = Object.keys(guardsModule)

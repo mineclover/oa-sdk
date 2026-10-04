@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config'
 import { SUBPROCESS_TEST_BUDGET_MS } from './src/__tests__/helpers/subprocess-budget'
+import { BROWSER_STUDIO_PREBUILT_MODULES } from './src/__tests__/helpers/browser-studio'
 
 export default defineConfig({
   test: {
@@ -9,5 +10,11 @@ export default defineConfig({
     testTimeout: SUBPROCESS_TEST_BUDGET_MS,
     // 픽스처 생성처럼 훅에서도 CLI 하위 프로세스를 실행하므로 테스트와 같은 예산을 준다(기본값 10초).
     hookTimeout: SUBPROCESS_TEST_BUDGET_MS,
+    server: {
+      deps: {
+        // 외부 저장소가 빌드한 순수 ESM 번들은 변환하지 않고 Node가 직접 불러온다(근거는 helpers/browser-studio.ts).
+        external: [BROWSER_STUDIO_PREBUILT_MODULES],
+      },
+    },
   },
 })

@@ -7,6 +7,7 @@ import { runOaCli } from './helpers/cli-runner.js'
 import { createWorkspaceFixture, type WorkspaceFixture } from './helpers/fixture-builder.js'
 import { findProjectRoot, findProjectRootDetail } from '@oa-sdk/core'
 import { auditCspBundle, auditCspSource } from '../../cli/commands/audit-csp.js'
+import { BROWSER_STUDIO_GUARDS_DIR, BROWSER_STUDIO_ROOT } from '../helpers/browser-studio.js'
 
 describe('E2E Tier 4: Real-World Application Scenarios (8 Tests)', () => {
   let fixture: WorkspaceFixture
@@ -21,7 +22,7 @@ describe('E2E Tier 4: Real-World Application Scenarios (8 Tests)', () => {
     }
   })
 
-  const browserStudioRoot = '/Users/junwoobang/workflow/browser-studio'
+  const browserStudioRoot = BROWSER_STUDIO_ROOT
 
   // =========================================================================
   // T4-01: Full Browser Studio Spec & Guard Governance Pipeline
@@ -253,7 +254,7 @@ export const UserSession = z.object({
   // T4-05: Manifest V3 Content Script Live-Editing Sandbox Invariant
   // =========================================================================
   it.skipIf(!fsSync.existsSync(browserStudioRoot))('T4-05: Manifest V3 Content Script Live-Editing Sandbox Invariant', async () => {
-    const guardsEntry = path.join(browserStudioRoot, 'dist/guards/devlink-contracts.guards.js')
+    const guardsEntry = path.join(BROWSER_STUDIO_GUARDS_DIR, 'devlink-contracts.guards.js')
     expect(fsSync.existsSync(guardsEntry)).toBe(true)
 
     // 1. Perform AST audit ensuring zero prohibited syntax
