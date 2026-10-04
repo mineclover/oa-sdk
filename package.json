@@ -98,7 +98,7 @@
     "typespec:create-canonical-fixture": "node --import tsx scripts/typespec-create-authored-canonical-fixture.ts",
     "release:export": "node --import tsx scripts/export-release-artifacts.ts",
     "bench:all": "node --expose-gc --import tsx scripts/bench/run-all.ts",
-    "bench:parser": "node --import tsx scripts/bench/bench-parser.ts"
+    "bench:parser": "node --expose-gc --import tsx scripts/bench/bench-parser.ts"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.0",

@@ -230,11 +230,16 @@ package의 tracked file 전체와 workspace dependency의 task hash로 정해진
 package 밖의 문서·script도 읽기 때문에 cache하지 않고 매번 실행하며, 실행 전에 해당 package의
 build를 Turbo task로 보장받는다. 원격 cache(`TURBO_TOKEN`)와 테스트 병렬화는 쓰지 않는다.
 
-`ci` job은 테스트 뒤에 `pnpm bench:parser`를 `BENCH_PARSER_BUDGET_SCALE=2`로 실행한다. 이 gate는
-parser `$ref` 전개 성능(Goal 69)을 두 가지로 확인한다. 하나는 각 case의 median이 시간 budget 안에
-있는지다. budget은 Apple M3 Pro에서 약 3배 여유를 두고 정했고, hosted runner의 단일 스레드 속도가
-그 절반 정도라 CI에서는 2배로 늘린다. 다른 하나는 ring 100→200의 비용 증가율이 n^2.5 이하인지다.
-두 크기를 한 실행 안에서 번갈아 측정하므로 기계 속도와 부하가 상쇄되고, 이 한도는 늘리지 않는다.
+`ci` job은 테스트 뒤에 `pnpm bench:parser`를 `BENCH_PARSER_BUDGET_SCALE=2`로 실행한다.
+
+이 gate는 parser `$ref` 전개 성능(Goal 69)을 두 가지로 확인한다. 하나는 각 case의 median이 시간
+budget 안에 있는지다. 표본은 main thread의 CPU 시간이라 core를 기다린 시간은 들어가지 않는다.
+budget은 Apple M3 Pro에서 약 3배 여유를 두고 정했고, hosted runner의 단일 스레드 속도가 그 절반
+정도라 CI에서는 2배로 늘린다. 다른 하나는 ring 100→200의 비용 증가율이 n^2.5 이하인지다. 증가율은
+같은 round에서 잰 두 크기의 비율을 round마다 구한 뒤 그 median으로 정하고, 이 한도는 늘리지 않는다.
+일정한 기계 속도 차이는 비율에서 상쇄되지만 부하는 상쇄되지 않는다. 부하는 cache·memory 경합으로
+CPU 시간도 늘리기 때문이다. 그래서 round마다 case 순서를 고정 seed로 섞고, 표본을 재기 전마다
+전체 GC를 돌려 어떤 case도 다른 case의 garbage 비용을 떠안지 않게 한다.
 
 Turbo는 `@oa-sdk/codegen`의 기존 downstream peer/dev dependency 때문에 Core task 실행 중
 router/client/mock-server의 prerequisite build를 수행할 수 있다. 이는 build graph 정합성 증명이며

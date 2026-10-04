@@ -125,12 +125,13 @@ jobs:
           key: ${{ steps.turbo-cache.outputs.cache-primary-key }}
 
       # ── Performance budget ─────────────────────────────────
-      # Parser $ref expansion gate (Goal 69). The time budgets were calibrated
-      # on an Apple M3 Pro with about 3x headroom; a hosted runner has roughly
-      # half its single-thread speed, so scale 2 keeps similar headroom here.
-      # The ring growth limit compares two sizes from the same run and is
-      # never scaled. A catastrophic regression aborts within seconds; the
-      # timeout is only a backstop.
+      # Parser $ref expansion gate (Goal 69). Samples are main-thread CPU
+      # time, so time spent waiting for a core does not count. The time
+      # budgets were calibrated on an Apple M3 Pro with about 3x headroom; a
+      # hosted runner has roughly half its single-thread speed, so scale 2
+      # keeps similar headroom here. The ring growth limit pairs the two sizes
+      # round by round and is never scaled. A catastrophic regression aborts
+      # within seconds; the timeout is only a backstop.
       - name: Parser $ref expansion budget
         timeout-minutes: 10
         env:
