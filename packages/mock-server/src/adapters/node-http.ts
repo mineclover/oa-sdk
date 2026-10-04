@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import {
   assertParsedDocumentComplete,
+  isParsedDocument,
   parseDocument,
   matchRoute,
   resolveServerUrl,
@@ -149,7 +150,7 @@ export function createNodeMockServer(
     currentSpec: OasDocument | Record<string, unknown>,
     context: string,
   ): ServerRoutingState {
-    const nextParsed = parseDocument(currentSpec as OasDocument)
+    const nextParsed = isParsedDocument(currentSpec) ? currentSpec : parseDocument(currentSpec as OasDocument)
     assertParsedDocumentComplete(nextParsed, context)
     if (!Number.isInteger(serverIndex) || serverIndex < 0 || (nextParsed.servers.length > 0 && serverIndex >= nextParsed.servers.length)) {
       throw new RangeError(`serverIndex must select a declared server (received ${serverIndex})`)

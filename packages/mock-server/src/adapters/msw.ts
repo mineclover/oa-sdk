@@ -1,5 +1,14 @@
 import { http, HttpResponse, type RequestHandler } from 'msw'
-import { assertParsedDocumentComplete, derefInternalSpec, parseDocument, HTTP_METHODS, resolveServerUrl, type OasDocument, type OperationEntry, type RouteIndex } from '@oa-sdk/parser/browser'
+import {
+  assertParsedDocumentComplete,
+  isParsedDocument,
+  parseDocument,
+  HTTP_METHODS,
+  resolveServerUrl,
+  type OasDocument,
+  type OperationEntry,
+  type RouteIndex,
+} from '@oa-sdk/parser/browser'
 import { toColonPath } from '@oa-sdk/core/browser'
 import { handleRequest } from '../core/handler.js'
 import { isStreamingContentType, generateStreamChunks } from '../core/stream.js'
@@ -114,7 +123,7 @@ function buildMswHandlers(
   if (options.stateful && !configuredPlugins.some(p => p.name === 'in-memory-store')) {
     configuredPlugins.push(inMemoryStorePlugin(typeof options.stateful === 'object' ? options.stateful : undefined))
   }
-  const parsed = parseDocument(derefInternalSpec(spec as OasDocument))
+  const parsed = isParsedDocument(spec) ? spec : parseDocument(spec as OasDocument)
   assertParsedDocumentComplete(parsed, '@oa-sdk/mock-server createMswHandlers')
   const mergedRoutes = mergeWebhookRoutes(parsed.routes, parsed.webhooks)
   const index = filterRouteIndex(mergedRoutes, options.include)
