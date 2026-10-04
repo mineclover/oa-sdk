@@ -7,6 +7,8 @@ import type {
   OasResponse,
   OasSchema,
 } from '@oa-sdk/parser'
+// Browser entry: pure helpers without the root entry's TypeScript/Ajv load.
+import { escapeJsonPointerToken, unescapeJsonPointerToken } from '@oa-sdk/parser/browser'
 
 export const SURFACE_IR_VERSION = 'oa-sdk.surface-ir.v1' as const
 
@@ -438,8 +440,7 @@ function normalizeSegment(value: string): string {
 }
 
 function operationPointer(operation: OperationEntry): string {
-  const escapedPath = operation.openApiPath.replace(/~/g, '~0').replace(/\//g, '~1')
-  return `#/paths/${escapedPath}/${operation.method}`
+  return `#/paths/${escapeJsonPointerToken(operation.openApiPath)}/${operation.method}`
 }
 
 function inferRuntime(
@@ -500,7 +501,7 @@ function resolveSchema(schema: OasSchema | undefined, document: ParsedDocument):
   if (typeof ref !== 'string') return schema
   const match = ref.match(/^#\/components\/schemas\/(.+)$/)
   if (!match?.[1]) return schema
-  return document.schemas[match[1].replaceAll('~1', '/').replaceAll('~0', '~')] ?? schema
+  return document.schemas[unescapeJsonPointerToken(match[1])] ?? schema
 }
 
 function commandDescription(document: ParsedDocument, commandName: string): string {
