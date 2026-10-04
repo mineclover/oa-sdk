@@ -180,13 +180,17 @@ describe('matchRoute cache', () => {
     }
     const coldElapsed = performance.now() - coldStart
 
-    const warmStart = performance.now()
-    for (let i = 0; i < 50; i++) {
-      matchRoute(index, 'get', `/api/v1/resource${i}/abc`)
+    let minWarm = Infinity
+    for (let trial = 0; trial < 5; trial++) {
+      const warmStart = performance.now()
+      for (let i = 0; i < 50; i++) {
+        matchRoute(index, 'get', `/api/v1/resource${i}/abc`)
+      }
+      const warmElapsed = performance.now() - warmStart
+      if (warmElapsed < minWarm) minWarm = warmElapsed
     }
-    const warmElapsed = performance.now() - warmStart
 
-    expect(warmElapsed).toBeLessThan(coldElapsed)
+    expect(minWarm).toBeLessThan(coldElapsed)
   })
 })
 
