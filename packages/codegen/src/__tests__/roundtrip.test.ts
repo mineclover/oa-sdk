@@ -54,6 +54,9 @@ function roundtripCompile(
     compilerOptions: {
       strict: true, noEmit: true, module: 'ESNext',
       moduleResolution: 'bundler', target: 'ES2022',
+      // tmpDir는 패키지 안에 있어 상위 node_modules/@types(node, react 등)가 자동 포함된다.
+      // 생성 타입은 앰비언트 전역에 의존하지 않으므로 제외한다(compile-check.test.ts와 동일).
+      types: [],
     },
     include: ['roundtrip.ts'],
   }), 'utf8')
