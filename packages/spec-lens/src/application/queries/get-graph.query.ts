@@ -1,3 +1,4 @@
+import { projectRefGraph } from '@oa-sdk/parser'
 import type { CachePort } from '../ports/cache.port.js'
 import type { BuildSpecProvenanceMap } from '@oa-sdk/codegen/spec-lens'
 import type { SpecGraph, SpecSnapshotStored } from '../../domain/index.js'
@@ -95,48 +96,28 @@ function buildEdgesFromSpec(
     }
   }
 
+  // The parser projection walks each $ref occurrence once with escaped,
+  // canonical pointers. Each end maps to the nearest enclosing provenance
+  // entry; self-references are left out of this view.
   const edges: SpecGraph['edges'] = []
-  collectRefs(spec, '#', edges, undefined, new WeakSet(), pointerToId)
+  for (const edge of projectRefGraph(spec).edges) {
+    if (edge.sourceFilePath !== undefined || !edge.target.startsWith('#')) continue
+    const source = nearestCanonicalId(edge.sourcePointer, pointerToId)
+    const target = nearestCanonicalId(edge.target, pointerToId)
+    if (source === undefined || target === undefined || source === target) continue
+    edges.push({ source, target, refPointer: edge.sourcePointer.slice(0, -'/$ref'.length) })
+  }
   return edges
+}
+
+function nearestCanonicalId(pointer: string, pointerToId: ReadonlyMap<string, string>): string | undefined {
+  for (let candidate = pointer; ; candidate = candidate.slice(0, candidate.lastIndexOf('/'))) {
+    const id = pointerToId.get(candidate)
+    if (id !== undefined) return id
+    if (candidate.lastIndexOf('/') <= 0) return undefined
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function collectRefs(
-  value: unknown,
-  pointer: string,
-  edges: SpecGraph['edges'],
-  sourceId: string | undefined,
-  visited: WeakSet<object>,
-  pointerToId: Map<string, string>,
-): void {
-  if (typeof value !== 'object' || value === null) return
-  if (visited.has(value)) return
-  visited.add(value)
-
-  if (Array.isArray(value)) {
-    value.forEach((item, i) =>
-      collectRefs(item, `${pointer}/${i}`, edges, sourceId, visited, pointerToId),
-    )
-    return
-  }
-
-  const obj = value as Record<string, unknown>
-  // If this pointer is a known node, it becomes the source for nested refs
-  const currentId = pointerToId.get(pointer) ?? sourceId
-
-  if (typeof obj['$ref'] === 'string') {
-    const targetId = pointerToId.get(obj['$ref'])
-    if (currentId !== undefined && targetId !== undefined && currentId !== targetId) {
-      edges.push({ source: currentId, target: targetId, refPointer: pointer })
-    }
-    // Don't return — OAS 3.1 allows sibling properties alongside $ref
-  }
-
-  for (const [key, child] of Object.entries(obj)) {
-    if (key === '$ref') continue
-    collectRefs(child, `${pointer}/${key}`, edges, currentId, visited, pointerToId)
-  }
 }

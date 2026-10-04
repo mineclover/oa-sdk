@@ -177,6 +177,9 @@ describe('GetGraphHandler', () => {
             },
           },
         },
+        schemas: {
+          User: { type: 'object' },
+        },
       },
     }
     const provenance = {
@@ -188,6 +191,12 @@ describe('GetGraphHandler', () => {
     const handler = new GetGraphHandler(makeCache(stored))
     const graph = await handler.handle(QUERY)
     expect(graph!.edges.some(e => e.source === 'response:public/users/UserList' && e.target === 'schema:public/users/User')).toBe(true)
+    // Path keys contain "/" and must be pointer-escaped to match provenance.
+    expect(graph!.edges).toContainEqual({
+      source: 'path:public/users/Users',
+      target: 'response:public/users/UserList',
+      refPointer: '#/paths/~1users/get/responses/200',
+    })
   })
 
   it('excludes self-referencing edges', async () => {

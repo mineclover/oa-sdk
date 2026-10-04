@@ -60,6 +60,14 @@ export { getQuerystringParameter } from './querystring.js'
 
 // ─── Ref Graph ─────────────────────────────────────────────────────────────
 export { collectRefs, isRelativeRef, resolvePointer, resolveRefGraph } from './ref-graph.js'
+export { projectRefGraph } from './ref-projection.js'
+export type {
+  RefProjection,
+  RefProjectionEdge,
+  RefProjectionNode,
+  RefProjectionNodeKind,
+  RefProjectionRecursion,
+} from './ref-projection.js'
 export type { RefGraph, RefGraphDiagnostic, RefGraphDiagnosticCode, RefGraphNode, RefGraphOptions, RefKind } from './ref-graph.js'
 
 // ─── Source Locations ──────────────────────────────────────────────────────
