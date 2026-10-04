@@ -124,20 +124,6 @@ jobs:
           path: .turbo/cache
           key: ${{ steps.turbo-cache.outputs.cache-primary-key }}
 
-      # ── Performance budget ─────────────────────────────────
-      # Parser $ref expansion gate (Goal 69). Samples are main-thread CPU
-      # time, so time spent waiting for a core does not count. The time
-      # budgets were calibrated on an Apple M3 Pro with about 3x headroom; a
-      # hosted runner has roughly half its single-thread speed, so scale 2
-      # keeps similar headroom here. The ring growth limit pairs the two sizes
-      # round by round and is never scaled. A catastrophic regression aborts
-      # within seconds; the timeout is only a backstop.
-      - name: Parser $ref expansion budget
-        timeout-minutes: 10
-        env:
-          BENCH_PARSER_BUDGET_SCALE: '2'
-        run: pnpm bench:parser
-
       # ── Schema validation ──────────────────────────────────
       # packages/schemas was already built by build:core. Reuse that exact
       # TypeSpec artifact instead of compiling the same bundle in every gate.
@@ -206,6 +192,51 @@ jobs:
         run: |
           pnpm spec:diff -- --git origin/${{ github.base_ref }} >> "$GITHUB_STEP_SUMMARY"
           pnpm schema:check-contract-version -- --base-ref origin/${{ github.base_ref }} >> "$GITHUB_STEP_SUMMARY"
+
+  # Timing gate in its own job, with no `needs`: it runs beside the ci job, a
+  # failure still fails the workflow, but it cannot skip the ci job's
+  # deterministic gates or the jobs that need ci, and it can be re-run alone.
+  parser-bench:
+    name: Parser $ref expansion budget
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.30.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The bench runs the parser source through tsx, which resolves the
+      # parser's workspace dependencies to their dist. Build only the
+      # parser's declared workspace dependencies (today @oa-sdk/core and
+      # @oa-sdk/openapi-projection-contract) so this job does not wait for
+      # the ci job's build artifact.
+      - name: Build parser dependencies
+        run: pnpm exec turbo run build --filter='@oa-sdk/parser^...'
+
+      # Parser $ref expansion gate (Goal 69). Samples are main-thread CPU
+      # time, so time spent waiting for a core does not count. The time
+      # budgets were calibrated on an Apple M3 Pro with about 3x headroom; a
+      # hosted runner has roughly half its single-thread speed, so scale 2
+      # keeps similar headroom here. The ring growth limit pairs the two sizes
+      # round by round and is never scaled. A catastrophic regression aborts
+      # within seconds; the timeout is only a backstop.
+      - name: Parser $ref expansion budget
+        timeout-minutes: 10
+        env:
+          BENCH_PARSER_BUDGET_SCALE: '2'
+        run: pnpm bench:parser
 
   public-release-runtime:
     name: Public release runtime / Node ${{ matrix.node }}

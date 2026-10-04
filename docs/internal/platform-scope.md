@@ -220,7 +220,8 @@ CI는 네 policy track을 네 실행 그룹으로 표시한다. `internal` 실�
 검증한다. 모든 그룹은 현재 회귀 검증을 통과해야 하지만, 신규 제품 우선순위와
 기본 개발 명령은 Core Platform에만 귀속된다.
 
-CI는 build를 `ci` job에서 한 번만 한다. `ci` job은 네 그룹을 build한 직후
+CI는 workspace build를 `ci` job에서 한 번만 한다(아래 `parser-bench` job의 parser 의존성 build만
+예외다). `ci` job은 네 그룹을 build한 직후
 `packages/*/dist`와 `packages/schemas/src/.merged.yaml`을 `workspace-build-outputs`
 artifact(보존 1일)로 올린다. `public-release-runtime`(Node 22/24/26), `typescript-7-current`,
 `governance-references` job은 다시 build하지 않고 이 artifact를 풀어 같은 build를 검증한다.
@@ -230,7 +231,10 @@ package의 tracked file 전체와 workspace dependency의 task hash로 정해진
 package 밖의 문서·script도 읽기 때문에 cache하지 않고 매번 실행하며, 실행 전에 해당 package의
 build를 Turbo task로 보장받는다. 원격 cache(`TURBO_TOKEN`)와 테스트 병렬화는 쓰지 않는다.
 
-`ci` job은 테스트 뒤에 `pnpm bench:parser`를 `BENCH_PARSER_BUDGET_SCALE=2`로 실행한다.
+`parser-bench` job은 `pnpm bench:parser`를 `BENCH_PARSER_BUDGET_SCALE=2`로 실행한다. 이 job은
+`needs`가 없어 `ci` job과 나란히 돈다. 실패하면 workflow는 실패하지만 `ci` job의 결정적 gate와
+`ci`에 의존하는 job을 건너뛰게 만들지 않고, 따로 재실행할 수 있다. 이 job은 parser가 의존하는
+workspace package(현재 `@oa-sdk/core`, `@oa-sdk/openapi-projection-contract`)만 build한다.
 
 이 gate는 parser `$ref` 전개 성능(Goal 69)을 두 가지로 확인한다. 하나는 각 case의 median이 시간
 budget 안에 있는지다. 표본은 main thread의 CPU 시간이라 core를 기다린 시간은 들어가지 않는다.
