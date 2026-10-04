@@ -6,7 +6,7 @@ OpenAPI 3.2 contract를 중심으로 한 API governance 인프라 모노레포.
 (외부 서비스의 OpenAPI/JSON Schema 호환 조각은 수집·정규화 intake 파이프라인으로 거버넌스합니다.)
 
 현재 제품의 핵심은 `@oa-sdk/core` 위에서 schema/spec source, projection contract,
-파싱·검증·생성, 변경 이력 관측과 wire contract를 연결하는 여덟 패키지의 Core Platform입니다.
+파싱·검증·생성, 변경 이력 관측과 wire contract를 연결하는 열 패키지의 Core Platform입니다.
 상세한 범위와 신규 작업 승인 기준은
 [`docs/internal/platform-scope.md`](./docs/internal/platform-scope.md)를 따릅니다.
 
@@ -42,10 +42,13 @@ OpenAPI 3.2 contract를 중심으로 한 API governance 인프라 모노레포.
 | `@oa-sdk/schemas` | TypeSpec production source, generated OpenAPI 3.2 artifact, Definition Builder rollback, 3.1 변환의 schema source package |
 | `@oa-sdk/openapi-projection-contract` | Zod/Drizzle/외부 schema 조각을 OpenAPI로 투영할 때 공유하는 projection contract 타입층 |
 | `@oa-sdk/parser` | OpenAPI 3.2 parse/IR/transform/fold/lint/validate/query pipeline |
+| `@oa-sdk/surface-ir` | (internal) ParsedDocument 위의 target-neutral API surface IR, Forge SDK/CLI projection, command별 OpenAPI Overlay |
 | `@oa-sdk/codegen` | `oa-gen` CLI, Definition Builder target artifact, OpenAPI 수집/정규화/업그레이드/diff/review, typegen 생성, Zod/Drizzle projection bridge. router/client는 private downstream package API가 소유 |
 | `@oa-sdk/spec-lens` | OpenAPI spec change history observation과 review surface 관리 |
 | `@oa-sdk/spec-lens-contract` | spec-lens HTTP wire contract와 browser-safe response types |
 | `@oa-sdk/typespec-decorators` | production TypeSpec source에서 검증된 OA SDK extension decorator와 플랫폼 공통 표준 계약(`contracts.tsp` / `OaSdkContracts`)을 제공 |
+| `@oa-sdk/ast-sync` | TypeScript AST 양방향 동기화, type adapter, 독립형 guard 생성 |
+| `@oa-sdk/tools` | JSON Schema 기반 MCP·HTTP·CLI 도구 계약과 실행 adapter |
 
 ### Downstream Integration Libraries
 
@@ -56,6 +59,15 @@ Core 계약을 소비하고 end-to-end 사용 가능성을 검증하는 release-
 | `@oa-sdk/mock-server` | OpenAPI-native mock engine, AJV validation, Security, MSW/Node HTTP adapters, 테스트 client/coverage helper |
 | `@oa-sdk/router` | OAS 3.2 spec에서 Hono/Express typed server router stub 생성 |
 | `@oa-sdk/client` | OAS 3.2 spec에서 typed fetch client SDK, SSE, 인증/재시도 표면 생성 |
+| `@oa-sdk/chunk-stream` | bounded chunk stream, residency와 playback primitives |
+| `@oa-sdk/chunk-stream-crdt` | CRDT chunk metadata와 delta 병합 |
+| `@oa-sdk/chunk-stream-ui` | UI playback와 storyboard bridge |
+| `@oa-sdk/chunk-stream-timeseries` | 시계열 chunk, interpolation과 decimation |
+| `@oa-sdk/chunk-stream-react` | React playback·telemetry·awareness hooks |
+| `@oa-sdk/peer-transport` | HTTP bridge client와 sender 기반 packet channel |
+| `@oa-sdk/peer-server` | 로컬 peer registry와 인증된 HTTP RPC dispatch |
+| `@oa-sdk/collab-workspace` | 인메모리 파일 lattice, presence와 intent lock |
+| `@oa-sdk/mcp-mesh` | domain/session registry, tool routing과 CLI |
 
 ### Maintenance-only Separation Candidates
 
@@ -70,6 +82,7 @@ Core 계약을 소비하고 end-to-end 사용 가능성을 검증하는 release-
 | `@oa-sdk/logical-erd-contract` | private TypeSpec logical-ERD prototype의 중립 artifact contract |
 | `@oa-sdk/typespec-erd` | private TypeSpec logical-ERD prototype과 `oa-erd` CLI |
 | `@oa-sdk/ttsc-compile-fixture` | bulk task에서 제외된 TypeScript 7 compiler fixture |
+| `@oa-sdk/typespec-tooling` | TypeSpec IDE 설정·snippet과 linter 보조 |
 
 ### Apps And Reference Workspaces
 
@@ -245,6 +258,7 @@ console.log(describeApi(parseDocument(spec)))
 | [Artifact Release Preparation](./docs/guides/release-preparation.md) | public artifact의 version intent, source preflight, external promotion 경계 |
 | [문서·스펙 거버넌스](./docs/spec-governance/README.md) | 문서 정본, 품질 기준, 검증 선택, 공식 기준 변경 절차 |
 | [OpenAPI Governance Workflow](./docs/guides/use-cases/openapi-governance-workflow.md) | target sidecar + PR review gate |
+| [Cloudflare Forge 지원](./docs/guides/forge-support.md) | Surface IR에서 Forge SDK/CLI projection과 OpenAPI Overlay를 생성하는 지원 범위, 사용 가능 기능, runtime 제한 |
 | [Duplicate Review](./docs/guides/duplicate-review.md) | fragment 중복 탐지 정책과 CI gate |
 | [NestJS Swagger / FastAPI Governance](./docs/guides/use-cases/nestjs-swagger-governance.md) | NestJS Swagger 또는 FastAPI 산출물 수집 + normalized/upgraded artifact (apps/nestjs-ref, apps/fastapi-ref) |
 | [Service Governance Template](./docs/guides/openapi-governance-service-template.md) | 서비스별 OpenAPI governance 설정 템플릿 |

@@ -401,13 +401,14 @@ flowchart TD
 
 | 트랙 명칭 (Track) | 정책 (Policy) | 릴리스 추적 (Release) | 소속 워크스페이스 (Workspaces) |
 |---|---|---|---|
-| **`corePlatform`** | `active` | `release-tracked` | `@oa-sdk/core`, `@oa-sdk/openapi-projection-contract`, `@oa-sdk/spec-lens-contract`, `@oa-sdk/typespec-decorators`, `@oa-sdk/schemas`, `@oa-sdk/parser`, `@oa-sdk/codegen`, `@oa-sdk/spec-lens`, `@oa-sdk/ast-sync` (총 9개) |
-| **`downstream`** | `compatibility` | `release-tracked` | `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server` (총 3개) |
+| **`corePlatform`** | `active` | `release-tracked` | `@oa-sdk/core`, `@oa-sdk/openapi-projection-contract`, `@oa-sdk/spec-lens-contract`, `@oa-sdk/typespec-decorators`, `@oa-sdk/schemas`, `@oa-sdk/parser`, `@oa-sdk/surface-ir`, `@oa-sdk/codegen`, `@oa-sdk/spec-lens`, `@oa-sdk/ast-sync`, `@oa-sdk/tools` (총 11개) |
+| **`downstream`** | `compatibility` | `release-tracked` | `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`, `@oa-sdk/chunk-stream`, `@oa-sdk/chunk-stream-crdt`, `@oa-sdk/chunk-stream-ui`, `@oa-sdk/chunk-stream-timeseries`, `@oa-sdk/chunk-stream-react`, `@oa-sdk/peer-transport`, `@oa-sdk/peer-server`, `@oa-sdk/collab-workspace`, `@oa-sdk/mcp-mesh` (총 12개) |
 | **`maintenance`** | `maintenance-only` | `ignored` | `@oa-sdk/dpm`, `@oa-sdk/personas`, `@oa-sdk/typia-mock`, `@oa-sdk/logical-erd-contract`, `@oa-sdk/typespec-erd`, `@oa-sdk/typespec-tooling`, `@oa-sdk/ttsc-compile-fixture` (총 7개) |
 | **`applications`** | `support-only` | `ignored` | `@oa-sdk/nestjs-ref`, `@oa-sdk/playground`, `@oa-sdk/preview`, `@oa-sdk/spec-lens-ui` (총 4개) |
 
-- **트랙 요약**: 12개 워크스페이스는 릴리스 추적(`release-tracked`) 대상이며, 11개 워크스페이스는 릴리스 무시(`ignored`) 대상입니다.
-- **배포 모드**: `publish.mode`는 `"artifact-only"`로 구성되어 승인된 배포 후보 아티팩트만 패키징됩니다.
+- **트랙 요약**: 23개 워크스페이스는 릴리스 추적(`release-tracked`) 대상이며, 11개 워크스페이스는 릴리스 무시(`ignored`) 대상입니다.
+- **배포 후보 및 모드**: `distributionCandidates`에 Core 8개(`core`, `openapi-projection-contract`, `typespec-decorators`, `parser`, `codegen`, `ast-sync`, `tools`, `surface-ir`) 및 Downstream 12개(`router`, `client`, `mock-server`, `chunk-stream*`, `peer-*`) 총 20개 패키지가 승인 등록되어 있으며, `publish.mode`는 `"artifact-only"`로 운영됩니다.
+- **의존성 경계 불변식**: `corePlatform` 워크스페이스는 런타임에 `downstream` 워크스페이스를 직접 의존할 수 없으며 오직 `devDependencies`를 통해서만 참조 가능합니다.
 
 ### 5.3 온보딩 라이프사이클 아키타입 거버넌스 정책 (Onboarding Lifecycle Archetypes)
 

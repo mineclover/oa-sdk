@@ -5,7 +5,7 @@ description: Expert guide, architecture standards, and verification procedures f
 
 # OpenAPI SDK Monorepo Workflow (`oa-sdk`)
 
-이 프로젝트 레벨 스킬은 `oa-sdk` 모노레포(19개 패키지, 5개 앱)의 아키텍처 원칙, 선언적 출력 경로 라우팅, TanStack Query v5 3계층 코드 생성, 멀티 프레임워크 라우터 및 순수 핸들러 계약, 타깃 분리형 온보딩, TypeScript AST 양방향 동기화, `oa-gen` CLI 도구 체인 및 모노레포 거버넌스 검증 절차를 안내합니다.
+이 프로젝트 레벨 스킬은 `oa-sdk` 모노레포(30개 패키지, 4개 앱)의 아키텍처 원칙, 선언적 출력 경로 라우팅, TanStack Query v5 3계층 코드 생성, 멀티 프레임워크 라우터 및 순수 핸들러 계약, 타깃 분리형 온보딩, TypeScript AST 양방향 동기화, `oa-gen` CLI 도구 체인 및 모노레포 거버넌스 검증 절차를 안내합니다.
 
 ---
 
@@ -13,51 +13,62 @@ description: Expert guide, architecture standards, and verification procedures f
 
 ```mermaid
 graph TD
-    subgraph Core & Codegen [Core & Codegen Engine]
+    subgraph CorePlatform [Core Platform Engine (11 Packages)]
         Schemas["@oa-sdk/schemas (Modular OAS 3.1/3.2 SSOT)"]
         Parser["@oa-sdk/parser (Bundle, Deref & Normalize)"]
         Core["@oa-sdk/core (AST Models & oa.config.ts Loader)"]
+        SurfaceIR["@oa-sdk/surface-ir (Target-neutral Surface IR & Forge)"]
         Codegen["@oa-sdk/codegen (AST Sync, Output Routing & CLI)"]
-    end
-
-    subgraph SpecLens [Spec-Lens Platform]
+        AstSync["@oa-sdk/ast-sync (V3 Lossless Trivia AST Sync)"]
+        Tools["@oa-sdk/tools (MCP 2026-07-28 & CLI Engine)"]
         LensEngine["@oa-sdk/spec-lens (SQLite WAL DB & tsconfig Universe)"]
         LensContract["@oa-sdk/spec-lens-contract (Zero-Dep Wire Types)"]
-        LensApp["apps/spec-lens & apps/playground"]
+        OPC["@oa-sdk/openapi-projection-contract"]
+        TSPDecors["@oa-sdk/typespec-decorators"]
     end
 
-    subgraph Runtime [Runtime & Downstream]
+    subgraph Downstream [Downstream Integration (12 Packages)]
         Router["@oa-sdk/router (Multi-Framework Routers & Handler Contracts)"]
         Client["@oa-sdk/client (Typed Client & TanStack v5 3-Tier)"]
-        MockServer["@oa-sdk/mock-server & @oa-sdk/typia-mock (Live Watch)"]
+        MockServer["@oa-sdk/mock-server (Live Hot-Swap & Stateful Mock)"]
+        ChunkStream["@oa-sdk/chunk-stream* (CRDT, UI, TimeSeries, React)"]
+        PeerMesh["@oa-sdk/peer-* & mcp-mesh (Transport, Server, Collab)"]
     end
 
     Schemas --> Parser
     Parser --> Core
-    Core --> Codegen
-    Codegen --> SpecLens
-    Codegen --> Runtime
+    Core --> SurfaceIR
+    Parser --> SurfaceIR
+    SurfaceIR --> Codegen
+    AstSync --> Codegen
+    Codegen --> Tools
+    Codegen --> LensEngine
+    LensEngine --> LensContract
+    Core -. devDependencies only .-> Downstream
 ```
 
 ### 패키지 그룹
-1. **Core & Codegen**:
-   - `@oa-sdk/schemas`: 모듈화된 OpenAPI 3.1/3.2 YAML 조각, 도메인 바운디드 컨텍스트, 멀티 타겟 번들 스펙 (`.merged.yaml`).
-   - `@oa-sdk/parser`: 다중 버전 OpenAPI 스키마 파서, 결정론적 컴포넌트 이름 충돌 해소(`allocateDefinitionOutputNames`), 순환 참조 비순환화(`DerefFolder`).
-   - `@oa-sdk/core`: 핵심 AST 모델, `EntitySpec`, 프로젝트 루트 해석 및 `oa.config.ts` 설정 로더.
-   - `@oa-sdk/codegen`: 코드 생성 엔진, TypeScript AST 양방향 동기화, 선언적 출력 경로 라우팅(`outputRouting` 5대 토큰, 4대 케이싱, 상대 경로 임포트 해석, `.oa-manifest.json` 3-Gate 고아 프루닝), `oa-gen init` 타깃 분리형 온보딩(6대 타깃, 3대 라이프사이클 아키타입, 4대 라우팅 프리셋), 실시간 무중단 핫 리로드 Mock 관측(`oa-gen mock --watch`), Standalone 타입 가드 및 Manifest V3 CSP 정적 감사, `oa-gen` CLI.
-2. **Spec-Lens**:
+1. **Core Platform (11개 패키지)**:
+   - `@oa-sdk/core`: 공통 AST 모델, `EntitySpec`, 프로젝트 루트 해석 및 `oa.config.ts` 설정 로더.
+   - `@oa-sdk/schemas`: 모듈화된 OpenAPI 3.1/3.2 YAML 조각, TypeSpec SSOT 원본, 멀티 타겟 번들 스펙 (`.merged.yaml`).
+   - `@oa-sdk/parser`: 다중 버전 OpenAPI 스키마 파서, 결정론적 컴포넌트 이름 충돌 해소(`allocateDefinitionOutputNames`), 순환 참조 비순환화/보존(`cycleStrategy`), `ParsedDocument` 계약 보증.
+   - `@oa-sdk/surface-ir`: 프레임워크 비종속 타깃 중립 API Surface IR 빌더, Cloudflare Forge 프로젝션 및 OpenAPI Overlay 생성기.
+   - `@oa-sdk/codegen`: 코드 생성 엔진, 선언적 출력 경로 라우팅(`outputRouting` 5대 토큰, 4대 케이싱, 상대 경로 임포트 해석, `.oa-manifest.json` 3-Gate 고아 프루닝), `oa-gen init` 타깃 분리형 온보딩, 실시간 핫 리로드 Mock 관측, Standalone 타입 가드 및 Manifest V3 CSP 정적 감사, `oa-gen` CLI.
+   - `@oa-sdk/ast-sync`: TypeScript AST 무손실 양방향 동기화(비트 단위 Trivia 보존), 구문 특성 분류기, 타입체커 순환 탐지.
+   - `@oa-sdk/tools`: TypeSpec JSON Schema 기반 Model Context Protocol (MCP) 2026-07-28 규격 서버 및 CLI 브릿지 엔진.
    - `@oa-sdk/spec-lens`: SQLite WAL 기반 스펙 인덱싱/검색 엔진 (`.spec-lens.db`), 전이적 `tsconfig.json` 컨피그 유니버스 해싱(`computeTsconfigUniverse`) 및 자동 캐시 무효화.
    - `@oa-sdk/spec-lens-contract`: 심볼 그래프, 프로젝션 계약, 9대 스키마 버전 핀(v2), 런타임 양방향 가드(`isSpecLensResponse`).
-   - `apps/spec-lens`, `apps/playground`, `apps/preview`: 스펙 시각화, D3 심볼 디펜던시 그래프 및 인터랙티브 테스트 도구.
-3. **Runtime & Downstream**:
+   - `@oa-sdk/openapi-projection-contract`: 외부 스키마 프로듀서 입력 계약.
+   - `@oa-sdk/typespec-decorators`: 프로덕션 TypeSpec 데코레이터 및 provenance 도구.
+2. **Downstream Integration (12개 패키지, 배포 후보 승격)**:
    - `@oa-sdk/router`: 고성능 라우팅 및 요청 디스패처 (Fastify JIT 인라인 스키마 가속, Bun Elysia Zero-copy 컨텍스트 구조분해, Hono, Express, 순수 핸들러 계약 분리 `*.contract.ts`, 다중 상태 에러 유니온 `HandlerResponse<TSuccess, TErrorMap, THeaders>`, 3단계 응답 엔벨로프 충돌 방어, 204 No Content 처리).
    - `@oa-sdk/client`: 런타임 독립적 타입 안전 API 클라이언트 SDK, `AbortSignal | null` 전송 및 결합 엔진(`__combineSignals` 통한 네이티브 `AbortSignal.any` 및 `AbortController` 폴백), SSE/NDJSON 스트리밍 취소 파이프라인, TanStack Query v5 3계층 아키텍처(Tier 1 `*Keys` 계층적 쿼리 키 튜플 트리, Tier 2 순수 `queryOptions`/`mutationOptions`/`infiniteQueryOptions` 팩토리 및 `JsonPrimitive<T>` 와이어 안전성, Tier 3 `'use client'` React 훅 `use*Query` 및 컨텍스트 바인더 `createApiHooks`).
-   - `@oa-sdk/mock-server`: 동적 OpenAPI 인메모리 목 서버 (원자적 라우트 테이블 핫스왑 `server.updateSpec`, 파싱 에러 쉴딩).
-   - `@oa-sdk/typia-mock`: Typia AOT 컴파일러 트랜스폼 목 통합용 격리 경계(Maintenance).
-4. **TypeSpec & Governance**:
-   - `@oa-sdk/typespec-decorators`, `@oa-sdk/typespec-erd`, `@oa-sdk/typespec-tooling`, `@oa-sdk/logical-erd-contract`.
-   - `@oa-sdk/personas`: API 페르소나 능력(Skill) 특성 및 계약 (`packages/personas/src/traits/skill.yaml`, 21개 특성, 6대 카테고리).
-   - `@oa-sdk/dpm`: Dynamic Package Manager 서브패스 아키텍처, 중립 데이터 바인딩 및 인메모리 행 실행 엔진(`executeDpmRows`).
+   - `@oa-sdk/mock-server`: 동적 OpenAPI 인메모리 목 서버 (원자적 라우트 테이블 핫스왑 `server.updateSpec`, 파싱 에러 쉴딩, Stateful 인메모리 스토어 플러그인).
+   - `@oa-sdk/chunk-stream*`: 대용량 데이터 및 스트리밍 시각화 패키지 군 (`chunk-stream`, `chunk-stream-crdt`, `chunk-stream-ui`, `chunk-stream-timeseries`, `chunk-stream-react`).
+   - `@oa-sdk/peer-*` & `@oa-sdk/mcp-mesh`: WebMCP 피어 통신, 동기화 서버, 협업 워크스페이스 라이브러리.
+3. **Apps & Maintenance**:
+   - Apps: `apps/spec-lens`, `apps/playground`, `apps/preview`, `apps/nestjs-ref`.
+   - Maintenance: `@oa-sdk/typia-mock` (Typia AOT 목 통합 격리), `@oa-sdk/personas`, `@oa-sdk/dpm`, `@oa-sdk/logical-erd-contract`, `@oa-sdk/typespec-erd`, `@oa-sdk/typespec-tooling`, `@oa-sdk/ttsc-compile-fixture`.
 
 ---
 
