@@ -43,6 +43,7 @@ packages/*/.oa-manifest.json
 
 # Ephemeral agent swarm session directories
 .agents/teamwork_preview_*
+.agents/teamwork/
 .agents/worker_*
 .agents/auditor_*
 .agents/challenger_*
