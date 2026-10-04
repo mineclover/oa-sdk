@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { dirname, isAbsolute, relative, resolve, sep } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { parse as parseYaml } from 'yaml'
 import { canonicalJsonPointerFragment, isJsonPointerFragment, resolveJsonPointer } from './json-pointer.js'
 import type { RefStackView } from './ref-expansion-memo.js'
@@ -73,6 +74,14 @@ export type RefResolution = {
 export interface RefResolver {
   resolve(request: ResolveRefRequest): RefResolution
   loadExternalDocument(filePath: string): unknown
+  /**
+   * Spell `ref`, written in the document at `basePath`, so that it names the same
+   * target from the entry document: `#...` for a target in the entry document,
+   * otherwise the target file relative to the entry file's directory plus the
+   * fragment as written. A ref written in the entry document, or any ref when
+   * there is no `entryPath`, is returned unchanged.
+   */
+  entryRelativeRef(ref: string, basePath: string | undefined): string
 }
 
 const ENTRY_DOCUMENT_KEY = '<root>'
@@ -92,6 +101,20 @@ export function createRefResolver(options: RefResolverOptions = {}): RefResolver
       documentKeys.set(filePath, key)
     }
     return key
+  }
+
+  function entryRelativeRef(ref: string, basePath: string | undefined): string {
+    if (entryFilePath === undefined || basePath === undefined) return ref
+    if (documentKey(basePath) === ENTRY_DOCUMENT_KEY) return ref
+
+    const hashIndex = ref.indexOf('#')
+    const filePart = hashIndex === -1 ? ref : ref.slice(0, hashIndex)
+    const fragment = hashIndex === -1 ? '' : ref.slice(hashIndex)
+    if (filePart && !isRelativeRef(ref)) return ref
+
+    const targetPath = filePart ? resolve(dirname(basePath), filePart) : basePath
+    if (documentKey(targetPath) === ENTRY_DOCUMENT_KEY) return fragment || '#'
+    return `${fileReference(dirname(entryFilePath), resolve(targetPath))}${fragment}`
   }
 
   function loadExternalDocument(filePath: string): unknown {
@@ -251,7 +274,17 @@ export function createRefResolver(options: RefResolverOptions = {}): RefResolver
   return {
     resolve: resolveRef,
     loadExternalDocument,
+    entryRelativeRef,
   }
+}
+
+/** `$ref` file part naming `filePath` from `fromDirectory`, relative as `resolveExternalRef` reads it. */
+function fileReference(fromDirectory: string, filePath: string): string {
+  const path = relative(fromDirectory, filePath)
+  // No relative path exists between filesystem roots (e.g. another Windows drive).
+  if (isAbsolute(path)) return pathToFileURL(filePath).href
+  const reference = path.split(sep).join('/')
+  return reference.startsWith('../') ? reference : `./${reference}`
 }
 
 type RefStack = NonNullable<ResolveRefRequest['stack']>

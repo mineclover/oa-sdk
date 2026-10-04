@@ -11,13 +11,18 @@
  * document (external targets renamed). The Node parse of the split files must
  * cut where the bundled parse cuts, and the browser parse of the bundled
  * document must equal the Node parse of it.
+ *
+ * A recursion cut kept by `preserve-ref` is a `$ref` of the output document, so
+ * it must name its target from the entry file's location even when it was
+ * written in a file in another directory.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 
 import { derefSpecWithDiagnostics, type DerefCycleStrategy } from '../deref.js'
+import { resolveJsonPointer } from '../json-pointer.js'
 import { parseDocument as parseBrowserDocument } from '../parse-browser.js'
 import { parseDocument } from '../parse.js'
 import { resolveRefGraph } from '../ref-graph.js'
@@ -31,7 +36,7 @@ type Scenario = {
   name: string
   /** Entry `components.schemas`. `Node` is the subject served by `GET /subject`. */
   entry: Schemas
-  /** External documents next to the entry (`api.json`): file name → `components.schemas`. */
+  /** External documents: path relative to the entry (`api.json`) → `components.schemas`. */
   files: Record<string, Schemas>
   /** The same contract as a single document. */
   bundled: Schemas
@@ -113,7 +118,8 @@ const scenarios: Scenario[] = [
       InnerLoop: { allOf: [{ $ref: '#/components/schemas/InnerNode' }] },
       InnerNode: { allOf: [{ $ref: '#/components/schemas/InnerLoop' }] },
     },
-    // preserve-ref keeps the `$ref` spelling of the document the cut is in (inner.json).
+    // A diagnosed cut keeps the `$ref` as written in its document (inner.json), like
+    // every other diagnosed ref; the diagnostic names that document as `sourceFilePath`.
     expected: cut => ({
       type: 'object',
       properties: {
@@ -161,17 +167,133 @@ const scenarios: Scenario[] = [
       Node: { type: 'object', properties: { next: { $ref: '#/components/schemas/Link' } } },
       Link: { type: 'object', properties: { node: { $ref: '#/components/schemas/Node' } } },
     },
+    // The cut is written in link.json; it targets the entry document, so the output names it `#...`.
     expected: cut => ({
       type: 'object',
       properties: {
-        next: { type: 'object', properties: { node: cut(`./${ENTRY_FILE}#/components/schemas/Node`) } },
+        next: { type: 'object', properties: { node: cut('#/components/schemas/Node') } },
       },
     }),
     diagnostics: [],
     recursiveRefs: [
-      `./${ENTRY_FILE}#/components/schemas/Node`,
+      '#/components/schemas/Node',
       './link.json#/components/schemas/Link',
     ],
+  },
+  {
+    name: 'valid recursion back into the entry from a subdirectory',
+    entry: {
+      Node: { type: 'object', properties: { next: { $ref: './sub/link.json#/components/schemas/Link' } } },
+    },
+    files: {
+      'sub/link.json': {
+        Link: { type: 'object', properties: { node: { $ref: `../${ENTRY_FILE}#/components/schemas/Node` } } },
+      },
+    },
+    bundled: {
+      Node: { type: 'object', properties: { next: { $ref: '#/components/schemas/Link' } } },
+      Link: { type: 'object', properties: { node: { $ref: '#/components/schemas/Node' } } },
+    },
+    expected: cut => ({
+      type: 'object',
+      properties: {
+        next: { type: 'object', properties: { node: cut('#/components/schemas/Node') } },
+      },
+    }),
+    diagnostics: [],
+    recursiveRefs: [
+      '#/components/schemas/Node',
+      './sub/link.json#/components/schemas/Link',
+    ],
+  },
+  {
+    name: 'valid recursion inside a subdirectory document',
+    entry: {
+      Node: { type: 'object', properties: { root: { $ref: './sub/tree.json#/components/schemas/Tree' } } },
+    },
+    files: {
+      'sub/tree.json': {
+        Tree: {
+          type: 'object',
+          properties: { children: { type: 'array', items: { $ref: '#/components/schemas/Tree' } } },
+        },
+      },
+    },
+    bundled: {
+      Node: { type: 'object', properties: { root: { $ref: '#/components/schemas/SubTree' } } },
+      SubTree: {
+        type: 'object',
+        properties: { children: { type: 'array', items: { $ref: '#/components/schemas/SubTree' } } },
+      },
+    },
+    // `#/components/schemas/Tree` is written in sub/tree.json; from the entry it is that file's Tree.
+    expected: cut => ({
+      type: 'object',
+      properties: {
+        root: {
+          type: 'object',
+          properties: { children: { type: 'array', items: cut('./sub/tree.json#/components/schemas/Tree') } },
+        },
+      },
+    }),
+    diagnostics: [],
+    recursiveRefs: ['./sub/tree.json#/components/schemas/Tree'],
+  },
+  {
+    name: 'valid recursion between documents in sibling directories',
+    entry: {
+      Node: { type: 'object', properties: { left: { $ref: './a/left.json#/components/schemas/Left' } } },
+    },
+    files: {
+      'a/left.json': {
+        Left: { type: 'object', properties: { right: { $ref: '../b/right.json#/components/schemas/Right' } } },
+      },
+      'b/right.json': {
+        Right: { type: 'object', properties: { left: { $ref: '../a/left.json#/components/schemas/Left' } } },
+      },
+    },
+    bundled: {
+      Node: { type: 'object', properties: { left: { $ref: '#/components/schemas/ALeft' } } },
+      ALeft: { type: 'object', properties: { right: { $ref: '#/components/schemas/BRight' } } },
+      BRight: { type: 'object', properties: { left: { $ref: '#/components/schemas/ALeft' } } },
+    },
+    expected: cut => ({
+      type: 'object',
+      properties: {
+        left: {
+          type: 'object',
+          properties: {
+            right: {
+              type: 'object',
+              properties: { left: cut('./a/left.json#/components/schemas/Left') },
+            },
+          },
+        },
+      },
+    }),
+    diagnostics: [],
+    recursiveRefs: ['./a/left.json#/components/schemas/Left'],
+  },
+  {
+    name: 'unguarded cycle in a subdirectory document',
+    entry: {
+      Node: { allOf: [{ $ref: './sub/loop.json#/components/schemas/A' }] },
+    },
+    files: {
+      'sub/loop.json': {
+        A: { allOf: [{ $ref: '#/components/schemas/B' }] },
+        B: { allOf: [{ $ref: '#/components/schemas/A' }] },
+      },
+    },
+    bundled: {
+      Node: { allOf: [{ $ref: '#/components/schemas/LoopA' }] },
+      LoopA: { allOf: [{ $ref: '#/components/schemas/LoopB' }] },
+      LoopB: { allOf: [{ $ref: '#/components/schemas/LoopA' }] },
+    },
+    // Diagnosed: the cut keeps its sub/loop.json spelling and matches the diagnostic.
+    expected: cut => ({ allOf: [{ allOf: [{ allOf: [cut('#/components/schemas/A')] }] }] }),
+    diagnostics: ['ref-cycle #/components/schemas/A'],
+    recursiveRefs: [],
   },
 ]
 
@@ -195,6 +317,7 @@ beforeAll(() => {
     const entryPath = join(dir, ENTRY_FILE)
     writeFileSync(entryPath, JSON.stringify(document(scenario.entry)))
     for (const [file, schemas] of Object.entries(scenario.files)) {
+      mkdirSync(dirname(join(dir, file)), { recursive: true })
       writeFileSync(join(dir, file), JSON.stringify({ components: { schemas } }))
     }
     entryPaths.set(scenario, entryPath)
@@ -245,6 +368,53 @@ describe('Node deref keys cycles by (document, pointer)', () => {
       expect(lintCycle).toBe(parseCycle)
     },
   )
+})
+
+describe('preserve-ref cuts in the output document', () => {
+  it.each(scenarios.map(scenario => [scenario.name, scenario] as const))(
+    'recursion cuts name their target from the entry file: %s',
+    (_name, scenario) => {
+      const entryPath = entryPaths.get(scenario)!
+      const options = nodeOptions(scenario, 'preserve-ref')
+      const parsed = parseDocument(document(scenario.entry), options)
+      const { recursiveRefs } = derefSpecWithDiagnostics(document(scenario.entry), options)
+      const cutRefs = collectRefs([subject(parsed), parsed.schemas])
+      if (parsed.resolution?.status !== 'complete') return
+
+      for (const ref of cutRefs) {
+        expect(recursiveRefs, ref).toContain(ref)
+        expect(resolveFromFile(entryPath, ref), `${ref} from ${ENTRY_FILE}`).toBeDefined()
+      }
+    },
+  )
+
+  it.each(scenarios.map(scenario => [scenario.name, scenario] as const))(
+    'ref-cycle diagnostics name the cut as written in their source file: %s',
+    (_name, scenario) => {
+      const parsed = parseDocument(document(scenario.entry), nodeOptions(scenario, 'preserve-ref'))
+      const cycles = diagnostics(parsed).filter(diagnostic => diagnostic.code === 'ref-cycle')
+
+      for (const diagnostic of cycles) {
+        expect(diagnostic.sourceFilePath, diagnostic.ref).toBeDefined()
+        expect(resolveFromFile(diagnostic.sourceFilePath!, diagnostic.ref), diagnostic.ref).toBeDefined()
+      }
+      // Each kept cut is covered by its diagnostic, so no remaining-ref diagnostic is added.
+      expect(new Set(diagnostics(parsed).map(diagnostic => diagnostic.code)))
+        .toEqual(new Set(cycles.length > 0 ? ['ref-cycle'] : []))
+    },
+  )
+
+  it('locates a diagnosed cut in a subdirectory by its source file', () => {
+    const scenario = scenarios.find(candidate => candidate.name === 'unguarded cycle in a subdirectory document')!
+    const parsed = parseDocument(document(scenario.entry), nodeOptions(scenario, 'preserve-ref'))
+
+    expect(diagnostics(parsed)).toEqual([expect.objectContaining({
+      code: 'ref-cycle',
+      ref: '#/components/schemas/A',
+      pointer: '#/components/schemas/A',
+      sourceFilePath: join(dirname(entryPaths.get(scenario)!), 'sub', 'loop.json'),
+    })])
+  })
 })
 
 describe('browser deref has one document per key space', () => {
@@ -348,7 +518,35 @@ function cutFor(cycleStrategy: DerefCycleStrategy | undefined): Cut {
   return ref => cycleStrategy === 'preserve-ref' ? { $ref: ref } : {}
 }
 
-/** Cut refs are spelled per document; compare only where cuts are. */
+/** Every `$ref` string under `value`. */
+function collectRefs(value: unknown, refs = new Set<string>()): Set<string> {
+  if (Array.isArray(value)) {
+    for (const item of value) collectRefs(item, refs)
+  } else if (value && typeof value === 'object') {
+    for (const [key, child] of Object.entries(value)) {
+      if (key === '$ref' && typeof child === 'string') refs.add(child)
+      else collectRefs(child, refs)
+    }
+  }
+  return refs
+}
+
+/** Plain file-relative `$ref` lookup, independent of the resolver under test. */
+function resolveFromFile(documentPath: string, ref: string): unknown {
+  const hashIndex = ref.indexOf('#')
+  const file = hashIndex === -1 ? ref : ref.slice(0, hashIndex)
+  const fragment = hashIndex === -1 ? '#' : ref.slice(hashIndex)
+  const targetPath = file ? join(dirname(documentPath), file) : documentPath
+  let target: unknown
+  try {
+    target = JSON.parse(readFileSync(targetPath, 'utf8'))
+  } catch {
+    return undefined
+  }
+  return resolveJsonPointer(target, fragment)
+}
+
+/** Cut refs to other documents are spelled with their file; compare only where cuts are. */
 function normalizeCuts(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(normalizeCuts)
   if (!value || typeof value !== 'object') return value

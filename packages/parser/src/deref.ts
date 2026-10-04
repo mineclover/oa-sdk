@@ -24,6 +24,7 @@ export type DerefOptions = {
   onDiagnostic?: (diagnostic: DerefDiagnostic) => void
   /**
    * 유효한 재귀 스키마의 순환 지점 ref. 진단 없이 cycleStrategy로 끊긴다.
+   * 진입 문서(basePath) 기준 표기이며 preserve-ref 결과에 남는 `$ref`와 같다.
    * 같은 ref가 여러 번 보고될 수 있으며, 서로 다른 ref는 최소 한 번 보고된다.
    */
   onRecursiveRef?: (ref: string) => void
@@ -36,7 +37,10 @@ export type DerefOptions = {
  * - 순환 참조는 cycle stack으로 감지하며 기본적으로 빈 스키마({})로 대체.
  *   stack 키는 (문서, pointer)다. 외부 문서 안의 `#/...`는 그 문서의 대상이고,
  *   외부 ref로 다시 들어온 진입 파일은 진입 문서와 같은 문서다 (RefResolution.cacheKey)
- * - 순환 경로가 instance 하위로 내려가면 유효한 재귀 스키마로 보고 진단하지 않는다
+ * - 순환 경로가 instance 하위로 내려가면 유효한 재귀 스키마로 보고 진단하지 않는다.
+ *   preserve-ref가 남기는 재귀 지점 `$ref`는 결과 문서의 ref이므로 진입 문서 기준으로
+ *   다시 표기한다 (외부 파일 안의 표기는 그 파일 위치 기준이다). 진단된 순환은
+ *   다른 진단 ref처럼 작성된 표기를 유지하고 진단의 sourceFilePath가 위치를 가리킨다
  * - $ref sibling 필드는 해소된 대상에 병합하여 구조 정보를 보존
  * - 같은 대상의 전개 결과는 RefExpansionMemo로 사용처 간에 공유한다.
  *   결과 트리는 동일한 하위 객체를 공유할 수 있다 (비순환 DAG).
@@ -85,10 +89,12 @@ export class DerefFolder extends SchemaFolder {
     if (resolution.diagnostic?.code === 'ref-cycle') {
       this.memo.noteCycle(resolution.cacheKey)
       if (this.isGuardedRecursion(resolution.cacheKey)) {
-        this.options.onRecursiveRef?.(ref)
-      } else {
-        this.emitDiagnostic(resolution.diagnostic)
+        // A recursion edge stays in the output document: name its target from there.
+        const edge = this.resolver.entryRelativeRef(ref, this.currentBasePath)
+        this.options.onRecursiveRef?.(edge)
+        return this.resolveCycle(edge, node)
       }
+      this.emitDiagnostic(resolution.diagnostic)
       return this.resolveCycle(ref, node)
     }
     if (resolution.diagnostic) this.emitDiagnostic(resolution.diagnostic)

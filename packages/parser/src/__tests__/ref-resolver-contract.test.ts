@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { dirname, join, relative } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createRefResolver } from '../ref-resolver.js'
 
@@ -270,6 +270,72 @@ describe('RefResolver contract', () => {
         })
         expect(internal.cacheKey).toBe('<root>#/components/schemas/Node')
       }
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('spells a ref written in another document from the entry document', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-ref-resolver-'))
+    const entryPath = join(tmp, 'project', 'api.json')
+    const linkPath = join(tmp, 'project', 'sub', 'link.json')
+    const leftPath = join(tmp, 'project', 'a', 'left.json')
+    const commonPath = join(tmp, 'shared', 'common.json')
+    const schemas = (...names: string[]) =>
+      ({ components: { schemas: Object.fromEntries(names.map(name => [name, { title: name }])) } })
+    const documents = new Map<string, unknown>([
+      [entryPath, schemas('Node')],
+      [linkPath, schemas('Link', 'No d')],
+      [leftPath, schemas('Left')],
+      [commonPath, schemas('Common')],
+    ])
+    for (const [path, document] of documents) {
+      mkdirSync(dirname(path), { recursive: true })
+      writeFileSync(path, JSON.stringify(document))
+    }
+
+    // [written in, ref as written there, the same target spelled from the entry]
+    const cases: Array<[string, string, string]> = [
+      [linkPath, '../api.json#/components/schemas/Node', '#/components/schemas/Node'],
+      [linkPath, '../api.json', '#'],
+      [linkPath, '#/components/schemas/Link', './sub/link.json#/components/schemas/Link'],
+      [linkPath, '#/components/schemas/No%20d', './sub/link.json#/components/schemas/No%20d'],
+      [linkPath, '../a/left.json#/components/schemas/Left', './a/left.json#/components/schemas/Left'],
+      [linkPath, '../../shared/common.json#/components/schemas/Common', '../shared/common.json#/components/schemas/Common'],
+      [leftPath, './left.json', './a/left.json'],
+      [commonPath, '../project/sub/link.json#/components/schemas/Link', './sub/link.json#/components/schemas/Link'],
+      // Written in the entry document: already spelled from there.
+      [entryPath, './sub/link.json#/components/schemas/Link', './sub/link.json#/components/schemas/Link'],
+      [entryPath, '#/components/schemas/Node', '#/components/schemas/Node'],
+    ]
+
+    try {
+      for (const configuredEntryPath of [entryPath, relative(process.cwd(), entryPath)]) {
+        const resolver = createRefResolver({ entryPath: configuredEntryPath })
+        const identity = (ref: string, basePath: string) => {
+          const resolution = resolver.resolve({
+            ref,
+            sourcePointer: '#/$ref',
+            root: documents.get(basePath),
+            basePath,
+          })
+          expect(resolution.resolved, `${ref} from ${basePath}`).toBe(true)
+          return resolution.cacheKey
+        }
+
+        for (const [basePath, ref, expected] of cases) {
+          const rebased = resolver.entryRelativeRef(ref, basePath)
+          expect(rebased, `${ref} from ${basePath}`).toBe(expected)
+          expect(identity(rebased, entryPath)).toBe(identity(ref, basePath))
+        }
+        expect(resolver.entryRelativeRef('#/components/schemas/Node', configuredEntryPath))
+          .toBe('#/components/schemas/Node')
+        expect(resolver.entryRelativeRef('#/components/schemas/Node', undefined)).toBe('#/components/schemas/Node')
+      }
+
+      // Without an entry location there is nothing to spell a ref from.
+      expect(createRefResolver().entryRelativeRef('#/components/schemas/Link', linkPath))
+        .toBe('#/components/schemas/Link')
     } finally {
       rmSync(tmp, { recursive: true, force: true })
     }
