@@ -93,16 +93,18 @@
 - `decision`: 사용자 결정 대기
 - `blocked`: 선행 작업 대기
 
-### WS-A — `oa-gen audit:csp` e2e 타임아웃 안정화 · `running`
+### WS-A — `oa-gen audit:csp` e2e 타임아웃 안정화 · A1 `done`, A2·A3 `ready`
 
 - **문제**: 전체 codegen 테스트를 돌릴 때마다 `audit:csp` 하위 프로세스 테스트 3~6개가 30~60초 타임아웃 또는 exit 143으로 실패했다.
   - 실패 조건은 호스트 부하 평균이 10을 넘는 경우다.
   - 같은 테스트를 단독으로 재실행하면 통과한다.
-- **담당**: task `task_3f88f37b`가 별도 worktree에서 진행 중이다.
-- **오케스트레이터 할 일**:
-  - 결과를 받는다.
-  - 3절의 e2e 테스트 미커밋 변경과 충돌하는지 확인하고 머지 순서를 정한다.
-  - 완료되면 codegen 전체 테스트를 부하가 있는 상태에서 다시 확인한다.
+- **원인**: TS 로드(약 0.1초)나 CLI 기동(약 0.33초)이 아니라 스캔 자체였다. browser-studio `dist/guards`(264개 파일, 73 MB)를 파일마다 전체 AST + 부모 포인터로 파싱하느라 약 5.5초가 걸렸다.
+
+| 단위 | 내용 | 상태 |
+|---|---|---|
+| A1 | 어휘 사전 검사(`mayContainCspViolation`)로 위반이 불가능한 파일의 파싱을 건너뛰고, TS를 지연 로드하고, `setParentNodes`를 끈다. dist 기준 약 6.2초 → 1.6초, 264개 중 263개 파일이 파싱을 건너뛴다. 하위 프로세스 테스트 자체는 바꾸지 않았다(실제 CLI를 바깥에서 실행하는 것이 목적). | **done** (`1d63b225`) |
+| A2 | **부하 상태 검증 미완.** A1 커밋 시점까지 load average 11 이상에서 돌린 `packages/codegen` 전체 스위트 결과가 나오지 않았다. 원래 실패하던 tier4, subdirectory-conformance, challenger-m4 테스트가 부하 상태에서 통과하는지 확인한다. 통과하지 않으면 원인(스캔 / 기동 / 테스트 타임아웃 예산)을 분류해 고친다. | ready |
+| A3 | **사전 검사와 규칙의 이중 관리 제거.** 사전 검사의 단어 목록(`eval`/`Function`/`setTimeout`/`setInterval`, `ajv`/`zod`/`@oa-sdk`)과 AST 규칙의 대상(`target === 'eval'`, `DISALLOWED_IMPORT_PATTERN`)이 따로 적혀 있어, 규칙을 추가하면서 사전 검사를 빠뜨리면 위반이 조용히 누락된다. 규칙 표 하나에서 AST 검사와 사전 검사를 함께 도출하고, 모든 `CspRuleId`에 사전 검사 회귀 사례가 있는지 타입 수준에서 강제한다. | ready |
 
 ### WS-B — Goal 70 Sirius Web 통합 · `decision`
 
@@ -170,15 +172,15 @@
 - public release와 breaking removal은 별도 gate로 다룬다.
 - 오케스트레이터는 상태만 추적한다.
 
-## 5. 결정 대기 목록 (사용자에게 한 번에 묻기)
+## 5. 결정 기록 (2026-10-05 사용자 확정)
 
-| # | 질문 | 권장 기본값 |
+| # | 질문 | 결정 |
 |---|---|---|
-| D0 | 기존 미커밋 변경 75개를 어떻게 처리할지 (주제별 커밋 / 소유 세션 반환 / 보류) | 소유 세션 확인 후 주제별 커밋. 처리 전에는 충돌 WS를 보류 |
-| D1 | Goal 70 Sirius 진행 여부와 Java 저장소 소유자 | Phase A의 B1·B2(oa-sdk 쪽, Core 범위)만 먼저 승인하고, B3은 B4 비교 후 결정 |
-| D2 | WS-C downstream 성능(C1, C3) reactivation | C1만 승인 (mock 서버 메모리 증가는 운영 리스크). C3는 보류 |
-| D3 | C2 route-match 개선을 Core 작업으로 진행할지 | 진행 |
-| D4 | WS-D CI 원격 캐시와 병렬화 | `.turbo` 로컬 캐시 + dist artifact 공유만 먼저. 병렬화는 WS-A 결과를 본 뒤 결정 |
+| D0 | 기존 미커밋 변경 75개를 어떻게 처리할지 | 소유 세션이 모두 끝났음을 확인. 주제별 커밋으로 정리한다. `.agents/teamwork/` 세션 산출물은 커밋하지 않고 ignore한다 |
+| D1 | Goal 70 Sirius 진행 여부와 Java 저장소 소유자 | Phase A의 B1·B2(oa-sdk 쪽, Core 범위)만 진행. B3은 B4 비교 후 결정 |
+| D2 | WS-C downstream 성능(C1, C3) reactivation | C1만 진행. C3는 보류 |
+| D3 | C2 route-match 개선을 Core 작업으로 진행할지 | 진행 (파일이 parser에 있으므로 Core 작업) |
+| D4 | WS-D CI 원격 캐시와 병렬화 | `.turbo` 로컬 캐시 + dist artifact 공유 + turbo inputs 누락 수정 + `bench:parser` 게이트(E6)만. 원격 캐시와 테스트 병렬화는 하지 않음 |
 | D5 | WS-F 무의존 패키지 처리 | 결정 문서만 작성하고 코드 변경은 하지 않음 |
 
 ## 6. 실행 순서 (wave)
