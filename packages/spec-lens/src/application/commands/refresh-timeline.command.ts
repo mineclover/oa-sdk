@@ -1,5 +1,5 @@
 import { resolveSpecLensTypeSpecSourceReadBudget } from '@oa-sdk/codegen/spec-lens'
-import type { DefinitionTargetConfig } from '@oa-sdk/parser'
+import { escapeJsonPointerToken, unescapeJsonPointerToken, type DefinitionTargetConfig } from '@oa-sdk/parser'
 import type { CachePort } from '../ports/cache.port.js'
 import type { SnapshotBuilderPort } from '../ports/snapshot-builder.port.js'
 import type { SpecSourcePort } from '../ports/spec-source.port.js'
@@ -309,7 +309,7 @@ export class RefreshTimelineHandler {
 
     for (const [apiPath, pathItem] of Object.entries(specPaths)) {
       if (typeof pathItem !== 'object' || pathItem === null) continue
-      const pointer = `#/paths/${encodeJsonPointerSegment(apiPath)}`
+      const pointer = `#/paths/${escapeJsonPointerToken(apiPath)}`
       const provenanceEntry = provenanceEntries[pointer]
       if (provenanceEntry === undefined) continue
 
@@ -347,11 +347,7 @@ function decodeJsonPointerPath(pointer: string): string | null {
   const encoded = pointer.slice(prefix.length)
   // Ignore operation pointers like #/paths/~1users/get
   if (/\/(get|post|put|patch|delete|head|options|trace)$/.test(pointer)) return null
-  return '/' + encoded.replaceAll('~1', '/').replaceAll('~0', '~')
-}
-
-function encodeJsonPointerSegment(value: string): string {
-  return value.replaceAll('~', '~0').replaceAll('/', '~1')
+  return '/' + unescapeJsonPointerToken(encoded)
 }
 
 async function withConcurrency<T>(tasks: Array<() => Promise<T>>, limit: number): Promise<T[]> {
