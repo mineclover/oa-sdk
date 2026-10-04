@@ -18,7 +18,11 @@ Node.js **22 이상** (`>=22.0.0`)이 필요합니다.
   definition API를 제공하며 `parseDocument()`에 Node-side `basePath`를 주면 external
   `$ref`를 해석할 수 있습니다. 순환 `$ref` 판정은 (문서, JSON Pointer) 단위입니다.
   외부 파일 안의 `#/...`는 그 파일의 대상이고, 외부 파일이 `basePath` 파일을 다시
-  참조하면 진입 문서로 돌아온 순환으로 봅니다.
+  참조하면 진입 문서로 돌아온 순환으로 봅니다. `cycleStrategy: 'preserve-ref'`가
+  남기는 유효한 재귀 지점 `$ref`(및 `recursiveRefs`)는 결과 문서 기준으로 표기합니다:
+  진입 문서 대상은 `#/...`, 다른 파일 대상은 `basePath` 디렉터리 기준 상대 경로
+  (`./sub/tree.yaml#/...`)입니다. 진단된 순환(`ref-cycle`)과 다른 미해결 ref는 작성된
+  표기를 그대로 두며, 진단의 `sourceFilePath`가 그 표기를 해석할 파일입니다.
 - `@oa-sdk/parser/browser`는 browser에서 이미 로드된 document를 파싱합니다. In-memory/
   internal reference만 해석하며 external reference는 unresolved 상태로 남고 반환된
   document의 resolution metadata에 보고됩니다.
