@@ -204,6 +204,8 @@ infra/orchestrator/UI와 운영 문서를 소유한다. `gitlab-agent-ops`는 `m
 | `data-governance` | `@oa-sdk/dpm`, `@oa-sdk/personas` | DPM 및 persona 계약 추출 |
 | `typia-adapter` | `@oa-sdk/typia-mock` | 컴파일러 변환기 격리 및 ILlmApplication 목 서버 외부화 |
 
+workspace 의존자가 없는 패키지의 유지·추출·제거 판단 자료는 [`package-hygiene-decisions.md`](./package-hygiene-decisions.md)에 둔다(사용자 결정 대기).
+
 ## Root Command Semantics
 
 기본 root 명령은 Core Mission에 맞춘다.
