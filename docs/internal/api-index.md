@@ -927,7 +927,7 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `APITOMY_DATA_MODELS_PACKAGE` | `apitomy/index.ts` | optional Apitomy package specifier 상수 |
 | `APITOMY_REFERENCE_ADAPTER_VERSION` | `apitomy/index.ts` | reference 비교 리포트의 adapter contract version |
 | `auditShapeCommand` | `cli/commands/audit-shape.ts` | TypeScript AST 타입 형태 분류 및 TypeSpec/OpenAPI 투영 가능성 진단 감사 CLI 커맨드 |
-| `auditShapeFiles()` | `cli/commands/audit-shape.ts` | 지정된 경로 내 TypeScript 소스 파일들의 타입 형태를 감사하여 진단 리포트 생성 |
+| `auditShapeFiles()` | `cli/lib/audit-shape-files.ts` | 지정된 경로 내 TypeScript 소스 파일들의 타입 형태를 감사하여 진단 리포트 생성 |
 
 ### 타입 (`@oa-sdk/codegen`)
 
