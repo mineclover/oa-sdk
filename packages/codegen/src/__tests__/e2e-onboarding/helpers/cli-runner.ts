@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process'
 import * as path from 'node:path'
 import * as fsSync from 'node:fs'
+import { SUBPROCESS_TEST_BUDGET_MS } from '../../helpers/subprocess-budget.js'
 
 export interface CliRunResult {
   status: number | null
@@ -20,7 +21,8 @@ const TSX_CLI = path.resolve(REPO_ROOT, 'node_modules/tsx/dist/cli.mjs')
 const CLI_SRC = path.resolve(REPO_ROOT, 'packages/codegen/src/cli/index.ts')
 const CLI_DIST = path.resolve(REPO_ROOT, 'packages/codegen/dist/cli/index.js')
 
-const DEFAULT_TIMEOUT_MS = 30_000
+// spawnSync는 vitest 타이머를 막으므로 정지 감시가 필요하지만, 테스트 예산보다 먼저 정상 실행을 죽이면 안 된다.
+const DEFAULT_TIMEOUT_MS = SUBPROCESS_TEST_BUDGET_MS
 
 /**
  * Executes the oa-gen CLI in a subprocess (opaque-box).

@@ -34,6 +34,7 @@ import {
   generateTypesFromSpec as browserGenerateTypesFromSpec,
   type TypegenOptions as BrowserTypegenOptions,
 } from '../typegen/browser.js'
+import { SUBPROCESS_TEST_BUDGET_MS } from './helpers/subprocess-budget.js'
 
 type PackageJson = {
   exports: Record<string, unknown>
@@ -228,7 +229,7 @@ browserGenerateTypesFromSpec({
       execFileSync(tscBin, ['--project', join(tmp, 'tsconfig.json')], {
         cwd: tmp,
         encoding: 'utf8',
-        timeout: 30_000,
+        timeout: SUBPROCESS_TEST_BUDGET_MS,
       })
     } catch (err) {
       const error = err as { stdout?: string; stderr?: string; message?: string }

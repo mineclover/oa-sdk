@@ -6,6 +6,7 @@ import type { NodeMockServer } from '@oa-sdk/mock-server'
 import type { OasDocument } from '@oa-sdk/parser'
 import { mock, type MockCommandContext } from '../cli/commands/mock.js'
 import { CliExitError } from '../cli/lib/errors.js'
+import { SUBPROCESS_TEST_BUDGET_MS } from './helpers/subprocess-budget.js'
 import {
   compileTypeSpecInMemory,
   watchTypeSpec,
@@ -337,11 +338,15 @@ describe('oa-gen mock CLI Command', () => {
     let tested = false
     let output = ''
 
+    // 자식은 TypeSpec을 컴파일한 뒤에야 listen하므로 하위 프로세스 예산을 쓰되, vitest testTimeout보다
+    // 먼저 만료돼 SIGKILL 정리가 실행되도록 여유를 남긴다.
+    const childLifecycleTimeoutMs = SUBPROCESS_TEST_BUDGET_MS - 5_000
+
     await new Promise<void>((resolvePromise, rejectPromise) => {
       const timeout = setTimeout(() => {
         child.kill('SIGKILL')
         rejectPromise(new Error('Timed out waiting for mock server child process'))
-      }, 15000)
+      }, childLifecycleTimeoutMs)
 
       child.stdout.on('data', async (chunk) => {
         output += chunk.toString()
