@@ -54,31 +54,74 @@ function isDisallowedModuleSpecifier(specifier: string): boolean {
   return DISALLOWED_IMPORT_PATTERN.test(specifier.trim())
 }
 
-function unwrapExpression(ts: typeof tsType, node: tsType.Node): tsType.Node {
-  let current = node
-  while (ts.isParenthesizedExpression(current)) {
-    current = current.expression
-  }
-  if (ts.isBinaryExpression(current) && current.operatorToken.kind === ts.SyntaxKind.CommaToken) {
-    return unwrapExpression(ts, current.right)
-  }
-  return current
+const GLOBAL_OBJECT_NAMES = new Set(['window', 'globalThis', 'self', 'global'])
+
+/**
+ * AST 규칙이 검사하는 식별자/모듈 지정자가 소스에 나타날 수 있는지 판정하는 어휘 사전 검사.
+ *
+ * 생성된 guard 번들은 수십 MB에 달할 수 있어 파일마다 전체 AST를 만드는 비용이 크다.
+ * 아래 조건은 위반의 필요조건이므로 false면 AST 검사를 생략해도 결과가 동일하다.
+ * 규칙을 추가/변경할 때는 이 사전 검사도 함께 갱신해야 한다.
+ *
+ * - `\u` : 유니코드 이스케이프 식별자(`\u0065val`)는 원문에 단어가 그대로 드러나지 않는다.
+ * - 호출 규칙 대상 식별자(eval/Function/setTimeout/setInterval)는 `window.eval`처럼
+ *   속성 이름으로도 검사되므로 앞의 `.`을 배제하지 않는다.
+ * - import 규칙은 import/require/re-export(`from`) 구문이 있어야 성립한다. 이들은 bare 식별자
+ *   또는 키워드로만 검사되므로 `.from`/`.require` 같은 속성 접근은 제외한다(`...require()` 전개는 포함).
+ *   모듈 지정자는 원문에 금지 패키지 이름이 나타나거나, 문자열 이스케이프로 숨겨질 수 있을 때(`\`)만 위험하다.
+ */
+const CALL_TARGET_WORD = /(?<![\w$])(?:eval|Function|setTimeout|setInterval)(?![\w$])/
+const MODULE_SYNTAX_WORD = /(?<![\w$])(?<!(?:^|[^.])\.)(?:import|require|from)(?![\w$])/
+const DISALLOWED_PACKAGE_TEXT = /ajv|zod|@oa-sdk/
+
+export function mayContainCspViolation(content: string): boolean {
+  if (content.includes('\\u')) return true
+  if (CALL_TARGET_WORD.test(content)) return true
+  if (!MODULE_SYNTAX_WORD.test(content)) return false
+  return DISALLOWED_PACKAGE_TEXT.test(content) || content.includes('\\')
 }
 
-function isTargetIdentifier(ts: typeof tsType, node: tsType.Node, targetName: string): boolean {
-  const unwrapped = unwrapExpression(ts, node)
-  if (ts.isIdentifier(unwrapped) && unwrapped.text === targetName) {
-    return true
-  }
-  if (ts.isPropertyAccessExpression(unwrapped)) {
-    if (unwrapped.name.text === targetName) {
-      const obj = unwrapExpression(ts, unwrapped.expression)
-      if (ts.isIdentifier(obj) && ['window', 'globalThis', 'self', 'global'].includes(obj.text)) {
-        return true
-      }
+function unwrapExpression(ts: typeof tsType, node: tsType.Node): tsType.Node {
+  let current = node
+  for (;;) {
+    if (ts.isParenthesizedExpression(current)) {
+      current = current.expression
+    } else if (ts.isBinaryExpression(current) && current.operatorToken.kind === ts.SyntaxKind.CommaToken) {
+      current = current.right
+    } else {
+      return current
     }
   }
-  return false
+}
+
+/**
+ * 호출/생성 대상 표현식이 가리키는 전역 이름을 반환합니다.
+ * `name`, `(0, name)`, `window.name` 등 전역 객체 접근만 인식합니다.
+ */
+function getGlobalTargetName(ts: typeof tsType, node: tsType.Node): string | undefined {
+  const unwrapped = unwrapExpression(ts, node)
+  if (ts.isIdentifier(unwrapped)) {
+    return unwrapped.text
+  }
+  if (ts.isPropertyAccessExpression(unwrapped) && ts.isIdentifier(unwrapped.name)) {
+    const obj = unwrapExpression(ts, unwrapped.expression)
+    if (ts.isIdentifier(obj) && GLOBAL_OBJECT_NAMES.has(obj.text)) {
+      return unwrapped.name.text
+    }
+  }
+  return undefined
+}
+
+function isStringCodeArgument(ts: typeof tsType, node: tsType.Node): boolean {
+  const arg = unwrapExpression(ts, node)
+  return ts.isStringLiteral(arg) || ts.isNoSubstitutionTemplateLiteral(arg) || ts.isTemplateExpression(arg)
+}
+
+function getStringLiteralArgument(ts: typeof tsType, args: tsType.NodeArray<tsType.Expression>): string | undefined {
+  const first = args[0]
+  if (!first) return undefined
+  const arg = unwrapExpression(ts, first)
+  return ts.isStringLiteral(arg) ? arg.text : undefined
 }
 
 /**
@@ -90,161 +133,146 @@ export function auditCspSourceSync(
   ts: typeof tsType,
 ): CspViolation[] {
   const violations: CspViolation[] = []
-  const scriptKind = filePath.endsWith('.cjs') ? ts.ScriptKind.JS : ts.ScriptKind.JS
-  const sourceFile = ts.createSourceFile(filePath, content, ts.ScriptTarget.Latest, true, scriptKind)
-  const lines = content.split(/\r?\n/)
+  if (!mayContainCspViolation(content)) {
+    return violations
+  }
+
+  // 위치 계산은 getStart(sourceFile)로 충분하므로 parent 포인터 설정(setParentNodes)은 생략한다.
+  const sourceFile = ts.createSourceFile(filePath, content, ts.ScriptTarget.Latest, false, ts.ScriptKind.JS)
+  let lines: string[] | undefined
 
   function addViolation(node: tsType.Node, rule: CspRuleId, message: string) {
     const startPos = node.getStart(sourceFile)
     const { line, character } = sourceFile.getLineAndCharacterOfPosition(startPos)
-    const lineNumber = line + 1
-    const columnNumber = character + 1
-    const snippet = lines[line]?.trim() ?? ''
+    lines ??= content.split(/\r?\n/)
 
     violations.push({
       file: filePath,
-      line: lineNumber,
-      column: columnNumber,
+      line: line + 1,
+      column: character + 1,
       rule,
       severity: 'error',
       message,
-      snippet,
+      snippet: lines[line]?.trim() ?? '',
     })
   }
 
-  function visit(node: tsType.Node) {
+  function checkModuleSpecifier(node: tsType.Node, specifier: string, message: string) {
+    if (isDisallowedModuleSpecifier(specifier)) {
+      addViolation(node, 'csp/no-disallowed-import', `${message}: "${specifier}"`)
+    }
+  }
+
+  function visitCallExpression(node: tsType.CallExpression) {
+    const target = getGlobalTargetName(ts, node.expression)
+
     // 1. eval(...) 호출 감지 (csp/no-eval)
-    if (ts.isCallExpression(node)) {
-      if (isTargetIdentifier(ts, node.expression, 'eval')) {
-        addViolation(node, 'csp/no-eval', 'Disallowed eval() execution in Manifest V3 bundle')
-      }
+    if (target === 'eval') {
+      addViolation(node, 'csp/no-eval', 'Disallowed eval() execution in Manifest V3 bundle')
     }
 
-    // 2. new Function(...) 및 Function(...) 감지 (csp/no-new-function)
-    if (ts.isNewExpression(node)) {
-      if (isTargetIdentifier(ts, node.expression, 'Function')) {
-        addViolation(node, 'csp/no-new-function', 'Disallowed new Function() code evaluation in Manifest V3 bundle')
-      }
-    }
-    if (ts.isCallExpression(node)) {
-      if (isTargetIdentifier(ts, node.expression, 'Function')) {
-        addViolation(node, 'csp/no-new-function', 'Disallowed Function() code evaluation in Manifest V3 bundle')
-      }
+    // 2. Function(...) 감지 (csp/no-new-function)
+    if (target === 'Function') {
+      addViolation(node, 'csp/no-new-function', 'Disallowed Function() code evaluation in Manifest V3 bundle')
     }
 
     // 3. setTimeout(string, ...) 및 setInterval(string, ...) 감지
-    if (ts.isCallExpression(node)) {
-      const isSetTimeout = isTargetIdentifier(ts, node.expression, 'setTimeout')
-      const isSetInterval = isTargetIdentifier(ts, node.expression, 'setInterval')
-      if (isSetTimeout || isSetInterval) {
-        if (node.arguments.length > 0) {
-          const firstArg = unwrapExpression(ts, node.arguments[0]!)
-          if (
-            ts.isStringLiteral(firstArg) ||
-            ts.isNoSubstitutionTemplateLiteral(firstArg) ||
-            ts.isTemplateExpression(firstArg)
-          ) {
-            if (isSetTimeout) {
-              addViolation(
-                node,
-                'csp/no-string-settimeout',
-                'Disallowed string code evaluation in setTimeout() in Manifest V3 bundle',
-              )
-            } else {
-              addViolation(
-                node,
-                'csp/no-string-setinterval',
-                'Disallowed string code evaluation in setInterval() in Manifest V3 bundle',
-              )
-            }
-          }
-        }
-      }
-    }
-
-    // 4. 금지된 런타임 라이브러리 import/require 감지 (csp/no-disallowed-import)
-    // 4.1 ESM import declarations
-    if (ts.isImportDeclaration(node)) {
-      if (node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
-        const specifier = node.moduleSpecifier.text
-        if (isDisallowedModuleSpecifier(specifier)) {
+    if ((target === 'setTimeout' || target === 'setInterval') && node.arguments.length > 0) {
+      if (isStringCodeArgument(ts, node.arguments[0]!)) {
+        if (target === 'setTimeout') {
           addViolation(
             node,
-            'csp/no-disallowed-import',
-            `Disallowed heavy schema engine or SDK runtime import in Manifest V3 bundle: "${specifier}"`,
+            'csp/no-string-settimeout',
+            'Disallowed string code evaluation in setTimeout() in Manifest V3 bundle',
+          )
+        } else {
+          addViolation(
+            node,
+            'csp/no-string-setinterval',
+            'Disallowed string code evaluation in setInterval() in Manifest V3 bundle',
           )
         }
       }
     }
 
-    // 4.2 ESM export declarations (export * from 'ajv' 등)
-    if (ts.isExportDeclaration(node)) {
-      if (node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
-        const specifier = node.moduleSpecifier.text
-        if (isDisallowedModuleSpecifier(specifier)) {
-          addViolation(
-            node,
-            'csp/no-disallowed-import',
-            `Disallowed heavy schema engine or SDK runtime re-export in Manifest V3 bundle: "${specifier}"`,
-          )
-        }
+    // 4.4 CommonJS require('ajv')
+    if (ts.isIdentifier(node.expression) && node.expression.text === 'require') {
+      const specifier = getStringLiteralArgument(ts, node.arguments)
+      if (specifier !== undefined) {
+        checkModuleSpecifier(
+          node,
+          specifier,
+          'Disallowed heavy schema engine or SDK runtime require() in Manifest V3 bundle',
+        )
       }
     }
 
-    // 4.3 TS import = require(...)
-    if (ts.isImportEqualsDeclaration(node)) {
-      if (
-        ts.isExternalModuleReference(node.moduleReference) &&
-        ts.isStringLiteral(node.moduleReference.expression)
-      ) {
-        const specifier = node.moduleReference.expression.text
-        if (isDisallowedModuleSpecifier(specifier)) {
-          addViolation(
-            node,
-            'csp/no-disallowed-import',
-            `Disallowed heavy schema engine or SDK runtime import in Manifest V3 bundle: "${specifier}"`,
-          )
-        }
+    // 4.4 Dynamic import('ajv')
+    if (
+      node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+      (ts.isIdentifier(node.expression) && node.expression.text === 'import')
+    ) {
+      const specifier = getStringLiteralArgument(ts, node.arguments)
+      if (specifier !== undefined) {
+        checkModuleSpecifier(
+          node,
+          specifier,
+          'Disallowed dynamic import of runtime dependency in Manifest V3 bundle',
+        )
       }
     }
+  }
 
-    // 4.4 CommonJS require(...) 및 동적 import(...)
-    if (ts.isCallExpression(node)) {
-      // CommonJS require('ajv')
-      if (ts.isIdentifier(node.expression) && node.expression.text === 'require') {
-        if (node.arguments.length > 0) {
-          const firstArg = unwrapExpression(ts, node.arguments[0]!)
-          if (ts.isStringLiteral(firstArg)) {
-            const specifier = firstArg.text
-            if (isDisallowedModuleSpecifier(specifier)) {
-              addViolation(
-                node,
-                'csp/no-disallowed-import',
-                `Disallowed heavy schema engine or SDK runtime require() in Manifest V3 bundle: "${specifier}"`,
-              )
-            }
-          }
+  function visit(node: tsType.Node): void {
+    switch (node.kind) {
+      case ts.SyntaxKind.CallExpression:
+        visitCallExpression(node as tsType.CallExpression)
+        break
+
+      // 2. new Function(...) 감지 (csp/no-new-function)
+      case ts.SyntaxKind.NewExpression:
+        if (getGlobalTargetName(ts, (node as tsType.NewExpression).expression) === 'Function') {
+          addViolation(node, 'csp/no-new-function', 'Disallowed new Function() code evaluation in Manifest V3 bundle')
         }
+        break
+
+      // 4.1 ESM import declarations
+      case ts.SyntaxKind.ImportDeclaration: {
+        const { moduleSpecifier } = node as tsType.ImportDeclaration
+        if (ts.isStringLiteral(moduleSpecifier)) {
+          checkModuleSpecifier(
+            node,
+            moduleSpecifier.text,
+            'Disallowed heavy schema engine or SDK runtime import in Manifest V3 bundle',
+          )
+        }
+        break
       }
 
-      // Dynamic import('ajv')
-      if (
-        node.expression.kind === ts.SyntaxKind.ImportKeyword ||
-        (ts.isIdentifier(node.expression) && node.expression.text === 'import')
-      ) {
-        if (node.arguments.length > 0) {
-          const firstArg = unwrapExpression(ts, node.arguments[0]!)
-          if (ts.isStringLiteral(firstArg)) {
-            const specifier = firstArg.text
-            if (isDisallowedModuleSpecifier(specifier)) {
-              addViolation(
-                node,
-                'csp/no-disallowed-import',
-                `Disallowed dynamic import of runtime dependency in Manifest V3 bundle: "${specifier}"`,
-              )
-            }
-          }
+      // 4.2 ESM export declarations (export * from 'ajv' 등)
+      case ts.SyntaxKind.ExportDeclaration: {
+        const { moduleSpecifier } = node as tsType.ExportDeclaration
+        if (moduleSpecifier && ts.isStringLiteral(moduleSpecifier)) {
+          checkModuleSpecifier(
+            node,
+            moduleSpecifier.text,
+            'Disallowed heavy schema engine or SDK runtime re-export in Manifest V3 bundle',
+          )
         }
+        break
+      }
+
+      // 4.3 TS import = require(...)
+      case ts.SyntaxKind.ImportEqualsDeclaration: {
+        const { moduleReference } = node as tsType.ImportEqualsDeclaration
+        if (ts.isExternalModuleReference(moduleReference) && ts.isStringLiteral(moduleReference.expression)) {
+          checkModuleSpecifier(
+            node,
+            moduleReference.expression.text,
+            'Disallowed heavy schema engine or SDK runtime import in Manifest V3 bundle',
+          )
+        }
+        break
       }
     }
 
@@ -313,12 +341,13 @@ export async function auditCspBundle(bundlePath: string): Promise<CspAuditResult
     throw new Error(`감사 대상 JavaScript 파일(.js, .mjs, .cjs)이 발견되지 않았습니다: ${bundlePath}`)
   }
 
-  const ts = await getTs()
   const allViolations: CspViolation[] = []
 
   for (const file of files) {
     const content = fs.readFileSync(file, 'utf8')
-    const violations = auditCspSourceSync(file, content, ts)
+    // 어휘 사전 검사를 통과한 파일이 있을 때만 TypeScript를 로드한다.
+    if (!mayContainCspViolation(content)) continue
+    const violations = auditCspSourceSync(file, content, await getTs())
     allViolations.push(...violations)
   }
 
