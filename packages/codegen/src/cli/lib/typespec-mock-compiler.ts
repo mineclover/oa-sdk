@@ -13,7 +13,10 @@ export interface TypeSpecCompilationResult {
   program: Program
   document: OasDocument
   routesCount: number
+  /** Authored TypeSpec sources (outside node_modules), for watching. */
   sourceFiles: string[]
+  /** Every file the compiler loaded: TypeSpec sources and JS library entries, including node_modules. */
+  inputFiles: string[]
 }
 
 export interface TypeSpecWatcher {
@@ -74,12 +77,18 @@ export async function compileTypeSpecInMemory(
   const sourceFiles = Array.from(program.sourceFiles.keys()).filter(
     file => Boolean(file) && !file.includes('node_modules'),
   )
+  const inputFiles = [...new Set([
+    resolvedPath,
+    ...program.sourceFiles.keys(),
+    ...program.jsSourceFiles.keys(),
+  ].filter(Boolean))].sort((a, b) => a.localeCompare(b))
 
   return {
     program,
     document,
     routesCount,
     sourceFiles: sourceFiles.length > 0 ? sourceFiles : [resolvedPath],
+    inputFiles,
   }
 }
 

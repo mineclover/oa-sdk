@@ -16,6 +16,7 @@ import {
   type WorkspaceRefRecord,
   type WorkspaceTypeAliasRecord,
 } from '../../workspace-index.js'
+import { isGenerationTargetStore, type GenerationTargetStore } from '../../generation-target-store.js'
 
 const CLI_WORKSPACE_INDEX_VERSION = 'oa-gen-cli-incremental-v1'
 
@@ -31,10 +32,10 @@ export type CliIncrementalRun = {
   resolvedSpecPath: string
   runId: string
   index: WorkspaceIndex
-  scannedFiles: WorkspaceFileRecord[]
-  dirty: WorkspaceDirtyDetectionResult
   /** Per-run file stamp memo shared by every scan of the run: each file is hashed once. */
   stamps: WorkspaceFileStampCache
+  /** Generation target records; present only for an enabled run backed by a persistent index. */
+  targets?: GenerationTargetStore
 }
 
 export type RecordCliIncrementalIndexOptions = {
@@ -42,7 +43,19 @@ export type RecordCliIncrementalIndexOptions = {
   typeAliases?: readonly WorkspaceTypeAliasRecord[]
 }
 
-export function createCliIncrementalRun(options: CliIncrementalRunOptions): CliIncrementalRun {
+export type CliIncrementalIndexRecord = {
+  /** Indexed files (entry spec and external `$ref` documents that exist). */
+  files: WorkspaceFileRecord[]
+  /** Every file the `$ref` graph reached or tried to reach, including absent ones. */
+  referencedFilePaths: string[]
+}
+
+/**
+ * Open the incremental state for one command run without touching it: no file
+ * is scanned and no index row is invalidated, so a run that ends up reusing
+ * its previous output stays read-only.
+ */
+export function openCliIncrementalRun(options: CliIncrementalRunOptions): CliIncrementalRun {
   const resolvedSpecPath = resolve(process.cwd(), options.specPath)
   const runId = `${Date.now()}-${Math.random().toString(36).slice(2)}`
   const index = createWorkspaceIndex(options.enabled ? {
@@ -54,31 +67,44 @@ export function createCliIncrementalRun(options: CliIncrementalRunOptions): CliI
   if (options.enabled && fallbackReason) {
     console.warn(`⚠️  SQLite workspace index unavailable; falling back to full rebuild: ${fallbackReason}`)
   }
-  try {
-    const stamps: WorkspaceFileStampCache = new Map()
-    const externalRefFiles = options.enabled ? listWorkspaceExternalRefFiles(index) : []
-    const scannedFiles = scanWorkspaceFiles({
-      entrySpecs: [resolvedSpecPath],
-      externalRefFiles,
-      parserVersion: CLI_WORKSPACE_INDEX_VERSION,
-      runId,
-      stamps,
-    })
-    const dirty = detectWorkspaceDirtyFiles(index, scannedFiles)
-    if (options.enabled) invalidateWorkspaceDirtyFiles(index, dirty)
 
-    return {
-      enabled: options.enabled,
-      resolvedSpecPath,
-      runId,
-      index,
-      scannedFiles,
-      dirty,
-      stamps,
-    }
+  return {
+    enabled: options.enabled,
+    resolvedSpecPath,
+    runId,
+    index,
+    stamps: new Map(),
+    ...(options.enabled && !fallbackReason && isGenerationTargetStore(index) ? { targets: index } : {}),
+  }
+}
+
+/**
+ * Before a rebuild: scan the entry spec and the indexed external `$ref` files,
+ * detect dirty files, and drop their stale index rows.
+ */
+export function invalidateCliIncrementalIndex(run: CliIncrementalRun): WorkspaceDirtyDetectionResult | undefined {
+  if (!run.enabled) return undefined
+
+  const scannedFiles = scanWorkspaceFiles({
+    entrySpecs: [run.resolvedSpecPath],
+    externalRefFiles: listWorkspaceExternalRefFiles(run.index),
+    parserVersion: CLI_WORKSPACE_INDEX_VERSION,
+    runId: run.runId,
+    stamps: run.stamps,
+  })
+  const dirty = detectWorkspaceDirtyFiles(run.index, scannedFiles)
+  invalidateWorkspaceDirtyFiles(run.index, dirty)
+  return dirty
+}
+
+/** Open the incremental state and invalidate dirty index rows (commands that always rebuild). */
+export function createCliIncrementalRun(options: CliIncrementalRunOptions): CliIncrementalRun {
+  const run = openCliIncrementalRun(options)
+  try {
+    invalidateCliIncrementalIndex(run)
+    return run
   } catch (error) {
-    const maybeClosable = index as WorkspaceIndex & { close?: () => void }
-    maybeClosable.close?.()
+    closeCliIncrementalRun(run)
     throw error
   }
 }
@@ -87,14 +113,15 @@ export async function recordCliIncrementalIndex(
   run: CliIncrementalRun,
   doc: OasDocument,
   options: RecordCliIncrementalIndexOptions = {},
-): Promise<WorkspaceFileRecord[]> {
-  if (!run.enabled) return run.scannedFiles
+): Promise<CliIncrementalIndexRecord> {
+  if (!run.enabled) return { files: [], referencedFilePaths: [] }
 
   const { resolveRefGraph } = await import('@oa-sdk/parser')
   const graph = resolveRefGraph(doc, { basePath: run.resolvedSpecPath })
+  const referencedFilePaths = collectGraphFilePaths(graph.nodes, graph.diagnostics)
   const discoveredFiles = scanWorkspaceFiles({
     entrySpecs: [run.resolvedSpecPath],
-    externalRefFiles: collectGraphFilePaths(graph.nodes, graph.diagnostics),
+    externalRefFiles: referencedFilePaths,
     parserVersion: CLI_WORKSPACE_INDEX_VERSION,
     runId: run.runId,
     stamps: run.stamps,
@@ -143,7 +170,7 @@ export async function recordCliIncrementalIndex(
     })
   }
 
-  return discoveredFiles
+  return { files: discoveredFiles, referencedFilePaths }
 }
 
 export function closeCliIncrementalRun(run: CliIncrementalRun): void {

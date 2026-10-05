@@ -552,6 +552,10 @@ describe('typegen', () => {
     const incremental = cli(`typegen -s ${apiPath} --incremental --cache-dir ${cacheDir}`)
     expect(incremental).toBe(full)
     expect(existsSync(join(cacheDir, 'state.sqlite'))).toBe(true)
+    const repeated = cliCaptureArgs(['typegen', '-s', apiPath, '--incremental', '--cache-dir', cacheDir])
+    expect(repeated.status).toBe(0)
+    expect(repeated.stderr).toContain('incremental: typegen up to date, regeneration skipped (stdout)')
+    expect(repeated.stdout).toBe(full)
     const index = createSQLiteWorkspaceIndex({ cacheDir })
     try {
       expect(index.listTypeAliases()).toEqual([
@@ -579,9 +583,11 @@ describe('typegen', () => {
     }), 'utf8')
 
     const updatedFull = cli(`typegen -s ${apiPath}`)
-    const updatedIncremental = cli(`typegen -s ${apiPath} --incremental --cache-dir ${cacheDir}`)
-    expect(updatedIncremental).toBe(updatedFull)
-    expect(updatedIncremental).toContain('name?: string')
+    const updatedIncremental = cliCaptureArgs(['typegen', '-s', apiPath, '--incremental', '--cache-dir', cacheDir])
+    expect(updatedIncremental.status).toBe(0)
+    expect(updatedIncremental.stderr).toContain(`incremental: typegen regenerating (input changed: ${sharedPath})`)
+    expect(updatedIncremental.stdout).toBe(updatedFull)
+    expect(updatedIncremental.stdout).toContain('name?: string')
   })
 })
 
