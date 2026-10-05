@@ -43,14 +43,23 @@ sourceOfTruth:
 프로젝트 루트에서 `oa-gen init`을 실행하면 프레임워크(Fastify, Bun Elysia, Hono, Express, NestJS)와 스펙 소스(`.tsp`, `openapi.yaml`, `openapi.json`, `@oaOperation` JSDoc)를 자동으로 감지하여 최적화된 `oa.config.ts`와 `package.json` 스크립트를 즉시 구성합니다.
 
 ```bash
-# 로컬 개발 의존성 설치
-npm install --save-dev @oa-sdk/codegen
+# 로컬 개발 의존성 설치: CLI와 4~6단계가 사용하는 동반 패키지
+npm install --save-dev @oa-sdk/codegen @oa-sdk/router @oa-sdk/client @oa-sdk/mock-server
 
 # 비대화형 자동 감지 온보딩 실행
 npx oa-gen init --yes
 ```
 
-> **Bun 환경**: `bun add -d @oa-sdk/codegen && bunx oa-gen init --yes`
+> **Bun 환경**: `bun add -d @oa-sdk/codegen @oa-sdk/router @oa-sdk/client @oa-sdk/mock-server && bunx oa-gen init --yes`
+
+`@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`는 `oa-gen`이 필요할 때 불러오는 **동반 패키지**입니다. `@oa-sdk/codegen`을 설치해도 함께 설치되지 않으므로 위처럼 같이 설치합니다.
+
+- `init`이 생성하는 `oa.config.ts`는 핸들러 계약과 클라이언트 SDK를 켭니다(`core.contracts.pureHandlers: true`, `core.client.enabled: true`). 그래서 5단계의 `oa-gen generate`에는 `@oa-sdk/router`와 `@oa-sdk/client`가 필요합니다.
+- 4단계의 `generate:tanstack`에는 `@oa-sdk/client`가, 6단계의 `mock`과 `init`이 추가하는 `mock` 스크립트에는 `@oa-sdk/mock-server`가 필요합니다.
+- `init`도 이 패키지들을 `devDependencies`에 기록하지만, `package.json`에 이미 있는 버전은 바꾸지 않습니다(`--force` 제외).
+- 동반 패키지 없이 이 명령들을 실행하면, 출력을 건너뛰지 않고 설치 명령을 출력한 뒤 종료 코드 1로 실패합니다.
+
+자세한 규칙은 [동반 패키지 안내](./cli-setup.md#동반-패키지-companion-packages)를 참고하세요.
 
 ---
 
@@ -123,7 +132,7 @@ export type User = z.infer<typeof UserSchema>
 
 ## 4단계: TanStack Query v5 3계층 클라이언트 생성 (`oa-gen generate:tanstack`)
 
-프론트엔드 통신을 위해 3계층(Tier 1 계층적 쿼리 키 팩토리, Tier 2 순수 옵션 팩토리, Tier 3 리액트 훅 래퍼) 클라이언트를 방출합니다.
+프론트엔드 통신을 위해 3계층(Tier 1 계층적 쿼리 키 팩토리, Tier 2 순수 옵션 팩토리, Tier 3 리액트 훅 래퍼) 클라이언트를 방출합니다. 코드는 0단계에서 설치한 동반 패키지 `@oa-sdk/client`가 생성합니다.
 
 ```bash
 npx oa-gen generate:tanstack --spec ./openapi.yaml -o src/api
@@ -147,7 +156,7 @@ export function UserProfile({ userId }: { userId: string }) {
 
 ## 5단계: 백엔드 순수 핸들러 계약 및 라우터 방출 (`oa-gen generate`)
 
-선언적 `oa.config.ts` 설정에 따라 백엔드 라우터와 순수 핸들러 계약을 방출합니다.
+선언적 `oa.config.ts` 설정에 따라 백엔드 라우터와 순수 핸들러 계약을 방출합니다. 핸들러 계약은 `@oa-sdk/router`, 클라이언트 SDK는 `@oa-sdk/client`가 생성합니다. `init`이 만든 설정은 두 산출물을 명시적으로 켜므로, 둘 중 하나라도 설치되어 있지 않으면 `oa-gen generate`는 파일을 쓰기 전에 설치 명령을 출력하고 종료 코드 1로 실패합니다.
 
 ```bash
 npx oa-gen generate
@@ -160,7 +169,7 @@ npx oa-gen generate
 
 ## 6단계: 제로 빌드 실시간 목(Mock) HTTP 서버 (`oa-gen mock`)
 
-별도의 사전 빌드 없이 TypeSpec 소스(`.tsp`) 또는 OpenAPI 스펙 문서를 메모리 상에서 직접 서빙하며, 사양 파일이 수정되면 소켓 연결을 끊지 않고 원자적으로 라우트를 핫스왑합니다.
+별도의 사전 빌드 없이 TypeSpec 소스(`.tsp`) 또는 OpenAPI 스펙 문서를 메모리 상에서 직접 서빙하며, 사양 파일이 수정되면 소켓 연결을 끊지 않고 원자적으로 라우트를 핫스왑합니다. 서버는 0단계에서 설치한 동반 패키지 `@oa-sdk/mock-server`가 구동합니다.
 
 ```bash
 # A. TypeSpec 소스 직접 관측 및 실시간 핫리로드 (권장 SSOT 워크플로)

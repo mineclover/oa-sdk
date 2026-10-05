@@ -7,7 +7,7 @@
 
 ## 1. CLI 기반 무빌드 즉시 실행 (`oa-gen mock --tsp`)
 
-중간 OpenAPI YAML 파일을 빌드할 필요 없이, TypeSpec(`.tsp`) 소스 파일로부터 직접 인메모리 컴파일을 거쳐 즉시 Mock 서버를 구동합니다:
+중간 OpenAPI YAML 파일을 빌드할 필요 없이, TypeSpec(`.tsp`) 소스 파일로부터 직접 인메모리 컴파일을 거쳐 즉시 Mock 서버를 구동합니다. `oa-gen mock`은 이 가이드의 `@oa-sdk/mock-server`를 동반 패키지로 불러오므로, 모노레포 밖에서는 `@oa-sdk/codegen` 옆에 이 패키지를 함께 설치합니다(`npm install --save-dev @oa-sdk/codegen @oa-sdk/mock-server`, [설치 안내](./cli-setup.md#동반-패키지-companion-packages)). 패키지가 없으면 명령은 설치 명령을 출력하고 종료 코드 1로 실패합니다:
 
 ```bash
 # 기본 구동 (포트 4010)

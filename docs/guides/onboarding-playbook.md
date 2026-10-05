@@ -183,6 +183,8 @@ npx oa-gen init --target elysia --archetype enterprise --routing monorepo --yes
 
 ## 4. 프레임워크별 퀵 레시피 (Copy-Pasteable Recipes)
 
+아래 레시피는 `@oa-sdk/codegen`과 동반 패키지 `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`가 설치된 프로젝트를 가정합니다. `oa-gen init`이 만드는 설정과 스크립트가 세 패키지를 모두 사용합니다([설치 안내](./cli-setup.md#동반-패키지-companion-packages)).
+
 ### 4.1 Fastify 레시피 (`FastifyPluginAsync` + `fast-json-stringify` JIT)
 
 Fastify는 고성능 직렬화를 위해 인라인 스키마를 요구합니다. `oa-sdk` Fastify 타겟은 OpenAPI 스펙을 파싱하여 Fastify 라우트 옵션의 `schema: { params, querystring, body, response }`에 JSON Schema를 인라인으로 주입하여 **2~3배의 응답 직렬화 성능 향상**을 이끌어냅니다.
@@ -1050,6 +1052,8 @@ jobs:
 | `TS6133: 'params' is declared but its value is never read` | Elysia 라우터 생성 시 파라미터가 없는 엔드포인트에서 모든 컨텍스트를 과도하게 비구조화함 | 최신 `@oa-sdk/router`를 사용하십시오. 선택적 비구조화 할당(`destructureFields`) 엔진이 사용된 필드(`{ set }`)만 추출하여 strict TS 빌드를 통과합니다. |
 | `Existing config retained: oa.config.ts` | 이미 설정 파일이 존재하여 비파괴 원칙에 따라 생성이 건너뛰어짐 | 설정을 강제로 재생성하려면 `--force` (`-f`) 플래그를 추가하십시오: `npx oa-gen init --force`. |
 | `Bun project contains tsx or nodemon` | Bun 프로젝트에 Node 도구가 주입되어 런타임 격리 불변식 위반 | `oa-gen init --target elysia`를 실행하십시오. Elysia 프로필은 순수 Bun 도구(`bun --watch`, `bun x`)만을 주입합니다. |
+| `[oa-gen generate] A requested output needs a companion package that is not installed` (여러 개면 `Requested outputs need companion packages that are not installed`) | `oa.config.ts`가 명시적으로 켠 산출물의 동반 패키지가 없음: `core.contracts.pureHandlers: true`는 `@oa-sdk/router`, `core.client.enabled: true`는 `@oa-sdk/client`가 필요하며, `oa-gen init`이 만든 설정도 두 스위치를 켭니다. `mock`, `generate:client`, `pack:client`, `generate:tanstack`도 같은 형식으로 필요한 패키지를 알립니다. | 오류에 출력된 설치 명령을 실행하십시오. 해당 산출물이 필요 없다면 스위치를 `false`로 설정합니다. [동반 패키지 안내](./cli-setup.md#동반-패키지-companion-packages)를 참고하십시오. |
+| `[oa-gen generate] Skipped outputs whose companion package is not installed` (경고) | 기본값으로만 암시된 산출물(지정하지 않은 스위치와 아키타입 프리셋, TanStack Query 옵션, CRDT 모듈, `--spec` 직접 실행)의 동반 패키지가 없음 | 산출물이 필요하면 경고에 출력된 설치 명령을 실행하십시오. 이전 실행이 생성한 해당 파일은 삭제되지 않고 유지됩니다. |
 | `Mock server drops socket on spec syntax error` | 스키마 편집 중 일시적인 구문 오류 발생 | `oa-gen mock --watch`는 에러 쉴딩(Error Shielding)이 내장되어 있습니다. 구문 오류 시 직전 유효 라우트를 유지하므로 소켓이 끊어지지 않으며, 올바른 문법으로 저장하면 즉시 회복됩니다. |
 
 ---

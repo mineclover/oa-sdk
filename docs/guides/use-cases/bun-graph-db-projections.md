@@ -20,7 +20,7 @@ bun-graph-db
   -> REST / GraphQL / MCP table projection    # runtime table contract
   -> saved OpenAPI snapshot + versionHash
   -> oa-gen validate / typegen
-  -> private @oa-sdk/client / @oa-sdk/mock-server integration
+  -> @oa-sdk/client / @oa-sdk/mock-server companion packages
 ```
 
 ## Full document와 table projection 경계
@@ -55,9 +55,10 @@ oa-gen typegen --spec contracts/bun-graph-db/openapi.json \
   -o src/generated/bun-graph-db-api.types.ts
 ```
 
-공개 배포 경계는 validation과 typegen까지다. 이 모노레포의 private client/mock 통합은
-아래처럼 package API로 검증한다. runtime table별 attribute schema는 table projection
-snapshot에서 따로 소비한다.
+`@oa-sdk/codegen`만 설치해서 실행할 수 있는 단계는 validation과 typegen까지다. client와 mock은
+`@oa-sdk/codegen` 옆에 설치하는 동반 패키지 `@oa-sdk/client`, `@oa-sdk/mock-server`가 담당하며
+([설치 안내](../cli-setup.md#동반-패키지-companion-packages)), 이 문서는 아래처럼 package API로
+검증한다. runtime table별 attribute schema는 table projection snapshot에서 따로 소비한다.
 
 이 흐름을 governance/audit까지 확장할 때는
 [Behavior ECS Spec](../../internal/behavior-ecs.spec.md)의 representative use case와 baseline
@@ -245,8 +246,9 @@ oa-gen typegen --spec contracts/bun-graph-db/tables/project_tasks/operation-cont
 
 ### client
 
-`@oa-sdk/client`는 private workspace integration이다. Full document client는 stable
-bun-graph-db REST/MCP discovery surface에 맞추되 공개 `oa-gen` 명령으로 광고하지 않는다.
+`@oa-sdk/client`는 `@oa-sdk/codegen` 옆에 설치하는 동반 패키지다. Full document client는 stable
+bun-graph-db REST/MCP discovery surface에 맞춘다. CLI에서는 `oa-gen generate:client`가 같은
+생성기를 실행하고, 아래는 package API를 직접 호출하는 형태다.
 
 ```typescript
 import { readFileSync, writeFileSync } from 'node:fs'

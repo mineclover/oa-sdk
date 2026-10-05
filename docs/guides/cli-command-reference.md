@@ -15,6 +15,11 @@ node packages/codegen/dist/cli/index.js --help
 명시적으로 제공한 환경에서만 위의 `node .../index.js`를 `oa-gen`으로 바꾼다. 아래의 `입력`은
 최소 시작점이며, `--help`는 모든 선택 옵션과 조건부 옵션을 보여 준다.
 
+`generate:client`, `pack:client`, `generate:tanstack`, `mock`, 그리고 `oa-gen generate`의 핸들러
+계약·클라이언트 산출물은 `@oa-sdk/codegen`에 포함되지 않은 동반 패키지(`@oa-sdk/router`,
+`@oa-sdk/client`, `@oa-sdk/mock-server`)가 생성한다. 명령별 필요 패키지, 설치 방법, 패키지가
+없을 때의 동작은 [동반 패키지 안내](./cli-setup.md#동반-패키지-companion-packages)를 따른다.
+
 ## 먼저 목적을 고르기
 
 | 목적 | 시작 명령 | 다음 문서 |
@@ -110,6 +115,8 @@ oa-gen behavior-query \
 
 `oa-gen generate`는 프로젝트의 선언적 설정(`oa.config.ts`)을 기반으로 스키마 프로젝션(OpenAPI 3.2, JSON Schema 2020-12), 순수 핸들러 계약(`*.contract.ts`), 경량 fetch 클라이언트 SDK, TanStack Query v5 훅, 독립형 무런타임 타입 가드를 일괄 생성합니다. 또한 `--spec <path.tsp>`를 통해 설정 파일 없이도 TypeSpec 스펙으로부터 전체 파이프라인을 원라인으로 즉시 생성할 수 있습니다.
 
+핸들러 계약은 동반 패키지 `@oa-sdk/router`, 클라이언트 SDK와 TanStack Query 옵션은 `@oa-sdk/client`가 생성합니다. 설정 파일이 `core.contracts.pureHandlers: true` 또는 `core.client.enabled: true`로 명시적으로 켠 산출물의 패키지가 없으면 파일을 쓰기 전에 설치 명령을 출력하고 종료 코드 1로 실패합니다. 기본값으로만 암시된 산출물은 경고와 함께 건너뜁니다.
+
 | 옵션 | 단축 | 타입 | 기본값 | 설명 |
 | --- | --- | --- | --- | --- |
 | `--config <path>` | `-c` | `string` | 자동 탐색 | 선언적 설정 파일 경로 (`oa.config.ts` 또는 `oa.config.json`) |
@@ -141,7 +148,7 @@ oa-gen generate --spec packages/schemas/typespec/main.tsp --output src/api --spl
 
 ## generate:client 옵션 및 인수 명세
 
-`oa-gen generate:client` (alias: `oa-gen client`)는 OpenAPI 3.1/3.2 명세 또는 TypeSpec(.tsp)으로부터 경량 fetch 기반의 타입 안전 클라이언트 SDK를 생성합니다.
+`oa-gen generate:client` (alias: `oa-gen client`)는 OpenAPI 3.1/3.2 명세 또는 TypeSpec(.tsp)으로부터 경량 fetch 기반의 타입 안전 클라이언트 SDK를 생성합니다. 생성기는 동반 패키지 `@oa-sdk/client`에서 불러오며, 패키지가 없으면 설치 명령을 출력하고 종료 코드 1로 실패합니다(`--pack`과 `pack:client` 포함).
 
 | 옵션 | 단축 | 타입 | 기본값 | 설명 |
 | --- | --- | --- | --- | --- |
@@ -194,7 +201,7 @@ Overlay를 Forge/Fern transformer에 전달하는 별도 downstream 단계입니
 
 ## generate:tanstack 옵션 및 인수 명세
 
-`oa-gen generate:tanstack`은 OpenAPI 3.1/3.2 명세로부터 TanStack Query v5 기반의 3계층 아티팩트(Tier 1 Query Key Factory, Tier 2 Pure Options Factory, Tier 3 Composition Hooks)를 자동 생성합니다.
+`oa-gen generate:tanstack`은 OpenAPI 3.1/3.2 명세로부터 TanStack Query v5 기반의 3계층 아티팩트(Tier 1 Query Key Factory, Tier 2 Pure Options Factory, Tier 3 Composition Hooks)를 자동 생성합니다. 생성기는 동반 패키지 `@oa-sdk/client`에서 불러오며, 패키지가 없으면 설치 명령을 출력하고 종료 코드 1로 실패합니다.
 
 > ⚠️ **주의**: 과거 문서에 기재되었던 `--package`, `--client-name`, `--hooks`, `--banner` 플래그는 유효하지 않습니다. 대상 프레임워크 패키지는 `--framework <react|vue|svelte>`를 통해 지정하십시오.
 
@@ -227,7 +234,7 @@ oa-gen generate --tanstack --spec ./openapi.yaml --output ./src/api/generated
 
 ## oa-gen mock 옵션 및 실시간 핫 리로드(--watch) 명세
 
-`oa-gen mock`은 TypeSpec(`.tsp`) 원본 또는 OpenAPI JSON/YAML 명세서로부터 중간 빌드 산출물 디스크 작성 없이 인메모리에서 즉각 구동되는 초고속 Mock HTTP 서버를 제공합니다.
+`oa-gen mock`은 TypeSpec(`.tsp`) 원본 또는 OpenAPI JSON/YAML 명세서로부터 중간 빌드 산출물 디스크 작성 없이 인메모리에서 즉각 구동되는 초고속 Mock HTTP 서버를 제공합니다. 서버는 동반 패키지 `@oa-sdk/mock-server`가 구동하며, 패키지가 없으면 설치 명령을 출력하고 종료 코드 1로 실패합니다.
 
 | 옵션 | 단축 | 타입 | 기본값 | 설명 |
 | --- | --- | --- | --- | --- |

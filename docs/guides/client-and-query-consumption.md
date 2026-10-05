@@ -10,11 +10,11 @@
 
 소비 환경에 따라 두 가지 방식으로 클라이언트를 프로젝트에 공급할 수 있습니다 (상세 내용은 [클라이언트 SDK 배포 가이드](./client-sdk-distribution.md) 참조):
 
-- **Model A (로컬 온디맨드 생성)**: 앱 프로젝트의 `devDependencies`에 `@oa-sdk/codegen`을 두고 소스코드(`src/api/client.ts`)를 직접 생성.
+- **Model A (로컬 온디맨드 생성)**: 앱 프로젝트의 `devDependencies`에 `@oa-sdk/codegen`과 동반 패키지 `@oa-sdk/client`를 두고 소스코드(`src/api/client.ts`)를 직접 생성. `oa-gen generate:client`와 `generate:tanstack`은 생성기를 `@oa-sdk/client`에서 불러오므로, 이 패키지가 없으면 설치 명령을 출력하고 종료 코드 1로 실패합니다([동반 패키지 안내](./cli-setup.md#동반-패키지-companion-packages)).
   ```bash
   oa-gen generate:client --spec ./openapi.json --output src/api/client.ts
   ```
-- **Model B (사전 빌드 패키지 배포)**: `dist/index.js`와 `dist/index.d.ts`로 빌드된 독립 패키지로 생성하여 사내 npm 레지스트리에 배포 (런타임 의존성 0개).
+- **Model B (사전 빌드 패키지 배포)**: `dist/index.js`와 `dist/index.d.ts`로 빌드된 독립 패키지로 생성하여 사내 npm 레지스트리에 배포 (런타임 의존성 0개). 패키지를 만드는 환경에는 Model A와 같은 두 패키지가 필요합니다.
   ```bash
   oa-gen generate:client --spec ./openapi.json --pack --output ./packages/api-client --name @myorg/api-client
   ```

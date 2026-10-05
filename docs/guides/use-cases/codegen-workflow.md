@@ -169,10 +169,12 @@ export type CreateUserBody = CreateUserRequest
 export type CreateUserResponse = User
 ```
 
-## 3. OAS → Hono 라우터 스텁 (private workspace integration)
+## 3. OAS → Hono 라우터 스텁 (`@oa-sdk/router` 동반 패키지)
 
-`@oa-sdk/router`는 공개 `oa-gen` 배포 경계에 포함되지 않는다. 이 모노레포 안에서는
-package API를 호출하는 workspace script가 출력을 소유한다.
+`@oa-sdk/router`는 `@oa-sdk/codegen` 옆에 설치하는 공개 동반 패키지다
+([설치 안내](../cli-setup.md#동반-패키지-companion-packages)). `oa-gen generate`는 이 패키지로
+핸들러 계약(`*.contract.ts`)을 생성하지만 라우터 스텁을 만드는 `oa-gen` 명령은 없으므로,
+아래처럼 package API를 호출하는 script가 출력을 소유한다.
 
 ```typescript
 import { readFileSync, writeFileSync } from 'node:fs'
@@ -188,7 +190,17 @@ writeFileSync('src/router.ts', generateRouter(spec, { typesImport: './types' }))
 handler/use-case/service에서 실제 로직을 구현하고, 반환값이 generated response type을
 만족하도록 유지한다.
 
-## 4. OAS → fetch 클라이언트 (private workspace integration)
+## 4. OAS → fetch 클라이언트 (`@oa-sdk/client` 동반 패키지)
+
+`@oa-sdk/client`도 `@oa-sdk/codegen` 옆에 설치하는 동반 패키지다. CLI에서는
+`generate:client`가 이 패키지의 같은 생성기를 실행한다.
+
+```bash
+node packages/codegen/dist/cli/index.js generate:client \
+  --spec packages/schemas/src/.merged.yaml --types-import ./types -o src/client.ts
+```
+
+script에서는 package API를 직접 호출한다.
 
 ```typescript
 import { generateClient } from '@oa-sdk/client'

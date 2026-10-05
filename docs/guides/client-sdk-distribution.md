@@ -30,11 +30,13 @@
 단일 레포지토리나 프론트엔드/백엔드가 밀접하게 동기화되는 환경에 적합합니다.
 
 #### 1. 소비자 프로젝트 설정
-소비자 프로젝트의 `devDependencies`에 `@oa-sdk/codegen`을 설치합니다:
+소비자 프로젝트의 `devDependencies`에 `@oa-sdk/codegen`과 동반 패키지 `@oa-sdk/client`를 함께 설치합니다:
 
 ```bash
-pnpm add -D @oa-sdk/codegen
+pnpm add -D @oa-sdk/codegen @oa-sdk/client
 ```
+
+`oa-gen generate:client`는 클라이언트 생성기를 `@oa-sdk/client`에서 불러오며, `@oa-sdk/codegen`을 설치해도 이 패키지는 함께 설치되지 않습니다. 패키지가 없으면 명령은 버전 범위가 고정된 설치 명령을 출력하고 종료 코드 1로 실패합니다([동반 패키지 안내](./cli-setup.md#동반-패키지-companion-packages)). 3절의 `generate:tanstack`도 같은 패키지를 사용합니다.
 
 #### 2. `package.json` 스크립트 구성
 ```json
@@ -69,7 +71,7 @@ const users = await client.listUsers()
 엔터프라이즈 모노레포, 멀티 레포, 모바일/외주 팀 공급, 사내 npm 레지스트리 배포 환경에 적합합니다. 소비자는 `@oa-sdk/codegen`을 설치할 필요조차 없으며, 사전 컴파일된 `dist/`만 소비합니다.
 
 #### 1. 패키지 패킹 커맨드 실행
-CI 파이프라인 또는 스펙 관리 패키지에서 다음 커맨드를 실행합니다:
+CI 파이프라인 또는 스펙 관리 패키지에 `@oa-sdk/codegen`과 `@oa-sdk/client`를 설치한 뒤(Model A와 같은 설치) 다음 커맨드를 실행합니다. 두 패키지는 패키지를 만드는 쪽에만 필요하고, 생성된 패키지를 쓰는 소비자에게는 필요하지 않습니다:
 
 ```bash
 # oa-gen generate:client --pack 사용 (또는 oa-gen pack:client)
@@ -142,6 +144,8 @@ const user: User = await client.getUser('user-123')
 `@oa-sdk/mock-server`는 비침습적 `MockPlugin` 아키텍처와 내장 `inMemoryStorePlugin`을 통해 이를 완벽히 지원합니다.
 
 ### CLI에서 Stateful Mock 서버 실행
+
+`oa-mock`은 `@oa-sdk/mock-server`가 제공하는 CLI이고, `oa-gen mock`도 같은 패키지를 불러와 서버를 구동합니다. 따라서 두 명령 모두 `@oa-sdk/mock-server`가 설치되어 있어야 합니다(`pnpm add -D @oa-sdk/mock-server`). 이 패키지 없이 `oa-gen mock`을 실행하면 설치 명령을 출력하고 종료 코드 1로 실패합니다.
 
 ```bash
 # oa-mock CLI
