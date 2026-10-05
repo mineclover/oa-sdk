@@ -166,11 +166,13 @@
 - [`../package-hygiene-decisions.md`](../package-hygiene-decisions.md)에 무의존 workspace별 목적, 크기, tier, 실제 소비자(외부 저장소 포함), CI 비용, 선택지와 권장안을 정리했다(`7995a3d7`..`4701eaad`). 코드·manifest·정책은 바꾸지 않았다.
 - 어떤 제거·추출도 WS-H(type-registry 게이트 복구)가 먼저 끝나야 한다. 후보를 모두 빼도 boundary 예산 초과가 남기 때문이다.
 
-### WS-H — type-registry 게이트 복구 · `ready` (2026-10-05 발견)
+### WS-H — type-registry 게이트 복구 · 위반 해소 `done`, baseline 갱신은 사용자 승인 대기
 
-- **문제**: main에서 `pnpm type-registry:check`(CI `ci` job의 gate)가 실패한다. boundary 예산 3종이 초과됐다: `any` 223/183, double-assertion 47/38, unvalidated-deserialize 142/121. baseline 대비 drift는 added 352, removed 2다.
-- **원인**: 2026-10-05에 주제별로 커밋한 기존 작업(peer 패키지 4종, surface-ir, tools 보안 강화, chunk-stream 계열)이 baseline에 없던 선언과 boundary를 들여왔다. baseline에 없던 10개 패키지가 added 269건, 기존 패키지(parser 38, tools 34, codegen 10, spec-lens 1)가 83건이다.
-- **방침**: 예산을 올려 통과시키지 않는다. source에서 `any`를 좁은 타입이나 `unknown`+검증으로, double assertion을 검증으로, 역직렬화를 이름 있는 스키마 검증으로 바꿔 예산 안으로 되돌린다. 그다음 drift를 검토하고 baseline을 쓴다(`--write`는 검토 승인 후에만).
+- **문제**: main에서 `pnpm type-registry:check`(CI `ci` job gate)가 boundary 예산 3종 초과로 실패했다: `any` 223/183, double-assertion 47/38, unvalidated-deserialize 142/121.
+- **원인**: 2026-10-05에 주제별로 커밋한 기존 작업(peer 패키지 4종, surface-ir, tools 보안 강화, chunk-stream 계열)이 baseline에 없던 선언과 boundary를 들여왔다.
+- **결과**: 예산·정책·allowlist는 그대로 두고 source를 고쳐 136/183, 30/38, 113/121로 되돌렸다(위반 0). tools·peer-transport·peer-server·mcp-mesh·chunk-stream·client·spec-lens·typespec-erd 등에서 MCP/REST/peer 입력, 저장소 파일, 설정 파일을 이름 있는 스키마로 검증한다. 리뷰에서 나온 회귀 6건(personas 술어 비교, null stream body, `params: null`, peer-server 도구 메타데이터 유실, `allowedTools` fail-open, typia-mock 오류 분류)도 고쳤다. 커밋 33개, 리뷰 승인.
+- **동작 변화(잘못된 입력만)**: 잘못된 `allowedTools`는 빈 허용 목록으로 처리한다(fail closed). spec-lens 설정은 CLI가 읽는 키만 검증하고, 알 수 없는 `source`는 거부한다. preview는 잘못된 헤더를 조용히 버리지 않고 오류를 표시한다. preview 앱이 `test:internal`·`typecheck:internal`에 들어갔다.
+- **남은 일**: 설계상 baseline drift만으로도 check가 실패한다(added 약 444, removed 44 등, 모두 커밋된 작업의 의도된 결과). parser·codegen 병렬 단위가 모두 머지된 뒤 drift를 검토하고 `corepack pnpm type-registry:write`로 baseline을 갱신해 커밋한다. **baseline 쓰기는 사용자 승인 후에만 한다.** 예산 상한을 낮출지는 정책 결정이므로 사용자에게 남긴다.
 
 ### WS-G — Goal 68 DPM · 관제 대상 아님
 
