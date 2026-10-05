@@ -438,10 +438,63 @@ string length limit) no longer occurs. A folder with any customized handler is
 folded with `foldSchema` as before, so its handlers are called for every
 property, optional ones included, in the same order.
 
-To measure the request path, build this package and `@oa-sdk/schemas`, then run
-`pnpm bench:request-path`. Add `--baseline <dist directory of another build>` to
-compare two builds under the same machine load; the other options are described
-at the top of `scripts/bench-request-path.mjs`.
+### Request-path performance
+
+`pnpm bench:request-path` serves the `@oa-sdk/schemas` spec with both adapters
+and reports, per scenario, the median request latency and the CPU time per
+request of the process running the mock. It also reports the time the
+generator takes and the heap a Node server retains after serving many distinct
+concrete URLs. Build this package and `@oa-sdk/schemas` first. With
+`--baseline <dist directory>` it measures a second build alongside,
+alternating between the two every round so that both see the same machine
+load; the other options are described at the top of
+`scripts/bench-request-path.mjs`.
+
+To compare with an earlier commit, build that commit's sources into a
+directory of this package that git ignores, so that the build's imports
+resolve to this package's dependencies:
+
+```sh
+# from packages/mock-server
+mkdir -p .tmp-baseline
+git archive <commit> src | tar -x -C .tmp-baseline
+pnpm exec tsup .tmp-baseline/src/index.ts --no-config --format esm --target node24 --out-dir .tmp-baseline/dist
+pnpm bench:request-path --baseline .tmp-baseline/dist
+```
+
+Response reuse, the per-request `405` header and the required-only generation
+were measured this way against `9adb26d6`, the commit before them, with
+`pnpm bench:request-path --baseline .tmp-baseline/dist --rounds 9`: 2,000
+requests per scenario and build in each of 9 rounds, 20,000 URLs for the heap
+check, Node 24.19.0, on a shared machine (load average 8.4 at the start, 5.8 at
+the end). Every figure is a median over rounds. A run that compared the
+current build with a copy of itself in the same session shows the noise:
+server CPU time differed by up to 5%, Node HTTP latency by up to 13%, MSW
+figures and generator times by up to 1.5%, and retained heap by up to 230 KiB.
+
+| Node HTTP adapter, server CPU µs per request | `9adb26d6` | after | change |
+| --- | ---: | ---: | ---: |
+| static example (`GET /version`) | 36.9 | 30.8 | −16.5% |
+| static generated (`GET /world-model/execution-profiles`) | 41.2 | 31.5 | −23.6% |
+| templated example (`GET /users/{id}`) | 40.8 | 33.7 | −17.4% |
+| templated generated (`GET /worlds/{worldId}`) | 43.8 | 35.9 | −18.2% |
+| validated body, example `201` (`POST /users`) | 39.7 | 34.5 | −13.2% |
+| validated body, generated `201` (`POST /worlds`) | 47.3 | 36.8 | −22.2% |
+| invalid body, `422` (`POST /users`) | 53.8 | 46.6 | −13.4% |
+| method not allowed (`PUT /users/{id}`) | 31.5 | 30.4 | −3.8% |
+
+- Node HTTP median latency, which includes the client and the connection,
+  changed by −17.6% to +4.9% across the same scenarios.
+- MSW latency (about 200 to 290 µs per request, mostly `msw`'s own request
+  handling) and CPU time changed by −3.2% to 0%.
+- Generator time per fold of the spec's 127 media type schemas went from
+  41.0 µs to 27.0 µs. A synthetic schema whose optional properties share
+  subtrees 8 levels deep went from 5,544 µs to 0.4 µs. A synthetic schema whose
+  properties are all required, 4 levels deep and 4 wide, went from 13.7 µs to
+  6.7 µs.
+- Heap a Node server retained after 20,000 distinct URLs on the `405` path went
+  from 2.96 MiB (155 B per URL) to 115 KiB (5.9 B per URL), and on a templated
+  `200` route from 186 KiB to 154 KiB.
 
 ## Customization
 
