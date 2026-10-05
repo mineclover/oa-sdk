@@ -44,6 +44,24 @@ export type {
   TypeSpecBundleSpecTimelineDiff,
 } from '@oa-sdk/spec-lens-contract'
 
+/** Validator for one API response kind, backed by the shared wire guard. */
+function responseSchema<K extends keyof SpecLensApiResponseMap>(kind: K): { parse(value: unknown): SpecLensApiResponseMap[K] } {
+  return {
+    parse(value) {
+      if (!isSpecLensResponse(kind, value)) throw new TypeError(`invalid ${String(kind)} response shape`)
+      return value
+    },
+  }
+}
+
+/** The `error` message of a structured API error body, when the body is one. */
+const ApiErrorMessageSchema = {
+  parse(value: unknown): SpecLensApiError['error'] | undefined {
+    if (typeof value !== 'object' || value === null || !('error' in value)) return undefined
+    return typeof value.error === 'string' ? value.error : undefined
+  },
+}
+
 async function apiRequest<K extends keyof SpecLensApiResponseMap>(
   kind: K,
   path: string,
@@ -59,19 +77,14 @@ async function apiRequest<K extends keyof SpecLensApiResponseMap>(
     const body = await res.text().catch(() => '')
     let message = body
     try {
-      const parsed = JSON.parse(body) as SpecLensApiError
-      if (parsed && typeof parsed.error === 'string') message = parsed.error
+      message = ApiErrorMessageSchema.parse(JSON.parse(body)) ?? message
     } catch {
       // Keep the raw response body in the error when it is not a JSON API error.
     }
     throw new Error(`API ${path} → ${res.status}${message ? `: ${message.slice(0, 200)}` : ''}`)
   }
   try {
-    const value = await res.json() as unknown
-    if (!isSpecLensResponse(kind, value)) {
-      throw new Error(`API ${path} → invalid ${String(kind)} response shape`)
-    }
-    return value
+    return responseSchema(kind).parse(JSON.parse(await res.text()))
   } catch {
     throw new Error(`API ${path} → invalid JSON response or response shape`)
   }
