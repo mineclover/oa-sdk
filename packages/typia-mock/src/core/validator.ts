@@ -50,10 +50,11 @@ export function validateRawArgs(
   }
 
   // parse 함수가 없으면 표준 JSON.parse 폴백
-  let parsed: unknown
   try {
-    parsed = JSON.parse(rawJson)
-  } catch {
+    return functionArgumentsSchema(app, functionName).safeParse(JSON.parse(rawJson))
+  } catch (error) {
+    // Only malformed JSON is a parse-stage failure; validator errors propagate as before.
+    if (!(error instanceof SyntaxError)) throw error
     return {
       success: false,
       functionName,
@@ -62,7 +63,14 @@ export function validateRawArgs(
       raw: rawJson,
     }
   }
-  return validateParsedArgs(app, functionName, parsed)
+}
+
+/** The coerce → validate pipeline of one function, shaped as a safeParse validator. */
+function functionArgumentsSchema(
+  app: ILlmApplication,
+  functionName: string,
+): { safeParse(data: unknown): ValidationResult } {
+  return { safeParse: data => validateParsedArgs(app, functionName, data) }
 }
 
 /**
