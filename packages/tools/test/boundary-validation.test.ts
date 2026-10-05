@@ -145,6 +145,26 @@ describe('HTTP request body decoding', () => {
     expect(await response.json()).toEqual({ error: 'Request body must be a JSON object' })
   })
 
+  it('rejects a missing or malformed REST body instead of running the tool with an empty input', async () => {
+    const execute = vi.fn(async () => ({ ran: true }))
+    const app = createHttpApp([defineTool({
+      name: 'accepting',
+      description: 'accepts an empty input',
+      inputSchema: { type: 'object', properties: { value: { type: 'string' } } },
+      execute,
+    })])
+    for (const init of [
+      { method: 'POST' },
+      { method: 'POST', headers: { 'content-type': 'application/json' }, body: '' },
+      { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"value":' },
+    ]) {
+      const response = await app.request('/tools/accepting', init)
+      expect(response.status).toBe(400)
+      expect(await response.json()).toEqual({ error: 'Invalid JSON' })
+    }
+    expect(execute).not.toHaveBeenCalled()
+  })
+
   it('reports a configured status that cannot carry a JSON body as a tool failure', async () => {
     const app = createHttpApp([defineTool({
       name: 'noContent',
