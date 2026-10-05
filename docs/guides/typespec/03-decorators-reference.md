@@ -1,49 +1,66 @@
-# TypeSpec 데코레이터 종합 레퍼런스 및 실무 작성 패턴 바이블 (Comprehensive Decorators Reference & .tsp Authoring Paradigms)
+---
+docType: reference
+sourceLocale: ko
+canonical: true
+audience:
+  competence: intermediate
+productVersions:
+  - "@oa-sdk/codegen 0.9.0"
+  - "@oa-sdk/typespec-decorators 0.3.0"
+owner: "OA SDK maintainers"
+status: active
+---
 
-> **Canonical Authority**: `@oa-sdk/schemas`, `@oa-sdk/typespec-decorators`, `@oa-sdk/codegen`  
-> **Target Audience**: API 스펙 설계자, 도메인 모델러, 풀스택 엔지니어, 플랫폼 아키텍트  
-> **최신 표준 버전**: TypeSpec 0.60+ / OpenAPI 3.1 & 3.2 Canonical Specification  
+# TypeSpec 데코레이터 레퍼런스 및 실무 작성 패턴 (Decorators Reference & .tsp Authoring Patterns)
+
+> **대상**: API 스펙 설계자, 도메인 모델러, 풀스택 엔지니어
+> **기준 버전**: TypeSpec 1.16(저장소 고정 버전), `@oa-sdk/typespec-decorators` 0.3.0, OpenAPI 3.2
+> **확인 방법**: 이 문서의 TypeSpec 예제는 2026-10-06에 `@typespec/compiler` 1.16.0으로 컴파일했고, 표의 OpenAPI 출력은 `@typespec/openapi3`(`openapi-versions: [3.2.0]`)로 확인했습니다. 예제에 없는 모델(`Workspace` 등)은 컴파일할 때 빈 모델로 채웠습니다.
+
+이 문서는 TypeSpec 기본 decorator와 `@oa-sdk/typespec-decorators`의 decorator, 그리고 그것을 조합한 `.tsp` 작성 패턴을 정리합니다. oa-sdk 저장소의 production 계약에 적용하는 규칙은 [TypeSpec 작성 규칙](../typespec-authoring-conventions.md)이 정본입니다.
 
 ---
 
 ## 📌 목차 (Table of Contents)
 
-1. [개요 및 아키텍처 원칙](#1-개요-및-아키텍처-원칙)
-2. [Part 1: TypeSpec 데코레이터 종합 레퍼런스](#part-1-typespec-데코레이터-종합-레퍼런스)
+1. [개요](#1-개요)
+2. [Part 1: TypeSpec 데코레이터 레퍼런스](#part-1-typespec-데코레이터-레퍼런스)
    - [1.1 Core & 메타데이터 데코레이터](#11-core--메타데이터-데코레이터)
    - [1.2 HTTP 전송 및 바인딩 데코레이터 (`@typespec/http`)](#12-http-전송-및-바인딩-데코레이터-typespechttp)
-   - [1.3 OpenAPI 3.1/3.2 사양 데코레이터 (`@typespec/openapi`)](#13-openapi-3132-사양-데코레이터-typespecopenapi)
-   - [1.4 정밀 제약 및 유효성 검증 데코레이터 (RFC / JSON Schema 2020-12)](#14-정밀-제약-및-유효성-검증-데코레이터-rfc--json-schema-2020-12)
+   - [1.3 OpenAPI 사양 데코레이터 (`@typespec/openapi`)](#13-openapi-사양-데코레이터-typespecopenapi)
+   - [1.4 제약 및 유효성 검증 데코레이터](#14-제약-및-유효성-검증-데코레이터)
    - [1.5 다형성 및 모델 수명주기 데코레이터](#15-다형성-및-모델-수명주기-데코레이터)
-   - [1.6 `@oa-sdk` 거버넌스 및 플랫폼 확장 데코레이터](#16-oa-sdk-거버넌스-및-플랫폼-확장-데코레이터)
-3. [Part 2: 데코레이터를 활용한 8대 실전 `.tsp` 작성 패러다임](#part-2-데코레이터를-활용한-8대-실전-tsp-작성-패러다임)
+   - [1.6 `@oa-sdk` 데코레이터와 표준 계약](#16-oa-sdk-데코레이터와-표준-계약)
+3. [Part 2: 데코레이터를 활용한 8가지 `.tsp` 작성 패턴](#part-2-데코레이터를-활용한-8가지-tsp-작성-패턴)
    - [패턴 1: 리소스 인터페이스 그룹화 패턴 (`interface Users { ... }`)](#패턴-1-리소스-인터페이스-그룹화-패턴-interface-users---)
    - [패턴 2: 파라미터 그룹화 및 모델 전개 연산자 (`...PaginationParams`)](#패턴-2-파라미터-그룹화-및-모델-전개-연산자-paginationparams)
    - [패턴 3: 다형성 디스크리미네이터 상속 계층 패턴 (`@discriminator`)](#패턴-3-다형성-디스크리미네이터-상속-계층-패턴-discriminator)
    - [패턴 4: `@visibility` 기반 단일 모델 수명주기 투영 패턴](#패턴-4-visibility-기반-단일-모델-수명주기-투영-패턴)
    - [패턴 5: 커스텀 도메인 스칼라(Scalar) 제약 캡슐화 패턴](#패턴-5-커스텀-도메인-스칼라scalar-제약-캡슐화-패턴)
-   - [패턴 6: 멀티 스테이터스 에러 유니온 합성 패턴 (`RFC 9457`)](#패턴-6-멀티-스테이터스-에러-유니온-합성-패턴-rfc-9457)
-   - [패턴 7: 비침습적 벤더 메타데이터 확장 주입 패턴 (`@extension`)](#패턴-7-비침습적-벤더-메타데이터-확장-주입-패턴-extension)
-   - [패턴 8: 커스텀 TypeSpec 데코레이터 제작 및 컴파일 방법 (`extern dec`)](#패턴-8-커스텀-typespec-데코레이터-제작-및-컴파일-방법-extern-dec)
-4. [Part 3: 실무 체크리스트 및 안티패턴 방어](#part-3-실무-체크리스트-및-안티패턴-방어)
+   - [패턴 6: 멀티 스테이터스 에러 유니온 합성 패턴 (`ErrorResponse<Status>`)](#패턴-6-멀티-스테이터스-에러-유니온-합성-패턴-errorresponsestatus)
+   - [패턴 7: 벤더 메타데이터 확장 패턴 (`@extension`)](#패턴-7-벤더-메타데이터-확장-패턴-extension)
+   - [패턴 8: 커스텀 TypeSpec 데코레이터 제작 (`extern dec`)](#패턴-8-커스텀-typespec-데코레이터-제작-extern-dec)
+4. [Part 3: 실무 체크리스트](#part-3-실무-체크리스트)
 
 ---
 
-## 1. 개요 및 아키텍처 원칙
+## 1. 개요
 
-TypeSpec(`.tsp`)은 프로덕션 API 계약 및 도메인 스키마를 표현하는 **단일 진실 공급원(SSOT)**입니다. TypeSpec의 가장 큰 강점은 **풍부한 데코레이터 생태계**를 통해 단순한 타입 정의를 넘어 다음을 단일 원천에서 선언할 수 있다는 점입니다:
+TypeSpec(`.tsp`)은 oa-sdk가 권장하는 계약 원본 형식입니다. 데코레이터로 타입 정의 외에 다음을 한곳에 선언합니다.
 
-1. **전송 프로토콜 독립성**: HTTP/REST 엔드포인트뿐 아니라 순수 데이터 구조체, RPC, WebSocket, 메시지 버스 페이로드를 동일한 언어로 선언.
-2. **엄격한 수치/문자열 계약**: JSON Schema Draft 2020-12 및 OpenAPI 3.1/3.2의 정밀한 수학적 경계(`exclusiveMinimum: 0` 등)를 메타데이터 손실 없이 완벽 방출.
-3. **컴파일 타임 정적 검증**: 런타임 검증 라이브러리(Zod, AJV 등)의 번들 비대화나 `eval()` 호출 없이, 제로-런타임 정적 가드와 클라이언트를 자동 파생.
-4. **선언적 확장성**: `@oa-sdk/typespec-decorators`, `@oa-sdk/typespec-erd`처럼 도메인 전용 데코레이터를 TypeScript로 직접 제작하여 컴파일 파이프라인에 주입 가능.
+1. **HTTP 바인딩**: 경로, 메서드, 파라미터 위치, 상태 코드.
+2. **값 제약**: 문자열 길이, 숫자 범위(`exclusiveMinimum` 포함), 정규식, 포맷. OpenAPI 3.2 / JSON Schema 2020-12 키워드로 출력됩니다.
+3. **OpenAPI 메타데이터**: `operationId`, 외부 문서, `x-*` 확장.
+4. **OA SDK 확장**: `@oa-sdk/typespec-decorators`의 decorator로 버전이 있는 `x-oa-sdk-*` 확장을 기록합니다.
+
+`oa-gen`은 이 원본에서 OpenAPI 문서, TypeScript 타입, 클라이언트, 핸들러 계약, 타입 가드를 만듭니다([토폴로지 가이드](./06-generation-topologies-and-rules.md)).
 
 ---
 
-## Part 1: TypeSpec 데코레이터 종합 레퍼런스
+## Part 1: TypeSpec 데코레이터 레퍼런스
 
 ### 1.1 Core & 메타데이터 데코레이터
-TypeSpec 언어 코어에서 제공하며 문서화, 샘플 데이터 제공, 서비스 선언에 사용됩니다.
+TypeSpec 언어 코어와 `@typespec/http`·`@typespec/openapi`가 제공하며 문서화, 예시값, 서비스 선언에 씁니다.
 
 ```typespec
 import "@typespec/http";
@@ -52,10 +69,8 @@ import "@typespec/openapi";
 using TypeSpec.Http;
 using TypeSpec.OpenAPI;
 
-@service(#{
-  title: "Browser Studio Workspace API",
-  version: "1.2.0"
-})
+@service(#{ title: "Browser Studio Workspace API" })
+@info(#{ version: "1.2.0" })
 @server("https://api.studio.dev/v1", "Production Gateway")
 namespace Studio.Workspace;
 
@@ -69,29 +84,35 @@ model UserProfile {
   @doc("계정 표시 이름")
   name: string;
 
-  @deprecated("v1.5.0부터 'displayName' 필드로 대체됩니다.")
+  #deprecated "v1.5.0부터 'displayName' 필드로 대체됩니다."
   nickname?: string;
 }
 ```
 
-| 데코레이터 | 적용 대상 | 설명 | 투영 산출물 |
+| 데코레이터 | 적용 대상 | 설명 | OpenAPI 출력 |
 |---|---|---|---|
-| `@doc(text)` | Any declaration | 상세 설명 문서화 (Markdown 지원) | OpenAPI `description` |
-| `@summary(text)` | Operation, Model | 간결한 1줄 요약 | OpenAPI `summary` |
-| `@example(value)` | ModelProperty, Model, Op | 샘플 페이로드 또는 필드 예시값 | OpenAPI `example` / `examples` |
-| `@deprecated(reason)` | Any declaration | 사용 중단 표시 및 사유 기재 | OpenAPI `deprecated: true` |
-| `@service(options)` | Namespace | 서비스 제목 및 메타데이터 선언 (`#{}` 문법 필수) | OpenAPI `info.title`, `info.version` |
-| `@server(url, desc?)` | Namespace | 배포 대상 호스트 및 게이트웨이 엔드포인트 | OpenAPI `servers[]` |
-| `@tag(name)` | Operation, Interface, Namespace | 오퍼레이션 카테고리 태그 분류 | OpenAPI `tags[]` |
+| `@doc(text)` | 모든 선언 | 상세 설명 (Markdown 가능) | `description` |
+| `@summary(text)` | Operation, Model | 한 줄 요약 | operation `summary`, 모델 schema `title` |
+| `@example(value)` | ModelProperty, Model | 예시값 | schema `examples` |
+| `#deprecated "reason"` | 모든 선언 (decorator가 아닌 지시문) | 사용 중단 표시 | `deprecated: true` |
+| `@service(#{ title })` | Namespace | 서비스 선언과 제목 | `info.title` |
+| `@info(#{ version, ... })` | Namespace (`@typespec/openapi`) | 문서 버전 등 `info` 필드 | `info.version` 등 |
+| `@server(url, desc?)` | Namespace | 배포 호스트 | `servers[]` |
+| `@tag(name)` | Operation, Interface, Namespace | operation 분류 태그 | `tags[]` |
+
+> ⚠️ TypeSpec 1.x에서 `@service`는 `version`을 받지 않고(`invalid-argument: ... ServiceOptions`), `@deprecated` decorator는 없습니다(`Unknown decorator @deprecated`). 버전은 `@info`로, 사용 중단은 `#deprecated` 지시문으로 씁니다.
 
 ---
 
 ### 1.2 HTTP 전송 및 바인딩 데코레이터 (`@typespec/http`)
-HTTP 프로토콜 라우팅, 메서드, 파라미터 위치(Path, Query, Header, Body), 상태 코드를 명시합니다.
+HTTP 라우팅, 메서드, 파라미터 위치(Path, Query, Header, Body), 상태 코드를 명시합니다. 예제의 `Ok`, `Created`, `NoContent`는 `@oa-sdk/typespec-decorators`의 표준 계약입니다([1.6](#16-oa-sdk-데코레이터와-표준-계약)).
 
 ```typespec
 import "@typespec/http";
+import "@oa-sdk/typespec-decorators";
+
 using TypeSpec.Http;
+using OaSdkTypeSpec;
 
 @route("/workspaces")
 @tag("workspaces")
@@ -134,24 +155,29 @@ interface WorkspaceOperations {
 }
 ```
 
-| 데코레이터 | 적용 대상 | 설명 | 투영 산출물 |
+| 데코레이터 | 적용 대상 | 설명 | OpenAPI 출력 |
 |---|---|---|---|
-| `@route(path)` | Operation, Interface, Namespace | URL 엔드포인트 상대 또는 절대 경로 | OpenAPI `paths` 키 |
-| `@get`, `@post`, `@put`, `@patch`, `@delete`, `@head` | Operation | HTTP 메서드 동사 명시 | OpenAPI Operation Method |
-| `@path` | ModelProperty, Op Parameter | URL 경로 매개변수 (`{id}`와 이름 일치 필요) | OpenAPI `in: path`, `required: true` |
-| `@query(name?)` | ModelProperty, Op Parameter | URL 쿼리 스트링 매개변수 | OpenAPI `in: query` |
-| `@header(name?)` | ModelProperty, Op Parameter | HTTP 요청/응답 헤더 매개변수 | OpenAPI `in: header` |
-| `@body` | ModelProperty, Op Parameter | HTTP 요청 또는 응답 본문 페이로드 | OpenAPI `requestBody` / response body |
-| `@statusCode` | ModelProperty | HTTP 상태 코드 선언 (`200`, `201`, `400` 등) | OpenAPI `responses` Status Key |
+| `@route(path)` | Operation, Interface, Namespace | URL 경로 (interface·namespace에 붙이면 접두사) | `paths` 키 |
+| `@get`, `@post`, `@put`, `@patch`, `@delete`, `@head` | Operation | HTTP 메서드 | operation 메서드 |
+| `@path` | ModelProperty, Op Parameter | 경로 파라미터 (`{id}`와 이름 일치) | `in: path`, `required: true` |
+| `@query(name?)` | ModelProperty, Op Parameter | 쿼리 파라미터 | `in: query` |
+| `@header(name?)` | ModelProperty, Op Parameter | 요청·응답 헤더 | `in: header` |
+| `@body` | ModelProperty, Op Parameter | 요청·응답 본문 | `requestBody` / 응답 `content` |
+| `@statusCode` | ModelProperty | 응답 상태 코드 | `responses`의 상태 키 |
 
 ---
 
-### 1.3 OpenAPI 3.1/3.2 사양 데코레이터 (`@typespec/openapi`)
-OpenAPI 스펙 생성기(Emitter)의 오퍼레이션 식별자, 외부 문서, 커스텀 벤더 확장을 다룹니다.
+### 1.3 OpenAPI 사양 데코레이터 (`@typespec/openapi`)
+operation 식별자, 외부 문서, 벤더 확장을 다룹니다.
 
 ```typespec
+import "@typespec/http";
 import "@typespec/openapi";
+import "@oa-sdk/typespec-decorators";
+
+using TypeSpec.Http;
 using TypeSpec.OpenAPI;
+using OaSdkTypeSpec;
 
 @route("/assets")
 interface Assets {
@@ -164,19 +190,19 @@ interface Assets {
 }
 ```
 
-| 데코레이터 | 적용 대상 | 설명 | 투영 산출물 |
+| 데코레이터 | 적용 대상 | 설명 | OpenAPI 출력 |
 |---|---|---|---|
-| `@operationId(id)` | Operation | 언어 중립 클라이언트 함수명 및 고유 식별자 (`camelCase`) | OpenAPI `operationId` |
-| `@extension(name, value)` | Any declaration | 임의의 `x-*` OpenAPI 벤더 확장 메타데이터 주입 | OpenAPI `x-*` key/value |
-| `@externalDocs(url, desc?)` | Any declaration | 상세 기술 명세서 외부 URL 링크 | OpenAPI `externalDocs` |
+| `@operationId(id)` | Operation | 클라이언트 함수 이름이 되는 고유 식별자 (`camelCase`) | `operationId` |
+| `@extension(name, value)` | 모든 선언 | `x-*` 벤더 확장 | `x-*` 키 |
+| `@externalDocs(url, desc?)` | 모든 선언 | 외부 문서 링크 | `externalDocs` |
+| `@info(#{ ... })` | Namespace | `info` 필드(버전, 연락처, 라이선스 등) | `info.*` |
 
-> ⚠️ **주의 (Import 누락 방지)**:  
-> `@operationId`는 `@typespec/http`가 아니라 **`@typespec/openapi`**에 속합니다. 누락 시 컴파일 에러(`error invalid-ref: Unknown decorator @operationId`)가 발생하므로 항상 세트로 임포트하십시오.
+> ⚠️ `@operationId`는 `@typespec/http`가 아니라 `@typespec/openapi`에 있습니다. `import "@typespec/openapi";`와 `using OpenAPI;`(또는 `using TypeSpec.OpenAPI;`)가 없으면 `error invalid-ref: Unknown decorator @operationId`가 납니다.
 
 ---
 
-### 1.4 정밀 제약 및 유효성 검증 데코레이터 (RFC / JSON Schema 2020-12)
-`@oa-sdk`의 4단계 파이프라인(JSON Schema Draft 2020-12 및 OpenAPI 3.1)으로 컴파일될 때 비트 단위로 일치하는 검증 제약을 정의합니다.
+### 1.4 제약 및 유효성 검증 데코레이터
+OpenAPI 3.2 / JSON Schema 2020-12 검증 키워드로 출력되는 제약입니다.
 
 ```typespec
 model MediaEncodingJob {
@@ -189,8 +215,8 @@ model MediaEncodingJob {
   @maxValue(7680)
   widthPx: int32;
 
-  @doc("프레임 레이트 (FPS, 0보다 엄격히 커야 함)")
-  @minValue(0.01)
+  @doc("프레임 레이트 (FPS, 0보다 커야 함)")
+  @minValueExclusive(0)
   framerate: float64;
 
   @doc("출력 파일명 (1~255자, 영문/숫자/하이픈/언더스코어)")
@@ -199,31 +225,30 @@ model MediaEncodingJob {
   @pattern("^[a-zA-Z0-9_-]+\\.[a-z0-9]+$")
   filename: string;
 
-  @doc("오디오 채널 수 (스테레오/5.1 등, 2의 배수)")
-  @multipleOf(2)
-  audioChannels: int32;
-
   @doc("스토리지 암호화 키 (OpenAPI에서 format: password로 마스킹)")
   @secret
   encryptionKey?: string;
 }
 ```
 
-| 데코레이터 | 지원 타입 | 설명 | JSON Schema 2020-12 / OAS 3.1 키워드 |
+| 데코레이터 | 지원 타입 | 설명 | OpenAPI 3.2 키워드 |
 |---|---|---|---|
-| `@minValue(n)` | `int32`, `int64`, `float64` 등 | 최솟값 경계 (이상, $x \ge n$) | `minimum: n` |
-| `@maxValue(n)` | `int32`, `int64`, `float64` 등 | 최댓값 경계 (이하, $x \le n$) | `maximum: n` |
-| `@multipleOf(n)` | Numeric | 배수 제약 ($x \pmod n = 0$) | `multipleOf: n` |
-| `@minLength(n)` | `string` | 문자열 최소 길이 ($\text{length} \ge n$) | `minLength: n` |
-| `@maxLength(n)` | `string` | 문자열 최대 길이 ($\text{length} \le n$) | `maxLength: n` |
-| `@pattern(regex)` | `string` | 정규표현식 검증 패턴 | `pattern: "regex"` |
+| `@minValue(n)` | 숫자 | 최솟값 (이상, $x \ge n$) | `minimum: n` |
+| `@maxValue(n)` | 숫자 | 최댓값 (이하, $x \le n$) | `maximum: n` |
+| `@minValueExclusive(n)` | 숫자 | 최솟값 (초과, $x > n$) | `exclusiveMinimum: n` |
+| `@maxValueExclusive(n)` | 숫자 | 최댓값 (미만, $x < n$) | `exclusiveMaximum: n` |
+| `@minLength(n)` | `string` | 최소 길이 | `minLength: n` |
+| `@maxLength(n)` | `string` | 최대 길이 | `maxLength: n` |
+| `@pattern(regex)` | `string` | 정규식 패턴 | `pattern: "regex"` |
 | `@format(format)` | `string` | 표준 포맷 (`uuid`, `email`, `uri`, `date-time`, `ipv4`, `ipv6` 등) | `format: "format"` |
-| `@secret` | `string` | 민감 데이터 마스킹 플래그 | `format: "password"` |
+| `@secret` | `string` | 민감 데이터 표시 | `format: "password"` |
+
+`@multipleOf`는 TypeSpec 코어가 아니라 `@typespec/json-schema` 라이브러리의 decorator입니다. 이 저장소는 그 라이브러리를 설치하지 않으므로 그대로 쓰면 `Unknown decorator @multipleOf`가 납니다.
 
 ---
 
 ### 1.5 다형성 및 모델 수명주기 데코레이터
-복합 다형성 유니언과 단일 엔터티 모델의 읽기/쓰기 수명주기를 제어합니다.
+다형성 모델과 단일 모델의 읽기·쓰기 수명주기를 제어합니다.
 
 ```typespec
 // 1. 다형성 디스크리미네이터 모델링
@@ -246,74 +271,75 @@ model Rectangle extends Shape {
 
 // 2. 단일 모델 생명주기 가시성 제어 (@visibility)
 model Article {
-  @visibility("read")
+  @visibility(Lifecycle.Read)
   id: string;
 
-  @visibility("create", "update", "read")
   title: string;
 
-  @visibility("create", "update", "read")
   content: string;
 
-  @visibility("read")
+  @visibility(Lifecycle.Read)
   viewCount: int32;
 
-  @visibility("read")
+  @visibility(Lifecycle.Read)
   createdAt: utcDateTime;
 }
 ```
 
-| 데코레이터 | 적용 대상 | 설명 | 투영 산출물 |
+| 데코레이터 | 적용 대상 | 설명 | OpenAPI 출력 |
 |---|---|---|---|
-| `@discriminator(prop)` | Model | 다형성 변형체를 식별할 태그 프로퍼티 명시 | OpenAPI `discriminator: { propertyName: "prop" }` |
-| `@visibility(...roles)` | ModelProperty | 읽기(`read`), 생성(`create`), 수정(`update`), 쿼리(`query`) 시의 필드 가시성 제어 | 요청/응답 별도 DTO 자동 분기 방출 |
-| `@key(name?)` | ModelProperty | 리소스의 기본 식별자 키 지정 | REST 경로 파라미터 자동 매핑 |
+| `@discriminator(prop)` | Model | 다형성 변형을 구분할 속성 | `discriminator: { propertyName: "prop" }` |
+| `@visibility(...modifiers)` | ModelProperty | 필드가 보이는 수명주기 단계: `Lifecycle.Read`, `Lifecycle.Create`, `Lifecycle.Update`, `Lifecycle.Delete`, `Lifecycle.Query`. 붙이지 않은 필드는 모든 단계에 보입니다. | 읽기 전용 필드는 `readOnly: true`. 요청 본문에서 빠지는 필드가 있으면 `<Model>Create`, `<Model>Update` 같은 별도 schema |
+| `@key(name?)` | ModelProperty | 리소스 식별자 키 (`@typespec/rest` 리소스 경로용) | 이 출력에는 영향 없음 |
+
+> ⚠️ TypeSpec 1.x는 `@visibility("read")` 같은 문자열 인자를 받지 않습니다(`invalid-argument: ... 'valueof EnumMember'`). `Lifecycle` 열거형 멤버를 씁니다.
 
 ---
 
-### 1.6 `@oa-sdk` 거버넌스 및 플랫폼 확장 데코레이터
-
-`oa-sdk` 모노레포 및 다운스트림 서비스의 아키텍처 거버넌스, 페르소나 역량, 데이터 가명화(DPM), 논리 ERD를 지원하는 공식 데코레이터 패키지입니다.
+### 1.6 `@oa-sdk` 데코레이터와 표준 계약
 
 #### 1) `@oa-sdk/typespec-decorators` (`using OaSdkTypeSpec;`)
-- **`@oaUseResponseComponent(statusCode, componentName)`**:  
-  재사용 가능한 OpenAPI 응답 컴포넌트(`#/components/responses/<name>`)를 연결.
-- **`@personaCapability(...traits)`**:  
-  API 오퍼레이션이 지원하는 페르소나 역량(`pagination`, `full-text-search`, `pii-masked-default` 등 21종)을 선언. OpenAPI `x-oa-sdk-persona-traits`로 투영.
-- **`@pseudonymize(transform, role?, pii?, relationship?)`**:  
-  DPM 데이터 보호 정책에 따른 필드 가명화(`hmac-sha256`, `tokenization`) 및 마스킹 규칙 선언. OpenAPI `x-oa-sdk-dpm-projection`으로 투영.
-- **`@crdt(options)` / `@crdtEntity(options)`**:  
-  분산 동시성 제어 및 CRDT 복제 정책 선언. OpenAPI `x-oa-sdk-crdt`로 투영.
 
-#### 2) `@oa-sdk/typespec-erd` (`using OaSdkErd;`)
-- **`@dataset(id)`**: 네임스페이스 레벨의 논리 데이터셋 스코프 선언.
-- **`@entity(id)`**: 리네임에 안전한 논리 엔티티 식별자 선언.
-- **`@field(id)`**: 물리 DB 컬럼과 매핑 가능한 논리 필드 식별자 선언.
-- **`@primaryKey(groupId?, order?)`**: 기본 키 또는 복합 기본 키 지정.
-- **`@unique`**: 유니크 제약 조건 선언.
-- **`@foreignKey(targetField)`**: 논리 외래 키 참조 관계 선언.
-- **`@relationship(id, from, to, cardinality)`**: 두 필드 간 카디널리티(`one-to-one`, `one-to-many`, `many-to-one`) 선언.
+decorator별 인자, 허용 값, 진단 코드는 [패키지 README](../../../packages/typespec-decorators/README.md)가 정본입니다. 요약은 다음과 같습니다.
 
-#### 3) 플랫폼 공통 계약 (`lib/contracts.tsp`, namespace `OaSdkTypeSpec`)
-`import "@oa-sdk/typespec-decorators";`가 데코레이터와 함께 불러오며, 데코레이터와 같은 `OaSdkTypeSpec` namespace에 있으므로 `using OaSdkTypeSpec;` 하나로 둘 다 사용합니다.
+| 데코레이터 | 대상 | 출력 확장 |
+|---|---|---|
+| `@oaUseResponseComponent(statusCode, componentName)` | Operation | `x-oa-sdk-operation-component-refs` |
+| `@personaCapability(...traits)` | Operation | `x-oa-sdk-persona-traits` (`packages/personas/src/traits/skill.yaml`의 표준 trait 24종만 허용) |
+| `@pseudonymize(transform, role?, pii?, relationship?)` | ModelProperty | `x-oa-sdk-dpm-projection` (`transform`: `keep`, `redact`, `mask`, `null`, `hash`, `generalize`, `relationship_token`, `polymorphic_relationship_token`) |
+| `@crdt(options)` | ModelProperty | `x-oa-sdk-crdt` |
+| `@crdtEntity(options)` | Model | `x-oa-sdk-crdt-entity` |
 
-- `Ok<T>`: 200 OK 단건 응답 (`{ @statusCode statusCode: 200, @body body: T }`)
-- `Created<T>`: 201 Created 리소스 생성 완료 응답
-- `NoContent<T = void>`: 204 No Content 바디 없는 응답
-- `PageResult<T>`: 표준 페이징 body 모델 (`items`, `total`, `page`, `limit`). 응답으로 쓰려면 `Ok<PageResult<T>>`처럼 감쌉니다.
-- `ErrorResponse<Status>`: 지정한 상태 코드와 `StandardError` body를 가진 에러 응답
-- `StandardError`: 에러 body (`code`, `message`, `details?: StandardValidationError[]`, `_meta?`). RFC 9457 Problem Details 형식은 아닙니다.
+`@oaUseResponseComponent`는 참조만 기록합니다. 재사용 응답(`#/components/responses/<name>`)으로 바뀌는 곳은 bundle restore(`oa-gen tsp-bundle-check`, 저장소의 `pnpm schema:typespec-check`)뿐이고, `oa-gen mock --tsp`나 `.tsp`를 넣은 `generate`·`typegen`에는 응답이 생기지 않습니다. 일반 프로젝트에서 4xx 응답을 선언할 때는 `ErrorResponse<Status>`나 `StandardHttpErrors`를 씁니다.
+
+`@crdt`·`@crdtEntity` 확장이 있는 스펙에서는 `oa-gen generate`가 CRDT 모듈 4개(`<id>.crdt.contract.ts`, `<id>.crdt.router.ts`, `<id>.crdt.client.ts`, `<id>.crdt.hooks.ts`)도 만듭니다.
+
+#### 2) `@oa-sdk/typespec-erd` (비공개 prototype)
+
+논리 ERD decorator(`@dataset`, `@entity`, `@field`, `@primaryKey`, `@foreignKey`, `@relationship` 등)를 제공하는 비공개 유지보수 패키지(maintenance-only, 저장소 전용)입니다. npm에 배포하지 않으며 OpenAPI를 출력하지 않습니다. 사용법과 한계는 [TypeSpec Logical ERD Authoring](../typespec-logical-erd-authoring.md)을 봅니다.
+
+#### 3) 표준 계약 (`lib/contracts.tsp`, namespace `OaSdkTypeSpec`)
+`import "@oa-sdk/typespec-decorators";`가 decorator와 함께 불러오며, decorator와 같은 `OaSdkTypeSpec` namespace에 있으므로 `using OaSdkTypeSpec;` 하나로 둘 다 씁니다. 표준 계약은 0.3.0부터 있습니다.
+
+- `Ok<T>`: 200 단건 응답 (`{ @statusCode statusCode: 200, @body body: T }`)
+- `Created<T>`: 201 생성 응답
+- `NoContent<T = void>`: 204 본문 없는 응답
+- `PageResult<T>`: 페이징 본문 모델 (`items`, `total`, `page`, `limit`). 응답으로 쓰려면 `Ok<PageResult<T>>`처럼 감쌉니다.
+- `ErrorResponse<Status>`: 지정한 상태 코드와 `StandardError` 본문을 가진 에러 응답
+- `StandardError`: 에러 본문 (`code`, `message`, `details?: StandardValidationError[]`, `_meta?`). RFC 9457 Problem Details 형식은 아닙니다.
 - `StandardValidationError`: 필드 수준 검증 에러 (`path`, `message`, `received?`, `expected?`)
 - `StandardHttpErrors`: `ErrorResponse<400> | ErrorResponse<401> | ErrorResponse<403> | ErrorResponse<404> | ErrorResponse<500>` 유니온 alias. 그 밖의 상태(409 등)는 `ErrorResponse<409>`처럼 직접 씁니다.
 
+oa-sdk 저장소의 production 번들은 같은 이름의 템플릿을 `packages/schemas/typespec/common.tsp`(namespace `OaSdkApi`, 에러 본문 `Error`)에 따로 두고 그것을 씁니다([TypeSpec 작성 규칙](../typespec-authoring-conventions.md#3-응답-선언)).
+
 ---
 
-## Part 2: 데코레이터를 활용한 8대 실전 `.tsp` 작성 패러다임
+## Part 2: 데코레이터를 활용한 8가지 `.tsp` 작성 패턴
 
-실무에서 `.tsp`를 작성할 때 데코레이터를 조합하여 코드 중복을 제거하고 강력한 타입 안정성을 확보하는 8대 핵심 패러다임입니다.
+데코레이터를 조합해 중복을 줄이고 타입 안정성을 높이는 패턴입니다. import 줄이 없는 예제(패턴 2·4 등)는 1.2의 import(`@typespec/http`, `@oa-sdk/typespec-decorators`)를 전제로 합니다.
 
 ### 패턴 1: 리소스 인터페이스 그룹화 패턴 (`interface Users { ... }`)
-오퍼레이션을 개별 전역 함수로 나열하는 대신, `interface` 블록에 묶고 `@route`와 `@tag`를 상단에 선언합니다. 하위 모든 오퍼레이션이 경로 접두사와 태그를 자동으로 승계받습니다.
+operation을 `interface` 블록에 묶고 `@route`와 `@tag`를 위에 선언하면, 안의 operation이 경로 접두사와 태그를 물려받습니다.
 
 ```typespec
 import "@typespec/http";
@@ -360,7 +386,7 @@ interface ProjectsResource {
 ---
 
 ### 패턴 2: 파라미터 그룹화 및 모델 전개 연산자 (`...PaginationParams`)
-모든 목록 API마다 `@query page`, `@query limit`, `@query sort`를 반복 작성하지 않고, 파라미터 모델을 선언한 뒤 전개 연산자(`...`)로 오퍼레이션 시그니처에 주입합니다.
+목록 API마다 `@query page`, `@query limit`, `@query sort`를 반복하지 않고, 파라미터 모델을 선언한 뒤 전개 연산자(`...`)로 operation 시그니처에 넣습니다.
 
 ```typespec
 @doc("공통 페이징 및 정렬 쿼리 파라미터")
@@ -383,7 +409,7 @@ model PaginationParams {
 
 @route("/users")
 interface Users {
-  // ...전개 연산자로 3개 쿼리 파라미터가 자동으로 HTTP 쿼리 파라미터로 바인딩됨
+  // 전개된 3개 속성이 쿼리 파라미터가 됨
   @get
   op listUsers(
     @query role?: "admin" | "member",
@@ -395,7 +421,7 @@ interface Users {
 ---
 
 ### 패턴 3: 다형성 디스크리미네이터 상속 계층 패턴 (`@discriminator`)
-비디오 트랜지션, 캔버스 그래픽 노드, 결제 수단 등 런타임에 형태가 동적으로 결정되는 복합 모델을 `@discriminator`와 `extends`로 모델링합니다.
+런타임에 형태가 정해지는 모델(비디오 트랜지션, 캔버스 노드, 결제 수단 등)을 `@discriminator`와 `extends`로 모델링합니다.
 
 ```typespec
 namespace Studio.Timeline;
@@ -445,43 +471,42 @@ alias VideoTransition = FadeTransition | WipeTransition | GlTransition;
 ---
 
 ### 패턴 4: `@visibility` 기반 단일 모델 수명주기 투영 패턴
-`CreateUserRequest`, `UpdateUserRequest`, `UserResponse`처럼 유사한 필드를 가진 DTO를 3~4개씩 중복 작성하지 않고, **단일 도메인 모델**에 `@visibility` 데코레이터를 적용하여 컴파일러가 요청 바디와 응답 스키마를 자동 분기하도록 설계합니다.
+`CreateUserRequest`, `UpdateUserRequest`, `UserResponse`처럼 비슷한 DTO를 여러 벌 쓰지 않고, 모델 하나에 `@visibility`를 붙여 요청 본문과 응답 schema를 나눕니다.
 
 ```typespec
 model User {
   @doc("시스템 발급 ID (조회 시에만 노출)")
-  @visibility("read")
+  @visibility(Lifecycle.Read)
   id: string;
 
   @doc("이메일 주소 (생성 시 필수, 수정 불가, 조회 가능)")
-  @visibility("create", "read")
+  @visibility(Lifecycle.Create, Lifecycle.Read)
   @format("email")
   email: string;
 
   @doc("사용자 이름 (생성, 수정, 조회 모두 가능)")
-  @visibility("create", "update", "read")
   @minLength(1)
   name: string;
 
-  @doc("비밀번호 (생성 및 수정 시에만 전달, 조회 응답에서는 완전 배제)")
-  @visibility("create", "update")
+  @doc("비밀번호 (생성 및 수정 시에만 전달, 조회 응답에서는 제외)")
+  @visibility(Lifecycle.Create, Lifecycle.Update)
   @secret
   password?: string;
 
   @doc("계정 생성 일시")
-  @visibility("read")
+  @visibility(Lifecycle.Read)
   createdAt: utcDateTime;
 }
 
 @route("/users")
 interface Users {
-  // OpenAPI 투영 시 password가 제외된 User 응답 스키마 생성
+  // 응답 schema `User`: id, email, name, createdAt (password 제외, id·createdAt은 readOnly)
   @get op getUser(@path id: string): Ok<User>;
 
-  // OpenAPI 투영 시 id, createdAt, viewCount가 배제되고 email, name, password만 포함된 Create 스키마 생성
+  // 요청 schema `UserCreate`: email, name, password
   @post op createUser(@body user: User): Created<User>;
 
-  // OpenAPI 투영 시 email이 배제되고 name, password만 선택 가능한 Update 스키마 생성
+  // 요청 schema `UserUpdate`: name, password
   @patch op updateUser(@path id: string, @body patch: User): Ok<User>;
 }
 ```
@@ -489,7 +514,7 @@ interface Users {
 ---
 
 ### 패턴 5: 커스텀 도메인 스칼라(Scalar) 제약 캡슐화 패턴
-자주 반복되는 유효성 검증 데코레이터 세트를 `scalar` 키워드로 도메인 타입화하여 재사용성을 극대화합니다.
+자주 반복되는 제약 묶음을 `scalar`로 도메인 타입화합니다.
 
 ```typespec
 // 1. 1부터 100 사이의 페이지 크기 스칼라
@@ -509,7 +534,7 @@ scalar HexColor extends string;
 @maxValue(1.0)
 scalar NormalizedRatio extends float64;
 
-// 모델에서 데코레이터 중복 없이 간결하게 소비
+// 모델에서 데코레이터 중복 없이 사용
 model CanvasLayer {
   id: string;
   name: string;
@@ -521,7 +546,7 @@ model CanvasLayer {
 ---
 
 ### 패턴 6: 멀티 스테이터스 에러 유니온 합성 패턴 (`ErrorResponse<Status>`)
-성공 응답과 상태 코드별 에러 응답(`StandardError` body)을 오퍼레이션 반환 타입에 유니온(`|`)으로 명시하여, 클라이언트 SDK 및 백엔드 핸들러 계약(`*.contract.ts`)에 강력한 다중 상태 분기 타입을 주입합니다. `StandardHttpErrors`는 400·401·403·404·500을 한 번에 더하는 alias이고, 그 밖의 상태는 `ErrorResponse<Status>`로 하나씩 더합니다.
+성공 응답과 상태 코드별 에러 응답(`StandardError` 본문)을 반환 타입에 유니온(`|`)으로 선언합니다. 이 응답은 일반 HTTP 응답이므로 `oa-gen mock --tsp`, `typegen`, `generate`의 출력에도 그대로 나옵니다. `StandardHttpErrors`는 400·401·403·404·500을 한 번에 더하는 alias이고, 그 밖의 상태는 `ErrorResponse<Status>`로 하나씩 더합니다.
 
 ```typespec
 import "@typespec/http";
@@ -544,8 +569,8 @@ op chargePayment(
 
 ---
 
-### 패턴 7: 비침습적 벤더 메타데이터 확장 주입 패턴 (`@extension`)
-소스 코드를 오염시키지 않고 Surface Engine live-patch 앵커, CI 모의 서버 지연시간 힌트, 레이트 리밋 메타데이터를 OpenAPI 확장에 선언합니다.
+### 패턴 7: 벤더 메타데이터 확장 패턴 (`@extension`)
+Surface Engine live-patch 앵커나 UI 편집기 힌트 같은 도구용 메타데이터를 `x-*` 확장으로 선언합니다. `@extension`은 `@typespec/openapi`에 있습니다.
 
 ```typespec
 model SurfaceToken {
@@ -563,13 +588,15 @@ model SurfaceToken {
 }
 ```
 
+`x-oa-sdk-*` 이름은 OA SDK 확장 어휘(`oa-sdk.typespec-extensions.v5`)와 `@oa-sdk/typespec-decorators`가 쓰므로 자체 메타데이터에는 다른 접두사를 씁니다. 저장소 계약에서의 규칙은 [확장 사용 순서](../typespec-authoring-conventions.md#5-확장-사용-순서-extension-convention)를 봅니다.
+
 ---
 
-### 패턴 8: 커스텀 TypeSpec 데코레이터 제작 및 컴파일 방법 (`extern dec`)
+### 패턴 8: 커스텀 TypeSpec 데코레이터 제작 (`extern dec`)
 
-`@oa-sdk/typespec-decorators`처럼 조직이나 프로젝트 전용의 커스텀 데코레이터를 TypeScript로 직접 개발하는 표준 방법입니다.
+`@oa-sdk/typespec-decorators`처럼 프로젝트 전용 decorator를 TypeScript로 만드는 방법입니다. 아래 세 파일과 `package.json`으로 이루어진 라이브러리를 `tsc`로 빌드하고 `.tsp`에서 import했을 때, 속성 schema에 `x-cache-policy`가 출력되고 TTL이 0 이하이면 컴파일이 진단 에러로 실패하는 것을 확인했습니다.
 
-#### 1단계: TypeSpec 인터페이스 선언 (`lib/decorators.tsp`)
+#### 1단계: TypeSpec 선언 (`lib/main.tsp`)
 ```typespec
 import "../dist/decorators.js";
 
@@ -585,54 +612,92 @@ extern dec cachePolicy(
 );
 ```
 
-#### 2단계: TypeScript 검증 및 OpenAPI 확장 Emitter 구현 (`src/decorators.ts`)
+#### 2단계: 라이브러리와 진단 정의 (`src/lib.ts`)
 ```typescript
-import type { DecoratorContext, ModelProperty, Type } from "@typespec/compiler";
+import { createTypeSpecLibrary, paramMessage } from "@typespec/compiler";
 
-// 데코레이터 상태 저장을 위한 컴파일 컨텍스트 키
-const cachePolicyKey = Symbol.for("MyPlatform.cachePolicy");
+export const $lib = createTypeSpecLibrary({
+  name: "@my-org/typespec-cache",
+  diagnostics: {
+    "invalid-cache-ttl": {
+      severity: "error",
+      messages: {
+        default: paramMessage`Cache TTL must be strictly positive, got ${"ttlSeconds"}`,
+      },
+    },
+  },
+});
+
+export const { reportDiagnostic } = $lib;
+```
+
+#### 3단계: 검증과 OpenAPI 확장 기록 (`src/decorators.ts`)
+```typescript
+import type { DecoratorContext, ModelProperty } from "@typespec/compiler";
+import { setExtension } from "@typespec/openapi";
+import { reportDiagnostic } from "./lib.js";
+
+// lib/main.tsp의 `namespace MyPlatform;`과 같아야 extern dec와 연결됩니다.
+export const namespace = "MyPlatform";
 
 export function $cachePolicy(
   context: DecoratorContext,
   target: ModelProperty,
   ttlSeconds: number,
-  scope: string = "public"
-) {
-  // 컴파일 타임 유효성 검사 (0보다 작으면 진단 에러 방출)
+  scope: string = "public",
+): void {
+  // 컴파일 타임 유효성 검사: 0 이하이면 진단 에러를 내고 확장을 기록하지 않음
   if (ttlSeconds <= 0) {
-    context.program.reportDiagnostic({
+    reportDiagnostic(context.program, {
       code: "invalid-cache-ttl",
-      message: `Cache TTL must be strictly positive, got ${ttlSeconds}`,
-      target,
-      severity: "error",
+      target: context.getArgumentTarget(0) ?? target,
+      format: { ttlSeconds: String(ttlSeconds) },
     });
     return;
   }
 
-  // AST 상태 저장 및 OpenAPI 벤더 확장 맵에 바인딩
-  context.stateMap(cachePolicyKey).set(target, { ttlSeconds, scope });
+  // OpenAPI 벤더 확장으로 기록 (프로퍼티 스키마에 x-cache-policy가 생김)
+  setExtension(context.program, target, "x-cache-policy", { ttlSeconds, scope });
 }
 ```
 
+#### 4단계: 패키지 진입점 (`package.json`)
+```json
+{
+  "name": "@my-org/typespec-cache",
+  "version": "0.1.0",
+  "type": "module",
+  "tspMain": "./lib/main.tsp",
+  "main": "./dist/decorators.js",
+  "files": ["dist", "lib"],
+  "peerDependencies": {
+    "@typespec/compiler": "^1.16.0",
+    "@typespec/openapi": "^1.16.0"
+  }
+}
+```
+
+`tspMain`이 있으면 `import "@my-org/typespec-cache";`로 라이브러리를 불러올 수 있고, 편집기 language server도 decorator를 자동완성합니다. OpenAPI 확장 대신 자체 emitter가 읽을 상태를 남기려면 `context.program.stateMap(key).set(target, value)`를 씁니다. `DecoratorContext` 자체에는 `stateMap`이 없습니다.
+
 ---
 
-## Part 3: 실무 체크리스트 및 안티패턴 방어
+## Part 3: 실무 체크리스트
 
-TypeSpec 데코레이터 및 `.tsp` 모델 작성 시 반드시 확인해야 하는 실무 가이드라인입니다.
-
-- [ ] **필수 임포트 분리**: `@operationId`를 사용할 때는 반드시 상단에 `import "@typespec/openapi"; using TypeSpec.OpenAPI;`를 선언했는가?
-- [ ] **오브젝트 리터럴 문법**: 데코레이터 인자로 객체를 넘길 때 일반 `{}` 대신 TypeSpec 0.60+ 규격인 **`#{}`** 표기법을 사용했는가?
-- [ ] **단일 모델 가시성 활용**: 동일 리소스의 Create/Update/Read 필드 차이를 위해 DTO를 난립시키지 않고 **`@visibility`** 패턴 도입을 우선 검토했는가?
-- [ ] **엄격한 수치 제약**: 부동소수점 및 정수 경계에 `@minValue` 및 `@maxValue`를 명시하여 OpenAPI `exclusiveMinimum` / `minimum` 키워드가 정상 방출되도록 했는가?
-- [ ] **다형성 식별자 태그**: 다형성 상속 모델에서 베이스 모델에 `@discriminator("type")`을 붙이고 파생 모델에서 리터럴 타입(`type: "fade";`)을 명확히 고정했는가?
-- [ ] **제네릭 에러 계약**: 일회성 에러 모델 대신 `@oa-sdk/typespec-decorators`(`using OaSdkTypeSpec;`)의 `StandardError`, `ErrorResponse<Status>`, `StandardHttpErrors` 템플릿을 활용했는가?
+- [ ] **import 확인**: `@operationId`, `@extension`, `@info`를 쓸 때 `import "@typespec/openapi"; using TypeSpec.OpenAPI;`를 선언했는가?
+- [ ] **오브젝트 값 문법**: decorator 인자로 객체를 넘길 때 TypeSpec 1.x의 **`#{}`** 값 문법을 썼는가?
+- [ ] **서비스 버전과 사용 중단**: 버전은 `@info(#{ version })`, 사용 중단은 `#deprecated "사유"`로 썼는가?
+- [ ] **단일 모델 가시성**: Create/Update/Read 필드 차이를 DTO 여러 벌 대신 `@visibility(Lifecycle.*)`로 표현할 수 있는지 검토했는가?
+- [ ] **수치 경계**: 경계를 포함하면 `@minValue`/`@maxValue`(`minimum`/`maximum`), 제외하면 `@minValueExclusive`/`@maxValueExclusive`(`exclusiveMinimum`/`exclusiveMaximum`)를 썼는가?
+- [ ] **다형성 태그**: 베이스 모델에 `@discriminator("type")`를 붙이고 파생 모델에서 리터럴 타입(`type: "fade";`)을 고정했는가?
+- [ ] **에러 계약**: 일회성 에러 모델 대신 `ErrorResponse<Status>`, `StandardHttpErrors`(`using OaSdkTypeSpec;`)를 썼는가?
 
 ---
 
 ## 🔗 관련 문서
-- [스키마 아키텍처 및 작성 규칙 (4-Stage TypeSpec SSOT & 비디오 트랜지션 파라미터 다양화)](../schema-architecture-and-conventions.md)
-- [TypeSpec 5분 퀵스타트 가이드](./01-quickstart-5min.md)
-- [TypeSpec 작성 규칙 및 컨벤션 표준](./02-authoring-conventions.md)
+- [TypeSpec 작성 규칙 (저장소 정본)](../typespec-authoring-conventions.md)
+- [`@oa-sdk/typespec-decorators` README](../../../packages/typespec-decorators/README.md)
+- [TypeSpec 5분 퀵스타트 (저장소 기여자용)](./01-quickstart-5min.md)
 - [스캐폴딩 및 Semantic Diff 도구 활용법](./04-scaffolding-and-diff.md)
 - [TypeSpec 아티팩트 생성 토폴로지 및 아키텍처 규칙](./06-generation-topologies-and-rules.md)
+- [스키마 아키텍처 및 작성 규칙](../schema-architecture-and-conventions.md)
 - [선언적 스펙 설정 가이드 (oa.config.ts)](../declarative-spec-configuration.md)
