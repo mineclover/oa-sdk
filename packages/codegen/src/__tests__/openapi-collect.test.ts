@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { parse as parseYaml } from 'yaml'
 import { stringifyOpenApiYaml, normalizeOpenApiDocument, upgradeOpenApiDocumentTo32 } from '../cli/lib/openapi-collect.js'
 
 describe('openapi collect scaffold', () => {
@@ -291,5 +292,163 @@ describe('openapi collect scaffold', () => {
       info: { title: 'T', version: '1' },
     }, { profile: 'nestjs-swagger' })
     expect(Object.keys(normalized)).toEqual(['openapi', 'info'])
+  })
+})
+
+// YAML aliases parse to shared objects (a recursive alias to a cycle) and
+// structuredClone keeps that sharing, so normalization receives a DAG.
+describe('normalizeOpenApiDocument on DAG-shaped input', () => {
+  const expandAliases = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
+  const responseAt = (document: Record<string, unknown>, path: string) =>
+    (document.paths as Record<string, { get: { responses: Record<string, Record<string, unknown>> } }>)[path]!.get.responses['200']!
+
+  it('normalizes every location of a node shared through YAML aliases', () => {
+    const source = parseYaml(`
+openapi: 3.1.0
+info: &info
+  version: '1'
+  title: Shared
+  contact: {}
+x-source-info: *info
+paths:
+  /a:
+    get:
+      responses:
+        '200': &ok
+          description: ok
+          content:
+            application/json:
+              schema: { type: object, title: Item }
+  /b:
+    get:
+      responses:
+        '200': *ok
+  /c:
+    get:
+      responses:
+        '200': *ok
+`) as Record<string, unknown>
+
+    const normalized = normalizeOpenApiDocument(source, { profile: 'nestjs-swagger' })
+
+    expect(Object.keys(normalized['x-source-info'] as object)).toEqual(['title', 'version'])
+    for (const path of ['/a', '/b', '/c']) {
+      expect(Object.keys(responseAt(normalized, path))).toEqual(['content', 'description'])
+    }
+    const yaml = stringifyOpenApiYaml(normalized)
+    expect(yaml).toBe(stringifyOpenApiYaml(normalizeOpenApiDocument(expandAliases(source), { profile: 'nestjs-swagger' })))
+    expect(yaml).not.toContain('&ref_')
+  })
+
+  it('applies location-specific ordering to each location of a shared node', () => {
+    const source = parseYaml(`
+openapi: 3.1.0
+info: { title: Zones, version: '1' }
+paths:
+  /pets: &pets
+    delete: { responses: { '204': { description: gone } } }
+    post: { responses: { '201': { description: made } } }
+    get:
+      x-tag-order: &tags [pets, animals]
+      tags: *tags
+      responses: { '200': { description: ok } }
+components:
+  pathItems:
+    Pets: *pets
+`) as Record<string, unknown>
+
+    const normalized = normalizeOpenApiDocument(source)
+    const pathItem = (normalized.paths as Record<string, Record<string, Record<string, unknown>>>)['/pets']!
+    const componentItem = ((normalized.components as Record<string, unknown>).pathItems as Record<string, Record<string, Record<string, unknown>>>).Pets!
+
+    // HTTP method order applies only under #/paths; tags sort only under a `tags` key.
+    expect(Object.keys(pathItem)).toEqual(['get', 'post', 'delete'])
+    expect(Object.keys(componentItem)).toEqual(['delete', 'get', 'post'])
+    for (const operation of [pathItem.get!, componentItem.get!]) {
+      expect(operation.tags).toEqual(['animals', 'pets'])
+      expect(operation['x-tag-order']).toEqual(['pets', 'animals'])
+    }
+    expect(stringifyOpenApiYaml(normalized)).toBe(stringifyOpenApiYaml(normalizeOpenApiDocument(expandAliases(source))))
+  })
+
+  it('applies root-only noise rules to each location of a shared value', () => {
+    const source = parseYaml(`
+openapi: 3.1.0
+info: { title: Servers, version: '1' }
+servers: &none []
+paths:
+  /a:
+    servers: *none
+    get: { responses: { '200': { description: ok } } }
+`) as Record<string, unknown>
+
+    const normalized = normalizeOpenApiDocument(source, { profile: 'nestjs-swagger' })
+
+    expect(normalized).not.toHaveProperty('servers')
+    expect((normalized.paths as Record<string, Record<string, unknown>>)['/a']!.servers).toEqual([])
+  })
+
+  it('rebuilds a shared node once per location context and keeps the sharing', () => {
+    // Each level holds the next one twice: depth + 1 nodes, 2^depth paths.
+    const depth = 20
+    let node: Record<string, unknown> = { leaf: true }
+    for (let level = 0; level < depth; level++) node = { right: node, left: node }
+
+    const normalized = normalizeOpenApiDocument({
+      openapi: '3.1.0',
+      info: { title: 'Deep', version: '1' },
+      paths: {},
+      'x-dag': node,
+    })
+
+    let current = normalized['x-dag'] as Record<string, unknown>
+    for (let level = 0; level < depth; level++) {
+      expect(Object.keys(current)).toEqual(['left', 'right'])
+      // Identity as a boolean: a failure diff of two DAGs would print every path.
+      expect(Object.is(current.left, current.right)).toBe(true)
+      current = current.left as Record<string, unknown>
+    }
+    expect(current).toEqual({ leaf: true })
+  })
+
+  it('terminates on recursive YAML aliases and keeps the cycle in the output', () => {
+    const source = parseYaml(`
+openapi: 3.1.0
+info: { title: Cycle, version: '1' }
+paths: {}
+x-node: &node
+  name: root
+  child:
+    parent: *node
+x-meta: &meta
+  contact: *meta
+`) as Record<string, unknown>
+
+    const normalized = normalizeOpenApiDocument(source, { profile: 'nestjs-swagger' })
+
+    const node = normalized['x-node'] as { child: { parent: unknown }; name: string }
+    expect(Object.keys(node)).toEqual(['child', 'name'])
+    expect(node.child.parent).toBe(node)
+    // A cycle back-edge is never an empty collection, so it is not dropped as noise.
+    const meta = normalized['x-meta'] as Record<string, unknown>
+    expect(Object.keys(meta)).toEqual(['contact'])
+    expect(meta.contact).toBe(meta)
+  })
+
+  it('terminates when a cycle re-enters the document root from a nested location', () => {
+    const source = parseYaml(`--- &root
+paths: {}
+openapi: 3.1.0
+info: { title: Root cycle, version: '1' }
+x-self: *root
+`) as Record<string, unknown>
+
+    const normalized = normalizeOpenApiDocument(source)
+
+    expect(Object.keys(normalized)).toEqual(['openapi', 'info', 'paths', 'x-self'])
+    // Below the root the same object follows nested-location rules (plain key order).
+    const nested = normalized['x-self'] as Record<string, unknown>
+    expect(Object.keys(nested)).toEqual(['info', 'openapi', 'paths', 'x-self'])
+    expect(nested['x-self']).toBe(nested)
   })
 })

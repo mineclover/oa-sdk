@@ -58,8 +58,8 @@ export function normalizeOpenApiDocument(
 ): Record<string, unknown> {
   const profile = options.profile ?? 'generic'
   const cloned = cloneJson(document)
-  const cleaned = removeCollectionNoise(cloned, profile, '#')
-  return sortOpenApiObject(cleaned, '#') as Record<string, unknown>
+  const cleaned = removeCollectionNoise(cloned, profile)
+  return sortOpenApiObject(cleaned) as Record<string, unknown>
 }
 
 export function upgradeOpenApiDocumentTo32(
@@ -425,36 +425,87 @@ function applyNullableUpgrade(
   return { anyOf: [schema, { type: 'null' }] }
 }
 
-function removeCollectionNoise(
-  value: unknown,
-  profile: OpenApiCollectProfile,
-  pointer: string,
-  seen = new Set<unknown>(),
-): unknown {
-  if (Array.isArray(value)) {
-    if (seen.has(value)) return value
-    seen.add(value)
-    return value.map((item, index) => removeCollectionNoise(item, profile, `${pointer}/${index}`, seen))
-  }
-  if (!isRecord(value)) return value
-  if (seen.has(value)) return value
-  seen.add(value)
+/**
+ * Rebuild memo for a transform over a JSON-like graph.
+ *
+ * Normalization input is not always a tree: YAML aliases parse to shared
+ * objects (a recursive alias to a cycle) and `structuredClone` keeps that
+ * sharing. A global "seen" set would hand the second location of a shared node
+ * back untransformed, so each transform here instead memoizes its result per
+ * (source node, location context). A context is the part of a location that the
+ * transform's rules read; the rules take the context, never the full location,
+ * so the result is the same at every location with that context. Each pair is
+ * built once: the output keeps the input's sharing and the work stays linear in
+ * the number of distinct pairs, not in the number of paths through the graph.
+ *
+ * The output container is registered before its children are built. A cycle
+ * back-edge therefore resolves to the container still under construction, the
+ * cycle is reproduced in the output, and the walk terminates. Containers under
+ * construction are exactly the ancestors of the current location.
+ */
+class RebuildMemo {
+  private readonly built = new Map<object, Map<string, object>>()
+  private readonly building = new Set<object>()
 
-  const output: Record<string, unknown> = {}
-  for (const [key, child] of Object.entries(value)) {
-    const childPointer = `${pointer}/${escapeJsonPointerToken(key)}`
-    const next = removeCollectionNoise(child, profile, childPointer, seen)
-    if (shouldDropNoise(key, next, profile, childPointer)) continue
-    output[key] = next
+  get(source: object, context: string): object | undefined {
+    return this.built.get(source)?.get(context)
   }
-  return output
+
+  build<T extends object>(source: object, context: string, output: T, fill: (output: T) => void): T {
+    let byContext = this.built.get(source)
+    if (byContext === undefined) {
+      byContext = new Map()
+      this.built.set(source, byContext)
+    }
+    byContext.set(context, output)
+    this.building.add(output)
+    fill(output)
+    this.building.delete(output)
+    return output
+  }
+
+  /** True for an output container on the current ancestor path, whose contents are not final yet. */
+  isBuilding(value: unknown): boolean {
+    return typeof value === 'object' && value !== null && this.building.has(value)
+  }
+}
+
+/** Location context of the noise rules: only root-level fields have a root-only rule. */
+type NoiseLocation = 'document' | 'nested'
+
+function removeCollectionNoise(document: unknown, profile: OpenApiCollectProfile): unknown {
+  const memo = new RebuildMemo()
+
+  const visit = (value: unknown, location: NoiseLocation): unknown => {
+    if (!Array.isArray(value) && !isRecord(value)) return value
+    const cached = memo.get(value, location)
+    if (cached !== undefined) return cached
+
+    if (Array.isArray(value)) {
+      return memo.build(value, location, [] as unknown[], (items) => {
+        for (const item of value) items.push(visit(item, 'nested'))
+      })
+    }
+    return memo.build(value, location, {} as Record<string, unknown>, (output) => {
+      for (const [key, child] of Object.entries(value)) {
+        const next = visit(child, 'nested')
+        // A back-edge to an ancestor is never empty once built: it contains
+        // the path down to this field. Its emptiness is not final yet, so
+        // only finished values are judged as noise.
+        if (!memo.isBuilding(next) && shouldDropNoise(key, next, profile, location)) continue
+        output[key] = next
+      }
+    })
+  }
+
+  return visit(document, 'document')
 }
 
 function shouldDropNoise(
   key: string,
   value: unknown,
   profile: OpenApiCollectProfile,
-  pointer: string,
+  parent: NoiseLocation,
 ): boolean {
   // Only drop empty fields when we know the source generator emitted them as
   // unavoidable defaults. For `generic` we preserve everything — an empty
@@ -464,57 +515,92 @@ function shouldDropNoise(
   // them explicitly, so the rule is shared.
   if (profile === 'generic') return false
   if (key === 'contact' && isRecord(value) && Object.keys(value).length === 0) return true
-  if ((key === 'servers' || key === 'tags') && Array.isArray(value) && value.length === 0 && pointer.split('/').length === 2) {
+  if ((key === 'servers' || key === 'tags') && Array.isArray(value) && value.length === 0 && parent === 'document') {
     return true
   }
   return false
 }
 
-function sortOpenApiObject(
-  value: unknown,
-  pointer: string,
-  seen = new Set<unknown>(),
-): unknown {
-  if (Array.isArray(value)) {
-    if (seen.has(value)) return value
-    seen.add(value)
-    const items = value.map((item, index) => sortOpenApiObject(item, `${pointer}/${index}`, seen))
-    return shouldSortArray(pointer) ? items.sort(compareStable) : items
-  }
-  if (!isRecord(value)) return value
-  if (seen.has(value)) return value
-  seen.add(value)
-
-  const keys = Object.keys(value)
-  keys.sort((left, right) => compareOpenApiKeys(pointer, left, right))
-  const output: Record<string, unknown> = {}
-  for (const key of keys) {
-    output[key] = sortOpenApiObject(value[key], `${pointer}/${escapeJsonPointerToken(key)}`, seen)
-  }
-  return output
+/**
+ * Location context of the ordering rules.
+ *
+ * - `keyOrder`: how a record's keys are ordered there. `document` is the root,
+ *   `paths` and `components` are the root fields of those names, `under-paths`
+ *   is anything deeper inside `paths`, and `plain` is everywhere else.
+ * - `sortItems`: whether an array there is sorted (fields named `tags` or `security`).
+ */
+type SortLocation = {
+  readonly keyOrder: 'document' | 'paths' | 'under-paths' | 'components' | 'plain'
+  readonly sortItems: boolean
 }
 
-function compareOpenApiKeys(pointer: string, left: string, right: string): number {
-  if (pointer === '#') return compareByOrder(ROOT_ORDER, left, right)
-  if (pointer === '#/paths') return left.localeCompare(right)
-  if (pointer.startsWith('#/paths/') && HTTP_METHODS.has(left) && HTTP_METHODS.has(right)) {
-    return compareByOrder([...HTTP_METHODS], left, right)
+const DOCUMENT_SORT_LOCATION: SortLocation = { keyOrder: 'document', sortItems: false }
+const SORTED_ARRAY_FIELDS = new Set(['tags', 'security'])
+const COMPONENTS_ORDER = [
+  'schemas',
+  'responses',
+  'parameters',
+  'examples',
+  'requestBodies',
+  'headers',
+  'securitySchemes',
+  'links',
+  'callbacks',
+  'pathItems',
+]
+
+function childSortLocation(parent: SortLocation, key: string): SortLocation {
+  return { keyOrder: childKeyOrder(parent.keyOrder, key), sortItems: SORTED_ARRAY_FIELDS.has(key) }
+}
+
+function childKeyOrder(parent: SortLocation['keyOrder'], key: string): SortLocation['keyOrder'] {
+  switch (parent) {
+    case 'document':
+      return key === 'paths' ? 'paths' : key === 'components' ? 'components' : 'plain'
+    case 'paths':
+    case 'under-paths':
+      return 'under-paths'
+    default:
+      return 'plain'
   }
-  if (pointer === '#/components') {
-    return compareByOrder([
-      'schemas',
-      'responses',
-      'parameters',
-      'examples',
-      'requestBodies',
-      'headers',
-      'securitySchemes',
-      'links',
-      'callbacks',
-      'pathItems',
-    ], left, right)
+}
+
+function sortOpenApiObject(document: unknown): unknown {
+  const memo = new RebuildMemo()
+
+  const visit = (value: unknown, location: SortLocation): unknown => {
+    if (!Array.isArray(value) && !isRecord(value)) return value
+    const context = `${location.keyOrder}:${location.sortItems}`
+    const cached = memo.get(value, context)
+    if (cached !== undefined) return cached
+
+    if (Array.isArray(value)) {
+      return memo.build(value, context, [] as unknown[], (items) => {
+        value.forEach((item, index) => items.push(visit(item, childSortLocation(location, String(index)))))
+        if (location.sortItems) items.sort(compareStable)
+      })
+    }
+    return memo.build(value, context, {} as Record<string, unknown>, (output) => {
+      const keys = Object.keys(value).sort((left, right) => compareOpenApiKeys(location.keyOrder, left, right))
+      for (const key of keys) output[key] = visit(value[key], childSortLocation(location, key))
+    })
   }
-  return left.localeCompare(right)
+
+  return visit(document, DOCUMENT_SORT_LOCATION)
+}
+
+function compareOpenApiKeys(keyOrder: SortLocation['keyOrder'], left: string, right: string): number {
+  switch (keyOrder) {
+    case 'document':
+      return compareByOrder(ROOT_ORDER, left, right)
+    case 'components':
+      return compareByOrder(COMPONENTS_ORDER, left, right)
+    case 'under-paths':
+      if (HTTP_METHODS.has(left) && HTTP_METHODS.has(right)) return compareByOrder([...HTTP_METHODS], left, right)
+      return left.localeCompare(right)
+    default:
+      return left.localeCompare(right)
+  }
 }
 
 function compareByOrder(order: readonly string[], left: string, right: string): number {
@@ -524,11 +610,6 @@ function compareByOrder(order: readonly string[], left: string, right: string): 
   if (leftIndex >= 0) return -1
   if (rightIndex >= 0) return 1
   return left.localeCompare(right)
-}
-
-function shouldSortArray(pointer: string): boolean {
-  return pointer.endsWith('/tags')
-    || pointer.endsWith('/security')
 }
 
 function compareStable(left: unknown, right: unknown): number {
