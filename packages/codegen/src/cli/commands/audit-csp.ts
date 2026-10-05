@@ -48,12 +48,28 @@ export interface CspModuleRoot {
   readonly dashVariants: boolean
 }
 
+/**
+ * 모듈 지정자를 담는 구문의 AST 노드 종류(TypeScript SyntaxKind 이름).
+ * - `ImportDeclaration`: `import Ajv from 'ajv'`, `import 'ajv'`
+ * - `ExportDeclaration`: `export * from 'ajv'`, `export { z } from 'zod'`
+ * - `ImportEqualsDeclaration`: `import Ajv = require('ajv')`
+ * - `CallExpression`: `require('ajv')`, `import('ajv')`처럼 첫 번째 인자가 지정자인 호출
+ */
+export type CspModuleReferenceSyntax =
+  | 'ImportDeclaration'
+  | 'ExportDeclaration'
+  | 'ImportEqualsDeclaration'
+  | 'CallExpression'
+
 export interface CspModuleReference {
+  readonly syntax: CspModuleReferenceSyntax
   /**
-   * 이 구문에 항상 나타나는 단어. 사전 검사는 이 단어가 독립 토큰으로(멤버 이름 `x.word`가 아니게)
-   * 나타나는 파일만 AST 검사로 넘긴다.
+   * 이 구문을 식별하는 토큰. 선언 구문에서는 지정자가 있으면 항상 나타나는 키워드(`import`, `from`)이고,
+   * 호출 구문에서는 호출 대상 자체(`require`, `import`)다.
+   * AST 검사는 노드의 식별 토큰이 이 목록에 있을 때만 위반으로 보고하고, 사전 검사는 이 단어가 독립
+   * 토큰으로(멤버 이름 `x.word`가 아니게) 나타나는 파일만 AST 검사로 넘긴다.
    */
-  readonly keyword: string
+  readonly tokens: readonly [string, ...string[]]
   readonly message: string
 }
 
@@ -63,7 +79,7 @@ export interface CspRuleTable {
   readonly modules: {
     readonly rule: `csp/${string}`
     readonly roots: readonly CspModuleRoot[]
-    /** 모듈 지정자를 담는 구문별 정의. 구문 → 지정자 추출은 MODULE_REFERENCE_EXTRACTORS가 맡는다. */
+    /** 모듈 지정자를 담는 구문별 정의. 구문에서 식별 토큰과 지정자를 읽는 방법은 MODULE_REFERENCE_READERS가 맡는다. */
     readonly references: { readonly [form: string]: CspModuleReference }
   }
 }
@@ -71,9 +87,12 @@ export interface CspRuleTable {
 /**
  * audit:csp 규칙 표. AST 검사와 어휘 사전 검사(mayContainCspViolation)는 모두 이 표에서 도출한다.
  *
- * 규칙을 추가/변경할 때는 이 표만 고치면 사전 검사가 함께 바뀐다. 새 규칙 ID는
- * `src/__tests__/audit-csp-prefilter.test.ts`의 규칙별 위반 사례가 없으면 타입 검사에서 실패하고,
- * 표의 각 항목은 같은 파일의 표 순회 테스트가 사전 검사와 AST 결과를 함께 확인한다.
+ * AST 검사는 표에 있는 호출 대상 이름, 모듈 참조 토큰, 금지 루트와 일치하는 노드만 보고하고, 사전 검사는
+ * 같은 이름/토큰/루트로 정규식을 만든다. 그래서 규칙의 이름, 토큰, 루트를 추가하거나 바꿀 때는 이 표만
+ * 고치면 된다. 새 규칙 ID나 새 모듈 참조 구문(CspModuleReferenceSyntax)은
+ * `src/__tests__/audit-csp-prefilter.test.ts`에 위반 사례가 없으면 타입 검사에서 실패하고, 표의 각 항목은
+ * 같은 파일의 표 순회 테스트가 사전 검사와 AST 결과를 함께 확인한다.
+ * 표 밖에서 지켜야 하는 전제(AST가 이름과 토큰을 원문에서 읽는 방식)는 사전 검사 패턴 위의 주석에 있다.
  */
 export const CSP_RULE_TABLE = {
   callTargets: {
@@ -110,23 +129,28 @@ export const CSP_RULE_TABLE = {
     ],
     references: {
       'import-declaration': {
-        keyword: 'import',
+        syntax: 'ImportDeclaration',
+        tokens: ['import'],
         message: 'Disallowed heavy schema engine or SDK runtime import in Manifest V3 bundle',
       },
       're-export': {
-        keyword: 'from',
+        syntax: 'ExportDeclaration',
+        tokens: ['from'],
         message: 'Disallowed heavy schema engine or SDK runtime re-export in Manifest V3 bundle',
       },
       'import-equals': {
-        keyword: 'import',
+        syntax: 'ImportEqualsDeclaration',
+        tokens: ['import'],
         message: 'Disallowed heavy schema engine or SDK runtime import in Manifest V3 bundle',
       },
       'require-call': {
-        keyword: 'require',
+        syntax: 'CallExpression',
+        tokens: ['require'],
         message: 'Disallowed heavy schema engine or SDK runtime require() in Manifest V3 bundle',
       },
       'dynamic-import': {
-        keyword: 'import',
+        syntax: 'CallExpression',
+        tokens: ['import'],
         message: 'Disallowed dynamic import of runtime dependency in Manifest V3 bundle',
       },
     },
@@ -196,21 +220,28 @@ function isDisallowedModuleSpecifier(specifier: string): boolean {
  *
  * 생성된 guard 번들은 수십 MB에 달할 수 있어 파일마다 전체 AST를 만드는 비용이 크다.
  * mayContainCspViolation은 AST 규칙이 위반을 보고하기 위한 필요조건이므로, false면 AST 검사를 생략해도
- * 결과가 같다. 이 필요조건은 아래 AST 쪽 전제에 기대며, 전제를 바꾸면 사전 검사도 함께 바꿔야 한다.
+ * 결과가 같다. AST 검사는 표의 호출 대상 이름과 모듈 참조 토큰으로 식별한 노드만 보고하므로, 이름과 토큰은
+ * 표를 고치면 양쪽이 함께 바뀐다. 표 밖에서 손으로 지키는 전제는 AST가 이름, 토큰, 지정자를 원문에서 읽는
+ * 방식뿐이다. 아래 전제를 바꾸면(예: 문자열에서 이름을 읽기) 사전 검사도 함께 바꿔야 한다.
  *
- * - 호출 대상은 식별자 이름으로만 찾는다(getGlobalTargetName). 식별자는 원문에 그대로 쓰이거나 유니코드
- *   이스케이프(`\u0065val`, `\u{65}val`)로만 숨길 수 있으므로, `\u`가 없으면 표의 이름이 원문에 나타나야 한다.
- *   `window.eval`처럼 속성 이름으로도 검사하므로 앞의 `.`은 배제하지 않는다.
- *   계산된 멤버 접근(`globalThis['eval']`)은 AST 규칙이 검사하지 않는다. 검사하도록 바꾸면 문자열 이스케이프
- *   (`'\x65val'`)로도 이름을 숨길 수 있으므로 호출 대상에도 `\` 조건이 필요해진다.
- * - 모듈 규칙은 표의 references 구문이 있어야 성립한다. 각 구문의 keyword는 키워드 또는 bare 식별자로만
- *   검사되므로 `.from`/`.require` 같은 멤버 이름은 제외한다(`...require()` 전개는 포함).
+ * - getGlobalTargetName은 호출 대상 이름을 식별자에서만 읽는다(`eval`, `(0, eval)`, `window.eval`). 식별자는
+ *   원문에 그대로 쓰이거나 유니코드 이스케이프(`\u0065val`, `\u{65}val`)로만 숨길 수 있으므로, `\u`가 없으면
+ *   표의 이름이 원문에 나타나야 한다. `window.eval`처럼 속성 이름으로도 읽으므로 앞의 `.`은 배제하지 않는다.
+ *   계산된 멤버 접근(`globalThis['eval']`)은 AST 규칙이 검사하지 않는다. 문자열에서 이름을 읽도록 바꾸면
+ *   문자열 이스케이프(`'\x65val'`)로도 이름을 숨길 수 있으므로 호출 대상에도 `\` 조건이 필요해진다.
+ * - MODULE_REFERENCE_READERS의 token은 노드를 식별하는 토큰, 즉 선언 키워드나 식별자/키워드 그 자체인
+ *   호출 대상의 텍스트를 돌려준다. 이 토큰은 멤버 이름이 아니므로 `.from`/`.require` 같은 멤버 이름은
+ *   제외한다(`...require()` 전개는 포함). 식별자인 호출 대상은 위와 같이 `\u`로만 숨길 수 있다.
  * - 모듈 지정자는 문자열 리터럴 값으로만 읽는다. 금지 루트 이름이 원문에 나타나거나, 문자열 이스케이프로
  *   숨겨질 수 있을 때(`\`)만 위험하다.
  * - 주석, 문자열, 템플릿 리터럴 안의 단어도 그대로 매칭된다. 사전 검사가 덜 걸러낼 뿐 위반은 누락되지 않는다.
  * - 필요조건은 문법적으로 올바른 JavaScript에 대해 성립한다. 숫자 리터럴 바로 뒤에 붙은 식별자
  *   (`0neval()`, `1e5eval()`)는 SyntaxError라 브라우저가 번들을 실행하지 않지만, TS 파서는 오류를 복구해
  *   호출로 읽으므로 이런 소스에서는 AST 검사만 위반을 보고할 수 있다.
+ *
+ * `src/__tests__/audit-csp-prefilter.test.ts`의 건전성 테스트는 이름과 토큰을 숨기거나 바꾼 형태(계산된 멤버
+ * 접근, 문자열 이스케이프, `__require` 같은 별칭 등)에 대해 "AST가 보고하면 사전 검사도 true"인지 확인한다.
+ * 위 전제를 깨는 AST 변경은 이 테스트에서 실패한다.
  */
 const IDENTIFIER_START = '(?<![\\w$])'
 const IDENTIFIER_END = '(?![\\w$])'
@@ -222,7 +253,7 @@ const CALL_TARGET_WORD = new RegExp(
 const MODULE_REFERENCE_WORD = new RegExp(
   IDENTIFIER_START +
     NOT_MEMBER_NAME +
-    anyOf([...new Set(MODULE_REFERENCE_FORMS.map(form => MODULE_REFERENCES[form].keyword))].map(escapeRegExp)) +
+    anyOf([...new Set(MODULE_REFERENCE_FORMS.flatMap(form => MODULE_REFERENCES[form].tokens))].map(escapeRegExp)) +
     IDENTIFIER_END,
 )
 const DISALLOWED_MODULE_ROOT_TEXT = new RegExp(anyOf(MODULE_ROOTS.map(root => escapeRegExp(root.name))))
@@ -296,33 +327,40 @@ const INVOCATION_NODE_KINDS: { readonly [K in CspInvocationKind]: SyntaxKindName
   construct: 'NewExpression',
 }
 
-interface ModuleReferenceExtractor {
-  readonly kind: SyntaxKindName
-  /** 노드가 이 구문이고 지정자가 문자열 리터럴이면 그 값을, 아니면 undefined를 반환한다. */
+interface ModuleReferenceReader {
+  /**
+   * 노드를 식별하는 토큰의 텍스트. 표의 tokens와 비교하며, 사전 검사는 이 토큰이 노드 원문에 독립
+   * 토큰으로(식별자라면 유니코드 이스케이프 형태로도) 나타난다는 데 기댄다.
+   */
+  readonly token: (ts: typeof tsType, node: tsType.Node) => string | undefined
+  /** 지정자가 문자열 리터럴이면 그 값을, 아니면 undefined를 반환한다. */
   readonly specifier: (ts: typeof tsType, node: tsType.Node) => string | undefined
 }
 
-/** 표의 모듈 참조 구문마다 지정자를 꺼내는 방법. 표에 구문을 추가하면 여기서 타입 오류가 난다. */
-const MODULE_REFERENCE_EXTRACTORS: { readonly [F in CspModuleReferenceForm]: ModuleReferenceExtractor } = {
+/**
+ * 모듈 참조 구문별로 식별 토큰과 지정자를 읽는 방법. 어떤 토큰을 금지 구문으로 볼지는 읽는 쪽이 아니라
+ * 표의 tokens가 정한다. CspModuleReferenceSyntax에 종류를 추가하면 여기서 타입 오류가 난다.
+ */
+const MODULE_REFERENCE_READERS: { readonly [S in CspModuleReferenceSyntax]: ModuleReferenceReader } = {
   // import Ajv from 'ajv' / import 'ajv'
-  'import-declaration': {
-    kind: 'ImportDeclaration',
+  ImportDeclaration: {
+    token: ts => ts.tokenToString(ts.SyntaxKind.ImportKeyword),
     specifier: (ts, node) => {
       const { moduleSpecifier } = node as tsType.ImportDeclaration
       return ts.isStringLiteral(moduleSpecifier) ? moduleSpecifier.text : undefined
     },
   },
-  // export * from 'ajv' / export { z } from 'zod'
-  're-export': {
-    kind: 'ExportDeclaration',
+  // export * from 'ajv' / export { z } from 'zod'. 지정자가 없는 `export { a }`에는 `from`도 없지만 지정자가 없어 보고하지 않는다.
+  ExportDeclaration: {
+    token: ts => ts.tokenToString(ts.SyntaxKind.FromKeyword),
     specifier: (ts, node) => {
       const { moduleSpecifier } = node as tsType.ExportDeclaration
       return moduleSpecifier && ts.isStringLiteral(moduleSpecifier) ? moduleSpecifier.text : undefined
     },
   },
   // import Ajv = require('ajv')
-  'import-equals': {
-    kind: 'ImportEqualsDeclaration',
+  ImportEqualsDeclaration: {
+    token: ts => ts.tokenToString(ts.SyntaxKind.ImportKeyword),
     specifier: (ts, node) => {
       const { moduleReference } = node as tsType.ImportEqualsDeclaration
       return ts.isExternalModuleReference(moduleReference) && ts.isStringLiteral(moduleReference.expression)
@@ -330,37 +368,26 @@ const MODULE_REFERENCE_EXTRACTORS: { readonly [F in CspModuleReferenceForm]: Mod
         : undefined
     },
   },
-  // require('ajv')
-  'require-call': {
-    kind: 'CallExpression',
-    specifier: (ts, node) => {
-      const { expression, arguments: args } = node as tsType.CallExpression
-      return ts.isIdentifier(expression) && expression.text === 'require'
-        ? getStringLiteralArgument(ts, args)
-        : undefined
+  // require('ajv') / import('ajv'): 호출 대상이 식별자나 키워드 그 자체인 호출만 식별한다(`obj.require()`는 제외).
+  CallExpression: {
+    token: (ts, node) => {
+      const { expression } = node as tsType.CallExpression
+      return ts.isIdentifier(expression) ? expression.text : ts.tokenToString(expression.kind)
     },
-  },
-  // import('ajv')
-  'dynamic-import': {
-    kind: 'CallExpression',
-    specifier: (ts, node) => {
-      const { expression, arguments: args } = node as tsType.CallExpression
-      const isImport =
-        expression.kind === ts.SyntaxKind.ImportKeyword || (ts.isIdentifier(expression) && expression.text === 'import')
-      return isImport ? getStringLiteralArgument(ts, args) : undefined
-    },
+    specifier: (ts, node) => getStringLiteralArgument(ts, (node as tsType.CallExpression).arguments),
   },
 }
 
-interface ModuleReferenceHandler {
-  readonly form: CspModuleReferenceForm
-  readonly specifier: ModuleReferenceExtractor['specifier']
+interface ModuleReferenceDispatch {
+  readonly reader: ModuleReferenceReader
+  /** 식별 토큰 → 그 토큰으로 식별되는 표의 모듈 참조 구문 */
+  readonly formsByToken: ReadonlyMap<string, readonly CspModuleReferenceForm[]>
 }
 
 /** 노드 종류 → 검사 방법. TypeScript 인스턴스마다 한 번 만든다. */
 interface AstDispatch {
   readonly invocations: ReadonlyMap<tsType.SyntaxKind, CspInvocationKind>
-  readonly moduleReferences: ReadonlyMap<tsType.SyntaxKind, readonly ModuleReferenceHandler[]>
+  readonly moduleReferences: ReadonlyMap<tsType.SyntaxKind, ModuleReferenceDispatch>
 }
 
 const astDispatchCache = new WeakMap<typeof tsType, AstDispatch>()
@@ -374,13 +401,23 @@ function getAstDispatch(ts: typeof tsType): AstDispatch {
     invocations.set(ts.SyntaxKind[INVOCATION_NODE_KINDS[invocation]], invocation)
   }
 
-  const moduleReferences = new Map<tsType.SyntaxKind, ModuleReferenceHandler[]>()
+  const moduleReferences = new Map<
+    tsType.SyntaxKind,
+    { readonly reader: ModuleReferenceReader; readonly formsByToken: Map<string, CspModuleReferenceForm[]> }
+  >()
   for (const form of MODULE_REFERENCE_FORMS) {
-    const { kind, specifier } = MODULE_REFERENCE_EXTRACTORS[form]
-    const syntaxKind = ts.SyntaxKind[kind]
-    const handlers = moduleReferences.get(syntaxKind) ?? []
-    handlers.push({ form, specifier })
-    moduleReferences.set(syntaxKind, handlers)
+    const { syntax, tokens } = MODULE_REFERENCES[form]
+    const syntaxKind = ts.SyntaxKind[syntax]
+    let entry = moduleReferences.get(syntaxKind)
+    if (entry === undefined) {
+      entry = { reader: MODULE_REFERENCE_READERS[syntax], formsByToken: new Map() }
+      moduleReferences.set(syntaxKind, entry)
+    }
+    for (const token of new Set(tokens)) {
+      const forms = entry.formsByToken.get(token) ?? []
+      forms.push(form)
+      entry.formsByToken.set(token, forms)
+    }
   }
 
   const dispatch: AstDispatch = { invocations, moduleReferences }
@@ -429,12 +466,14 @@ export function auditCspAstSync(filePath: string, content: string, ts: typeof ts
     }
   }
 
-  function checkModuleReferences(node: tsType.Node, handlers: readonly ModuleReferenceHandler[]) {
-    for (const handler of handlers) {
-      const specifier = handler.specifier(ts, node)
-      if (specifier !== undefined && isDisallowedModuleSpecifier(specifier)) {
-        addViolation(node, CSP_RULE_TABLE.modules.rule, `${MODULE_REFERENCES[handler.form].message}: "${specifier}"`)
-      }
+  function checkModuleReference(node: tsType.Node, { reader, formsByToken }: ModuleReferenceDispatch) {
+    const token = reader.token(ts, node)
+    const forms = token === undefined ? undefined : formsByToken.get(token)
+    if (forms === undefined) return
+    const specifier = reader.specifier(ts, node)
+    if (specifier === undefined || !isDisallowedModuleSpecifier(specifier)) return
+    for (const form of forms) {
+      addViolation(node, CSP_RULE_TABLE.modules.rule, `${MODULE_REFERENCES[form].message}: "${specifier}"`)
     }
   }
 
@@ -443,9 +482,9 @@ export function auditCspAstSync(filePath: string, content: string, ts: typeof ts
     if (invocation !== undefined) {
       checkInvocation(node as tsType.CallExpression | tsType.NewExpression, invocation)
     }
-    const handlers = dispatch.moduleReferences.get(node.kind)
-    if (handlers !== undefined) {
-      checkModuleReferences(node, handlers)
+    const moduleReference = dispatch.moduleReferences.get(node.kind)
+    if (moduleReference !== undefined) {
+      checkModuleReference(node, moduleReference)
     }
     ts.forEachChild(node, visit)
   }

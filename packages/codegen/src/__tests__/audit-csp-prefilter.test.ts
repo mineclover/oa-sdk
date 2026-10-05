@@ -10,7 +10,9 @@ import {
   type CspArgumentCondition,
   type CspCallTargetRule,
   type CspInvocationKind,
+  type CspModuleReference,
   type CspModuleReferenceForm,
+  type CspModuleReferenceSyntax,
   type CspModuleRoot,
   type CspRuleId,
 } from '../cli/commands/audit-csp.js'
@@ -22,8 +24,9 @@ import {
  * JavaScript에 대해 정의되므로 사례도 모두 올바른 문법으로 만든다.
  *
  * 사전 검사와 AST 규칙은 모두 CSP_RULE_TABLE에서 도출된다. 아래 테스트는
- * (1) 모든 CspRuleId에 위반 사례가 있는지 타입 수준에서 강제하고,
- * (2) 표의 항목을 순회해 사전 검사와 AST 결과가 함께 맞는지 확인한다.
+ * (1) 모든 CspRuleId와 모듈 참조 구문에 위반 사례가 있는지 타입 수준에서 강제하고,
+ * (2) 표의 항목을 순회해 사전 검사와 AST 결과가 함께 맞는지 확인하고,
+ * (3) AST 규칙 밖에서 이름과 토큰을 숨기거나 바꾼 형태에 대해 "AST가 보고하면 사전 검사도 true"인지 확인한다.
  */
 
 type NonEmpty<T> = readonly [T, ...T[]]
@@ -257,29 +260,34 @@ describe.each(CALL_TARGETS)('audit:csp call target %s', (name, target) => {
 // 3. 금지 모듈 규칙 (CSP_RULE_TABLE.modules 순회)
 // ---------------------------------------------------------------------------
 
-type SpecifierSample = (literal: string, gap: string) => string
+/** 표의 식별 토큰, 지정자 리터럴, 토큰 사이 공백/주석으로 모듈 참조 사례를 만든다. */
+type SpecifierSample = (token: string, literal: string, gap: string) => string
 
-const MODULE_REFERENCE_SAMPLES: { readonly [F in CspModuleReferenceForm]: NonEmpty<SpecifierSample> } = {
-  'import-declaration': [
-    (literal, gap) => `import${gap}Ajv${gap}from${gap}${literal}`,
-    (literal, gap) => `import${gap}${literal}`,
-    (literal, gap) => `import${gap}{${gap}a${gap}as${gap}b${gap}}${gap}from${gap}${literal}`,
-    (literal, gap) => `import${gap}*${gap}as${gap}ns${gap}from${gap}${literal}`,
+/**
+ * 모듈 참조 구문별 사례. 호출 구문은 표의 식별 토큰을 호출 대상으로 넣어 만들므로, 표에 토큰을 추가하면
+ * 사례도 함께 늘어난다. 선언 구문은 문법이 고정되어 있어 키워드를 그대로 쓴다. 표의 토큰이 그 문법의
+ * 키워드와 다르면 AST가 보고하지 않아 아래 테스트가 실패한다.
+ * CspModuleReferenceSyntax에 구문을 추가하면 여기에 사례를 넣기 전까지 타입 오류가 난다.
+ */
+const SYNTAX_SAMPLES: { readonly [S in CspModuleReferenceSyntax]: NonEmpty<SpecifierSample> } = {
+  ImportDeclaration: [
+    (_token, literal, gap) => `import${gap}Ajv${gap}from${gap}${literal}`,
+    (_token, literal, gap) => `import${gap}${literal}`,
+    (_token, literal, gap) => `import${gap}{${gap}a${gap}as${gap}b${gap}}${gap}from${gap}${literal}`,
+    (_token, literal, gap) => `import${gap}*${gap}as${gap}ns${gap}from${gap}${literal}`,
   ],
-  're-export': [
-    (literal, gap) => `export${gap}*${gap}from${gap}${literal}`,
-    (literal, gap) => `export${gap}{${gap}a${gap}}${gap}from${gap}${literal}`,
-    (literal, gap) => `export${gap}*${gap}as${gap}ns${gap}from${gap}${literal}`,
+  ExportDeclaration: [
+    (_token, literal, gap) => `export${gap}*${gap}from${gap}${literal}`,
+    (_token, literal, gap) => `export${gap}{${gap}a${gap}}${gap}from${gap}${literal}`,
+    (_token, literal, gap) => `export${gap}*${gap}as${gap}ns${gap}from${gap}${literal}`,
   ],
-  'import-equals': [(literal, gap) => `import${gap}Ajv${gap}=${gap}require(${gap}${literal}${gap})`],
-  'require-call': [
-    (literal, gap) => `require(${gap}${literal}${gap})`,
-    (literal, gap) => `f(...${gap}require(${literal}))`,
-    (literal, gap) => `\`\${${gap}require(${literal})}\``,
+  ImportEqualsDeclaration: [
+    (_token, literal, gap) => `import${gap}Ajv${gap}=${gap}require(${gap}${literal}${gap})`,
   ],
-  'dynamic-import': [
-    (literal, gap) => `import(${gap}${literal}${gap})`,
-    (literal, gap) => `\`\${${gap}import(${literal})}\``,
+  CallExpression: [
+    (token, literal, gap) => `${token}(${gap}${literal}${gap})`,
+    (token, literal, gap) => `f(...${gap}${token}(${literal}))`,
+    (token, literal, gap) => `\`\${${gap}${token}(${literal})}\``,
   ],
 }
 
@@ -311,27 +319,39 @@ function allowedSpecifiers(root: CspModuleRoot): string[] {
   ]
 }
 
-const MODULE_REFERENCE_FORMS = Object.keys(CSP_RULE_TABLE.modules.references) as CspModuleReferenceForm[]
+const MODULE_REFERENCES = Object.entries(CSP_RULE_TABLE.modules.references) as Array<
+  [CspModuleReferenceForm, CspModuleReference]
+>
 const MODULE_ROOTS: readonly CspModuleRoot[] = CSP_RULE_TABLE.modules.roots
+const MODULE_TOKENS: ReadonlySet<string> = new Set(MODULE_REFERENCES.flatMap(([, reference]) => reference.tokens))
 
-describe.each(MODULE_REFERENCE_FORMS)('audit:csp module reference %s', form => {
-  const { message } = CSP_RULE_TABLE.modules.references[form]
-  const samples = MODULE_REFERENCE_SAMPLES[form]
+/** 호출 구문(`require(...)`, `import(...)`)으로 지정자를 담는 표 항목과 그 호출 대상 토큰. */
+const CALL_REFERENCES = MODULE_REFERENCES.filter(([, reference]) => reference.syntax === 'CallExpression')
+const CALL_TOKENS: ReadonlySet<string> = new Set(CALL_REFERENCES.flatMap(([, reference]) => reference.tokens))
 
-  it('is kept by the prefilter and reported by the AST for every disallowed root and literal form', () => {
+/** 표 항목의 토큰마다 구문 사례를 만든다. */
+function referenceSources(reference: CspModuleReference, literal: string, gaps: readonly string[] = GAPS): string[] {
+  return reference.tokens.flatMap(token =>
+    SYNTAX_SAMPLES[reference.syntax].flatMap(sample => gaps.map(gap => sample(token, literal, gap))),
+  )
+}
+
+describe.each(MODULE_REFERENCES)('audit:csp module reference %s', (_form, reference) => {
+  /*
+   * 표의 tokens와 AST가 노드에서 읽는 식별 토큰(MODULE_REFERENCE_READERS)이 어긋나면, 이 구문의 사례가 보고되지
+   * 않거나 다른 구문의 메시지로 보고되어 이 테스트가 실패한다.
+   */
+  it('is identified by each table token and reported for every disallowed root and literal form', () => {
     const mismatches: unknown[] = []
     for (const root of MODULE_ROOTS) {
       for (const specifier of disallowedSpecifiers(root)) {
-        const expected = [{ rule: CSP_RULE_TABLE.modules.rule, message: `${message}: "${specifier}"` }]
+        const expected = [{ rule: CSP_RULE_TABLE.modules.rule, message: `${reference.message}: "${specifier}"` }]
         for (const literal of SPECIFIER_LITERALS) {
-          for (const sample of samples) {
-            for (const gap of GAPS) {
-              const source = sample(literal(specifier), gap)
-              const prefilter = mayContainCspViolation(source)
-              const actual = reported(source)
-              if (!prefilter || JSON.stringify(actual) !== JSON.stringify(expected)) {
-                mismatches.push({ source, prefilter, actual })
-              }
+          for (const source of referenceSources(reference, literal(specifier))) {
+            const prefilter = mayContainCspViolation(source)
+            const actual = reported(source)
+            if (!prefilter || JSON.stringify(actual) !== JSON.stringify(expected)) {
+              mismatches.push({ source, prefilter, actual })
             }
           }
         }
@@ -342,7 +362,7 @@ describe.each(MODULE_REFERENCE_FORMS)('audit:csp module reference %s', form => {
 
   it('does not report specifiers outside the disallowed roots', () => {
     const sources = MODULE_ROOTS.flatMap(root =>
-      allowedSpecifiers(root).flatMap(specifier => samples.map(sample => sample(`"${specifier}"`, ' '))),
+      allowedSpecifiers(root).flatMap(specifier => referenceSources(reference, `"${specifier}"`, [' '])),
     )
     const mismatches = collectMismatches(sources, source => {
       const actual = reported(source)
@@ -352,24 +372,138 @@ describe.each(MODULE_REFERENCE_FORMS)('audit:csp module reference %s', form => {
   })
 
   it('lets the prefilter skip escape-free sources without a disallowed root', () => {
-    const sources = samples.map(sample => sample('"./local.js"', ' '))
+    const sources = referenceSources(reference, '"./local.js"', [' '])
     expect(sources.filter(source => mayContainCspViolation(source))).toEqual([])
+  })
+})
+
+/**
+ * `name`과 같은 이름의 멤버, 그리고 `name`에 접두사/접미사를 붙인 별칭
+ * (`__require`, `__webpack_require__` 등 번들러가 만드는 이름 포함).
+ */
+function aliasCallees(name: string): string[] {
+  return [
+    `obj.${name}`,
+    `module.${name}`,
+    `${name}Like`,
+    `$${name}`,
+    `__${name}`,
+    `__non_webpack_${name}__`,
+    `__webpack_${name}__`,
+  ]
+}
+
+describe('audit:csp module calls are identified only by table tokens', () => {
+  it('does not report calls whose callee is not a table token', () => {
+    const sources = [...CALL_TOKENS].flatMap(token =>
+      aliasCallees(token)
+        .filter(callee => !CALL_TOKENS.has(callee))
+        .flatMap(callee => MODULE_ROOTS.map(root => `${callee}("${root.name}")`)),
+    )
+    const mismatches = collectMismatches(sources, source => {
+      const actual = reported(source)
+      return actual.length === 0 ? undefined : { source, actual }
+    })
+    expect(mismatches).toEqual([])
   })
 })
 
 describe('audit:csp module prefilter selectivity', () => {
   it('skips root names that appear only as member calls or plain strings', () => {
-    const keywords = new Set(MODULE_REFERENCE_FORMS.map(form => CSP_RULE_TABLE.modules.references[form].keyword))
     const sources = MODULE_ROOTS.flatMap(root => [
       `const name = "${root.name}"`,
-      ...[...keywords].map(keyword => `obj.${keyword}("${root.name}")`),
+      ...[...MODULE_TOKENS].map(token => `obj.${token}("${root.name}")`),
     ])
     expect(sources.filter(source => mayContainCspViolation(source))).toEqual([])
   })
 })
 
 // ---------------------------------------------------------------------------
-// 4. 사례 문법 검증: 위 사례가 파서 오류 복구에 기대지 않는지 확인한다
+// 4. 사전 검사 건전성: AST 규칙 밖에서 이름과 토큰을 숨기거나 바꾼 형태 (표 순회)
+// ---------------------------------------------------------------------------
+
+/** 같은 문자열 값의 표기. 문자열 리터럴 이스케이프에 더해 AST가 지금 읽지 않는 템플릿과 연결을 포함한다. */
+const STRING_VALUE_FORMS: ReadonlyArray<(text: string) => string> = [
+  ...SPECIFIER_LITERALS,
+  text => `\`${text}\``,
+  text => `"${text.slice(0, 1)}" + "${text.slice(1)}"`,
+]
+
+/** `import`처럼 식별자 참조로 쓸 수 없는 예약어인지 확인한다. */
+function isReservedWord(word: string): boolean {
+  const kind = ts.createScanner(ts.ScriptTarget.Latest, true, ts.LanguageVariant.Standard, word).scan()
+  return kind >= ts.SyntaxKind.FirstReservedWord && kind <= ts.SyntaxKind.LastReservedWord
+}
+
+/**
+ * `name`을 가리키거나 `name`에서 이름만 바꾼 호출 대상 표현식. AST 규칙이 지금 보고하지 않는 형태(계산된
+ * 멤버 접근과 그 문자열 이스케이프, 중첩 전역 객체, 별칭)를 포함한다. `optionalChain`이면 생성자 호출에는
+ * 쓸 수 없는 선택적 체이닝 형태도 넣는다.
+ */
+function disguisedCallees(name: string, optionalChain: boolean): string[] {
+  const identifierReference = !isReservedWord(name)
+  return [
+    ...(identifierReference ? [`(0, ${name})`, `(${name})`] : []),
+    ...(identifierReference && optionalChain ? [`${name}?.`] : []),
+    ...CSP_GLOBAL_OBJECT_NAMES.flatMap(object => [
+      ...STRING_VALUE_FORMS.map(key => `${object}[${key(name)}]`),
+      `${object}.${object}.${name}`,
+      ...(optionalChain ? [`${object}?.${name}`, `${object}?.[${STRING_VALUE_FORMS[0]!(name)}]`] : []),
+    ]),
+    ...aliasCallees(name),
+  ]
+}
+
+/** 표 항목(호출 대상 이름, 호출 구문 토큰)별로 이름과 토큰, 지정자를 숨기거나 바꾼 사례. */
+function disguisedSourcesByEntry(): Array<[string, string[]]> {
+  const callTargets = CALL_TARGETS.map(([name, target]): [string, string[]] => {
+    const argument = ARGUMENT_SAMPLES[target.argument].satisfying[0]
+    return [
+      `call target ${name}`,
+      INVOCATION_KINDS.flatMap(invocation =>
+        disguisedCallees(name, invocation === 'call').map(callee =>
+          INVOCATION_SAMPLES[invocation](callee, argument, ' '),
+        ),
+      ),
+    ]
+  })
+  const moduleCalls = CALL_REFERENCES.flatMap(([form, reference]) =>
+    reference.tokens.map((token): [string, string[]] => [
+      `${form} token ${token}`,
+      MODULE_ROOTS.flatMap(root => [
+        ...disguisedCallees(token, true).map(callee => `${callee}(${STRING_VALUE_FORMS[0]!(root.name)})`),
+        ...STRING_VALUE_FORMS.map(literal => `${token}(${literal(root.name)})`),
+      ]),
+    ]),
+  )
+  return [...callTargets, ...moduleCalls]
+}
+
+describe('audit:csp prefilter soundness beyond the AST rules', () => {
+  /*
+   * AST 규칙이 지금 보고하지 않는 형태라도, AST가 이를 읽도록 바뀌면(계산된 멤버 접근, 별칭 require,
+   * 템플릿 지정자 등) 사전 검사도 함께 바뀌어야 한다. 그렇지 않으면 사전 검사가 건너뛴 파일의 위반이
+   * 누락되므로, 어떤 형태든 "AST가 보고하면 사전 검사도 true"여야 한다.
+   */
+  it('keeps every disguised source that the AST reports', () => {
+    const sources = disguisedSourcesByEntry().flatMap(([, entrySources]) => entrySources)
+    const missed = collectMismatches(sources, source => {
+      const actual = reported(source)
+      return actual.length > 0 && !mayContainCspViolation(source) ? { source, actual } : undefined
+    })
+    expect(missed).toEqual([])
+  })
+
+  it('includes sources the prefilter skips for every table entry', () => {
+    const vacuous = disguisedSourcesByEntry()
+      .filter(([, entrySources]) => entrySources.every(source => mayContainCspViolation(source)))
+      .map(([entry]) => entry)
+    expect(vacuous).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 5. 사례 문법 검증: 위 사례가 파서 오류 복구에 기대지 않는지 확인한다
 // ---------------------------------------------------------------------------
 
 describe('audit:csp samples are syntactically valid', () => {
@@ -393,14 +527,14 @@ describe('audit:csp samples are syntactically valid', () => {
       ...Object.values(ARGUMENT_SAMPLES).flatMap(({ satisfying, unsatisfying }) =>
         [...satisfying, ...unsatisfying].map(argument => INVOCATION_SAMPLES.call('f', argument, ' ')),
       ),
-      ...MODULE_REFERENCE_FORMS.flatMap(form =>
-        MODULE_REFERENCE_SAMPLES[form].flatMap(sample => GAPS.map(gap => sample('"m"', gap))),
-      ),
+      ...MODULE_REFERENCES.flatMap(([, reference]) => referenceSources(reference, '"m"')),
       ...MODULE_ROOTS.flatMap(root =>
         [...disallowedSpecifiers(root), ...allowedSpecifiers(root)].flatMap(specifier =>
-          SPECIFIER_LITERALS.map(literal => `require(${literal(specifier)})`),
+          STRING_VALUE_FORMS.map(literal => `const m = ${literal(specifier)}`),
         ),
       ),
+      ...[...CALL_TOKENS].flatMap(token => aliasCallees(token).map(callee => `${callee}("m")`)),
+      ...disguisedSourcesByEntry().flatMap(([, entrySources]) => entrySources),
     ]
 
     const invalid = sources.flatMap(source => {
@@ -412,7 +546,7 @@ describe('audit:csp samples are syntactically valid', () => {
 })
 
 // ---------------------------------------------------------------------------
-// 5. 사전 검사가 걸러내야 하는 일반 코드와 위치 보고
+// 6. 사전 검사가 걸러내야 하는 일반 코드와 위치 보고
 // ---------------------------------------------------------------------------
 
 describe('audit:csp lexical prefilter', () => {
