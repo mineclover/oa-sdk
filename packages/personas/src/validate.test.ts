@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest'
 import { parse as parseYaml } from 'yaml'
 
 import { loadAllDomains, loadAllTraits, loadOperationsFromMergedSpec, loadRegistry } from './load.js'
-import type { DomainMatrix, Persona } from './types.js'
+import type { DomainMatrix, Persona, RegistryConstraint } from './types.js'
 import { validate } from './validate.js'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -85,6 +85,63 @@ describe('personas v0.1 validator', () => {
       { severity: 'error', dimension: 'proficiency', message: "value '3' must be a string in vocabulary 'traits/proficiency.yaml' (got number)" },
       { severity: 'error', dimension: 'consumer', message: "value 'null' must be a string in vocabulary 'traits/consumer.yaml' (got null)" },
     ])
+  })
+
+  describe('identity constraint predicates compare values as loaded', () => {
+    /** Validate one persona whose YAML `trigger` scalar is given verbatim, against `constraints` only. */
+    function constraintMessages(triggerYaml: string, constraints: RegistryConstraint[]): string[] {
+      const identity: Persona['identity'] = parseYaml([
+        'actor: admin',
+        'data: X',
+        'intent: list',
+        `trigger: ${triggerYaml}`,
+      ].join('\n'))
+      const matrix: DomainMatrix = { domain: 'fake', personas: [{ id: 'probe', status: 'proposed', identity }] }
+      const report = validate({ registry: { ...registry, constraints }, traits, domains: [matrix], knownOperations: new Map() })
+      return report.issues.filter(i => i.message.startsWith('constraint ')).map(i => i.message)
+    }
+
+    const forbidTrigger = (expected: unknown): RegistryConstraint => ({
+      id: 'probe-forbid',
+      description: 'probe',
+      when: { 'identity.trigger': expected },
+      forbid: true,
+      severity: 'error',
+    })
+    const requireTrigger = (want: string[]): RegistryConstraint => ({
+      id: 'probe-require',
+      when: { 'identity.actor': ['admin'] },
+      require: { 'identity.trigger': want },
+      severity: 'error',
+    })
+
+    it('matches a string identity value by its text', () => {
+      expect(constraintMessages("'404'", [forbidTrigger(['404'])])).toEqual(["constraint 'probe-forbid' violated — probe"])
+      expect(constraintMessages("'404'", [forbidTrigger('404')])).toEqual(["constraint 'probe-forbid' violated — probe"])
+      expect(constraintMessages("'404'", [requireTrigger(['404'])])).toEqual([])
+    })
+
+    it('never matches a numeric identity value against a string predicate', () => {
+      expect(constraintMessages('404', [forbidTrigger(['404'])])).toEqual([])
+      expect(constraintMessages('404', [forbidTrigger('404')])).toEqual([])
+      expect(constraintMessages('404', [requireTrigger(['404'])])).toEqual([
+        "constraint 'probe-require' violated — identity.trigger must include [\"404\"] (got [404])",
+      ])
+      // A present value still satisfies 'any'.
+      expect(constraintMessages('404', [requireTrigger(['any'])])).toEqual([])
+    })
+
+    it('never matches a boolean identity value against a string predicate', () => {
+      expect(constraintMessages('true', [forbidTrigger(['true'])])).toEqual([])
+      expect(constraintMessages('true', [requireTrigger(['true'])])).toEqual([
+        "constraint 'probe-require' violated — identity.trigger must include [\"true\"] (got [true])",
+      ])
+      expect(constraintMessages('true', [requireTrigger(['any'])])).toEqual([])
+      // false reads as no value, like an empty string.
+      expect(constraintMessages('false', [requireTrigger(['any'])])).toEqual([
+        "constraint 'probe-require' violated — identity.trigger must include [\"any\"] (got [])",
+      ])
+    })
   })
 
   it('detects missing operationId for implemented row', () => {

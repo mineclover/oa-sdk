@@ -280,7 +280,12 @@ function evaluateWhen(persona: Persona, when: Record<string, unknown>): WhenResu
 }
 
 interface PathRead {
-  values: string[]
+  /**
+   * Values found at the path. Identity values are returned as loaded, so a
+   * non-string scalar (such as an unquoted `trigger: 404`) never equals a
+   * string predicate; checkVocabularyMatch reports it separately.
+   */
+  values: unknown[]
   unsupported?: boolean
 }
 
@@ -310,11 +315,9 @@ function readPath(persona: Persona, path: string): PathRead {
   if (!bucket || !dim) return { values: [], unsupported: true }
 
   if (bucket === 'identity') {
+    // The raw value is compared, not its text: `trigger: 404` does not match '404'.
     const v = readIdentityDimension(persona.identity, dim)
-    if (typeof v === 'string') return { values: v ? [v] : [] }
-    // Like the outcome bucket, a numeric (or boolean) scalar matches by its text.
-    if (typeof v === 'number' || typeof v === 'boolean') return { values: v ? [String(v)] : [] }
-    return { values: [] }
+    return { values: v ? [v] : [] }
   }
   if (bucket === 'reference') {
     const v = persona.reference?.[dim as keyof NonNullable<Persona['reference']>] as string[] | undefined
