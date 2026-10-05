@@ -95,6 +95,16 @@ export interface CspRuleTable {
  * 표 밖에서 지켜야 하는 전제(AST가 이름과 토큰을 원문에서 읽는 방식)는 사전 검사 패턴 위의 주석에 있다.
  */
 export const CSP_RULE_TABLE = {
+  /*
+   * 호출 대상 규칙의 알려진 AST 공백. 아래 형태는 AST가 보고하지 않으며, 여기서는 규칙을 추가하지 않고 기록만 한다.
+   * - 계산된 멤버 접근: `globalThis['eval']("x")`, `window["setTimeout"]("x()", 1)`. 이름이 문자열에 있으므로
+   *   `'\x65val'`처럼 문자열 이스케이프로 숨긴 이름은 사전 검사도 건너뛴다. 검사하도록 바꿀 때는 사전 검사 패턴
+   *   위 주석의 전제도 함께 바꿔야 한다.
+   * - 태그된 템플릿 호출: ``Function`return 1` ``, ``new Function`return 1` ``, ``setTimeout`x()` ``.
+   *   TaggedTemplateExpression은 CallExpression/NewExpression이 아니어서 호출 형태 분기에 걸리지 않지만, 실행하면
+   *   템플릿 문자열이 코드가 된다(``Function`return 41+1`()``은 42). 호출 대상은 식별자이므로 사전 검사는 이미
+   *   true이고, getGlobalTargetName으로 검사하도록 바꿔도 사전 검사를 고칠 필요가 없다.
+   */
   callTargets: {
     eval: {
       rule: 'csp/no-eval',
@@ -240,8 +250,8 @@ function isDisallowedModuleSpecifier(specifier: string): boolean {
  *   호출로 읽으므로 이런 소스에서는 AST 검사만 위반을 보고할 수 있다.
  *
  * `src/__tests__/audit-csp-prefilter.test.ts`의 건전성 테스트는 이름과 토큰을 숨기거나 바꾼 형태(계산된 멤버
- * 접근, 문자열 이스케이프, `__require` 같은 별칭 등)에 대해 "AST가 보고하면 사전 검사도 true"인지 확인한다.
- * 위 전제를 깨는 AST 변경은 이 테스트에서 실패한다.
+ * 접근, 문자열 이스케이프, `__require` 같은 별칭, 태그된 템플릿 호출 등)에 대해 "AST가 보고하면 사전 검사도
+ * true"인지 확인한다. 위 전제를 깨는 AST 변경은 이 테스트에서 실패한다.
  */
 const IDENTIFIER_START = '(?<![\\w$])'
 const IDENTIFIER_END = '(?![\\w$])'
@@ -282,9 +292,12 @@ const SINGLE_CHAR_ESCAPES: Readonly<Record<string, string>> = { b: '\b', f: '\f'
  * 원문 전체를 하나의 문자열 리터럴 본문처럼 보고 이스케이프를 JS 규칙대로 해석한다.
  *
  * 이스케이프 시퀀스는 따옴표를 바로 뒤의 한 글자(`\"`, `\'`)로만 소비하므로, 각 문자열 리터럴의
- * 여는 따옴표 다음 위치에서 해석이 항상 정렬된다. 따라서 모든 문자열 리터럴의 해석값은 이 함수
- * 결과의 부분 문자열이고, 결과에 금지 패키지 이름이 없으면 어떤 모듈 지정자도 금지 패턴과 일치할 수 없다.
- * 범위를 벗어난 코드 포인트처럼 잘못된 이스케이프는 TypeScript처럼 원문을 남긴다(백슬래시만 제거).
+ * 여는 따옴표 다음 위치에서 해석이 항상 정렬된다. 올바른 이스케이프(레거시 8진수 포함)는 TypeScript와 같은
+ * 값으로 해석하고, 잘못된 이스케이프(`\x`, `\xg`, 범위를 벗어난 `\u{…}`)는 백슬래시만 버리고 나머지 원문을
+ * 남긴다. TypeScript는 잘못된 `\x`의 백슬래시를 지정자 값에 그대로 남기므로(`"\x61jv/\xg"` → `ajv/\xg`),
+ * 이 함수 결과의 부분 문자열임이 보장되는 것은 각 문자열 리터럴 해석값에서 백슬래시가 없는 구간뿐이다.
+ * 금지 루트 이름에는 백슬래시가 없으므로 지정자 안의 루트 이름은 항상 그런 구간에 들어 있고, 따라서 결과에
+ * 금지 루트 이름이 없으면 어떤 모듈 지정자도 금지 패턴과 일치할 수 없다.
  */
 function cookStringEscapes(text: string): string {
   return text.replace(

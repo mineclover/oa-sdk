@@ -406,6 +406,32 @@ describe.each(MODULE_REFERENCES)('audit:csp module reference %s', (_form, refere
     expect(mismatches).toEqual([])
   })
 
+  /*
+   * 잘못된 `\x`는 SyntaxError지만 TypeScript 파서는 복구하면서 그 백슬래시를 지정자 값에 남기고
+   * (`"\x61jv/\xg"` → `ajv/\xg`), 사전 검사의 이스케이프 해석(cookStringEscapes)은 백슬래시를 버린다. 두 해석값은
+   * 백슬래시가 없는 구간에서만 일치하지만, 금지 루트 이름에는 백슬래시가 없으므로 이스케이프로 숨긴 루트
+   * 이름 바로 뒤에 잘못된 `\x`가 와도 사전 검사는 AST가 보고하는 위반을 놓치지 않아야 한다.
+   */
+  it('is kept by the prefilter when a malformed \\x escape follows an escaped root name', () => {
+    const malformedSuffixes = ['/\\xg', '/\\x', '/\\x6']
+    const mismatches: unknown[] = []
+    for (const root of MODULE_ROOTS) {
+      for (const suffix of malformedSuffixes) {
+        // TypeScript는 잘못된 `\x`를 원문 그대로(백슬래시 포함) 지정자 값에 남긴다.
+        const specifier = `${root.name}${suffix}`
+        const expected = [{ rule: CSP_RULE_TABLE.modules.rule, message: `${reference.message}: "${specifier}"` }]
+        for (const source of referenceSources(reference, `"${hexEscapeFirst(root.name)}${suffix}"`, [' '])) {
+          const prefilter = mayContainCspViolation(source)
+          const actual = reported(source)
+          if (!prefilter || JSON.stringify(actual) !== JSON.stringify(expected)) {
+            mismatches.push({ source, prefilter, actual })
+          }
+        }
+      }
+    }
+    expect(mismatches).toEqual([])
+  })
+
   it('lets the prefilter skip escape-free sources without a disallowed root', () => {
     const sources = referenceSources(reference, '"./local.js"', [' '])
     expect(sources.filter(source => mayContainCspViolation(source))).toEqual([])
@@ -418,6 +444,13 @@ describe.each(MODULE_REFERENCES)('audit:csp module reference %s', (_form, refere
     expect(literals.length).toBeGreaterThan(0)
     const sources = literals.flatMap(literal => referenceSources(reference, literal, [' ']))
     expect(sources.filter(source => mayContainCspViolation(source))).toEqual([])
+  })
+})
+
+describe('audit:csp module roots', () => {
+  it('have no backslash in their names, which the escape-decoding prefilter relies on', () => {
+    // cookStringEscapes는 지정자 해석값 중 백슬래시가 없는 구간만 보존한다(잘못된 `\x` 참고).
+    expect(MODULE_ROOTS.map(root => root.name).filter(name => name.includes('\\'))).toEqual([])
   })
 })
 
@@ -498,17 +531,30 @@ function disguisedCallees(name: string, optionalChain: boolean): string[] {
   ]
 }
 
+/**
+ * 태그된 템플릿 호출(``Function`return 1` ``, ``new Function`return 1` ``). AST 규칙이 지금 보고하지 않는
+ * 알려진 공백이며(CSP_RULE_TABLE.callTargets 주석), 검사하도록 바뀌어도 사전 검사가 이를 통과시켜야 한다.
+ */
+function taggedTemplateInvocations(callee: string): string[] {
+  return [`${callee}\`code()\``, `new ${callee}\`code()\``]
+}
+
 /** 표 항목(호출 대상 이름, 호출 구문 토큰)별로 이름과 토큰, 지정자를 숨기거나 바꾼 사례. */
 function disguisedSourcesByEntry(): Array<[string, string[]]> {
   const callTargets = CALL_TARGETS.map(([name, target]): [string, string[]] => {
     const argument = ARGUMENT_SAMPLES[target.argument].satisfying[0]
     return [
       `call target ${name}`,
-      INVOCATION_KINDS.flatMap(invocation =>
-        disguisedCallees(name, invocation === 'call').map(callee =>
-          INVOCATION_SAMPLES[invocation](callee, argument, ' '),
+      [
+        ...INVOCATION_KINDS.flatMap(invocation =>
+          disguisedCallees(name, invocation === 'call').map(callee =>
+            INVOCATION_SAMPLES[invocation](callee, argument, ' '),
+          ),
         ),
-      ),
+        ...[...new Set([...globalCalleeForms(name), ...disguisedCallees(name, false)])].flatMap(
+          taggedTemplateInvocations,
+        ),
+      ],
     ]
   })
   const moduleCalls = CALL_REFERENCES.flatMap(([form, reference]) =>
