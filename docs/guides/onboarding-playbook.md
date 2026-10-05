@@ -437,6 +437,7 @@ TanStack Query 코드는 쿼리 키 팩토리(Tier 1), 순수 옵션 팩토리(T
 | 생성 경로 | 파일 | 포함하는 Tier |
 |---|---|---|
 | `oa-gen generate:tanstack --spec ./openapi.yaml -o src/api` | `src/api/tanstack-query.ts` (같은 디렉터리의 `./client.js`를 import) | 1·2·3 |
+| `oa-gen generate:tanstack --spec ./openapi.yaml -o src/api --split` (outputRouting 없음) | `src/api/keys.ts`, `src/api/queries.ts`, `src/api/hooks.ts` | 1·2·3 (파일별) |
 | `oa-gen generate` (outputRouting 있음, `init` 기본) | `<id>.keys.ts`, `<id>.queries.ts` | 1·2 (훅 없음) |
 | `oa-gen generate` (outputRouting 없음) | `<id>.queries.ts` | 1·2·3 |
 
@@ -470,7 +471,7 @@ export function useUserCacheInvalidation() {
 
 ### 4.10 Next.js App Router SSR 프리페칭 & 하이드레이션
 
-Tier 2 옵션 팩토리를 Server Component의 `prefetchQuery`와 Client Component의 `useQuery`에 같이 쓰면, 서버에서 받은 데이터로 바로 렌더링하고 클라이언트에서 다시 요청하지 않습니다. Server Component에서는 `'use client'` 지시문이 없는 옵션 파일을 import합니다. `oa-gen generate`의 `<id>.queries.ts`(outputRouting 있음)나 `oa-gen generate:tanstack --tier options`의 출력이 여기에 해당하며, 훅까지 담은 `tanstack-query.ts`는 `'use client'` 모듈입니다. 아래 예시의 `@/` 경로 별칭은 `src/`를 가리킨다고 가정합니다.
+Tier 2 옵션 팩토리를 Server Component의 `prefetchQuery`와 Client Component의 `useQuery`에 같이 쓰면, 서버에서 받은 데이터로 바로 렌더링하고 클라이언트에서 다시 요청하지 않습니다. Server Component에서는 `'use client'` 지시문이 없는 옵션 파일을 import합니다. §4.9 표에서 `oa-gen generate`의 `<id>.queries.ts`(outputRouting 있음)와 `generate:tanstack --split`의 `queries.ts`가 여기에 해당하고, 훅을 담은 `tanstack-query.ts`와 `hooks.ts`는 `'use client'` 모듈입니다. `generate:tanstack --tier options`만 실행하면 이 명령이 쓰지 않는 `./keys.js`를 import하는 파일이 생겨 컴파일되지 않습니다([CLI 명령 레퍼런스](./cli-command-reference.md#generatetanstack-옵션-및-인수-명세)). 아래 예시는 `oa-gen generate`의 `<id>.queries.ts`를 쓰며, `@/` 경로 별칭은 `src/`를 가리킨다고 가정합니다.
 
 #### 1단계: Server Component에서 프리페칭 (`app/users/[id]/page.tsx`)
 
