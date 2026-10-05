@@ -122,6 +122,37 @@ describe('CRDT Client SDK & React Hooks Generation', () => {
       const diff2 = JSON.parse(nodeA.encodeDiff(currentVector) as string)
       expect(Object.keys(diff2)).toHaveLength(0)
     })
+
+    it('skips malformed peer entries and non-finite timestamps', () => {
+      const node = new LwwJsonAdapter<Record<string, unknown>>('actor-a')
+      node.createDoc()
+      node.applyUpdate(JSON.stringify({
+        good: { value: 'kept', timestamp: 10, actorId: 'peer' },
+        noTimestamp: { value: 'dropped', actorId: 'peer' },
+        stringTimestamp: { value: 'dropped', timestamp: '11', actorId: 'peer' },
+        notAnEntry: 'dropped',
+      }))
+      // JSON cannot encode Infinity, but a binary or custom transport can hand one over.
+      node.applyUpdate('{"pinned":{"value":"dropped","timestamp":1e400,"actorId":"peer"}}')
+      node.applyUpdate('[{"value":"dropped","timestamp":12}]')
+      node.applyUpdate('{not json')
+
+      expect(node.getState()).toEqual({ good: 'kept' })
+      // The logical clock still advances normally after hostile timestamps were ignored.
+      const update = JSON.parse(node.updateField('next', 1))
+      expect(Number.isFinite(update.next.timestamp)).toBe(true)
+      expect(update.next.actorId).toBe('actor-a')
+    })
+
+    it('treats non-numeric peer vector entries as unseen fields', () => {
+      const node = new LwwJsonAdapter<{ f1: string }>('actor-a')
+      node.createDoc()
+      node.updateField('f1', 'hello')
+
+      const diff = JSON.parse(node.encodeDiff(JSON.stringify({ f1: '9999999999999' })) as string)
+      expect(diff.f1.value).toBe('hello')
+      expect(JSON.parse(node.encodeDiff('{bad') as string).f1.value).toBe('hello')
+    })
   })
 
   describe('generateCrdtClient', () => {

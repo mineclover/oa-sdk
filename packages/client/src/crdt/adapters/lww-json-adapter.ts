@@ -15,6 +15,46 @@ export interface LwwEntry {
 export type LwwStateVector = Record<string, number>
 export type LwwUpdatePayload = Record<string, LwwEntry>
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** A register entry received from a peer. Timestamps must be finite so a peer cannot pin the logical clock. */
+function parseLwwEntry(value: unknown): LwwEntry | undefined {
+  if (!isRecord(value) || typeof value.timestamp !== 'number' || !Number.isFinite(value.timestamp)) return undefined
+  return {
+    value: value.value,
+    timestamp: value.timestamp,
+    actorId: typeof value.actorId === 'string' ? value.actorId : '',
+    ...(typeof value.deleted === 'boolean' ? { deleted: value.deleted } : {}),
+  }
+}
+
+/** A peer update document (field -> entry). Malformed entries are skipped. */
+const LwwUpdatePayloadSchema = {
+  parse(value: unknown): Map<string, LwwEntry> {
+    const entries = new Map<string, LwwEntry>()
+    if (!isRecord(value)) return entries
+    for (const [field, raw] of Object.entries(value)) {
+      const entry = parseLwwEntry(raw)
+      if (entry !== undefined) entries.set(field, entry)
+    }
+    return entries
+  },
+}
+
+/** A peer state vector (field -> last seen timestamp). Non-finite timestamps are ignored. */
+const LwwStateVectorSchema = {
+  parse(value: unknown): Map<string, number> {
+    const vector = new Map<string, number>()
+    if (!isRecord(value)) return vector
+    for (const [field, timestamp] of Object.entries(value)) {
+      if (typeof timestamp === 'number' && Number.isFinite(timestamp)) vector.set(field, timestamp)
+    }
+    return vector
+  },
+}
+
 export class LwwJsonAdapter<TDoc = Record<string, unknown>> implements CrdtEngineAdapter<TDoc> {
   public readonly name = 'lww-json'
   private readonly actorId: string
@@ -63,29 +103,28 @@ export class LwwJsonAdapter<TDoc = Record<string, unknown>> implements CrdtEngin
       ? update
       : new TextDecoder().decode(update)
 
+    let incoming: Map<string, LwwEntry>
     try {
-      const incoming = JSON.parse(text) as LwwUpdatePayload
-      if (!incoming || typeof incoming !== 'object') return
-
-      for (const [field, inEntry] of Object.entries(incoming)) {
-        if (!inEntry || typeof inEntry.timestamp !== 'number') continue
-
-        const current = this.properties.get(field)
-        if (!current) {
-          this.properties.set(field, inEntry)
-        } else if (
-          inEntry.timestamp > current.timestamp ||
-          (inEntry.timestamp === current.timestamp && (inEntry.actorId || '') > (current.actorId || ''))
-        ) {
-          this.properties.set(field, inEntry)
-        }
-
-        if (inEntry.timestamp > this.logicalClock) {
-          this.logicalClock = inEntry.timestamp
-        }
-      }
+      incoming = LwwUpdatePayloadSchema.parse(JSON.parse(text))
     } catch {
       // ignore malformed payloads
+      return
+    }
+
+    for (const [field, inEntry] of incoming) {
+      const current = this.properties.get(field)
+      if (!current) {
+        this.properties.set(field, inEntry)
+      } else if (
+        inEntry.timestamp > current.timestamp ||
+        (inEntry.timestamp === current.timestamp && (inEntry.actorId || '') > (current.actorId || ''))
+      ) {
+        this.properties.set(field, inEntry)
+      }
+
+      if (inEntry.timestamp > this.logicalClock) {
+        this.logicalClock = inEntry.timestamp
+      }
     }
   }
 
@@ -102,16 +141,16 @@ export class LwwJsonAdapter<TDoc = Record<string, unknown>> implements CrdtEngin
       ? stateVector
       : new TextDecoder().decode(stateVector)
 
-    let peerVector: LwwStateVector = {}
+    let peerVector = new Map<string, number>()
     try {
-      peerVector = JSON.parse(text) as LwwStateVector
+      peerVector = LwwStateVectorSchema.parse(JSON.parse(text))
     } catch {
-      peerVector = {}
+      // A malformed vector is treated as empty: the peer receives every field.
     }
 
     const diff: LwwUpdatePayload = {}
     for (const [field, entry] of this.properties.entries()) {
-      const peerTimestamp = peerVector[field] ?? 0
+      const peerTimestamp = peerVector.get(field) ?? 0
       if (entry.timestamp > peerTimestamp) {
         diff[field] = entry
       }
