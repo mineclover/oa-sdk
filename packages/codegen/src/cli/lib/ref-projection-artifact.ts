@@ -9,11 +9,27 @@
  * it: the build-spec provenance `canonicalId` of its nearest enclosing output
  * pointer, or the reason it has none.
  *
- * The artifact is a pure function of its inputs: nodes, edges and diagnostics
- * are sorted by code unit, it carries no timestamps, files of the graph are
- * written relative to the entry document's directory, and the definition
- * fragments that provenance names relative to the project root, so the same
- * files give byte-identical output in any checkout.
+ * The artifact is a pure function of its inputs. It carries no timestamps and
+ * sorts nodes, edges and diagnostics by code unit. Where the inputs live
+ * reaches the output in three places only:
+ * - Files of the graph are named relative to the entry document's directory,
+ *   so node and edge ids, `filePath`s and the files of diagnostics depend on
+ *   how the files the graph reaches lie around the entry document, not on
+ *   where the project is.
+ * - The fragment `sourcePath` of a mapped node is relative to the project
+ *   root: an absolute provenance path is rewritten, a relative one is kept as
+ *   written.
+ * - `source` is what the caller passes; `createRefProjectionArtifactFromFiles`
+ *   records each input's path relative to the project root and the SHA-256 of
+ *   its bytes.
+ *
+ * So the same generator version writes byte-identical output in any checkout
+ * when the entry document, the files its `$ref`s reach and the provenance
+ * file have the same bytes at the same project-root-relative paths.
+ * The same files under another project root change the `source` paths and the
+ * rewritten `sourcePath`s; everything else stays the same. A build-spec
+ * provenance file records absolute paths, so its bytes, and with them
+ * `source.provenance.contentHash`, differ from checkout to checkout.
  *
  * The JSON Schema of the artifact is `REF_PROJECTION_ARTIFACT_SCHEMA_V1`.
  */

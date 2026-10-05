@@ -251,12 +251,22 @@ artifact 계약의 정본은 codegen이 공개하는 JSON Schema
 | `edges[]` | occurrence와 참조 대상이 모두 노드 안에 있는 해결된 `$ref` occurrence 하나당 하나. `source`/`target`은 occurrence와 참조 대상을 포함하는 노드 id, `id`는 occurrence 위치. `recursion`은 순환이 instance로 내려가면 `guarded`, 내려가지 않으면 `unguarded`(`ref-cycle` 진단과 같은 occurrence), 순환이 아니면 `none` |
 | `diagnostics[]` | resolver 진단 `ref-cycle`, `ref-not-found`, `external-ref-*`, `unsupported-ref`와 projection 진단 `ref-source-outside-nodes`, `ref-target-outside-nodes`. 엣지가 없는 occurrence는 모두 여기 나온다. 해결되지 않은 occurrence는 resolver 진단으로, occurrence나 참조 대상이 어떤 노드에도 속하지 않는 occurrence(`info`·`x-` 확장·비표준 `components` 섹션 아래 등)는 노드 밖에 있는 끝마다 `ref-*-outside-nodes` 진단으로 나온다 |
 
-같은 입력 파일이면 어느 위치에서 실행해도 byte 단위로 같은 출력이 나옵니다. 노드·엣지·
-진단은 code unit 순서로 정렬하고, timestamp를 넣지 않습니다. 그래프의 파일 경로는 진입
-문서 디렉터리 기준 `$ref` 형식(`./shared.yaml`)으로 쓰고, provenance의 fragment
-`sourcePath`는 project root 기준 상대 경로로 씁니다(build-spec이 기록한 절대 경로를
-변환하고, 이미 상대 경로면 그대로 둠). 단 build-spec provenance 파일 자체는 checkout마다
-다른 절대 경로를 담으므로, checkout이 다르면 `source.provenance.contentHash`만 달라집니다.
+출력은 입력의 순수 함수입니다. timestamp를 넣지 않고 노드·엣지·진단을 code unit 순서로
+정렬합니다. 입력 파일이 어디 있는지는 다음 세 곳에만 드러납니다.
+
+- 그래프의 파일 경로는 진입 문서 디렉터리 기준 `$ref` 형식(`./shared.yaml`)으로 씁니다. 노드·엣지
+  id, `filePath`, 진단의 파일 경로는 그래프가 닿는 파일들이 진입 문서 주위에 놓인 배치에만 의존하고,
+  project가 어디 있는지와는 무관합니다.
+- mapped 노드의 fragment `sourcePath`는 project root 기준 상대 경로입니다. build-spec이 기록한 절대
+  경로는 변환하고, 이미 상대 경로면 그대로 둡니다.
+- `source`는 입력 파일마다 project root(`--root` 또는 자동 감지한 루트) 기준 경로와 파일 byte의
+  `sha256:` hash를 씁니다.
+
+따라서 같은 codegen version이면, spec과 그 `$ref`가 닿는 파일, provenance 파일이 같은 project
+root 기준 경로에 같은 byte로 있을 때 어느 checkout에서든 byte 단위로 같은 출력이 나옵니다. 같은 파일이라도 다른 project root에서 실행하면
+`source`의 경로와 변환한 `sourcePath`가 달라지고 나머지는 같습니다. build-spec provenance 파일은
+checkout의 절대 경로를 담으므로 checkout마다 byte가 달라 `source.provenance.contentHash`도 달라집니다.
+
 `canonicalId` 매핑은 노드 pointer 자신 또는 가장 가까운 상위 pointer의 provenance entry를
 쓰며, spec-lens graph와 같은 `findNearestJsonPointerEntry()`(`@oa-sdk/parser`)를 공유합니다.
 

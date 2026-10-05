@@ -170,7 +170,7 @@ describe('oa-sdk.ref-projection.v1 artifact', () => {
     expect(validateRefProjectionArtifact(artifact)).toEqual([])
   })
 
-  it('is byte-identical for the same files in different directories', () => {
+  it('is byte-identical for the same files at the same root-relative paths in different checkouts', () => {
     const first = tempDir()
     const second = join(tempDir(), 'nested', 'copy')
     cpSync(fixtureDir, first, { recursive: true })
@@ -181,6 +181,34 @@ describe('oa-sdk.ref-projection.v1 artifact', () => {
     expect(secondText).toBe(firstText)
     expect(firstText).not.toContain(first)
     expect(secondText).not.toContain(second)
+  })
+
+  it('changes only the root-relative paths when the same files run under another project root', () => {
+    const base = tempDir()
+    const project = join(base, 'project')
+    cpSync(fixtureDir, project, { recursive: true })
+    // Absolute fragment paths, as build-spec writes them, are rewritten against the root.
+    const provenance = Object.fromEntries(
+      Object.entries(readFixtureProvenance())
+        .map(([pointer, entry]) => [pointer, { ...entry, sourcePath: join(project, entry.sourcePath) }]),
+    )
+    writeFileSync(join(project, 'provenance.json'), JSON.stringify(provenance, null, 2))
+    const create = (root: string, prefix: string) => createRefProjectionArtifactFromFiles({
+      specPath: `${prefix}api.yaml`,
+      provenancePath: `${prefix}provenance.json`,
+      root,
+      generator,
+    })
+
+    const atProject = create(project, '')
+    const atBase = create(base, 'project/')
+    expect(atBase.source.spec).toEqual({ ...atProject.source.spec, path: 'project/api.yaml' })
+    expect(atBase.source.provenance).toEqual({ ...atProject.source.provenance!, path: 'project/provenance.json' })
+    expect(atBase.nodes).toEqual(atProject.nodes.map(node => node.identity.status === 'mapped'
+      ? { ...node, identity: { ...node.identity, sourcePath: `project/${node.identity.sourcePath}` } }
+      : node))
+    expect(atBase.nodes.some(node => node.identity.status === 'mapped')).toBe(true)
+    expect({ ...atBase, source: atProject.source, nodes: atProject.nodes }).toEqual(atProject)
   })
 
   it('writes the absolute fragment paths of build-spec provenance relative to the project root', () => {
