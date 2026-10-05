@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mkdirSync, rmSync, writeFileSync, existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import http from 'node:http'
 import type { NodeMockServer } from '@oa-sdk/mock-server'
 import type { OasDocument } from '@oa-sdk/parser'
-import { mock, type MockCommandContext } from '../cli/commands/mock.js'
+import { mock, resolveMockSource, type MockCommandContext } from '../cli/commands/mock.js'
 import { CliExitError } from '../cli/lib/errors.js'
 import { SUBPROCESS_TEST_BUDGET_MS } from './helpers/subprocess-budget.js'
 import {
@@ -717,3 +717,88 @@ paths:
   })
 })
 
+describe('oa-gen mock without --tsp or --spec', () => {
+  const healthSpec: OasDocument = {
+    openapi: '3.2.0',
+    info: { title: 'Configured Spec', version: '1.0.0' },
+    paths: {
+      '/configured': {
+        get: {
+          operationId: 'getConfigured',
+          responses: {
+            '200': {
+              description: 'Success',
+              content: { 'application/json': { example: { source: 'oa.config' } } },
+            },
+          },
+        },
+      },
+    },
+  }
+  // The spec target that `oa-gen init` writes for a generic project: a framework target and no profile.
+  const specTarget = (id: string, schemaEntry: string) => ({ id, schemaEntry, outDir: './src/generated', target: 'generic' })
+  const writeConfig = (specs: unknown[]) => writeFileSync(join(tmpDir, 'oa.config.json'), JSON.stringify({ specs }))
+  const projectContext = () => ({ cwd: tmpDir, projectRoot: tmpDir })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('serves the only spec target of the project configuration', async () => {
+    writeFileSync(join(tmpDir, 'openapi.json'), JSON.stringify(healthSpec))
+    writeConfig([specTarget('api', 'openapi.json')])
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    expect(await resolveMockSource({}, projectContext())).toEqual({ kind: 'spec', path: join(tmpDir, 'openapi.json') })
+
+    const abortController = new AbortController()
+    let body: unknown
+    const context: MockCommandContext = {
+      ...projectContext(),
+      signal: abortController.signal,
+      onServerReady: async (server) => {
+        try {
+          const res = await fetch(`${server.url}/configured`)
+          expect(res.status).toBe(200)
+          body = await res.json()
+        } finally {
+          abortController.abort()
+        }
+      },
+    }
+    await mock.run({ port: '0' }, context)
+    expect(body).toEqual({ source: 'oa.config' })
+  })
+
+  it('compiles a .tsp schema entry as --tsp does', async () => {
+    writeConfig([specTarget('api', 'typespec/main.tsp')])
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    expect(await resolveMockSource({}, projectContext())).toEqual({ kind: 'tsp', path: join(tmpDir, 'typespec/main.tsp') })
+  })
+
+  it('serves --tsp or --spec instead of the configuration', async () => {
+    writeConfig([specTarget('api', 'openapi.json')])
+    const other = join(tmpDir, 'other.yaml')
+    writeFileSync(other, 'openapi: 3.2.0\n')
+    expect(await resolveMockSource({ spec: other }, projectContext())).toEqual({ kind: 'spec', path: other })
+    expect(await resolveMockSource({ tsp: other, spec: other }, projectContext())).toEqual({ kind: 'tsp', path: other })
+  })
+
+  it('fails when the configuration does not name exactly one spec target', async () => {
+    const errors: string[] = []
+    vi.spyOn(console, 'error').mockImplementation((...parts: unknown[]) => { errors.push(parts.join(' ')) })
+
+    writeConfig([specTarget('users', 'users.yaml'), specTarget('orders', 'orders.yaml')])
+    await expect(resolveMockSource({}, projectContext())).rejects.toBeInstanceOf(CliExitError)
+    expect(errors.join('\n')).toContain('users, orders')
+
+    writeConfig([])
+    await expect(resolveMockSource({}, projectContext())).rejects.toBeInstanceOf(CliExitError)
+    expect(errors).toHaveLength(2)
+  })
+
+  it('fails without a configuration', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    await expect(resolveMockSource({}, projectContext())).rejects.toBeInstanceOf(CliExitError)
+  })
+})
