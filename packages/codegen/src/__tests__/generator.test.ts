@@ -218,3 +218,18 @@ describe('generateComponents — CodegenResult 구조', () => {
     expect(existsSync(nestedDir)).toBe(true)
   })
 })
+
+describe('generateComponents — components that share a schema', () => {
+  it('writes a component used inside an earlier component as its own schema, not a self $ref', () => {
+    const Id = z.object({ id: z.string() })
+    const schemas = { Pair: z.object({ first: Id, second: Id }), Id }
+    generateComponents(schemas, { output: tmpDir })
+
+    const raw = readFileSync(join(tmpDir, 'components.yaml'), 'utf8')
+    const parsed = parseYaml(raw) as { components: { schemas: Record<string, { properties: Record<string, unknown> }> } }
+    const idSchema = { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] }
+
+    expect(parsed.components.schemas['Id']).toEqual(idSchema)
+    expect(parsed.components.schemas['Pair']!.properties).toEqual({ first: idSchema, second: idSchema })
+  })
+})

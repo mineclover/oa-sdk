@@ -450,3 +450,38 @@ describe('zodToSchema — Zod v4 types', () => {
     })
   })
 })
+
+// Zod schemas are shared by reference, so a schema graph is a DAG whenever one
+// schema instance is used at several locations.
+describe('zodToSchema — shared schema instances', () => {
+  const Id = z.object({ id: z.string() })
+  const Pair = z.object({ first: Id, second: Id })
+  const refs = new Map<z.ZodTypeAny, string>([[Pair, 'Pair'], [Id, 'Id']])
+  const idSchema = { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] }
+
+  it('expands a registered schema at every location that is not a recursive visit', () => {
+    const result = zodToSchema(Pair, { refs })
+
+    expect(result.properties!.first).toEqual(idSchema)
+    expect(result.properties!.second).toEqual(idSchema)
+  })
+
+  it('converts each component fully when one context is reused across components', () => {
+    const context = { refs }
+
+    expect(zodToSchema(Pair, context).properties!.second).toEqual(idSchema)
+    expect(zodToSchema(Id, context)).toEqual(idSchema)
+  })
+
+  it('still emits $ref for the recursive visit when a context is reused', () => {
+    const Category: z.ZodType<any> = z.object({
+      name: z.string(),
+      children: z.lazy(() => z.array(Category)),
+    })
+    const context = { refs: new Map<z.ZodTypeAny, string>([[Category, 'Category']]) }
+
+    const first = zodToSchema(Category, context)
+    expect(first.properties!.children!.items).toEqual({ $ref: '#/components/schemas/Category' })
+    expect(zodToSchema(Category, context)).toEqual(first)
+  })
+})

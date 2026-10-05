@@ -49,24 +49,32 @@ function getZodKind(schema: z.ZodTypeAny): string {
   return cName
 }
 
-// eslint-disable-next-line complexity
 function convertType(schema: z.ZodTypeAny, context?: ZodToSchemaContext): OasSchema {
-  const d = def(schema)
-  const kind = getZodKind(schema)
-
   // --- $ref resolution for recursive schemas ---
   // If the schema is registered in refs AND is already being converted (recursive visit),
   // emit a $ref instead of expanding it again (which would cause infinite recursion).
-  if (context?.refs) {
-    const refName = context.refs.get(schema)
-    if (refName) {
-      const converting = context._converting ?? (context._converting = new Set())
-      if (converting.has(schema)) {
-        return { $ref: `#/components/schemas/${refName}` }
-      }
-      converting.add(schema)
-    }
+  // `_converting` holds only the schemas on the current conversion path: a schema
+  // instance shared at several locations, or converted again with a reused context,
+  // is not a recursive visit and is expanded at each of them.
+  const refName = context?.refs?.get(schema)
+  if (!context || !refName) return expandType(schema, context)
+
+  const converting = context._converting ?? (context._converting = new Set())
+  if (converting.has(schema)) {
+    return { $ref: `#/components/schemas/${refName}` }
   }
+  converting.add(schema)
+  try {
+    return expandType(schema, context)
+  } finally {
+    converting.delete(schema)
+  }
+}
+
+// eslint-disable-next-line complexity
+function expandType(schema: z.ZodTypeAny, context?: ZodToSchemaContext): OasSchema {
+  const d = def(schema)
+  const kind = getZodKind(schema)
 
   // --- wrappers ---
   if (schema instanceof z.ZodOptional || kind === 'ZodOptional') {
