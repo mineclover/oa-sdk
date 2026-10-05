@@ -8,7 +8,7 @@
  * or cached responses), so it must be byte-identical to the first.
  */
 import { afterEach, describe, expect, it } from 'vitest'
-import { parseDocument, type OasDocument, type OasPathItem } from '@oa-sdk/parser'
+import { parseDocument, type OasDocument, type OasMediaType, type OasPathItem } from '@oa-sdk/parser'
 import { createNodeMockServer, type NodeMockServer } from '../../adapters/node-http.js'
 import { createMswHandlers, createMswMockServer } from '../../adapters/msw.js'
 import { handleRequest } from '../../core/handler.js'
@@ -563,5 +563,53 @@ describe('customized shared generator', () => {
 
     expect(await serve('/n')).toBe('{"n":0}')
     expect(await serve('/n-events')).toBe(events(0, 0, 0))
+  })
+})
+
+describe('spec objects changed in place after the adapter is built', () => {
+  /**
+   * Changing spec objects in place is not supported: a reused response is the
+   * one picked from the spec as it was when the route first needed it. These
+   * cases pin what each adapter then serves, as the README documents.
+   */
+  const requests = [1, 2, 3].map(index => ({ name: `inline ${index}`, method: 'GET', path: '/examples/inline' }))
+
+  /** An `onMatch` plugin that replaces the inline example with `[n]` on the n-th request and lets it through. */
+  function exampleRewriter(): MockPlugin {
+    let version = 0
+    return {
+      name: 'example-rewriter',
+      onMatch(context) {
+        if (context.entry.operationId !== 'exampleInline') return undefined
+        const mediaType = context.entry.responses['200']!.content!['application/json'] as OasMediaType
+        mediaType.example = [++version]
+        return undefined
+      },
+    }
+  }
+
+  const inline = (...bodies: unknown[]) => Object.fromEntries(bodies.map((body, index) => [`inline ${index + 1}`, jsonExchange(200, body)]))
+
+  it('Node HTTP adapter keeps serving the response it picked when the server was created', async () => {
+    const server = await startNode(createResponseBytesSpec(), { plugins: [exampleRewriter()] })
+
+    expect(await replayOnNode(server, requests)).toEqual(inline([1, 2, 3], [1, 2, 3], [1, 2, 3]))
+  })
+
+  it('MSW adapter keeps serving the response it picked on the route\'s first request', async () => {
+    const handlers = createMswHandlers(createResponseBytesSpec(), { plugins: [exampleRewriter()] })
+
+    expect(await replayOnMsw(handlers, MSW_ORIGIN, requests)).toEqual(asMswTranscript(inline([1], [1], [1])))
+  })
+
+  it('both adapters see the change in requests that pick a fresh response for a response hook', async () => {
+    const passThrough: MockPlugin = { name: 'pass-through', onResponse: response => response }
+    const expected = inline([1], [2], [3])
+
+    const server = await startNode(createResponseBytesSpec(), { plugins: [exampleRewriter(), passThrough] })
+    expect(await replayOnNode(server, requests)).toEqual(expected)
+
+    const handlers = createMswHandlers(createResponseBytesSpec(), { plugins: [exampleRewriter(), passThrough] })
+    expect(await replayOnMsw(handlers, MSW_ORIGIN, requests)).toEqual(asMswTranscript(expected))
   })
 })

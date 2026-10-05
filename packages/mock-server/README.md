@@ -378,10 +378,9 @@ spec.
 
 Everything that depends on the request is still computed per request: request
 validation and the validation details in a `422`, callback URLs, stateful-store
-responses and other plugin responses. A plugin `onResponse` hook receives a
-freshly picked response on every request, so it may change it in place; plugins
-that only implement `onMatch` and return nothing let the shared response
-through. `handleRequest()` also returns a fresh response on every call.
+responses and other plugin responses. Plugins that only implement `onMatch` and
+return nothing let the shared response through. `handleRequest()` returns a
+fresh response on every call.
 
 **A customized shared generator turns reuse off.** The adapters generate bodies,
 header values and stream events with the exported `generator` and `streamer`.
@@ -396,6 +395,26 @@ the prototype of `generator`; replacing `generate` on `streamer` or on
 customization is undone, and a response generated while it was in place is
 never reused. Generators you create yourself (`new GenerateFolder()`, a
 subclass, `new StreamFolder(folder)`) are not used by the adapters.
+
+**Spec objects are read-only once an adapter is built.** Changing the spec's
+response objects in place, through a `ParsedDocument` passed to an adapter or
+through `context.entry` in a plugin, is not supported. A reused response does
+not see the change: the Node adapter keeps the response it picked with the
+built-in generator when the server was created or updated, and MSW handlers
+keep the one they picked on the route's first request. Only requests that pick
+a fresh response (when a plugin has an `onResponse` hook, or while the shared
+generator is customized) see it. To change responses at runtime, use
+`override()`, `updateSpec()` (Node), new MSW handlers, or a plugin whose
+`onMatch` returns its own response.
+
+A plugin `onResponse` hook receives a newly picked response object on every
+request, with its own `headers` and `links` records. Its body may still hold
+the spec's own objects: an example-backed body is the spec's example object
+itself, and a generated body is a new object whose `example`, `default` and
+`const` values are the schema's own. Those objects are shared by every request
+and by the spec, so a hook must not change them in place; return the response
+with a changed copy instead, for example
+`{ ...response, body: { ...response.body, extra: true } }`.
 
 A response schema check is reused only once the schema has compiled. The
 response validator reports a schema that violates the JSON Schema meta-schema

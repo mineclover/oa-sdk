@@ -243,6 +243,27 @@ describe('handleRouteRequest', () => {
     expect(received[0]).toEqual(shared)
   })
 
+  it('gives response hooks the spec\'s own example object as an example-backed body', () => {
+    // So a hook must return a changed copy of such a body: changing it in place changes the spec.
+    const entry = operation('/examples/inline', 'get')
+    const example = (entry.responses['200']!.content!['application/json'] as OasMediaType).example
+    const route = new RouteResponses(entry.responses)
+    const bodies: unknown[] = []
+    const recorder: MockPlugin = {
+      name: 'recorder',
+      onResponse(response) {
+        bodies.push(response.body)
+        return response
+      },
+    }
+
+    handleRouteRequest(requestParts(), entry, {}, [recorder], route)
+    handleRouteRequest(requestParts(), entry, {}, [recorder], route)
+
+    expect(example).toEqual([1, 2, 3])
+    expect(bodies).toHaveLength(2)
+    for (const body of bodies) expect(body).toBe(example)
+  })
 })
 
 describe('MSW adapter', () => {

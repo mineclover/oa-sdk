@@ -83,7 +83,9 @@ type PickedOnce = {
  * handlers) creates new instances.
  *
  * The values are shared by every request to the route and must be treated as
- * read-only. Responses produced by plugins are never stored here.
+ * read-only. They are computed from the spec's response objects, which must
+ * not change once the instance is in use (see the README, "Response reuse per
+ * route"). Responses produced by plugins are never stored here.
  */
 export class RouteResponses {
   private defaultResponse: PickedOnce | undefined

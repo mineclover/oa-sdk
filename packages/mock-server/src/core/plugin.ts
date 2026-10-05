@@ -4,6 +4,12 @@ import type { PickedResponse } from './response-picker.js'
 
 export interface MockPluginContext {
   parts: RequestParts
+  /**
+   * The matched operation, as parsed from the spec. Treat it as read-only:
+   * the adapters reuse each route's response, so changing its response
+   * objects in place is not supported (see the README, "Response reuse per
+   * route"). Return a response from `onMatch` instead.
+   */
   entry: {
     operationId?: string
     method: string
@@ -34,6 +40,11 @@ export interface MockPlugin {
   onMatch?: (context: MockPluginContext) => MockPluginResponse | PickedResponse | void
   /**
    * Called after response is picked or generated, allowing response transformation.
+   *
+   * The response object is picked anew for every request, but its body may
+   * hold the spec's own objects (an example-backed body, or the `example`,
+   * `default` and `const` values inside a generated one). Return a response
+   * with a changed copy of the body instead of changing it in place.
    */
   onResponse?: (res: PickedResponse, context: MockPluginContext) => PickedResponse
   /**
