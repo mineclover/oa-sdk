@@ -9,9 +9,12 @@ import { generate } from '../../cli/commands/generate.js'
 import { mock, type MockCommandContext } from '../../cli/commands/mock.js'
 import { CliExitError } from '../../cli/lib/errors.js'
 import {
+  BUILT_AGAINST_VERSIONS,
   COMMAND_COMPANIONS,
+  COMPANION_PACKAGES,
   CompanionLoader,
   commandCompanion,
+  companionRange,
   explicitCompanionOutputs,
   importCompanion,
   isMissingPackageError,
@@ -147,16 +150,50 @@ describe('CompanionLoader', () => {
 describe('companionInstallCommand', () => {
   it('follows the package manager that launched oa-gen and falls back to npm', () => {
     const packages = ['@oa-sdk/router', '@oa-sdk/client', '@oa-sdk/router']
-    expect(companionInstallCommand(packages, 'pnpm/10.30.3 npm/? node/v24.19.0 darwin arm64'))
+    const unknownVersions = {}
+    expect(companionInstallCommand(packages, 'pnpm/10.30.3 npm/? node/v24.19.0 darwin arm64', unknownVersions))
       .toBe('pnpm add -D @oa-sdk/router @oa-sdk/client')
-    expect(companionInstallCommand(packages, 'yarn/4.9.1 npm/? node/v24.19.0 linux x64'))
+    expect(companionInstallCommand(packages, 'yarn/4.9.1 npm/? node/v24.19.0 linux x64', unknownVersions))
       .toBe('yarn add -D @oa-sdk/router @oa-sdk/client')
-    expect(companionInstallCommand(packages, 'bun/1.3.9 npm/? node/v24.3.0 darwin arm64'))
+    expect(companionInstallCommand(packages, 'bun/1.3.9 npm/? node/v24.3.0 darwin arm64', unknownVersions))
       .toBe('bun add -d @oa-sdk/router @oa-sdk/client')
-    expect(companionInstallCommand(packages, 'npm/11.6.2 node/v24.19.0 darwin arm64 workspaces/false'))
+    expect(companionInstallCommand(packages, 'npm/11.6.2 node/v24.19.0 darwin arm64 workspaces/false', unknownVersions))
       .toBe('npm install --save-dev @oa-sdk/router @oa-sdk/client')
-    expect(companionInstallCommand(packages, undefined))
+    expect(companionInstallCommand(packages, undefined, unknownVersions))
       .toBe('npm install --save-dev @oa-sdk/router @oa-sdk/client')
+  })
+
+  it('pins each package with a known version to the range compatible with it', () => {
+    const versions = { '@oa-sdk/router': '0.4.2', '@oa-sdk/client': '1.0.0-beta.3' }
+    expect(companionInstallCommand(['@oa-sdk/router', '@oa-sdk/client', '@oa-sdk/mock-server'], 'pnpm/10.30.3', versions))
+      .toBe('pnpm add -D "@oa-sdk/router@^0.4.2" "@oa-sdk/client@^1.0.0-beta.3" @oa-sdk/mock-server')
+  })
+
+  it('pins the companions to the versions this build was built against by default', () => {
+    const range = companionRange('@oa-sdk/client')
+    expect(range).toBeDefined()
+    expect(companionInstallCommand(['@oa-sdk/client'], 'npm/11.6.2'))
+      .toBe(`npm install --save-dev "@oa-sdk/client@${range}"`)
+  })
+})
+
+describe('versions this build was built against', () => {
+  const packageDirectory = path.resolve(__dirname, '../../..')
+  const linkedVersion = (name: string): string =>
+    (JSON.parse(fs.readFileSync(path.join(packageDirectory, 'node_modules', name, 'package.json'), 'utf8')) as {
+      version: string
+    }).version
+
+  it('are the versions of the linked companion packages, which the tests and the build run against', () => {
+    for (const name of COMPANION_PACKAGES) {
+      expect(BUILT_AGAINST_VERSIONS[name], name).toBe(linkedVersion(name))
+      expect(companionRange(name), name).toBe(`^${linkedVersion(name)}`)
+    }
+  })
+
+  it('are unknown for a package the build did not embed', () => {
+    expect(companionRange('@oa-sdk/not-a-companion')).toBeUndefined()
+    expect(companionRange('@oa-sdk/client', {})).toBeUndefined()
   })
 })
 

@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
+import { readWorkspaceDependencyVersions } from './workspace-versions.mjs'
 
 const packageDirectory = new URL('..', import.meta.url)
 const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
@@ -61,9 +62,22 @@ try {
     throw new Error(`packed oa-gen imports packages a published install cannot resolve: ${unresolvable.join('; ')}`)
   }
 
+  // Install hints for a missing companion name the range this codegen supports, from the
+  // versions the build embeds (tsup.config.ts); they must be the companions it was built against.
+  const builtAgainst = readWorkspaceDependencyVersions(fileURLToPath(packageDirectory))
+  const embeddedTables = embeddedVersionTables(join(temporaryDirectory, 'package'), companions)
+  const unembedded = [...companions].filter(name =>
+    builtAgainst[name] === undefined || !embeddedTables.some(table => table[name] === builtAgainst[name]))
+  if (unembedded.length > 0) {
+    throw new Error(
+      `packed oa-gen does not embed the companion versions it was built against: ` +
+        unembedded.map(name => `${name}@${builtAgainst[name] ?? '(not a workspace dependency)'}`).join(', '),
+    )
+  }
+
   console.log(
     `OA Gen pack smoke OK: ${files.size} files, no workspace protocols, every import declared ` +
-      `or a dynamically loaded companion (${[...companions].join(', ')})`,
+      `or a dynamically loaded companion (${[...companions].map(name => `${name}@^${builtAgainst[name]}`).join(', ')})`,
   )
 } finally {
   rmSync(temporaryDirectory, { recursive: true, force: true })
@@ -124,6 +138,37 @@ function packageImports(file) {
   }
   visit(source)
   return imports
+}
+
+/**
+ * Package-to-version tables embedded in the packed JavaScript as JSON string literals
+ * (the build-time `__OA_SDK_WORKSPACE_VERSIONS__` constant) that name any of `packageNames`.
+ */
+function embeddedVersionTables(packageRoot, packageNames) {
+  const tables = []
+  for (const file of listFiles(packageRoot).filter(path => path.endsWith('.js'))) {
+    const source = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, false)
+    const visit = node => {
+      if (ts.isStringLiteralLike(node) && node.text.startsWith('{')) {
+        const table = parseVersionTable(node.text)
+        if (table && [...packageNames].some(name => name in table)) tables.push(table)
+      }
+      ts.forEachChild(node, visit)
+    }
+    visit(source)
+  }
+  return tables
+}
+
+function parseVersionTable(text) {
+  let value
+  try {
+    value = JSON.parse(text)
+  } catch {
+    return undefined
+  }
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined
+  return Object.values(value).every(version => typeof version === 'string') ? value : undefined
 }
 
 function bareSpecifierPackage(specifier) {

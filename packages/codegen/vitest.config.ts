@@ -1,8 +1,12 @@
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 import { SUBPROCESS_TEST_BUDGET_MS } from './src/__tests__/helpers/subprocess-budget'
 import { BROWSER_STUDIO_PREBUILT_MODULES } from './src/__tests__/helpers/browser-studio'
+import { workspaceVersionsDefine } from './scripts/workspace-versions.mjs'
 
 export default defineConfig({
+  // The same build-time constants as tsup.config.ts, so tests see what the build embeds.
+  define: workspaceVersionsDefine(fileURLToPath(new URL('.', import.meta.url))),
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts', 'test/**/*.test.ts'],

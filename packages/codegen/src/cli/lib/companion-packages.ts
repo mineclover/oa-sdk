@@ -97,17 +97,59 @@ export class CompanionLoader {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Versions
+
+/**
+ * JSON text of the versions of the `@oa-sdk` workspace packages this build was
+ * built and tested against, embedded by the build (tsup.config.ts) and by the
+ * test runner (vitest.config.ts); see scripts/workspace-versions.mjs.
+ */
+declare const __OA_SDK_WORKSPACE_VERSIONS__: string | undefined
+
+/**
+ * Versions of the `@oa-sdk` packages this build of codegen was built and tested
+ * against, keyed by package name. Empty when the source runs without the
+ * build-time constant, e.g. through a plain TypeScript loader.
+ */
+export const BUILT_AGAINST_VERSIONS: Readonly<Record<string, string>> = Object.freeze(
+  typeof __OA_SDK_WORKSPACE_VERSIONS__ === 'string'
+    ? JSON.parse(__OA_SDK_WORKSPACE_VERSIONS__) as Record<string, string>
+    : {},
+)
+
+/**
+ * The versions of `packageName` this build of codegen supports: releases
+ * compatible (`^`) with the version it was built and tested against, or
+ * `undefined` when that version is unknown. The packages are versioned
+ * independently of codegen, so this is the only record of which companion
+ * release matches a given codegen release.
+ */
+export function companionRange(
+  packageName: string,
+  versions: Readonly<Record<string, string>> = BUILT_AGAINST_VERSIONS,
+): string | undefined {
+  const version = versions[packageName]
+  return version === undefined ? undefined : `^${version}`
+}
+
 /**
  * Install command for `packages`, in the dialect of the package manager that
  * launched `oa-gen` (read from `npm_config_user_agent`), falling back to npm.
  * Packages are added as dev dependencies, next to `@oa-sdk/codegen` itself,
- * because `oa-gen` loads them at generation time.
+ * because `oa-gen` loads them at generation time. Each package carries the
+ * range this build supports when it is known; the specifier is quoted because
+ * `^` is special to some shells (cmd.exe, zsh with EXTENDED_GLOB).
  */
 export function companionInstallCommand(
   packages: readonly string[],
   userAgent: string | undefined = process.env['npm_config_user_agent'],
+  versions: Readonly<Record<string, string>> = BUILT_AGAINST_VERSIONS,
 ): string {
-  const list = [...new Set(packages)].join(' ')
+  const list = [...new Set(packages)].map((name) => {
+    const range = companionRange(name, versions)
+    return range === undefined ? name : `"${name}@${range}"`
+  }).join(' ')
   switch (userAgent?.split('/', 1)[0]) {
     case 'pnpm': return `pnpm add -D ${list}`
     case 'yarn': return `yarn add -D ${list}`
