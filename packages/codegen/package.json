@@ -57,7 +57,7 @@
     "bench:validation": "node --import tsx scripts/bench-validation-engines.ts",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "smoke:pack": "pnpm build && node scripts/package-pack-smoke.mjs"
+    "smoke:pack": "pnpm clean && pnpm build && node scripts/package-pack-smoke.mjs"
   },
   "dependencies": {
     "@oa-sdk/ast-sync": "workspace:*",
