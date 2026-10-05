@@ -180,6 +180,20 @@
 - public release와 breaking removal은 별도 gate로 다룬다.
 - 오케스트레이터는 상태만 추적한다.
 
+## 4.1 통합 대기 브랜치 (2026-10-05 15:50 기준)
+
+main에 통합된 단위: E1, E5, C2, A3, WS-D/E6, D5, WS-H. 아래 브랜치는 리뷰를 마쳤지만 아직 main에 cherry-pick하지 않았다. 각 브랜치는 `.claude/worktrees/`의 worktree에 있다. 상세 보고는 세션 scratchpad `wave1/resume-final.json`에 있다.
+
+| 단위 | 브랜치 (base) | 커밋 | 상태 |
+|---|---|---|---|
+| A2 | `worktree-wf_3aaf01fb-dca-4` (`9f8286ea`) | 12 | 리뷰 승인. `d8bc4457`은 A3가 이미 흡수했으므로 cherry-pick에서 건너뛴다 |
+| E4 | `worktree-wf_3aaf01fb-dca-26` (`9f8286ea`) | 6 | 리뷰 승인 |
+| C4 | `worktree-wf_d9fbe586-3e4-2` (`4ff59d3a`) | 8 | 남은 지적 없음, 구현 보고는 partial이라 확인 필요 |
+| E2 | `worktree-wf_3aaf01fb-dca-3` (`9f8286ea`) | 13 | medium 1건 남음: resolve 모드에서 Path Item `$ref` 체인의 뒤쪽 hop을 못 풀 때의 처리 |
+| E3 | `worktree-wf_3aaf01fb-dca-25` (`9f8286ea`) | 7 | medium 2건 남음: 설치된 패키지의 의존 모듈 그래프 미추적, 실패한 모듈 resolve 미기록 |
+
+다음 순서: A2 → E4 → C4 통합 후 codegen 전체 스위트 → E2·E3 잔여 지적 수정 → 통합 → `type-registry:write`(사용자 승인) → Wave 2b(B1·B2, C1, A4, D2, E7).
+
 ## 5. 결정 기록 (2026-10-05 사용자 확정)
 
 | # | 질문 | 결정 |
