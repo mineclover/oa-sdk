@@ -104,9 +104,9 @@ oa-sdk 저장소 자체에 기여하는 경우는 아래 4절(기여자·메인�
  "스펙, 데이터 모델, 제약 조건을 설계/선언"                                    "타입, SDK, 핸들러, Mock을 가져다 사용"
 
  1. HTTP API 선언 (TypeSpec / OAS 3.2)                                         1. 순수 타입 & 제로-런타임 가드 소비
-    • schema-authoring.md                                                         • pure-types-and-guards.md
-    • typespec/01~06, typespec-*.md                                               • ../benchmarks/validation-engines.md
-    • openapi32-contract-management.md
+    • typespec/03, typespec/05                                                    • pure-types-and-guards.md
+    • openapi32-contract-management.md                                            • ../benchmarks/validation-engines.md
+    • 저장소 TypeSpec 계약 문서: 4절
                                                                                2. 프론트엔드 SDK & TanStack Query v5
  2. 순수 데이터 모델 & DTO 선언 (Non-HTTP)                                         • client-and-query-consumption.md
     • pure-types-and-guards.md                                                    • client-sdk-distribution.md
@@ -124,7 +124,7 @@ oa-sdk 저장소 자체에 기여하는 경우는 아래 4절(기여자·메인�
 
 | 개발자 역할 | 주요 목적 | 추천 읽기 경로 |
 |---|---|---|
-| **API / 스펙 설계자** | REST 엔드포인트, 파라미터, 응답 스키마 선언 | [Quick Start](./quick-start.md) $\rightarrow$ [스키마 작성 가이드](./schema-authoring.md) $\rightarrow$ [OpenAPI 3.2 계약 관리](./openapi32-contract-management.md) |
+| **API / 스펙 설계자** | REST 엔드포인트, 파라미터, 응답 스키마 선언 | [Quick Start](./quick-start.md) $\rightarrow$ [TypeSpec 데코레이터 레퍼런스](./typespec/03-decorators-reference.md) $\rightarrow$ [OpenAPI 3.2 계약 관리](./openapi32-contract-management.md) |
 | **데이터 모델러 (Non-HTTP)** | Chrome MV3 메시징, IPC, DB DTO, 이벤트 버스 타입 선언 | [순수 타입 선언 및 가드 실무 가이드](./pure-types-and-guards.md) $\rightarrow$ [4단계 TypeSpec-First 파이프라인](./schema-architecture-and-conventions.md) |
 | **프론트엔드 엔지니어** | 타입 안전한 API 호출, TanStack Query 훅, Mocking | [프론트엔드 SDK 및 쿼리 소비 가이드](./client-and-query-consumption.md) $\rightarrow$ [Mock 서버 활용 가이드](./mock-server-usage.md) $\rightarrow$ [SDK 배포 가이드](./client-sdk-distribution.md) |
 | **백엔드 엔지니어** | 비즈니스 로직 작성, 프레임워크 라우터 연결, 멀티 에러 반환 | [백엔드 핸들러 계약 가이드](./backend-handler-contracts.md) $\rightarrow$ [온보딩 플레이북](./onboarding-playbook.md) $\rightarrow$ [코드젠 워크플로](./use-cases/codegen-workflow.md) |
@@ -139,16 +139,9 @@ oa-sdk 저장소 자체에 기여하는 경우는 아래 4절(기여자·메인�
 스펙과 도메인 모델을 설계하고, 제약 조건을 정의하며, 팀이 함께 고치는 원본을 유지하는 엔지니어를 위한 문서입니다.
 
 ### 1.1 HTTP API 및 REST 엔드포인트 선언
-TypeSpec 및 OpenAPI 3.2를 사용하여 API 스펙을 선언하는 실무 가이드입니다. `typespec/01`과 `typespec/04`는 이 저장소의 `packages/schemas`와 `pnpm schema:*` 명령을 쓰는 기여자 흐름입니다. 다른 프로젝트에서는 `.tsp` 파일을 `oa-gen validate`·`typegen`·`generate`·`mock --tsp`에 바로 넘깁니다([Quick Start](./quick-start.md)).
-- **[스키마 작성 가이드 (Schema Authoring)](./schema-authoring.md)**: TypeSpec-first 실무 플레이북. 도메인 모델, 오퍼레이션, 파라미터, OAS 3.2 신규 문법(`dataValue`, `itemSchema`, `defaultMapping`) 작성 규칙.
-- **[TypeSpec 기여 워크플로 (5분 퀵스타트)](./typespec/01-quickstart-5min.md)**: 이 저장소의 production TypeSpec 계약에 엔드포인트를 추가하고 승인 snapshot까지 반영하는 흐름(저장소 기여자용).
-- **[TypeSpec 작성 컨벤션](./typespec/02-authoring-conventions.md)**: 모듈 분할, 네임스페이스, literal union, alias 사용 표준.
+다른 프로젝트에서 TypeSpec 및 OpenAPI 3.2로 API 스펙을 선언할 때 읽는 문서입니다. 다른 프로젝트에서는 `.tsp` 파일을 `oa-gen validate`·`typegen`·`generate`·`mock --tsp`에 바로 넘깁니다([Quick Start](./quick-start.md)). 이 저장소의 `packages/schemas` production TypeSpec 계약과 `pnpm schema:*` 명령을 쓰는 작성 문서(스키마 작성 가이드, `typespec/01`·`02`·`04`·`06`, TypeSpec Authoring Conventions, TypeSpec IDE 설정)는 4절(기여자·메인테이너)에 있습니다.
 - **[TypeSpec 종합 데코레이터 레퍼런스 및 8대 실전 작성 패턴](./typespec/03-decorators-reference.md)**: 코어 메타데이터, HTTP, OpenAPI, JSON Schema 제약, 다형성/라이프사이클, `@oa-sdk` 확장 데코레이터 및 `.tsp` 작성 패턴.
-- **[TypeSpec 스캐폴딩 및 Diff](./typespec/04-scaffolding-and-diff.md)**: `oa-gen tsp-scaffold`, `oa-gen tsp diff`와 이 저장소의 승인 snapshot 관리.
-- **[TypeSpec 트러블슈팅](./typespec/05-troubleshooting.md)**: 컴파일 에러, 순환 참조 해결 가이드.
-- **[TypeSpec 아티팩트 생성 토폴로지 및 아키텍처 규칙](./typespec/06-generation-topologies-and-rules.md)**: Co-located(피처 인접), FSD, Monorepo 생성 토폴로지와 아키텍처 규칙.
-- **[TypeSpec Authoring Conventions](./typespec-authoring-conventions.md)**: 이 저장소의 production TypeSpec source, 승인 snapshot, extension ownership과 검증 흐름.
-- **[TypeSpec IDE 설정 가이드](./typespec-ide-setup.md)**: VSCode/Cursor용 LSP, 코드 조각(Snippets), 실시간 린터 설정.
+- **[TypeSpec 트러블슈팅](./typespec/05-troubleshooting.md)**: 컴파일 에러, 순환 참조 해결 가이드. 2절(승인 snapshot drift)은 저장소 기여자용입니다.
 - **[OpenAPI 3.2 계약 관리](./openapi32-contract-management.md)**: OAS 3.2 strict validation gate 및 계약 불변식.
 
 ### 1.2 순수 데이터 모델 & DTO 선언 (Non-HTTP Use Cases)
@@ -239,5 +232,9 @@ oa-sdk 저장소 자체의 패키지 소스, production TypeSpec 계약, 문서�
 
 - **[기여자 온보딩](./onboarding-playbook.md#9-oa-sdk-모노레포-기여자-온보딩)**: Node 24/26 듀얼 레인, 정본 결정 매트릭스, TypeSpec 계약 변경·승인 워크플로, 완료 게이트.
 - **[TypeSpec 기여 워크플로](./typespec/01-quickstart-5min.md)**와 **[TypeSpec 스캐폴딩 및 Diff](./typespec/04-scaffolding-and-diff.md)**: `packages/schemas`의 production 계약 수정과 승인 snapshot.
+- **[스키마 작성 가이드 (Schema Authoring)](./schema-authoring.md)**: `packages/schemas/typespec/main.tsp`에 도메인 모델, 오퍼레이션, 파라미터, OAS 3.2 신규 문법(`dataValue`, `itemSchema`, `defaultMapping`)을 작성하고 `pnpm schema:*`로 검증하는 흐름.
+- **[TypeSpec 작성 컨벤션](./typespec/02-authoring-conventions.md)**과 **[TypeSpec Authoring Conventions](./typespec-authoring-conventions.md)**: `packages/schemas/typespec/`의 모듈 분할, 네임스페이스, literal union, alias 표준과 production TypeSpec source, 승인 snapshot, extension ownership.
+- **[TypeSpec 아티팩트 생성 토폴로지 및 아키텍처 규칙](./typespec/06-generation-topologies-and-rules.md)**: Co-located(피처 인접), FSD, Monorepo 생성 토폴로지와 아키텍처 규칙.
+- **[TypeSpec IDE 설정 가이드](./typespec-ide-setup.md)**: 저장소에 포함된 VSCode/Cursor 권장 설정, LSP, 코드 조각(Snippets).
 - **[기본 스펙 사용 기준](./basic-spec-usage.md)**: 저장소 스펙 원본, 승인 snapshot, 생성물의 소유권 경계.
 - **[패키지 릴리즈 준비 가이드](./release-preparation.md)**: 메인테이너용 artifact 전용 패키지 릴리즈 절차.

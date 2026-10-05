@@ -354,5 +354,4 @@ npx oa-gen audit:shape --source ./types.ts
 - [CLI 명령 레퍼런스](./cli-command-reference.md) — 전체 명령어, 옵션 플래그 및 조건부 파라미터 규격
 - [프로젝트 온보딩 플레이북](./onboarding-playbook.md) — 단계별 도입 순서와 Fastify, Express, Hono, Elysia, NestJS 연결 레시피
 - [선언적 사양 설정 가이드 (oa.config.ts)](./declarative-spec-configuration.md) — 이중 계층 설정(`core` vs `product`), 아키타입, `outputRouting` 상세
-- [TypeSpec 아티팩트 생성 토폴로지 및 아키텍처 규칙](./typespec/06-generation-topologies-and-rules.md) — Co-located(피처 인접), FSD, Monorepo 생성 방식
-- oa-sdk 저장소 기여자용: [TypeSpec 기여 워크플로](./typespec/01-quickstart-5min.md), [기본 스펙 사용 기준](./basic-spec-usage.md), [TypeSpec 작성 규칙 가이드](./typespec-authoring-conventions.md)
+- oa-sdk 저장소 기여자용: [TypeSpec 기여 워크플로](./typespec/01-quickstart-5min.md), [기본 스펙 사용 기준](./basic-spec-usage.md), [TypeSpec 작성 규칙 가이드](./typespec-authoring-conventions.md), [TypeSpec 아티팩트 생성 토폴로지 및 아키텍처 규칙](./typespec/06-generation-topologies-and-rules.md)
