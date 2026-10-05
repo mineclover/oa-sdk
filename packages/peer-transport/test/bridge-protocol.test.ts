@@ -53,15 +53,24 @@ describe('bridge protocol schemas', () => {
     expect(() => PeerDirectorySchema.parse('peers')).toThrow(TypeError)
   })
 
-  it('normalizes bridge status peers to the declared array form', () => {
+  it('validates bridge status peers and keeps the form the bridge sent', () => {
+    // @oa-sdk/peer-server reports an alias-keyed directory; it must stay keyed.
     expect(BridgeStatusSchema.parse({
       ok: true,
       connected: 'yes',
       targetAlias: 'a',
       toolsCount: -1,
       tools: ['echo', 1],
-      peers: { a: { alias: 'a', token: 'secret' } },
-    })).toEqual({ ok: true, targetAlias: 'a', tools: ['echo'], peers: [{ alias: 'a' }] })
+      peers: { a: { alias: 'a', token: 'secret' }, b: { alias: 'b', origin: 'http://localhost:5173' }, 'bad alias': { alias: 'c' } },
+    })).toEqual({
+      ok: true,
+      targetAlias: 'a',
+      tools: ['echo'],
+      peers: { a: { alias: 'a' }, b: { alias: 'b', origin: 'http://localhost:5173' } },
+    })
+    expect(BridgeStatusSchema.parse({ ok: true, peers: [{ alias: 'a', token: 'secret' }, { alias: 1 }] }))
+      .toEqual({ ok: true, peers: [{ alias: 'a' }] })
+    expect(BridgeStatusSchema.parse({ ok: true, peers: 'none' })).toEqual({ ok: true })
     expect(BridgeStatusSchema.parse({ ok: 'true' }).ok).toBe(false)
     expect(() => BridgeStatusSchema.parse([])).toThrow(TypeError)
   })
@@ -102,7 +111,7 @@ describe('WebMcpBridgeClient boundary validation', () => {
     const client = new WebMcpBridgeClient({ storePath: join(directory, 'missing.json') })
 
     await expect(client.listPeers()).resolves.toEqual({ 'wireframe-local': { alias: 'wireframe-local' } })
-    await expect(client.getStatus()).resolves.toEqual({ ok: true, peers: [{ alias: 'wireframe-local' }] })
+    await expect(client.getStatus()).resolves.toEqual({ ok: true, peers: { 'wireframe-local': { alias: 'wireframe-local' } } })
   })
 
   it('falls back to the local registry when the bridge status is not an object', async () => {

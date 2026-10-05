@@ -23,6 +23,7 @@ import {
   isSafeToolName,
   type BridgeSchema,
   type BridgeCallResponse,
+  type BridgeStatusPeers,
 } from './bridge-protocol.js'
 
 const MAX_JSON_BYTES = 4 * 1024 * 1024
@@ -147,7 +148,10 @@ export class WebMcpBridgeClient {
   }
 
   /**
-   * Query status of the local WebMCP bridge / server
+   * Query status of the local WebMCP bridge / server.
+   *
+   * `peers` keeps the form the bridge sent: @oa-sdk/peer-server reports an
+   * alias-keyed directory, and the local-registry fallback reports an array.
    */
   async getStatus(): Promise<{
     ok: boolean
@@ -156,7 +160,7 @@ export class WebMcpBridgeClient {
     connected?: boolean | undefined
     toolsCount?: number | undefined
     tools?: string[] | undefined
-    peers?: WebMcpPeerRecord[] | undefined
+    peers?: BridgeStatusPeers | undefined
   }> {
     try {
       const { response: res, body: status } = await this.getJson('/status', 3000, BridgeStatusSchema)

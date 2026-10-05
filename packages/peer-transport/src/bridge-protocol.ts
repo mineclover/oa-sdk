@@ -23,6 +23,13 @@ export interface BridgeToolDescriptor {
   inputSchema: Record<string, unknown>
 }
 
+/**
+ * `/status` peers in the form the bridge sent them. @oa-sdk/peer-server sends
+ * an alias-keyed directory; a bridge may also send an array of records, and
+ * the local-registry fallback reports an array.
+ */
+export type BridgeStatusPeers = Record<string, WebMcpPeerRecord> | WebMcpPeerRecord[]
+
 export interface BridgeStatus {
   ok: boolean
   activeAlias?: string | undefined
@@ -30,7 +37,7 @@ export interface BridgeStatus {
   connected?: boolean | undefined
   toolsCount?: number | undefined
   tools?: string[] | undefined
-  peers?: WebMcpPeerRecord[] | undefined
+  peers?: BridgeStatusPeers | undefined
 }
 
 export interface BridgeCallResponse {
@@ -129,11 +136,23 @@ export const PeerDirectorySchema: BridgeSchema<Record<string, WebMcpPeerRecord> 
   },
 }
 
-/** The bridge `/status` document. `peers` is normalized to the declared array form. */
+/**
+ * Validate `/status` peers without changing their form: an array stays an
+ * array and an alias-keyed directory stays keyed. Invalid entries are skipped.
+ */
+function parseStatusPeers(value: unknown): BridgeStatusPeers | undefined {
+  if (!Array.isArray(value)) return parsePeerDirectory(value)
+  return value.flatMap((entry) => {
+    const peer = parsePeerRecord(entry)
+    return peer === undefined ? [] : [peer]
+  })
+}
+
+/** The bridge `/status` document. Each peer record is validated; `peers` keeps the form the bridge sent. */
 export const BridgeStatusSchema: BridgeSchema<BridgeStatus> = {
   parse(value) {
     if (!isRecord(value)) throw new TypeError('Bridge status must be a JSON object')
-    const peers = parsePeerDirectory(value.peers)
+    const peers = parseStatusPeers(value.peers)
     const toolsCount = value.toolsCount
     return {
       ok: value.ok === true,
@@ -142,7 +161,7 @@ export const BridgeStatusSchema: BridgeSchema<BridgeStatus> = {
       ...(typeof value.connected === 'boolean' ? { connected: value.connected } : {}),
       ...(typeof toolsCount === 'number' && Number.isSafeInteger(toolsCount) && toolsCount >= 0 ? { toolsCount } : {}),
       ...(Array.isArray(value.tools) ? { tools: value.tools.filter(isSafeToolName) } : {}),
-      ...(peers === undefined ? {} : { peers: Object.values(peers) }),
+      ...(peers === undefined ? {} : { peers }),
     }
   },
 }
