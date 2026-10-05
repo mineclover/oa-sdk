@@ -361,10 +361,27 @@ const { data, fetchNextPage, hasNextPage } = useInfiniteQuery(
 )
 ```
 
-알려진 한계가 두 가지 있습니다.
+알려진 한계는 다음과 같습니다.
 
+- `<operationId>QueryOptions`와 `<operationId>InfiniteQueryOptions`(그리고 이를 쓰는 `use<OperationId>Query`·`use<OperationId>InfiniteQuery`)가 같은 `queryKey`(`usersKeys.listUsers(query)`)를 씁니다. 같은 필터로 목록 쿼리와 무한 쿼리를 함께 쓰면 TanStack 캐시 항목 하나를 공유하므로, 목록 쿼리가 먼저 받은 `{ items, nextCursor }`가 무한 쿼리의 데이터로 나오고 `pages` 배열이 없습니다(알려진 결함). 두 쿼리를 같은 필터로 함께 쓰지 않거나, 아래처럼 무한 쿼리에 다른 키를 줍니다.
 - 커서 방식의 첫 요청은 `cursor=null`을 쿼리 문자열로 보냅니다. 서버가 이 값을 거부하면 `initialPageParam`을 `undefined`로 바꿉니다(아래 예).
 - 세 번째 인자(TanStack 옵션)를 넘길 때는 타입상 `initialPageParam`과 `getNextPageParam`을 함께 넘겨야 합니다.
+
+무한 쿼리에 다른 키를 주려면 생성된 옵션을 펼친 뒤 `queryKey`를 바꿉니다. 세 번째 인자와 생성 훅은 `queryKey`를 받지 않으므로 `useInfiniteQuery`를 직접 씁니다. 생성된 `queryFn`은 키를 읽지 않으므로 키만 바뀝니다. 키 앞부분이 같아서 `usersKeys.listUsers(filters)`로 무효화하면 두 쿼리가 함께 무효화됩니다.
+
+```tsx
+import { useInfiniteQuery } from '@tanstack/react-query'
+import { listUsersInfiniteQueryOptions } from './api/tanstack-query.js'
+
+const infinite = listUsersInfiniteQueryOptions(apiClient, { limit: 10 })
+const feed = useInfiniteQuery({
+  ...infinite,
+  // 생성된 키 타입은 끝 요소를 허용하지 않으므로 단언한다
+  queryKey: [...infinite.queryKey, 'infinite'] as unknown as typeof infinite.queryKey,
+})
+```
+
+`cursor=null`을 보내지 않으려면 `initialPageParam`을 바꿉니다.
 
 ```tsx
 import type { InfiniteData } from '@tanstack/react-query'

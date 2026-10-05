@@ -114,6 +114,13 @@ framework, and `ApiClient` from `./client.js` (or `clientImport`).
 - The runtime accepts single-object calls (`{ params, body, query, headers, signal }`), an options
   object in place of a skipped argument, and `signal` inside the query object, but the typed
   signatures do not declare them, so TypeScript rejects them.
+- `<operationId>QueryOptions` and `<operationId>InfiniteQueryOptions` (and the hooks built on them)
+  use the same `queryKey`. When an app runs the list query and the infinite query with the same
+  filters, they share one TanStack cache entry, and the infinite query returns the list response
+  without a `pages` array. Do not combine the two for the same filters, or spread the infinite
+  options into `useInfiniteQuery` with a key of its own (the options argument and the generated hook
+  do not accept `queryKey`; the generated `queryFn` does not read the key):
+  `{ ...infinite, queryKey: [...infinite.queryKey, 'infinite'] as unknown as typeof infinite.queryKey }`.
 - Cursor-based `<operationId>InfiniteQueryOptions` sends `cursor=null` on the first request; pass
   `initialPageParam: undefined` (with `getNextPageParam`) in the options to omit it.
 - TanStack query options are also generated for streaming operations, but their `queryFn` returns the
