@@ -386,7 +386,10 @@ fresh response on every call.
 header values and stream events with the exported `generator` and `streamer`.
 While either is customized, every request picks, validates, serializes and
 streams its response anew, exactly as without reuse, so a handler that keeps
-state or changes over time is called on every request. Customizing means any
+state or changes over time is called on every request and its values are sent.
+This includes header values generated next to an example body: the Node
+adapter sends the response as picked for the request rather than the one it
+serialized when the server was created or updated. Customizing means any
 of: replacing or adding a `generateAlgebra` handler; replacing `fold`,
 `algebra()` or `generateString()` on `generator` or on
 `GenerateFolder.prototype` (a test spy on `generator.fold` counts); changing

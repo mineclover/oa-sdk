@@ -475,9 +475,10 @@ export function createUncompilableResponseSpec(): OasDocument {
 }
 
 /**
- * A generated JSON body and a generated event stream, each made of one
- * required integer `n`: a generator handler that numbers its calls shows in
- * every response how many values were generated before it.
+ * A generated JSON body, a generated event stream and a generated `X-N`
+ * header next to an example body, each made of one integer: a generator
+ * handler that numbers its calls shows in every response how many values were
+ * generated before it.
  */
 export function createGeneratedIntegerSpec(): OasDocument {
   const numbered = (): OasSchema => ({ type: 'object', required: ['n'], properties: { n: { type: 'integer' } } })
@@ -493,6 +494,18 @@ export function createGeneratedIntegerSpec(): OasDocument {
         get: {
           operationId: 'streamN',
           responses: { '200': { description: 'OK', content: { 'text/event-stream': { itemSchema: numbered() } } } },
+        },
+      },
+      '/n-header': {
+        get: {
+          operationId: 'headerN',
+          responses: {
+            '200': {
+              description: 'OK',
+              headers: { 'X-N': { schema: { type: 'integer' } } },
+              content: { 'application/json': { schema: { type: 'object' }, example: { fixed: true } } },
+            },
+          },
         },
       },
     },

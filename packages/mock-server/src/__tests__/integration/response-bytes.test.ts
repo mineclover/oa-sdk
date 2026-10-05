@@ -496,19 +496,26 @@ describe('request-dependent response stages', () => {
 
 
 describe('customized shared generator', () => {
+  /** Serves one GET to `path` and returns the recorded response. */
+  type Fetch = (path: string) => Promise<Exchange>
   /** Serves one GET to `path` and returns the response body text. */
   type Serve = (path: string) => Promise<string>
 
-  const ADAPTERS: [string, () => Promise<Serve>][] = [
+  const FETCHERS: [string, () => Promise<Fetch>][] = [
     ['Node HTTP adapter', async () => {
       const server = await startNode(createGeneratedIntegerSpec())
-      return async path => (await replayOnNode(server, [{ name: 'request', method: 'GET', path }])).request!.body
+      return async path => (await replayOnNode(server, [{ name: 'request', method: 'GET', path }])).request!
     }],
     ['MSW adapter', async () => {
       const handlers = createMswHandlers(createGeneratedIntegerSpec())
-      return async path => (await replayOnMsw(handlers, MSW_ORIGIN, [{ name: 'request', method: 'GET', path }])).request!.body
+      return async path => (await replayOnMsw(handlers, MSW_ORIGIN, [{ name: 'request', method: 'GET', path }])).request!
     }],
   ]
+
+  const ADAPTERS: [string, () => Promise<Serve>][] = FETCHERS.map(([name, open]) => [name, async () => {
+    const get = await open()
+    return async path => (await get(path)).body
+  }])
 
   const events = (...values: number[]) => values.map(n => `data: {"n":${n}}\n\n`).join('')
 
@@ -563,6 +570,47 @@ describe('customized shared generator', () => {
 
     expect(await serve('/n')).toBe('{"n":0}')
     expect(await serve('/n-events')).toBe(events(0, 0, 0))
+  })
+
+  // An example body is the spec's own object whichever generator picks it, so
+  // the response must not be recognized as the precomputed one by its body alone.
+  it.each(FETCHERS)('%s sends the header values generated for each request next to an example body', async (_name, open) => {
+    const get = await open()
+    const header = async () => {
+      const exchange = await get('/n-header')
+      expect(exchange.body).toBe('{"fixed":true}')
+      return exchange.headers['x-n']
+    }
+    expect(await header()).toBe('0')
+
+    let count = 0
+    const undo = replaceProperty(generateAlgebra, 'integer', () => ++count)
+    const served: { header: string | undefined; count: number }[] = []
+    try {
+      for (let request = 0; request < 3; request += 1) served.push({ header: await header(), count })
+    } finally {
+      undo()
+    }
+
+    expect(served.map(({ header }) => header)).toEqual(served.map(({ count }) => String(count)))
+    expect(served[1]!.count).toBeGreaterThan(served[0]!.count)
+    expect(served[2]!.count).toBeGreaterThan(served[1]!.count)
+    expect(await header()).toBe('0')
+  })
+
+  it.each(FETCHERS)('%s sends the built-in header value next to an example body once a customization present at creation is undone', async (_name, open) => {
+    const undo = replaceProperty(generateAlgebra, 'integer', () => 99)
+    let get: Fetch
+    try {
+      get = await open()
+      expect((await get('/n-header')).headers['x-n']).toBe('99')
+    } finally {
+      undo()
+    }
+
+    const exchange = await get('/n-header')
+    expect(exchange.headers['x-n']).toBe('0')
+    expect(exchange.body).toBe('{"fixed":true}')
   })
 })
 

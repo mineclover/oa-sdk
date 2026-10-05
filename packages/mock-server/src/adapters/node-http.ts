@@ -13,7 +13,7 @@ import {
   type RouteIndex,
 } from '@oa-sdk/parser'
 import { handleRouteRequest, RouteResponses } from '../core/handler.js'
-import { isStreamingContentType } from '../core/stream.js'
+import { isStreamingContentType, sharedGenerationIsBuiltin } from '../core/stream.js'
 import { filterRouteIndex, type RouteFilter } from '../core/route-filter.js'
 import { assertValidRequestSchemas, createMultipartBody, type MultipartPartMetadata } from '../core/request-validator.js'
 import { serializeResponseBody } from '../core/body-serialization.js'
@@ -96,7 +96,11 @@ type PrecomputedResponse = {
 /** Request-independent state of one operation, compiled together with its spec. */
 type CompiledRoute = {
   responses: RouteResponses
-  /** The operation's own non-streaming response, serialized with its framing headers. */
+  /**
+   * The operation's own non-streaming response, serialized with its framing
+   * headers. Only computed while the shared generator is built in, and only
+   * served while it still is (see `sharedGenerationIsBuiltin`).
+   */
   precomputed: PrecomputedResponse | undefined
 }
 
@@ -179,7 +183,9 @@ export function createNodeMockServer(
         const picked = pickResponse(entry.responses)
         const responses = new RouteResponses(entry.responses, picked)
         let precomputed: PrecomputedResponse | undefined
-        if (picked && !isStreamingContentType(picked.contentType)) {
+        // A response picked with a customized generator is not the operation's
+        // request-independent response (RouteResponses does not adopt it either).
+        if (picked && !isStreamingContentType(picked.contentType) && sharedGenerationIsBuiltin()) {
           const payload = responses.serializedBody(picked)
           const contentLength = Buffer.byteLength(payload)
           const headers: Record<string, string | number> = {
@@ -393,9 +399,17 @@ export function createNodeMockServer(
       return
     }
 
-    // Fast path: reuse pre-calculated serialized body and pre-allocated static headers
+    // Fast path: reuse pre-calculated serialized body and pre-allocated static headers.
+    // An example body is the spec's own object whichever generator picked the
+    // response, so while the shared generator is customized the response's
+    // generated header values may differ from the precomputed ones: serve it as picked.
     const precalc = route.precomputed
-    if (precalc && picked.status === precalc.status && picked.body === precalc.originalBody) {
+    if (
+      precalc
+      && picked.status === precalc.status
+      && picked.body === precalc.originalBody
+      && sharedGenerationIsBuiltin()
+    ) {
       if (chaos?.throttleBytesPerSec && chaos.throttleBytesPerSec > 0) {
         await writeThrottled(res, precalc.status, precalc.headers, precalc.payload, chaos.throttleBytesPerSec)
       } else {
