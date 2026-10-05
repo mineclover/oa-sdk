@@ -41,7 +41,7 @@ export interface McpSessionInstance {
   /** Current connection status */
   status: 'active' | 'idle' | 'disconnected'
   /** Invocation handler executing tools on this session instance */
-  callTool: (toolName: string, args?: Record<string, unknown>) => Promise<any>
+  callTool: (toolName: string, args?: Record<string, unknown>) => Promise<unknown>
   /** Metadata */
   meta?: Record<string, unknown> | undefined
 }

@@ -65,7 +65,7 @@ export class MeshRouter {
   /**
    * Dispatch a tool call through the mesh to the appropriate active session
    */
-  async dispatchTool(invokedName: string, args: Record<string, unknown> = {}): Promise<any> {
+  async dispatchTool(invokedName: string, args: unknown = {}): Promise<unknown> {
     const route = this.resolveRoute(invokedName)
     if (!route) {
       throw new Error(`Cannot route tool "${invokedName}": no active session found for its domain`)
@@ -123,32 +123,30 @@ export class MeshRouter {
       for (const t of skill.tools) {
         const namespacedName = `${skill.domain}__${t.name}`
 
+        // Mesh tools forward input unchanged; dispatchTool validates it
+        // against the owning domain tool's schema before routing.
+        const metadata = {
+          inputSchema: t.inputSchema,
+          ...(t.outputSchema !== undefined ? { outputSchema: t.outputSchema } : {}),
+          ...(t.hints !== undefined ? { hints: t.hints } : {}),
+        }
+
         // Register namespaced version
-        const namespacedDef: any = {
+        tools.push(defineTool({
           name: namespacedName,
           description: `[${skill.domain}] ${t.description}`,
-          inputSchema: t.inputSchema,
-          execute: async (_ctx: any, input: any) => {
-            return this.dispatchTool(namespacedName, input)
-          },
-        }
-        if (t.outputSchema !== undefined) namespacedDef.outputSchema = t.outputSchema
-        if (t.hints !== undefined) namespacedDef.hints = t.hints
-        tools.push(defineTool(namespacedDef))
+          ...metadata,
+          execute: async (_ctx, input: unknown) => this.dispatchTool(namespacedName, input),
+        }))
 
         // A bare name is safe only when exactly one domain owns it.
         if ((domainsByTool.get(t.name)?.size ?? 0) === 1) {
-          const bareDef: any = {
+          tools.push(defineTool({
             name: t.name,
             description: t.description,
-            inputSchema: t.inputSchema,
-            execute: async (_ctx: any, input: any) => {
-              return this.dispatchTool(t.name, input)
-            },
-          }
-          if (t.outputSchema !== undefined) bareDef.outputSchema = t.outputSchema
-          if (t.hints !== undefined) bareDef.hints = t.hints
-          tools.push(defineTool(bareDef))
+            ...metadata,
+            execute: async (_ctx, input: unknown) => this.dispatchTool(t.name, input),
+          }))
         }
       }
     }

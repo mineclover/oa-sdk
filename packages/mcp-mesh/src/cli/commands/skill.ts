@@ -7,6 +7,7 @@
 import { Command } from 'commander'
 import { formatOutput } from '../formatters.js'
 import type { CliContext } from '../types.js'
+import { thrownMessage } from '../errors.js'
 
 export function registerSkillCommands(program: Command, ctx: CliContext): void {
   const skillCmd = program.command('skill').description('Manage 1:N Domain Skills and WebMCP tool hydration')
@@ -107,8 +108,8 @@ export function registerSkillCommands(program: Command, ctx: CliContext): void {
         console.log(`   Bound Session: ${session.alias} (transport: ${session.transportType})`)
         console.log(`   Total Tools:   ${skill.tools.length}`)
         console.log(`   Tools:         ${skill.tools.map((t) => t.name).join(', ')}`)
-      } catch (err: any) {
-        console.error(`Failed to pull skill: ${err.message ?? err}`)
+      } catch (err: unknown) {
+        console.error(`Failed to pull skill: ${thrownMessage(err)}`)
         if (ctx.isDebug()) console.error(err)
         process.exit(1)
       }

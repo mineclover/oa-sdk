@@ -6,6 +6,7 @@
 import { Command } from 'commander'
 import { formatOutput } from '../formatters.js'
 import type { CliContext } from '../types.js'
+import { thrownMessage } from '../errors.js'
 
 export function registerMeshCommands(program: Command, ctx: CliContext): void {
   const meshCmd = program.command('mesh').description('Inspect Multi-MCP cluster status and Meta-Skill readiness')
@@ -64,8 +65,8 @@ export function registerMeshCommands(program: Command, ctx: CliContext): void {
             console.log(`   - ${d}`)
           }
         }
-      } catch (err: any) {
-        console.error(`Meta-Skill check error: ${err.message ?? err}`)
+      } catch (err: unknown) {
+        console.error(`Meta-Skill check error: ${thrownMessage(err)}`)
         process.exit(1)
       }
     })

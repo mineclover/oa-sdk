@@ -6,6 +6,7 @@ import { createPeerServer } from '@oa-sdk/peer-server'
 import { FilePeerStore } from '@oa-sdk/peer-server'
 import { formatOutput } from '../formatters.js'
 import type { CliContext } from '../types.js'
+import { thrownMessage } from '../errors.js'
 
 export function registerPeerCommands(program: Command, ctx: CliContext): void {
   const peerCmd = program.command('peer').description('Manage WebMCP browser peers and signaling daemon')
@@ -80,8 +81,8 @@ export function registerPeerCommands(program: Command, ctx: CliContext): void {
         }
 
         console.log(formatOutput(result, format))
-      } catch (err: any) {
-        console.error(`Error checking peer status: ${err.message ?? err}`)
+      } catch (err: unknown) {
+        console.error(`Error checking peer status: ${thrownMessage(err)}`)
         if (ctx.isDebug()) console.error(err)
         process.exit(1)
       }
@@ -116,8 +117,8 @@ export function registerPeerCommands(program: Command, ctx: CliContext): void {
         }
         process.on('SIGINT', onSignal)
         process.on('SIGTERM', onSignal)
-      } catch (err: any) {
-        console.error(`Failed to start peering server: ${err.message ?? err}`)
+      } catch (err: unknown) {
+        console.error(`Failed to start peering server: ${thrownMessage(err)}`)
         if (ctx.isDebug()) console.error(err)
         process.exit(1)
       }

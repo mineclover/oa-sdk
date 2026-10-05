@@ -163,6 +163,48 @@ describe('oa-mesh CLI Suite', () => {
     expect(parsed.id).toBe('page-101')
   })
 
+  it('call command accepts a JSON object argument and reports malformed JSON and routing errors', async () => {
+    const registry = new SkillRegistry()
+    const router = new MeshRouter(registry)
+    const callMock = vi.fn().mockResolvedValue({ ok: true })
+    registry.registerDomainSkill({
+      domain: 'wireframe',
+      name: 'Wireframe',
+      version: '1.0.0',
+      description: 'Wireframe',
+      tools: [
+        defineTool({
+          name: 'page_add',
+          description: 'Add page',
+          inputSchema: { type: 'object', properties: { title: { type: 'string' }, order: { type: 'number' } } },
+          execute: async (_ctx, input) => callMock(input),
+        }),
+      ],
+    })
+    registry.bindSession({
+      sessionId: 's-1',
+      domain: 'wireframe',
+      alias: 'wireframe-local',
+      transportType: 'bridge-http',
+      status: 'active',
+      callTool: callMock,
+    })
+    const exit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never)
+    try {
+      await createMeshCli({ registry, router }).parseAsync(['node', 'oa-mesh', '-o', 'json', 'call', 'wireframe__page_add', '{"title":"Home","order":2}'])
+      expect(callMock).toHaveBeenCalledWith('page_add', { title: 'Home', order: 2 })
+
+      await createMeshCli({ registry, router }).parseAsync(['node', 'oa-mesh', 'call', 'wireframe__page_add', '{"title":}'])
+      expect(errorOutput).toContain('Tool execution failed: Invalid JSON arguments: {"title":}')
+
+      await createMeshCli({ registry, router }).parseAsync(['node', 'oa-mesh', 'call', 'missing__tool'])
+      expect(errorOutput.at(-1)).toBe('Tool execution failed: Cannot route tool "missing__tool": no active session found for its domain')
+      expect(exit).toHaveBeenCalledWith(1)
+    } finally {
+      exit.mockRestore()
+    }
+  })
+
   it('mesh status and meta check verify readiness across domains', async () => {
     const registry = new SkillRegistry()
     const router = new MeshRouter(registry)

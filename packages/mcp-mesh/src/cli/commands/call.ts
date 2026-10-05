@@ -7,6 +7,17 @@
 import { Command } from 'commander'
 import { formatOutput } from '../formatters.js'
 import type { CliContext } from '../types.js'
+import { thrownMessage } from '../errors.js'
+
+/** Tool-call arguments given as JSON on the command line must be one JSON object. */
+const ToolArgumentsSchema = {
+  parse(value: unknown): Record<string, unknown> {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      throw new TypeError('Tool arguments must be a JSON object')
+    }
+    return { ...value }
+  },
+}
 
 export function registerCallCommands(program: Command, ctx: CliContext): void {
   program
@@ -23,7 +34,7 @@ export function registerCallCommands(program: Command, ctx: CliContext): void {
           const joined = rawArgs.join(' ').trim()
           if (joined.startsWith('{') && joined.endsWith('}')) {
             try {
-              parsedArgs = JSON.parse(joined)
+              parsedArgs = ToolArgumentsSchema.parse(JSON.parse(joined))
             } catch {
               throw new Error(`Invalid JSON arguments: ${joined}`)
             }
@@ -54,8 +65,8 @@ export function registerCallCommands(program: Command, ctx: CliContext): void {
 
         const result = await ctx.router.dispatchTool(toolName, parsedArgs)
         console.log(formatOutput(result, format))
-      } catch (err: any) {
-        console.error(`Tool execution failed: ${err.message ?? err}`)
+      } catch (err: unknown) {
+        console.error(`Tool execution failed: ${thrownMessage(err)}`)
         if (ctx.isDebug()) console.error(err)
         process.exit(1)
       }
