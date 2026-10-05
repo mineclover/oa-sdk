@@ -107,21 +107,59 @@ it('GET /items returns 200', async () => {
 })
 ```
 
-Configure Playwright to point its `baseURL` at `server.url` before the test run starts.
+The default port and host are `4010` and `127.0.0.1`. When `spec.servers[0].url` has a path
+(`https://api.example.com/v1`), the routes are served under it (`${server.url}/v1/items`); pick another
+server with `serverIndex` and fill its variables with `serverVariables`.
+
+The examples pass the spec as an object. Load your own document with `JSON.parse(readFileSync(...))`,
+an import attribute (`import spec from './openapi.json' with { type: 'json' }`), or the `parse()`
+function of the `yaml` package.
+
+For Playwright, let the test runner start the mock server through the [CLI](#cli) with `webServer`,
+and point `baseURL` at it:
 
 ```ts
 // playwright.config.ts
-import { createNodeMockServer } from '@oa-sdk/mock-server'
-import spec from './openapi.json'
-
-const mockServer = createNodeMockServer(spec, { port: 4010 })
+import { defineConfig } from '@playwright/test'
 
 export default defineConfig({
-  globalSetup: async () => { await mockServer.start() },
-  globalTeardown: async () => { await mockServer.stop() },
-  use: { baseURL: mockServer.url },
+  webServer: {
+    command: 'npx oa-mock --spec ./openapi.yaml --port 4010',
+    url: 'http://127.0.0.1:4010/items', // any documented GET route that answers 200
+    reuseExistingServer: !process.env.CI,
+  },
+  use: { baseURL: 'http://127.0.0.1:4010' },
 })
 ```
+
+### Testing helpers
+
+The package root also exports small helpers for tests:
+
+```ts
+import { createNodeMockServer, createTestClient, type MockErrorResponse } from '@oa-sdk/mock-server'
+
+const server = createNodeMockServer(spec, { port: 0 })
+await server.start()
+const client = createTestClient(server)
+
+const res = await client.post('/users', {}) // a documented POST route whose body has a required field
+if (res.status === 422) {
+  const { error } = res.json as MockErrorResponse // `json` is typed `unknown`
+  console.log(error.details.map((detail) => `${detail.code} ${detail.path}`))
+}
+```
+
+| Export | Description |
+|--------|-------------|
+| `createTestClient(server)` | `get`, `post`, `put`, `patch`, `delete` against a started `NodeMockServer`; each resolves to `{ status, headers, body, json, ok }` (`json` is `unknown`, `null` for a non-JSON body) |
+| `createCoverageTracker()` | Records operation IDs through `onRequest({ operationId })` and reports `called`, `uncalled(ids)` and `coverage(ids)` (0 to 1) |
+| `createCallbackTracker()` | Collects simulated callback POST attempts through `onCallback`; pass it as the adapter's `onCallback` option |
+
+`createNodeMockServer` has no request hook, so feed a coverage tracker from a plugin:
+`plugins: [{ name: 'coverage', onMatch: ({ entry }) => tracker.onRequest({ operationId: entry.operationId }) }]`.
+Plugins run only for requests that pass validation. With the MSW adapter, pass
+`onRequest: tracker.onRequest` instead; it runs before validation.
 
 ## CLI
 
@@ -216,9 +254,10 @@ const server = createNodeMockServer(spec, {
 })
 ```
 
-- A collection path (`/users`): `GET` lists the items, paged when the query has `limit`,
-  `pageSize` or `per_page` (with `offset` or `page`) and wrapped as `{ items, total, page?, limit }`
-  or `{ data, total }` when the documented 200 schema has `items` or `data`. `POST` appends the
+- A collection path (`/users`): `GET` returns the items as an array. When the query has `limit`,
+  `pageSize` or `per_page` (with `offset` or `page`), it returns that page, wrapped as
+  `{ items, total, page?, limit }` or `{ data, total }` when the documented 200 schema has `items` or
+  `data`. Store responses are not validated against the documented schema. `POST` appends the
   request body, gives an object without `id` one from `generateId` (default `crypto.randomUUID()`),
   and answers 201 unless only 200 is documented.
 - A member path (`/users/{id}`): `GET`, `PUT` (replace), `PATCH` (merge) and `DELETE` find the item
@@ -268,7 +307,7 @@ foldSchema({ type: 'object', properties: { id: { type: 'integer' } } }, typeAlge
 
 `SchemaFolder` is an abstract class for whole-spec AST transformations. It recursively walks every node in the spec and returns a new tree. Subclass it and override `foldRef` or `foldObject` to intercept specific node kinds.
 
-`DerefFolder` extends `SchemaFolder` to inline internal `$ref` references (`#/components/schemas/...`). It detects circular references via a traversal stack and replaces them with `{}`. External refs (`./foo.yaml`, `https://...`) are left untouched.
+`DerefFolder` (re-exported from `@oa-sdk/parser`) extends `SchemaFolder` to inline `$ref` references. Internal refs (`#/components/schemas/...`) are always resolved; relative file refs (`./foo.yaml`) are resolved when a `basePath` option is given and are otherwise left as written. Siblings of a `$ref` are merged into the resolved target. Circular references are detected through a stack of (document, JSON Pointer) keys and replaced with `{}`, or kept as a `$ref` with `cycleStrategy: 'preserve-ref'`. The result can share one sub-object between several locations, so treat it as read-only.
 
 `SpecPass` models a single named transformation step over an `OpenAPIObject`. Multiple passes compose left-to-right through `runPipeline`:
 
@@ -347,10 +386,10 @@ For class-based extension with method overrides:
 
 ```ts
 import { GenerateFolder, StreamFolder } from '@oa-sdk/mock-server'
-import type { SchemaObject } from 'openapi3-ts/oas31'
+import type { OasSchema } from '@oa-sdk/parser' // a dependency of this package; install it to import its types
 
 class RealisticFolder extends GenerateFolder {
-  protected override generateString(schema: SchemaObject): string {
+  protected override generateString(schema: OasSchema): string {
     if (schema.format === 'email') return 'user@example.org'
     if (schema.format === 'uuid')  return crypto.randomUUID()
     return super.generateString(schema)
@@ -370,7 +409,7 @@ const customStreamer = new StreamFolder(new RealisticFolder())
 Inject spec normalization or enrichment steps before route indexing:
 
 ```ts
-import { createNodeMockServer, loadSchema, DEFAULT_PASSES, type SpecPass } from '@oa-sdk/mock-server'
+import { createNodeMockServer, loadSchema, runPipeline, DEFAULT_PASSES, type SpecPass } from '@oa-sdk/mock-server'
 
 const injectExamples: SpecPass = {
   name: 'inject-examples',
@@ -395,21 +434,21 @@ const server = createNodeMockServer(processedSpec)
 Both adapters support the `include` option to generate handlers for a subset of routes:
 
 ```typescript
-// path prefix — /users 하위만 모킹
+// path prefix: mock only the routes under /users
 const handlers = createMswHandlers(spec, { include: { paths: ['/users'] } })
 
-// 특정 operationId만
+// selected operation IDs
 const handlers = createMswHandlers(spec, { include: { operations: ['listUsers', 'getUser'] } })
 
-// 태그 기반
+// by tag
 const handlers = createMswHandlers(spec, { include: { tags: ['projects'] } })
 
-// 커스텀 predicate
+// custom predicate
 const handlers = createMswHandlers(spec, {
   include: { filter: (_path, _method, entry) => !entry.deprecated },
 })
 
-// Node HTTP도 동일
+// the Node HTTP adapter takes the same option
 const server = createNodeMockServer(spec, { port: 0, include: { paths: ['/users'] } })
 ```
 
@@ -434,8 +473,9 @@ which need `msw`; the root entry point does not export them.
 | `NetworkChaosOptions` | `{ ttfbMs?, jitterMs?, packetLoss?, lossMode?, throttleBytesPerSec? }` |
 | `MockPlugin` | `{ name, onMatch?, onResponse?, reset? }` — see [Plugins and stateful CRUD](#plugins-and-stateful-crud) |
 | `inMemoryStorePlugin(options?)` | Built-in collection CRUD store (`InMemoryStoreOptions`: `seed?`, `generateId?`) |
-| `RouteFilter` | 라우트 필터 조건 (paths/operations/tags/custom predicate) |
-| `HandlerResult` | `handleRequest` 반환 타입 (`success` \| `validation-error` \| `no-response`) |
+| `RouteFilter` | Route filter: `paths`, `operations`, `tags`, or a `filter(path, method, entry)` predicate (OR semantics) |
+| `handleRequest(parts, entry, securitySchemes, options?)` | The adapter-independent validate-then-respond step both adapters use |
+| `HandlerResult` | `handleRequest` result: `success`, `validation-error` (422), `schema-error` (500) or `no-response` (500) |
 
 ### Schema Algebra
 
@@ -470,13 +510,13 @@ which need `msw`; the root entry point does not export them.
 
 | Export | Description |
 |--------|-------------|
-| `loadSchema(spec, passes?)` | Parse a spec into a `RouteIndex` after running the pipeline |
-| `matchRoute(index, method, path)` | Look up a route; returns `found`, `method_not_allowed`, or `not_found` |
-| `toMswPath(openApiPath)` | Convert `{param}` syntax to `:param` for MSW |
-| `filterRouteIndex(index, filter)` | `RouteIndex`에서 조건에 맞는 라우트만 추출 |
-| `validateRequest(input, parameters, requestBody?)` | Validate path/query/header/body against OAS parameter definitions |
+| `loadSchema(spec, passes?)` | Parse a spec into a `RouteIndex` after running the pipeline (re-exported from `@oa-sdk/parser`) |
+| `matchRoute(index, method, path)` | Look up a route; returns `found`, `method_not_allowed`, or `not_found`. A concrete path (`/users/me`) wins over a templated one (`/users/{id}`); path parameter values are returned as sent, without percent-decoding |
+| `filterRouteIndex(index, filter)` | Keep only the routes of a `RouteIndex` that match a `RouteFilter` |
+| `validateRequest(input, parameters, requestBody, security?)` | Validate security credentials, `Content-Type`, path/query/header parameters and the body |
+| `validateRequestSchemas(index)`, `assertValidRequestSchemas(index)` | Compile every request schema of a `RouteIndex` up front; the adapters do this at creation unless `validateRequestSchemas: false` |
 | `pickResponse(responses)` | Select a `PickedResponse` from an operation's responses map |
-| `PickedResponse` | `{ status, contentType, body, stream? }` |
+| `PickedResponse` | `{ status, contentType, body, headers, links, schema?, stream? }` |
 
 ### Errors
 
@@ -485,12 +525,24 @@ which need `msw`; the root entry point does not export them.
 | `MockErrorCode` | Union of machine-readable error code strings |
 | `MockErrorDetail` | Single field-level error with `path`, `code`, `message`, and optional redacted `received`/`value` summaries plus `expected`/`constraint` |
 | `MockValidationResult` | `{ valid: true }` or `{ valid: false; errors: MockErrorDetail[] }` |
-| `MockErrorResponse` | Top-level error envelope returned by the adapters on `422` |
+| `MockErrorResponse` | Top-level error envelope returned by the adapters (422, 404, and the 500 responses below) |
 | `classifyAjvErrors` | Convert raw AJV error objects into `MockErrorDetail[]` |
 
 ## Validation errors
 
-Invalid requests receive a `422` response with this shape:
+Requests are checked in this order: route match, security credentials, `Content-Type`, parameters,
+body. The adapters answer:
+
+| Situation | Response |
+|-----------|----------|
+| No route for the path | 404 with `{ error: { code: 'NOT_FOUND', ... } }` |
+| The path exists but not for the method | 405 with an `Allow` header (Node HTTP adapter) |
+| A security requirement has no credential | 401: the operation's documented 401 response, or `{ code: 'UNAUTHORIZED', message }`. Only the presence of the credential is checked, not its value |
+| Parameters, body, or `Content-Type` fail validation | 422: the operation's documented 422 response when it has one (with `details` when its schema accepts them), otherwise the envelope below |
+| A request schema does not compile | 500 with code `SCHEMA_COMPILE_ERROR` |
+| The picked response does not satisfy its schema, or no response is defined | 500 |
+
+Otherwise, invalid requests receive a `422` response with this shape:
 
 ```ts
 type MockErrorResponse = {
@@ -514,6 +566,7 @@ type MockErrorDetail = {
   value?: MockReceivedValueSummary     // legacy alias; follows the same redaction rule
   expected?: string   // what was expected
   constraint?: Record<string, unknown>  // e.g. { minLength: 8 }
+  stage?: 'parse' | 'coerce' | 'validate'
 }
 
 type MockReceivedValueSummary =
@@ -526,18 +579,20 @@ type MockReceivedValueSummary =
 keeps validation output safe to return, serialize, and log when a request
 contains passwords, tokens, XML, multipart fields, or nested objects.
 
+The top-level `code` of a 422 envelope is `CONSTRAINT_VIOLATION`; each detail carries its own code.
 The `code` values and when they fire:
 
 | Code | Trigger |
 |------|---------|
 | `TYPE_ERROR` | Field value has the wrong JS type |
-| `CONSTRAINT_VIOLATION` | `minimum`, `maxLength`, `minItems`, etc. violated |
-| `MISSING_REQUIRED_FIELD` | A `required` field is absent |
+| `CONSTRAINT_VIOLATION` | `minimum`, `maxLength`, `minItems`, etc. violated; also the 500 code when a generated response fails its schema |
+| `MISSING_REQUIRED_FIELD` | A `required` field, parameter, or body is absent |
 | `INVALID_ENUM_VALUE` | Value is not in the declared `enum` |
 | `FORMAT_MISMATCH` | `email`, `uuid`, `date-time`, etc. format invalid |
 | `PATTERN_MISMATCH` | String does not match `pattern` |
-| `PROTOCOL_MISMATCH` | `Content-Type` header does not match any declared request body media type |
-| `NOT_FOUND` | Path or method is not defined in the spec |
+| `PROTOCOL_MISMATCH` | `Content-Type` header does not match any declared request body media type, or a JSON body does not parse |
+| `SCHEMA_COMPILE_ERROR` | A request or response schema cannot be compiled (500) |
+| `NOT_FOUND` | No route for the path (404), or the operation defines no response (500) |
 
 ## OAS 3.2 features supported
 
@@ -546,6 +601,6 @@ The `code` values and when they fire:
 | `examples[n].dataValue` | Used as the response body in preference to `examples[n].value` or `example` |
 | `itemSchema` | When present on a streaming schema, each generated event uses `itemSchema` as its schema rather than the container schema |
 | `type` as an array (e.g. `["string", "null"]`) | `foldSchema` picks the first element of the array for dispatch |
-| Range status codes (`2XX`, `4XX`) | `pickResponse` maps `2XX` → `200`, `4XX` → `400`, etc., falling back to `default` last |
+| Status code selection | `pickResponse` prefers the lowest exact `2xx` code, then the lowest exact code, then range codes (`2XX` → `200`, `4XX` → `400`), and `default` last |
 | Internal `$ref` (`#/components/schemas/...`) | Inlined by `DerefFolder` / `derefPass` before validation and generation |
-| Circular `$ref` | Detected via traversal stack; replaced with `{}` to avoid infinite loops |
+| Circular `$ref` | Detected through a stack of (document, JSON Pointer) keys; replaced with `{}` by default |
