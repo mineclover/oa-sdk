@@ -129,10 +129,7 @@ export class GenerateFolder {
    */
   fold(node: unknown): unknown {
     const algebra = this.algebra()
-    const builtinGeneration = this.algebra === BUILTIN_METHODS.algebra
-      && this.generateString === BUILTIN_METHODS.generateString
-      && hasBuiltinHandlers(algebra)
-    return builtinGeneration
+    return hasBuiltinGenerationMethods(this) && hasBuiltinHandlers(algebra)
       ? foldRequiredProperties(node, algebra)
       : foldSchema(node, algebra)
   }
@@ -157,14 +154,40 @@ export const generator = new GenerateFolder()
 // ─── 내장 생성 동작 판별 ─────────────────────────────────────────────────────
 
 /**
- * 모듈 로드 시점의 내장 메서드와 핸들러 — fold가 생성 동작이 바뀌었는지 판별하는 기준.
- * 이후 오버라이드하거나 대입한 메서드·핸들러는 이 기준과 달라 foldSchema 경로를 탄다.
+ * 모듈 로드 시점의 내장 메서드와 핸들러 — 생성 동작이 바뀌었는지 판별하는 기준.
+ * 이후 오버라이드하거나 대입한 메서드·핸들러는 이 기준과 달라, fold는 foldSchema
+ * 경로를 타고 `generatesAsBuiltin`은 false가 된다.
  */
 const BUILTIN_METHODS = {
+  fold: GenerateFolder.prototype.fold,
   algebra: GenerateFolder.prototype['algebra'],
   generateString: GenerateFolder.prototype['generateString'],
 }
 const BUILTIN_HANDLERS: Readonly<SchemaAlgebra<unknown>> = Object.freeze({ ...generateAlgebra })
+
+/**
+ * `folder`가 내장 생성기와 똑같이 생성하는지: `fold`·`algebra()`·`generateString()`을
+ * 서브클래스·인스턴스·프로토타입 어디서도 바꾸지 않았고 `generateAlgebra`의 핸들러가
+ * 모두 원래 것이다.
+ *
+ * 그렇다면 `folder.fold(schema)`는 schema만의 순수 함수다: 부수 효과가 없고 같은
+ * schema에서 늘 같은 값을 만든다. mock 어댑터는 공유 `generator`가 이 조건을 만족할
+ * 때만 라우트 응답을 재사용한다(stream.ts `sharedGenerationIsBuiltin`).
+ *
+ * 내장 `algebra()`는 `generateAlgebra`를 펼친 뒤 `string`만 바꾸므로, 핸들러는
+ * `generateAlgebra` 자체로 비교한다. 매 요청 호출되므로 algebra를 새로 만들지 않는다.
+ */
+export function generatesAsBuiltin(folder: GenerateFolder): boolean {
+  return folder.fold === BUILTIN_METHODS.fold
+    && hasBuiltinGenerationMethods(folder)
+    && hasBuiltinHandlers(generateAlgebra)
+}
+
+/** `folder`의 `algebra()`와 `generateString()`이 내장 메서드인지. */
+function hasBuiltinGenerationMethods(folder: GenerateFolder): boolean {
+  return folder['algebra'] === BUILTIN_METHODS.algebra
+    && folder['generateString'] === BUILTIN_METHODS.generateString
+}
 
 /**
  * `algebra`의 핸들러가 모두 내장 핸들러인지 — foldSchema가 읽는 SchemaAlgebra 키 전부를,

@@ -474,6 +474,31 @@ export function createUncompilableResponseSpec(): OasDocument {
   }
 }
 
+/**
+ * A generated JSON body and a generated event stream, each made of one
+ * required integer `n`: a generator handler that numbers its calls shows in
+ * every response how many values were generated before it.
+ */
+export function createGeneratedIntegerSpec(): OasDocument {
+  const numbered = (): OasSchema => ({ type: 'object', required: ['n'], properties: { n: { type: 'integer' } } })
+  return {
+    openapi: '3.2.0',
+    info: { title: 'Generated integers', version: '1.0.0' },
+    servers: [{ url: 'https://api.example.test/v1' }],
+    paths: {
+      '/n': {
+        get: { operationId: 'getN', responses: { '200': { description: 'OK', content: json(numbered()) } } },
+      },
+      '/n-events': {
+        get: {
+          operationId: 'streamN',
+          responses: { '200': { description: 'OK', content: { 'text/event-stream': { itemSchema: numbered() } } } },
+        },
+      },
+    },
+  }
+}
+
 export type TranscriptRequest = {
   name: string
   method: string

@@ -12,7 +12,7 @@ import { validateRequest, type RequestParts } from './request-validator.js'
 import { pickResponse, validatePickedResponse, type PickedResponse } from './response-picker.js'
 import { simulateCallbackPosts, type CallbackPostAttempt } from './callbacks.js'
 import { serializeResponseBody } from './body-serialization.js'
-import { generateStreamChunks } from './stream.js'
+import { generateStreamChunks, sharedGenerationIsBuiltin } from './stream.js'
 import type { MockErrorDetail, MockErrorResponse } from '../errors/types.js'
 import type { MockPlugin, MockPluginContext, MockPluginResponse } from './plugin.js'
 
@@ -55,21 +55,32 @@ type PickedOnce = {
 /**
  * The parts of one operation's mock response that do not depend on the request.
  *
+ * While the shared generator is the built-in one (`sharedGenerationIsBuiltin`),
  * `pickResponse` is a pure function of the operation's response objects: the
  * status, media type, header values and body all come from the spec, and
- * generated values come from the stateless built-in generator, so every
- * request to the operation gets the same response. Serializing that response
- * and generating its stream events are pure functions of it as well, and so is
- * validating it against its schema once the schema has compiled. An instance
- * computes each of these on first use and returns the same value afterwards,
- * except a schema check whose schema failed to compile: that check is repeated
- * on every use until the schema compiles (see `isFinalCheck`), so a route
- * reports the compile error to exactly the requests an uncached mock would.
+ * generated values come from that stateless generator, so every request to the
+ * operation gets the same response. Serializing that response and generating
+ * its stream events are pure functions of it as well, and so is validating it
+ * against its schema once the schema has compiled. An instance computes each
+ * of these on first use and returns the same value afterwards, except a schema
+ * check whose schema failed to compile: that check is repeated on every use
+ * until the schema compiles (see `isFinalCheck`), so a route reports the
+ * compile error to exactly the requests an uncached mock would.
  *
- * Adapters keep one instance per compiled route, so a route's response is
- * generated, validated and serialized once instead of on every request, and
- * the number of instances is the number of routes. Recompiling routes (a spec
- * hot swap, or new MSW handlers) creates new instances.
+ * A customized shared generator (a replaced `generateAlgebra` handler, a
+ * patched `generator` or `GenerateFolder.prototype`, a replaced `streamer`
+ * method or folder) may give a different value on every call, so nothing is
+ * reused while it is in place: `forRequest()` then returns a new instance for
+ * the one request, and `streamChunks` generates the events of every stream
+ * anew, exactly as `handleRequest` does. Values are only ever computed and
+ * recorded while the shared generator is built in, so they stay valid when a
+ * customization is undone.
+ *
+ * Adapters keep one instance per compiled route and serve each request from
+ * its `forRequest()`, so a route's response is generated, validated and
+ * serialized once instead of on every request, and the number of instances is
+ * the number of routes. Recompiling routes (a spec hot swap, or new MSW
+ * handlers) creates new instances.
  *
  * The values are shared by every request to the route and must be treated as
  * read-only. Responses produced by plugins are never stored here.
@@ -82,13 +93,26 @@ export class RouteResponses {
   private readonly streamChunkLists = new Map<PickedResponse, readonly string[]>()
 
   /**
-   * @param precomputedDefault `pickResponse(responses)` when the caller has already computed it.
+   * @param precomputedDefault `pickResponse(responses)` when the caller has just
+   *   computed it. It is adopted only while the shared generator is built in,
+   *   since otherwise it is not the operation's request-independent response.
    */
   constructor(
     private readonly responses: Record<string, OasResponse>,
     precomputedDefault?: PickedResponse | null,
   ) {
-    if (precomputedDefault !== undefined) this.defaultResponse = { picked: precomputedDefault ?? undefined }
+    if (precomputedDefault !== undefined && sharedGenerationIsBuiltin()) {
+      this.defaultResponse = { picked: precomputedDefault ?? undefined }
+    }
+  }
+
+  /**
+   * The instance to serve one request from: this one while the shared
+   * generator is built in, otherwise a new one that computes the response for
+   * this request only.
+   */
+  forRequest(): RouteResponses {
+    return sharedGenerationIsBuiltin() ? this : new RouteResponses(this.responses)
   }
 
   /** The operation's own response (`pickResponse`), or undefined when it documents none. */
@@ -142,11 +166,12 @@ export class RouteResponses {
 
   /**
    * The stream chunks of a streaming `picked`. Only responses this instance
-   * produced are generated once and reused; any other response is generated
-   * on each call.
+   * produced are generated once and reused, while the shared generator is
+   * built in; any other response, or any response while it is customized, is
+   * generated on each call.
    */
   async *streamChunks(picked: PickedResponse): AsyncGenerator<string> {
-    if (!this.owns(picked)) {
+    if (!this.owns(picked) || !sharedGenerationIsBuiltin()) {
       yield* generateStreamChunks(picked)
       return
     }
@@ -184,17 +209,18 @@ export function handleRequest(
 
 /**
  * `handleRequest` for adapters that keep a `RouteResponses` per route: the
- * request-independent parts of the response come from `route`, so a returned
- * response may be shared with other requests to the route and must not be
- * modified.
+ * request-independent parts of the response come from `route.forRequest()`,
+ * so a returned response may be shared with other requests to the route and
+ * must not be modified.
  */
 export function handleRouteRequest(
   parts: RequestParts,
   entry: HandlerEntry,
   securitySchemes: Record<string, OasSecurityScheme>,
   plugins: readonly MockPlugin[],
-  route: RouteResponses,
+  sharedRoute: RouteResponses,
 ): HandlerResult {
+  const route = sharedRoute.forRequest()
   const result = validateRequest(
     parts,
     entry.parameters,

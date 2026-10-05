@@ -12,9 +12,11 @@ import { parseDocument, type OasDocument, type OasPathItem } from '@oa-sdk/parse
 import { createNodeMockServer, type NodeMockServer } from '../../adapters/node-http.js'
 import { createMswHandlers, createMswMockServer } from '../../adapters/msw.js'
 import { handleRequest } from '../../core/handler.js'
+import { generateAlgebra } from '../../core/generate.js'
 import type { CallbackPostAttempt } from '../../core/callbacks.js'
 import type { MockPlugin } from '../../core/plugin.js'
 import {
+  createGeneratedIntegerSpec,
   createResponseBytesSpec,
   createStatefulBytesSpec,
   createUncompilableResponseSpec,
@@ -23,6 +25,7 @@ import {
   UNCOMPILABLE_RESPONSE_REQUESTS,
 } from '../fixtures/response-bytes.js'
 import { replayOnMsw, replayOnNode, type Exchange } from '../support/transcript.js'
+import { replaceProperty } from '../support/replace-property.js'
 
 const MSW_ORIGIN = 'http://api.example.test/v1'
 
@@ -491,3 +494,74 @@ describe('request-dependent response stages', () => {
   })
 })
 
+
+describe('customized shared generator', () => {
+  /** Serves one GET to `path` and returns the response body text. */
+  type Serve = (path: string) => Promise<string>
+
+  const ADAPTERS: [string, () => Promise<Serve>][] = [
+    ['Node HTTP adapter', async () => {
+      const server = await startNode(createGeneratedIntegerSpec())
+      return async path => (await replayOnNode(server, [{ name: 'request', method: 'GET', path }])).request!.body
+    }],
+    ['MSW adapter', async () => {
+      const handlers = createMswHandlers(createGeneratedIntegerSpec())
+      return async path => (await replayOnMsw(handlers, MSW_ORIGIN, [{ name: 'request', method: 'GET', path }])).request!.body
+    }],
+  ]
+
+  const events = (...values: number[]) => values.map(n => `data: {"n":${n}}\n\n`).join('')
+
+  it.each(ADAPTERS)('%s generates every response anew while a handler keeps state', async (_name, open) => {
+    let count = 0
+    const undo = replaceProperty(generateAlgebra, 'integer', () => ++count)
+    try {
+      const serve = await open()
+      const served: { body: string; count: number }[] = []
+      for (const path of ['/n', '/n', '/n-events', '/n-events']) served.push({ body: await serve(path), count })
+
+      // Each response holds the values generated while serving it, the last ones generated so far.
+      expect(served.map(({ body }) => body)).toEqual([
+        `{"n":${served[0]!.count}}`,
+        `{"n":${served[1]!.count}}`,
+        events(served[2]!.count - 2, served[2]!.count - 1, served[2]!.count),
+        events(served[3]!.count - 2, served[3]!.count - 1, served[3]!.count),
+      ])
+      expect(served[1]!.count).toBeGreaterThan(served[0]!.count)
+      expect(served[3]!.count).toBeGreaterThan(served[2]!.count)
+    } finally {
+      undo()
+    }
+  })
+
+  it.each(ADAPTERS)('%s applies a customization made after its first requests and drops it once undone', async (_name, open) => {
+    const serve = await open()
+    expect(await serve('/n')).toBe('{"n":0}')
+    expect(await serve('/n-events')).toBe(events(0, 0, 0))
+
+    const undo = replaceProperty(generateAlgebra, 'integer', () => 99)
+    try {
+      expect(await serve('/n')).toBe('{"n":99}')
+      expect(await serve('/n-events')).toBe(events(99, 99, 99))
+    } finally {
+      undo()
+    }
+
+    expect(await serve('/n')).toBe('{"n":0}')
+    expect(await serve('/n-events')).toBe(events(0, 0, 0))
+  })
+
+  it.each(ADAPTERS)('%s serves the built-in response once a customization present at creation is undone', async (_name, open) => {
+    const undo = replaceProperty(generateAlgebra, 'integer', () => 99)
+    let serve: Serve
+    try {
+      serve = await open()
+      expect(await serve('/n')).toBe('{"n":99}')
+    } finally {
+      undo()
+    }
+
+    expect(await serve('/n')).toBe('{"n":0}')
+    expect(await serve('/n-events')).toBe(events(0, 0, 0))
+  })
+})

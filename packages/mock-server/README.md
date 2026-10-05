@@ -367,14 +367,14 @@ If the response has an `examples` entry (with `dataValue`), a single fixed event
 
 ### Response reuse per route
 
-The built-in generator is stateless, so an operation's response is the same
-for every request: its status, media type, header values and body (example or
-generated) depend only on the spec. Both adapters therefore pick, validate
-against the response schema, serialize and (for streams) generate that
-response once per route and reuse it; the same holds for the documented `401`
-served to requests without credentials and the documented `422` as written.
-`updateSpec()` on the Node adapter, or building new MSW handlers, starts from
-scratch with the new spec.
+With the built-in generator an operation's response is the same for every
+request: its status, media type, header values and body (example or generated)
+depend only on the spec. Both adapters therefore pick, validate against the
+response schema, serialize and (for streams) generate that response once per
+route and reuse it; the same holds for the documented `401` served to requests
+without credentials and the documented `422` as written. `updateSpec()` on the
+Node adapter, or building new MSW handlers, starts from scratch with the new
+spec.
 
 Everything that depends on the request is still computed per request: request
 validation and the validation details in a `422`, callback URLs, stateful-store
@@ -382,6 +382,20 @@ responses and other plugin responses. A plugin `onResponse` hook receives a
 freshly picked response on every request, so it may change it in place; plugins
 that only implement `onMatch` and return nothing let the shared response
 through. `handleRequest()` also returns a fresh response on every call.
+
+**A customized shared generator turns reuse off.** The adapters generate bodies,
+header values and stream events with the exported `generator` and `streamer`.
+While either is customized, every request picks, validates, serializes and
+streams its response anew, exactly as without reuse, so a handler that keeps
+state or changes over time is called on every request. Customizing means any
+of: replacing or adding a `generateAlgebra` handler; replacing `fold`,
+`algebra()` or `generateString()` on `generator` or on
+`GenerateFolder.prototype` (a test spy on `generator.fold` counts); changing
+the prototype of `generator`; replacing `generate` on `streamer` or on
+`StreamFolder.prototype`, or the folder `streamer` uses. Reuse resumes once the
+customization is undone, and a response generated while it was in place is
+never reused. Generators you create yourself (`new GenerateFolder()`, a
+subclass, `new StreamFolder(folder)`) are not used by the adapters.
 
 A response schema check is reused only once the schema has compiled. The
 response validator reports a schema that violates the JSON Schema meta-schema
@@ -427,6 +441,11 @@ const myAlgebra = {
 
 const value = foldSchema(schema, myAlgebra)
 ```
+
+Spreading leaves `generateAlgebra` itself unchanged, so the adapters keep
+generating with the built-in handlers. Assigning a handler to `generateAlgebra`
+changes what the adapters generate, and turns per-route response reuse off
+while the change is in place (see [Response reuse per route](#response-reuse-per-route)).
 
 ### Custom `GenerateFolder` subclass
 

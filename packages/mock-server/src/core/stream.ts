@@ -1,5 +1,5 @@
 import type { OasSchema, OasMediaType } from '@oa-sdk/parser'
-import { generator, type GenerateFolder } from './generate.js'
+import { generatesAsBuiltin, generator, type GenerateFolder } from './generate.js'
 
 export type StreamOptions = {
   /** 생성할 이벤트 수 (기본: 3) */
@@ -52,6 +52,25 @@ export class StreamFolder {
 
 /** StreamFolder 싱글턴 */
 export const streamer = new StreamFolder()
+
+/** 모듈 로드 시점의 내장 `StreamFolder.generate` — 공유 `streamer`가 바뀌었는지 판별하는 기준. */
+const BUILTIN_STREAM_GENERATE = StreamFolder.prototype.generate
+
+/**
+ * mock 응답을 만드는 공유 생성기가 내장 그대로인지: 응답 본문·헤더 값과 스트림 검증
+ * 값을 만드는 `generator`가 내장 생성기와 똑같이 생성하고(`generatesAsBuiltin`), 스트림
+ * 이벤트를 만드는 `streamer`가 `generate`를 바꾸지 않은 채 그 `generator`로 이벤트를 만든다.
+ *
+ * 그렇다면 스키마에서 만든 응답은 스펙만의 순수 함수라서, 어댑터가 라우트마다 한 번 만든
+ * 응답을 재사용해도 요청마다 만든 것과 같다(handler.ts `RouteResponses`). 핸들러 교체,
+ * 메서드 대입, 프로토타입 패치, 다른 folder 주입 중 하나라도 있으면 false이고, 응답은
+ * 요청마다 새로 만든다. 매 요청 호출되므로 참조 비교만 한다.
+ */
+export function sharedGenerationIsBuiltin(): boolean {
+  return streamer.generate === BUILTIN_STREAM_GENERATE
+    && streamer['folder'] === generator
+    && generatesAsBuiltin(generator)
+}
 
 /**
  * Generate the value used to validate a stream response before an adapter
