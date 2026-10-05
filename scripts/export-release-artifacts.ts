@@ -8,7 +8,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'nod
 import { fileURLToPath } from 'node:url'
 
 import { embeddedVersionTables } from '../packages/codegen/scripts/embedded-workspace-versions.mjs'
-import { COMPANION_PACKAGES } from '../packages/codegen/src/cli/lib/companion-packages.js'
+import { REGISTRY_OA_SDK_PACKAGES } from '../packages/codegen/src/cli/lib/init/oa-sdk-packages.js'
 import { readArtifactReleasePolicy } from './check-release-policy.js'
 
 const root = resolve(import.meta.dirname, '..')
@@ -27,8 +27,13 @@ type ExportContext = {
   publicRepository: string
   releaseDirectory: string
   sourceRoot: string
+  /** Committed version of every workspace package of the source, keyed by package name. */
+  sourceVersions: Map<string, string>
   temporaryDirectory: string
 }
+
+/** Reads the version a package has on npm, or `undefined` when npm has no such version (E404). */
+export type PublishedVersionReader = (name: string, version: string) => string | undefined
 
 export type SourceProvenance = {
   revision: string
@@ -162,12 +167,14 @@ function main(): void {
       run(['corepack', 'pnpm', 'build:core'], sourceRoot)
     }
 
+    const workspacePackages = readWorkspacePackages(sourceRoot)
     const context: ExportContext = {
       args,
-      packageDirectories: readCandidateDirectories(configuration.candidates, sourceRoot),
+      packageDirectories: candidateDirectories(configuration.candidates, workspacePackages),
       publicRepository: configuration.repository,
       releaseDirectory,
       sourceRoot,
+      sourceVersions: workspaceVersions(workspacePackages),
       temporaryDirectory,
     }
 
@@ -182,7 +189,7 @@ function main(): void {
       if (!version) continue
       if (!args.skipRegistryPreflight) assertVersionAvailable(name, version)
       const exported = exportPackage(name, version, context)
-      if (name === CODEGEN_PACKAGE) verifyCodegenCompanions(exported, context)
+      if (name === CODEGEN_PACKAGE) verifyCodegenBuiltAgainstVersions(exported, context)
       packages.push(exported)
     }
     assert(packages.length > 0, 'at least one --version <package>=<version> is required')
@@ -255,14 +262,54 @@ function publicManifest(
   delete manifest.scripts
   delete manifest.packageManager
   delete manifest.workspaces
-  const resolvePublicVersion = (dependencyName: string): string | undefined =>
-    context.args.versions.get(dependencyName) ?? publishedVersion(dependencyName)
+  const resolvePublicVersion = createInternalDependencyResolver(
+    name,
+    context.args.versions,
+    context.sourceVersions,
+    (dependencyName, dependencyVersion) => publishedVersion(dependencyName, dependencyVersion),
+  )
   for (const key of ['dependencies', 'optionalDependencies', 'peerDependencies'] as const) {
     if (isRecord(manifest[key])) {
       manifest[key] = rewriteWorkspaceDependencies(manifest[key], resolvePublicVersion)
     }
   }
   return manifest
+}
+
+/**
+ * Version an exported package's public manifest gives each internal
+ * (`workspace:`) dependency: the version this export releases it at, or else
+ * its committed source version, which must already be on npm.
+ *
+ * The committed version is the one the dependent was built and tested
+ * against, and the one pnpm itself writes for `workspace:`. The export fails
+ * when npm does not have it, instead of pinning npm's latest release, which
+ * would publish the dependent against a release it was never tested with: an
+ * older one, without the changes it needs, when the committed version is not
+ * released yet. The registry is consulted only for dependencies this export
+ * does not release, and lookup failures other than npm's E404 propagate (see
+ * `publishedVersion`). Returns `undefined` for a package the source workspace
+ * does not have.
+ */
+export function createInternalDependencyResolver(
+  dependent: string,
+  exportVersions: ReadonlyMap<string, string>,
+  sourceVersions: ReadonlyMap<string, string>,
+  readPublishedVersion: PublishedVersionReader,
+): (dependency: string) => string | undefined {
+  return dependency => {
+    const exported = exportVersions.get(dependency)
+    if (exported !== undefined) return exported
+    const committed = sourceVersions.get(dependency)
+    if (committed === undefined) return undefined
+    assert(
+      readPublishedVersion(dependency, committed) !== undefined,
+      `${dependent}: internal dependency ${dependency}@${committed}, the committed version ${dependent} ` +
+        'is built and tested against, is neither in this export nor published on npm; ' +
+        `add --version ${dependency}=${committed} to this export, or publish ${dependency}@${committed} first`,
+    )
+    return committed
+  }
 }
 
 export function rewriteWorkspaceDependencies(
@@ -288,84 +335,120 @@ export function rewriteWorkspaceDependencies(
 }
 
 /**
- * Reads the companion versions the packed codegen embeds and fails the export
- * unless each one can be installed (`assertCompanionVersionsReleasable`).
- * Reading the release tarball rather than the build output checks what ships.
+ * `@oa-sdk` packages whose built-against version a packed `@oa-sdk/codegen`
+ * names to its users, other than codegen itself: every package `oa-gen init`
+ * writes a registry range for, the companion packages whose install hints
+ * `oa-gen` prints included (`REGISTRY_OA_SDK_PACKAGES`). The range init
+ * writes for codegen itself is covered by the export, which releases codegen
+ * at its source version.
  */
-function verifyCodegenCompanions(codegen: ReleasePackage, context: ExportContext): void {
-  const unpackDirectory = join(context.temporaryDirectory, 'codegen-companion-versions')
+export const CODEGEN_BUILT_AGAINST_GATED_PACKAGES: readonly string[] = REGISTRY_OA_SDK_PACKAGES
+  .filter(name => name !== CODEGEN_PACKAGE)
+
+/**
+ * Checks the release tarball rather than the build output, so that the gate
+ * covers what ships (`assertCodegenBuiltAgainstVersionsReleasable`).
+ */
+function verifyCodegenBuiltAgainstVersions(codegen: ReleasePackage, context: ExportContext): void {
+  const unpackDirectory = join(context.temporaryDirectory, 'codegen-built-against-versions')
   mkdirSync(unpackDirectory, { recursive: true })
   run(['tar', '-xzf', join(context.releaseDirectory, codegen.tarball), '-C', unpackDirectory], context.sourceRoot)
-  assertCompanionVersionsReleasable(
+  assertCodegenBuiltAgainstVersionsReleasable(
+    join(unpackDirectory, 'package'),
     codegen.version,
-    embeddedCompanionVersions(embeddedVersionTables(join(unpackDirectory, 'package'), COMPANION_PACKAGES), COMPANION_PACKAGES),
     context.args.versions,
     (name, version) => publishedVersion(name, version),
   )
 }
 
 /**
- * The version of each companion package that a packed `@oa-sdk/codegen`
- * embeds, from the package-to-version tables found in its JavaScript
- * (`embeddedVersionTables`). `oa-gen` pins the install command it prints for a
- * missing companion to this version, so every companion must have exactly one.
+ * Fails a codegen export when the codegen unpacked in `packageRoot` would tell
+ * users to install a package version that npm cannot resolve: the version it
+ * embeds (`embeddedBuiltAgainstVersions`) for each of `packages` must be
+ * releasable (`assertBuiltAgainstVersionsReleasable`).
  */
-export function embeddedCompanionVersions(
+export function assertCodegenBuiltAgainstVersionsReleasable(
+  packageRoot: string,
+  codegenVersion: string,
+  exportVersions: ReadonlyMap<string, string>,
+  readPublishedVersion: PublishedVersionReader,
+  packages: readonly string[] = CODEGEN_BUILT_AGAINST_GATED_PACKAGES,
+): void {
+  assertBuiltAgainstVersionsReleasable(
+    codegenVersion,
+    embeddedBuiltAgainstVersions(embeddedVersionTables(packageRoot, packages), packages),
+    exportVersions,
+    readPublishedVersion,
+  )
+}
+
+/**
+ * The version of each of `packages` that a packed `@oa-sdk/codegen` embeds,
+ * from the package-to-version tables found in its JavaScript
+ * (`embeddedVersionTables`). `oa-gen init` writes the range of this version,
+ * and the install command `oa-gen` prints for a missing companion package
+ * pins it, so every package must have exactly one.
+ */
+export function embeddedBuiltAgainstVersions(
   tables: readonly Readonly<Record<string, string>>[],
-  companions: readonly string[],
+  packages: readonly string[],
 ): Map<string, string> {
   const versions = new Map<string, string>()
-  for (const companion of companions) {
-    const embedded = [...new Set(tables.flatMap(table => Object.hasOwn(table, companion) ? [table[companion]!] : []))]
+  for (const name of packages) {
+    const embedded = [...new Set(tables.flatMap(table => Object.hasOwn(table, name) ? [table[name]!] : []))]
     assert(
       embedded.length > 0,
-      `${CODEGEN_PACKAGE}: the packed artifact embeds no version for companion package ${companion}, ` +
-        'so the version its oa-gen install hint names cannot be checked',
+      `${CODEGEN_PACKAGE}: the packed artifact embeds no version for ${name}, ` +
+        'so the range oa-gen names for it cannot be checked',
     )
     assert(
       embedded.length === 1,
-      `${CODEGEN_PACKAGE}: the packed artifact embeds conflicting versions for companion package ${companion}: ` +
+      `${CODEGEN_PACKAGE}: the packed artifact embeds conflicting versions for ${name}: ` +
         embedded.join(', '),
     )
-    versions.set(companion, embedded[0]!)
+    versions.set(name, embedded[0]!)
   }
   return versions
 }
 
 /**
- * Fails a codegen export whose `oa-gen` would tell users to install a
- * companion version that npm cannot resolve.
+ * Fails a codegen export whose `oa-gen` would tell users to install a package
+ * version that npm cannot resolve.
  *
- * `oa-gen` loads its companion packages with dynamic imports and, when one is
- * missing, prints an install command pinned to the version codegen was built
- * against. The release policy lets codegen reference these Downstream packages
- * only through devDependencies, which `publicManifest` removes, so the rule
- * `rewriteWorkspaceDependencies` enforces for runtime dependencies (released in
- * this export or already on npm) never reaches them. This applies the same
- * rule to the embedded versions: each companion must be in this export at
- * exactly that version, or already be published. The registry is consulted
- * only for companions this export does not release at that version, and
- * lookup failures other than npm's E404 propagate (see `publishedVersion`).
+ * `oa-gen init` writes `^<version>` for the `@oa-sdk` packages of its
+ * scaffold, and `oa-gen` loads its companion packages with dynamic imports
+ * and, when one is missing, prints an install command pinned the same way,
+ * where `<version>` is the one codegen was built against. Neither goes
+ * through the public manifest: the release policy lets codegen reference the
+ * Downstream companion packages only through devDependencies, which
+ * `publicManifest` removes, and the runtime dependency it does keep on a
+ * package such as `@oa-sdk/core` says nothing about the range init writes for
+ * it. This applies the rule `createInternalDependencyResolver` enforces for
+ * runtime dependencies to the embedded versions: each package must be in this
+ * export at exactly that version, or already be published. The registry is
+ * consulted only for packages this export does not release at that version,
+ * and lookup failures other than npm's E404 propagate (see `publishedVersion`).
  */
-export function assertCompanionVersionsReleasable(
+export function assertBuiltAgainstVersionsReleasable(
   codegenVersion: string,
-  companionVersions: ReadonlyMap<string, string>,
+  builtAgainstVersions: ReadonlyMap<string, string>,
   exportVersions: ReadonlyMap<string, string>,
-  readPublishedVersion: (name: string, version: string) => string | undefined,
+  readPublishedVersion: PublishedVersionReader,
 ): void {
   const unresolvable: string[] = []
-  for (const [companion, version] of companionVersions) {
-    const exported = exportVersions.get(companion)
-    if (exported === version || readPublishedVersion(companion, version) !== undefined) continue
+  for (const [name, version] of builtAgainstVersions) {
+    const exported = exportVersions.get(name)
+    if (exported === version || readPublishedVersion(name, version) !== undefined) continue
     unresolvable.push(exported === undefined
-      ? `  - ${companion}@${version}: add --version ${companion}=${version} to this export, ` +
-          `or publish ${companion}@${version} first`
-      : `  - ${companion}@${version}: this export releases ${companion}=${exported} instead; ` +
-          `export --version ${companion}=${version}, or publish ${companion}@${version} first`)
+      ? `  - ${name}@${version}: add --version ${name}=${version} to this export, ` +
+          `or publish ${name}@${version} first`
+      : `  - ${name}@${version}: this export releases ${name}=${exported} instead; ` +
+          `export --version ${name}=${version}, or publish ${name}@${version} first`)
   }
   assert(unresolvable.length === 0, [
-    `${CODEGEN_PACKAGE}@${codegenVersion}: oa-gen pins its install hints to companion package versions ` +
-      'that are neither in this export nor published on npm:',
+    `${CODEGEN_PACKAGE}@${codegenVersion}: oa-gen tells users to install these package versions ` +
+      '(oa-gen init writes their ranges, and its install hints pin companion packages to them), ' +
+      'but they are neither in this export nor published on npm:',
     ...unresolvable,
   ].join('\n'))
 }
@@ -635,10 +718,11 @@ function validateReleaseRepository(path: string, publicRepository: string): void
   assert(policy.repository === publicRepository, `release repository must declare ${publicRepository}`)
 }
 
-function readCandidateDirectories(candidates: readonly string[], sourceRoot: string): Map<string, string> {
-  const candidateSet = new Set(candidates)
-  const directories = new Map<string, string>()
+type WorkspacePackage = { directory: string; version: unknown }
 
+/** Workspace packages of the source, keyed by package name. */
+function readWorkspacePackages(sourceRoot: string): Map<string, WorkspacePackage> {
+  const packages = new Map<string, WorkspacePackage>()
   for (const base of packageBases) {
     const baseDirectory = join(sourceRoot, base)
     if (!existsSync(baseDirectory)) continue
@@ -648,16 +732,32 @@ function readCandidateDirectories(candidates: readonly string[], sourceRoot: str
       if (!existsSync(manifestPath)) continue
       const manifest = readJson(manifestPath)
       if (!isRecord(manifest) || typeof manifest.name !== 'string') continue
-      if (!candidateSet.has(manifest.name)) continue
-      assert(!directories.has(manifest.name), `duplicate distribution candidate workspace: ${manifest.name}`)
-      directories.set(manifest.name, directory)
+      assert(!packages.has(manifest.name), `duplicate workspace package: ${manifest.name}`)
+      packages.set(manifest.name, { directory, version: manifest.version })
     }
   }
+  return packages
+}
 
+function candidateDirectories(
+  candidates: readonly string[],
+  workspacePackages: ReadonlyMap<string, WorkspacePackage>,
+): Map<string, string> {
+  const directories = new Map<string, string>()
   for (const candidate of candidates) {
-    assert(directories.has(candidate), `distribution candidate does not resolve to a workspace: ${candidate}`)
+    const workspace = workspacePackages.get(candidate)
+    assert(workspace, `distribution candidate does not resolve to a workspace: ${candidate}`)
+    directories.set(candidate, workspace.directory)
   }
   return directories
+}
+
+function workspaceVersions(workspacePackages: ReadonlyMap<string, WorkspacePackage>): Map<string, string> {
+  const versions = new Map<string, string>()
+  for (const [name, { version }] of workspacePackages) {
+    if (typeof version === 'string' && version !== '') versions.set(name, version)
+  }
+  return versions
 }
 
 function assertVersionAvailable(name: string, version: string): void {

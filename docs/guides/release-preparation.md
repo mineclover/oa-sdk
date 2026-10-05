@@ -87,30 +87,62 @@ official export의 `--version`은 committed workspace package version과 같아�
 consumer smoke가 동작하는지 확인하고 SHA-512 manifest를 기록한다. 이 단계도 npm publish는
 하지 않는다.
 
-### `@oa-sdk/codegen` companion package gate
+### Internal dependency version gate
 
-`oa-gen`은 `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`를 companion package로
-dynamic import한다. companion이 설치되어 있지 않으면 codegen이 build될 때 사용한 version으로
-고정한 설치 명령(예: `npm install --save-dev "@oa-sdk/router@^0.2.1"`)을 출력하며, 그 version은
-codegen build에 embed된다. release policy상 Core Platform package인 codegen은 이 Downstream
-package를 devDependencies로만 참조할 수 있고 public manifest에서는 devDependencies가 제거되므로,
-runtime workspace dependency처럼 manifest 단계에서 "같은 export에 있거나 이미 npm에 있는가"를
-검사받지 않는다.
+public manifest의 `workspace:` runtime/optional/peer dependency는 다음 순서로 version이 정해진다.
 
-그래서 export에 `@oa-sdk/codegen`이 포함되면 exporter는 pack된 codegen tarball에서 embed된
-companion version을 읽고, 각 companion이 다음 중 하나를 만족하지 않으면 export를 실패시킨다.
+- 같은 export에 `--version <dependency>=<version>`으로 포함되어 있으면 그 version을 쓴다.
+- 포함되어 있지 않으면 그 dependency의 committed source version(`package.json`의 version)을 쓰며,
+  그 version은 이미 public npm에 publish되어 있어야 한다.
 
-- 같은 export의 `--version <companion>=<version>`에 정확히 그 version으로 포함되어 있다.
+dependent package는 committed source version으로 build·test되므로, 그 version이 npm에 없을 때
+npm의 latest release로 대체하면 test하지 않은 (대개 더 오래된) release에 의존하는 package가
+publish된다. 그래서 exporter는 대체하지 않고 export를 실패시키며, 실패 메시지는 dependent와
+dependency version, 그리고 그 export에 `--version <dependency>=<version>`을 추가하거나 dependency를
+먼저 release하라는 두 해결 방법을 나열한다. 예를 들어 committed version이 `@oa-sdk/core` 0.3.1인데
+npm에는 0.3.0까지만 있다면, core를 빼고 parser나 codegen을 export하는 것은 실패한다.
+
+### `@oa-sdk/codegen` built-against version gate
+
+`oa-gen`은 codegen이 build될 때 사용한 `@oa-sdk` package version을 build에 embed하고, 그 version과
+호환되는 range(`^<version>`)를 사용자에게 알려 준다.
+
+- `oa-gen init`은 workspace 밖의 project에 scaffold가 쓰는 registry package를 그 range로 쓴다.
+  `@oa-sdk/codegen` 자신과 companion(`@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`),
+  그리고 `microservice`·`enterprise` archetype의 `@oa-sdk/core`가 여기에 해당한다.
+- `oa-gen`은 companion을 dynamic import하고, companion이 설치되어 있지 않으면 같은 range로 고정한
+  설치 명령(예: `npm install --save-dev "@oa-sdk/router@^0.2.2"`)을 출력한다.
+
+이 range는 public manifest를 거치지 않는다. release policy상 Core Platform package인 codegen은
+Downstream companion을 devDependencies로만 참조할 수 있고 public manifest에서는 devDependencies가
+제거된다. `@oa-sdk/core`처럼 runtime dependency로 남는 package도, manifest의 dependency version과
+init이 쓰는 range는 별개다. 따라서 위의 internal dependency gate만으로는 이 range가 설치
+가능한지 보장되지 않는다.
+
+그래서 export에 `@oa-sdk/codegen`이 포함되면 exporter는 pack된 codegen tarball에서 embed된 version을
+읽고, gate 대상 package마다 다음 중 하나를 만족하지 않으면 export를 실패시킨다.
+
+- 같은 export의 `--version <package>=<version>`에 정확히 그 version으로 포함되어 있다.
 - 그 version이 이미 public npm에 publish되어 있다.
 
-즉 codegen export는 companion을 같은 export에 함께 넣거나 그보다 먼저 release한 뒤에만 만들 수
-있다. 실패 메시지는 해당 companion과 version을 나열하므로, 그 export에
-`--version <companion>=<version>`을 추가하거나 companion을 먼저 release한다. official export의
-`--version`은 committed source version과 같아야 하고 codegen은 workspace의 companion source
-version으로 build되므로, 추가할 version은 해당 companion의 `package.json` version이다.
+gate 대상은 codegen이 registry에서 설치하라고 안내하는 package 전체, 즉 codegen의
+`OA_SDK_INIT_PACKAGES`에서 `registry`로 표시된 package(`REGISTRY_OA_SDK_PACKAGES`) 중 codegen
+자신을 뺀 것이다. exporter는 이 목록을 codegen source에서 그대로 가져오며 별도 목록을 두지 않는다.
+companion은 type 제약에 의해 이 목록에 반드시 `registry`로 포함되므로, init이 새 registry package를
+쓰게 되거나 companion이 추가되면 gate도 함께 따라온다. 비공개 `@oa-sdk/personas`처럼
+`workspace`로 표시된 package는 workspace 밖에서 쓰이지 않으므로 대상이 아니다. codegen 자신의
+range는 export가 codegen을 source version 그대로 release하므로 이미 충족된다.
 
-이 gate는 `--dry-run`과 `--skip-registry-preflight`에서도 생략되지 않는다. export에 없는
-companion은 public npm registry에서 조회하며, E404 이외의 registry 오류는 미배포로 간주하지 않고
+즉 codegen export는 gate 대상 package를 같은 export에 함께 넣거나 그보다 먼저 release한 뒤에만
+만들 수 있다. 예를 들어 codegen 0.9.0이 core 0.3.1로 build되었다면, `--version @oa-sdk/core=0.3.1`
+없이(그리고 core 0.3.1이 npm에 없는 상태에서) codegen을 export하는 것은 실패한다. 실패 메시지는
+해당 package와 version을 나열하므로, 그 export에 `--version <package>=<version>`을 추가하거나 그
+package를 먼저 release한다. official export의 `--version`은 committed source version과 같아야 하고
+codegen은 workspace의 source version으로 build되므로, 추가할 version은 해당 package의
+`package.json` version이다.
+
+두 gate는 `--dry-run`과 `--skip-registry-preflight`에서도 생략되지 않는다. export에 없는
+package는 public npm registry에서 조회하며, E404 이외의 registry 오류는 미배포로 간주하지 않고
 그대로 export 실패로 드러낸다.
 
 ### Draft export inspection
@@ -147,7 +179,8 @@ source repository의 `pnpm release` 또는 `pnpm release:export`는 이 최종 p
 
 - [ ] 선택한 package와 version intent가 Changeset/release note에 기록됐다.
 - [ ] clean-worktree `pnpm release:preflight`가 통과했다.
-- [ ] codegen을 export했다면 companion package가 같은 export에 포함됐거나 이미 npm에 있다.
+- [ ] export한 package의 internal dependency가 같은 export에 포함됐거나 committed version으로 이미 npm에 있다.
+- [ ] codegen을 export했다면 `oa-gen`이 안내하는 package(companion, `@oa-sdk/core`)가 built-against version으로 같은 export에 포함됐거나 이미 npm에 있다.
 - [ ] 같은 release candidate commit의 required CI가 통과했다.
 - [ ] contract change라면 TypeSpec snapshot 및 semver evidence를 검토했다.
 - [ ] external artifact repository의 manifest와 SHA-512를 검토했다.

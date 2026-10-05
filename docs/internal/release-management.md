@@ -164,8 +164,12 @@ pnpm release:export -- \
 The exporter rebuilds every selected package from a clean output directory, removes source maps and
 test files, rewrites every `workspace:` runtime/optional/peer dependency to a resolvable public
 version, adds public repository and Apache-2.0 metadata, and refuses an npm version that already
-exists. An unresolved internal dependency—including an optional peer—is a hard failure and is never
-silently removed. Before emitting the release manifest it installs the sanitized tarballs into an
+exists. A dependency resolves to the version the same export releases or, when the export does not
+include it, to its committed source version, which must already be on npm; npm's latest release is
+never substituted. An unresolved internal dependency—including an optional peer—is a hard failure and
+is never silently removed. When codegen is included, every `@oa-sdk` version the packed codegen
+embeds for `oa-gen init` ranges and companion install hints must likewise be in the export or on npm.
+Before emitting the release manifest it installs the sanitized tarballs into an
 isolated temporary consumer, dynamically imports every concrete public export, runs `oa-gen --help`,
 `validate`, and `typegen` when codegen is included, and compiles the consumer with the repository's
 TypeScript 5 toolchain. Review and merge the generated

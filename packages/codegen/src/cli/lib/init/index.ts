@@ -40,6 +40,7 @@ import { patchPackageJson } from './common/package-patcher.js'
 import { findPnpmWorkspace } from './common/pnpm-workspace.js'
 import {
   OA_SDK_INIT_PACKAGES,
+  REGISTRY_OA_SDK_PACKAGES,
   REGISTRY_SOURCES,
   UNPINNED_SPECIFIER,
   WORKSPACE_SPECIFIER,
@@ -107,6 +108,7 @@ export {
   patchPackageJson,
   findPnpmWorkspace,
   OA_SDK_INIT_PACKAGES,
+  REGISTRY_OA_SDK_PACKAGES,
   REGISTRY_SOURCES,
   UNPINNED_SPECIFIER,
   WORKSPACE_SPECIFIER,

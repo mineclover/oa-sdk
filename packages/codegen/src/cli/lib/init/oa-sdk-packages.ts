@@ -16,12 +16,17 @@
  *   not written at all and init reports it instead.
  */
 import { BUILT_AGAINST_VERSIONS, builtAgainstRange } from '../built-against-versions.js'
+import type { CompanionPackageName } from '../companion-packages.js'
 import { findPnpmWorkspace } from './common/pnpm-workspace.js'
 
 /**
  * `@oa-sdk` packages `oa-gen init` may recommend, with where a project outside
  * a workspace containing them installs them from: the npm `registry`, or
  * nowhere, for a package that stays private to the oa-sdk `workspace`.
+ *
+ * Every companion package is listed, from the registry: init recommends the
+ * companions its scaffold loads, and the install command `oa-gen` prints for
+ * a missing companion names the same range init writes for it.
  */
 export const OA_SDK_INIT_PACKAGES = {
   '@oa-sdk/codegen': 'registry',
@@ -31,8 +36,25 @@ export const OA_SDK_INIT_PACKAGES = {
   '@oa-sdk/mock-server': 'registry',
   '@oa-sdk/personas': 'workspace',
 } as const satisfies Readonly<Record<`@oa-sdk/${string}`, 'registry' | 'workspace'>>
+  & Readonly<Record<CompanionPackageName, 'registry'>>
 
 export type OaSdkPackageName = keyof typeof OA_SDK_INIT_PACKAGES
+
+/**
+ * `@oa-sdk` packages `oa-gen` tells a project to install from the registry,
+ * at the releases compatible with the version this build of codegen was built
+ * against (built-against-versions.ts): every package `oa-gen init` writes a
+ * registry range for, which includes every companion package `oa-gen` prints
+ * an install command for, and codegen itself.
+ *
+ * A codegen release is only usable once each of these versions can be
+ * installed, so the release exporter checks the versions a packed codegen
+ * embeds for every package listed here.
+ */
+export const REGISTRY_OA_SDK_PACKAGES: readonly OaSdkPackageName[] = Object.freeze(
+  (Object.keys(OA_SDK_INIT_PACKAGES) as OaSdkPackageName[])
+    .filter(name => OA_SDK_INIT_PACKAGES[name] === 'registry'),
+)
 
 /** Specifier of a package pnpm links from the project's own workspace. */
 export const WORKSPACE_SPECIFIER = 'workspace:*'

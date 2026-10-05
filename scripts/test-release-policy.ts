@@ -13,15 +13,19 @@ import {
 } from './check-release-policy.js'
 import { embeddedVersionTables } from '../packages/codegen/scripts/embedded-workspace-versions.mjs'
 import { COMPANION_PACKAGES } from '../packages/codegen/src/cli/lib/companion-packages.js'
+import { OA_SDK_INIT_PACKAGES } from '../packages/codegen/src/cli/lib/init/oa-sdk-packages.js'
 import {
-  assertCompanionVersionsReleasable,
+  assertBuiltAgainstVersionsReleasable,
+  assertCodegenBuiltAgainstVersionsReleasable,
+  CODEGEN_BUILT_AGAINST_GATED_PACKAGES,
   collectManifestTargets,
   copyGitVisibleWorkspace,
   createDraftReleaseMetadata,
+  createInternalDependencyResolver,
   createReleaseManifest,
   createPublicNpmVersionQueryArgs,
   assertReleaseVersionMatchesSource,
-  embeddedCompanionVersions,
+  embeddedBuiltAgainstVersions,
   PUBLIC_OA_SDK_SCOPE_REGISTRY_OPTION,
   PUBLIC_NPM_REGISTRY,
   publishedVersion,
@@ -187,6 +191,73 @@ assert.throws(
   /cannot resolve a public version for internal workspace dependency @oa-sdk\/private-optional-peer/,
 )
 
+// An internal dependency the export does not release is pinned to its
+// committed source version, which must already be on npm; npm's latest
+// release is never substituted for it.
+{
+  const sourceVersions = new Map([
+    ['@oa-sdk/core', '0.3.1'],
+    ['@oa-sdk/parser', '0.4.0'],
+    ['@oa-sdk/ast-sync', '0.2.0'],
+  ])
+  // npm has ast-sync 0.2.0, and core only up to 0.3.0.
+  const npm = new Map([['@oa-sdk/core', '0.3.0'], ['@oa-sdk/ast-sync', '0.2.0']])
+  const queried: string[] = []
+  const registry = (name: string, version: string) => {
+    queried.push(`${name}@${version}`)
+    return publishedVersion(name, version, target => {
+      if (npm.get(name) !== version) {
+        throw Object.assign(new Error('npm view failed'), { stderr: 'npm error code E404\nnpm error 404 Not Found' })
+      }
+      return JSON.stringify(target.slice(target.lastIndexOf('@') + 1))
+    })
+  }
+
+  // Released by this export: the export version, without a registry lookup.
+  const exportingCore = createInternalDependencyResolver(
+    '@oa-sdk/codegen',
+    new Map([['@oa-sdk/codegen', '0.9.0'], ['@oa-sdk/core', '0.3.1']]),
+    sourceVersions,
+    registry,
+  )
+  assert.equal(exportingCore('@oa-sdk/core'), '0.3.1')
+  assert.deepEqual(queried, [])
+
+  // Not released by this export, committed version published: that version.
+  assert.equal(exportingCore('@oa-sdk/ast-sync'), '0.2.0')
+  assert.deepEqual(queried, ['@oa-sdk/ast-sync@0.2.0'])
+
+  // Not a package of the source workspace: unresolved, which the rewrite rejects.
+  assert.equal(exportingCore('@oa-sdk/not-a-workspace'), undefined)
+
+  // Not released by this export, committed version unpublished: the export
+  // fails instead of depending on npm's latest core (0.3.0).
+  const withoutCore = createInternalDependencyResolver(
+    '@oa-sdk/codegen',
+    new Map([['@oa-sdk/codegen', '0.9.0'], ['@oa-sdk/parser', '0.4.0']]),
+    sourceVersions,
+    registry,
+  )
+  assert.throws(
+    () => rewriteWorkspaceDependencies({ '@oa-sdk/core': 'workspace:*', '@oa-sdk/parser': 'workspace:*' }, withoutCore),
+    /^Error: @oa-sdk\/codegen: internal dependency @oa-sdk\/core@0\.3\.1, the committed version @oa-sdk\/codegen is built and tested against, is neither in this export nor published on npm; add --version @oa-sdk\/core=0\.3\.1 to this export, or publish @oa-sdk\/core@0\.3\.1 first$/,
+  )
+  assert.deepEqual(
+    rewriteWorkspaceDependencies(
+      { '@oa-sdk/parser': 'workspace:^', '@oa-sdk/ast-sync': 'workspace:*', yaml: '^2.8.3' },
+      withoutCore,
+    ),
+    { '@oa-sdk/parser': '^0.4.0', '@oa-sdk/ast-sync': '0.2.0', yaml: '^2.8.3' },
+  )
+
+  // A registry failure other than E404 is not "unpublished"; it surfaces.
+  const unreachable = createInternalDependencyResolver('@oa-sdk/codegen', new Map(), sourceVersions, (name, version) =>
+    publishedVersion(name, version, () => {
+      throw Object.assign(new Error('npm view failed'), { stderr: 'npm error code E500\nnpm error 500 Internal Server Error' })
+    }))
+  assert.throws(() => unreachable('@oa-sdk/ast-sync'), /npm registry lookup failed for @oa-sdk\/ast-sync@0\.2\.0/)
+}
+
 const npmVersionTarget = '@oa-sdk/core@1.2.3'
 let queriedTarget: string | undefined
 assert.equal(
@@ -236,12 +307,28 @@ assert.throws(
   /npm registry lookup returned an invalid version for @oa-sdk\/core@9\.9\.9/,
 )
 
-// A codegen export embeds the companion versions oa-gen pins its install hints
-// to. Each must be in the same export at that version or already be on npm.
+// A codegen export embeds the versions it was built against; oa-gen init writes
+// their ranges and its install hints pin companion packages to them. Each must
+// be in the same export at that version or already be on npm.
 {
-  // The exporter's remedy, `--version <companion>=<version>`, must be accepted.
+  // Gated: every package init writes a registry range for, which includes every
+  // companion package, except codegen, which its own export pins.
+  const registryInitPackages = Object.entries(OA_SDK_INIT_PACKAGES)
+    .filter(([, source]) => source === 'registry')
+    .map(([name]) => name)
+  assert.deepEqual(
+    [...CODEGEN_BUILT_AGAINST_GATED_PACKAGES].sort(),
+    registryInitPackages.filter(name => name !== '@oa-sdk/codegen').sort(),
+  )
+  assert.ok(CODEGEN_BUILT_AGAINST_GATED_PACKAGES.includes('@oa-sdk/core'), 'init writes @oa-sdk/core for microservice/enterprise')
   for (const companion of COMPANION_PACKAGES) {
-    assert.ok(configuration.candidates.includes(companion), `${companion} must be a distribution candidate`)
+    assert.ok(CODEGEN_BUILT_AGAINST_GATED_PACKAGES.includes(companion), `${companion} must be gated`)
+  }
+  assert.ok(!CODEGEN_BUILT_AGAINST_GATED_PACKAGES.includes('@oa-sdk/personas'), 'a workspace-only package has no registry range')
+
+  // The exporter's remedy, `--version <package>=<version>`, must be accepted.
+  for (const name of CODEGEN_BUILT_AGAINST_GATED_PACKAGES) {
+    assert.ok(configuration.candidates.includes(name), `${name} must be a distribution candidate`)
   }
 
   const builtAgainst = new Map([
@@ -256,11 +343,11 @@ assert.throws(
     throw Object.assign(new Error('npm view failed'), { stderr: 'npm error code E404\nnpm error 404 Not Found' })
   }
   const noRegistry = () => {
-    throw new Error('companions released by this export must not be looked up on npm')
+    throw new Error('packages released by this export must not be looked up on npm')
   }
 
   // Released by the same export at the embedded version.
-  assert.doesNotThrow(() => assertCompanionVersionsReleasable(
+  assert.doesNotThrow(() => assertBuiltAgainstVersionsReleasable(
     '0.8.1',
     builtAgainst,
     new Map([...codegenOnly, ...builtAgainst]),
@@ -269,7 +356,7 @@ assert.throws(
 
   // Already published.
   const queried: string[] = []
-  assert.doesNotThrow(() => assertCompanionVersionsReleasable('0.8.1', builtAgainst, codegenOnly, registry(target => {
+  assert.doesNotThrow(() => assertBuiltAgainstVersionsReleasable('0.8.1', builtAgainst, codegenOnly, registry(target => {
     queried.push(target)
     return JSON.stringify(target.slice(target.lastIndexOf('@') + 1))
   })))
@@ -277,7 +364,7 @@ assert.throws(
 
   // Neither: every such companion is named with its version and both remedies.
   assert.throws(
-    () => assertCompanionVersionsReleasable(
+    () => assertBuiltAgainstVersionsReleasable(
       '0.8.1',
       builtAgainst,
       new Map([...codegenOnly, ['@oa-sdk/client', '0.2.1']]),
@@ -285,7 +372,7 @@ assert.throws(
     ),
     (error: unknown) => {
       assert.ok(error instanceof Error)
-      assert.match(error.message, /^@oa-sdk\/codegen@0\.8\.1: oa-gen pins its install hints to companion package versions that are neither in this export nor published on npm:/)
+      assert.match(error.message, /^@oa-sdk\/codegen@0\.8\.1: oa-gen tells users to install these package versions \(oa-gen init writes their ranges, and its install hints pin companion packages to them\), but they are neither in this export nor published on npm:/)
       assert.match(error.message, /@oa-sdk\/router@0\.2\.1: add --version @oa-sdk\/router=0\.2\.1 to this export, or publish @oa-sdk\/router@0\.2\.1 first/)
       assert.match(error.message, /@oa-sdk\/mock-server@0\.1\.3: add --version @oa-sdk\/mock-server=0\.1\.3 to this export, or publish @oa-sdk\/mock-server@0\.1\.3 first/)
       assert.doesNotMatch(error.message, /@oa-sdk\/client/)
@@ -295,7 +382,7 @@ assert.throws(
 
   // Released by the same export, but at another version than codegen embeds.
   assert.throws(
-    () => assertCompanionVersionsReleasable(
+    () => assertBuiltAgainstVersionsReleasable(
       '0.8.1',
       new Map([['@oa-sdk/router', '0.2.1']]),
       new Map([...codegenOnly, ['@oa-sdk/router', '0.3.0']]),
@@ -306,13 +393,13 @@ assert.throws(
 
   // A registry failure other than E404 is not "unpublished"; it surfaces.
   assert.throws(
-    () => assertCompanionVersionsReleasable('0.8.1', builtAgainst, codegenOnly, registry(() => {
+    () => assertBuiltAgainstVersionsReleasable('0.8.1', builtAgainst, codegenOnly, registry(() => {
       throw Object.assign(new Error('npm view failed'), { stderr: 'npm error code E500\nnpm error 500 Internal Server Error' })
     })),
     /npm registry lookup failed for @oa-sdk\/router@0\.2\.1/,
   )
 
-  // The embedded table is restricted to the companions; tables naming none are ignored.
+  // The embedded table is restricted to the requested packages; tables naming none are ignored.
   const companions = ['@oa-sdk/router', '@oa-sdk/client', '@oa-sdk/mock-server']
   const embeddedTable = {
     '@oa-sdk/client': '0.2.1',
@@ -321,16 +408,16 @@ assert.throws(
     '@oa-sdk/router': '0.2.1',
   }
   assert.deepEqual(
-    embeddedCompanionVersions([{ unrelated: '1.0.0' }, embeddedTable, embeddedTable], companions),
+    embeddedBuiltAgainstVersions([{ unrelated: '1.0.0' }, embeddedTable, embeddedTable], companions),
     builtAgainst,
   )
   assert.throws(
-    () => embeddedCompanionVersions([{ '@oa-sdk/router': '0.2.1', '@oa-sdk/client': '0.2.1' }], companions),
-    /@oa-sdk\/codegen: the packed artifact embeds no version for companion package @oa-sdk\/mock-server/,
+    () => embeddedBuiltAgainstVersions([{ '@oa-sdk/router': '0.2.1', '@oa-sdk/client': '0.2.1' }], companions),
+    /@oa-sdk\/codegen: the packed artifact embeds no version for @oa-sdk\/mock-server, so the range oa-gen names for it cannot be checked/,
   )
   assert.throws(
-    () => embeddedCompanionVersions([embeddedTable, { ...embeddedTable, '@oa-sdk/router': '0.2.2' }], companions),
-    /@oa-sdk\/codegen: the packed artifact embeds conflicting versions for companion package @oa-sdk\/router: 0\.2\.1, 0\.2\.2/,
+    () => embeddedBuiltAgainstVersions([embeddedTable, { ...embeddedTable, '@oa-sdk/router': '0.2.2' }], companions),
+    /@oa-sdk\/codegen: the packed artifact embeds conflicting versions for @oa-sdk\/router: 0\.2\.1, 0\.2\.2/,
   )
 
   // The table is found in bundled JavaScript whatever quotes and escapes it was written with.
@@ -347,9 +434,87 @@ assert.throws(
     writeFileSync(join(packedFixture, 'dist/chunk.d.ts'), `declare const t: '{"@oa-sdk/router":"9.9.9"}'\n`, 'utf8')
     const tables = embeddedVersionTables(packedFixture, companions) as Record<string, string>[]
     assert.equal(tables.length, 2)
-    assert.deepEqual(embeddedCompanionVersions(tables, companions), builtAgainst)
+    assert.deepEqual(embeddedBuiltAgainstVersions(tables, companions), builtAgainst)
   } finally {
     rmSync(packedFixture, { recursive: true, force: true })
+  }
+
+  // A packed codegen is gated on every package it names at its built-against
+  // version, not only the companions: microservice and enterprise scaffolds
+  // write `@oa-sdk/core` at `^<built-against>`.
+  const packedCodegen = mkdtempSync(join(tmpdir(), 'oa-sdk-release-packed-codegen-'))
+  try {
+    const rcBuiltAgainst = {
+      '@oa-sdk/codegen': '0.9.0',
+      '@oa-sdk/core': '0.3.1',
+      '@oa-sdk/parser': '0.4.0',
+      '@oa-sdk/router': '0.2.2',
+      '@oa-sdk/client': '0.2.2',
+      '@oa-sdk/mock-server': '0.1.4',
+    }
+    mkdirSync(join(packedCodegen, 'dist'), { recursive: true })
+    writeFileSync(
+      join(packedCodegen, 'dist/chunk.js'),
+      `var BUILT_AGAINST = JSON.parse(${JSON.stringify(JSON.stringify(rcBuiltAgainst))});\n`,
+      'utf8',
+    )
+    const companionExport = new Map([
+      ['@oa-sdk/codegen', '0.9.0'],
+      ['@oa-sdk/router', '0.2.2'],
+      ['@oa-sdk/client', '0.2.2'],
+      ['@oa-sdk/mock-server', '0.1.4'],
+    ])
+    // npm has core 0.3.0 only; nothing else of the RC is published.
+    const npm = registry(target => {
+      if (target !== '@oa-sdk/core@0.3.0') notFound()
+      return '"0.3.0"'
+    })
+
+    // Core embedded at an unpublished version and not in the export: fails.
+    assert.throws(
+      () => assertCodegenBuiltAgainstVersionsReleasable(packedCodegen, '0.9.0', companionExport, npm),
+      (error: unknown) => {
+        assert.ok(error instanceof Error)
+        assert.match(error.message, /^@oa-sdk\/codegen@0\.9\.0: oa-gen tells users to install these package versions/)
+        assert.match(error.message, /@oa-sdk\/core@0\.3\.1: add --version @oa-sdk\/core=0\.3\.1 to this export, or publish @oa-sdk\/core@0\.3\.1 first/)
+        assert.doesNotMatch(error.message, /- @oa-sdk\/(?:router|client|mock-server|codegen)@/)
+        // parser is a runtime dependency only; init never writes it.
+        assert.doesNotMatch(error.message, /@oa-sdk\/parser/)
+        return true
+      },
+    )
+
+    // Core in the same export at the embedded version: passes without a registry lookup.
+    assert.doesNotThrow(() => assertCodegenBuiltAgainstVersionsReleasable(
+      packedCodegen,
+      '0.9.0',
+      new Map([...companionExport, ['@oa-sdk/core', '0.3.1']]),
+      noRegistry,
+    ))
+
+    // Core already published at the embedded version: passes.
+    assert.doesNotThrow(() => assertCodegenBuiltAgainstVersionsReleasable(
+      packedCodegen,
+      '0.9.0',
+      companionExport,
+      registry(target => {
+        if (target !== '@oa-sdk/core@0.3.1') notFound()
+        return '"0.3.1"'
+      }),
+    ))
+
+    // A packed codegen that embeds no core version cannot be checked.
+    writeFileSync(
+      join(packedCodegen, 'dist/chunk.js'),
+      `var BUILT_AGAINST = '${JSON.stringify({ ...rcBuiltAgainst, '@oa-sdk/core': undefined })}';\n`,
+      'utf8',
+    )
+    assert.throws(
+      () => assertCodegenBuiltAgainstVersionsReleasable(packedCodegen, '0.9.0', companionExport, noRegistry),
+      /the packed artifact embeds no version for @oa-sdk\/core/,
+    )
+  } finally {
+    rmSync(packedCodegen, { recursive: true, force: true })
   }
 }
 

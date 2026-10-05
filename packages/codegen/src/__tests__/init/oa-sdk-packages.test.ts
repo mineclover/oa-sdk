@@ -3,9 +3,11 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { BUILT_AGAINST_VERSIONS } from '../../cli/lib/built-against-versions.js'
+import { COMPANION_PACKAGES } from '../../cli/lib/companion-packages.js'
 import {
   ARCHETYPE_PROFILES,
   OA_SDK_INIT_PACKAGES,
+  REGISTRY_OA_SDK_PACKAGES,
   REGISTRY_SOURCES,
   TARGET_PROFILES,
   UNPINNED_SPECIFIER,
@@ -111,6 +113,23 @@ describe('the @oa-sdk packages init recommends', () => {
       }
       expect(unavailable.map(entry => entry.name), label).toEqual(archetype.id === 'enterprise' ? ['@oa-sdk/personas'] : [])
     }
+  })
+})
+
+describe('REGISTRY_OA_SDK_PACKAGES', () => {
+  it('are exactly the packages init writes a registry range for outside any workspace', () => {
+    const written = new Set<string>()
+    for (const { target, archetype, options } of combinations) {
+      const { devDependencies } = composeInitDependencies(target, archetype, options)
+      for (const name of Object.keys(devDependencies)) if (name.startsWith('@oa-sdk/')) written.add(name)
+    }
+    expect([...REGISTRY_OA_SDK_PACKAGES].sort()).toEqual([...written].sort())
+    expect(REGISTRY_OA_SDK_PACKAGES).toContain('@oa-sdk/core')
+    expect(REGISTRY_OA_SDK_PACKAGES).not.toContain('@oa-sdk/personas')
+  })
+
+  it('include every companion package, whose install hints name the same built-against range', () => {
+    for (const name of COMPANION_PACKAGES) expect(REGISTRY_OA_SDK_PACKAGES, name).toContain(name)
   })
 })
 
