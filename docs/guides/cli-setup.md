@@ -20,7 +20,7 @@
 | **Bun** | 지원 환경 아님 | Bun은 CI에서 검증하지 않습니다. `oa-gen init`이 Bun용 스크립트를 쓸 수는 있지만 지원 환경으로 약속하지 않습니다. |
 | **운영체제** | macOS, Linux, Windows | Linux에서는 `oa-gen mock --watch`가 하위 디렉터리마다 감시를 걸어 재귀 파일 감시를 대신합니다. |
 
-TypeScript 버전과 생성 코드의 호환 범위는 [TypeScript 호환성](./typescript-compatibility.md#공개-패키지-사용자-요구사항-consumer-support)을 따릅니다.
+TypeScript 버전과 생성 코드의 호환 범위는 [TypeScript 호환성](./typescript-compatibility.md#consumer-support)을 따릅니다.
 
 ---
 

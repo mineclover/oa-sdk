@@ -5,6 +5,28 @@ the stable source and declaration compatibility baseline; TypeScript 7/`ttsc`
 is a Node 26 Current compatibility no-emit validation lane for Core source and generated
 declarations. It is not the default compiler for workspace builds or declaration emission.
 
+The first section below is for projects that install the published packages. The
+rest describes the lanes used to build and test this repository.
+
+## Consumer support
+
+- **Node.js**: every published `@oa-sdk/*` package declares `engines.node: ">=22.0.0"`.
+  The CI `public-release-runtime` job packs the release candidates and installs
+  them on Node.js 22, 24 and 26, then imports every public entry point and runs
+  `oa-gen --help`, `oa-gen typegen` and `oa-gen mock`.
+- **Bun**: not covered by CI. `oa-gen init` can write Bun scripts for the Elysia
+  target, but Bun is not a supported runtime.
+- **TypeScript**: published declarations are emitted with `typescript@5.9.3`
+  (the stable lane below). `@oa-sdk/codegen` declares `typescript` (`>=5.0.0`) as an
+  optional peer dependency, and `@oa-sdk/parser` and `@oa-sdk/ast-sync` install
+  `typescript@^5.0.0` as a runtime dependency because they read TypeScript sources.
+- **Generated code**: `oa-gen typegen` output is compiled with both TypeScript
+  5.9.3 and TypeScript 7 in the codegen compatibility test (see
+  [Generated declaration policy](#generated-declaration-policy)). Other compiler
+  versions are not tested.
+
+Contributors who build this repository need Node.js 24 or later and pnpm 10.30.3.
+
 ## Compatibility lanes
 
 | Lane | Compiler | Contract | Owner command |
@@ -19,7 +41,12 @@ Node 26 is a Current release, not an LTS release. Keep Node 24 LTS as the
 production lane; the Node 26 job is forward-compatibility validation only and
 must not become a release or deployment requirement. See the official [Node.js release schedule](https://nodejs.org/en/about/previous-releases).
 
-All regular `@oa-sdk/*` packages pin TypeScript 5.9.3. The private
+Regular `@oa-sdk/*` packages pin `typescript` 5.9.3 as a development dependency,
+with these exceptions: `@oa-sdk/parser` declares `typescript@^5.0.0` as a runtime
+dependency and has no development pin, `@oa-sdk/ast-sync` declares the same runtime
+range next to its 5.9.3 development pin, and `@oa-sdk/chunk-stream-react`,
+`@oa-sdk/chunk-stream-timeseries` and `@oa-sdk/chunk-stream-ui` use the range
+`^5.9.3`. The lockfile resolves all of them to 5.9.3 in this repository. The private
 `@oa-sdk/ttsc-compile-fixture` owns TypeScript 7 and `ttsc`; neither dependency
 may be added to a production package merely to run the latest validation lane.
 
