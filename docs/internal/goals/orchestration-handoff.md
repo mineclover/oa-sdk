@@ -180,19 +180,20 @@
 - public release와 breaking removal은 별도 gate로 다룬다.
 - 오케스트레이터는 상태만 추적한다.
 
-## 4.1 통합 대기 브랜치 (2026-10-05 15:50 기준)
+## 4.1 통합 현황 (2026-10-05 18:40 기준)
 
-main에 통합된 단위: E1, E5, C2, A3, WS-D/E6, D5, WS-H. 아래 브랜치는 리뷰를 마쳤지만 아직 main에 cherry-pick하지 않았다. 각 브랜치는 `.claude/worktrees/`의 worktree에 있다. 상세 보고는 세션 scratchpad `wave1/resume-final.json`에 있다.
+main에 통합된 단위: E1, E5, C2, A3, A2, E4, C4, WS-D/E6, D5, WS-H. 함께 들어온 것: 사용자가 시작한 후속 작업 task_6f373905(codegen export를 companion 릴리스로 막는 게이트)의 커밋 3개(`2fa25d57`..`9adb26d6`). 이 세션이 결과를 C4 브랜치에 fast-forward해 두어 C4와 같이 cherry-pick됐다. 오케스트레이터 리뷰를 따로 진행 중이다.
 
-| 단위 | 브랜치 (base) | 커밋 | 상태 |
-|---|---|---|---|
-| A2 | `worktree-wf_3aaf01fb-dca-4` (`9f8286ea`) | 12 | 리뷰 승인. `d8bc4457`은 A3가 이미 흡수했으므로 cherry-pick에서 건너뛴다 |
-| E4 | `worktree-wf_3aaf01fb-dca-26` (`9f8286ea`) | 6 | 리뷰 승인 |
-| C4 | `worktree-wf_d9fbe586-3e4-2` (`4ff59d3a`) | 8 | 남은 지적 없음, 구현 보고는 partial이라 확인 필요 |
-| E2 | `worktree-wf_3aaf01fb-dca-3` (`9f8286ea`) | 13 | medium 1건 남음: resolve 모드에서 Path Item `$ref` 체인의 뒤쪽 hop을 못 풀 때의 처리 |
-| E3 | `worktree-wf_3aaf01fb-dca-25` (`9f8286ea`) | 7 | medium 2건 남음: 설치된 패키지의 의존 모듈 그래프 미추적, 실패한 모듈 resolve 미기록 |
+| 단위 | 위치 | 상태 |
+|---|---|---|
+| E2 | `worktree-wf_3aaf01fb-dca-3` | main으로 rebase 후 잔여 medium 1건 수정 중(resolve 모드에서 끊긴 Path Item `$ref` 체인의 중간 sibling 유실) |
+| E3 | `worktree-wf_3aaf01fb-dca-25` | main으로 rebase 후 잔여 medium 2건 수정 중(설치 패키지 의존 모듈 그래프, 실패한 resolve 미기록) |
+| task_7b355ede | `claude/practical-kirch-a23e09` | 사용자가 시작한 별도 세션: `oa-gen init`이 설치 가능한 `@oa-sdk` 지정자를 쓰도록 수정. C4 위에서 작업하므로 끝나면 C4 이후 고유 커밋만 가져온다 |
+| B (B1+B2) | Wave 2b worktree | 구현 중 |
+| C1 | Wave 2b worktree | 구현 중 |
+| D2 | Wave 2b worktree | 구현 중 |
 
-다음 순서: A2 → E4 → C4 통합 후 codegen 전체 스위트 → E2·E3 잔여 지적 수정 → 통합 → `type-registry:write`(사용자 승인) → Wave 2b(B1·B2, C1, A4, D2, E7).
+다음 순서: E2·E3 통합 → E7(E2 이후) → A4(E3·task_7b355ede 이후, CLI command registry를 건드리므로) → `type-registry:write`(사용자 승인).
 
 ## 5. 결정 기록 (2026-10-05 사용자 확정)
 
