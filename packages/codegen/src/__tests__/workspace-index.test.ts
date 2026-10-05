@@ -426,7 +426,7 @@ describe('WorkspaceIndex', () => {
           'components',
           'diagnostics',
           'files',
-          'generation_target_inputs',
+          'generation_target_observations',
           'generation_targets',
           'meta',
           'refs',
@@ -451,7 +451,7 @@ describe('WorkspaceIndex', () => {
     }
   })
 
-  it('persists generation targets with absent and unverified inputs and stdout content, and clears them with the cache', () => {
+  it('persists generation targets with every input kind, absent and unverified inputs, and stdout content, and clears them with the cache', () => {
     const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-sqlite-targets-'))
     const cacheDir = join(tmp, '.oa-cache')
     const fileTarget: GenerationTargetRecord = {
@@ -459,10 +459,15 @@ describe('WorkspaceIndex', () => {
       command: 'typegen',
       optionsHash: 'options-a',
       generatorHash: 'generator-a',
+      // Listed in the order the store returns inputs: by path, then kind.
       inputs: [
-        { filePath: '/workspace/api.yaml', contentHash: 'hash-api' },
-        { filePath: '/workspace/edited.yaml', unverified: true },
-        { filePath: '/workspace/missing.yaml', contentHash: null },
+        { kind: 'content', path: '/workspace/api.yaml', value: 'hash-api' },
+        { kind: 'content', path: '/workspace/edited.yaml', unverified: 'changed during generation' },
+        { kind: 'entry', path: '/workspace/listed', unverified: 'directory listing not tracked' },
+        { kind: 'content', path: '/workspace/missing.yaml', value: null },
+        { kind: 'realpath', path: '/workspace/node_modules/gone', value: null },
+        { kind: 'entry', path: '/workspace/node_modules/lib', value: 'directory' },
+        { kind: 'realpath', path: '/workspace/node_modules/lib', value: '/packages/lib' },
       ],
       output: { kind: 'file', filePath: '/workspace/out.ts', contentHash: 'hash-out' },
       messages: ['warning a'],
@@ -473,7 +478,7 @@ describe('WorkspaceIndex', () => {
       command: 'typegen',
       optionsHash: 'options-a',
       generatorHash: 'generator-a',
-      inputs: [{ filePath: '/workspace/api.yaml', contentHash: 'hash-api' }],
+      inputs: [{ kind: 'content', path: '/workspace/api.yaml', value: 'hash-api' }],
       output: { kind: 'stdout', contentHash: 'hash-stdout', content: 'export type A = string\n' },
       messages: [],
     }
@@ -491,7 +496,7 @@ describe('WorkspaceIndex', () => {
 
       const replaced: GenerationTargetRecord = {
         ...fileTarget,
-        inputs: [{ filePath: '/workspace/api.yaml', contentHash: 'hash-api-2' }],
+        inputs: [{ kind: 'content', path: '/workspace/api.yaml', value: 'hash-api-2' }],
         messages: [],
         lastRun: 'run-b',
       }
@@ -500,6 +505,9 @@ describe('WorkspaceIndex', () => {
 
       index.deleteGenerationTarget('target-stdout')
       expect(index.getGenerationTarget('target-stdout')).toBeUndefined()
+      // Every generation reads its entry spec, so a target without inputs is not a reusable record.
+      index.replaceGenerationTarget({ ...stdoutTarget, targetKey: 'target-without-inputs', inputs: [] })
+      expect(index.getGenerationTarget('target-without-inputs')).toBeUndefined()
       // Workspace file invalidation does not touch generation targets.
       index.invalidateFiles(['/workspace/api.yaml'])
       expect(index.getGenerationTarget('target-file')).toEqual(replaced)

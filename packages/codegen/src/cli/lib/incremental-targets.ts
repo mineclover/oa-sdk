@@ -5,24 +5,33 @@
  * reused only when all of the following still hold for its own record:
  *   - the generator identity (toolchain package versions, record format),
  *   - the normalized generation options,
- *   - the content hash of every recorded input file (entry spec, external
- *     `$ref` documents, TypeSpec sources, package manifests of installed
- *     libraries the TypeSpec compiler loaded), where "absent" is a recorded
- *     state too, so creating a file that used to be missing invalidates the
- *     target,
+ *   - every recorded input observation (see `GenerationTargetInputRecord`):
+ *       - the content of each file generation read: the entry spec, external
+ *         `$ref` documents, and every file the TypeSpec compiler read (sources,
+ *         `package.json` manifests, library configs), where "absent" is a
+ *         recorded state too, so creating a file that used to be missing
+ *         invalidates the target;
+ *       - what each path the TypeSpec compiler probed while resolving imports
+ *         named (file, directory, absent), and where each path it resolved
+ *         links to, so a re-pointed `node_modules` link or a new candidate
+ *         directory invalidates the target;
+ *       - the JavaScript module graph of decorator and library entries
+ *         (see `module-graph-observer.ts`),
  *   - the output: a file output must still exist with the recorded hash; a
  *     stdout output is replayed from the stored content.
  * Anything else (no record, unreadable record, unknown generator identity, an
  * input the previous run could not verify) regenerates.
  *
- * Recorded input hashes must describe the content generation consumed. A file
- * stamped before generation started satisfies that (a change made later is seen
- * by the next run). A file first stamped after generation needs evidence that it
- * did not change in between, see `consumedInputRecord`.
+ * Recorded observations must describe what generation consumed. A reader that
+ * reports what it observed (the compiler host, the module loader, the spec
+ * loader's text) is checked against the file as stamped. A file stamped before
+ * generation started is used as is (a change made later is seen by the next
+ * run). Any other file needs evidence that it did not change in between, see
+ * `contentInputRecord`.
  */
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync, realpathSync } from 'node:fs'
-import { dirname, join, resolve, sep } from 'node:path'
+import { existsSync, readFileSync, statSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type {
   GenerationTargetInputRecord,
@@ -35,6 +44,7 @@ import {
   type WorkspaceFileStampCache,
 } from '../../workspace-index.js'
 import type { CliIncrementalRun } from './incremental.js'
+import { observeEntry, observeRealpath, type ConsumedContent, type InputObservation } from './input-observations.js'
 
 /**
  * How much older than the start of generation a file's mtime must be to prove
@@ -69,19 +79,11 @@ export type CliGenerationResult = {
   content: string
   /**
    * Files the generator read itself (the `$ref` documents it reached or tried
-   * to reach), each tracked by its own content wherever it lives. May contain
-   * duplicates and absent files.
+   * to reach), tracked by content. May contain duplicates and absent files.
    */
   inputFiles: readonly string[]
-  /**
-   * Files the spec loader read: the spec itself, or every file the TypeSpec
-   * compiler loaded. One whose real path lies inside an installed package
-   * (`node_modules`) is tracked through that package's manifest; any other one
-   * by its own content.
-   */
-  loadedFiles?: readonly string[]
-  /** Text generation consumed, keyed by input file, where the reader reports it. */
-  inputTexts?: ReadonlyMap<string, string>
+  /** Observations the spec loader reported (see `InputObservation`); may repeat. */
+  observations?: readonly InputObservation[]
   /** Non-fatal messages emitted while generating, replayed when the target is reused. */
   messages: readonly string[]
 }
@@ -102,8 +104,8 @@ export function planCliGenerationTarget(run: CliIncrementalRun, target: CliGener
   const record = run.targets.getGenerationTarget(generationTargetKey(target))
   if (!record) return generate('no previous generation record')
 
-  // Stamp every recorded input now, before generation can read it, even when a
-  // check below already decides to regenerate: the new record reuses these stamps.
+  // Check every recorded input now, before generation can read it, even when a
+  // check below already decides to regenerate: the new record reuses the stamps.
   const inputChange = describeInputChanges(record.inputs, run.stamps)
   if (record.generatorHash !== hashJson(target.generator)) return generate('generator version changed')
   if (record.optionsHash !== hashJson(target.options)) return generate('options changed')
@@ -142,8 +144,11 @@ export function recordCliGenerationTarget(
     command: target.command,
     optionsHash: hashJson(target.options),
     generatorHash: hashJson(target.generator),
-    inputs: trackedInputPaths(target.entryPath, result.inputFiles, result.loadedFiles).map(filePath =>
-      consumedInputRecord(filePath, run.stamps, generation, result.inputTexts?.get(filePath))),
+    inputs: consumedInputRecords([
+      { kind: 'content', path: resolve(target.entryPath) },
+      ...result.inputFiles.map(filePath => ({ kind: 'content', path: resolve(filePath) }) as const),
+      ...(result.observations ?? []),
+    ], run.stamps, generation),
     output,
     messages: [...result.messages],
     lastRun: run.runId,
@@ -168,31 +173,6 @@ export function generationTargetKey(target: Pick<CliGenerationTarget, 'command' 
 }
 
 /**
- * Map the files read during generation to the paths whose content is tracked.
- * The entry spec and every file the generator read itself (`$ref` documents)
- * are tracked by their own content, wherever they live. A file the spec loader
- * loaded from an installed package, decided on its real path so a workspace
- * package linked into `node_modules` stays content-tracked, is tracked through
- * that package's manifest: the library version is the input rather than every
- * file it ships.
- */
-export function trackedInputPaths(
-  entryPath: string,
-  inputFiles: readonly string[],
-  loadedFiles: readonly string[] = [],
-): string[] {
-  const entry = resolve(entryPath)
-  const tracked = new Set<string>([entry])
-  for (const filePath of inputFiles) tracked.add(resolve(filePath))
-  for (const filePath of loadedFiles) {
-    const absolutePath = resolve(filePath)
-    if (absolutePath === entry) continue
-    tracked.add(installedPackageManifestPath(realPath(absolutePath)) ?? absolutePath)
-  }
-  return [...tracked].sort((a, b) => a.localeCompare(b))
-}
-
-/**
  * Generator identity for a CLI command: the record format plus the installed
  * versions of the packages on its generation path, resolved the way Node
  * resolves them from this package. Undefined when any of them is missing.
@@ -211,37 +191,129 @@ export function resolveCliGeneratorIdentity(
 }
 
 /**
- * The record of one input as generation consumed it. A stamp taken before
- * generation started is used as is. A file first stamped after generation may
- * have changed in between, so its stamp is used only with evidence that it is
- * what generation read:
- *   - the reader reported the text it consumed, and the stamp hashes that text;
- *   - otherwise, the file exists and its mtime precedes the start of generation
- *     by more than the timestamp slack, so no write happened while generation
- *     ran (writes advance mtime; a tool that restores an older mtime during the
- *     run defeats this check, which is why reported text takes precedence).
- * Without evidence (including a file absent by then) the input is recorded
- * unverified, and the next run, which stamps it before generating, regenerates.
+ * One record per observed (kind, path), as generation consumed it. Repeated
+ * observations of a path must agree (reports with evidence take precedence
+ * over plain file paths); observations that disagree mean the path changed
+ * while generation ran, so it is recorded unverified.
  */
-function consumedInputRecord(
-  filePath: string,
+function consumedInputRecords(
+  observations: readonly InputObservation[],
   stamps: WorkspaceFileStampCache,
   generation: CliTargetGeneration,
-  consumedText: string | undefined,
-): GenerationTargetInputRecord {
-  const stamp = readWorkspaceFileStamp(filePath, stamps)
-  if (generation.stampedBefore.has(filePath)) return { filePath, contentHash: stamp?.contentHash ?? null }
-  if (!stamp) return { filePath, unverified: true }
+): GenerationTargetInputRecord[] {
+  const groups = new Map<string, InputObservation[]>()
+  for (const observation of observations) {
+    const key = `${observation.kind}\0${observation.path}`
+    const group = groups.get(key)
+    if (group) group.push(observation)
+    else groups.set(key, [observation])
+  }
 
-  const verified = consumedText !== undefined
-    ? stampMatchesText(stamp, consumedText)
-    : stamp.mtimeMs < generation.startedAtMs - FILE_TIMESTAMP_SLACK_MS
-  return verified ? { filePath, contentHash: stamp.contentHash } : { filePath, unverified: true }
+  const records: GenerationTargetInputRecord[] = []
+  for (const group of groups.values()) {
+    const { kind, path } = group[0]!
+    const unverified = group.find(observation => 'unverified' in observation)
+    if (unverified && 'unverified' in unverified) {
+      records.push({ kind, path, unverified: unverified.unverified })
+      continue
+    }
+    const evidenced = group.filter(observation => observation.kind !== 'content' || 'consumed' in observation)
+    const candidates = (evidenced.length > 0 ? evidenced : group.slice(0, 1))
+      .map(observation => consumedInputRecord(observation, stamps, generation))
+    const [first] = candidates
+    records.push(candidates.every(record => sameInputRecord(record, first!))
+      ? first!
+      : { kind, path, unverified: 'changed during generation' })
+  }
+  // By path, then kind: the order the store returns them in.
+  return records.sort((a, b) => compareStrings(a.path, b.path) || compareStrings(a.kind, b.kind))
+}
+
+function compareStrings(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0
+}
+
+function consumedInputRecord(
+  observation: InputObservation,
+  stamps: WorkspaceFileStampCache,
+  generation: CliTargetGeneration,
+): GenerationTargetInputRecord {
+  if ('unverified' in observation) return observation
+  if (observation.kind === 'content') return contentInputRecord(observation.path, observation.consumed, stamps, generation)
+  // The reader reported the value it observed.
+  return { kind: observation.kind, path: observation.path, value: observation.value }
+}
+
+/**
+ * The content generation consumed from `filePath`:
+ *   - the reader reported it: the absence it saw, or text / bytes the stamp
+ *     must match (otherwise the file changed after it was read);
+ *   - the file was stamped before generation started: that stamp;
+ *   - otherwise, evidence that nothing changed while generation ran: an
+ *     existing file's mtime, or for an absent file the mtime of its nearest
+ *     existing directory (creating or removing an entry updates it), precedes
+ *     the start of generation by more than the timestamp slack (a tool that
+ *     restores an older mtime during the run defeats this check, which is why
+ *     reported content takes precedence).
+ * Without evidence the input is recorded unverified, and the next run, which
+ * stamps it before generating, regenerates.
+ */
+function contentInputRecord(
+  filePath: string,
+  consumed: ConsumedContent | undefined,
+  stamps: WorkspaceFileStampCache,
+  generation: CliTargetGeneration,
+): GenerationTargetInputRecord {
+  const record = (value: string | null): GenerationTargetInputRecord => ({ kind: 'content', path: filePath, value })
+  const unverified = (reason: string): GenerationTargetInputRecord => ({ kind: 'content', path: filePath, unverified: reason })
+
+  if (consumed && 'absent' in consumed) return record(null)
+  const stamp = readWorkspaceFileStamp(filePath, stamps)
+  if (consumed) {
+    const matches = stamp !== undefined
+      && ('text' in consumed ? stampMatchesText(stamp, consumed.text) : stamp.contentHash === consumed.sha256)
+    return matches ? record(stamp.contentHash) : unverified('changed during generation')
+  }
+  if (generation.stampedBefore.has(filePath)) return record(stamp?.contentHash ?? null)
+
+  const unchangedBefore = generation.startedAtMs - FILE_TIMESTAMP_SLACK_MS
+  if (stamp) return stamp.mtimeMs < unchangedBefore ? record(stamp.contentHash) : unverified('may have changed during generation')
+  return nearestDirectoryMtimeMs(filePath) < unchangedBefore ? record(null) : unverified('may have changed during generation')
+}
+
+/** mtime of the nearest existing directory containing `filePath`; +Infinity when it cannot be determined. */
+function nearestDirectoryMtimeMs(filePath: string): number {
+  for (let directory = dirname(filePath); ; directory = dirname(directory)) {
+    try {
+      const stats = statSync(directory, { throwIfNoEntry: false })
+      if (stats) return stats.isDirectory() ? stats.mtimeMs : Number.POSITIVE_INFINITY
+    } catch {
+      return Number.POSITIVE_INFINITY
+    }
+    if (dirname(directory) === directory) return Number.POSITIVE_INFINITY
+  }
 }
 
 /** Whether the stamped bytes are `text` encoded as UTF-8, with or without the byte order mark a reader drops. */
 function stampMatchesText(stamp: WorkspaceFileStamp, text: string): boolean {
   return sha256(text) === stamp.contentHash || sha256(`\uFEFF${text}`) === stamp.contentHash
+}
+
+function sameInputRecord(a: GenerationTargetInputRecord, b: GenerationTargetInputRecord): boolean {
+  if ('unverified' in a || 'unverified' in b) return 'unverified' in a && 'unverified' in b
+  return a.value === b.value
+}
+
+/** The current value of a recorded observation; content is stamped through the run's memo. */
+function currentInputValue(
+  input: GenerationTargetInputRecord,
+  stamps: WorkspaceFileStampCache,
+): string | null | undefined {
+  switch (input.kind) {
+    case 'content': return readWorkspaceFileStamp(input.path, stamps)?.contentHash ?? null
+    case 'entry': return observeEntry(input.path)
+    case 'realpath': return observeRealpath(input.path)
+  }
 }
 
 function describeInputChanges(
@@ -250,15 +322,31 @@ function describeInputChanges(
 ): string | undefined {
   const changes: string[] = []
   for (const input of inputs) {
-    const currentHash = readWorkspaceFileStamp(input.filePath, stamps)?.contentHash ?? null
-    if ('unverified' in input) changes.push(`input not verified: ${input.filePath}`)
-    else if (currentHash === input.contentHash) continue
-    else if (input.contentHash === null) changes.push(`input added: ${input.filePath}`)
-    else if (currentHash === null) changes.push(`input removed: ${input.filePath}`)
-    else changes.push(`input changed: ${input.filePath}`)
+    const current = currentInputValue(input, stamps)
+    if ('unverified' in input) changes.push(`input not verified: ${input.path} (${input.unverified})`)
+    else if (current === input.value) continue
+    else changes.push(describeInputChange(input.kind, input.path, input.value, current))
   }
   if (changes.length === 0) return undefined
   return changes.length === 1 ? changes[0] : `${changes[0]} (+${changes.length - 1} more)`
+}
+
+function describeInputChange(
+  kind: GenerationTargetInputRecord['kind'],
+  path: string,
+  recorded: string | null,
+  current: string | null | undefined,
+): string {
+  switch (kind) {
+    case 'content':
+      if (recorded === null) return `input added: ${path}`
+      if (current === null) return `input removed: ${path}`
+      return `input changed: ${path}`
+    case 'entry':
+      return `input entry changed: ${path} (${recorded} -> ${current})`
+    case 'realpath':
+      return `input link target changed: ${path}`
+  }
 }
 
 function describeOutputProblem(output: GenerationTargetOutputRecord): string | undefined {
@@ -277,25 +365,6 @@ function describeOutput(output: CliGenerationOutput): string {
 
 function generate(reason: string): CliGenerationPlan {
   return { action: 'generate', reason }
-}
-
-function realPath(filePath: string): string {
-  try {
-    return realpathSync.native(filePath)
-  } catch {
-    return filePath
-  }
-}
-
-function installedPackageManifestPath(filePath: string): string | undefined {
-  const segments = filePath.split(sep)
-  const nodeModulesIndex = segments.lastIndexOf('node_modules')
-  if (nodeModulesIndex < 0) return undefined
-  const nameLength = segments[nodeModulesIndex + 1]?.startsWith('@') ? 2 : 1
-  const packageRootEnd = nodeModulesIndex + 1 + nameLength
-  // A file directly inside node_modules (or @scope/) is not part of a package.
-  if (packageRootEnd >= segments.length) return undefined
-  return join(segments.slice(0, packageRootEnd).join(sep) || sep, 'package.json')
 }
 
 const OWN_PACKAGE_NAME = '@oa-sdk/codegen'

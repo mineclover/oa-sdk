@@ -1,6 +1,6 @@
 import { resolve } from 'node:path'
 import type { Command } from '../lib/types.js'
-import { loadSpecDocumentAsync } from '../lib/load-spec.js'
+import { loadSpecDocumentAsync, loadSpecRecordingInputs } from '../lib/load-spec.js'
 import { writeOutput } from '../lib/output.js'
 import { bool, choice, str, optStr } from '../lib/args.js'
 import {
@@ -67,8 +67,8 @@ export const typegen: Command = {
       }
 
       const { analyzeExternalSchemaRefs, generateTypesFromSpec } = await import('../../typegen/generate-types.js')
-      const loaded = await loadSpecDocumentAsync(specPath)
-      const { document: doc, path: resolvedSpecPath } = loaded
+      const recorded = generation ? await loadSpecRecordingInputs(specPath) : undefined
+      const { document: doc, path: resolvedSpecPath } = recorded?.loaded ?? await loadSpecDocumentAsync(specPath)
       const warnings: string[] = []
       const externalAnalysis = analyzeExternalSchemaRefs(doc, resolvedSpecPath)
       const ts = generateTypesFromSpec(doc, { style, basePath: resolvedSpecPath, warnings, externalAnalysis })
@@ -82,8 +82,7 @@ export const typegen: Command = {
         recordCliGenerationTarget(incremental, generation, {
           content: ts,
           inputFiles: indexed.referencedFilePaths,
-          loadedFiles: loaded.inputFiles,
-          inputTexts: loaded.inputTexts,
+          observations: recorded?.inputs ?? [],
           messages: warnings,
         })
       }

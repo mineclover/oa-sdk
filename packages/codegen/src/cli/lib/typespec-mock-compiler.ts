@@ -3,10 +3,18 @@ import { getOpenAPI3 } from '@typespec/openapi3'
 import type { OasDocument } from '@oa-sdk/parser'
 import { watch, type FSWatcher } from 'node:fs'
 import { dirname, resolve } from 'node:path'
+import type { InputObservation } from './input-observations.js'
+import { observeModuleGraph, observeModuleLoading } from './module-graph-observer.js'
+import { recordCompilerHostInputs } from './typespec-input-recorder.js'
 
 export interface TypeSpecCompilationOptions {
   oldProgram?: Program
   openApiVersion?: '3.0.0' | '3.1.0' | '3.2.0'
+  /**
+   * Record the compilation's inputs (`inputs` in the result). Starts observing
+   * JavaScript module loading for the rest of the process.
+   */
+  recordInputs?: boolean
 }
 
 export interface TypeSpecCompilationResult {
@@ -15,10 +23,12 @@ export interface TypeSpecCompilationResult {
   routesCount: number
   /** Authored TypeSpec sources (outside node_modules), for watching. */
   sourceFiles: string[]
-  /** Every file the compiler loaded: TypeSpec sources and JS library entries, including node_modules. */
-  inputFiles: string[]
-  /** Text the compiler parsed for each TypeSpec source in `inputFiles`. */
-  sourceTexts: ReadonlyMap<string, string>
+  /**
+   * With `recordInputs`: everything the compilation observed of the file system
+   * (each file the compiler host read, path it probed or resolved, and the
+   * module graph of each JS file it imported).
+   */
+  inputs?: InputObservation[]
 }
 
 export interface TypeSpecWatcher {
@@ -36,7 +46,9 @@ export async function compileTypeSpecInMemory(
   const version = options?.openApiVersion ?? '3.2.0'
   const resolvedPath = resolve(tspPath)
 
-  const program = await compile(NodeHost, resolvedPath, { noEmit: true }, options?.oldProgram)
+  const recording = options?.recordInputs ? recordCompilerHostInputs(NodeHost) : undefined
+  if (recording) observeModuleLoading()
+  const program = await compile(recording?.host ?? NodeHost, resolvedPath, { noEmit: true }, options?.oldProgram)
 
   if (program.hasError()) {
     const errorDetails = program.diagnostics.map(d => formatDiagnostic(d)).join('\n')
@@ -79,23 +91,15 @@ export async function compileTypeSpecInMemory(
   const sourceFiles = Array.from(program.sourceFiles.keys()).filter(
     file => Boolean(file) && !file.includes('node_modules'),
   )
-  const inputFiles = [...new Set([
-    resolvedPath,
-    ...program.sourceFiles.keys(),
-    ...program.jsSourceFiles.keys(),
-  ].filter(Boolean))].sort((a, b) => a.localeCompare(b))
-  const sourceTexts = new Map<string, string>()
-  for (const [file, script] of program.sourceFiles) {
-    if (file) sourceTexts.set(file, script.file.text)
-  }
 
   return {
     program,
     document,
     routesCount,
     sourceFiles: sourceFiles.length > 0 ? sourceFiles : [resolvedPath],
-    inputFiles,
-    sourceTexts,
+    ...(recording
+      ? { inputs: [...recording.observations, ...observeModuleGraph(recording.jsImports)] }
+      : {}),
   }
 }
 

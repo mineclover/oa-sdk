@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
@@ -18,8 +19,10 @@ import {
   utimesSync,
   writeFileSync,
 } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
 import { stringify as stringifyYaml } from 'yaml'
 import { typegen } from '../cli/commands/typegen.js'
 import type { CommandArgValue } from '../cli/lib/types.js'
@@ -27,14 +30,18 @@ import { openCliIncrementalRun, closeCliIncrementalRun } from '../cli/lib/increm
 import {
   planCliGenerationTarget,
   resolveCliGeneratorIdentity,
-  trackedInputPaths,
   type CliGenerationTarget,
 } from '../cli/lib/incremental-targets.js'
+import type { InputObservation } from '../cli/lib/input-observations.js'
+import { observeModuleGraph } from '../cli/lib/module-graph-observer.js'
+import { compileTypeSpecInMemory } from '../cli/lib/typespec-mock-compiler.js'
 import { createSQLiteWorkspaceIndex, loadSqliteDriver } from '../sqlite-workspace-index.js'
 
 const packageRoot = resolve(__dirname, '../..')
 /** TypeSpec fixtures live inside the package so `@typespec/*` imports resolve from its node_modules. */
 const packageTmpBase = resolve(packageRoot, '.tmp-typegen-incremental')
+const TSX_CLI = resolve(packageRoot, '../../node_modules/tsx/dist/cli.mjs')
+const CLI_SRC = resolve(packageRoot, 'src/cli/index.ts')
 
 /**
  * A fixed past instant. Outputs are backdated to it so a rewrite is visible as
@@ -207,15 +214,18 @@ describe('typegen --incremental', () => {
 
     const full = await runTypegen({ spec: path('api.yaml') })
     const first = await runTypegen(args)
-    // The first run only learns about later.yaml after generating, when nothing proves it was
-    // already absent while generation ran; the next run checks it up front and settles.
+    // The first run only learns about later.yaml after generating. Its directory was just written,
+    // so nothing proves later.yaml was absent while generation ran; the next run checks it up front
+    // and settles.
     const confirmed = await runTypegen(args)
     const replayed = await runTypegen(args)
 
     expect(first.stdout).toBe(full.stdout)
     expect(first.warnings).toEqual(full.warnings)
     expect(full.warnings).toEqual([expect.stringContaining(path('later.yaml'))])
-    expect(confirmed.status).toEqual([`incremental: typegen regenerating (input not verified: ${path('later.yaml')})`])
+    expect(confirmed.status).toEqual([
+      `incremental: typegen regenerating (input not verified: ${path('later.yaml')} (may have changed during generation))`,
+    ])
     expect(confirmed.stdout).toBe(full.stdout)
     expect(replayed.status).toEqual(['incremental: typegen up to date, regeneration skipped (stdout)'])
     expect(replayed.stdout).toBe(full.stdout)
@@ -228,6 +238,26 @@ describe('typegen --incremental', () => {
     expect(added.warnings).toEqual([])
     expect(added.stdout).toBe((await runTypegen({ spec: path('api.yaml') })).stdout)
     expect(added.stdout).toContain('export type Later = {')
+  })
+
+  it('trusts that a missing $ref document was absent when its directory predates the run', async () => {
+    writeYaml('api.yaml', operationSpec('getLater', './later.yaml#/components/schemas/Later'))
+    // The runs write only inside out/ and the cache directory, so the directory later.yaml would
+    // be created in keeps a modification time from before the runs.
+    mkdirSync(path('out'))
+    mkdirSync(cacheDir)
+    backdateInputs('api.yaml', '.')
+    const args = { spec: path('api.yaml'), output: path('out/api.ts'), incremental: true, 'cache-dir': cacheDir }
+
+    const first = await runTypegen(args)
+    expect(first.status).toEqual(['incremental: typegen regenerating (no previous generation record)'])
+    const reused = await runTypegen(args)
+    expect(reused.status).toEqual([`incremental: typegen up to date, regeneration skipped (${path('out/api.ts')})`])
+
+    writeYaml('later.yaml', { components: { schemas: { Later: { type: 'object', properties: { at: { type: 'string' } } } } } })
+    const added = await runTypegen(args)
+    expect(added.status).toEqual([`incremental: typegen regenerating (input added: ${path('later.yaml')})`])
+    expect(readFileSync(path('out/api.ts'), 'utf8')).toContain('export type Later = {')
   })
 
   it('tracks $ref documents inside node_modules by their own content', async () => {
@@ -293,7 +323,9 @@ describe('typegen --incremental', () => {
     expect(readFileSync(path('out/a.ts'), 'utf8')).toContain("export type Role = 'admin' | 'member'\n")
 
     const afterEdit = await runTypegen(incrementalArgs('a'))
-    expect(afterEdit.status).toEqual([`incremental: typegen regenerating (input not verified: ${path('a/models/role.yaml')})`])
+    expect(afterEdit.status).toEqual([
+      `incremental: typegen regenerating (input not verified: ${path('a/models/role.yaml')} (may have changed during generation))`,
+    ])
     expect(readFileSync(path('out/a.ts'), 'utf8')).toContain("export type Role = 'admin' | 'member' | 'guest'")
 
     // order.yaml is first read during generation; it is deleted before the run records the target.
@@ -301,7 +333,9 @@ describe('typegen --incremental', () => {
     expect(readFileSync(path('out/b.ts'), 'utf8')).toContain('export type Order = {')
 
     const afterDelete = await runTypegen(incrementalArgs('b'))
-    expect(afterDelete.status).toEqual([`incremental: typegen regenerating (input not verified: ${path('b/order.yaml')})`])
+    expect(afterDelete.status).toEqual([
+      `incremental: typegen regenerating (input not verified: ${path('b/order.yaml')} (may have changed during generation))`,
+    ])
     await runTypegen({ spec: path('b/api.yaml'), output: path('full/b.ts') })
     expect(readFileSync(path('out/b.ts'), 'utf8')).toBe(readFileSync(path('full/b.ts'), 'utf8'))
     expect(readFileSync(path('out/b.ts'), 'utf8')).not.toContain('export type Order = {')
@@ -346,6 +380,101 @@ describe('typegen --incremental', () => {
     }
   })
 
+  it('tracks how TypeSpec imports resolve: a changed library manifest and a re-pointed library link', async () => {
+    const root = createPackageTmpDir()
+    try {
+      const at = (relativePath: string) => join(root, relativePath)
+      writeText(at('app/main.tsp'), [
+        'import "@typespec/http";',
+        'import "@acme/mylib";',
+        'using Http;',
+        '@service(#{ title: "App" })',
+        'namespace App;',
+        '@route("/thing") op getThing(): Lib.Thing;',
+        '',
+      ].join('\n'))
+      // A workspace library linked into the app's node_modules, and a second checkout of the same
+      // version (identical manifest) whose source differs.
+      writeText(at('packages/mylib/package.json'), libraryManifest('lib/main.tsp'))
+      writeText(at('packages/mylib/lib/main.tsp'), 'namespace Lib;\nmodel Thing { a: string; }\n')
+      writeText(at('packages/mylib/lib/v2.tsp'), 'namespace Lib;\nmodel Thing { a: string; b: string; }\n')
+      writeText(at('packages/mylib2/package.json'), libraryManifest('lib/main.tsp'))
+      writeText(at('packages/mylib2/lib/main.tsp'), 'namespace Lib;\nmodel Thing { a: string; c: string; }\n')
+      mkdirSync(at('app/node_modules/@acme'), { recursive: true })
+      symlinkSync('../../../packages/mylib', at('app/node_modules/@acme/mylib'), 'dir')
+      const outputPath = at('app/out.ts')
+      const args = { spec: at('app/main.tsp'), output: outputPath, incremental: true, 'cache-dir': at('.oa-cache') }
+      const fullOutput = async () => {
+        await runTypegen({ spec: at('app/main.tsp'), output: at('app/full.ts') })
+        return readFileSync(at('app/full.ts'), 'utf8')
+      }
+      const upToDate = [`incremental: typegen up to date, regeneration skipped (${outputPath})`]
+
+      await runTypegen(args)
+      expect((await runTypegen(args)).status).toEqual(upToDate)
+
+      // The linked library now names another main file; every source read so far is unchanged.
+      writeText(at('packages/mylib/package.json'), libraryManifest('lib/v2.tsp'))
+      const manifestEdit = await runTypegen(args)
+
+      expect(manifestEdit.status).toEqual([
+        expect.stringMatching(regeneratingBecause(`input changed: ${at('app/node_modules/@acme/mylib/package.json')}`)),
+      ])
+      expect(readFileSync(outputPath, 'utf8')).toContain('b: string')
+      expect(readFileSync(outputPath, 'utf8')).toBe(await fullOutput())
+      expect((await runTypegen(args)).status).toEqual(upToDate)
+
+      writeText(at('packages/mylib/package.json'), libraryManifest('lib/main.tsp'))
+      await runTypegen(args)
+      expect(readFileSync(outputPath, 'utf8')).not.toContain('b: string')
+      expect((await runTypegen(args)).status).toEqual(upToDate)
+
+      // The link is re-pointed at the other checkout: same manifest, and every file read so far is
+      // unchanged, but the import now resolves elsewhere.
+      unlinkSync(at('app/node_modules/@acme/mylib'))
+      symlinkSync('../../../packages/mylib2', at('app/node_modules/@acme/mylib'), 'dir')
+      const relinked = await runTypegen(args)
+
+      expect(relinked.status).toEqual([
+        expect.stringMatching(regeneratingBecause(`input link target changed: ${at('app/node_modules/@acme/mylib')}`)),
+      ])
+      expect(readFileSync(outputPath, 'utf8')).toContain('c: string')
+      expect(readFileSync(outputPath, 'utf8')).toBe(await fullOutput())
+      expect((await runTypegen(args)).status).toEqual(upToDate)
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  it('never trusts a decorator module the process loaded before it was edited', async () => {
+    // In one process Node keeps the module it loaded first, so a regeneration after the edit still
+    // runs the old decorator. The module loader reports the bytes it loaded, and they no longer
+    // match the file, so the result is not trusted. (A fresh process sees the edit, see below.)
+    const root = createPackageTmpDir()
+    try {
+      writeDecoratorProject(root, 'Version A')
+      const outputPath = join(root, 'out.ts')
+      const implPath = join(root, 'decorators/impl.js')
+      const args = { spec: join(root, 'main.tsp'), output: outputPath, incremental: true, 'cache-dir': join(root, '.oa-cache') }
+
+      await runTypegen(args)
+      expect((await runTypegen(args)).status)
+        .toEqual([`incremental: typegen up to date, regeneration skipped (${outputPath})`])
+
+      writeText(implPath, decoratorImplementation('Version B'))
+      const edited = await runTypegen(args)
+      expect(edited.status).toEqual([expect.stringMatching(regeneratingBecause(`input changed: ${implPath}`))])
+      expect(readFileSync(outputPath, 'utf8')).toContain('/** Version A: first checkout */')
+
+      const next = await runTypegen(args)
+      expect(next.status).toEqual([
+        expect.stringMatching(regeneratingBecause(`input not verified: ${implPath} (changed during generation)`)),
+      ])
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
   it('does not trust an imported TypeSpec source that differs from the text the compiler read', async () => {
     mkdirSync(packageTmpBase, { recursive: true })
     const tspDir = realpathSync(mkdtempSync(join(packageTmpBase, 'run-')))
@@ -378,7 +507,9 @@ describe('typegen --incremental', () => {
       expect(readFileSync(outputPath, 'utf8')).not.toContain('age: number')
 
       const next = await runTypegen(args)
-      expect(next.status).toEqual([`incremental: typegen regenerating (input not verified: ${modelsPath})`])
+      expect(next.status).toEqual([
+        `incremental: typegen regenerating (input not verified: ${modelsPath} (changed during generation))`,
+      ])
       expect(readFileSync(outputPath, 'utf8')).toContain('age: number')
 
       const settled = await runTypegen(args)
@@ -418,57 +549,234 @@ describe('incremental generation targets', () => {
     }
   })
 
-  it('tracks module files inside installed packages through their manifest and every other input by its own content', () => {
-    const nodeModules = join(workspace, 'node_modules')
-    const realNodeModules = join(realpathSync(workspace), 'node_modules')
-    const entry = join(nodeModules, 'spec-pkg', 'api.tsp')
-    const files = {
-      entry,
-      installedSource: join(nodeModules, '@scope', 'lib', 'lib', 'main.tsp'),
-      installedJs: join(nodeModules, '@scope', 'lib', 'dist', 'index.js'),
-      virtualStoreSource: join(nodeModules, '.pnpm', 'dep@1.0.0', 'node_modules', 'dep', 'main.tsp'),
-      linkedSource: join(nodeModules, '@scope', 'linked', 'lib', 'main.tsp'),
-      authoredSource: join(workspace, 'models.tsp'),
-      installedRefDocument: join(nodeModules, 'shared-schemas', 'user.yaml'),
-      authoredRefDocument: join(workspace, 'models', 'user.yaml'),
-    }
-    for (const filePath of Object.values(files)) {
-      if (filePath === files.linkedSource) continue
-      mkdirSync(dirname(filePath), { recursive: true })
-      writeFileSync(filePath, '', 'utf8')
-    }
-    // A workspace package linked into node_modules lives outside it.
-    mkdirSync(path('packages/lib/lib'), { recursive: true })
-    writeFileSync(path('packages/lib/lib/main.tsp'), '', 'utf8')
-    symlinkSync('../../packages/lib', join(nodeModules, '@scope', 'linked'), 'dir')
+  it('observes the module graph of a decorator entry: authored modules by content and resolution, installed packages by manifest', async () => {
+    const root = createPackageTmpDir()
+    try {
+      const at = (relativePath: string) => join(root, relativePath)
+      writeText(at('package.json'), '{ "type": "module" }\n')
+      writeText(at('main.tsp'), [
+        'import "./decorators/index.js";',
+        'namespace Pets;',
+        'extern dec petDoc(target: Reflection.Model);',
+        '@petDoc model Pet { name: string; }',
+        '',
+      ].join('\n'))
+      writeText(at('decorators/index.js'), 'export { $decorators } from "./impl.js";\n')
+      writeText(at('decorators/impl.js'), [
+        'import installed from "dep";',
+        'import linked from "@acme/linked";',
+        'export const $decorators = { Pets: { petDoc() { return installed + linked; } } };',
+        '',
+      ].join('\n'))
+      // An installed package, and a workspace package linked into node_modules.
+      writeText(at('node_modules/dep/package.json'), '{ "name": "dep", "version": "1.0.0", "type": "module", "main": "index.js" }\n')
+      writeText(at('node_modules/dep/index.js'), 'export default 1;\n')
+      writeText(at('packages/linked/package.json'), '{ "name": "@acme/linked", "type": "module", "main": "main.js" }\n')
+      writeText(at('packages/linked/main.js'), 'export default 2;\n')
+      mkdirSync(at('node_modules/@acme'), { recursive: true })
+      symlinkSync('../../packages/linked', at('node_modules/@acme/linked'), 'dir')
 
-    expect(trackedInputPaths(
-      entry,
-      [files.installedRefDocument, files.authoredRefDocument],
-      [
-        files.entry,
-        files.installedSource,
-        files.installedJs,
-        files.virtualStoreSource,
-        files.linkedSource,
-        files.authoredSource,
-      ],
-    )).toEqual([
-      join(realNodeModules, '.pnpm', 'dep@1.0.0', 'node_modules', 'dep', 'package.json'),
-      join(realNodeModules, '@scope', 'lib', 'package.json'),
-      files.entry,
-      files.linkedSource,
-      files.installedRefDocument,
-      files.authoredSource,
-      files.authoredRefDocument,
-    ].sort((a, b) => a.localeCompare(b)))
+      // The compiler imports the decorator entry; its module graph is observed while it loads.
+      const compiled = await compileTypeSpecInMemory(at('main.tsp'), { recordInputs: true })
+      const sha256Of = (relativePath: string) => createHash('sha256').update(readFileSync(at(relativePath))).digest('hex')
+
+      const graph = describeObservations(observeModuleGraph([at('decorators/index.js')]), root)
+      expect(graph).toEqual([
+        `content decorators/impl.js sha256=${sha256Of('decorators/impl.js')}`,
+        `content decorators/index.js sha256=${sha256Of('decorators/index.js')}`,
+        'content decorators/package.json',
+        'content node_modules/@acme/linked/package.json',
+        'content node_modules/dep/package.json',
+        'content package.json',
+        `content packages/linked/main.js sha256=${sha256Of('packages/linked/main.js')}`,
+        'content packages/linked/package.json',
+        'entry decorators/node_modules/@acme/linked = absent',
+        'entry decorators/node_modules/dep = absent',
+        'entry node_modules/@acme/linked = directory',
+        'entry node_modules/dep = directory',
+        'realpath decorators/impl.js = decorators/impl.js',
+        'realpath node_modules/@acme/linked = packages/linked',
+        'realpath node_modules/dep = node_modules/dep',
+      ])
+      // The compilation reports the graph with what its host observed.
+      expect(describeObservations(compiled.inputs ?? [], root)).toEqual(expect.arrayContaining(graph))
+      expect(describeObservations(compiled.inputs ?? [], root)).toEqual(expect.arrayContaining([
+        `content main.tsp text`,
+        'entry decorators/index.js = file',
+        'realpath decorators/index.js = decorators/index.js',
+      ]))
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
   })
+})
+
+describe('typegen --incremental in fresh processes', () => {
+  it('regenerates when a module imported by a decorator entry changes', () => {
+    // Each run is a new CLI process, as in real use, so an edited decorator module is loaded anew.
+    const root = createPackageTmpDir()
+    try {
+      writeDecoratorProject(root, 'Version A')
+      const implPath = join(root, 'decorators/impl.js')
+      const outputPath = join(root, 'out.ts')
+      // Absolute paths: the CLI resolves relative ones from the project root it discovers.
+      const specPath = join(root, 'main.tsp')
+      const incrementalArgs = ['typegen', '-s', specPath, '-o', outputPath, '--incremental', '--cache-dir', join(root, '.oa-cache')]
+      const fullOutput = () => {
+        expect(runCliProcess(['typegen', '-s', specPath, '-o', join(root, 'full.ts')], root).status).toBe(0)
+        return readFileSync(join(root, 'full.ts'), 'utf8')
+      }
+      const upToDate = [`incremental: typegen up to date, regeneration skipped (${outputPath})`]
+
+      expect(runCliProcess(incrementalArgs, root).incremental)
+        .toEqual(['incremental: typegen regenerating (no previous generation record)'])
+      expect(runCliProcess(incrementalArgs, root).incremental).toEqual(upToDate)
+      expect(readFileSync(outputPath, 'utf8')).toContain('/** Version A: first checkout */')
+
+      // The decorator entry re-exports from impl.js; only impl.js changes.
+      writeText(implPath, decoratorImplementation('Version B'))
+      const edited = runCliProcess(incrementalArgs, root)
+
+      expect(edited.status).toBe(0)
+      expect(edited.incremental).toEqual([expect.stringMatching(regeneratingBecause(`input changed: ${implPath}`))])
+      expect(readFileSync(outputPath, 'utf8')).toContain('/** Version B: first checkout */')
+      expect(readFileSync(outputPath, 'utf8')).toBe(fullOutput())
+      expect(runCliProcess(incrementalArgs, root).incremental).toEqual(upToDate)
+
+      // impl.js imports @acme/doc-text, whose link is re-pointed at another checkout of the same version.
+      const linkPath = join(root, 'node_modules/@acme/doc-text')
+      unlinkSync(linkPath)
+      symlinkSync('../../packages/doc-text-2', linkPath, 'dir')
+      const relinked = runCliProcess(incrementalArgs, root)
+
+      expect(relinked.status).toBe(0)
+      expect(relinked.incremental).toEqual([expect.stringMatching(regeneratingBecause(`input link target changed: ${linkPath}`))])
+      expect(readFileSync(outputPath, 'utf8')).toContain('/** Version B: second checkout */')
+      expect(readFileSync(outputPath, 'utf8')).toBe(fullOutput())
+      expect(runCliProcess(incrementalArgs, root).incremental).toEqual(upToDate)
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  }, 300_000)
 })
 
 // ─── helpers ────────────────────────────────────────────────
 
 function path(relativePath: string): string {
   return join(workspace, relativePath)
+}
+
+/** A scratch directory inside the package, so `@typespec/*` imports resolve; real path, as the compiler reports. */
+function createPackageTmpDir(): string {
+  mkdirSync(packageTmpBase, { recursive: true })
+  return realpathSync(mkdtempSync(join(packageTmpBase, 'run-')))
+}
+
+function writeText(filePath: string, content: string): void {
+  mkdirSync(dirname(filePath), { recursive: true })
+  writeFileSync(filePath, content, 'utf8')
+}
+
+function libraryManifest(tspMain: string): string {
+  return `${JSON.stringify({ name: '@acme/mylib', version: '1.0.0', tspMain }, null, 2)}\n`
+}
+
+/**
+ * A TypeSpec project whose `@petDoc` decorator is implemented in JS: the entry
+ * `decorators/index.js` re-exports the implementation from `decorators/impl.js`,
+ * which documents the model with `label` and the text exported by the
+ * workspace package `@acme/doc-text`, linked into node_modules from
+ * `packages/doc-text-1` (`packages/doc-text-2` is a second checkout of the same
+ * version). Every file and directory is backdated: the project was authored
+ * before the runs.
+ */
+function writeDecoratorProject(root: string, label: string): void {
+  for (const [checkout, docText] of [['doc-text-1', 'first checkout'], ['doc-text-2', 'second checkout']] as const) {
+    writeText(join(root, 'packages', checkout, 'package.json'), `${JSON.stringify({
+      name: '@acme/doc-text', version: '1.0.0', type: 'module', main: 'index.js',
+    })}\n`)
+    writeText(join(root, 'packages', checkout, 'index.js'), `export const docText = ${JSON.stringify(docText)};\n`)
+  }
+  mkdirSync(join(root, 'node_modules/@acme'), { recursive: true })
+  symlinkSync('../../packages/doc-text-1', join(root, 'node_modules/@acme/doc-text'), 'dir')
+  writeText(join(root, 'package.json'), '{ "type": "module" }\n')
+  writeText(join(root, 'main.tsp'), [
+    'import "@typespec/http";',
+    'import "./decorators/index.js";',
+    'using Http;',
+    '@service(#{ title: "Pets" })',
+    'namespace Pets;',
+    'extern dec petDoc(target: Reflection.Model);',
+    '@petDoc model Pet { name: string; }',
+    '@route("/pets") op listPets(): Pet[];',
+    '',
+  ].join('\n'))
+  writeText(join(root, 'decorators/index.js'), 'export { $decorators } from "./impl.js";\n')
+  writeText(join(root, 'decorators/impl.js'), decoratorImplementation(label))
+  backdateTree(root)
+}
+
+function decoratorImplementation(label: string): string {
+  return [
+    'import { $doc } from "@typespec/compiler";',
+    'import { docText } from "@acme/doc-text";',
+    `const label = ${JSON.stringify(label)};`,
+    'export const $decorators = { Pets: { petDoc(context, target) { $doc(context, target, `${label}: ${docText}`); } } };',
+    '',
+  ].join('\n')
+}
+
+function backdateTree(directory: string): void {
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const entryPath = join(directory, entry.name)
+    if (entry.isDirectory()) backdateTree(entryPath)
+    else if (entry.isFile()) utimesSync(entryPath, PAST, PAST)
+  }
+  utimesSync(directory, PAST, PAST)
+}
+
+/** The status line of a run that regenerates because of `reason`, possibly followed by more changes. */
+function regeneratingBecause(reason: string): RegExp {
+  const escaped = reason.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`^incremental: typegen regenerating \\(${escaped}( \\(\\+\\d+ more\\))?\\)$`)
+}
+
+/** Observations under `root` as sorted, de-duplicated lines with root-relative paths. */
+function describeObservations(observations: readonly InputObservation[], root: string): string[] {
+  const inside = (filePath: string) => !relative(root, filePath).startsWith('..')
+  const show = (filePath: string) => relative(root, filePath).split('\\').join('/')
+  const lines = new Set<string>()
+  for (const observation of observations) {
+    if (!inside(observation.path)) continue
+    const subject = `${observation.kind} ${show(observation.path)}`
+    if ('unverified' in observation) lines.add(`${subject} unverified: ${observation.unverified}`)
+    else if (observation.kind === 'content') {
+      const consumed = observation.consumed
+      lines.add(!consumed ? subject
+        : 'text' in consumed ? `${subject} text`
+        : 'sha256' in consumed ? `${subject} sha256=${consumed.sha256}`
+        : `${subject} absent`)
+    } else if (observation.kind === 'realpath') {
+      lines.add(`${subject} = ${observation.value === null ? 'null' : show(observation.value)}`)
+    } else {
+      lines.add(`${subject} = ${observation.value}`)
+    }
+  }
+  return [...lines].sort()
+}
+
+type CliProcessResult = { status: number | null; stdout: string; stderr: string; incremental: string[] }
+
+/** Run the CLI from source in a new Node.js process. */
+function runCliProcess(args: readonly string[], cwd: string): CliProcessResult {
+  const result = spawnSync(process.execPath, [TSX_CLI, CLI_SRC, ...args], { cwd, encoding: 'utf8', timeout: 120_000 })
+  const stderr = result.stderr ?? ''
+  return {
+    status: result.status,
+    stdout: result.stdout ?? '',
+    stderr,
+    incremental: stderr.split('\n').filter(line => line.startsWith('incremental:')),
+  }
 }
 
 function incrementalArgs(name: 'a' | 'b'): Record<string, CommandArgValue> {

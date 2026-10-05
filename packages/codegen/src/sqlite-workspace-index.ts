@@ -33,11 +33,13 @@ import type {
   WorkspaceTypeAliasFilter,
   WorkspaceTypeAliasRecord,
 } from './workspace-index.js'
-import type {
-  GenerationTargetInputRecord,
-  GenerationTargetOutputRecord,
-  GenerationTargetRecord,
-  GenerationTargetStore,
+import {
+  GENERATION_TARGET_INPUT_KINDS,
+  type GenerationTargetInputKind,
+  type GenerationTargetInputRecord,
+  type GenerationTargetOutputRecord,
+  type GenerationTargetRecord,
+  type GenerationTargetStore,
 } from './generation-target-store.js'
 
 export const SQLITE_WORKSPACE_INDEX_SCHEMA_VERSION = 2
@@ -709,7 +711,7 @@ class NodeSQLiteWorkspaceIndex implements SQLiteWorkspaceIndex, GenerationTarget
       const row = db.prepare('SELECT * FROM generation_targets WHERE target_key = ?').get(targetKey)
       if (!row) return undefined
       const inputRows = db
-        .prepare('SELECT file_path, content_hash FROM generation_target_inputs WHERE target_key = ? ORDER BY file_path')
+        .prepare('SELECT kind, path, value, verified FROM generation_target_observations WHERE target_key = ? ORDER BY path, kind')
         .all(targetKey)
       return generationTargetFromRows(row, inputRows)
     }, undefined)
@@ -718,7 +720,7 @@ class NodeSQLiteWorkspaceIndex implements SQLiteWorkspaceIndex, GenerationTarget
   replaceGenerationTarget(record: GenerationTargetRecord): void {
     this.write(() => {
       const db = this.database()
-      db.prepare('DELETE FROM generation_target_inputs WHERE target_key = ?').run(record.targetKey)
+      db.prepare('DELETE FROM generation_target_observations WHERE target_key = ?').run(record.targetKey)
       db.prepare('DELETE FROM generation_targets WHERE target_key = ?').run(record.targetKey)
       db.prepare(`
         INSERT INTO generation_targets (
@@ -746,16 +748,13 @@ class NodeSQLiteWorkspaceIndex implements SQLiteWorkspaceIndex, GenerationTarget
         record.lastRun ?? null,
       )
       const insertInput = db.prepare(`
-        INSERT INTO generation_target_inputs (target_key, file_path, content_hash)
-        VALUES (?, ?, ?)
-        ON CONFLICT(target_key, file_path) DO UPDATE SET content_hash = excluded.content_hash
+        INSERT INTO generation_target_observations (target_key, kind, path, value, verified)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(target_key, kind, path) DO UPDATE SET value = excluded.value, verified = excluded.verified
       `)
       for (const input of record.inputs) {
-        insertInput.run(
-          record.targetKey,
-          input.filePath,
-          'unverified' in input ? UNVERIFIED_INPUT_CONTENT_HASH : input.contentHash,
-        )
+        const verified = !('unverified' in input)
+        insertInput.run(record.targetKey, input.kind, input.path, verified ? input.value : input.unverified, verified ? 1 : 0)
       }
     })
   }
@@ -763,7 +762,7 @@ class NodeSQLiteWorkspaceIndex implements SQLiteWorkspaceIndex, GenerationTarget
   deleteGenerationTarget(targetKey: string): void {
     this.write(() => {
       const db = this.database()
-      db.prepare('DELETE FROM generation_target_inputs WHERE target_key = ?').run(targetKey)
+      db.prepare('DELETE FROM generation_target_observations WHERE target_key = ?').run(targetKey)
       db.prepare('DELETE FROM generation_targets WHERE target_key = ?').run(targetKey)
     })
   }
@@ -1006,7 +1005,7 @@ class NodeSQLiteWorkspaceIndex implements SQLiteWorkspaceIndex, GenerationTarget
         ON type_exposures(package_name, export_key, runtime, export_name);
 
       -- Generation targets are self-contained (no foreign key into files):
-      -- their freshness is checked against their own input stamps, so file
+      -- their freshness is checked against their own input observations, so file
       -- invalidation for one command never makes another target look fresh.
       -- Additive tables: older readers ignore them, so the schema version is unchanged.
       CREATE TABLE IF NOT EXISTS generation_targets (
@@ -1023,19 +1022,22 @@ class NodeSQLiteWorkspaceIndex implements SQLiteWorkspaceIndex, GenerationTarget
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
 
-      -- content_hash: sha256 hex of the consumed content, NULL for an absent
-      -- file, or the marker 'unverified' (never a hex digest) for an input
-      -- whose consumed content the run could not establish.
-      CREATE TABLE IF NOT EXISTS generation_target_inputs (
+      -- One file-system observation generation depended on (kind: content,
+      -- entry or realpath). verified = 1: value is the observed value (NULL =
+      -- absent / unresolvable). verified = 0: value is why the run could not
+      -- establish what generation observed; such a row never matches.
+      CREATE TABLE IF NOT EXISTS generation_target_observations (
         target_key TEXT NOT NULL,
-        file_path TEXT NOT NULL,
-        content_hash TEXT,
-        PRIMARY KEY (target_key, file_path),
+        kind TEXT NOT NULL,
+        path TEXT NOT NULL,
+        value TEXT,
+        verified INTEGER NOT NULL,
+        PRIMARY KEY (target_key, kind, path),
         FOREIGN KEY(target_key) REFERENCES generation_targets(target_key) ON DELETE CASCADE
       );
 
-      CREATE INDEX IF NOT EXISTS generation_target_inputs_file_idx
-        ON generation_target_inputs(file_path);
+      CREATE INDEX IF NOT EXISTS generation_target_observations_path_idx
+        ON generation_target_observations(path);
     `)
   }
 
@@ -1103,7 +1105,7 @@ class NodeSQLiteWorkspaceIndex implements SQLiteWorkspaceIndex, GenerationTarget
   private clearData(): void {
     const db = this.database()
     db.exec(`
-      DELETE FROM generation_target_inputs;
+      DELETE FROM generation_target_observations;
       DELETE FROM generation_targets;
       DELETE FROM type_exposures;
       DELETE FROM type_boundaries;
@@ -1407,9 +1409,6 @@ function typeExposureFromRow(row: Record<string, unknown>): TypeExposureRecord {
   return record
 }
 
-/** Stored in generation_target_inputs.content_hash for an unverified input; never a sha256 hex digest. */
-const UNVERIFIED_INPUT_CONTENT_HASH = 'unverified'
-
 /**
  * Rebuild a generation target from its rows. A row that does not match the
  * expected shape yields undefined, which callers treat as "no reusable record"
@@ -1442,12 +1441,13 @@ function generationTargetFromRows(
 
   const inputs: GenerationTargetInputRecord[] = []
   for (const inputRow of inputRows) {
-    const { file_path, content_hash } = inputRow
-    if (typeof file_path !== 'string' || (content_hash !== null && typeof content_hash !== 'string')) return undefined
-    inputs.push(content_hash === UNVERIFIED_INPUT_CONTENT_HASH
-      ? { filePath: file_path, unverified: true }
-      : { filePath: file_path, contentHash: content_hash })
+    const input = generationTargetInputFromRow(inputRow)
+    if (!input) return undefined
+    inputs.push(input)
   }
+  // Every generation reads at least its entry spec: a target without inputs
+  // (for example rows left by an earlier record format) is not reusable.
+  if (inputs.length === 0) return undefined
 
   const record: GenerationTargetRecord = {
     targetKey: target_key,
@@ -1460,6 +1460,18 @@ function generationTargetFromRows(
   }
   assignOptionalString(record, 'lastRun', row.last_run)
   return record
+}
+
+function generationTargetInputFromRow(row: Record<string, unknown>): GenerationTargetInputRecord | undefined {
+  const { kind, path, value, verified } = row
+  if (!isGenerationTargetInputKind(kind) || typeof path !== 'string') return undefined
+  if (Number(verified) === 0) return typeof value === 'string' ? { kind, path, unverified: value } : undefined
+  if (Number(verified) !== 1 || (value !== null && typeof value !== 'string')) return undefined
+  return { kind, path, value }
+}
+
+function isGenerationTargetInputKind(value: unknown): value is GenerationTargetInputKind {
+  return typeof value === 'string' && (GENERATION_TARGET_INPUT_KINDS as readonly string[]).includes(value)
 }
 
 function parseStringArray(value: unknown): string[] | undefined {
