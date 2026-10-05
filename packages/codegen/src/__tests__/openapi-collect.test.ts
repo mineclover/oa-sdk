@@ -296,9 +296,10 @@ describe('openapi collect scaffold', () => {
 })
 
 // YAML aliases parse to shared objects (a recursive alias to a cycle) and
-// structuredClone keeps that sharing, so normalization receives a DAG.
+// structuredClone keeps that sharing, so normalization and upgrade receive a DAG.
+const expandAliases = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
+
 describe('normalizeOpenApiDocument on DAG-shaped input', () => {
-  const expandAliases = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
   const responseAt = (document: Record<string, unknown>, path: string) =>
     (document.paths as Record<string, { get: { responses: Record<string, Record<string, unknown>> } }>)[path]!.get.responses['200']!
 
@@ -450,5 +451,57 @@ x-self: *root
     const nested = normalized['x-self'] as Record<string, unknown>
     expect(Object.keys(nested)).toEqual(['info', 'openapi', 'paths', 'x-self'])
     expect(nested['x-self']).toBe(nested)
+  })
+})
+
+describe('upgradeOpenApiDocumentTo32 on DAG-shaped input', () => {
+  const nullableConversions = (result: ReturnType<typeof upgradeOpenApiDocumentTo32>) =>
+    result.report.conversions.filter(conversion => conversion.code === 'schema/nullable-upgraded').map(conversion => conversion.pointer)
+
+  const source = parseYaml(`
+openapi: 3.0.3
+info: { title: Shared, version: '1' }
+paths:
+  /a:
+    get:
+      parameters:
+        - &limit { name: limit, in: query, schema: { type: integer, nullable: true } }
+      responses:
+        '200': &ok
+          description: ok
+          content:
+            application/json:
+              schema: { type: string, nullable: true }
+  /b:
+    get:
+      parameters: [*limit]
+      responses:
+        '200': *ok
+`) as Record<string, unknown>
+
+  it('reports a conversion at every location of a shared container', () => {
+    const result = upgradeOpenApiDocumentTo32(source)
+    const expanded = upgradeOpenApiDocumentTo32(expandAliases(source))
+
+    expect(nullableConversions(result)).toEqual([
+      '#/paths/~1a/get/parameters/0/schema',
+      '#/paths/~1a/get/responses/200/content/application~1json/schema',
+      '#/paths/~1b/get/parameters/0/schema',
+      '#/paths/~1b/get/responses/200/content/application~1json/schema',
+    ])
+    expect(result.report).toEqual(expanded.report)
+    expect(stringifyOpenApiYaml(result.document)).toBe(stringifyOpenApiYaml(expanded.document))
+  })
+
+  it('reports the same conversions after normalization keeps the sharing', () => {
+    // `oa-gen collect` upgrades the normalized document, which shares wherever the source shared.
+    expect(upgradeOpenApiDocumentTo32(normalizeOpenApiDocument(source)).report)
+      .toEqual(upgradeOpenApiDocumentTo32(normalizeOpenApiDocument(expandAliases(source))).report)
+  })
+
+  it('leaves the input document unchanged', () => {
+    const before = stringifyOpenApiYaml(source)
+    upgradeOpenApiDocumentTo32(source)
+    expect(stringifyOpenApiYaml(source)).toBe(before)
   })
 })
