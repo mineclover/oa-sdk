@@ -209,6 +209,38 @@ export const UserSchema = z.object({ id: z.string(), name: z.string() });`
     expect(valRes.stdout).toContain('1 total targets, 1 passed, 0 failed')
   })
 
+  // `oa-gen init` writes a spec target with a framework `target` and no `profile`; the
+  // configuration contract defaults that profile to full-api-document.
+  it('validates a spec target without profile as a full-api-document, as oa-gen init writes it', () => {
+    writeFileSync(
+      join(testProjectDir, 'openapi.yaml'),
+      [
+        'openapi: 3.2.0',
+        'info: { title: Init Scaffold API, version: 1.0.0 }',
+        'paths:',
+        '  /users:',
+        '    get:',
+        '      operationId: listUsers',
+        '      summary: List users',
+        "      responses: { '200': { description: OK } }",
+        '',
+      ].join('\n'),
+    )
+    writeFileSync(
+      join(testProjectDir, 'oa.config.ts'),
+      `export default {
+  rootDir: '.',
+  specs: [{ id: 'generic-api', schemaEntry: 'openapi.yaml', outDir: './src/generated', target: 'generic' }],
+};`
+    )
+
+    const valRes = runCli(['validate'], { cwd: testProjectDir })
+    expect(valRes.stdout).not.toContain('invalid-profile')
+    expect(valRes.stdout).toContain('full-api-document')
+    expect(valRes.stdout).toContain('🟢 PASS')
+    expect(valRes.status).toBe(0)
+  })
+
   it('executes generate and validate seamlessly from deep nested subdirectories', () => {
     // Setup config at root
     const schemasDir = join(testProjectDir, 'packages', 'core', 'schemas')

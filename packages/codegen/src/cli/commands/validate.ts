@@ -22,7 +22,7 @@ import {
 } from '@oa-sdk/openapi-projection-contract'
 import { loadOaConfig, resolveProfileTarget } from '../lib/config-loader.js'
 import { projectTargetSpec } from '../../spec-projector.js'
-import type { OaConfig } from '../../config.js'
+import { resolveConfigWithDefaults, type ProfileTargetConfig } from '../../config.js'
 
 export const validate: Command = {
   name: 'validate',
@@ -65,13 +65,15 @@ export const validate: Command = {
       throw new CliExitError(1)
     }
 
-    const specs = loaded.config.specs ?? []
+    // Read the targets as `oa-gen generate` does: with their defaults (a target without
+    // `profile` is a full-api-document) and from `product.specs` when `specs` is absent.
+    const specs = resolveConfigWithDefaults(loaded.config).specs ?? []
     if (specs.length === 0) {
       console.error('오류: 설정 파일에 specs 목록이 비어 있습니다')
       throw new CliExitError(1)
     }
 
-    await runConfigDrivenValidation(loaded.config, loaded.rootDir)
+    await runConfigDrivenValidation(specs, loaded.rootDir)
   },
 }
 
@@ -85,9 +87,8 @@ interface TargetValidationRow {
   diagnostics: string[]
 }
 
-async function runConfigDrivenValidation(config: OaConfig, rootDir: string): Promise<void> {
+async function runConfigDrivenValidation(specs: readonly ProfileTargetConfig[], rootDir: string): Promise<void> {
   const { validateDocument } = await import('@oa-sdk/parser')
-  const specs = config.specs ?? []
   const rows: TargetValidationRow[] = []
   let overallFailed = false
 
