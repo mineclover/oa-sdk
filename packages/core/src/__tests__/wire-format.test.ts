@@ -184,6 +184,25 @@ describe('wire-format: JsonPrimitive', () => {
     expect(check).toBeUndefined()
   })
 
+  it('matches native classes and toJSON members with concrete type arguments', () => {
+    class Stamp {
+      constructor(private readonly epoch: number) {}
+      toJSON(key: string): number {
+        return key.length + this.epoch
+      }
+    }
+
+    type _ToJsonWithParameterCheck = Assert<Equal<JsonPrimitive<Stamp>, number>>
+    type _WeakSetNeverCheck = Assert<Equal<JsonPrimitive<WeakSet<object>>, never>>
+    type _WeakMapNeverCheck = Assert<Equal<JsonPrimitive<WeakMap<object, string>>, never>>
+    type _NestedMapNeverCheck = Assert<Equal<JsonPrimitive<{ index: Map<number, Date> }>, { index: never }>>
+    type _ReadonlyVariadicCheck = Assert<
+      Equal<JsonPrimitive<readonly [Date, ...Date[]]>, readonly [string, ...string[]]>
+    >
+
+    expect(JSON.parse(JSON.stringify({ at: new Stamp(1) }))).toEqual({ at: 3 })
+  })
+
   it('handles arrays, tuples, and variadic tuples recursively', () => {
     type DateArray = Assert<Equal<JsonPrimitive<Date[]>, string[]>>
     type FixedTuple = Assert<Equal<JsonPrimitive<[Date, number, boolean]>, [string, number, boolean]>>
@@ -265,6 +284,16 @@ describe('wire-format: Resolved', () => {
     expect(p.createdAt).toBeInstanceOf(Date)
     expect(p.tags).toBeInstanceOf(Set)
     expect(p.meta).toBeInstanceOf(Map)
+  })
+
+  it('drops weak collections and keeps typed native collections in Resolved', () => {
+    type ResolvedCache = Resolved<{ seen: WeakSet<object>; owners: WeakMap<object, string>; ids: Set<number> }>
+    type _WeakSetDroppedCheck = Assert<Equal<ResolvedCache['seen'], never>>
+    type _WeakMapDroppedCheck = Assert<Equal<ResolvedCache['owners'], never>>
+    type _SetKeptCheck = Assert<Equal<ResolvedCache['ids'], Set<number>>>
+
+    const ids: ResolvedCache['ids'] = new Set([1])
+    expect(ids.has(1)).toBe(true)
   })
 
   it('preserves bigint in Resolved', () => {

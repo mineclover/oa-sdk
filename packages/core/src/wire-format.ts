@@ -20,10 +20,10 @@ export type Equal<X, Y> =
  */
 export type NativeClass =
   | Date
-  | Set<any>
-  | Map<any, any>
-  | WeakSet<any>
-  | WeakMap<any, any>
+  | Set<unknown>
+  | Map<unknown, unknown>
+  | WeakSet<WeakKey>
+  | WeakMap<WeakKey, unknown>
   | Uint8Array
   | Uint8ClampedArray
   | Uint16Array
@@ -46,7 +46,7 @@ interface IValueOf<T> {
   valueOf(): T
 }
 
-type IsValueOf<Instance, Object extends IValueOf<any>> = Instance extends Object
+type IsValueOf<Instance, Object extends IValueOf<unknown>> = Instance extends Object
   ? Object extends IValueOf<infer Primitive>
     ? Instance extends Primitive
       ? false
@@ -85,10 +85,10 @@ export type ClassProperties<T extends object> = {
 /**
  * Tests whether an array type is a tuple.
  */
-export type IsTuple<T extends readonly any[]> = [T] extends [never]
+export type IsTuple<T extends readonly unknown[]> = [T] extends [never]
   ? false
   : number extends T['length']
-    ? T extends readonly [any, ...any[]]
+    ? T extends readonly [unknown, ...unknown[]]
       ? true
       : false
     : true
@@ -129,7 +129,7 @@ type JsonPrimitiveMain<T> =
                 ? T extends object
                   ? T extends Date
                     ? string
-                    : T extends { toJSON(...args: any[]): infer R }
+                    : T extends { toJSON(...args: never[]): infer R }
                       ? JsonPrimitive<R>
                       : T extends Exclude<NativeClass, Date>
                         ? never
@@ -138,7 +138,7 @@ type JsonPrimitiveMain<T> =
                 : ValueOf<T>
 
 type JsonPrimitiveObject<T extends object> =
-  T extends readonly any[]
+  T extends readonly unknown[]
     ? IsTuple<T> extends true
       ? JsonPrimitiveTuple<T>
       : JsonPrimitive<T[number]>[]
@@ -154,7 +154,7 @@ type JsonPrimitiveObject<T extends object> =
                 : K]: JsonPrimitive<T[K]>
       }
 
-type JsonPrimitiveTuple<T extends readonly any[]> =
+type JsonPrimitiveTuple<T extends readonly unknown[]> =
   number extends T['length']
     ? JsonPrimitiveVariadicTuple<T>
     : T extends []
@@ -179,7 +179,7 @@ type JsonPrimitiveTuple<T extends readonly any[]> =
                         ? readonly [JsonPrimitive<F>?, ...JsonPrimitiveTuple<Rest>]
                         : []
 
-type JsonPrimitiveVariadicTuple<T extends readonly any[]> = {
+type JsonPrimitiveVariadicTuple<T extends readonly unknown[]> = {
   [P in keyof T]: JsonPrimitive<T[P]>
 }
 
@@ -236,7 +236,7 @@ type ResolvedObject<T extends object, TupleStack> =
             ? ReadonlyMap<ResolvedMain<K, TupleStack>, ResolvedMain<V, TupleStack>>
             : T extends ReadonlySet<infer U>
               ? ReadonlySet<ResolvedMain<U, TupleStack>>
-              : T extends WeakSet<any> | WeakMap<any, any>
+              : T extends WeakSet<WeakKey> | WeakMap<WeakKey, unknown>
                 ? never
                 : T extends NativeClass
                   ? T
