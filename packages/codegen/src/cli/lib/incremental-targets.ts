@@ -15,8 +15,10 @@
  *         named (file, directory, absent), and where each path it resolved
  *         links to, so a re-pointed `node_modules` link or a new candidate
  *         directory invalidates the target;
- *       - the JavaScript module graph of decorator and library entries
- *         (see `module-graph-observer.ts`),
+ *       - the JavaScript module graph of decorator and library entries:
+ *         authored modules by content, installed packages by manifest, and
+ *         how every import in it resolved or failed, the packages installed
+ *         dependencies import included (see `module-graph-observer.ts`),
  *   - the output: a file output must still exist with the recorded hash; a
  *     stdout output is replayed from the stored content.
  * Anything else (no record, unreadable record, unknown generator identity, an

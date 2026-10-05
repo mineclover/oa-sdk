@@ -4,31 +4,63 @@
  * track the modules an entry pulls in, not only the entry file itself.
  *
  * Node.js module customization hooks (`module.registerHooks`, synchronous and
- * in-thread) report every module loaded and every import resolved from an
- * authored module once observation has started. The graph is kept for the
+ * in-thread) report every module loaded once observation has started, and
+ * every import such a module resolves, including the ones that fail (an
+ * optional `import()` or `require()` inside `try`). The graph is kept for the
  * rest of the process: Node caches modules, so a later compilation that
  * imports the same entry again loads nothing new, and its graph is the one
  * recorded when the modules were first loaded.
  *
  * Tracking policy, by where a module's real path lives:
  *   - authored (outside `node_modules`): its bytes, the `package.json` that
- *     scopes it, and how each of its imports resolved;
+ *     scopes it, and how each of its imports resolved or failed;
  *   - installed (inside `node_modules`): its package's `package.json` (the
- *     installed version stands for every file the package ships).
- * An authored module whose imports were not observed (loaded before
- * observation started, or no hook support) is reported unverified.
+ *     installed version stands for every file the package ships), and how
+ *     each import that leaves the package resolved or failed, so the packages
+ *     an installed dependency itself depends on are tracked the same way.
+ * How an import resolved is described in `module-resolution-observations.ts`.
+ *
+ * A module observation could not follow:
+ *   - an authored module loaded before observation started (or with no hook
+ *     support) is reported unverified;
+ *   - an installed module loaded before observation started was loaded by the
+ *     running generator itself (oa-gen and the TypeSpec compiler it runs, with
+ *     their dependencies), so it is identified by its package manifest only,
+ *     and its own dependencies belong to the generator installation.
  */
 import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import * as nodeModule from 'node:module'
-import { basename, dirname, join, sep } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { observeEntry, observeRealpath, type InputObservation } from './input-observations.js'
+import {
+  installedPackageRoot,
+  resolutionObservations,
+  type ImportResolution,
+  type ModuleImporter,
+} from './module-resolution-observations.js'
+
+/** One import a module made: its specifier under one set of conditions, and every outcome seen for it. */
+type ImportRecord = {
+  specifier: string
+  conditions: readonly string[]
+  /** Resolved URLs, null for a failed resolution; more than one means it resolved differently over time. */
+  outcomes: Set<string | null>
+}
+
+/** The bytes an authored module was loaded from (see `loadedModuleSource`). */
+type LoadedSource = { sha256: string } | { unverified: string }
 
 type ModuleGraph = {
-  /** Authored module URL -> sha256 of the source Node loaded (undefined when the loader did not expose it). */
-  loaded: Map<string, string | undefined>
-  /** Authored module URL -> specifier -> URL it resolved to. */
-  imports: Map<string, Map<string, string>>
+  /**
+   * Every file module loaded since observation started -> the bytes it was
+   * loaded from, for authored modules (installed modules are tracked by
+   * version: undefined).
+   */
+  loaded: Map<string, LoadedSource | undefined>
+  /** Importing module URL (one of `loaded`) -> imports it made. */
+  imports: Map<string, Map<string, ImportRecord>>
 }
 
 let graph: ModuleGraph | undefined
@@ -46,23 +78,55 @@ export function observeModuleLoading(): boolean {
   const observed: ModuleGraph = { loaded: new Map(), imports: new Map() }
   registerHooks({
     resolve(specifier, context, nextResolve) {
-      const resolved = nextResolve(specifier, context)
       const parentURL = context.parentURL
-      if (parentURL && isAuthoredModuleUrl(parentURL)) {
-        let imports = observed.imports.get(parentURL)
-        if (!imports) observed.imports.set(parentURL, imports = new Map())
-        imports.set(specifier, resolved.url)
+      // Only the imports of modules loaded under observation: a module's imports resolve after it loads.
+      const observedParent = parentURL !== undefined && observed.loaded.has(parentURL)
+      const conditions = context.conditions ?? []
+      let resolved: ReturnType<typeof nextResolve>
+      try {
+        resolved = nextResolve(specifier, context)
+      } catch (error) {
+        if (observedParent) recordImport(observed, parentURL, specifier, conditions, null)
+        throw error
       }
+      if (observedParent) recordImport(observed, parentURL, specifier, conditions, resolved.url)
       return resolved
     },
     load(url, context, nextLoad) {
+      if (!url.startsWith('file:') || !isAuthoredModuleUrl(url)) {
+        const loaded = nextLoad(url, context)
+        if (url.startsWith('file:')) observed.loaded.set(url, undefined)
+        return loaded
+      }
+      const filePath = fileURLToPath(url)
+      const before = readModuleBytes(filePath)
       const loaded = nextLoad(url, context)
-      if (isAuthoredModuleUrl(url)) observed.loaded.set(url, hashModuleSource(loaded.source))
+      const source = loadedModuleSource(loaded.source, before, () => readModuleBytes(filePath))
+      // A module loaded again (a cleared require cache) must have been loaded from the same bytes.
+      const previous = observed.loaded.get(url)
+      observed.loaded.set(url, previous && !sameLoadedSource(previous, source)
+        ? { unverified: 'loaded more than once with different content' }
+        : source)
       return loaded
     },
   })
   graph = observed
   return true
+}
+
+function recordImport(
+  observed: ModuleGraph,
+  parentURL: string,
+  specifier: string,
+  conditions: readonly string[],
+  outcome: string | null,
+): void {
+  let imports = observed.imports.get(parentURL)
+  if (!imports) observed.imports.set(parentURL, imports = new Map())
+  const key = `${conditions.join(',')}\0${specifier}`
+  const record = imports.get(key)
+  if (record) record.outcomes.add(outcome)
+  else imports.set(key, { specifier, conditions: [...conditions], outcomes: new Set([outcome]) })
 }
 
 /**
@@ -73,56 +137,66 @@ export function observeModuleGraph(entryPaths: Iterable<string>): InputObservati
   const observations: InputObservation[] = []
   const pending = [...entryPaths].map(entryPath => pathToFileURL(observeRealpath(entryPath) ?? entryPath).href)
   const visited = new Set<string>()
+  const recordedPackages = new Set<string>()
+  // Imports with the same outcome from the same lookup base are described once (every module of an installed package).
+  const describedImports = new Set<string>()
 
   for (let url = pending.pop(); url !== undefined; url = pending.pop()) {
     if (visited.has(url) || !url.startsWith('file:')) continue
     visited.add(url)
     const filePath = fileURLToPath(url)
 
+    let importer: ModuleImporter
     const packageRoot = installedPackageRoot(filePath)
     if (packageRoot) {
-      observations.push({ kind: 'content', path: join(packageRoot, 'package.json') })
-      continue
+      if (!recordedPackages.has(packageRoot)) {
+        recordedPackages.add(packageRoot)
+        observations.push({ kind: 'content', path: join(packageRoot, 'package.json') })
+      }
+      // Loaded before observation started: part of the running generator (see the module comment).
+      if (!graph?.loaded.has(url)) continue
+      importer = { kind: 'installed', path: filePath, packageRoot }
+    } else {
+      if (!graph?.loaded.has(url)) {
+        observations.push({
+          kind: 'content',
+          path: filePath,
+          unverified: graph ? 'module imports not observed' : 'module imports not observable on this Node.js version',
+        })
+        continue
+      }
+      const source = graph.loaded.get(url)
+      observations.push(source && 'unverified' in source
+        ? { kind: 'content', path: filePath, unverified: source.unverified }
+        : { kind: 'content', path: filePath, ...(source ? { consumed: { sha256: source.sha256 } } : {}) })
+      const scope = packageScope(dirname(filePath))
+      observations.push(...scope.observations)
+      importer = { kind: 'authored', path: filePath, scopeManifestPath: scope.manifestPath }
     }
 
-    if (!graph?.loaded.has(url)) {
-      observations.push({
-        kind: 'content',
-        path: filePath,
-        unverified: graph ? 'module imports not observed' : 'module imports not observable on this Node.js version',
-      })
-      continue
-    }
-
-    const sourceHash = graph.loaded.get(url)
-    observations.push({ kind: 'content', path: filePath, ...(sourceHash ? { consumed: { sha256: sourceHash } } : {}) })
-    observations.push(...packageScopeObservations(dirname(filePath)))
-    for (const [specifier, resolvedUrl] of graph.imports.get(url) ?? []) {
-      observations.push(...resolutionObservations(specifier, filePath, resolvedUrl))
-      pending.push(resolvedUrl)
+    const lookupBase = importer.kind === 'installed' ? importer.packageRoot : importer.path
+    for (const record of graph.imports.get(url)?.values() ?? []) {
+      if (record.outcomes.size > 1) {
+        observations.push({
+          kind: 'content',
+          path: filePath,
+          unverified: `import "${record.specifier}" resolved differently while the process ran`,
+        })
+      }
+      for (const resolvedUrl of record.outcomes) {
+        if (resolvedUrl !== null) pending.push(resolvedUrl)
+        const resolution: ImportResolution = { specifier: record.specifier, conditions: record.conditions, resolvedUrl }
+        const key = JSON.stringify([lookupBase, resolution])
+        if (describedImports.has(key)) continue
+        describedImports.add(key)
+        observations.push(...resolutionObservations(importer, resolution))
+      }
     }
   }
   return observations
 }
 
-/**
- * The root directory of the installed package `filePath` belongs to (the
- * directory right below its innermost `node_modules`, or `@scope/name`), or
- * undefined for a file outside `node_modules`.
- */
-function installedPackageRoot(filePath: string): string | undefined {
-  const segments = filePath.split(sep)
-  const nodeModulesIndex = segments.lastIndexOf('node_modules')
-  if (nodeModulesIndex < 0) return undefined
-  const nameLength = segments[nodeModulesIndex + 1]?.startsWith('@') ? 2 : 1
-  const packageRootEnd = nodeModulesIndex + 1 + nameLength
-  // A file directly inside node_modules (or @scope/) is not part of a package.
-  if (packageRootEnd >= segments.length) return undefined
-  return segments.slice(0, packageRootEnd).join(sep) || sep
-}
-
 function isAuthoredModuleUrl(url: string): boolean {
-  if (!url.startsWith('file:')) return false
   try {
     return installedPackageRoot(fileURLToPath(url)) === undefined
   } catch {
@@ -130,89 +204,54 @@ function isAuthoredModuleUrl(url: string): boolean {
   }
 }
 
-function hashModuleSource(source: unknown): string | undefined {
-  if (typeof source === 'string') return createHash('sha256').update(source).digest('hex')
-  if (ArrayBuffer.isView(source)) {
-    return createHash('sha256').update(new Uint8Array(source.buffer, source.byteOffset, source.byteLength)).digest('hex')
+/**
+ * The file bytes an authored module was loaded from. The loader reads the
+ * file during the load, between `before` and the read `readAfter` makes:
+ *   - a source identical to the bytes read before is those bytes;
+ *   - otherwise a loader transformed what it read (tsx rewrites `import()`,
+ *     a byte order mark may be dropped) or did not expose the source: the
+ *     bytes read before, provided the file was the same after the load;
+ *   - a file that differs after the load changed while it was loaded.
+ */
+function loadedModuleSource(source: unknown, before: Buffer | undefined, readAfter: () => Buffer | undefined): LoadedSource {
+  if (!before) return { unverified: 'not readable when it was loaded' }
+  if (moduleSourceBytes(source)?.equals(before) || readAfter()?.equals(before)) {
+    return { sha256: createHash('sha256').update(before).digest('hex') }
   }
-  if (source instanceof ArrayBuffer) return createHash('sha256').update(new Uint8Array(source)).digest('hex')
+  return { unverified: 'changed while it was loaded' }
+}
+
+function sameLoadedSource(a: LoadedSource, b: LoadedSource): boolean {
+  return 'sha256' in a && 'sha256' in b && a.sha256 === b.sha256
+}
+
+function moduleSourceBytes(source: unknown): Buffer | undefined {
+  if (typeof source === 'string') return Buffer.from(source, 'utf8')
+  if (ArrayBuffer.isView(source)) return Buffer.from(source.buffer, source.byteOffset, source.byteLength)
+  if (source instanceof ArrayBuffer) return Buffer.from(source)
   return undefined
+}
+
+function readModuleBytes(filePath: string): Buffer | undefined {
+  try {
+    return readFileSync(filePath)
+  } catch {
+    return undefined
+  }
 }
 
 /**
  * The `package.json` lookup Node.js makes for a module in `moduleDir` (its
  * package scope: module format, `imports`, self-references): each candidate up
- * to the nearest existing one, absent candidates included.
+ * to the nearest existing one, absent candidates included, and that one.
  */
-function packageScopeObservations(moduleDir: string): InputObservation[] {
+function packageScope(moduleDir: string): { observations: InputObservation[]; manifestPath: string | undefined } {
   const observations: InputObservation[] = []
   for (let directory = moduleDir; basename(directory) !== 'node_modules'; directory = dirname(directory)) {
     const manifestPath = join(directory, 'package.json')
     observations.push({ kind: 'content', path: manifestPath })
-    if (observeEntry(manifestPath) === 'file' || dirname(directory) === directory) break
+    if (observeEntry(manifestPath) === 'file') return { observations, manifestPath }
+    if (dirname(directory) === directory) break
   }
-  return observations
-}
-
-/**
- * How `specifier`, imported by the authored module `parentPath`, resolved to
- * `resolvedUrl`, re-checkable without the module loader:
- *   - a relative or absolute path: the real path of the path it names
- *     (ES module resolution adds no extension and follows symlinks);
- *   - a bare package name: Node's `node_modules` lookup from the importing
- *     directory upwards (each candidate that is not a directory, then the one
- *     found, where it links to, and its `package.json`).
- * The observations are taken now, so each is checked against the resolution
- * that actually happened: one that no longer leads to `resolvedUrl` (or a
- * resolution these rules do not model, such as CommonJS extension probing or
- * package `imports`) is reported unverified.
- */
-function resolutionObservations(specifier: string, parentPath: string, resolvedUrl: string): InputObservation[] {
-  if (resolvedUrl.startsWith('node:') || resolvedUrl.startsWith('data:')) return []
-  if (!resolvedUrl.startsWith('file:')) return [{ kind: 'content', path: resolvedUrl, unverified: 'remote module' }]
-  const resolvedPath = fileURLToPath(resolvedUrl)
-  const unmodeled: InputObservation = { kind: 'realpath', path: resolvedPath, unverified: `cannot re-check import "${specifier}"` }
-
-  if (isPathSpecifier(specifier)) {
-    const namedPath = fileURLToPath(new URL(specifier, pathToFileURL(parentPath)))
-    return observeRealpath(namedPath) === resolvedPath
-      ? [{ kind: 'realpath', path: namedPath, value: resolvedPath }]
-      : [unmodeled]
-  }
-
-  const packageName = bareSpecifierPackageName(specifier)
-  if (!packageName) return [unmodeled]
-  const observations: InputObservation[] = []
-  for (let directory = dirname(parentPath); ; directory = dirname(directory)) {
-    const candidate = join(directory, 'node_modules', packageName)
-    const entry = observeEntry(candidate)
-    if (entry === 'directory') {
-      const packageDir = observeRealpath(candidate)
-      if (!packageDir || !isInside(resolvedPath, packageDir)) return [unmodeled]
-      return [
-        ...observations,
-        { kind: 'entry', path: candidate, value: entry },
-        { kind: 'realpath', path: candidate, value: packageDir },
-        { kind: 'content', path: join(candidate, 'package.json') },
-      ]
-    }
-    observations.push({ kind: 'entry', path: candidate, value: entry })
-    if (dirname(directory) === directory) return [unmodeled]
-  }
-}
-
-function isPathSpecifier(specifier: string): boolean {
-  return specifier.startsWith('./') || specifier.startsWith('../') || specifier.startsWith('/') || specifier.startsWith('file:')
-}
-
-/** `name` or `@scope/name` of a bare specifier; undefined for package `imports` (`#...`) and malformed names. */
-function bareSpecifierPackageName(specifier: string): string | undefined {
-  if (specifier.startsWith('#') || specifier === '' || specifier.includes('\\')) return undefined
-  const segments = specifier.split('/')
-  const name = specifier.startsWith('@') ? segments.slice(0, 2).join('/') : segments[0]
-  return name && !(specifier.startsWith('@') && segments.length < 2) ? name : undefined
-}
-
-function isInside(filePath: string, directory: string): boolean {
-  return filePath === directory || filePath.startsWith(directory.endsWith(sep) ? directory : `${directory}${sep}`)
+  return { observations, manifestPath: undefined }
 }

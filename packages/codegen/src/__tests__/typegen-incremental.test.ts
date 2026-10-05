@@ -21,6 +21,7 @@ import {
 } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
+import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { dirname, join, relative, resolve } from 'node:path'
 import { stringify as stringifyYaml } from 'yaml'
@@ -36,6 +37,7 @@ import type { InputObservation } from '../cli/lib/input-observations.js'
 import { observeModuleGraph } from '../cli/lib/module-graph-observer.js'
 import { compileTypeSpecInMemory } from '../cli/lib/typespec-mock-compiler.js'
 import { createSQLiteWorkspaceIndex, loadSqliteDriver } from '../sqlite-workspace-index.js'
+import { SUBPROCESS_TEST_BUDGET_MS } from './helpers/subprocess-budget.js'
 
 const packageRoot = resolve(__dirname, '../..')
 /** TypeSpec fixtures live inside the package so `@typespec/*` imports resolve from its node_modules. */
@@ -596,6 +598,8 @@ describe('incremental generation targets', () => {
         'entry node_modules/dep = directory',
         'realpath decorators/impl.js = decorators/impl.js',
         'realpath node_modules/@acme/linked = packages/linked',
+        // The linked (authored) package resolves through its `main`, the first legacy main candidate.
+        'realpath node_modules/@acme/linked/main.js = packages/linked/main.js',
         'realpath node_modules/dep = node_modules/dep',
       ])
       // The compilation reports the graph with what its host observed.
@@ -605,6 +609,229 @@ describe('incremental generation targets', () => {
         'entry decorators/index.js = file',
         'realpath decorators/index.js = decorators/index.js',
       ]))
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  it('observes the packages an installed dependency imports, but no file inside an installed package', async () => {
+    const root = createPackageTmpDir()
+    try {
+      const at = (relativePath: string) => join(root, relativePath)
+      writeDecoratorEntryProject(root, [
+        'import { label } from "naming-lib";',
+        'export const $decorators = { Pets: { petDoc() { return label("pet"); } } };',
+        '',
+      ])
+      writeInstalledLabelPackages(root, 'toLowerCase')
+
+      await compileTypeSpecInMemory(at('main.tsp'), { recordInputs: true })
+
+      // naming-lib's own ./format.js is covered by naming-lib's manifest; case-util, the package it
+      // imports, is looked up from naming-lib's root like any import.
+      expect(describeObservations(observeModuleGraph([at('decorators/index.js')]), root)).toEqual([
+        `content decorators/index.js sha256=${sha256OfFile(at('decorators/index.js'))}`,
+        'content decorators/package.json',
+        'content node_modules/case-util/package.json',
+        'content node_modules/naming-lib/package.json',
+        'content package.json',
+        'entry decorators/node_modules/naming-lib = absent',
+        'entry node_modules/case-util = directory',
+        'entry node_modules/naming-lib = directory',
+        'entry node_modules/naming-lib/node_modules/case-util = absent',
+        'entry node_modules/node_modules/case-util = absent',
+        'realpath node_modules/case-util = node_modules/case-util',
+        'realpath node_modules/naming-lib = node_modules/naming-lib',
+      ])
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  it('observes every candidate an import or require that failed probed, so a module created later is noticed', async () => {
+    const root = createPackageTmpDir()
+    try {
+      const at = (relativePath: string) => join(root, relativePath)
+      writeDecoratorEntryProject(root, [
+        'import { createRequire } from "node:module";',
+        'const require = createRequire(import.meta.url);',
+        'const optional = async (load) => { try { return await load(); } catch { return undefined; } };',
+        'await optional(() => import("./optional.js"));',
+        'await optional(() => import("optional-plugin"));',
+        'await optional(() => require("./optional-cjs"));',
+        'await optional(() => require("optional-cjs-plugin"));',
+        'export const $decorators = { Pets: { petDoc() {} } };',
+        '',
+      ])
+
+      await compileTypeSpecInMemory(at('main.tsp'), { recordInputs: true })
+
+      // require() also tries every extension it currently handles.
+      const withRequireExtensions = (relativePath: string) =>
+        ['', ...Object.keys(createRequire(import.meta.url).extensions)].map(extension => `${relativePath}${extension}`)
+      expect(describeObservations(observeModuleGraph([at('decorators/index.js')]), root)).toEqual([
+        `content decorators/index.js sha256=${sha256OfFile(at('decorators/index.js'))}`,
+        'content decorators/package.json',
+        'content package.json',
+        ...withRequireExtensions('decorators/node_modules/optional-cjs-plugin'),
+        'decorators/node_modules/optional-plugin',
+        ...withRequireExtensions('decorators/optional-cjs'),
+        'decorators/optional.js',
+        ...withRequireExtensions('node_modules/optional-cjs-plugin'),
+        'node_modules/optional-plugin',
+      ].map(line => line.startsWith('content ') ? line : `entry ${line} = absent`).sort())
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  it('re-derives the exports target Node chose for array fallbacks, patterns and nested conditions', async () => {
+    const root = createPackageTmpDir()
+    try {
+      const at = (relativePath: string) => join(root, relativePath)
+      writeDecoratorEntryProject(root, [
+        'import main from "@acme/kit";',
+        'import feature from "@acme/kit/features/alpha.js";',
+        'import beta from "@acme/kit/features/beta/one.js";',
+        'import nested from "@acme/kit/nested";',
+        'let excluded = "none";',
+        'try { excluded = (await import("@acme/kit/features/internal/secret.js")).default; } catch {}',
+        'export const $decorators = { Pets: { petDoc() { return [main, feature, beta, nested, excluded]; } } };',
+        '',
+      ])
+      writeText(at('packages/kit/package.json'), `${JSON.stringify({
+        name: '@acme/kit',
+        type: 'module',
+        exports: {
+          // No `worker` condition: Node falls back to the next array item.
+          '.': [{ worker: './worker.js' }, './main.js'],
+          // Where patterns overlap, the longest prefix wins, whatever the key order.
+          './features/internal/*': null,
+          './features/beta/*': './src/beta/*',
+          './features/*': './src/features/*',
+          './nested': { node: { import: './nested-node.js', default: './nested-node.cjs' }, default: './nested-default.js' },
+        },
+      })}\n`)
+      for (const file of [
+        'worker.js', 'main.js', 'src/features/alpha.js', 'src/beta/one.js', 'src/features/beta/one.js',
+        'src/features/internal/secret.js', 'nested-node.js', 'nested-default.js',
+      ]) {
+        writeText(at(`packages/kit/${file}`), `export default ${JSON.stringify(file)};\n`)
+      }
+      mkdirSync(at('node_modules/@acme'), { recursive: true })
+      symlinkSync('../../packages/kit', at('node_modules/@acme/kit'), 'dir')
+
+      await compileTypeSpecInMemory(at('main.tsp'), { recordInputs: true })
+
+      const graph = describeObservations(observeModuleGraph([at('decorators/index.js')]), root)
+      expect(graph.filter(line => line.startsWith('realpath node_modules/@acme/kit/'))).toEqual([
+        'realpath node_modules/@acme/kit/main.js = packages/kit/main.js',
+        'realpath node_modules/@acme/kit/nested-node.js = packages/kit/nested-node.js',
+        'realpath node_modules/@acme/kit/src/beta/one.js = packages/kit/src/beta/one.js',
+        'realpath node_modules/@acme/kit/src/features/alpha.js = packages/kit/src/features/alpha.js',
+      ])
+      // A failure inside a package that was found is not modeled, so the target is never reused.
+      expect(graph.filter(line => line.includes('unverified'))).toEqual([
+        'content decorators/index.js unverified: cannot re-check failed import "@acme/kit/features/internal/secret.js"',
+      ])
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  it('never trusts a module the process loaded again from different bytes', async () => {
+    const root = createPackageTmpDir()
+    try {
+      const at = (relativePath: string) => join(root, relativePath)
+      // The decorator clears the require cache and loads counter.cjs again after rewriting it, so
+      // generation ran both versions; the file on disk matches only the second.
+      writeDecoratorEntryProject(root, [
+        'import { createRequire } from "node:module";',
+        'import { writeFileSync } from "node:fs";',
+        'const require = createRequire(import.meta.url);',
+        'const counterPath = require.resolve("./counter.cjs");',
+        'const first = require("./counter.cjs");',
+        'writeFileSync(counterPath, "module.exports = 2;\\n");',
+        'delete require.cache[counterPath];',
+        'const second = require("./counter.cjs");',
+        'export const $decorators = { Pets: { petDoc() { return first + second; } } };',
+        '',
+      ])
+      writeText(at('decorators/counter.cjs'), 'module.exports = 1;\n')
+
+      await compileTypeSpecInMemory(at('main.tsp'), { recordInputs: true })
+
+      expect(describeObservations(observeModuleGraph([at('decorators/index.js')]), root)).toEqual([
+        'content decorators/counter.cjs unverified: loaded more than once with different content',
+        `content decorators/index.js sha256=${sha256OfFile(at('decorators/index.js'))}`,
+        'content decorators/package.json',
+        'content package.json',
+        'realpath decorators/counter.cjs = decorators/counter.cjs',
+      ])
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  it('observes how an import resolves inside a linked workspace package: main probes and exports conditions', async () => {
+    const root = createPackageTmpDir()
+    try {
+      const at = (relativePath: string) => join(root, relativePath)
+      writeDecoratorEntryProject(root, [
+        'import { createRequire } from "node:module";',
+        'import legacy from "@acme/legacy";',
+        'import exported from "@acme/exported";',
+        'const required = createRequire(import.meta.url)("@acme/exported");',
+        'export const $decorators = { Pets: { petDoc() { return [legacy, exported, required]; } } };',
+        '',
+      ])
+      // `main` names a directory: Node probes lib, lib.js, lib.json, lib.node, then lib/index.js.
+      writeText(at('packages/legacy/package.json'), '{ "name": "@acme/legacy", "type": "module", "main": "lib" }\n')
+      writeText(at('packages/legacy/lib/index.js'), 'export default "legacy";\n')
+      // `exports` picks a target by condition: import and require resolve to different files.
+      writeText(at('packages/exported/package.json'), `${JSON.stringify({
+        name: '@acme/exported',
+        type: 'module',
+        exports: { '.': { import: './esm.js', default: './cjs.cjs' } },
+      })}\n`)
+      writeText(at('packages/exported/esm.js'), 'export default "esm";\n')
+      writeText(at('packages/exported/cjs.cjs'), 'module.exports = "cjs";\n')
+      mkdirSync(at('node_modules/@acme'), { recursive: true })
+      symlinkSync('../../packages/legacy', at('node_modules/@acme/legacy'), 'dir')
+      symlinkSync('../../packages/exported', at('node_modules/@acme/exported'), 'dir')
+
+      await compileTypeSpecInMemory(at('main.tsp'), { recordInputs: true })
+
+      const requireExtensions = Object.keys(createRequire(import.meta.url).extensions)
+      expect(describeObservations(observeModuleGraph([at('decorators/index.js')]), root)).toEqual([
+        `content decorators/index.js sha256=${sha256OfFile(at('decorators/index.js'))}`,
+        'content decorators/package.json',
+        'content node_modules/@acme/exported/package.json',
+        'content node_modules/@acme/legacy/package.json',
+        'content package.json',
+        `content packages/exported/cjs.cjs sha256=${sha256OfFile(at('packages/exported/cjs.cjs'))}`,
+        `content packages/exported/esm.js sha256=${sha256OfFile(at('packages/exported/esm.js'))}`,
+        'content packages/exported/package.json',
+        `content packages/legacy/lib/index.js sha256=${sha256OfFile(at('packages/legacy/lib/index.js'))}`,
+        'content packages/legacy/lib/package.json',
+        'content packages/legacy/package.json',
+        'entry decorators/node_modules/@acme/exported = absent',
+        // require('@acme/exported') would also take an `exported<ext>` file in each lookup directory.
+        ...requireExtensions.map(extension => `entry decorators/node_modules/@acme/exported${extension} = absent`),
+        'entry decorators/node_modules/@acme/legacy = absent',
+        'entry node_modules/@acme/exported = directory',
+        ...requireExtensions.map(extension => `entry node_modules/@acme/exported${extension} = absent`),
+        'entry node_modules/@acme/legacy = directory',
+        'entry node_modules/@acme/legacy/lib = directory',
+        'entry node_modules/@acme/legacy/lib.js = absent',
+        'entry node_modules/@acme/legacy/lib.json = absent',
+        'entry node_modules/@acme/legacy/lib.node = absent',
+        'realpath node_modules/@acme/exported = packages/exported',
+        'realpath node_modules/@acme/exported/cjs.cjs = packages/exported/cjs.cjs',
+        'realpath node_modules/@acme/exported/esm.js = packages/exported/esm.js',
+        'realpath node_modules/@acme/legacy = packages/legacy',
+        'realpath node_modules/@acme/legacy/lib/index.js = packages/legacy/lib/index.js',
+      ].sort())
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
@@ -657,7 +884,67 @@ describe('typegen --incremental in fresh processes', () => {
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
-  }, 300_000)
+  }, 8 * SUBPROCESS_TEST_BUDGET_MS) // eight CLI processes
+
+  it('regenerates when a dependency of an installed package is upgraded, or a module an optional import missed appears', () => {
+    const root = createPackageTmpDir()
+    try {
+      // The decorator labels the model through the installed naming-lib (built on the hoisted
+      // case-util), and reports what two optional imports, one path and one package, found.
+      writeDecoratorEntryProject(root, [
+        'import { $doc } from "@typespec/compiler";',
+        'import { label } from "naming-lib";',
+        'const optional = async (specifier) => { try { return (await import(specifier)).text; } catch { return "none"; } };',
+        'const optionalText = await optional("./optional.js");',
+        'const pluginText = await optional("optional-plugin");',
+        'export const $decorators = { Pets: { petDoc(context, target) {',
+        '  $doc(context, target, `${label(target.name)} optional=${optionalText} plugin=${pluginText}`);',
+        '} } };',
+        '',
+      ])
+      writeInstalledLabelPackages(root, 'toLowerCase')
+      backdateTree(root)
+      const outputPath = join(root, 'out.ts')
+      const specPath = join(root, 'main.tsp')
+      const incrementalArgs = ['typegen', '-s', specPath, '-o', outputPath, '--incremental', '--cache-dir', join(root, '.oa-cache')]
+      const fullOutput = () => {
+        expect(runCliProcess(['typegen', '-s', specPath, '-o', join(root, 'full.ts')], root).status).toBe(0)
+        return readFileSync(join(root, 'full.ts'), 'utf8')
+      }
+      const upToDate = [`incremental: typegen up to date, regeneration skipped (${outputPath})`]
+      const regenerateFor = (reason: string, documentation: string) => {
+        const run = runCliProcess(incrementalArgs, root)
+        expect(run.status).toBe(0)
+        expect(run.incremental).toEqual([expect.stringMatching(regeneratingBecause(reason))])
+        expect(readFileSync(outputPath, 'utf8')).toContain(`/** ${documentation} */`)
+        expect(readFileSync(outputPath, 'utf8')).toBe(fullOutput())
+        expect(runCliProcess(incrementalArgs, root).incremental).toEqual(upToDate)
+      }
+
+      expect(runCliProcess(incrementalArgs, root).incremental)
+        .toEqual(['incremental: typegen regenerating (no previous generation record)'])
+      expect(runCliProcess(incrementalArgs, root).incremental).toEqual(upToDate)
+      expect(readFileSync(outputPath, 'utf8')).toContain('/** label=pet optional=none plugin=none */')
+
+      // `npm update` upgrades only the hoisted case-util; naming-lib, which the decorator imports, is unchanged.
+      writeInstalledLabelPackages(root, 'toUpperCase', '2.1.0')
+      regenerateFor(`input changed: ${join(root, 'node_modules/case-util/package.json')}`, 'label=PET optional=none plugin=none')
+
+      writeText(join(root, 'decorators/optional.js'), 'export const text = "present";\n')
+      regenerateFor(`input entry changed: ${join(root, 'decorators/optional.js')} (absent -> file)`, 'label=PET optional=present plugin=none')
+
+      writeText(join(root, 'node_modules/optional-plugin/package.json'), '{ "name": "optional-plugin", "version": "1.0.0", "type": "module", "main": "index.js" }\n')
+      writeText(join(root, 'node_modules/optional-plugin/index.js'), 'export const text = "installed";\n')
+      // Installed before the run: a manifest first seen after generation started is otherwise confirmed by one more run.
+      backdateTree(join(root, 'node_modules/optional-plugin'))
+      regenerateFor(
+        `input entry changed: ${join(root, 'node_modules/optional-plugin')} (absent -> directory)`,
+        'label=PET optional=present plugin=installed',
+      )
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  }, 11 * SUBPROCESS_TEST_BUDGET_MS) // eleven CLI processes
 })
 
 // ─── helpers ────────────────────────────────────────────────
@@ -716,6 +1003,53 @@ function writeDecoratorProject(root: string, label: string): void {
   backdateTree(root)
 }
 
+/**
+ * A TypeSpec project whose `@petDoc` decorator is implemented by
+ * `decorators/index.js` (`decoratorLines`), documenting the `Pet` model.
+ */
+function writeDecoratorEntryProject(root: string, decoratorLines: readonly string[]): void {
+  writeText(join(root, 'package.json'), '{ "type": "module" }\n')
+  writeText(join(root, 'main.tsp'), [
+    'import "@typespec/http";',
+    'import "./decorators/index.js";',
+    'using Http;',
+    '@service(#{ title: "Pets" })',
+    'namespace Pets;',
+    'extern dec petDoc(target: Reflection.Model);',
+    '@petDoc model Pet { name: string; }',
+    '@route("/pets") op listPets(): Pet[];',
+    '',
+  ].join('\n'))
+  writeText(join(root, 'decorators/index.js'), decoratorLines.join('\n'))
+}
+
+/**
+ * Installed packages, as npm lays them out: `naming-lib` exports
+ * `label(name)` (`label=<name>` with its own `./format.js`), built on
+ * `case-util`, the dependency hoisted next to it, whose `shout` applies
+ * `caseMethod`. `caseUtilVersion` is case-util's installed version.
+ */
+function writeInstalledLabelPackages(root: string, caseMethod: 'toLowerCase' | 'toUpperCase', caseUtilVersion = '2.0.0'): void {
+  writeText(join(root, 'node_modules/naming-lib/package.json'), `${JSON.stringify({
+    name: 'naming-lib', version: '1.0.0', type: 'module', main: 'index.js', dependencies: { 'case-util': '^2.0.0' },
+  })}\n`)
+  writeText(join(root, 'node_modules/naming-lib/index.js'), [
+    'import { shout } from "case-util";',
+    'import { format } from "./format.js";',
+    'export const label = (name) => format(shout(name));',
+    '',
+  ].join('\n'))
+  writeText(join(root, 'node_modules/naming-lib/format.js'), 'export const format = (text) => `label=${text}`;\n')
+  writeText(join(root, 'node_modules/case-util/package.json'), `${JSON.stringify({
+    name: 'case-util', version: caseUtilVersion, type: 'module', main: 'index.js',
+  })}\n`)
+  writeText(join(root, 'node_modules/case-util/index.js'), `export const shout = (text) => text.${caseMethod}();\n`)
+}
+
+function sha256OfFile(filePath: string): string {
+  return createHash('sha256').update(readFileSync(filePath)).digest('hex')
+}
+
 function decoratorImplementation(label: string): string {
   return [
     'import { $doc } from "@typespec/compiler";',
@@ -769,7 +1103,7 @@ type CliProcessResult = { status: number | null; stdout: string; stderr: string;
 
 /** Run the CLI from source in a new Node.js process. */
 function runCliProcess(args: readonly string[], cwd: string): CliProcessResult {
-  const result = spawnSync(process.execPath, [TSX_CLI, CLI_SRC, ...args], { cwd, encoding: 'utf8', timeout: 120_000 })
+  const result = spawnSync(process.execPath, [TSX_CLI, CLI_SRC, ...args], { cwd, encoding: 'utf8', timeout: SUBPROCESS_TEST_BUDGET_MS })
   const stderr = result.stderr ?? ''
   return {
     status: result.status,
