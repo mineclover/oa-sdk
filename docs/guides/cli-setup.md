@@ -2,23 +2,25 @@
 
 > **Canonical Authority**: `@oa-sdk/codegen` CLI (`oa-gen`)
 > **Target Audience**: `oa-sdk`를 프로젝트에 도입하는 애플리케이션 개발자, 플랫폼 엔지니어, CI/CD 관리자
-> **Supported Environments**: Node.js 20+ / 22+ LTS, Bun 1.0+ / 1.1+ (macOS, Linux, Windows)
+> **Supported Environments**: Node.js 22 이상 (CI 검증: Node.js 22·24·26)
 
-`@oa-sdk/codegen` 패키지가 제공하는 `oa-gen` CLI는 OpenAPI 3.1/3.2 사양 검증, Zod 4 및 TypeScript 타입 생성, TanStack Query v5 클라이언트 생성, 다중 프레임워크 라우터 및 순수 핸들러 계약 방출, 실시간 무중단 목(Mock) 서버 구동을 단일 도구로 통합 제공합니다.
+`@oa-sdk/codegen` 패키지가 제공하는 `oa-gen` CLI는 OpenAPI 3.1/3.2 사양 검증, Zod 4 및 TypeScript 타입 생성, fetch 클라이언트와 TanStack Query v5 코드 생성, 핸들러 계약 생성, mock 서버 구동을 하나의 CLI로 제공합니다.
 
-이 문서는 다운스트림 사용자를 위한 공식 설치 및 환경 설정 단일 진실 공급원(SSOT)입니다.
+이 문서는 다른 프로젝트에서 공개 패키지를 쓰는 사용자를 위한 설치 및 환경 설정의 정본입니다. 이 문서의 동작은 `@oa-sdk/codegen` 0.9.0 기준입니다.
 
 ---
 
 ## 1. 런타임 요구사항 (Runtime Prerequisites)
 
-`oa-gen` CLI는 모던 JavaScript/TypeScript 런타임 표준을 준수합니다.
+공개 패키지는 Node.js 22 이상에서 동작합니다. CI가 Node.js 22·24·26에서 배포 후보를 설치해 확인합니다.
 
-| 런타임 | 지원 버전 | 권장 환경 및 주요 특징 |
+| 런타임 | 지원 버전 | 비고 |
 |---|---|---|
-| **Node.js** | $\ge$ 20.0.0 (LTS) | **Node.js 22 LTS 이상 권장**. 네이티브 ESM 지원 및 타입 스트리핑 최적화. |
-| **Bun** | $\ge$ 1.0.0 | **Bun 1.1 이상 권장**. Bun Elysia 대상 Zero-copy 컨텍스트 구조분해 및 초고속 네이티브 파일 와처 지원. |
-| **운영체제** | macOS, Linux, Windows | Linux 컨테이너/CI 환경을 위한 재귀 파일 와칭 자동 폴백 내장. |
+| **Node.js** | $\ge$ 22.0.0 | 모든 공개 `@oa-sdk/*` 패키지의 `engines.node`가 `>=22.0.0`입니다. |
+| **Bun** | 지원 환경 아님 | Bun은 CI에서 검증하지 않습니다. `oa-gen init`이 Bun용 스크립트를 쓸 수는 있지만 지원 환경으로 약속하지 않습니다. |
+| **운영체제** | macOS, Linux, Windows | Linux에서는 `oa-gen mock --watch`가 하위 디렉터리마다 감시를 걸어 재귀 파일 감시를 대신합니다. |
+
+TypeScript 버전과 생성 코드의 호환 범위는 [TypeScript 호환성](./typescript-compatibility.md#공개-패키지-사용자-요구사항-consumer-support)을 따릅니다.
 
 ---
 
@@ -41,20 +43,24 @@ pnpm add -D @oa-sdk/codegen
 yarn add -D @oa-sdk/codegen
 ```
 
-### bun
+### bun (CI 검증 대상 아님)
 ```bash
 bun add -d @oa-sdk/codegen
 ```
 
+`@oa-sdk/codegen`은 `@oa-sdk/core`, `@oa-sdk/parser`, `@oa-sdk/surface-ir` 등 런타임 의존성과 TypeSpec 컴파일러를 함께 설치합니다. 패키지별 배포 상태는 [라이브러리 진입점 지도](./library-entrypoints.md)를 따릅니다.
+
 ### 동반 패키지 (Companion Packages)
 
-라우터·클라이언트·목 서버 산출물은 `oa-gen`이 필요할 때 불러오는 **동반 패키지**가 생성합니다. 릴리스 정책상 Core Platform 패키지(`@oa-sdk/codegen`)는 Downstream Integration 패키지를 배포 manifest에 의존성으로 선언하지 않으므로, `@oa-sdk/codegen`을 설치해도 이들은 설치되지 않습니다. 사용하는 산출물에 맞춰 직접 추가합니다.
+핸들러 계약·클라이언트·mock 서버 산출물은 `oa-gen`이 필요할 때 불러오는 **동반 패키지(companion package)**가 생성합니다. 릴리스 정책상 Core Platform 패키지(`@oa-sdk/codegen`)는 Downstream Integration 패키지를 배포 manifest에 의존성으로 선언하지 않으므로, `@oa-sdk/codegen`을 설치해도 이들은 설치되지 않습니다. 사용하는 산출물에 맞춰 직접 추가합니다.
+
+`@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`는 `@oa-sdk/codegen` 0.9.0 릴리스에서 처음 npm에 배포됩니다. 이 릴리스 전에는 npm에서 설치할 수 없습니다. 설치할 수 있는 버전은 [변경 이력](../changelog.md)에서 확인합니다. 아래의 설치 명령 고정, `init`의 버전 지정자, 패키지가 없을 때 실패하는 동작은 모두 `@oa-sdk/codegen` 0.9.0 이상 기준입니다.
 
 | 패키지 | 필요한 산출물 |
 |---|---|
-| `@oa-sdk/router` | `oa-gen generate`의 핸들러 계약(`*.contract.ts`)과 CRDT 계약/라우터 모듈 |
+| `@oa-sdk/router` | `oa-gen generate`의 핸들러 계약(`*.contract.ts`)과 CRDT 계약/라우터 모듈. 프레임워크 라우터 코드는 `oa-gen` 명령이 아니라 이 패키지의 `generateRouter()`를 빌드 스크립트에서 호출해 만듭니다. |
 | `@oa-sdk/client` | `oa-gen generate:client`, `pack:client`, `generate:tanstack`, 그리고 `oa-gen generate`의 클라이언트 SDK, TanStack Query 옵션, CRDT 클라이언트/훅 모듈 |
-| `@oa-sdk/mock-server` | `oa-gen mock` |
+| `@oa-sdk/mock-server` | `oa-gen mock`. `msw`는 필요하지 않습니다. `msw`는 MSW 어댑터(`@oa-sdk/mock-server/adapters/msw`, `@oa-sdk/mock-server/browser`)를 쓸 때만 설치합니다. |
 
 ```bash
 pnpm add -D @oa-sdk/router @oa-sdk/client @oa-sdk/mock-server
@@ -83,6 +89,19 @@ pnpm add -D @oa-sdk/router @oa-sdk/client @oa-sdk/mock-server
 
 자세한 설정 규칙은 [선언적 사양 설정 가이드](./declarative-spec-configuration.md#명시적-요청과-암시적-기본값-동반-패키지)를 참고하세요.
 
+### TypeSpec 작성 의존성
+
+`oa-gen`의 `validate`, `typegen`, `generate`, `generate:zod`, `generate:client`, `generate:tanstack`, `mock --tsp`, `tsp diff`에 `.tsp` 파일을 넘기면 `@oa-sdk/codegen`에 들어 있는 TypeSpec 컴파일러(`@typespec/compiler` 1.16)로 메모리에서 컴파일하므로 별도의 `tsp compile` 단계가 필요 없습니다. 다만 `.tsp`의 `import "@typespec/http"` 같은 라이브러리 import는 `.tsp` 파일 위치에서 찾습니다. pnpm처럼 의존성을 끌어올리지(hoist) 않는 패키지 매니저에서는 `@oa-sdk/codegen`만 설치하면 `import-not-found`로 실패하므로, `.tsp`가 import하는 라이브러리를 프로젝트의 직접 개발 의존성으로 둡니다.
+
+```bash
+npm install --save-dev @oa-sdk/codegen @oa-sdk/typespec-decorators@^0.3.0 \
+  @typespec/compiler@^1.16.0 @typespec/http@^1.16.0 @typespec/openapi@^1.16.0
+```
+
+- `@typespec/compiler`는 `tsp` CLI와 IDE 확장이 쓰며, 버전은 codegen과 같은 `^1.16.0`입니다.
+- 표준 계약(`Ok`, `Created`, `NoContent`, `PageResult`, `ErrorResponse`, `StandardHttpErrors`)은 `@oa-sdk/typespec-decorators` 0.3.0부터 있으며, `import "@oa-sdk/typespec-decorators";`와 `using OaSdkTypeSpec;`으로 씁니다. 0.3.0은 `@oa-sdk/codegen` 0.9.0 릴리스부터 npm에서 제공됩니다.
+- `.tsp` 작성 규칙과 데코레이터는 [TypeSpec 데코레이터 레퍼런스](./typespec/03-decorators-reference.md)를 따릅니다.
+
 ---
 
 ## 3. 로컬 설치 권장 vs 전역 설치 안티패턴
@@ -90,7 +109,7 @@ pnpm add -D @oa-sdk/router @oa-sdk/client @oa-sdk/mock-server
 `@oa-sdk` 팀은 CLI를 전역(`npm install -g @oa-sdk/codegen`)으로 설치하지 않고, 각 프로젝트의 **로컬 `devDependencies`로 설치하여 관리하는 방식을 강력히 권장**합니다.
 
 ### 로컬 devDependencies 설치의 이점
-1. **버전 드리프트(Version Drift) 원천 차단**: 프로젝트의 락파일(`package-lock.json`, `pnpm-lock.yaml`, `bun.lockb`)에 CLI 버전이 정확히 고정되어, 모든 팀원과 CI/CD 파이프라인이 100% 동일한 코드젠 엔진과 검증 규칙을 사용합니다.
+1. **버전 차이 방지**: 프로젝트의 락파일(`package-lock.json`, `pnpm-lock.yaml`)에 CLI 버전이 고정되어, 모든 팀원과 CI/CD 파이프라인이 같은 코드젠 엔진과 검증 규칙을 사용합니다.
 2. **다중 프로젝트 격리**: 서로 다른 OpenAPI 사양 버전이나 설정 체계를 사용하는 복수의 저장소 간 충돌을 방지합니다.
 3. **CI/CD 재현성 보장**: 추가적인 전역 설치 단계 없이 `pnpm install` 또는 `npm ci` 직후 즉시 스크립트 실행이 가능합니다.
 
@@ -104,24 +123,33 @@ npx oa-gen --help
 # pnpm 환경
 pnpm exec oa-gen --help
 
-# bun 환경
-bunx oa-gen --help
-
 # yarn 환경
 yarn oa-gen --help
 ```
 
-### 권장 `package.json` 스크립트 구성
-반복적인 워크플로를 위해 `package.json`의 `scripts`에 등록하여 사용하는 것을 권장합니다:
+### `package.json` 스크립트
+`oa-gen init`은 다음 스크립트를 `package.json`에 추가합니다(이미 있는 이름은 `--force` 없이는 바꾸지 않습니다).
+
+| 스크립트 | 추가하는 경우 | 명령 | 동작 |
+|---|---|---|---|
+| `generate` | `generic` 대상 | `oa-gen generate` | `oa.config.ts`에 선언한 산출물 일괄 생성 |
+| `generate:router` | fastify·express·hono·elysia 대상 | `oa-gen generate --target <프레임워크>` | `oa-gen generate`와 같습니다. 라우터 파일을 만들지 않습니다. |
+| `generate:contract` | nestjs 대상, `microservice` 아키타입 | `oa-gen generate --target generic` | `oa-gen generate`와 같습니다. |
+| `generate:client` | `mvp` 아키타입 | `oa-gen generate --target client` | `oa-gen generate`와 같습니다. |
+| `mock` | 모든 대상 | `oa-gen mock --watch` | `oa.config.ts`의 spec target(하나일 때)을 mock 서버로 서빙 |
+| `validate` | `mvp` 아키타입 | `oa-gen validate` | `oa.config.ts`의 모든 spec target 검증 |
+
+`oa-gen generate`의 `--target`은 `standalone-guards` 외의 값을 무시하므로, `--target`이 붙은 스크립트도 전체 `oa-gen generate`와 같은 파일을 씁니다. 프레임워크 대상은 개발 서버 스크립트(fastify `dev: tsx watch src/server.ts`와 `build: tsc`, express `tsx watch src/app.ts`, hono `tsx watch src/index.ts`, elysia `bun --watch src/index.ts`, nestjs `start:dev: nest start --watch`)와 프레임워크 의존성도 추가하지만, 서버 진입 파일과 `tsconfig.json`은 만들지 않습니다. `microservice`·`enterprise` 아키타입이 추가하는 나머지 스크립트 중 일부는 그대로는 동작하지 않습니다(알려진 결함, [CLI 명령 레퍼런스](./cli-command-reference.md#아키타입---archetype)).
+
+`init`을 쓰지 않는 프로젝트는 같은 이름으로 직접 등록합니다.
 
 ```json
 {
   "scripts": {
-    "oa:init": "oa-gen init",
-    "oa:generate": "oa-gen generate",
-    "oa:validate": "oa-gen validate",
-    "oa:mock": "oa-gen mock --watch",
-    "oa:drift": "oa-gen drift:check"
+    "generate": "oa-gen generate",
+    "validate": "oa-gen validate",
+    "mock": "oa-gen mock --watch",
+    "check:artifact": "oa-gen check-artifact"
   }
 }
 ```
@@ -130,24 +158,21 @@ yarn oa-gen --help
 
 ---
 
-## 4. 제로 설치 즉시 실행 (npx / bunx Ephemeral Execution)
+## 4. 설치 없이 일회성 실행 (npx Ephemeral Execution)
 
-영구 설치 없이 30초 만에 대화형 온보딩을 실행하거나 일회성 검증을 수행할 때는 `npx` 또는 `bunx`의 일회성 실행을 활용할 수 있습니다.
+프로젝트에 설치하기 전에 온보딩을 실행하거나 일회성 검증을 할 때는 `npx`로 실행할 수 있습니다.
 
 ```bash
-# 30초 마찰 제로 온보딩 실행 (대화형 프레임워크 감지 및 oa.config.ts 생성)
+# 대화형 온보딩 (프레임워크 감지 및 oa.config.ts 생성)
 npx @oa-sdk/codegen init
 
-# 비대화형(Headless) 자동 온보딩 (기본값 자동 수락)
+# 비대화형(Headless) 온보딩 (기본값 자동 수락)
 npx @oa-sdk/codegen init --yes
 
-# Bun 환경에서 일회성 온보딩 실행
-bunx @oa-sdk/codegen init --yes
-
-# 기존 OpenAPI 사양 즉시 검증
+# 기존 OpenAPI 사양 검증
 npx @oa-sdk/codegen validate --spec ./openapi.yaml --require-32
 
-# 제로 빌드 실시간 목(Mock) 서버 즉시 구동 (포트 4010, 동반 패키지 @oa-sdk/mock-server 포함)
+# mock 서버 구동 (포트 4010, 동반 패키지 @oa-sdk/mock-server 포함)
 npx -p @oa-sdk/codegen -p @oa-sdk/mock-server oa-gen mock --spec ./openapi.yaml --watch --port 4010
 ```
 
@@ -199,9 +224,9 @@ npx oa-gen generate --root ./apps/web-service
 
 ## 7. oa-sdk 모노레포 자체 기여자 안내
 
-이 가이드는 `oa-sdk`를 라이브러리로 활용하는 **다운스트림 사용자**를 위한 것입니다.
+이 가이드는 다른 프로젝트에서 `oa-sdk` 공개 패키지를 쓰는 사용자를 위한 것입니다.
 
-`oa-sdk` 오픈소스 모노레포 자체에 기여하거나, TypeSpec 프로덕션 계약을 직접 수정·승인하고, 내부 통합 빌드(`pnpm build:core`, `pnpm build:downstream`)를 실행하려는 기여자는 다음 문서를 참고하세요:
+`oa-sdk` 소스 모노레포(비공개) 자체에 기여하거나, TypeSpec 프로덕션 계약을 직접 수정·승인하고, 내부 통합 빌드(`pnpm build:core`, `pnpm build:downstream`)를 실행하려는 기여자는 Node.js 24 이상과 pnpm 10.30.3이 필요합니다. 저장소 루트에서는 `oa-gen`이 PATH에 없으므로 `pnpm --filter @oa-sdk/codegen build` 후 `node packages/codegen/dist/cli/index.js <명령>`으로 실행합니다. 자세한 내용은 다음 문서를 참고하세요:
 
 👉 [oa-sdk 모노레포 기여자 온보딩 가이드](./onboarding-playbook.md#9-oa-sdk-모노레포-기여자-온보딩)
 
@@ -209,7 +234,7 @@ npx oa-gen generate --root ./apps/web-service
 
 ## 8. 다음 단계 (Next Steps)
 
-- **5분 빠른 시작**: [Quick Start](./quick-start.md) — 5분 안에 전 파이프라인 체험하기
-- **점진적 도입 전략**: [프로젝트 온보딩 플레이북](./onboarding-playbook.md) — 3계층 온보딩 사다리 (Fastify, Elysia, Express, NestJS)
-- **선언적 설정 SSOT**: [선언적 사양 설정 가이드 (oa.config.ts)](./declarative-spec-configuration.md) — 이중 계층 아키텍처, 3대 아키타입, `outputRouting` 상세
+- **빠른 시작**: [Quick Start](./quick-start.md) — 설치부터 검증·생성·mock 서버까지 한 프로젝트에서 실행
+- **점진적 도입 전략**: [프로젝트 온보딩 플레이북](./onboarding-playbook.md) — 단계별 도입 순서와 Fastify, Express, Hono, Elysia, NestJS 연결 레시피
+- **선언적 설정**: [선언적 사양 설정 가이드 (oa.config.ts)](./declarative-spec-configuration.md) — 이중 계층 아키텍처, 아키타입, `outputRouting` 상세
 - **CLI 전체 명령어 색인**: [CLI 명령 레퍼런스](./cli-command-reference.md) — 전체 서브커맨드 및 조건부 옵션 규격
