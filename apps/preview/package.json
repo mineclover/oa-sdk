@@ -8,7 +8,10 @@
     "dev": "vite",
     "build": "vite build",
     "smoke:browser-runtime": "pnpm build && node scripts/browser-runtime-smoke.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:ci": "vitest run --maxWorkers 1 --no-file-parallelism",
+    "typecheck": "tsc --noEmit -p ."
   },
   "dependencies": {
     "@oa-sdk/mock-server": "workspace:*",
@@ -21,7 +24,8 @@
   },
   "devDependencies": {
     "vite": "^8.0.8",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "^4.1.4"
   },
   "msw": {
     "workerDirectory": [

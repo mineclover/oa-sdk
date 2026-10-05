@@ -194,6 +194,9 @@ importers:
       vite:
         specifier: ^8.0.8
         version: 8.0.8(@types/node@22.20.1)(esbuild@0.28.2)(tsx@4.23.12)(yaml@2.8.3)
+      vitest:
+        specifier: ^4.1.4
+        version: 4.1.4(@opentelemetry/api@1.9.0)(@types/node@22.20.1)(happy-dom@20.14.5)(msw@2.13.4(@types/node@22.20.1)(typescript@5.9.3))(vite@8.0.8(@types/node@22.20.1)(esbuild@0.28.2)(tsx@4.23.12)(yaml@2.8.3))
 
   apps/spec-lens:
     dependencies:

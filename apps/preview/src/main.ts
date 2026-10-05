@@ -1,6 +1,5 @@
-import { parse as parseYaml } from 'yaml'
-import type { OasDocument } from '@oa-sdk/parser/browser'
 import type { SetupWorker } from 'msw/browser'
+import { parseMockHeaders, parseSpec } from './user-input.js'
 
 let worker: SetupWorker | null = null
 
@@ -190,47 +189,6 @@ document.querySelectorAll('.tab').forEach(tab => {
   })
 })
 
-// ─── Parse spec ───────────────────────────────────────────────
-
-/** Accepts a decoded document only when it declares an OpenAPI version; anything else reads as null. */
-const OpenApiDocumentSchema = {
-  parse(value: unknown): OasDocument | null {
-    if (typeof value !== 'object' || value === null || !('openapi' in value) || !value.openapi) return null
-    // The parser treats the rest of the document as untrusted input during codegen.
-    return value as OasDocument
-  },
-}
-
-function parseSpec(input: string): OasDocument | null {
-  try {
-    return OpenApiDocumentSchema.parse(parseYaml(input))
-  } catch {
-    try {
-      return OpenApiDocumentSchema.parse(JSON.parse(input))
-    } catch {
-      return null
-    }
-  }
-}
-
-/**
- * Custom mock request headers typed by the user: a JSON object whose values
- * are strings, numbers, or booleans (stringified as fetch would).
- */
-const HeaderMapSchema = {
-  parse(value: unknown): Record<string, string> {
-    if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new TypeError('Headers must be a JSON object')
-    const headers: Record<string, string> = {}
-    for (const [name, headerValue] of Object.entries(value)) {
-      if (typeof headerValue !== 'string' && typeof headerValue !== 'number' && typeof headerValue !== 'boolean') {
-        throw new TypeError(`Header ${name} must be a string, number, or boolean`)
-      }
-      headers[name] = String(headerValue)
-    }
-    return headers
-  },
-}
-
 // ─── Generate ─────────────────────────────────────────────────
 
 async function generate() {
@@ -337,13 +295,17 @@ btnSend.addEventListener('click', async () => {
   const fullUrl = window.location.origin + url
 
   const init: RequestInit = { method }
-  const headers: Record<string, string> = {}
 
-  // Parse custom headers
+  // Custom headers that cannot be read stop the request, so it is never sent without them.
+  let headers: Record<string, string>
   try {
-    const headerText = mockHeaders.value.trim()
-    if (headerText) Object.assign(headers, HeaderMapSchema.parse(JSON.parse(headerText)))
-  } catch { /* ignore */ }
+    headers = parseMockHeaders(mockHeaders.value)
+  } catch (e) {
+    mockResponseStatus.textContent = `Invalid headers: ${e instanceof Error ? e.message : String(e)}`
+    mockResponseStatus.style.color = '#f85149'
+    mockResponseBody.textContent = ''
+    return
+  }
 
   // Body for non-GET methods
   if (['POST', 'PUT', 'PATCH'].includes(method)) {
