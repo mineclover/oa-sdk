@@ -143,6 +143,7 @@ absent or a number, and its `headers` are absent or an object; it then sends onl
 entity that has its own `body` field: `return { status: 200, body: entity }`.
 
 Typing covers request members (typed when the contract has `typesImport`) and the success body.
+The request types restate the spec; the routers do not convert values to them (see the list below).
 Error statuses and bodies are not narrowed: the error map is `Record<number, unknown>`, so any
 `{ status: <number>, body: <value> }` compiles.
 
@@ -150,11 +151,31 @@ What the generated routers do not do:
 
 - Authentication: security requirements appear only as a `// Requires: <scheme>` comment above the
   route. Add authentication middleware in the framework.
-- Request validation: Hono, Express, and Elysia routers pass requests to the handlers unvalidated.
-  Fastify routes carry a `schema` (querystring, params, body, response), so Fastify validates
-  requests and serializes responses with it.
+- Request validation and coercion: Hono, Express, and Elysia routers pass requests to the handlers
+  unvalidated, with the framework's path, query, and header values cast `as any`. Those values are
+  strings even where the contract types them as `number` or `boolean`: `?limit=5` arrives as `"5"`,
+  and `?notify=false` as `"false"`, which is truthy. Fastify routes carry a `schema` (querystring,
+  params, body, response), so Fastify validates requests, coerces path and query values (`5`,
+  `false`), and serializes responses with it.
+- Header names: all four routers pass the framework's request headers, whose keys are lowercase.
+  The contract types headers with the spec's names (`'X-Audit-Reason'`), but the value is under
+  `'x-audit-reason'`. The Fastify route `schema` has no headers, so header values are not coerced
+  there either.
 - Error masking: when a handler throws, the router answers 500 with
   `{ error: { code: 'INTERNAL_ERROR', message: <the exception message>, details: [] } }`.
+
+On Hono, Express, and Elysia, convert and check request values in the handler; these forms also
+work with the values Fastify coerced:
+
+```ts
+async updateUser({ params, query, headers, body }) {
+  const notify = String(query?.notify) === 'true'
+  const reason = (headers as Record<string, string | undefined> | undefined)?.['x-audit-reason']
+  // ...
+}
+```
+
+To leave path and query coercion and validation to the framework, use the Fastify router.
 
 ## API reference
 

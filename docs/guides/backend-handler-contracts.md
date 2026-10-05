@@ -122,7 +122,8 @@ const users = new Map<string, User>()
 
 export const handlers: ApiHandlers = {
   async listUsers(ctx) {
-    const items = [...users.values()].slice(0, ctx?.query?.limit ?? 20)
+    const limit = Number(ctx?.query?.limit ?? 20) // Hono·Express·Elysia에서는 문자열 "5"로 들어옴(5절 끝)
+    const items = [...users.values()].slice(0, limit)
     return { status: 200, body: { items }, headers: { 'X-Total-Count': users.size } }
   },
   async createUser({ body }) {
@@ -153,7 +154,7 @@ export const handlers: ApiHandlers = {
 
 타입 검사가 보장하는 범위는 다음과 같습니다.
 
-- 요청: `params`, `query`, `headers`, `body`는 typegen 타입입니다(3.1절 계약).
+- 요청: `params`, `query`, `headers`, `body`는 typegen 타입입니다(3.1절 계약). 이 타입은 스펙을 옮긴 것이고, 라우터가 값을 그 타입으로 바꿔 주지는 않습니다. Hono·Express·Elysia에서는 경로·쿼리·헤더 값이 문자열이고, 네 라우터 모두 헤더 이름이 소문자입니다([5절 끝](#생성된-라우터가-하지-않는-일)).
 - 성공 응답: 본문을 그대로 반환하거나 `{ status: 200, body }`로 감쌀 때 본문이 응답 타입과 맞아야 합니다.
 - 오류 응답: 상태 코드와 본문은 좁혀지지 않습니다. 계약의 오류 맵이 `Record<number, unknown>`이라 `{ status: <숫자>, body: <아무 값> }`이 모두 컴파일됩니다. 스펙에 선언한 오류 응답과 맞추는 것은 구현자의 책임입니다.
 - 라우터의 `createRouter(handlers)`와 Fastify `apiRouter`의 `handlers` 옵션은 모든 operation을 구현한 `ApiHandlers`를 요구합니다. 서비스를 나눠 작성했다면 `{ ...userHandlers, ...auditHandlers } satisfies ApiHandlers`처럼 하나의 객체로 합쳐 넘깁니다.
@@ -220,11 +221,24 @@ import { handlers } from './handlers.js'
 const app = new Elysia().use(createRouter(handlers)).listen(3000)
 ```
 
-생성된 라우터가 하지 않는 일도 있습니다.
+### 생성된 라우터가 하지 않는 일
 
 - 인증: 보안 요구사항은 route 위의 주석(`// Requires: bearerAuth`)으로만 남습니다. 인증 미들웨어는 프레임워크 쪽에서 직접 붙입니다.
-- 요청 검증: Hono·Express·Elysia 라우터는 요청을 스키마로 검증하지 않고 핸들러에 넘깁니다(Fastify는 route `schema`로 검증). 계약 검증이 필요한 개발·테스트 단계에서는 [mock 서버](./mock-server-usage.md)를 함께 씁니다.
-- 핸들러가 예외를 던지면 500 `{ "error": { "code": "INTERNAL_ERROR", "message": <예외 메시지> } }`로 답합니다. 내부 메시지를 노출하지 않으려면 핸들러 안에서 오류를 처리해 응답으로 반환합니다.
+- 요청 검증과 값 변환: Hono·Express·Elysia 라우터는 요청을 스키마로 검증하지 않고, 프레임워크가 준 경로·쿼리·헤더 값을 `as any`로 그대로 핸들러에 넘깁니다. 계약 타입이 `number`·`boolean`이어도 값은 문자열입니다. `?limit=5`는 `"5"`, `?notify=false`는 `"false"`로 들어오고, 문자열 `"false"`는 조건문에서 참입니다. Fastify 라우터는 route `schema`(querystring, params, body, response)로 요청을 검증하고 경로·쿼리 값을 스키마 타입(`5`, `false`)으로 바꿉니다.
+- 헤더 이름: 네 라우터 모두 프레임워크의 요청 헤더 객체를 그대로 넘기므로 키가 소문자입니다. 계약은 스펙의 이름(`'X-Audit-Reason'`)으로 타입을 붙이지만 값은 `'x-audit-reason'` 키에 있습니다. Fastify route `schema`에도 헤더는 들어가지 않으므로 헤더 값은 Fastify에서도 문자열 그대로입니다.
+- 오류 메시지 숨김: 핸들러가 예외를 던지면 500 `{ "error": { "code": "INTERNAL_ERROR", "message": <예외 메시지>, "details": [] } }`로 답합니다. 내부 메시지를 노출하지 않으려면 핸들러 안에서 오류를 처리해 응답으로 반환합니다.
+
+Hono·Express·Elysia에서는 핸들러가 요청 값을 직접 바꾸고 검증합니다. 아래처럼 쓰면 Fastify가 변환한 값에도 그대로 맞습니다. 헤더는 계약 타입에 소문자 키가 없으므로(`headers['x-audit-reason']`은 TS2551) 넓은 타입으로 바꿔 읽습니다.
+
+```typescript
+async updateUser({ params, query, headers, body }) {
+  const notify = String(query?.notify) === 'true'
+  const reason = (headers as Record<string, string | undefined> | undefined)?.['x-audit-reason']
+  // ...
+}
+```
+
+경로·쿼리 값의 변환과 검증을 프레임워크에 맡기려면 Fastify 라우터를 씁니다. 계약 검증이 필요한 개발·테스트 단계에서는 [mock 서버](./mock-server-usage.md)를 함께 씁니다.
 
 ---
 
