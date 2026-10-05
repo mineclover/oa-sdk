@@ -236,8 +236,11 @@ build와 그 downstream task의 hash를 바꾸지 않는다. `tsc` build가 test
 `src/` 전체를 emit하는 workspace(`typespec-decorators`, `typespec-erd`,
 `logical-erd-contract`, `nestjs-ref`)는 자기 `turbo.json`에서 build input을 tracked file
 전체로 되돌린다. `test:ci`는 package 밖의 문서·script도 읽기 때문에 cache하지 않고 매번
-실행하며, 실행 전에 해당 package의 build를 Turbo task로 보장받는다. 원격 cache(`TURBO_TOKEN`)와
-테스트 병렬화는 쓰지 않는다.
+실행하며, 실행 전에 해당 package의 build를 Turbo task로 보장받는다. 따라서 `test:ci`는
+`turbo run test:ci`로 실행하는 것을 전제로 한다. mock-server `test:ci`의 built CLI smoke는 dist를
+다시 build하지 않고, Turbo 밖에서 직접 실행하면 dist가 없거나 build input(`src/`의 test 외 file,
+`tsup.config.*`, `tsconfig*.json`, `package.json`)보다 수정 시각이 오래되었을 때 실패한다.
+원격 cache(`TURBO_TOKEN`)와 테스트 병렬화는 쓰지 않는다.
 
 `parser-bench` job은 `pnpm bench:parser`를 `BENCH_PARSER_BUDGET_SCALE=2`로 실행한다. 이 job은
 `needs`가 없어 `ci` job과 나란히 돈다. 실패하면 workflow는 실패하지만 `ci` job의 결정적 gate와
