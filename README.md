@@ -1,51 +1,59 @@
 # oa-sdk
 
-OpenAPI 3.2 contract를 중심으로 한 API governance 인프라 모노레포.
-**TypeSpec(`.tsp`)을 단일 진실 공급원(SSOT)**으로 채택하여, 도메인 스키마를 선언적으로 정의하고
-엄격한 OpenAPI 3.2 아티팩트 컴파일, 검증·비교·생성·mock/runtime 테스트·review gate까지 완결합니다.
-(외부 서비스의 OpenAPI/JSON Schema 호환 조각은 수집·정규화 intake 파이프라인으로 거버넌스합니다.)
+oa-sdk는 API 계약을 관리하는 도구 모음입니다. 사람이 고치는 원본을 하나로 정하고, 그 원본에서 만드는 OpenAPI 문서, TypeScript 타입, 클라이언트, 핸들러 계약을 다시 만들 수 있는 생성물로 다룹니다. 이 저장소의 production 계약은 TypeSpec(`.tsp`)으로 작성하고 OpenAPI 3.2 문서를 생성합니다([ADR-009](./docs/internal/architecture/009-typespec-first-authoring.md)). 사용자 프로젝트는 `oa.config.ts`에 TypeSpec, OpenAPI YAML/JSON, Zod 스키마 모듈 중 하나를 원본으로 지정합니다.
 
-현재 제품의 핵심은 `@oa-sdk/core` 위에서 schema/spec source, projection contract,
-파싱·검증·생성, 변경 이력 관측과 wire contract를 연결하는 열 패키지의 Core Platform입니다.
-상세한 범위와 신규 작업 승인 기준은
-[`docs/internal/platform-scope.md`](./docs/internal/platform-scope.md)를 따릅니다.
+- **고칠 곳은 한 곳**: 계약은 원본에서만 고치고 생성물은 다시 만듭니다. 이 저장소에서는 `.merged*.yaml`과 `dist/`가 생성물이며, CI가 원본과 어긋난 생성물을 실패시킵니다.
+- **이미 있는 스키마에서 시작**: 기존 OpenAPI 문서로 바로 검증과 타입 생성을 시작합니다. NestJS·FastAPI가 내보낸 OpenAPI는 `oa-gen collect`로 정규화해 그 서비스의 계약으로 관리합니다.
+- **같은 parser로 해석**: 코드 생성과 mock 서버가 `@oa-sdk/parser` 하나로 route와 `$ref`를 해석합니다.
+- **계약에서 소비자 코드까지**: `oa-gen`이 타입, Zod 스키마, 타입 가드, 클라이언트, TanStack Query 옵션, 핸들러 계약을 만들고, `oa-gen mock`이 같은 계약으로 요청을 검증하는 mock 서버를 띄웁니다.
+- **변경은 기계가 먼저 분류**: `oa-gen diff`와 `oa-gen tsp diff`(`--fail-on-breaking`), `check-artifact`, `drift`가 breaking change, 원본과 어긋난 생성물, runtime drift를 종료 코드로 알립니다.
 
-> 🚀 **API 스키마 작성 5분 퀵스타트**: [TypeSpec 5분 퀵스타트 가이드](./docs/guides/typespec/01-quickstart-5min.md)  
-> 🎮 **실행 가능한 실무 데모 4선**: [공식 실행 데모 가이드](./docs/examples/README.md) (`pnpm --filter @oa-sdk/playground run demo:all`)  
-> ⚠️ **절대 불변 원칙**: API 계약을 변경할 때는 반드시 `packages/schemas/typespec/**/*.tsp` 원본 파일을 수정합니다. `.merged*.yaml`, `dist/` 등은 빌드 생성물이므로 절대로 직접 수정하지 마십시오.
+oa-sdk는 비즈니스 로직을 대신 쓰거나 API를 호스팅하지 않습니다. 공개 패키지는 Node.js 22 이상에서 동작하며, 설치와 첫 실행은 [Quick Start](./docs/guides/quick-start.md)를 따릅니다. 가치별 동작 방식과 근거, oa-sdk가 하지 않는 일은 [가이드 색인](./docs/guides/README.md#oa-sdk가-해결하는-문제와-핵심-가치)에 정리했습니다. 패키지 범위와 신규 작업 승인 기준은 [Platform Scope](./docs/internal/platform-scope.md)를 따릅니다.
+
+> 🚀 **다른 프로젝트에서 시작**: [Quick Start](./docs/guides/quick-start.md) — npm 설치부터 검증·타입 생성·mock 서버까지
+>
+> 🧩 **이 저장소에 기여**: [기여자 온보딩](./docs/guides/onboarding-playbook.md#9-oa-sdk-모노레포-기여자-온보딩), [TypeSpec 기여 워크플로](./docs/guides/typespec/01-quickstart-5min.md) — `packages/schemas`의 production 계약 수정
+>
+> 🎮 **실행 데모**: [실행 데모 가이드](./docs/examples/README.md) (저장소 안에서 `pnpm --filter @oa-sdk/playground run demo:all`로 데모 7개 실행)
+>
+> ⚠️ **이 저장소의 원칙**: API 계약을 바꿀 때는 `packages/schemas/typespec/**/*.tsp` 원본을 수정합니다. `.merged*.yaml`, `dist/` 등은 생성물이므로 직접 수정하지 않습니다.
+
+이 저장소의 계약 흐름은 다음과 같습니다.
 
 ```
 ┌─────────────────────────────────┐
-│ TypeSpec (.tsp) Master Contract │ ──▶ API 계약 단일 진실 공급원 (SSOT, packages/schemas/typespec/)
+│ TypeSpec (.tsp) Master Contract │ ──▶ 원본 (packages/schemas/typespec/)
 └────────────────┬────────────────┘
-                 │ (인메모리 컴파일 / AST Diff / 스냅샷 승인)
+                 │ (인메모리 컴파일 / TypeSpec diff / 승인 snapshot)
                  ▼
 ┌─────────────────────────────────┐
-│   OpenAPI 3.2 Spec (.merged)    │ ──▶ 엄격한 계약 검증 (Spectral, Redocly, OAS 3.2 Gate)
+│   OpenAPI 3.2 Spec (.merged)    │ ──▶ 계약 검증 (Spectral, Redocly, OAS 3.2 gate)
 └────────────────┬────────────────┘
-                 ├──▶ 제로빌드 실시간 Mock Server (oa-gen mock --tsp ... --watch)
-                 ├──▶ 런타임 오버헤드 0% TypeScript 타입 (oa-gen typegen)
-                 ├──▶ 순수 핸들러 계약 (*.contract.ts) & 고성능 라우터 (Fastify / Bun Elysia)
-                 └──▶ TanStack Query v5 3계층 프론트엔드 SDK 클라이언트
+                 ├──▶ mock 서버 (oa-gen mock --tsp ... --watch)
+                 ├──▶ TypeScript 타입 (oa-gen typegen)
+                 ├──▶ 핸들러 계약 *.contract.ts, fetch 클라이언트, TanStack Query 키·옵션 (oa-gen generate)
+                 └──▶ 프레임워크 라우터 코드 (@oa-sdk/router generateRouter(), 빌드 스크립트에서 호출)
 ```
 
 ## 패키지
 
 패키지 릴리스 대상과 제외 workspace의 machine-readable 기준은
-[`docs/internal/release-policy.json`](./docs/internal/release-policy.json)에 둔다.
+[`docs/internal/release-policy.json`](./docs/internal/release-policy.json)에 둔다. 패키지별 배포 상태(npm 배포,
+`@oa-sdk/codegen` 0.9.0 릴리스부터 배포, 배포 후보, 비공개)는 [라이브러리 진입점 지도](./docs/guides/library-entrypoints.md)가
+정리하고, 설치할 수 있는 버전은 [변경 이력](./docs/changelog.md)에서 확인한다.
 
 ### Core Platform
 
 | 패키지 | 역할 |
 |--------|------|
 | `@oa-sdk/core` | 문자열, 포맷, 상태, codegen 보조 등 여러 패키지가 공유하는 기반 유틸리티 |
-| `@oa-sdk/schemas` | TypeSpec production source, generated OpenAPI 3.2 artifact, Definition Builder rollback, 3.1 변환의 schema source package |
+| `@oa-sdk/schemas` | (비공개, 저장소 전용) TypeSpec production source, generated OpenAPI 3.2 artifact, Definition Builder rollback, 3.1 변환의 schema source package |
 | `@oa-sdk/openapi-projection-contract` | Zod/Drizzle/외부 schema 조각을 OpenAPI로 투영할 때 공유하는 projection contract 타입층 |
 | `@oa-sdk/parser` | OpenAPI 3.2 parse/IR/transform/fold/lint/validate/query pipeline |
-| `@oa-sdk/surface-ir` | (internal) ParsedDocument 위의 target-neutral API surface IR, Forge SDK/CLI projection, command별 OpenAPI Overlay |
-| `@oa-sdk/codegen` | `oa-gen` CLI, Definition Builder target artifact, OpenAPI 수집/정규화/업그레이드/diff/review, typegen 생성, Zod/Drizzle projection bridge. router/client는 private downstream package API가 소유 |
-| `@oa-sdk/spec-lens` | OpenAPI spec change history observation과 review surface 관리 |
-| `@oa-sdk/spec-lens-contract` | spec-lens HTTP wire contract와 browser-safe response types |
+| `@oa-sdk/surface-ir` | ParsedDocument 위의 target-neutral API surface IR, Forge SDK/CLI projection, command별 OpenAPI Overlay. `@oa-sdk/codegen`의 런타임 의존성으로 함께 설치되며 `oa-gen surface`가 사용 |
+| `@oa-sdk/codegen` | `oa-gen` CLI, Definition Builder target artifact, OpenAPI 수집/정규화/업그레이드/diff/review, typegen 생성, Zod/Drizzle projection bridge. 핸들러 계약·클라이언트·mock 서버는 `oa-gen`이 실행 중 불러오는 동반 패키지(`@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`, 별도 설치)가 만든다 |
+| `@oa-sdk/spec-lens` | (비공개, 저장소 전용) OpenAPI spec change history observation과 review surface 관리 |
+| `@oa-sdk/spec-lens-contract` | (비공개, 저장소 전용) spec-lens HTTP wire contract와 browser-safe response types |
 | `@oa-sdk/typespec-decorators` | production TypeSpec source에서 검증된 OA SDK extension decorator와 플랫폼 공통 표준 계약(`contracts.tsp`, 데코레이터와 같은 namespace `OaSdkTypeSpec`)을 제공 |
 | `@oa-sdk/ast-sync` | TypeScript AST 양방향 동기화, type adapter, 독립형 guard 생성 |
 | `@oa-sdk/tools` | JSON Schema 기반 MCP·HTTP·CLI 도구 계약과 실행 adapter |
@@ -53,12 +61,15 @@ OpenAPI 3.2 contract를 중심으로 한 API governance 인프라 모노레포.
 ### Downstream Integration Libraries
 
 Core 계약을 소비하고 end-to-end 사용 가능성을 검증하는 release-tracked 계층입니다.
+`@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`는 `@oa-sdk/codegen` 0.9.0 릴리스에서 처음 npm에
+배포됩니다. `@oa-sdk/peer-transport`, `@oa-sdk/peer-server`, `@oa-sdk/collab-workspace`, `@oa-sdk/mcp-mesh`는
+배포 후보이지만 아직 npm에 없습니다.
 
 | 패키지 | 역할 |
 |--------|------|
-| `@oa-sdk/mock-server` | OpenAPI-native mock engine, AJV validation, Security, MSW/Node HTTP adapters, 테스트 client/coverage helper |
-| `@oa-sdk/router` | OAS 3.2 spec에서 Hono/Express typed server router stub 생성 |
-| `@oa-sdk/client` | OAS 3.2 spec에서 typed fetch client SDK, SSE, 인증/재시도 표면 생성 |
+| `@oa-sdk/mock-server` | OpenAPI-native mock engine, AJV validation, Security, 테스트 client/coverage helper. Node HTTP adapter는 패키지 루트와 `/adapters/node-http`, MSW adapter는 `/adapters/msw`·`/browser`(선택적 peer `msw` 필요) |
+| `@oa-sdk/router` | OAS 3.1/3.2 spec에서 Hono/Express/Fastify/Elysia 라우터 코드(`generateRouter()`)와 프레임워크와 무관한 핸들러 계약(`generateHandlerContract()`)을 만드는 빌드 타임 생성 함수 |
+| `@oa-sdk/client` | OAS 3.1/3.2 spec에서 typed fetch client SDK, SSE, 인증/재시도 표면과 TanStack Query v5 키·옵션·훅 생성 |
 | `@oa-sdk/chunk-stream` | bounded chunk stream, residency와 playback primitives |
 | `@oa-sdk/chunk-stream-crdt` | CRDT chunk metadata와 delta 병합 |
 | `@oa-sdk/chunk-stream-ui` | UI playback와 storyboard bridge |
@@ -71,8 +82,9 @@ Core 계약을 소비하고 end-to-end 사용 가능성을 검증하는 release-
 
 ### Maintenance-only Separation Candidates
 
-아래 패키지는 현재 경로와 import 호환성을 유지하되 security, compatibility, migration만
-수행합니다. 새 기능은 명시적인 scope-reactivation decision이 있어야 합니다.
+아래 패키지는 비공개 유지보수 패키지(maintenance-only, 저장소 전용)입니다. npm에 배포하지 않으며,
+현재 경로와 import 호환성을 유지하되 security, compatibility, migration만 수행합니다. 새 기능은 명시적인
+scope-reactivation decision이 있어야 합니다.
 
 | 패키지 | 역할 |
 |--------|------|
@@ -113,28 +125,27 @@ manifest 밖에서 관리합니다.
 
 ### 공개 npm 패키지 사용
 
-비공개 monorepo를 clone하지 않아도 공개된 core SDK와 CLI를 설치해 사용할 수 있다. 공개
+비공개 monorepo를 clone하지 않아도 npm에 배포된 패키지로 `oa-gen` CLI와 라이브러리를 쓸 수 있다. 공개
 배포는 [`mineclover/oa-sdk-releases`](https://github.com/mineclover/oa-sdk-releases)의 검증된
-artifact만 사용하며, source tree·테스트·lockfile은 포함하지 않는다.
+artifact만 사용하며, source tree·테스트·lockfile은 포함하지 않는다. 공개 패키지는 Node.js 22 이상에서
+동작한다.
 
 ```bash
-npm install @oa-sdk/core @oa-sdk/openapi-projection-contract @oa-sdk/typespec-decorators @oa-sdk/parser
-npm install --save-dev @oa-sdk/codegen
+# CLI와 동반 패키지(handler contract, client SDK, mock 서버 생성에 필요)
+npm install --save-dev @oa-sdk/codegen @oa-sdk/router @oa-sdk/client @oa-sdk/mock-server
 npx oa-gen --help
 ```
 
-현재 npm `latest`는 core/projection/decorators/parser `0.1.2`, `@oa-sdk/codegen` `0.5.0`이다.
-다음 source release candidate는 `@oa-sdk/core`·`@oa-sdk/parser` `0.2.0`,
-`@oa-sdk/codegen` `0.6.0`이며, artifact review와 external promotion 전에는 `latest`로
-간주하지 않는다.
-`@oa-sdk/schemas`는 아직 별도 distribution decision 전의 private workspace이므로 npm 설치
-대상으로 안내하지 않는다. `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`는 `oa-gen`이
-handler contract, client SDK, mock server 같은 출력을 만들 때 불러오는 companion package이며,
-`oa-gen`은 이들이 없으면 codegen이 build된 version으로 고정한 설치 명령을 안내한다. 그래서
-`@oa-sdk/codegen` export는 각 companion이 같은 export에 포함되거나 이미 npm에 있어야 통과하고,
-companion은 codegen과 함께 또는 그보다 먼저 배포된다. 어떤 `oa-gen` 명령과 출력에 어떤
-companion이 필요한지는 [CLI 설정 가이드](docs/guides/cli-setup.md#동반-패키지-companion-packages)를
-따른다.
+`@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`, `@oa-sdk/surface-ir`는 `@oa-sdk/codegen` 0.9.0
+릴리스에서 처음 npm에 배포된다. 이 릴리스 전에는 npm에서 설치할 수 없다. 설치할 수 있는 버전은
+[변경 이력](./docs/changelog.md)에서 확인한다. `@oa-sdk/codegen`은 `@oa-sdk/core`, `@oa-sdk/parser` 등
+런타임 의존성을 함께 설치하므로, 라이브러리 API를 직접 import할 때만 해당 패키지를 따로 추가한다.
+
+동반 패키지(companion package)는 `oa-gen`이 핸들러 계약, 클라이언트 SDK, mock 서버를 만들 때 불러오는
+패키지이며 `@oa-sdk/codegen`을 설치해도 함께 설치되지 않는다. 어떤 `oa-gen` 명령에 어떤 동반 패키지가
+필요한지와 없을 때의 동작은 [CLI 설정 가이드](docs/guides/cli-setup.md#동반-패키지-companion-packages)를
+따른다. `@oa-sdk/schemas`, `@oa-sdk/spec-lens`, `pnpm schema:*` 명령은 이 저장소 안에서만 쓴다(npm에
+배포하지 않음).
 
 ### 비공개 소스 기여·검증
 
@@ -168,7 +179,7 @@ corepack pnpm install
 # 스펙 관리 (TypeSpec 정본 워크플로)
 node packages/codegen/dist/cli/index.js tsp-scaffold --route /articles --crud --envelope --file packages/schemas/typespec/articles.tsp # 엔드포인트/DTO 스캐폴딩
 node packages/codegen/dist/cli/index.js mock --tsp packages/schemas/typespec/main.tsp --watch # TypeSpec 인메모리 컴파일 실시간 Mock 서버 (무빌드 핫리로드)
-node packages/codegen/dist/cli/index.js tsp diff --base origin/main --head HEAD --fail-on-breaking # TypeSpec AST 시맨틱 브레이킹 체인지 검사
+node packages/codegen/dist/cli/index.js tsp diff --base origin/main:packages/schemas/typespec/main.tsp --head packages/schemas/typespec/main.tsp --fail-on-breaking # 커밋 전 변경까지 포함한 TypeSpec 의미 단위 breaking change 검사
 pnpm schema:approve-typespec-reference -- --write  # TypeSpec 검토 완료 후 승인 스냅샷(approved.openapi.yaml) 갱신
 pnpm schema:validate                       # TypeSpec production source → .merged.yaml + 3.1 downgrade + Spectral/Redocly + strict OAS 3.2
 pnpm schema:rollback-check                 # TypeSpec path와 Definition Builder rollback path 동시 검증
@@ -202,7 +213,8 @@ node packages/codegen/dist/cli/index.js review-bundle --base old.yaml --head pac
 node packages/codegen/dist/cli/index.js typegen --spec packages/schemas/src/.merged.yaml -o types.ts
 node packages/codegen/dist/cli/index.js generate --drizzle-schema ./db/schema.ts --output ./domains/users/
 
-# private downstream router/client 통합은 apps/playground의 package API 예제로 검증
+# 동반 패키지 API(@oa-sdk/router generateRouter, @oa-sdk/client generateClient) 통합은 apps/playground/tests에서 검증
+pnpm --filter @oa-sdk/playground test
 
 # Mock 테스트
 pnpm mock:start
@@ -253,14 +265,16 @@ console.log(describeApi(parseDocument(spec)))
 | [Vision](./docs/vision.md) | 핵심 철학과 주 목표 |
 | [Platform Scope](./docs/internal/platform-scope.md) | Core Platform, maintenance, 분리 경계와 신규 작업 승인 기준 |
 | [Concepts](./docs/concepts.md) | 공통 용어와 계약 경계 |
-| [Quick Start](./docs/guides/quick-start.md) | 5분 파이프라인 체험 |
+| [Quick Start](./docs/guides/quick-start.md) | 다른 프로젝트에서 설치부터 검증·생성·mock 서버까지 |
+| [가이드 색인](./docs/guides/README.md) | 핵심 가치, 시작하기, 역할별 읽기 경로 |
 | [World Model Kernel](./docs/concepts/world-model.md) | World bootstrap, stimulus ingress, logical time, revision-pinned projection 계약 |
 | [World Model 계약 소비](./docs/guides/use-cases/world-model-contract-consumption.md) | World Model contract 검증과 generated client/HTTP integration 준비 |
+| [Onboarding Playbook (프로젝트 도입)](./docs/guides/onboarding-playbook.md) | 기존·신규 프로젝트에 단계적으로 도입하는 순서와 프레임워크 연결 레시피 |
 | [Onboarding Playbook (기여자 온보딩)](./docs/guides/onboarding-playbook.md#9-oa-sdk-모노레포-기여자-온보딩) | 저장소 목적, 정본 선택, 변경 경로와 검증 게이트 |
 | [기본 스펙 사용 기준](./docs/guides/basic-spec-usage.md) | TypeSpec source, OpenAPI 3.2 artifact, 3.1 호환 출력, rollback 경계와 사용처 |
 | [TypeSpec Authoring Conventions](./docs/guides/typespec-authoring-conventions.md) | TypeSpec source, approved snapshot, extension ownership과 validation 흐름 |
-| [TypeSpec 가이드 시리즈](./docs/guides/typespec/01-quickstart-5min.md) | 5분 퀵스타트, 컨벤션 표준, 데코레이터/표준 계약, 스캐폴딩/diff CLI, 트러블슈팅 FAQ |
-| [TypeScript 호환성](./docs/guides/typescript-compatibility.md) | Node 24/TS 5 안정화 lane과 Node 26/TS 7/`ttsc` Current 호환성 검증 lane의 경계 |
+| [TypeSpec 가이드 시리즈](./docs/guides/typespec/01-quickstart-5min.md) | 이 저장소의 TypeSpec 기여 워크플로, 컨벤션 표준, 데코레이터/표준 계약, 스캐폴딩/diff CLI, 트러블슈팅 FAQ |
+| [TypeScript 호환성](./docs/guides/typescript-compatibility.md) | 공개 패키지 사용자 요구사항(Node.js 22 이상)과 저장소의 Node 24/TS 5 안정화 lane, Node 26/TS 7/`ttsc` 호환성 검증 lane |
 | [Artifact Release Preparation](./docs/guides/release-preparation.md) | public artifact의 version intent, source preflight, external promotion 경계 |
 | [문서·스펙 거버넌스](./docs/spec-governance/README.md) | 문서 정본, 품질 기준, 검증 선택, 공식 기준 변경 절차 |
 | [OpenAPI Governance Workflow](./docs/guides/use-cases/openapi-governance-workflow.md) | target sidecar + PR review gate |
