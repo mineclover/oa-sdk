@@ -9,6 +9,7 @@ import { diff } from './commands/diff.js'
 import { checkArtifact, driftCheck } from './commands/check-artifact.js'
 import { drift, driftLive } from './commands/drift.js'
 import { inventory } from './commands/inventory.js'
+import { refProjection } from './commands/ref-projection.js'
 import { normalize } from './commands/normalize.js'
 import { upgrade } from './commands/upgrade.js'
 import { collect } from './commands/collect.js'
@@ -58,6 +59,7 @@ export const commands: Command[] = [
   referenceCheck,
   scaffoldGovernance,
   inventory,
+  refProjection,
   behaviorQuery,
   duplicateReview,
   targetCheck,

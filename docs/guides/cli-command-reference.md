@@ -79,6 +79,7 @@ node packages/codegen/dist/cli/index.js --help
 | `oa-gen reference-check` | Apitomy와 OA SDK 진단을 비권위적 비교로 확인할 때 | `--spec <openapi>` | markdown/JSON comparison; 계약 권위는 바꾸지 않음 |
 | `oa-gen scaffold-governance` | 외부 서비스에 독립 CLI·CI baseline governance scaffold를 만들 때 | `--root <dir> --service <name>` | config/script/docs/GitHub workflow; `--profile`, `--oa-gen-command`, `--oa-gen-setup-command`, `--typegen-policy` 선택 |
 | `oa-gen inventory` | OpenAPI path, operation, component, security surface를 요약할 때 | `--spec <openapi>` | markdown/JSON inventory |
+| `oa-gen ref-projection` | 계약 모델을 `$ref` 구조를 전개하지 않은 그래프로 검토하거나 외부 도구(시각화·편집 studio)로 넘길 때 | `--spec <openapi>` | `oa-sdk.ref-projection.v1` JSON artifact; `--provenance <build-spec provenance>`로 노드별 `canonicalId`를 붙이고 `--output`으로 파일에 쓴다. [ref-projection 명세](#ref-projection-옵션-및-artifact-명세) |
 | `oa-gen behavior-query` | behavior SQLite projection을 검색·집계할 때 | `--behavior-db <sqlite> --mode <mode>` | query report; mode에 따라 `--behavior-type`, identity/target/decision/recommendation selector가 필요하며 `recent` 계열은 `--status`, `--limit`을 지원한다 |
 | `oa-gen duplicate-review` | Definition fragment의 duplicate identity/collision을 검토할 때 | `--fragments <dir>` | report/review/ci policy report |
 | `oa-gen target-check` | target 또는 artifact가 필요한/금지 path를 만족하는지 확인할 때 | `--target <target>` 또는 `--artifact <openapi>` | assertion report; 두 source는 one-of |
@@ -209,6 +210,56 @@ oa-gen surface \
 생성되는 `surface-manifest.json`은 입력 artifact hash, IR version hash, operation/command
 수, diagnostic 수, Overlay 경로를 기록합니다. Forge 전체 TypeScript SDK 생성은 생성된
 Overlay를 Forge/Fern transformer에 전달하는 별도 downstream 단계입니다.
+
+## ref-projection 옵션 및 artifact 명세
+
+`oa-gen ref-projection`은 OpenAPI 문서를 `$ref`를 인라인 전개하지 않은 그래프
+(`@oa-sdk/parser`의 `projectRefGraph`)로 투영해 버전이 붙은 JSON artifact
+`oa-sdk.ref-projection.v1`로 내보냅니다. 입력 문서와 parser 출력은 수정하지 않습니다.
+
+| 옵션 | 단축 | 타입 | 기본값 | 설명 |
+| --- | --- | --- | --- | --- |
+| `--spec <path>` | `-s` | `string` | **(필수)** | OpenAPI YAML/JSON 문서. TypeSpec은 먼저 OpenAPI로 compile한 결과를 넘긴다 |
+| `--provenance <path>` | | `string` | `undefined` | `oa-gen build-spec --provenance`가 쓴 output pointer → `canonicalId` provenance map JSON |
+| `--output <path>` | `-o` | `string` | stdout | artifact JSON 파일. 지정하면 stdout에는 노드·엣지·`canonicalId` 매핑 수 요약 한 줄만 쓴다 |
+
+```bash
+oa-gen build-spec \
+  --target packages/schemas/src/targets/local-parity-api.yaml \
+  --output .artifacts/local-api.openapi.yaml \
+  --provenance .artifacts/local-api.provenance.json
+
+oa-gen ref-projection \
+  --spec .artifacts/local-api.openapi.yaml \
+  --provenance .artifacts/local-api.provenance.json \
+  --output .artifacts/local-api.ref-projection.json
+```
+
+artifact 계약의 정본은 codegen이 공개하는 JSON Schema
+`REF_PROJECTION_ARTIFACT_SCHEMA_V1`이고, 언어 중립 사본은
+[`docs/cli-spec/oa-sdk.ref-projection.v1.schema.json`](../cli-spec/oa-sdk.ref-projection.v1.schema.json)입니다
+(`pnpm check:cli-spec`이 두 사본의 일치를 검사). 명령은 쓰기 전에 출력이 schema를
+만족하는지 확인합니다.
+
+| 필드 | 내용 |
+| --- | --- |
+| `schemaVersion` | `oa-sdk.ref-projection.v1`. 호환되지 않는 형식 변경은 새 version으로 낸다 ([artifact 호환성 정책](../cli-spec/oa-sdk-artifact-compatibility-policy.v1.json), 현재 `experimental`) |
+| `generator` | 생성한 package 이름과 version (`@oa-sdk/codegen`) |
+| `source` | 입력 파일의 project root 기준 경로와 `sha256:` content hash. `spec`은 필수, `provenance`는 넘겼을 때만 |
+| `nodes[]` | 진입 문서의 `components.*`·`paths`·`webhooks` 선언과 외부 파일의 참조 대상. `id`는 진입 문서 선언이면 JSON Pointer fragment(`#/components/schemas/Pet`), 외부 대상이면 파일 + pointer(`./shared.yaml#/components/schemas/Owner`) |
+| `nodes[].identity` | `status: mapped`이면 `canonicalId`와 일치한 provenance pointer, fragment `sourcePath`/`sourcePointer`/`contentHash`. `status: unmapped`이면 `reason`이 `external-document`(다른 파일의 노드), `provenance-not-supplied`(`--provenance` 없음), `no-enclosing-provenance-entry`(노드 pointer와 그 상위 어디에도 provenance entry 없음) 중 하나 |
+| `edges[]` | `$ref` occurrence 하나당 하나. `source`/`target`은 occurrence와 참조 대상을 포함하는 노드 id, `id`는 occurrence 위치. `recursion`은 순환이 instance로 내려가면 `guarded`, 내려가지 않으면 `unguarded`(`ref-cycle` 진단과 같은 occurrence), 순환이 아니면 `none` |
+| `diagnostics[]` | `ref-cycle`, `ref-not-found`, `external-ref-*`, `unsupported-ref` 진단 |
+
+같은 입력 파일이면 어느 위치에서 실행해도 byte 단위로 같은 출력이 나옵니다. 노드·엣지·
+진단은 code unit 순서로 정렬하고, timestamp를 넣지 않으며, 모든 파일 경로는 진입 문서
+디렉터리 기준 `$ref` 형식(`./shared.yaml`)으로 씁니다. `canonicalId` 매핑은 노드 pointer
+자신 또는 가장 가까운 상위 pointer의 provenance entry를 쓰며, spec-lens graph와 같은
+`findNearestJsonPointerEntry()`(`@oa-sdk/parser`)를 공유합니다.
+
+종료 코드는 artifact를 쓰면 `0`이고, `--spec` 누락, 읽을 수 없거나 파싱할 수 없는 spec·provenance,
+형식이 틀린 provenance entry이면 `1`입니다(출력 파일을 쓰지 않음). `ref-cycle` 같은 진단은
+artifact 내용이며 종료 코드를 바꾸지 않습니다.
 
 ## generate:tanstack 옵션 및 인수 명세
 

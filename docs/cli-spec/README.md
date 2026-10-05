@@ -18,14 +18,20 @@ machine-readable support and migration declaration for provenance, parallel
 evidence, and governance-config artifacts. It is mirrored by
 `packages/codegen/src/cli/lib/artifact-compatibility-policy.ts`.
 
+`docs/cli-spec/oa-sdk.ref-projection.v1.schema.json` is the JSON Schema of the
+`oa-sdk.ref-projection.v1` artifact that `oa-gen ref-projection` emits, for readers
+outside TypeScript. It is mirrored by `REF_PROJECTION_ARTIFACT_SCHEMA_V1` in
+`packages/codegen/src/cli/lib/ref-projection-artifact-schema.ts`, which is the
+authoring source.
+
 ## Ownership
 
-The typed TypeScript manifest is the authoring source for the 20 governance-tracked
+The typed TypeScript manifest is the authoring source for the governance-tracked
 `oa-gen` command options and descriptions. Its JSON file in this directory is the
-language-neutral mirror. The live `oa-gen` registry has 23 commands in total; the
-three general commands (`generate`, `typegen`, and `lint`)
-are intentionally documented outside this governance manifest. Change both manifest
-files in the same patch and run the check below.
+language-neutral mirror. Commands that are intentionally documented outside this
+governance manifest, such as the general `generate`, `typegen`, and `lint`, are
+listed in `undocumentedOaGenCommands` in `scripts/check-cli-spec.ts`. Change both
+manifest files in the same patch and run the check below.
 
 Operational guidance belongs in `docs/guides/`, rather than in a manifest
 description. For the duplicate-review command, use

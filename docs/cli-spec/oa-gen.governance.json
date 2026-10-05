@@ -1090,6 +1090,65 @@
       }
     },
     {
+      "id": "ref-projection",
+      "kind": "command",
+      "name": "ref-projection",
+      "summary": "OpenAPI 문서의 $ref 구조를 전개 없이 oa-sdk.ref-projection.v1 그래프 artifact로 내보내기",
+      "components": {
+        "options": [
+          {
+            "name": "spec",
+            "type": "string",
+            "short": "s",
+            "required": true,
+            "description": "OpenAPI YAML/JSON 문서 경로"
+          },
+          {
+            "name": "provenance",
+            "type": "string",
+            "description": "build-spec --provenance가 쓴 provenance map JSON 경로 (노드별 canonicalId 매핑)"
+          },
+          {
+            "name": "output",
+            "type": "string",
+            "short": "o",
+            "description": "artifact JSON 출력 파일 경로 (기본: stdout)"
+          }
+        ],
+        "inputs": [
+          {
+            "name": "spec",
+            "kind": "openapi-document",
+            "required": true,
+            "option": "spec"
+          },
+          {
+            "name": "provenance",
+            "kind": "openapi-provenance",
+            "required": false,
+            "option": "provenance"
+          }
+        ],
+        "checks": [],
+        "reports": [
+          {
+            "formats": [
+              "json"
+            ],
+            "schema": "oa-sdk.ref-projection.v1"
+          }
+        ],
+        "exitPolicy": {
+          "success": [
+            "APPROVE"
+          ],
+          "failure": [
+            "REQUEST_CHANGES"
+          ]
+        }
+      }
+    },
+    {
       "id": "behavior-query",
       "kind": "command",
       "name": "behavior-query",
