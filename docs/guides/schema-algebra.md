@@ -334,16 +334,20 @@ fold(#/components/schemas/Node)
 
 외부 파일 ref(`./file.yaml#/pointer`)도 `filePath#pointer` 조합으로 동일하게 추적한다.
 
-### Set 기반 (zod-to-schema)
+### 등록 스키마 참조 기반 (zod-to-schema)
 
-`zod-to-schema.ts`의 `convertType()`은 `_converting: Set`으로 현재 변환 중인 Zod 스키마를 추적한다. 이미 변환 중인 스키마를 다시 만나면 `{ $ref }` 참조를 반환한다.
+`zod-to-schema.ts`의 `zodToSchema()`는 변환의 루트만 전개하고, 루트 아래에서 `context.refs`에 등록된 Zod 스키마를 만나면 재귀 여부와 관계없이 `{ $ref }`를 반환한다. 재귀(`z.lazy`)는 등록된 스키마에서 끊긴다.
 
 ```typescript
-if (context.refs.has(schema) && context._converting.has(schema)) {
-  return { $ref: `#/components/schemas/${refName}` }  // 순환 탈출
+function convertChild(schema, context) {
+  const refName = context?.refs?.get(schema)
+  return refName
+    ? { $ref: `#/components/schemas/${refName}` }  // 등록 스키마 → 참조
+    : expandType(schema, context)                  // 미등록 스키마 → 전개
 }
-context._converting.add(schema)  // 변환 시작 마킹
 ```
+
+컨텍스트에 변환 상태를 남기지 않으므로 결과는 변환 순서와 무관하고, 한 스키마 인스턴스를 여러 위치에서 쓰는 DAG에서도 출력 크기가 스키마 크기에 선형이다. 등록된 스키마는 모두 component로 내보내야 참조가 해소된다.
 
 ---
 

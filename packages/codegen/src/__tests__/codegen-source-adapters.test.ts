@@ -82,6 +82,21 @@ describe('codegen source adapters', () => {
     expect(result.fragments[0]?.contentHash).toBe(createOpenApiSourceContentHash(result.fragments[0]?.content))
   })
 
+  it('references a Zod schema shared between fragments by $ref in any input order', () => {
+    const Address = z.object({ city: z.string() })
+    const User = z.object({ home: Address, work: Address })
+    const addressRef = { $ref: '#/components/schemas/Address' }
+
+    const dependentFirst = adaptZodSchemas({ User, Address })
+    const dependencyFirst = adaptZodSchemas({ Address, User })
+
+    expect(dependentFirst.fragments.map(fragment => [fragment.sourcePointer, fragment.content])).toEqual([
+      ['#/schemas/Address', { type: 'object', properties: { city: { type: 'string' } }, required: ['city'] }],
+      ['#/schemas/User', { type: 'object', properties: { home: addressRef, work: addressRef }, required: ['home', 'work'] }],
+    ])
+    expect(dependencyFirst.fragments).toEqual(dependentFirst.fragments)
+  })
+
   it('adapts Drizzle table schemas without changing the existing conversion boundary', async () => {
     const widgets = pgTable('widgets', {
       id: integer('id').primaryKey(),

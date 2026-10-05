@@ -1687,7 +1687,7 @@ export type VisualTreeDocument = z.infer<typeof VisualTreeDocumentSchema>;
 #### Cycle-Safe Projection Engine Mechanics:
 During projection to JSON Schema Draft 2020-12 or OpenAPI 3.1:
 1. The projection engine registers `VisualTreeNodeSchema` in `context.refs.set(VisualTreeNodeSchema, 'VisualTreeNode')`.
-2. When converting child properties, `_converting.has(VisualTreeNodeSchema)` detects the recursion loop and immediately returns `{ $ref: "#/components/schemas/VisualTreeNode" }`.
+2. Only the root of each component conversion is expanded. Below the root, every registered schema, including the recursive `VisualTreeNodeSchema` child, is emitted as `{ $ref: "#/components/schemas/VisualTreeNode" }`, so the recursion stops at its registered entry.
 3. This completely prevents call stack overflow and produces clean, compliant cyclic reference graphs:
 
 ```json

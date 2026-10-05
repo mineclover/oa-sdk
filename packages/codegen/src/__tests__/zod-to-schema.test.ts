@@ -458,19 +458,38 @@ describe('zodToSchema — shared schema instances', () => {
   const Pair = z.object({ first: Id, second: Id })
   const refs = new Map<z.ZodTypeAny, string>([[Pair, 'Pair'], [Id, 'Id']])
   const idSchema = { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] }
+  const idRef = { $ref: '#/components/schemas/Id' }
+  const pairSchema = { type: 'object', properties: { first: idRef, second: idRef }, required: ['first', 'second'] }
 
-  it('expands a registered schema at every location that is not a recursive visit', () => {
-    const result = zodToSchema(Pair, { refs })
+  function componentsOf(schemas: Record<string, z.ZodTypeAny>): Record<string, unknown> {
+    const context = { refs: new Map<z.ZodTypeAny, string>(Object.entries(schemas).map(([name, schema]) => [schema, name])) }
+    return Object.fromEntries(Object.entries(schemas).map(([name, schema]) => [name, zodToSchema(schema, context)]))
+  }
 
-    expect(result.properties!.first).toEqual(idSchema)
-    expect(result.properties!.second).toEqual(idSchema)
+  it('emits $ref for a registered schema at every location below the root', () => {
+    expect(zodToSchema(Pair, { refs })).toEqual(pairSchema)
   })
 
-  it('converts each component fully when one context is reused across components', () => {
-    const context = { refs }
+  it('expands a registered schema at the root of its own conversion', () => {
+    expect(zodToSchema(Id, { refs })).toEqual(idSchema)
+  })
 
-    expect(zodToSchema(Pair, context).properties!.second).toEqual(idSchema)
-    expect(zodToSchema(Id, context)).toEqual(idSchema)
+  it('expands an unregistered shared schema at every location', () => {
+    const Shared = z.object({ id: z.string() })
+    const Wrapper = z.object({ first: Shared, second: Shared })
+    const context = { refs: new Map<z.ZodTypeAny, string>([[Wrapper, 'Wrapper']]) }
+
+    const result = zodToSchema(Wrapper, context)
+    expect(result.properties).toEqual({ first: idSchema, second: idSchema })
+    expect(result.properties!.first).not.toBe(result.properties!.second)
+  })
+
+  it('converts each component the same way in any order when one context is reused', () => {
+    const dependencyFirst = componentsOf({ Id, Pair })
+    const dependentFirst = componentsOf({ Pair, Id })
+
+    expect(dependencyFirst).toEqual({ Id: idSchema, Pair: pairSchema })
+    expect(dependentFirst).toEqual({ Pair: pairSchema, Id: idSchema })
   })
 
   it('still emits $ref for the recursive visit when a context is reused', () => {
@@ -483,5 +502,52 @@ describe('zodToSchema — shared schema instances', () => {
     const first = zodToSchema(Category, context)
     expect(first.properties!.children!.items).toEqual({ $ref: '#/components/schemas/Category' })
     expect(zodToSchema(Category, context)).toEqual(first)
+  })
+
+  it('keeps each component of a registered doubling DAG at a constant size', () => {
+    const depth = 12
+    const schemas: Record<string, z.ZodTypeAny> = { Level0: Id }
+    for (let level = 1; level <= depth; level++) {
+      const previous = schemas[`Level${level - 1}`]!
+      schemas[`Level${level}`] = z.object({ left: previous, right: previous })
+    }
+
+    const components = componentsOf(schemas)
+    expect(components['Level0']).toEqual(idSchema)
+    for (let level = 1; level <= depth; level++) {
+      const previousRef = { $ref: `#/components/schemas/Level${level - 1}` }
+      expect(components[`Level${level}`]).toEqual({
+        type: 'object',
+        properties: { left: previousRef, right: previousRef },
+        required: ['left', 'right'],
+      })
+    }
+  })
+
+  it('terminates on mutually recursive registered schemas with one $ref per reference', () => {
+    const names = ['Alpha', 'Beta', 'Gamma', 'Delta']
+    const schemas: Record<string, z.ZodTypeAny> = {}
+    for (const name of names) {
+      const others = names.filter(other => other !== name)
+      schemas[name] = z.object({
+        links: z.lazy(() => z.object(Object.fromEntries(others.map(other => [other, schemas[other]!])))),
+      })
+    }
+
+    const components = componentsOf(schemas)
+    for (const name of names) {
+      const others = names.filter(other => other !== name)
+      expect(components[name]).toEqual({
+        type: 'object',
+        properties: {
+          links: {
+            type: 'object',
+            properties: Object.fromEntries(others.map(other => [other, { $ref: `#/components/schemas/${other}` }])),
+            required: others,
+          },
+        },
+        required: ['links'],
+      })
+    }
   })
 })

@@ -220,16 +220,23 @@ describe('generateComponents — CodegenResult 구조', () => {
 })
 
 describe('generateComponents — components that share a schema', () => {
-  it('writes a component used inside an earlier component as its own schema, not a self $ref', () => {
-    const Id = z.object({ id: z.string() })
-    const schemas = { Pair: z.object({ first: Id, second: Id }), Id }
+  const Id = z.object({ id: z.string() })
+  const Pair = z.object({ first: Id, second: Id })
+  const idSchema = { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] }
+  const idRef = { $ref: '#/components/schemas/Id' }
+  const pairSchema = { type: 'object', properties: { first: idRef, second: idRef }, required: ['first', 'second'] }
+
+  function writtenComponents(schemas: Record<string, z.ZodTypeAny>): Record<string, unknown> {
     generateComponents(schemas, { output: tmpDir })
-
     const raw = readFileSync(join(tmpDir, 'components.yaml'), 'utf8')
-    const parsed = parseYaml(raw) as { components: { schemas: Record<string, { properties: Record<string, unknown> }> } }
-    const idSchema = { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] }
+    return (parseYaml(raw) as { components: { schemas: Record<string, unknown> } }).components.schemas
+  }
 
-    expect(parsed.components.schemas['Id']).toEqual(idSchema)
-    expect(parsed.components.schemas['Pair']!.properties).toEqual({ first: idSchema, second: idSchema })
+  it('writes a component used inside an earlier component as its own schema, not a self $ref', () => {
+    expect(writtenComponents({ Pair, Id })).toEqual({ Pair: pairSchema, Id: idSchema })
+  })
+
+  it('writes the same components when the dependency comes first', () => {
+    expect(writtenComponents({ Id, Pair })).toEqual({ Id: idSchema, Pair: pairSchema })
   })
 })

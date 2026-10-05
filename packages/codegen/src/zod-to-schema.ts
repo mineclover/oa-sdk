@@ -19,14 +19,37 @@ function def(schema: z.ZodTypeAny): Def {
 }
 
 export type ZodToSchemaContext = {
-  /** Map from Zod schema instance → registered component name (for $ref resolution) */
+  /**
+   * Map from Zod schema instance → registered component name. Below the root of a
+   * conversion, a registered schema is emitted as `$ref: '#/components/schemas/<name>'`,
+   * so every registered schema must also be emitted as that component.
+   */
   refs?: Map<z.ZodTypeAny, string>
-  /** Schemas currently being converted (to detect recursion and emit $ref instead) */
-  _converting?: Set<z.ZodTypeAny>
 }
 
+/**
+ * Converts `schema` as the root of a conversion: the root is expanded even when it is
+ * registered in `context.refs` (it is the component being defined), and every registered
+ * schema below it becomes a `$ref`.
+ *
+ * The result depends only on the schema, never on earlier conversions, so one context can
+ * be reused across components in any order. Zod schema graphs are DAGs whenever an
+ * instance is used at several locations; emitting `$ref` at each of them keeps the output
+ * linear in the size of the schema, and a recursive schema (z.lazy) terminates at its
+ * registered entry.
+ */
 export function zodToSchema(schema: z.ZodTypeAny, context?: ZodToSchemaContext): OasSchema {
-  const result = convertType(schema, context)
+  return withDescription(schema, expandType(schema, context))
+}
+
+/** Converts a schema met below the root of a conversion. */
+function convertChild(schema: z.ZodTypeAny, context?: ZodToSchemaContext): OasSchema {
+  const refName = context?.refs?.get(schema)
+  const result = refName ? { $ref: `#/components/schemas/${refName}` } : expandType(schema, context)
+  return withDescription(schema, result)
+}
+
+function withDescription(schema: z.ZodTypeAny, result: OasSchema): OasSchema {
   if (schema.description) result.description = schema.description
   return result
 }
@@ -49,28 +72,6 @@ function getZodKind(schema: z.ZodTypeAny): string {
   return cName
 }
 
-function convertType(schema: z.ZodTypeAny, context?: ZodToSchemaContext): OasSchema {
-  // --- $ref resolution for recursive schemas ---
-  // If the schema is registered in refs AND is already being converted (recursive visit),
-  // emit a $ref instead of expanding it again (which would cause infinite recursion).
-  // `_converting` holds only the schemas on the current conversion path: a schema
-  // instance shared at several locations, or converted again with a reused context,
-  // is not a recursive visit and is expanded at each of them.
-  const refName = context?.refs?.get(schema)
-  if (!context || !refName) return expandType(schema, context)
-
-  const converting = context._converting ?? (context._converting = new Set())
-  if (converting.has(schema)) {
-    return { $ref: `#/components/schemas/${refName}` }
-  }
-  converting.add(schema)
-  try {
-    return expandType(schema, context)
-  } finally {
-    converting.delete(schema)
-  }
-}
-
 // eslint-disable-next-line complexity
 function expandType(schema: z.ZodTypeAny, context?: ZodToSchemaContext): OasSchema {
   const d = def(schema)
@@ -78,25 +79,25 @@ function expandType(schema: z.ZodTypeAny, context?: ZodToSchemaContext): OasSche
 
   // --- wrappers ---
   if (schema instanceof z.ZodOptional || kind === 'ZodOptional') {
-    return zodToSchema(d['innerType'] as z.ZodTypeAny, context)
+    return convertChild(d['innerType'] as z.ZodTypeAny, context)
   }
   if (schema instanceof z.ZodNullable || kind === 'ZodNullable') {
-    const inner = zodToSchema(d['innerType'] as z.ZodTypeAny, context)
+    const inner = convertChild(d['innerType'] as z.ZodTypeAny, context)
     return { anyOf: [inner, { type: 'null' }] }
   }
   if (schema instanceof z.ZodDefault || kind === 'ZodDefault') {
-    const inner = zodToSchema(d['innerType'] as z.ZodTypeAny, context)
+    const inner = convertChild(d['innerType'] as z.ZodTypeAny, context)
     return { ...inner, default: d['defaultValue'] }
   }
   if (schema instanceof z.ZodCatch || kind === 'ZodCatch') {
-    return zodToSchema(d['innerType'] as z.ZodTypeAny, context)
+    return convertChild(d['innerType'] as z.ZodTypeAny, context)
   }
   // ZodPipe covers both .transform() and .pipe() in Zod v4
   if (schema instanceof z.ZodPipe || kind === 'ZodPipe') {
-    return zodToSchema(d['in'] as z.ZodTypeAny, context)
+    return convertChild(d['in'] as z.ZodTypeAny, context)
   }
   if (schema instanceof z.ZodReadonly || kind === 'ZodReadonly') {
-    return zodToSchema(d['innerType'] as z.ZodTypeAny, context)
+    return convertChild(d['innerType'] as z.ZodTypeAny, context)
   }
   if (schema instanceof z.ZodLazy || kind === 'ZodLazy') {
     // 재귀 스키마: getter를 실행하여 내부 스키마를 얻고 context와 함께 재귀 변환
@@ -104,7 +105,7 @@ function expandType(schema: z.ZodTypeAny, context?: ZodToSchemaContext): OasSche
       const getter = d['getter'] as (() => z.ZodTypeAny) | undefined
       if (getter) {
         const innerSchema = getter()
-        return zodToSchema(innerSchema, context)
+        return convertChild(innerSchema, context)
       }
     }
     return {} // refs 없으면 빈 스키마 폴백
@@ -129,13 +130,13 @@ function expandType(schema: z.ZodTypeAny, context?: ZodToSchemaContext): OasSche
   if (schema instanceof z.ZodTuple || kind === 'ZodTuple') return convertTuple(schema as unknown as z.ZodTypeAny, context)
   if (schema instanceof z.ZodObject || kind === 'ZodObject') return convertObject(schema as unknown as z.ZodTypeAny, context)
   if (schema instanceof z.ZodRecord || kind === 'ZodRecord') {
-    return { type: 'object', additionalProperties: zodToSchema(d['valueType'] as z.ZodTypeAny, context) }
+    return { type: 'object', additionalProperties: convertChild(d['valueType'] as z.ZodTypeAny, context) }
   }
   if (schema instanceof z.ZodMap || kind === 'ZodMap') {
-    return { type: 'object', additionalProperties: zodToSchema(d['valueType'] as z.ZodTypeAny, context) }
+    return { type: 'object', additionalProperties: convertChild(d['valueType'] as z.ZodTypeAny, context) }
   }
   if (schema instanceof z.ZodSet || kind === 'ZodSet') {
-    return { type: 'array', items: zodToSchema(d['valueType'] as z.ZodTypeAny, context), uniqueItems: true }
+    return { type: 'array', items: convertChild(d['valueType'] as z.ZodTypeAny, context), uniqueItems: true }
   }
   if (schema instanceof z.ZodDiscriminatedUnion || kind === 'ZodDiscriminatedUnion') {
     const rawOptions = d['options'] ?? d['optionsMap']
@@ -155,7 +156,7 @@ function expandType(schema: z.ZodTypeAny, context?: ZodToSchemaContext): OasSche
         if (refName) {
           return { $ref: `#/components/schemas/${refName}` }
         }
-        return zodToSchema(o, context)
+        return convertChild(o, context)
       }),
     }
 
@@ -202,10 +203,10 @@ function expandType(schema: z.ZodTypeAny, context?: ZodToSchemaContext): OasSche
   }
   if (schema instanceof z.ZodUnion || kind === 'ZodUnion') {
     const options = (d['options'] ?? d['optionsMap']) as z.ZodTypeAny[]
-    return { oneOf: Array.isArray(options) ? options.map(o => zodToSchema(o, context)) : [] }
+    return { oneOf: Array.isArray(options) ? options.map(o => convertChild(o, context)) : [] }
   }
   if (schema instanceof z.ZodIntersection || kind === 'ZodIntersection') {
-    return { allOf: [zodToSchema(d['left'] as z.ZodTypeAny, context), zodToSchema(d['right'] as z.ZodTypeAny, context)] }
+    return { allOf: [convertChild(d['left'] as z.ZodTypeAny, context), convertChild(d['right'] as z.ZodTypeAny, context)] }
   }
 
   return {}
@@ -343,7 +344,7 @@ function convertEnum(schema: z.ZodTypeAny): OasSchema {
 function convertArray(schema: z.ZodTypeAny, context?: ZodToSchemaContext): OasSchema {
   // Zod v4: element type in _def.element, length constraints in _def.checks
   const d = def(schema)
-  const result: OasSchema = { type: 'array', items: zodToSchema(d['element'] as z.ZodTypeAny, context) }
+  const result: OasSchema = { type: 'array', items: convertChild(d['element'] as z.ZodTypeAny, context) }
   for (const check of (d['checks'] as unknown[]) ?? []) {
     const cd = getCheckDef(check)
     if (!cd) continue
@@ -362,14 +363,14 @@ function convertArray(schema: z.ZodTypeAny, context?: ZodToSchemaContext): OasSc
 
 function convertTuple(schema: z.ZodTypeAny, context?: ZodToSchemaContext): OasSchema {
   const d = def(schema)
-  const items = (d['items'] as z.ZodTypeAny[]).map(i => zodToSchema(i, context))
+  const items = (d['items'] as z.ZodTypeAny[]).map(i => convertChild(i, context))
   const rest = d['rest'] as z.ZodTypeAny | null | undefined
 
   if (items.length === 0 && rest == null) return { type: 'array', maxItems: 0 }
-  if (items.length === 0 && rest != null) return { type: 'array', items: zodToSchema(rest, context) }
+  if (items.length === 0 && rest != null) return { type: 'array', items: convertChild(rest, context) }
 
   const result: OasSchema = { type: 'array', prefixItems: items }
-  if (rest != null) result.items = zodToSchema(rest, context)
+  if (rest != null) result.items = convertChild(rest, context)
   else result.maxItems = items.length
   return result
 }
@@ -382,7 +383,7 @@ function convertObject(schema: z.ZodTypeAny, context?: ZodToSchemaContext): OasS
   const required: string[] = []
 
   for (const [key, value] of Object.entries(shape)) {
-    properties[key] = zodToSchema(value, context)
+    properties[key] = convertChild(value, context)
     if (!isOptionalType(value)) required.push(key)
   }
 
@@ -391,7 +392,7 @@ function convertObject(schema: z.ZodTypeAny, context?: ZodToSchemaContext): OasS
 
   // Zod v4: catchall=ZodNever → additionalProperties: false
   //         catchall=ZodUnknown/ZodAny → open (default, no additionalProperties)
-  //         other catchall → additionalProperties: zodToSchema(catchall)
+  //         other catchall → additionalProperties: convertChild(catchall)
   const catchall = def(schema)['catchall'] as z.ZodTypeAny | undefined
   if (catchall instanceof z.ZodNever) {
     result.additionalProperties = false
@@ -400,7 +401,7 @@ function convertObject(schema: z.ZodTypeAny, context?: ZodToSchemaContext): OasS
     !(catchall instanceof z.ZodUnknown) &&
     !(catchall instanceof z.ZodAny)
   ) {
-    result.additionalProperties = zodToSchema(catchall, context)
+    result.additionalProperties = convertChild(catchall, context)
   }
 
   return result
