@@ -4,6 +4,11 @@ OpenAPI path를 모듈화할 때는 API URL, source identity, file path, JSON Po
 관리한다. 이 규칙은 Definition Builder fragments, target-check, provenance, review feedback
 모두에서 같은 좌표를 쓰기 위한 기준이다.
 
+적용 범위:
+
+- **Definition Builder로 계약을 조립하는 외부 서비스**: fragment가 주 원본이다. 명령은 `@oa-sdk/codegen`을 설치한 서비스에서 `oa-gen build-spec`, `oa-gen target-check`, `oa-gen duplicate-review`로 실행한다([OpenAPI Governance Service Template](./openapi-governance-service-template.md)).
+- **이 저장소(oa-sdk)**: production 원본은 TypeSpec이고 `packages/schemas/src/fragments`는 rollback·참조 경로다([스키마 작성 가이드 3절](./schema-authoring.md#3-배포-환경-projection과-rollback-경로-저장소)). 저장소 루트에는 `oa-gen`이 PATH에 없으므로 `node packages/codegen/dist/cli/index.js <명령>`으로 실행한다. rollback 경로는 `pnpm schema:rollback-check`로 검증한다. `pnpm schema:validate:openapi`를 직접 실행하면 추적 중인 `packages/schemas/src/.merged.3.1.yaml`과 `.merged.3.1.meta.json`이 rollback 결과로 덮어써지므로, 커밋 전에 `pnpm schema:validate`를 다시 실행한다.
+
 ## 좌표 4종
 
 | 좌표 | 예시 | 역할 |
@@ -14,6 +19,18 @@ OpenAPI path를 모듈화할 때는 API URL, source identity, file path, JSON Po
 | JSON Pointer | `#/paths/~1books~1{bookId}~1notes~1{noteId}/get` | artifact/provenance/review 위치 |
 
 이 네 가지를 서로 대체하지 않는다.
+
+JSON Pointer는 손으로 escape하지 말고 `@oa-sdk/parser`의 RFC 6901 helper로 만든다. `formatJsonPointer`는
+percent-encoding을 하지 않으므로 결과에 `#`를 붙이면 이 문서의 표기와 같다.
+
+```typescript
+import { formatJsonPointer } from '@oa-sdk/parser'
+
+'#' + formatJsonPointer(['paths', '/books/{bookId}/notes/{noteId}', 'get'])
+// → '#/paths/~1books~1{bookId}~1notes~1{noteId}/get'
+```
+
+나머지 helper(`appendJsonPointer`, `parseJsonPointer` 등)는 [SchemaAlgebra 문서](./schema-algebra.md#json-pointer-helper)에 있다.
 
 ## Folder Rule
 
@@ -157,13 +174,26 @@ includePaths:
 ```
 
 Public target이 admin/internal path를 포함하지 않도록 `target-check`에서 gate를 둔다.
+`--fragments`를 생략하면 target 파일 옆의 `../fragments`를 읽는다.
 
 ```bash
-node packages/codegen/dist/cli/index.js target-check \
-  --target packages/schemas/src/targets/public-api.yaml \
+# 서비스 저장소
+npx oa-gen target-check \
+  --target contracts/targets/public-api.yaml \
+  --fragments contracts/fragments \
   --must-include-path /books \
   --must-exclude-path /admin/books
 ```
+
+```bash
+# 이 저장소 (rollback 경로의 book-notebook target)
+node packages/codegen/dist/cli/index.js target-check \
+  --target packages/schemas/src/targets/book-notebook-api.yaml \
+  --must-include-path "/books/{bookId}/notes" \
+  --must-exclude-path /admin/books
+```
+
+assertion이 하나라도 실패하면 종료 코드 1이다.
 
 ## Feedback Coordinate Rule
 
