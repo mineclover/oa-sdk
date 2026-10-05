@@ -31,7 +31,9 @@ export function parseDocument(
       document: optionsOrRaw,
       scope: 'custom',
     })
-    return parseResolvedDocument(doc, optionsOrRaw, resolution)
+    // The caller resolved `doc` by unknown means. Like a custom pass list
+    // without a `$ref` resolver, its leftover local references are resolved.
+    return parseResolvedDocument(doc, optionsOrRaw, resolution, { leftoverRefs: 'resolve' })
   }
 
   const { document, diagnostics, recursiveRefs } = derefInternalSpecWithDiagnostics(doc, optionsOrRaw)
@@ -41,7 +43,8 @@ export function parseDocument(
     diagnostics,
     recursiveRefs,
   })
-  return parseResolvedDocument(document, doc, resolution)
+  // Internal deref already tried every reference; what it left is unresolved.
+  return parseResolvedDocument(document, doc, resolution, { leftoverRefs: 'omit' })
 }
 
 function isOasDocument(value: BrowserParseDocumentOptions | OasDocument): value is OasDocument {

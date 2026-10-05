@@ -21,26 +21,35 @@
  * - `security` is operation ?? document ?? []; `servers` is
  *   operation ?? path item ?? document ?? [].
  * - Operation-level `x-*` extensions are copied onto the entry.
- * - `OperationEntry` exposes resolved objects. A `$ref` the pipeline left at an
- *   indexed position (Path Item, parameter, requestBody, response, callback) is
- *   resolved against the same document by local JSON pointer, following
- *   reference chains. What the referencing object contributes depends on the
- *   position (see `ReferenceSiblings`):
- *   - parameter, requestBody, response and callback hold Reference Objects
- *     (OAS 3.2 §4.8.23). Only `summary` and `description` override, and only
- *     where the referenced object type defines that field; every other added
- *     property is ignored. Along a chain the outermost override wins.
- *   - A Path Item `$ref` is a Path Item field, not a Reference Object. Fields
- *     declared beside it are Path Item fields and overlay the referenced Path
- *     Item; where both define a field (undefined behavior in OAS 3.2) the
- *     referencing object wins, as in the deref pass.
- *   A reference that cannot be resolved locally (external without a loader,
- *   missing target, cycle) is omitted instead of leaking a Reference Object
- *   into the IR; completeness is reported by `ParsedDocument.resolution`. An
- *   unresolved Path Item `$ref` still contributes the fields declared beside it.
- *   The deref pass still overlays every sibling at Reference Object positions,
- *   so a pipeline with deref can differ from this resolution for siblings other
- *   than `summary`/`description`.
+ * - `OperationEntry` exposes resolved objects and never a Reference Object.
+ *   What happens to a `$ref` the pipeline left at an indexed position (Path
+ *   Item, parameter, requestBody, response, callback) depends on whether a pass
+ *   of the pipeline resolves references (`RouteIndexOptions.leftoverRefs`):
+ *   - `'omit'`, after a `$ref` resolver such as the deref pass: the resolver
+ *     could not resolve the reference. A `$ref` resolves against the document
+ *     that contains it (RFC 3986), and the resolver keeps the spelling of the
+ *     document it was written in, which can be another file it inlined. So the
+ *     reference is omitted rather than resolved against the indexed document.
+ *   - `'resolve'`, without a resolver (e.g. a custom pass list `[]`): every
+ *     reference was written in the indexed document. It is resolved against
+ *     that document by local JSON pointer, following reference chains. What
+ *     the referencing object contributes depends on the position (see
+ *     `ReferenceSiblings`):
+ *     - parameter, requestBody, response and callback hold Reference Objects
+ *       (OAS 3.2 §4.8.23). Only `summary` and `description` override, and only
+ *       where the referenced object type defines that field; every other added
+ *       property is ignored. Along a chain the outermost override wins.
+ *     - A Path Item `$ref` is a Path Item field, not a Reference Object. Fields
+ *       declared beside it are Path Item fields and overlay the referenced Path
+ *       Item; where both define a field (undefined behavior in OAS 3.2) the
+ *       referencing object wins, as in the deref pass.
+ *     A reference that cannot be resolved locally (external without a loader,
+ *     missing target, cycle) is omitted as well.
+ *   In both modes an unresolved Path Item `$ref` still contributes the fields
+ *   declared beside it, and completeness is reported by
+ *   `ParsedDocument.resolution`. The deref pass still overlays every sibling at
+ *   Reference Object positions, so a pipeline with deref can differ from the
+ *   `'resolve'` mode for siblings other than `summary`/`description`.
  * - The input document is never mutated; entries share sub-objects with it.
  */
 
@@ -54,6 +63,8 @@ import type {
   OasResponse,
 } from './oas32-types.js'
 import type { HttpMethod, OperationEntry, RouteIndex } from './types.js'
+// Type-only: the browser entry uses this module and must not load the Node deref pass.
+import type { SpecPass } from './pipeline.js'
 import { HTTP_METHODS } from './route-match.js'
 import { resolveJsonPointer } from './json-pointer.js'
 import { createSafeRecord } from './safe-record.js'
@@ -83,6 +94,27 @@ const REFERENCE_OVERRIDES = {
   callback: [],
 } as const satisfies Record<string, readonly ReferenceOverrideField[]>
 
+export type RouteIndexOptions = {
+  /**
+   * What to do with a `$ref` the pipeline left at an indexed position:
+   * `'resolve'` it against the indexed document by local JSON pointer, or
+   * `'omit'` it because a `$ref` resolver produced the document and could not
+   * resolve it. `routeIndexOptionsAfter()` derives it from a pass list.
+   */
+  leftoverRefs: 'resolve' | 'omit'
+}
+
+/**
+ * Route index options for the output of `passes`: leftover references are
+ * omitted when any pass resolves `$ref`s (`SpecPass.resolvesRefs`).
+ */
+export function routeIndexOptionsAfter(passes: readonly SpecPass[]): RouteIndexOptions {
+  return { leftoverRefs: passes.some(pass => pass.resolvesRefs === true) ? 'omit' : 'resolve' }
+}
+
+/** The indexed document and how its leftover references are treated. */
+type IndexContext = RouteIndexOptions & { doc: OasDocument }
+
 export type PathOperationIndex = {
   /** Path operations in document order: paths, fixed-field methods, then additionalOperations. */
   operations: OperationEntry[]
@@ -91,16 +123,17 @@ export type PathOperationIndex = {
 }
 
 /** Index every operation under `paths` of a pipeline-resolved document. */
-export function indexPathOperations(doc: OasDocument): PathOperationIndex {
+export function indexPathOperations(doc: OasDocument, options: RouteIndexOptions): PathOperationIndex {
+  const ctx: IndexContext = { ...options, doc }
   const operations: OperationEntry[] = []
   const routes: RouteIndex = new Map()
 
   for (const [path, rawItem] of entriesOf(doc.paths)) {
-    const item = resolvePathItem(doc, rawItem)
+    const item = resolvePathItem(ctx, rawItem)
     if (!item) continue
 
     const methodMap = new Map<HttpMethod, OperationEntry>()
-    for (const entry of extractPathItemOperations(path, item, doc)) {
+    for (const entry of extractPathItemOperations(path, item, ctx)) {
       methodMap.set(entry.method, entry)
       operations.push(entry)
     }
@@ -111,17 +144,18 @@ export function indexPathOperations(doc: OasDocument): PathOperationIndex {
 }
 
 /** Build the request-routing index (`paths` only) of a pipeline-resolved document. */
-export function buildRouteIndex(doc: OasDocument): RouteIndex {
-  return indexPathOperations(doc).routes
+export function buildRouteIndex(doc: OasDocument, options: RouteIndexOptions): RouteIndex {
+  return indexPathOperations(doc, options).routes
 }
 
 /** Extract webhook operations under the pseudo path `/webhooks/{name}`. */
-export function extractWebhookOperations(doc: OasDocument): OperationEntry[] {
+export function extractWebhookOperations(doc: OasDocument, options: RouteIndexOptions): OperationEntry[] {
+  const ctx: IndexContext = { ...options, doc }
   const webhooks: OperationEntry[] = []
   for (const [name, rawItem] of entriesOf(doc.webhooks)) {
-    const item = resolvePathItem(doc, rawItem)
+    const item = resolvePathItem(ctx, rawItem)
     if (!item) continue
-    webhooks.push(...extractPathItemOperations(`/webhooks/${name}`, item, doc))
+    webhooks.push(...extractPathItemOperations(`/webhooks/${name}`, item, ctx))
   }
   return webhooks
 }
@@ -129,9 +163,9 @@ export function extractWebhookOperations(doc: OasDocument): OperationEntry[] {
 function extractPathItemOperations(
   path: string,
   item: OasPathItem,
-  doc: OasDocument,
+  ctx: IndexContext,
 ): OperationEntry[] {
-  const pathParams = resolveParameters(doc, item.parameters)
+  const pathParams = resolveParameters(ctx, item.parameters)
   const entries: OperationEntry[] = []
   const fixedMethods = new Set<string>()
 
@@ -139,14 +173,14 @@ function extractPathItemOperations(
     const operation = item[method]
     if (!isRecord(operation)) continue
     fixedMethods.add(method)
-    entries.push(buildEntry(path, method, operation, pathParams, item, doc))
+    entries.push(buildEntry(path, method, operation, pathParams, item, ctx))
   }
 
   for (const [method, operation] of entriesOf(item.additionalOperations)) {
     if (!isRecord(operation) || fixedMethods.has(method.toLowerCase())) continue
     // additionalOperations keys are arbitrary method tokens outside the
     // HttpMethod union; the RouteIndex keeps them verbatim.
-    entries.push(buildEntry(path, method as HttpMethod, operation as OasOperation, pathParams, item, doc))
+    entries.push(buildEntry(path, method as HttpMethod, operation as OasOperation, pathParams, item, ctx))
   }
 
   return entries
@@ -158,24 +192,25 @@ function buildEntry(
   op: OasOperation,
   pathParams: OasParameter[],
   item: OasPathItem,
-  doc: OasDocument,
+  ctx: IndexContext,
 ): OperationEntry {
+  const { doc } = ctx
   const entry: OperationEntry = {
     openApiPath: path,
     method,
     tags: op.tags ?? [],
     deprecated: op.deprecated ?? false,
-    parameters: mergeParameters(pathParams, resolveParameters(doc, op.parameters)),
-    responses: resolveReferenceMap<OasResponse>(doc, op.responses, REFERENCE_OVERRIDES.response),
+    parameters: mergeParameters(pathParams, resolveParameters(ctx, op.parameters)),
+    responses: resolveReferenceMap<OasResponse>(ctx, op.responses, REFERENCE_OVERRIDES.response),
     security: op.security ?? doc.security ?? [],
     servers: op.servers ?? item.servers ?? doc.servers ?? [],
-    callbacks: resolveReferenceMap<OasCallback>(doc, op.callbacks, REFERENCE_OVERRIDES.callback),
+    callbacks: resolveReferenceMap<OasCallback>(ctx, op.callbacks, REFERENCE_OVERRIDES.callback),
   }
 
   if (op.operationId !== undefined) entry.operationId = op.operationId
   if (op.summary !== undefined) entry.summary = op.summary
   if (op.description !== undefined) entry.description = op.description
-  const requestBody = resolveReference<OasRequestBody>(doc, op.requestBody, REFERENCE_OVERRIDES.requestBody)
+  const requestBody = resolveReference<OasRequestBody>(ctx, op.requestBody, REFERENCE_OVERRIDES.requestBody)
   if (requestBody) entry.requestBody = requestBody
   if (op.externalDocs !== undefined) entry.externalDocs = op.externalDocs
   for (const [key, value] of Object.entries(op)) {
@@ -185,11 +220,11 @@ function buildEntry(
   return entry
 }
 
-function resolveParameters(doc: OasDocument, parameters: unknown): OasParameter[] {
+function resolveParameters(ctx: IndexContext, parameters: unknown): OasParameter[] {
   if (!Array.isArray(parameters)) return []
   const resolved: OasParameter[] = []
   for (const parameter of parameters) {
-    const value = resolveReference<OasParameter>(doc, parameter, REFERENCE_OVERRIDES.parameter)
+    const value = resolveReference<OasParameter>(ctx, parameter, REFERENCE_OVERRIDES.parameter)
     if (value) resolved.push(value)
   }
   return resolved
@@ -204,20 +239,20 @@ function mergeParameters(path: OasParameter[], op: OasParameter[]): OasParameter
 }
 
 function resolveReferenceMap<T>(
-  doc: OasDocument,
+  ctx: IndexContext,
   map: unknown,
   siblings: ReferenceSiblings,
 ): Record<string, T> {
   const resolved = createSafeRecord<T>()
   for (const [key, value] of entriesOf(map)) {
-    const target = resolveReference<T>(doc, value, siblings)
+    const target = resolveReference<T>(ctx, value, siblings)
     if (target) resolved[key] = target
   }
   return resolved
 }
 
-function resolvePathItem(doc: OasDocument, value: unknown): OasPathItem | undefined {
-  const resolved = resolveReference<OasPathItem>(doc, value, 'path-item')
+function resolvePathItem(ctx: IndexContext, value: unknown): OasPathItem | undefined {
+  const resolved = resolveReference<OasPathItem>(ctx, value, 'path-item')
   if (resolved) return resolved
   if (!isRecord(value)) return undefined
   // Unlike a Reference Object, a Path Item may declare operations beside its
@@ -229,11 +264,13 @@ function resolvePathItem(doc: OasDocument, value: unknown): OasPathItem | undefi
 /**
  * Resolve a `$ref` left in place by the pipeline, applying the fields of each
  * referencing object that `siblings` allows. Objects without `$ref` are returned
- * as-is so the result keeps sharing them with the document.
+ * as-is so the result keeps sharing them with the document. In `'omit'` mode a
+ * `$ref` is never resolved: the pipeline's resolver already could not.
  */
-function resolveReference<T>(doc: OasDocument, value: unknown, siblings: ReferenceSiblings): T | undefined {
+function resolveReference<T>(ctx: IndexContext, value: unknown, siblings: ReferenceSiblings): T | undefined {
   if (!isRecord(value)) return undefined
   if (!hasOwn(value, '$ref')) return value as T
+  if (ctx.leftoverRefs === 'omit') return undefined
 
   const overlays: JsonRecord[] = []
   const visited = new Set<JsonRecord>()
@@ -244,7 +281,7 @@ function resolveReference<T>(doc: OasDocument, value: unknown, siblings: Referen
     const ref = current.$ref
     if (typeof ref !== 'string') return undefined
     overlays.push(referencingFields(current, siblings))
-    current = resolveJsonPointer(doc, ref)
+    current = resolveJsonPointer(ctx.doc, ref)
   }
   if (!isRecord(current)) return undefined
 

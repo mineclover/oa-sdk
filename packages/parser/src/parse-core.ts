@@ -5,23 +5,24 @@ import type {
   Referenceable,
 } from './oas32-types.js'
 import type { ParsedDocument, ParsedDocumentRefResolution } from './types.js'
-import { createParsedDocumentRefResolution } from './parsed-document.js'
 import { createSafeRecord } from './safe-record.js'
-import { extractWebhookOperations, indexPathOperations } from './route-index.js'
+import { extractWebhookOperations, indexPathOperations, type RouteIndexOptions } from './route-index.js'
 
 /**
  * Build the ParsedDocument IR from a pipeline-resolved document.
  *
  * Operations, routes and webhooks come from the shared route-index builder
- * that `loadSchema` also uses.
+ * that `loadSchema` also uses. `routeIndex` says whether a `$ref` resolver
+ * produced `resolved`, which decides what happens to the references it left.
  */
 export function parseResolvedDocument(
   resolved: OasDocument,
-  raw: OasDocument = resolved,
-  resolution?: ParsedDocumentRefResolution,
+  raw: OasDocument,
+  resolution: ParsedDocumentRefResolution,
+  routeIndex: RouteIndexOptions,
 ): ParsedDocument {
-  const { operations, routes } = indexPathOperations(resolved)
-  const webhooks = extractWebhookOperations(resolved)
+  const { operations, routes } = indexPathOperations(resolved, routeIndex)
+  const webhooks = extractWebhookOperations(resolved, routeIndex)
 
   const components = resolved.components ?? {}
 
@@ -59,10 +60,7 @@ export function parseResolvedDocument(
     },
     webhooks,
     raw,
-    resolution: resolution ?? createParsedDocumentRefResolution({
-      document: resolved,
-      scope: 'custom',
-    }),
+    resolution,
   }
 }
 

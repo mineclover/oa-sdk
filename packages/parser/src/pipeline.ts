@@ -10,6 +10,18 @@ import { derefSpec, type DerefOptions } from './deref.js'
  */
 export interface SpecPass {
   readonly name: string
+  /**
+   * The pass resolves `$ref`s, as the deref pass does.
+   *
+   * A `$ref` such a pass leaves in its output is one it could not resolve. It
+   * keeps the spelling of the document it was written in, which can be another
+   * file the pass inlined, so it cannot be resolved against the output.
+   * `parseDocument()` and `loadSchema()` therefore omit those references from
+   * route entries when any pass of the pipeline sets this flag, and resolve
+   * local references themselves otherwise. Set it on a custom pass that
+   * resolves references, for example one that wraps `derefSpec()`.
+   */
+  readonly resolvesRefs?: boolean
   run<T>(spec: T): T
 }
 
@@ -27,6 +39,7 @@ export function runPipeline<T>(spec: T, passes: SpecPass[]): T {
 export function createDerefPass(options: DerefOptions = {}): SpecPass {
   return {
     name: 'deref',
+    resolvesRefs: true,
     run<T>(spec: T): T {
       return derefSpec(spec, options)
     },

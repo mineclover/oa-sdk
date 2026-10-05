@@ -17,6 +17,7 @@ import { runPipeline, DEFAULT_PASSES, createDerefPass, type SpecPass } from './p
 import type { DerefCycleStrategy, DerefDiagnostic, DerefOptions } from './deref.js'
 import { parseResolvedDocument } from './parse-core.js'
 import { createParsedDocumentRefResolution } from './parsed-document.js'
+import { routeIndexOptionsAfter } from './route-index.js'
 
 export type ParseDocumentOptions = {
   passes?: SpecPass[]
@@ -44,7 +45,7 @@ export function parseDocument(
     diagnostics: plan.diagnostics,
     recursiveRefs: [...plan.recursiveRefs],
   })
-  return parseResolvedDocument(resolved, doc, resolution)
+  return parseResolvedDocument(resolved, doc, resolution, routeIndexOptionsAfter(plan.passes))
 }
 
 type ParsePlan = {

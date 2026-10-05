@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { runPipeline, derefPass, DEFAULT_PASSES } from '../pipeline.js'
+import { runPipeline, derefPass, createDerefPass, DEFAULT_PASSES } from '../pipeline.js'
 import type { SpecPass } from '../pipeline.js'
 
 function bare() {
@@ -47,6 +47,11 @@ describe('runPipeline', () => {
   it('DEFAULT_PASSES includes deref', () => {
     expect(DEFAULT_PASSES).toContainEqual(derefPass)
     expect(DEFAULT_PASSES.some(p => p.name === 'deref')).toBe(true)
+  })
+
+  it('deref passes declare that they resolve $refs', () => {
+    expect(derefPass.resolvesRefs).toBe(true)
+    expect(createDerefPass({ basePath: '/specs/openapi.json' }).resolvesRefs).toBe(true)
   })
 
   it('custom pass composition', () => {

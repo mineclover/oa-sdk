@@ -4,14 +4,19 @@
  * Both entry points index the pipeline output through the shared route-index
  * builder. Every fixture is checked under the default deref pipeline and under
  * a custom pipeline without deref, where the builder itself has to resolve the
- * Reference Objects left at operation-level positions.
+ * Reference Objects left at operation-level positions. After a `$ref` resolver,
+ * the references it left are omitted instead (see the external-file fixture).
  */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { loadSchema } from '../schema-loader.js'
 import { parseDocument } from '../parse.js'
 import { parseDocument as parseBrowserDocument } from '../parse-browser.js'
 import { loadSchema as loadBrowserSchema } from '../schema-loader-browser.js'
-import type { SpecPass } from '../pipeline.js'
+import { derefSpec } from '../deref.js'
+import { createDerefPass, type SpecPass } from '../pipeline.js'
 import type { OasDocument } from '../oas32-types.js'
 import type { HttpMethod, OperationEntry, RouteIndex } from '../types.js'
 
@@ -288,6 +293,34 @@ const fixtures = {
       },
     },
   }),
+  unresolvedPathItemSiblings: doc({
+    paths: {
+      '/external/{id}': {
+        $ref: './paths.yaml#/Item',
+        parameters: [{ $ref: '#/components/parameters/Id' }],
+        get: {
+          operationId: 'besideUnresolvedRef',
+          parameters: [{ $ref: '#/components/parameters/Limit' }],
+          requestBody: { $ref: '#/components/requestBodies/Item' },
+          responses: { '200': { $ref: '#/components/responses/Item' } },
+          callbacks: { shared: { $ref: '#/components/callbacks/Shared' } },
+        },
+      },
+    },
+    components: {
+      parameters: {
+        Id: { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+        Limit: { name: 'limit', in: 'query', schema: { type: 'integer' } },
+      },
+      requestBodies: {
+        Item: { required: true, content: { 'application/json': { schema: { type: 'object' } } } },
+      },
+      responses: { Item: { description: 'Item' } },
+      callbacks: {
+        Shared: { '{$request.body#/sharedUrl}': { post: { operationId: 'sharedEvent', responses: ok } } },
+      },
+    },
+  }),
 }
 
 describe.each(PIPELINES)('loadSchema ↔ parseDocument parity (%s)', (_label, passes) => {
@@ -390,6 +423,17 @@ describe.each(PIPELINES)('loadSchema ↔ parseDocument parity (%s)', (_label, pa
     expect(entry(routes, '/external-item', 'get').operationId).toBe('declaredBesideRef')
     expect(parseDocument(structuredClone(fixtures.unresolvedExternal), passes).resolution?.status).toBe('partial')
   })
+
+  it('local references beside an unresolvable Path Item $ref still resolve', () => {
+    const routes = expectParity(fixtures.unresolvedPathItemSiblings, passes)
+    const components = fixtures.unresolvedPathItemSiblings.components!
+    const get = entry(routes, '/external/{id}', 'get')
+    expect(get.operationId).toBe('besideUnresolvedRef')
+    expect(get.parameters).toEqual([components.parameters!.Id, components.parameters!.Limit])
+    expect(get.requestBody).toEqual(components.requestBodies!.Item)
+    expect(get.responses).toEqual({ '200': components.responses!.Item })
+    expect(get.callbacks).toEqual({ shared: components.callbacks!.Shared })
+  })
 })
 
 describe('route-index fallback resolution', () => {
@@ -476,5 +520,104 @@ describe('browser loadSchema shares the builder', () => {
       expect(browserRoutes).toStrictEqual(parseBrowserDocument(structuredClone(spec)).routes)
       expect(browserRoutes).toEqual(loadSchema(structuredClone(spec)))
     }
+  })
+
+  it('produces the same routes as the Node loadSchema for partial internal documents', () => {
+    for (const spec of [fixtures.unresolvedExternal, fixtures.unresolvedPathItemSiblings]) {
+      const parsed = parseBrowserDocument(structuredClone(spec))
+      expect(parsed.resolution?.status).toBe('partial')
+      expect(parsed.routes).toEqual(loadSchema(structuredClone(spec)))
+    }
+  })
+})
+
+// A `$ref` resolver that inlines another file leaves the references it could
+// not resolve spelled relative to that file (OAS 3.2 / RFC 3986: a `$ref`
+// resolves against the document that contains it). The route index must not
+// resolve them against the entry document, which here defines the same
+// pointers with unrelated content.
+describe('references a $ref resolver left unresolved', () => {
+  let dir: string
+  let basePath: string
+
+  beforeAll(() => {
+    dir = mkdtempSync(join(tmpdir(), 'oa-sdk-route-index-'))
+    basePath = join(dir, 'openapi.json')
+    writeFileSync(join(dir, 'paths.json'), JSON.stringify({
+      A: { $ref: '#/components/pathItems/Shared' },
+      B: {
+        post: {
+          operationId: 'postB',
+          parameters: [
+            { $ref: '#/components/parameters/Local' },
+            { $ref: '#/components/parameters/Missing' },
+          ],
+          requestBody: { $ref: '#/components/requestBodies/Missing' },
+          responses: {
+            '200': { $ref: '#/components/responses/Missing' },
+            '204': { $ref: '#/components/responses/Local' },
+          },
+          callbacks: { onEvent: { $ref: '#/components/callbacks/Event' } },
+        },
+      },
+      components: {
+        parameters: { Local: { name: 'fromPathsFile', in: 'query' } },
+        responses: { Local: { description: 'From paths.json' } },
+      },
+    }))
+  })
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  const entryDocument = doc({
+    paths: {
+      '/a': { $ref: './paths.json#/A' },
+      '/b': { $ref: './paths.json#/B' },
+    },
+    webhooks: { hook: { $ref: './paths.json#/A' } },
+    components: {
+      pathItems: { Shared: { delete: { operationId: 'entryDelete', responses: ok } } },
+      parameters: { Missing: { name: 'fromEntry', in: 'query' } },
+      requestBodies: { Missing: { content: { 'text/plain': { schema: { type: 'string' } } } } },
+      responses: { Missing: { description: 'From the entry document' } },
+      callbacks: {
+        Event: { '{$request.body#/url}': { post: { operationId: 'entryEvent', responses: ok } } },
+      },
+    },
+  })
+
+  function expectOmitted(routes: RouteIndex): void {
+    expect([...routes.keys()]).toEqual(['/b'])
+    const post = entry(routes, '/b', 'post')
+    // paths.json's own local references are resolved by the resolver itself.
+    expect(post.parameters).toEqual([{ name: 'fromPathsFile', in: 'query' }])
+    expect(post.responses).toEqual({ '204': { description: 'From paths.json' } })
+    expect(post).not.toHaveProperty('requestBody')
+    expect(post.callbacks).toEqual({})
+  }
+
+  it('omits them at Path Item, parameter, requestBody, response and callback positions', () => {
+    const parsed = parseDocument(structuredClone(entryDocument), { basePath })
+    expectOmitted(parsed.routes)
+    expect(parsed.webhooks).toEqual([])
+    expect(parsed.resolution?.status).toBe('partial')
+  })
+
+  it('gives loadSchema and parseDocument the same routes for a deref pass with basePath', () => {
+    const passes = [createDerefPass({ basePath })]
+    const routes = expectParity(entryDocument, passes)
+    expectOmitted(routes)
+    expect(routes).toStrictEqual(parseDocument(structuredClone(entryDocument), { basePath }).routes)
+  })
+
+  it('applies to a custom pass that declares resolvesRefs', () => {
+    const bundle: SpecPass = {
+      name: 'bundle',
+      resolvesRefs: true,
+      run: spec => derefSpec(spec, { basePath }),
+    }
+    expectOmitted(expectParity(entryDocument, [bundle]))
   })
 })
