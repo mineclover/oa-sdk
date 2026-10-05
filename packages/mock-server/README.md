@@ -108,8 +108,9 @@ it('GET /items returns 200', async () => {
 ```
 
 The default port and host are `4010` and `127.0.0.1`. When `spec.servers[0].url` has a path
-(`https://api.example.com/v1`), the routes are served under it (`${server.url}/v1/items`); pick another
-server with `serverIndex` and fill its variables with `serverVariables`.
+(`https://api.example.com/v1`), `server.url` already ends with it (`http://127.0.0.1:<port>/v1`), so
+request `${server.url}/items`; `${server.url}/v1/items` becomes `/v1/v1/items` and returns 404. Pick
+another server with `serverIndex` and fill its variables with `serverVariables`.
 
 The examples pass the spec as an object. Load your own document with `JSON.parse(readFileSync(...))`,
 an import attribute (`import spec from './openapi.json' with { type: 'json' }`), or the `parse()`

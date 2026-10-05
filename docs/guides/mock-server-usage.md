@@ -104,7 +104,7 @@ test('GET /users', async () => {
 ```
 
 - 기본 포트와 호스트는 `4010`, `127.0.0.1`입니다. 실제 주소는 `start()` 뒤 `mockServer.url`에 있습니다.
-- 스펙의 `servers[0]` URL에 경로가 있으면(`https://api.example.com/v1`) 그 경로 아래에 라우트를 엽니다(`${mockServer.url}/v1/users`). 다른 서버를 쓰려면 `serverIndex`, `serverVariables` 옵션을 줍니다.
+- 스펙의 `servers[0]` URL에 경로가 있으면(`https://api.example.com/v1`) `mockServer.url`이 그 경로까지 포함합니다(`http://127.0.0.1:<port>/v1`). 요청은 `${mockServer.url}/users`로 보냅니다. `${mockServer.url}/v1/users`는 `/v1/v1/users`가 되어 404입니다. 다른 서버를 쓰려면 `serverIndex`, `serverVariables` 옵션을 줍니다.
 - 응답을 검사하는 헬퍼(`createTestClient`)는 [Mock 서버로 테스트](./use-cases/mock-testing.md)를 봅니다.
 
 ### 3.2 MSW 어댑터 (브라우저, Vitest)

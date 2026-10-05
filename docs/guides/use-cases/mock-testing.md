@@ -59,7 +59,7 @@ describe('users API', () => {
 })
 ```
 
-스펙의 `servers[0]` URL에 경로가 있으면(`/v1`) 요청 경로에도 붙입니다(`client.get('/v1/users')`). 테스트 사이에 상태를 되돌리려면 `stateful` 서버의 `server.reset()`을 호출합니다([상태 유지 CRUD](../mock-server-usage.md#4-상태-유지-crud와-플러그인)).
+`createTestClient`는 `/`로 시작하는 경로를 서버 origin 기준으로 풉니다. 스펙의 `servers[0]` URL에 경로(`/v1`)가 있어도 mock 서버는 그 접두어가 있는 경로와 없는 경로를 모두 받으므로 `client.get('/users')`와 `client.get('/v1/users')`가 같은 라우트로 갑니다. `fetch`로 직접 보낼 때의 주소 규칙은 [Node HTTP 어댑터](../mock-server-usage.md#31-node-http-어댑터-통합-테스트-e2e)를 봅니다. 테스트 사이에 상태를 되돌리려면 `stateful` 서버의 `server.reset()`을 호출합니다([상태 유지 CRUD](../mock-server-usage.md#4-상태-유지-crud와-플러그인)).
 
 Playwright는 설정의 `webServer`로 CLI를 띄우는 방법이 가장 간단합니다(`npx oa-mock --spec ./openapi.yaml --port 4010` 또는 `npx oa-gen mock --spec ./openapi.yaml --port 4010`).
 
