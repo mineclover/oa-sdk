@@ -47,6 +47,7 @@ export { getQuerystringParameter } from './querystring.js'
 
 export {
   appendJsonPointer,
+  canonicalJsonPointerFragment,
   escapeJsonPointerToken,
   findNearestJsonPointerEntry,
   formatJsonPointer,

@@ -228,6 +228,12 @@ describe('findNearestJsonPointerEntry', () => {
     expect(findNearestJsonPointerEntry('#/a', new Map([['/a', 'plain']]))).toBeUndefined()
   })
 
+  it('finds the entry of a percent-encoded $ref fragment once it is canonicalized', () => {
+    const fragment = canonicalJsonPointerFragment('#/components/schemas/Us%65r/properties/role')
+    expect(fragment).toBe('#/components/schemas/User/properties/role')
+    expect(findNearestJsonPointerEntry(fragment!, entries)).toEqual({ pointer: '#/components/schemas/User', value: 'user' })
+  })
+
   it('returns undefined for malformed pointers', () => {
     const all = new Map([['#', 'root'], ['', 'root']])
     expect(findNearestJsonPointerEntry('#a', all)).toBeUndefined()
@@ -262,6 +268,7 @@ describe('package entries', () => {
   it('exports the same JSON Pointer helpers from the root and browser entries', () => {
     const names = [
       'appendJsonPointer',
+      'canonicalJsonPointerFragment',
       'escapeJsonPointerToken',
       'findNearestJsonPointerEntry',
       'formatJsonPointer',

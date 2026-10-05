@@ -76,6 +76,7 @@ export type { RefGraph, RefGraphDiagnostic, RefGraphDiagnosticCode, RefGraphNode
 // ─── JSON Pointer (RFC 6901) ───────────────────────────────────────────────
 export {
   appendJsonPointer,
+  canonicalJsonPointerFragment,
   escapeJsonPointerToken,
   findNearestJsonPointerEntry,
   formatJsonPointer,

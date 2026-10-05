@@ -144,7 +144,18 @@ export function isJsonPointerFragment(ref: string): boolean {
   return decodeJsonPointerFragment(ref) !== undefined
 }
 
-/** Normalize equivalent URI-fragment spellings for resolver cache/cycle identity. */
+/**
+ * Spell a JSON Reference URI fragment canonically: percent-decoded, with each
+ * reference token escaped as {@link formatJsonPointer} writes it, behind `#`
+ * (`#/a%20b` becomes `#/a b`, `#/%7E1` becomes `#/~1`). Equivalent spellings
+ * of one location therefore compare equal; the resolver keys its cache and
+ * cycle checks this way, and the pointers of `projectRefGraph` use this
+ * spelling.
+ *
+ * Percent-decoding runs first, so an encoded `/` (`%2F`) separates tokens.
+ * Returns `undefined` for a string that is not a `#` fragment, an invalid
+ * percent escape, and a `~` that is not `~0` or `~1`.
+ */
 export function canonicalJsonPointerFragment(ref: string): string | undefined {
   const segments = decodeJsonPointerFragment(ref)
   if (!segments) return undefined
