@@ -177,10 +177,10 @@ export type CreateRefProjectionArtifactOptions = {
   /** Parsed entry document. It is read, never modified. */
   document: OasDocument | Record<string, unknown>
   /**
-   * Absolute path of the file `document` was read from. Relative external
-   * `$ref`s resolve against it and file paths in the artifact are written
-   * relative to its directory. Without it, external `$ref`s are reported as
-   * `unsupported-ref`.
+   * Path of the file `document` was read from; a relative path resolves
+   * against the working directory. Relative external `$ref`s resolve against
+   * it and file paths in the artifact are written relative to its directory.
+   * Without it, external `$ref`s are reported as `unsupported-ref`.
    */
   entryPath?: string
   spec: RefProjectionArtifactSourceFile
@@ -194,7 +194,10 @@ export type CreateRefProjectionArtifactOptions = {
 
 /** Project `document` into an `oa-sdk.ref-projection.v1` artifact. */
 export function createRefProjectionArtifact(options: CreateRefProjectionArtifactOptions): RefProjectionArtifact {
-  const { entryPath } = options
+  // The projection tells the entry document apart from the files its `$ref`s
+  // reach by comparing paths, and it names those files by absolute, normalized
+  // paths, so the entry path is given to it in that form too.
+  const entryPath = options.entryPath === undefined ? undefined : resolve(options.entryPath)
   const projection = projectRefGraph(options.document, entryPath === undefined ? {} : { basePath: entryPath })
   const files = new EntryRelativeFiles(entryPath)
   const provenance = options.provenance === undefined
@@ -331,11 +334,8 @@ function toArtifactDiagnostic(
  * leaves the entry document itself unnamed, as the projection does.
  */
 class EntryRelativeFiles {
-  private readonly entryFile: string | undefined
-
-  constructor(entryPath: string | undefined) {
-    this.entryFile = entryPath === undefined ? undefined : resolve(entryPath)
-  }
+  /** @param entryFile absolute, normalized path of the entry document */
+  constructor(private readonly entryFile: string | undefined) {}
 
   reference(filePath: string | undefined): string | undefined {
     if (filePath === undefined) return undefined

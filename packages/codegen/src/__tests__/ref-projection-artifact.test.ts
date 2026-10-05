@@ -1,6 +1,6 @@
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
 import { parse as parseYaml } from 'yaml'
@@ -126,6 +126,27 @@ describe('oa-sdk.ref-projection.v1 artifact', () => {
     expect(secondText).toBe(firstText)
     expect(firstText).not.toContain(first)
     expect(secondText).not.toContain(second)
+  })
+
+  it('reads an entry document named by a relative or unnormalized entryPath as the entry document', () => {
+    // shared.yaml refers back into api.yaml, so the projection meets the entry
+    // file again through an external document and must recognize it.
+    const entryPath = join(fixtureDir, 'api.yaml')
+    const create = (path: string) => serializeRefProjectionArtifact(createRefProjectionArtifact({
+      document: readFixtureDocument(),
+      entryPath: path,
+      spec,
+      generator,
+    }))
+    const expected = create(entryPath)
+
+    for (const variant of [relative(process.cwd(), entryPath), `${fixtureDir}../ref-projection/api.yaml`]) {
+      const text = create(variant)
+      const edgeIds = (JSON.parse(text) as RefProjectionArtifact).edges.map(edge => edge.id)
+      expect(new Set(edgeIds).size, variant).toBe(edgeIds.length)
+      expect(text, variant).not.toContain(fixtureDir)
+      expect(text, variant).toBe(expected)
+    }
   })
 
   it('orders its content independently of the key order of the document', () => {
