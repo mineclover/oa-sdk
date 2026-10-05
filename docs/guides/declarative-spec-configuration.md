@@ -94,7 +94,11 @@ Fastify·Express·Hono·Elysia 라우터 코드가 필요하면 빌드 스크립
 호출해 파일로 씁니다. `oa-gen` 명령으로는 라우터 파일을 만들지 않습니다([Backend Handler Contracts](./backend-handler-contracts.md)).
 예외로, 스펙의 `components.schemas`에 `x-oa-sdk-crdt-entity`나 `x-oa-sdk-crdt`가 있으면 CRDT 모듈 4개
 (`<id>.crdt.contract.ts`, `.crdt.router.ts`, `.crdt.client.ts`, `.crdt.hooks.ts`)를 만듭니다. 이 CRDT WebSocket
-라우터의 대상 프레임워크는 `core.router.target`(기본 `hono`)입니다.
+라우터는 항상 Hono용이며 대상 프레임워크를 바꾸는 설정은 없습니다(알려진 제한). 설정 타입에는 `core.router`가 없고,
+`oa.config.json`이나 `oa.config.mjs`에 `core.router.target`을 써도 설정 검증은 통과하지만 기본값을 병합할 때 버려집니다.
+다른 프레임워크용 CRDT 라우터가 필요하면 빌드 스크립트에서 `@oa-sdk/router`의 `generateCrdtRouter()`를
+`{ target, contractImport: "./<id>.crdt.contract.js" }`(`target`: `hono`, `express`, `fastify`, `elysia`)로 호출하고,
+`oa-gen generate`가 매번 다시 쓰는 `<id>.crdt.router.ts`와 다른 파일에 씁니다.
 
 ### 2.3 기록만 되는 설정
 
