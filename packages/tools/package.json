@@ -25,8 +25,8 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts",
-    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "build": "tsup src/index.ts --format esm --dts --external @oa-sdk/chunk-stream-ui --external @oa-sdk/peer-transport",
+    "dev": "tsup src/index.ts --format esm --dts --watch --external @oa-sdk/chunk-stream-ui --external @oa-sdk/peer-transport",
     "test": "vitest run",
     "test:ci": "vitest run",
     "typecheck": "tsc --noEmit",
