@@ -68,7 +68,7 @@ sourceOfTruth:
 | 계약 작성·검증 | TypeSpec 모듈 | 번들 검사, 승인 snapshot diff, OpenAPI 3.2 검증, Spectral, Redocly | `pnpm schema:validate` |
 | 승인 snapshot 갱신 | TypeSpec에서 복원한 OpenAPI | 검토한 normalized diff | `pnpm schema:approve-typespec-reference -- --write` |
 | breaking change 분류 | 커밋된 TypeSpec과 작업 트리 | 의미 단위 diff | `node packages/codegen/dist/cli/index.js tsp diff --base HEAD:packages/schemas/typespec/main.tsp --head packages/schemas/typespec/main.tsp --fail-on-breaking` |
-| 생성 코드 확인 | `.merged.yaml` | typegen, 핸들러 계약, 클라이언트, mock 핸들러 생성과 컴파일 | `pnpm schema:downstream-check` |
+| 생성 코드 확인 | `.merged.yaml` | typegen, 라우터·클라이언트 코드, mock 핸들러 생성과 생성 코드 컴파일 | `pnpm schema:downstream-check` |
 | 타입만 생성 | `.merged.yaml` | TypeScript 타입 | `node packages/codegen/dist/cli/index.js typegen --spec packages/schemas/src/.merged.yaml -o <파일>` |
 | mock 서버 | `.merged.yaml` | 요청 검증 mock 서버 | `node packages/codegen/dist/cli/index.js mock --spec packages/schemas/src/.merged.yaml --watch` |
 | rollback 경로 검증 | fragments + target | target OpenAPI 3.2 | `pnpm schema:rollback-check` |
@@ -84,7 +84,7 @@ sourceOfTruth:
 | 패키지 | 공개 상태 | 읽는 생성물 | 하는 일 |
 |---|---|---|---|
 | `@oa-sdk/parser` | 공개 | `.merged.yaml` | 파싱, `$ref` 해석, 린트, 검증(`validateDocument`) |
-| `@oa-sdk/codegen` (`oa-gen`) | 공개 | `.merged.yaml` 또는 `oa.config.ts` | `typegen`, `generate:zod`, `generate:guards`, `generate`, `validate`, `diff`, `check-artifact` 등 |
+| `@oa-sdk/codegen` (`oa-gen`) | 공개 | `.merged.yaml` | `typegen`, `generate:zod`, `generate:guards`, `generate`, `validate`, `diff`, `check-artifact` 등 |
 | `@oa-sdk/router` | 동반 패키지 | parser 결과 | `oa-gen generate`가 부르는 `generateHandlerContract()`로 핸들러 계약(`<id>.contract.ts`) 생성. 프레임워크 라우터 코드는 `generateRouter()` API를 직접 호출해야 하며, `oa-gen` 명령은 라우터 파일을 만들지 않는다 |
 | `@oa-sdk/client` | 동반 패키지 | parser 결과 | `generateClient()`(fetch 클라이언트), `generateTanstackQuery()`(TanStack Query 키·옵션·훅) |
 | `@oa-sdk/mock-server` | 동반 패키지 | `.merged.yaml` 또는 `.tsp` | `oa-gen mock`, `createNodeMockServer()`. `msw`는 MSW 어댑터를 쓸 때만 필요 |
@@ -102,17 +102,17 @@ sourceOfTruth:
 ```text
 TypeSpec 모듈 수정
   → 승인 후보 diff 검토 → approved.openapi.yaml 갱신(--write)
-  → pnpm schema:validate (.merged.yaml 생성, 3.2 검증)
+  → pnpm schema:validate (schema:typespec-check 포함, .merged.yaml 생성, 3.2 검증)
   → pnpm schema:downstream-check (생성 코드에 영향이 있을 때)
-  → pnpm schema:typespec-check (커밋 전)
+  → pnpm schema:typespec-provenance-check (리뷰 증거)
 ```
 
 1. 변경 대상에 맞는 모듈을 고칩니다: 도메인은 `packages/schemas/typespec/{common,auth,health,me,users,world-model}.tsp`, service·security·재사용 component는 `metadata/{service,security,common-components}.tsp`. 새 모듈을 만들면 `main.tsp`에 import를 추가합니다.
 2. OpenAPI의 의미를 TypeSpec 문법으로 표현할 수 없으면 [authoring ownership guide](../internal/typespec-roundtrip/authoring-ownership-guide.md)에 따라 TypeSpec 문법, OA SDK extension, compatibility sidecar 중 하나를 고릅니다.
 3. `pnpm schema:approve-typespec-reference`를 실행해 `.oa-sdk/typespec-candidates/`에 생긴 후보와 normalized diff를 검토합니다. 검토가 끝났을 때만 `pnpm schema:approve-typespec-reference -- --write`로 `approved.openapi.yaml`을 갱신합니다. enum 값 추가·삭제처럼 선언이 짧은 변경도 같은 절차를 거칩니다.
-4. `pnpm schema:validate`를 실행합니다.
+4. `pnpm schema:validate`를 실행합니다. 이 명령은 `pnpm schema:typespec-check`(번들 검사, 승인 snapshot과의 normalized diff, `accepted-restored-drift.json` 대조)를 거쳐 `.merged.yaml`을 쓰므로, 승인 snapshot과 원본이 어긋나면 여기서 실패합니다.
 5. parser, codegen, router, client, mock 서버에 영향이 있으면 `pnpm schema:downstream-check`를 실행합니다.
-6. 커밋 전에 `pnpm schema:typespec-check`로 승인 snapshot과 원본이 일치하는지 확인합니다.
+6. 모든 operation·component·`$ref`에 TypeSpec 소유자가 있는지는 `pnpm schema:typespec-provenance-check`로 확인합니다([Required Review Evidence](./typespec-authoring-conventions.md#required-review-evidence)).
 
 API `ContractVersion`, 워크스페이스 패키지 버전, 번들·extension `schemaVersion`은 서로 다른 버전입니다.
 언제 무엇을 올리는지는 [TypeSpec Authoring Conventions](./typespec-authoring-conventions.md#versioning)를 따릅니다.
