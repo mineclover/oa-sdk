@@ -229,9 +229,15 @@ artifact(보존 1일)로 올린다. `public-release-runtime`(Node 22/24/26), `ty
 `governance-references` job은 다시 build하지 않고 이 artifact를 풀어 같은 build를 검증한다.
 `ci` job은 Turbo local cache(`.turbo/cache`)를 GitHub Actions cache로 run 사이에 보존한다.
 그래서 task hash가 바뀌지 않은 package의 build와 typecheck는 cache에서 재생된다. task hash는
-package의 tracked file 전체와 workspace dependency의 task hash로 정해진다. `test:ci`는
-package 밖의 문서·script도 읽기 때문에 cache하지 않고 매번 실행하며, 실행 전에 해당 package의
-build를 Turbo task로 보장받는다. 원격 cache(`TURBO_TOKEN`)와 테스트 병렬화는 쓰지 않는다.
+package의 tracked file과 workspace dependency의 task hash로 정해진다. typecheck는 tracked file
+전체를 쓰지만, build는 test 전용 file(`__tests__/`, `test/`, `tests/`, `fixtures/`, `*.test.*`,
+`vitest.config.*`)을 뺀다. tsup·vite build는 entry의 import closure만 읽으므로, test만 고친 변경은
+build와 그 downstream task의 hash를 바꾸지 않는다. `tsc` build가 test를 가리지 않고
+`src/` 전체를 emit하는 workspace(`typespec-decorators`, `typespec-erd`,
+`logical-erd-contract`, `nestjs-ref`)는 자기 `turbo.json`에서 build input을 tracked file
+전체로 되돌린다. `test:ci`는 package 밖의 문서·script도 읽기 때문에 cache하지 않고 매번
+실행하며, 실행 전에 해당 package의 build를 Turbo task로 보장받는다. 원격 cache(`TURBO_TOKEN`)와
+테스트 병렬화는 쓰지 않는다.
 
 `parser-bench` job은 `pnpm bench:parser`를 `BENCH_PARSER_BUDGET_SCALE=2`로 실행한다. 이 job은
 `needs`가 없어 `ci` job과 나란히 돈다. 실패하면 workflow는 실패하지만 `ci` job의 결정적 gate와

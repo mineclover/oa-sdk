@@ -4,7 +4,15 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "!**/__tests__/**",
+        "!**/*.test.*",
+        "!test/**",
+        "!tests/**",
+        "!**/fixtures/**",
+        "!vitest.config.*"
+      ],
       "outputs": ["dist/**"]
     },
     "validate": {
