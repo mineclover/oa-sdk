@@ -11,13 +11,17 @@ import {
   validateArtifactReleasePolicy,
   validateTrackDependencyBoundaries,
 } from './check-release-policy.js'
+import { embeddedVersionTables } from '../packages/codegen/scripts/embedded-workspace-versions.mjs'
+import { COMPANION_PACKAGES } from '../packages/codegen/src/cli/lib/companion-packages.js'
 import {
+  assertCompanionVersionsReleasable,
   collectManifestTargets,
   copyGitVisibleWorkspace,
   createDraftReleaseMetadata,
   createReleaseManifest,
   createPublicNpmVersionQueryArgs,
   assertReleaseVersionMatchesSource,
+  embeddedCompanionVersions,
   PUBLIC_OA_SDK_SCOPE_REGISTRY_OPTION,
   PUBLIC_NPM_REGISTRY,
   publishedVersion,
@@ -231,6 +235,123 @@ assert.throws(
   () => publishedVersion('@oa-sdk/core', '9.9.9', () => '{"version":"9.9.9"}'),
   /npm registry lookup returned an invalid version for @oa-sdk\/core@9\.9\.9/,
 )
+
+// A codegen export embeds the companion versions oa-gen pins its install hints
+// to. Each must be in the same export at that version or already be on npm.
+{
+  // The exporter's remedy, `--version <companion>=<version>`, must be accepted.
+  for (const companion of COMPANION_PACKAGES) {
+    assert.ok(configuration.candidates.includes(companion), `${companion} must be a distribution candidate`)
+  }
+
+  const builtAgainst = new Map([
+    ['@oa-sdk/router', '0.2.1'],
+    ['@oa-sdk/client', '0.2.1'],
+    ['@oa-sdk/mock-server', '0.1.3'],
+  ])
+  const codegenOnly = new Map([['@oa-sdk/codegen', '0.8.1']])
+  const registry = (readNpmVersion: (target: string) => string) =>
+    (name: string, version: string) => publishedVersion(name, version, readNpmVersion)
+  const notFound = () => {
+    throw Object.assign(new Error('npm view failed'), { stderr: 'npm error code E404\nnpm error 404 Not Found' })
+  }
+  const noRegistry = () => {
+    throw new Error('companions released by this export must not be looked up on npm')
+  }
+
+  // Released by the same export at the embedded version.
+  assert.doesNotThrow(() => assertCompanionVersionsReleasable(
+    '0.8.1',
+    builtAgainst,
+    new Map([...codegenOnly, ...builtAgainst]),
+    noRegistry,
+  ))
+
+  // Already published.
+  const queried: string[] = []
+  assert.doesNotThrow(() => assertCompanionVersionsReleasable('0.8.1', builtAgainst, codegenOnly, registry(target => {
+    queried.push(target)
+    return JSON.stringify(target.slice(target.lastIndexOf('@') + 1))
+  })))
+  assert.deepEqual(queried, ['@oa-sdk/router@0.2.1', '@oa-sdk/client@0.2.1', '@oa-sdk/mock-server@0.1.3'])
+
+  // Neither: every such companion is named with its version and both remedies.
+  assert.throws(
+    () => assertCompanionVersionsReleasable(
+      '0.8.1',
+      builtAgainst,
+      new Map([...codegenOnly, ['@oa-sdk/client', '0.2.1']]),
+      registry(notFound),
+    ),
+    (error: unknown) => {
+      assert.ok(error instanceof Error)
+      assert.match(error.message, /^@oa-sdk\/codegen@0\.8\.1: oa-gen pins its install hints to companion package versions that are neither in this export nor published on npm:/)
+      assert.match(error.message, /@oa-sdk\/router@0\.2\.1: add --version @oa-sdk\/router=0\.2\.1 to this export, or publish @oa-sdk\/router@0\.2\.1 first/)
+      assert.match(error.message, /@oa-sdk\/mock-server@0\.1\.3: add --version @oa-sdk\/mock-server=0\.1\.3 to this export, or publish @oa-sdk\/mock-server@0\.1\.3 first/)
+      assert.doesNotMatch(error.message, /@oa-sdk\/client/)
+      return true
+    },
+  )
+
+  // Released by the same export, but at another version than codegen embeds.
+  assert.throws(
+    () => assertCompanionVersionsReleasable(
+      '0.8.1',
+      new Map([['@oa-sdk/router', '0.2.1']]),
+      new Map([...codegenOnly, ['@oa-sdk/router', '0.3.0']]),
+      registry(notFound),
+    ),
+    /@oa-sdk\/router@0\.2\.1: this export releases @oa-sdk\/router=0\.3\.0 instead; export --version @oa-sdk\/router=0\.2\.1, or publish @oa-sdk\/router@0\.2\.1 first/,
+  )
+
+  // A registry failure other than E404 is not "unpublished"; it surfaces.
+  assert.throws(
+    () => assertCompanionVersionsReleasable('0.8.1', builtAgainst, codegenOnly, registry(() => {
+      throw Object.assign(new Error('npm view failed'), { stderr: 'npm error code E500\nnpm error 500 Internal Server Error' })
+    })),
+    /npm registry lookup failed for @oa-sdk\/router@0\.2\.1/,
+  )
+
+  // The embedded table is restricted to the companions; tables naming none are ignored.
+  const companions = ['@oa-sdk/router', '@oa-sdk/client', '@oa-sdk/mock-server']
+  const embeddedTable = {
+    '@oa-sdk/client': '0.2.1',
+    '@oa-sdk/core': '0.3.0',
+    '@oa-sdk/mock-server': '0.1.3',
+    '@oa-sdk/router': '0.2.1',
+  }
+  assert.deepEqual(
+    embeddedCompanionVersions([{ unrelated: '1.0.0' }, embeddedTable, embeddedTable], companions),
+    builtAgainst,
+  )
+  assert.throws(
+    () => embeddedCompanionVersions([{ '@oa-sdk/router': '0.2.1', '@oa-sdk/client': '0.2.1' }], companions),
+    /@oa-sdk\/codegen: the packed artifact embeds no version for companion package @oa-sdk\/mock-server/,
+  )
+  assert.throws(
+    () => embeddedCompanionVersions([embeddedTable, { ...embeddedTable, '@oa-sdk/router': '0.2.2' }], companions),
+    /@oa-sdk\/codegen: the packed artifact embeds conflicting versions for companion package @oa-sdk\/router: 0\.2\.1, 0\.2\.2/,
+  )
+
+  // The table is found in bundled JavaScript whatever quotes and escapes it was written with.
+  const packedFixture = mkdtempSync(join(tmpdir(), 'oa-sdk-release-embedded-versions-'))
+  try {
+    mkdirSync(join(packedFixture, 'dist/cli'), { recursive: true })
+    writeFileSync(join(packedFixture, 'dist/chunk.js'), [
+      `var BUILT_AGAINST = JSON.parse(${JSON.stringify(JSON.stringify(embeddedTable))});`,
+      `var unrelated = '{"name":"not a version table"}';`,
+      `var numeric = '{"@oa-sdk/router":1}';`,
+      '',
+    ].join('\n'), 'utf8')
+    writeFileSync(join(packedFixture, 'dist/cli/index.js'), `const pinned = '{"@oa-sdk/router":"0.2.1"}';\n`, 'utf8')
+    writeFileSync(join(packedFixture, 'dist/chunk.d.ts'), `declare const t: '{"@oa-sdk/router":"9.9.9"}'\n`, 'utf8')
+    const tables = embeddedVersionTables(packedFixture, companions) as Record<string, string>[]
+    assert.equal(tables.length, 2)
+    assert.deepEqual(embeddedCompanionVersions(tables, companions), builtAgainst)
+  } finally {
+    rmSync(packedFixture, { recursive: true, force: true })
+  }
+}
 
 const packedSurface = {
   main: './dist/index.js',

@@ -7,11 +7,14 @@ import { tmpdir } from 'node:os'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { embeddedVersionTables } from '../packages/codegen/scripts/embedded-workspace-versions.mjs'
+import { COMPANION_PACKAGES } from '../packages/codegen/src/cli/lib/companion-packages.js'
 import { readArtifactReleasePolicy } from './check-release-policy.js'
 
 const root = resolve(import.meta.dirname, '..')
 const sourcePolicyPath = join(root, 'docs/internal/release-policy.json')
 const packageBases = ['packages', 'apps'] as const
+const CODEGEN_PACKAGE = '@oa-sdk/codegen'
 export const PUBLIC_NPM_REGISTRY = 'https://registry.npmjs.org/'
 export const PUBLIC_OA_SDK_SCOPE_REGISTRY_OPTION = `--@oa-sdk:registry=${PUBLIC_NPM_REGISTRY}`
 
@@ -178,7 +181,9 @@ function main(): void {
       const version = args.versions.get(name)
       if (!version) continue
       if (!args.skipRegistryPreflight) assertVersionAvailable(name, version)
-      packages.push(exportPackage(name, version, context))
+      const exported = exportPackage(name, version, context)
+      if (name === CODEGEN_PACKAGE) verifyCodegenCompanions(exported, context)
+      packages.push(exported)
     }
     assert(packages.length > 0, 'at least one --version <package>=<version> is required')
     validateSanitizedReleaseConsumption(packages, releaseDirectory)
@@ -280,6 +285,89 @@ export function rewriteWorkspaceDependencies(
     rewritten[name] = range === '*' || range === '' ? version : range === '^' || range === '~' ? `${range}${version}` : range
   }
   return rewritten
+}
+
+/**
+ * Reads the companion versions the packed codegen embeds and fails the export
+ * unless each one can be installed (`assertCompanionVersionsReleasable`).
+ * Reading the release tarball rather than the build output checks what ships.
+ */
+function verifyCodegenCompanions(codegen: ReleasePackage, context: ExportContext): void {
+  const unpackDirectory = join(context.temporaryDirectory, 'codegen-companion-versions')
+  mkdirSync(unpackDirectory, { recursive: true })
+  run(['tar', '-xzf', join(context.releaseDirectory, codegen.tarball), '-C', unpackDirectory], context.sourceRoot)
+  assertCompanionVersionsReleasable(
+    codegen.version,
+    embeddedCompanionVersions(embeddedVersionTables(join(unpackDirectory, 'package'), COMPANION_PACKAGES), COMPANION_PACKAGES),
+    context.args.versions,
+    (name, version) => publishedVersion(name, version),
+  )
+}
+
+/**
+ * The version of each companion package that a packed `@oa-sdk/codegen`
+ * embeds, from the package-to-version tables found in its JavaScript
+ * (`embeddedVersionTables`). `oa-gen` pins the install command it prints for a
+ * missing companion to this version, so every companion must have exactly one.
+ */
+export function embeddedCompanionVersions(
+  tables: readonly Readonly<Record<string, string>>[],
+  companions: readonly string[],
+): Map<string, string> {
+  const versions = new Map<string, string>()
+  for (const companion of companions) {
+    const embedded = [...new Set(tables.flatMap(table => Object.hasOwn(table, companion) ? [table[companion]!] : []))]
+    assert(
+      embedded.length > 0,
+      `${CODEGEN_PACKAGE}: the packed artifact embeds no version for companion package ${companion}, ` +
+        'so the version its oa-gen install hint names cannot be checked',
+    )
+    assert(
+      embedded.length === 1,
+      `${CODEGEN_PACKAGE}: the packed artifact embeds conflicting versions for companion package ${companion}: ` +
+        embedded.join(', '),
+    )
+    versions.set(companion, embedded[0]!)
+  }
+  return versions
+}
+
+/**
+ * Fails a codegen export whose `oa-gen` would tell users to install a
+ * companion version that npm cannot resolve.
+ *
+ * `oa-gen` loads its companion packages with dynamic imports and, when one is
+ * missing, prints an install command pinned to the version codegen was built
+ * against. The release policy lets codegen reference these Downstream packages
+ * only through devDependencies, which `publicManifest` removes, so the rule
+ * `rewriteWorkspaceDependencies` enforces for runtime dependencies (released in
+ * this export or already on npm) never reaches them. This applies the same
+ * rule to the embedded versions: each companion must be in this export at
+ * exactly that version, or already be published. The registry is consulted
+ * only for companions this export does not release at that version, and
+ * lookup failures other than npm's E404 propagate (see `publishedVersion`).
+ */
+export function assertCompanionVersionsReleasable(
+  codegenVersion: string,
+  companionVersions: ReadonlyMap<string, string>,
+  exportVersions: ReadonlyMap<string, string>,
+  readPublishedVersion: (name: string, version: string) => string | undefined,
+): void {
+  const unresolvable: string[] = []
+  for (const [companion, version] of companionVersions) {
+    const exported = exportVersions.get(companion)
+    if (exported === version || readPublishedVersion(companion, version) !== undefined) continue
+    unresolvable.push(exported === undefined
+      ? `  - ${companion}@${version}: add --version ${companion}=${version} to this export, ` +
+          `or publish ${companion}@${version} first`
+      : `  - ${companion}@${version}: this export releases ${companion}=${exported} instead; ` +
+          `export --version ${companion}=${version}, or publish ${companion}@${version} first`)
+  }
+  assert(unresolvable.length === 0, [
+    `${CODEGEN_PACKAGE}@${codegenVersion}: oa-gen pins its install hints to companion package versions ` +
+      'that are neither in this export nor published on npm:',
+    ...unresolvable,
+  ].join('\n'))
 }
 
 /**
@@ -451,7 +539,7 @@ export function validateSanitizedReleaseConsumption(
     run([process.execPath, importSmokePath], consumerDirectory)
 
     const generatedTypesPath = join(consumerDirectory, 'generated-types.ts')
-    const codegen = manifests.find(({ entry }) => entry.name === '@oa-sdk/codegen')
+    const codegen = manifests.find(({ entry }) => entry.name === CODEGEN_PACKAGE)
     if (codegen) {
       const executable = join(
         consumerDirectory,
