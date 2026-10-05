@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url'
 import { embeddedVersionTables } from '../packages/codegen/scripts/embedded-workspace-versions.mjs'
 import { REGISTRY_OA_SDK_PACKAGES } from '../packages/codegen/src/cli/lib/init/oa-sdk-packages.js'
 import { readArtifactReleasePolicy } from './check-release-policy.js'
+import { externalPeerDependencies } from './lib/public-manifest.mjs'
 
 const root = resolve(import.meta.dirname, '..')
 const sourcePolicyPath = join(root, 'docs/internal/release-policy.json')
@@ -584,22 +585,11 @@ export function validateSanitizedReleaseConsumption(
     const specifiers = manifests.flatMap(({ entry, manifest }) =>
       publicImportSpecifiers(entry.name, manifest))
 
-    const externalPeers: Record<string, string> = {}
-    for (const { manifest } of manifests) {
-      if (isRecord(manifest.peerDependencies)) {
-        for (const [peer, range] of Object.entries(manifest.peerDependencies)) {
-          if (!manifests.some(m => m.entry.name === peer)) {
-            externalPeers[peer] = typeof range === 'string' ? range : '*'
-          }
-        }
-      }
-    }
-
     writeJson(join(consumerDirectory, 'package.json'), {
       name: 'oa-sdk-sanitized-release-consumer-smoke',
       private: true,
       type: 'module',
-      dependencies: externalPeers,
+      dependencies: externalPeerDependencies(manifests.map(({ manifest }) => manifest)),
     })
     runIsolatedNpm([
       'install',

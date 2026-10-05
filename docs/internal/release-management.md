@@ -32,6 +32,9 @@ release candidate의 현재 판단 입력과 source/external 책임 경계는
   `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`는 public npm **distribution candidate**다. 이 패키지는 allowlisted
   `dist`/`lib` artifact만 pack하고 provenance를 요구하며, exporter의 archive/consumer smoke가 실제
   tarball에서 export/bin target, workspace protocol 제거, 설치 후 소비 가능성을 검증한다.
+  source manifest는 `private: false`, public Node floor인 `engines.node: ">=22.0.0"`, 그리고
+  `files`에 포함된 entry point를 선언해야 한다. Node 22/24/26 public runtime smoke가 packed artifact에서
+  검증하는 이 규칙을 `pnpm check:release-policy`도 source manifest에서 먼저 검사한다.
 - 다른 release-tracked package는 아직 private이다. `publish.enabled: false`와
   `publish.mode: artifact-only`는 source repository의 registry publish 경로를 닫는다. Distribution
   candidate의 실제 registry 배포는 별도 artifact repository의 승인된 workflow만 수행한다.

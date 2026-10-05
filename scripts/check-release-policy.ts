@@ -7,6 +7,8 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { basename, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { manifestTargetsOutsideFiles, publicNodeEngineIssue } from './lib/public-manifest.mjs'
+
 type TrackPolicy =
   | 'active'
   | 'compatibility'
@@ -48,6 +50,11 @@ type PackageJson = {
   name?: string
   version?: string
   private?: boolean
+  main?: unknown
+  module?: unknown
+  types?: unknown
+  bin?: unknown
+  engines?: Record<string, unknown>
   exports?: unknown
   scripts?: Record<string, string>
   dependencies?: Record<string, string>
@@ -599,17 +606,8 @@ function validateWorkspaceManifests(
     }
 
     if (distributionCandidates.has(name)) {
-      if (manifest.private === true) issues.push(`${label}: distribution candidate must not be private`)
-      if (!manifest.files?.includes('dist')) issues.push(`${label}: distribution candidate must publish dist via files`)
-      if (manifest.publishConfig?.access !== policy.changesets.access || manifest.publishConfig.provenance !== true) {
-        issues.push(`${label}: distribution candidate must match release-policy access and require provenance`)
-      }
-      for (const [sectionName, dependencies] of Object.entries(getRuntimeDependencySections(manifest))) {
-        for (const dependencyName of Object.keys(dependencies)) {
-          if (dependencyName.startsWith('@oa-sdk/') && !distributionCandidates.has(dependencyName)) {
-            issues.push(`${label}: ${sectionName} dependency ${dependencyName} is not a distribution candidate`)
-          }
-        }
+      for (const issue of distributionCandidateManifestIssues(manifest, policy.changesets.access, distributionCandidates)) {
+        issues.push(`${label}: ${issue}`)
       }
     }
 
@@ -632,6 +630,38 @@ function validateWorkspaceManifests(
 
     validateInternalDependencySpecs(label, manifest, issues)
   }
+}
+
+/**
+ * Why the source manifest of a distribution candidate cannot ship as a public
+ * artifact. The engine floor and the packed entry points are the rules the
+ * public runtime smoke asserts on the packed artifact (scripts/lib/public-manifest.mjs);
+ * checking them here fails a missing field locally, not only in the runtime lane.
+ */
+export function distributionCandidateManifestIssues(
+  manifest: PackageJson,
+  access: string,
+  distributionCandidates: ReadonlySet<string>,
+): string[] {
+  const issues: string[] = []
+  if (manifest.private !== false) issues.push('distribution candidate must declare private: false')
+  if (!manifest.files?.includes('dist')) issues.push('distribution candidate must publish dist via files')
+  if (manifest.publishConfig?.access !== access || manifest.publishConfig.provenance !== true) {
+    issues.push('distribution candidate must match release-policy access and require provenance')
+  }
+  const engineIssue = publicNodeEngineIssue(manifest)
+  if (engineIssue !== undefined) issues.push(`distribution candidate ${engineIssue}`)
+  for (const target of manifestTargetsOutsideFiles(manifest)) {
+    issues.push(`distribution candidate entry point ${target} is not in files, so the packed artifact would not contain it`)
+  }
+  for (const [sectionName, dependencies] of Object.entries(getRuntimeDependencySections(manifest))) {
+    for (const dependencyName of Object.keys(dependencies)) {
+      if (dependencyName.startsWith('@oa-sdk/') && !distributionCandidates.has(dependencyName)) {
+        issues.push(`${sectionName} dependency ${dependencyName} is not a distribution candidate`)
+      }
+    }
+  }
+  return issues
 }
 
 function getRuntimeDependencySections(manifest: PackageJson): Record<string, Record<string, string>> {

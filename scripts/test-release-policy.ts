@@ -1,16 +1,18 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
 import {
   ARTIFACT_ONLY_PUBLISH_MODE,
+  distributionCandidateManifestIssues,
   findDirectPublishScripts,
   POLICY_VERSION,
   validateArtifactReleasePolicy,
   validateTrackDependencyBoundaries,
 } from './check-release-policy.js'
+import { externalPeerDependencies } from './lib/public-manifest.mjs'
 import { embeddedVersionTables } from '../packages/codegen/scripts/embedded-workspace-versions.mjs'
 import { COMPANION_PACKAGES } from '../packages/codegen/src/cli/lib/companion-packages.js'
 import { OA_SDK_INIT_PACKAGES } from '../packages/codegen/src/cli/lib/init/oa-sdk-packages.js'
@@ -149,6 +151,77 @@ try {
   assert.equal(runGit(sourceDirectory, ['status', '--porcelain']), sourceStatusBeforeScratchMutation, 'scratch work must preserve caller worktree state')
 } finally {
   rmSync(draftFixtureDirectory, { recursive: true, force: true })
+}
+
+// A distribution candidate's source manifest must meet what the public runtime
+// smoke asserts on its packed artifact, so that a missing field fails here.
+{
+  const candidates = new Set(['@oa-sdk/example', '@oa-sdk/core'])
+  const publicManifest = {
+    name: '@oa-sdk/example',
+    version: '0.1.0',
+    private: false,
+    files: ['dist', 'README.md'],
+    engines: { node: '>=22.0.0' },
+    publishConfig: { access: 'public', provenance: true },
+    main: './dist/index.js',
+    exports: { '.': { import: './dist/index.js', types: './dist/index.d.ts' } },
+    bin: { example: './dist/cli.js' },
+    dependencies: { '@oa-sdk/core': 'workspace:*' },
+  }
+  const issuesOf = (manifest: Record<string, unknown>) =>
+    distributionCandidateManifestIssues(manifest, 'public', candidates)
+
+  assert.deepEqual(issuesOf(publicManifest), [])
+  assert.deepEqual(issuesOf({ ...publicManifest, engines: undefined }), ['distribution candidate engines.node is required'])
+  assert.deepEqual(issuesOf({ ...publicManifest, engines: { node: '>=20' } }), [
+    'distribution candidate engines.node must retain the public Node >=22 floor, received >=20',
+  ])
+  assert.deepEqual(issuesOf({ ...publicManifest, engines: { node: '^22.0.0 || >=24' } }), [
+    'distribution candidate engines.node must retain the public Node >=22 floor, received ^22.0.0 || >=24',
+  ])
+  assert.deepEqual(issuesOf({ ...publicManifest, engines: { node: '>= 22' } }), [])
+  assert.deepEqual(issuesOf({ ...publicManifest, private: undefined }), ['distribution candidate must declare private: false'])
+  assert.deepEqual(issuesOf({ ...publicManifest, files: ['dist/index.js', 'dist/index.d.ts', 'README.md', 'lib'] }), [
+    'distribution candidate must publish dist via files',
+    'distribution candidate entry point dist/cli.js is not in files, so the packed artifact would not contain it',
+  ])
+  // A glob entry covers the directory before its first wildcard.
+  assert.deepEqual(issuesOf({ ...publicManifest, files: ['dist', 'README.md'], bin: { example: './bin/cli.js' } }), [
+    'distribution candidate entry point bin/cli.js is not in files, so the packed artifact would not contain it',
+  ])
+  assert.deepEqual(issuesOf({ ...publicManifest, files: ['dist', 'bin/*.js'], bin: { example: './bin/cli.js' } }), [])
+  assert.deepEqual(issuesOf({ ...publicManifest, dependencies: { '@oa-sdk/private': 'workspace:*' } }), [
+    'dependencies dependency @oa-sdk/private is not a distribution candidate',
+  ])
+
+  // A consumer that installs the packed packages without peers gets every peer
+  // they do not provide themselves, optional ones included.
+  assert.deepEqual(externalPeerDependencies([
+    { name: '@oa-sdk/react-bindings', peerDependencies: { react: '>=18.0.0', '@oa-sdk/core': '^0.3.0' } },
+    { name: '@oa-sdk/core', peerDependencies: { zod: '>=4.0.0' }, peerDependenciesMeta: { zod: { optional: true } } },
+    { name: '@oa-sdk/tools', peerDependencies: { zod: '>=3.0.0', msw: '' } },
+  ]), { msw: '*', react: '>=18.0.0', zod: '>=4.0.0 >=3.0.0' })
+  assert.throws(
+    () => externalPeerDependencies([
+      { name: 'a', peerDependencies: { react: '^18.0.0 || ^19.0.0' } },
+      { name: 'b', peerDependencies: { react: '>=18.2.0' } },
+    ]),
+    /peer dependency react has ranges that cannot be combined: \^18\.0\.0 \|\| \^19\.0\.0, >=18\.2\.0/,
+  )
+
+  // Every distribution candidate of this repository meets them.
+  const releaseCandidates = new Set(configuration.candidates)
+  const workspaceManifests = ['packages', 'apps'].flatMap(base =>
+    readdirSync(join(root, base)).flatMap(entry => {
+      const manifestPath = join(root, base, entry, 'package.json')
+      return existsSync(manifestPath) ? [JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, unknown>] : []
+    }))
+  for (const candidate of configuration.candidates) {
+    const manifest = workspaceManifests.find(entry => entry.name === candidate)
+    assert.ok(manifest, `${candidate} must be a workspace package`)
+    assert.deepEqual(distributionCandidateManifestIssues(manifest, 'public', releaseCandidates), [], candidate)
+  }
 }
 
 const policyIssues = validateArtifactReleasePolicy({

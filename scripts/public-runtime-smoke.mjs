@@ -12,6 +12,8 @@ import {
 import { basename, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { collectManifestTargets, externalPeerDependencies, publicNodeEngineIssue } from './lib/public-manifest.mjs'
+
 const root = fileURLToPath(new URL('../', import.meta.url))
 const supportedRuntimeMajors = [22, 24, 26]
 
@@ -58,13 +60,16 @@ function prepare(directory) {
     assertSupportsNode22(packedManifest, name)
     assert(!containsWorkspaceProtocol(packedManifest), `${name}: packed manifest retains a workspace: dependency`)
     assertPackedTargetsExist(archive, packedManifest, name)
-    packedPackages.push({ name, archive: basename(archive) })
+    packedPackages.push({ name, archive: basename(archive), manifest: packedManifest })
   }
 
+  // The install below skips peers (--legacy-peer-deps), as the probe imports every public
+  // entry point; a consumer installs the peers those need, such as react, itself.
   writeJson(join(consumerDirectory, 'package.json'), {
     name: 'oa-sdk-public-runtime-smoke-consumer',
     private: true,
     type: 'module',
+    dependencies: externalPeerDependencies(packedPackages.map(entry => entry.manifest)),
   })
   runIsolatedNpm([
     'install',
@@ -196,10 +201,8 @@ function readWorkspacePackages() {
 }
 
 function assertSupportsNode22(manifest, name) {
-  const range = manifest.engines?.node
-  assert(typeof range === 'string', `${name}: engines.node is required`)
-  const match = /^\s*>=\s*(\d+)(?:\.\d+)?(?:\.\d+)?\s*$/.exec(range)
-  assert(match && Number(match[1]) === 22, `${name}: engines.node must retain the public Node >=22 floor, received ${range}`)
+  const issue = publicNodeEngineIssue(manifest)
+  assert(issue === undefined, `${name}: ${issue}`)
 }
 
 function assertManifestTargetsExist(packageDirectory, manifest, name) {
@@ -217,26 +220,6 @@ function assertPackedTargetsExist(archive, manifest, name) {
   )
   for (const target of collectManifestTargets(manifest)) {
     assert(files.has(`package/${target}`), `${name}: packed archive is missing manifest target ${target}`)
-  }
-}
-
-function collectManifestTargets(manifest) {
-  const targets = new Set()
-  for (const field of ['main', 'module', 'types', 'exports', 'bin']) addRelativeTargets(targets, manifest[field])
-  return [...targets].sort()
-}
-
-function addRelativeTargets(targets, value) {
-  if (typeof value === 'string') {
-    if (value.startsWith('./')) targets.add(stripRelativePrefix(value))
-    return
-  }
-  if (Array.isArray(value)) {
-    for (const entry of value) addRelativeTargets(targets, entry)
-    return
-  }
-  if (value && typeof value === 'object') {
-    for (const entry of Object.values(value)) addRelativeTargets(targets, entry)
   }
 }
 
