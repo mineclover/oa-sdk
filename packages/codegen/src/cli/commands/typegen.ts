@@ -11,11 +11,13 @@ import {
   type CliIncrementalRun,
 } from '../lib/incremental.js'
 import {
+  beginCliGeneration,
   planCliGenerationTarget,
   recordCliGenerationTarget,
   reportCliGenerationPlan,
   resolveCliGeneratorIdentity,
   type CliGenerationTarget,
+  type CliTargetGeneration,
 } from '../lib/incremental-targets.js'
 import type { GenerationTargetRecord } from '../../generation-target-store.js'
 import type { WorkspaceDiagnosticRecord, WorkspaceTypeAliasRecord } from '../../workspace-index.js'
@@ -51,8 +53,9 @@ export const typegen: Command = {
       ...(cacheDir ? { cacheDir } : {}),
     })
     try {
-      const target = incremental.enabled ? createTypegenTarget(incremental, outputPath, style) : undefined
-      if (target) {
+      let generation: CliTargetGeneration | undefined
+      if (incremental.enabled) {
+        const target = createTypegenTarget(incremental, outputPath, style)
         const plan = planCliGenerationTarget(incremental, target)
         reportCliGenerationPlan(target, plan)
         if (plan.action === 'reuse') {
@@ -60,6 +63,7 @@ export const typegen: Command = {
           return
         }
         invalidateCliIncrementalIndex(incremental)
+        generation = beginCliGeneration(incremental, target)
       }
 
       const { analyzeExternalSchemaRefs, generateTypesFromSpec } = await import('../../typegen/generate-types.js')
@@ -74,11 +78,12 @@ export const typegen: Command = {
         diagnostics: warnings.map(warning => toWorkspaceDiagnostic(resolvedSpecPath, warning)),
         typeAliases: externalAnalysis.typeAliases.map(alias => toWorkspaceTypeAlias(resolvedSpecPath, alias)),
       })
-      if (target) {
-        recordCliGenerationTarget(incremental, target, {
+      if (generation) {
+        recordCliGenerationTarget(incremental, generation, {
           content: ts,
           inputFiles: indexed.referencedFilePaths,
           loadedFiles: loaded.inputFiles,
+          inputTexts: loaded.inputTexts,
           messages: warnings,
         })
       }

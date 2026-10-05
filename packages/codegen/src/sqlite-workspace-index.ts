@@ -751,7 +751,11 @@ class NodeSQLiteWorkspaceIndex implements SQLiteWorkspaceIndex, GenerationTarget
         ON CONFLICT(target_key, file_path) DO UPDATE SET content_hash = excluded.content_hash
       `)
       for (const input of record.inputs) {
-        insertInput.run(record.targetKey, input.filePath, input.contentHash)
+        insertInput.run(
+          record.targetKey,
+          input.filePath,
+          'unverified' in input ? UNVERIFIED_INPUT_CONTENT_HASH : input.contentHash,
+        )
       }
     })
   }
@@ -1019,6 +1023,9 @@ class NodeSQLiteWorkspaceIndex implements SQLiteWorkspaceIndex, GenerationTarget
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
 
+      -- content_hash: sha256 hex of the consumed content, NULL for an absent
+      -- file, or the marker 'unverified' (never a hex digest) for an input
+      -- whose consumed content the run could not establish.
       CREATE TABLE IF NOT EXISTS generation_target_inputs (
         target_key TEXT NOT NULL,
         file_path TEXT NOT NULL,
@@ -1400,6 +1407,9 @@ function typeExposureFromRow(row: Record<string, unknown>): TypeExposureRecord {
   return record
 }
 
+/** Stored in generation_target_inputs.content_hash for an unverified input; never a sha256 hex digest. */
+const UNVERIFIED_INPUT_CONTENT_HASH = 'unverified'
+
 /**
  * Rebuild a generation target from its rows. A row that does not match the
  * expected shape yields undefined, which callers treat as "no reusable record"
@@ -1434,7 +1444,9 @@ function generationTargetFromRows(
   for (const inputRow of inputRows) {
     const { file_path, content_hash } = inputRow
     if (typeof file_path !== 'string' || (content_hash !== null && typeof content_hash !== 'string')) return undefined
-    inputs.push({ filePath: file_path, contentHash: content_hash })
+    inputs.push(content_hash === UNVERIFIED_INPUT_CONTENT_HASH
+      ? { filePath: file_path, unverified: true }
+      : { filePath: file_path, contentHash: content_hash })
   }
 
   const record: GenerationTargetRecord = {

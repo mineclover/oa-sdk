@@ -5,7 +5,7 @@
  * 단축 플래그를 검증한다. Private downstream generation은 playground가 소유한다.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { mkdirSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
+import { mkdirSync, rmSync, writeFileSync, readFileSync, existsSync, utimesSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { execSync, spawnSync, type ExecSyncOptionsWithStringEncoding } from 'node:child_process'
 import { SUBPROCESS_TEST_BUDGET_MS } from './helpers/subprocess-budget.js'
@@ -547,6 +547,9 @@ describe('typegen', () => {
         },
       },
     }), 'utf8')
+    // Authored before the runs: an input first read while a run is in progress is not trusted.
+    const authoredAt = new Date('2001-01-01T00:00:00Z')
+    for (const filePath of [sharedPath, apiPath]) utimesSync(filePath, authoredAt, authoredAt)
 
     const full = cli(`typegen -s ${apiPath}`)
     const incremental = cli(`typegen -s ${apiPath} --incremental --cache-dir ${cacheDir}`)

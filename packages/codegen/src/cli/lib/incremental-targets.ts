@@ -12,8 +12,13 @@
  *     target,
  *   - the output: a file output must still exist with the recorded hash; a
  *     stdout output is replayed from the stored content.
- * Anything else (no record, unreadable record, unknown generator identity)
- * regenerates.
+ * Anything else (no record, unreadable record, unknown generator identity, an
+ * input the previous run could not verify) regenerates.
+ *
+ * Recorded input hashes must describe the content generation consumed. A file
+ * stamped before generation started satisfies that (a change made later is seen
+ * by the next run). A file first stamped after generation needs evidence that it
+ * did not change in between, see `consumedInputRecord`.
  */
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, realpathSync } from 'node:fs'
@@ -24,8 +29,20 @@ import type {
   GenerationTargetOutputRecord,
   GenerationTargetRecord,
 } from '../../generation-target-store.js'
-import { readWorkspaceFileStamp, type WorkspaceFileStampCache } from '../../workspace-index.js'
+import {
+  readWorkspaceFileStamp,
+  type WorkspaceFileStamp,
+  type WorkspaceFileStampCache,
+} from '../../workspace-index.js'
 import type { CliIncrementalRun } from './incremental.js'
+
+/**
+ * How much older than the start of generation a file's mtime must be to prove
+ * the file was not written while generation ran. Coarse filesystem timestamps
+ * (FAT: 2 s, HFS+: 1 s) and coarse kernel clocks can give a write made after
+ * the start an earlier mtime.
+ */
+const FILE_TIMESTAMP_SLACK_MS = 2_000
 
 export type CliGenerationOutput =
   | { kind: 'file'; filePath: string }
@@ -63,8 +80,19 @@ export type CliGenerationResult = {
    * by its own content.
    */
   loadedFiles?: readonly string[]
+  /** Text generation consumed, keyed by input file, where the reader reports it. */
+  inputTexts?: ReadonlyMap<string, string>
   /** Non-fatal messages emitted while generating, replayed when the target is reused. */
   messages: readonly string[]
+}
+
+/** A target whose generation has started; created by `beginCliGeneration`. */
+export type CliTargetGeneration = {
+  target: CliGenerationTarget
+  /** Wall-clock time taken before generation read any input. */
+  startedAtMs: number
+  /** Files stamped before generation started: their stamps predate every read generation made. */
+  stampedBefore: ReadonlySet<string>
 }
 
 export function planCliGenerationTarget(run: CliIncrementalRun, target: CliGenerationTarget): CliGenerationPlan {
@@ -73,10 +101,12 @@ export function planCliGenerationTarget(run: CliIncrementalRun, target: CliGener
 
   const record = run.targets.getGenerationTarget(generationTargetKey(target))
   if (!record) return generate('no previous generation record')
+
+  // Stamp every recorded input now, before generation can read it, even when a
+  // check below already decides to regenerate: the new record reuses these stamps.
+  const inputChange = describeInputChanges(record.inputs, run.stamps)
   if (record.generatorHash !== hashJson(target.generator)) return generate('generator version changed')
   if (record.optionsHash !== hashJson(target.options)) return generate('options changed')
-
-  const inputChange = describeInputChanges(record.inputs, run.stamps)
   if (inputChange) return generate(inputChange)
 
   const outputProblem = describeOutputProblem(record.output)
@@ -86,17 +116,20 @@ export function planCliGenerationTarget(run: CliIncrementalRun, target: CliGener
 }
 
 /**
- * Persist the target after a successful generation. Input hashes come from the
- * run's stamp memo: files already known from the previous record or index were
- * stamped before generation read them, so a change made while the run was
- * generating is seen by the next run; files first discovered by this run are
- * stamped when the target is recorded.
+ * Mark the start of generation, after every stamp the run takes up front
+ * (planning, index invalidation) and before generation reads any input.
  */
+export function beginCliGeneration(run: CliIncrementalRun, target: CliGenerationTarget): CliTargetGeneration {
+  return { target, startedAtMs: Date.now(), stampedBefore: new Set(run.stamps.keys()) }
+}
+
+/** Persist the target after a successful generation. */
 export function recordCliGenerationTarget(
   run: CliIncrementalRun,
-  target: CliGenerationTarget,
+  generation: CliTargetGeneration,
   result: CliGenerationResult,
 ): void {
+  const { target } = generation
   if (!run.targets || !target.generator) return
 
   const contentHash = sha256(result.content)
@@ -109,10 +142,8 @@ export function recordCliGenerationTarget(
     command: target.command,
     optionsHash: hashJson(target.options),
     generatorHash: hashJson(target.generator),
-    inputs: trackedInputPaths(target.entryPath, result.inputFiles, result.loadedFiles).map(filePath => ({
-      filePath,
-      contentHash: readWorkspaceFileStamp(filePath, run.stamps)?.contentHash ?? null,
-    })),
+    inputs: trackedInputPaths(target.entryPath, result.inputFiles, result.loadedFiles).map(filePath =>
+      consumedInputRecord(filePath, run.stamps, generation, result.inputTexts?.get(filePath))),
     output,
     messages: [...result.messages],
     lastRun: run.runId,
@@ -179,6 +210,40 @@ export function resolveCliGeneratorIdentity(
   return identity
 }
 
+/**
+ * The record of one input as generation consumed it. A stamp taken before
+ * generation started is used as is. A file first stamped after generation may
+ * have changed in between, so its stamp is used only with evidence that it is
+ * what generation read:
+ *   - the reader reported the text it consumed, and the stamp hashes that text;
+ *   - otherwise, the file exists and its mtime precedes the start of generation
+ *     by more than the timestamp slack, so no write happened while generation
+ *     ran (writes advance mtime; a tool that restores an older mtime during the
+ *     run defeats this check, which is why reported text takes precedence).
+ * Without evidence (including a file absent by then) the input is recorded
+ * unverified, and the next run, which stamps it before generating, regenerates.
+ */
+function consumedInputRecord(
+  filePath: string,
+  stamps: WorkspaceFileStampCache,
+  generation: CliTargetGeneration,
+  consumedText: string | undefined,
+): GenerationTargetInputRecord {
+  const stamp = readWorkspaceFileStamp(filePath, stamps)
+  if (generation.stampedBefore.has(filePath)) return { filePath, contentHash: stamp?.contentHash ?? null }
+  if (!stamp) return { filePath, unverified: true }
+
+  const verified = consumedText !== undefined
+    ? stampMatchesText(stamp, consumedText)
+    : stamp.mtimeMs < generation.startedAtMs - FILE_TIMESTAMP_SLACK_MS
+  return verified ? { filePath, contentHash: stamp.contentHash } : { filePath, unverified: true }
+}
+
+/** Whether the stamped bytes are `text` encoded as UTF-8, with or without the byte order mark a reader drops. */
+function stampMatchesText(stamp: WorkspaceFileStamp, text: string): boolean {
+  return sha256(text) === stamp.contentHash || sha256(`\uFEFF${text}`) === stamp.contentHash
+}
+
 function describeInputChanges(
   inputs: readonly GenerationTargetInputRecord[],
   stamps: WorkspaceFileStampCache,
@@ -186,8 +251,9 @@ function describeInputChanges(
   const changes: string[] = []
   for (const input of inputs) {
     const currentHash = readWorkspaceFileStamp(input.filePath, stamps)?.contentHash ?? null
-    if (currentHash === input.contentHash) continue
-    if (input.contentHash === null) changes.push(`input added: ${input.filePath}`)
+    if ('unverified' in input) changes.push(`input not verified: ${input.filePath}`)
+    else if (currentHash === input.contentHash) continue
+    else if (input.contentHash === null) changes.push(`input added: ${input.filePath}`)
     else if (currentHash === null) changes.push(`input removed: ${input.filePath}`)
     else changes.push(`input changed: ${input.filePath}`)
   }

@@ -36,7 +36,12 @@ const packageRoot = resolve(__dirname, '../..')
 /** TypeSpec fixtures live inside the package so `@typespec/*` imports resolve from its node_modules. */
 const packageTmpBase = resolve(packageRoot, '.tmp-typegen-incremental')
 
-/** A fixed past instant; an output rewritten by a run gets a current mtime instead. */
+/**
+ * A fixed past instant. Outputs are backdated to it so a rewrite is visible as
+ * a current mtime; fixture inputs are backdated to it to state that they were
+ * authored before the runs (an input first read while a run is in progress is
+ * deliberately not trusted, see the race tests).
+ */
 const PAST = new Date('2001-01-01T00:00:00Z')
 
 type RunResult = {
@@ -47,6 +52,11 @@ type RunResult = {
   /** Lines written with console.log (file output confirmations). */
   logs: string[]
   stdout: string
+}
+
+type RunHooks = {
+  /** Called once the generated output has been written, before the run records its target. */
+  afterOutput?: () => void
 }
 
 let workspace: string
@@ -192,15 +202,21 @@ describe('typegen --incremental', () => {
 
   it('replays stdout output and warnings, and tracks a referenced file that does not exist yet', async () => {
     writeYaml('api.yaml', operationSpec('getLater', './later.yaml#/components/schemas/Later'))
+    backdateInputs('api.yaml')
     const args = { spec: path('api.yaml'), incremental: true, 'cache-dir': cacheDir }
 
     const full = await runTypegen({ spec: path('api.yaml') })
     const first = await runTypegen(args)
+    // The first run only learns about later.yaml after generating, when nothing proves it was
+    // already absent while generation ran; the next run checks it up front and settles.
+    const confirmed = await runTypegen(args)
     const replayed = await runTypegen(args)
 
     expect(first.stdout).toBe(full.stdout)
     expect(first.warnings).toEqual(full.warnings)
     expect(full.warnings).toEqual([expect.stringContaining(path('later.yaml'))])
+    expect(confirmed.status).toEqual([`incremental: typegen regenerating (input not verified: ${path('later.yaml')})`])
+    expect(confirmed.stdout).toBe(full.stdout)
     expect(replayed.status).toEqual(['incremental: typegen up to date, regeneration skipped (stdout)'])
     expect(replayed.stdout).toBe(full.stdout)
     expect(replayed.warnings).toEqual(full.warnings)
@@ -227,6 +243,13 @@ describe('typegen --incremental', () => {
       getUser: './node_modules/@acme/schemas/user.yaml#/components/schemas/User',
       getOrder: './node_modules/shared-schemas/order.yaml#/components/schemas/Order',
     }))
+    backdateInputs(
+      'packages/schemas/package.json',
+      'packages/schemas/user.yaml',
+      'apps/api/node_modules/shared-schemas/package.json',
+      'apps/api/node_modules/shared-schemas/order.yaml',
+      'apps/api/api.yaml',
+    )
     const args = { spec: path('apps/api/api.yaml'), output: path('out/api.ts'), incremental: true, 'cache-dir': cacheDir }
     const fullOutput = async () => {
       await runTypegen({ spec: path('apps/api/api.yaml'), output: path('full/api.ts') })
@@ -255,6 +278,38 @@ describe('typegen --incremental', () => {
     ])
     expect(readFileSync(path('out/api.ts'), 'utf8')).toContain('total')
     expect(readFileSync(path('out/api.ts'), 'utf8')).toBe(await fullOutput())
+  })
+
+  it('does not trust a newly discovered input that changes or disappears while the run is generating', async () => {
+    writeTwoTargetWorkspace()
+
+    // role.yaml is first read during generation; it changes before the run records the target.
+    const editedDuringRun = await runTypegen(incrementalArgs('a'), {
+      afterOutput: () => writeYaml('a/models/role.yaml', {
+        components: { schemas: { Role: { type: 'string', enum: ['admin', 'member', 'guest'] } } },
+      }),
+    })
+    expect(editedDuringRun.status).toEqual(['incremental: typegen regenerating (no previous generation record)'])
+    expect(readFileSync(path('out/a.ts'), 'utf8')).toContain("export type Role = 'admin' | 'member'\n")
+
+    const afterEdit = await runTypegen(incrementalArgs('a'))
+    expect(afterEdit.status).toEqual([`incremental: typegen regenerating (input not verified: ${path('a/models/role.yaml')})`])
+    expect(readFileSync(path('out/a.ts'), 'utf8')).toContain("export type Role = 'admin' | 'member' | 'guest'")
+
+    // order.yaml is first read during generation; it is deleted before the run records the target.
+    await runTypegen(incrementalArgs('b'), { afterOutput: () => unlinkSync(path('b/order.yaml')) })
+    expect(readFileSync(path('out/b.ts'), 'utf8')).toContain('export type Order = {')
+
+    const afterDelete = await runTypegen(incrementalArgs('b'))
+    expect(afterDelete.status).toEqual([`incremental: typegen regenerating (input not verified: ${path('b/order.yaml')})`])
+    await runTypegen({ spec: path('b/api.yaml'), output: path('full/b.ts') })
+    expect(readFileSync(path('out/b.ts'), 'utf8')).toBe(readFileSync(path('full/b.ts'), 'utf8'))
+    expect(readFileSync(path('out/b.ts'), 'utf8')).not.toContain('export type Order = {')
+
+    for (const name of ['a', 'b'] as const) {
+      const settled = await runTypegen(incrementalArgs(name))
+      expect(settled.status).toEqual([`incremental: typegen up to date, regeneration skipped (${path(`out/${name}.ts`)})`])
+    }
   })
 
   it('tracks TypeSpec sources imported by the entry file', async () => {
@@ -286,6 +341,48 @@ describe('typegen --incremental', () => {
 
       expect(changed.status).toEqual([`incremental: typegen regenerating (input changed: ${modelsPath})`])
       expect(readFileSync(outputPath, 'utf8')).toContain('age: number')
+    } finally {
+      rmSync(tspDir, { recursive: true, force: true })
+    }
+  })
+
+  it('does not trust an imported TypeSpec source that differs from the text the compiler read', async () => {
+    mkdirSync(packageTmpBase, { recursive: true })
+    const tspDir = realpathSync(mkdtempSync(join(packageTmpBase, 'run-')))
+    try {
+      const mainPath = join(tspDir, 'main.tsp')
+      const modelsPath = join(tspDir, 'models.tsp')
+      const outputPath = join(tspDir, 'out.ts')
+      writeFileSync(mainPath, [
+        'import "@typespec/http";',
+        'import "./models.tsp";',
+        'using Http;',
+        '@service(#{ title: "Pets" })',
+        'namespace Pets;',
+        '@route("/pets") op listPets(): Pet[];',
+        '',
+      ].join('\n'), 'utf8')
+      writeFileSync(modelsPath, 'namespace Pets;\nmodel Pet { name: string; }\n', 'utf8')
+      for (const filePath of [mainPath, modelsPath]) utimesSync(filePath, PAST, PAST)
+      const args = { spec: mainPath, output: outputPath, incremental: true, 'cache-dir': join(tspDir, '.oa-cache') }
+
+      // models.tsp is first seen by the compiler. It is rewritten after generation with its old
+      // mtime restored (as a timestamp-preserving copy would), so only its content tells.
+      const first = await runTypegen(args, {
+        afterOutput: () => {
+          writeFileSync(modelsPath, 'namespace Pets;\nmodel Pet { name: string; age: int32; }\n', 'utf8')
+          utimesSync(modelsPath, PAST, PAST)
+        },
+      })
+      expect(first.status).toEqual(['incremental: typegen regenerating (no previous generation record)'])
+      expect(readFileSync(outputPath, 'utf8')).not.toContain('age: number')
+
+      const next = await runTypegen(args)
+      expect(next.status).toEqual([`incremental: typegen regenerating (input not verified: ${modelsPath})`])
+      expect(readFileSync(outputPath, 'utf8')).toContain('age: number')
+
+      const settled = await runTypegen(args)
+      expect(settled.status).toEqual([`incremental: typegen up to date, regeneration skipped (${outputPath})`])
     } finally {
       rmSync(tspDir, { recursive: true, force: true })
     }
@@ -401,6 +498,7 @@ function writeTwoTargetWorkspace(): void {
   writeYaml('b/order.yaml', {
     components: { schemas: { Order: { type: 'object', properties: { id: { type: 'string' } } } } },
   })
+  backdateInputs('a/api.yaml', 'a/models/user.yaml', 'a/models/role.yaml', 'b/api.yaml', 'b/order.yaml')
 }
 
 function operationSpec(operationId: string, schemaRef: string): Record<string, unknown> {
@@ -453,6 +551,11 @@ function writeJson(relativePath: string, value: unknown): void {
   writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8')
 }
 
+/** Inputs authored before the runs: their last modification precedes every run of the test. */
+function backdateInputs(...relativePaths: string[]): void {
+  for (const relativePath of relativePaths) utimesSync(path(relativePath), PAST, PAST)
+}
+
 function backdateOutputs(...relativePaths: string[]): void {
   for (const relativePath of relativePaths) utimesSync(path(relativePath), PAST, PAST)
 }
@@ -470,18 +573,22 @@ function lastSeenRun(filePath: string): string | undefined {
   }
 }
 
-async function runTypegen(args: Record<string, CommandArgValue>): Promise<RunResult> {
+async function runTypegen(args: Record<string, CommandArgValue>, hooks: RunHooks = {}): Promise<RunResult> {
   const stderr: string[] = []
   const logs: string[] = []
   let stdout = ''
+  // The output is complete when typegen confirms the file write (console.log) or writes stdout.
+  const outputWritten = () => hooks.afterOutput?.()
   const warn = vi.spyOn(console, 'warn').mockImplementation((...parts: unknown[]) => {
     stderr.push(parts.map(String).join(' '))
   })
   const log = vi.spyOn(console, 'log').mockImplementation((...parts: unknown[]) => {
     logs.push(parts.map(String).join(' '))
+    outputWritten()
   })
   const write = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
     stdout += typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8')
+    outputWritten()
     return true
   })
   try {

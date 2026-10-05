@@ -8,11 +8,17 @@
  * unchanged to the second target after the first one regenerated.
  */
 
-/** One file that was read to produce the target. `contentHash: null` = the file was absent. */
-export type GenerationTargetInputRecord = {
-  filePath: string
-  contentHash: string | null
-}
+/**
+ * One file that was read to produce the target, as generation consumed it:
+ *   - `contentHash`: sha256 of the content; `null` = the file was absent;
+ *   - `unverified`: the run could not establish which content generation
+ *     consumed (the file was first examined after generation and may have
+ *     changed in between). It never matches, so the next run regenerates and,
+ *     having examined the file before generating, records it verified.
+ */
+export type GenerationTargetInputRecord =
+  | { filePath: string; contentHash: string | null }
+  | { filePath: string; unverified: true }
 
 export type GenerationTargetOutputRecord =
   | { kind: 'file'; filePath: string; contentHash: string }

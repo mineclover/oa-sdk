@@ -13,6 +13,8 @@ export type LoadedSpec = {
    * installed packages). External `$ref` documents are not included.
    */
   inputFiles: string[]
+  /** Text the loader parsed, keyed by file in `inputFiles` (JS entries are imported, so they have none). */
+  inputTexts: ReadonlyMap<string, string>
 }
 
 /** spec 파일을 읽어 파싱된 객체 반환. 실패는 호출자에게 전달합니다. */
@@ -26,7 +28,7 @@ export function loadSpecWithPath(specPath: string, rootDir?: string): LoadedSpec
   try {
     const raw = readFileSync(resolved, 'utf8')
     const document = (specPath.endsWith('.json') ? JSON.parse(raw) : parseYaml(raw)) as OasDocument
-    return { document, path: resolved, raw, inputFiles: [resolved] }
+    return { document, path: resolved, raw, inputFiles: [resolved], inputTexts: new Map([[resolved, raw]]) }
   } catch (err) {
     throw new Error(`스펙 파일 읽기 실패: ${resolved}\n${err instanceof Error ? err.message : String(err)}`)
   }
@@ -48,7 +50,13 @@ export async function loadSpecDocumentAsync(specPath: string, rootDir?: string):
     const result = await compileTypeSpecInMemory(resolved)
     const { stringifyOpenApiYaml } = await import('./openapi-collect.js')
     const raw = stringifyOpenApiYaml(result.document)
-    return { document: result.document, path: resolved, raw, inputFiles: result.inputFiles }
+    return {
+      document: result.document,
+      path: resolved,
+      raw,
+      inputFiles: result.inputFiles,
+      inputTexts: result.sourceTexts,
+    }
   }
   return loadSpecWithPath(specPath, rootDir)
 }

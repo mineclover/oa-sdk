@@ -17,6 +17,8 @@ export interface TypeSpecCompilationResult {
   sourceFiles: string[]
   /** Every file the compiler loaded: TypeSpec sources and JS library entries, including node_modules. */
   inputFiles: string[]
+  /** Text the compiler parsed for each TypeSpec source in `inputFiles`. */
+  sourceTexts: ReadonlyMap<string, string>
 }
 
 export interface TypeSpecWatcher {
@@ -82,6 +84,10 @@ export async function compileTypeSpecInMemory(
     ...program.sourceFiles.keys(),
     ...program.jsSourceFiles.keys(),
   ].filter(Boolean))].sort((a, b) => a.localeCompare(b))
+  const sourceTexts = new Map<string, string>()
+  for (const [file, script] of program.sourceFiles) {
+    if (file) sourceTexts.set(file, script.file.text)
+  }
 
   return {
     program,
@@ -89,6 +95,7 @@ export async function compileTypeSpecInMemory(
     routesCount,
     sourceFiles: sourceFiles.length > 0 ? sourceFiles : [resolvedPath],
     inputFiles,
+    sourceTexts,
   }
 }
 

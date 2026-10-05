@@ -451,7 +451,7 @@ describe('WorkspaceIndex', () => {
     }
   })
 
-  it('persists generation targets with absent inputs and stdout content, and clears them with the cache', () => {
+  it('persists generation targets with absent and unverified inputs and stdout content, and clears them with the cache', () => {
     const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-sqlite-targets-'))
     const cacheDir = join(tmp, '.oa-cache')
     const fileTarget: GenerationTargetRecord = {
@@ -461,6 +461,7 @@ describe('WorkspaceIndex', () => {
       generatorHash: 'generator-a',
       inputs: [
         { filePath: '/workspace/api.yaml', contentHash: 'hash-api' },
+        { filePath: '/workspace/edited.yaml', unverified: true },
         { filePath: '/workspace/missing.yaml', contentHash: null },
       ],
       output: { kind: 'file', filePath: '/workspace/out.ts', contentHash: 'hash-out' },
