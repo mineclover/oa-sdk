@@ -1,5 +1,17 @@
-import Ajv2020 from 'ajv/dist/2020.js'
+import { Ajv2020 } from 'ajv/dist/2020.js'
 import { readFileSync } from 'node:fs'
+
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** A bundled JSON Schema document must be a JSON object before Ajv compiles it. */
+const SchemaDocument = {
+  parse(value: unknown): Record<string, unknown> {
+    if (!isJsonObject(value)) throw new TypeError('Bundled logical ERD schema must be a JSON object')
+    return value
+  },
+}
 
 const artifactSchema = readSchema('oa-sdk.logical-erd.v1.schema.json')
 const reviewSchema = readSchema('oa-sdk.logical-erd-review.v1.schema.json')
@@ -13,15 +25,9 @@ type CompiledSchema = {
   }[] | null
 }
 
-type Ajv2020Constructor = new (options: { allErrors: boolean; strict: boolean }) => {
-  compile(value: Record<string, unknown>): CompiledSchema
-}
-
-// Ajv publishes this ESM entrypoint with a CommonJS-shaped declaration. The
-// constructor is present at runtime; narrow it here without enabling synthetic
-// default imports for the whole monorepo.
-const Ajv2020Runtime = Ajv2020 as unknown as Ajv2020Constructor
-const ajv = new Ajv2020Runtime({ allErrors: true, strict: false })
+// Ajv's CommonJS entrypoint assigns `exports.Ajv2020`, which Node exposes as a
+// named ESM export, so no synthetic default import is needed.
+const ajv = new Ajv2020({ allErrors: true, strict: false })
 const validateArtifact = ajv.compile(artifactSchema)
 const validateReview = ajv.compile(reviewSchema)
 
@@ -51,5 +57,5 @@ function collectIssues(validate: CompiledSchema, value: unknown): LogicalErdSche
 }
 
 function readSchema(name: string): Record<string, unknown> {
-  return JSON.parse(readFileSync(new URL(`../schema/${name}`, import.meta.url), 'utf8')) as Record<string, unknown>
+  return SchemaDocument.parse(JSON.parse(readFileSync(new URL(`../schema/${name}`, import.meta.url), 'utf8')))
 }
