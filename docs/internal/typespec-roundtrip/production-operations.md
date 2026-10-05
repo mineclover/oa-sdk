@@ -60,7 +60,7 @@ git diff --check
 
 `pnpm schema:validate` proves the default TypeSpec source path. `pnpm schema:bundle` regenerates the package-consumed OpenAPI 3.1 bundle, and `check-artifact` proves that `dist/openapi.yaml` matches it. `pnpm schema:rollback-check` proves the OpenAPI/Definition Builder rollback path. `pnpm --filter @oa-sdk/schemas run downstream:check` proves parser, codegen, router, client, mock-server, and generated TypeScript consumer compatibility against the TypeSpec-restored production OpenAPI.
 
-`schema:rollback-check` intentionally ends by running the OpenAPI/Definition Builder validation path. Before committing generated schema artifacts, rerun `pnpm schema:validate` or `pnpm --filter @oa-sdk/schemas run build` so the checked-in generated OpenAPI artifacts are TypeSpec-derived again.
+`schema:rollback-check` runs the OpenAPI/Definition Builder validation path, which rebuilds `packages/schemas/src/.merged.yaml` and downgrades it over the checked-in `.merged.3.1.yaml` and `.merged.3.1.meta.json`. The check snapshots `packages/schemas/src` first and restores it byte for byte afterwards, whether the gate passes or fails, so the checked-in artifacts and the ignored TypeSpec build outputs stay TypeSpec-derived; it fails if the restore leaves any path different. Do not edit `packages/schemas/src` while it runs. Running `pnpm schema:validate:openapi` directly still overwrites those files; rerun `pnpm schema:validate` or `pnpm --filter @oa-sdk/schemas run build` afterwards.
 
 ### Rollback Path
 

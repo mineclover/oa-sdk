@@ -8,10 +8,20 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-async function main(): Promise<void> {
-  const typespecReport = parseSchemaRollbackArgs(process.argv.slice(2))
-  if (typespecReport) validateReusedTypeSpecReport(typespecReport)
-  const steps: Array<{ label: string; args: string[] }> = [
+import { preservingDirectory } from './lib/directory-snapshot.js'
+
+/**
+ * Where the schema build writes its generated spec artifacts: the committed
+ * `.merged.3.1.yaml` and `.merged.3.1.meta.json`, and the ignored
+ * `.merged.yaml` and `.builder/` outputs that later gates read.
+ */
+export const SCHEMA_ARTIFACT_DIRECTORY = resolve(import.meta.dirname, '../packages/schemas/src')
+
+export type SchemaRollbackStep = { label: string; args: string[] }
+
+/** The gates the rollback check runs, with or without a TypeSpec report validated earlier. */
+export function schemaRollbackSteps(typespecReport: string | undefined): SchemaRollbackStep[] {
+  return [
     ...(typespecReport ? [] : [{
       label: 'TypeSpec production candidate gate',
       args: ['schema:typespec-check'],
@@ -21,15 +31,43 @@ async function main(): Promise<void> {
       args: ['schema:validate:openapi'],
     },
   ]
+}
 
-  for (const [index, step] of steps.entries()) {
-    console.log('')
-    console.log(`Schema rollback check ${index + 1}/${steps.length}: ${step.label}`)
-    await run('pnpm', step.args)
-  }
+/**
+ * Runs the rollback `steps` and then restores `artifactDirectory` byte for
+ * byte, whether they pass or not.
+ *
+ * The OpenAPI/Definition Builder gate rebuilds the spec with the rollback
+ * pipeline, which writes its own `.merged.yaml` and downgrades it over the
+ * committed `.merged.3.1.*` files. Its output differs from the TypeSpec
+ * production build those files hold, so without the restore a check would
+ * leave tracked files modified and hand later gates the rollback build.
+ * Nothing else may edit `artifactDirectory` while the check runs.
+ */
+export async function runSchemaRollbackCheck(
+  steps: readonly SchemaRollbackStep[],
+  runStep: (step: SchemaRollbackStep) => Promise<void>,
+  artifactDirectory: string = SCHEMA_ARTIFACT_DIRECTORY,
+): Promise<void> {
+  await preservingDirectory(artifactDirectory, async () => {
+    for (const [index, step] of steps.entries()) {
+      console.log('')
+      console.log(`Schema rollback check ${index + 1}/${steps.length}: ${step.label}`)
+      await runStep(step)
+    }
+  })
+}
+
+async function main(): Promise<void> {
+  const typespecReport = parseSchemaRollbackArgs(process.argv.slice(2))
+  if (typespecReport) validateReusedTypeSpecReport(typespecReport)
+  await runSchemaRollbackCheck(schemaRollbackSteps(typespecReport), step => run('pnpm', step.args))
 
   console.log('')
-  console.log(`Schema rollback check passed${typespecReport ? ' (validated prior TypeSpec report)' : ''}`)
+  console.log(
+    `Schema rollback check passed${typespecReport ? ' (validated prior TypeSpec report)' : ''}; ` +
+      `restored ${SCHEMA_ARTIFACT_DIRECTORY} to its state before the check`,
+  )
 }
 
 export function parseSchemaRollbackArgs(values: string[]): string | undefined {
