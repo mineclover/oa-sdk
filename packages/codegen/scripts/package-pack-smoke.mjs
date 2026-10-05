@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
+import { embeddedVersionTables } from './embedded-workspace-versions.mjs'
 import { readWorkspaceDependencyVersions } from './workspace-versions.mjs'
 
 const packageDirectory = new URL('..', import.meta.url)
@@ -138,37 +139,6 @@ function packageImports(file) {
   }
   visit(source)
   return imports
-}
-
-/**
- * Package-to-version tables embedded in the packed JavaScript as JSON string literals
- * (the build-time `__OA_SDK_WORKSPACE_VERSIONS__` constant) that name any of `packageNames`.
- */
-function embeddedVersionTables(packageRoot, packageNames) {
-  const tables = []
-  for (const file of listFiles(packageRoot).filter(path => path.endsWith('.js'))) {
-    const source = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, false)
-    const visit = node => {
-      if (ts.isStringLiteralLike(node) && node.text.startsWith('{')) {
-        const table = parseVersionTable(node.text)
-        if (table && [...packageNames].some(name => name in table)) tables.push(table)
-      }
-      ts.forEachChild(node, visit)
-    }
-    visit(source)
-  }
-  return tables
-}
-
-function parseVersionTable(text) {
-  let value
-  try {
-    value = JSON.parse(text)
-  } catch {
-    return undefined
-  }
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined
-  return Object.values(value).every(version => typeof version === 'string') ? value : undefined
 }
 
 function bareSpecifierPackage(specifier) {
