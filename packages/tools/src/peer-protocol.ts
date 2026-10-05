@@ -54,6 +54,17 @@ function parseCachedTool(value: unknown): CachedTool | undefined {
   }
 }
 
+/**
+ * An allow-list only ever narrows a peer, so it fails closed: unusable names
+ * are left out, and an `allowedTools` that is present but not an array (null
+ * included) becomes an empty list. Dropping it instead would leave the record
+ * with no allow-list, which consumers such as mcp-mesh read as "every tool".
+ */
+function parseAllowedTools(value: unknown): string[] | undefined {
+  if (value === undefined) return undefined
+  return Array.isArray(value) ? value.filter(isToolName) : []
+}
+
 /** A skill manifest needs its four identifying strings; `instructions` is kept when it is a string. */
 function parseSkillManifest(value: unknown): SkillManifest | undefined {
   if (!isRecord(value)) return undefined
@@ -64,7 +75,11 @@ function parseSkillManifest(value: unknown): SkillManifest | undefined {
   return { id, name, version, description, ...(typeof instructions === 'string' ? { instructions } : {}) }
 }
 
-/** Rebuild a peer record from typed known fields; credentials and unknown fields are not copied. */
+/**
+ * Rebuild a peer record from typed known fields; credentials and unknown fields
+ * are not copied. A wrong-typed optional field is dropped, except
+ * `allowedTools`, which fails closed (see parseAllowedTools).
+ */
 function parsePeerRecord(value: unknown): WebMcpPeerRecord | undefined {
   if (!isRecord(value) || typeof value.alias !== 'string' || value.alias.length === 0) return undefined
   const record: WebMcpPeerRecord = { alias: value.alias }
@@ -72,7 +87,8 @@ function parsePeerRecord(value: unknown): WebMcpPeerRecord | undefined {
     const fieldValue = value[field]
     if (typeof fieldValue === 'string') record[field] = fieldValue
   }
-  if (Array.isArray(value.allowedTools)) record.allowedTools = value.allowedTools.filter(isToolName)
+  const allowedTools = parseAllowedTools(value.allowedTools)
+  if (allowedTools !== undefined) record.allowedTools = allowedTools
   if (Array.isArray(value.cachedTools)) {
     record.cachedTools = value.cachedTools.flatMap((entry) => {
       const tool = parseCachedTool(entry)

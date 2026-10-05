@@ -303,6 +303,23 @@ describe('WebMCP peer bridge fallback client', () => {
     await expect(client.resolvePeer()).resolves.toEqual({ alias: 'tab-a', skillManifest })
   })
 
+  it('fails closed on an allowedTools that is not an array', async () => {
+    const cachedTools = [{ name: 'search' }, { name: 'delete_all' }]
+    const client = new WebMcpPeerBridgeClient({ alias: 'shop-local', storePath })
+    for (const allowedTools of ['search', { search: true }, 5, true, null]) {
+      await writeFile(storePath, JSON.stringify({ peers: { 'shop-local': { alias: 'shop-local', allowedTools, cachedTools } } }))
+      await expect(client.resolvePeer()).resolves.toEqual({ alias: 'shop-local', allowedTools: [], cachedTools })
+
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => jsonResponse({ ok: true, peers: [{ alias: 'shop-local', allowedTools }] })))
+      await expect(client.getStatus()).resolves.toEqual({ ok: true, peers: [{ alias: 'shop-local', allowedTools: [] }] })
+      vi.unstubAllGlobals()
+    }
+
+    // Only an absent allowedTools means the record has no allow-list.
+    await writeFile(storePath, JSON.stringify({ peers: { 'shop-local': { alias: 'shop-local', cachedTools } } }))
+    await expect(client.resolvePeer()).resolves.toEqual({ alias: 'shop-local', cachedTools })
+  })
+
   it('reads a peer registry alias as an own key only', async () => {
     await writeFile(storePath, '{"peers":{"__proto__":{"alias":"__proto__","status":"connected"}}}')
     const client = new WebMcpPeerBridgeClient({ alias: 'wireframe-test', storePath })
