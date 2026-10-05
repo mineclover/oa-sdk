@@ -450,21 +450,22 @@ function applyNullableUpgrade(
  * cycle is reproduced in the output, and the walk terminates. Containers under
  * construction are exactly the ancestors of the current location.
  */
-class RebuildMemo {
-  private readonly built = new Map<object, Map<string, object>>()
+class RebuildMemo<Context> {
+  /** Keyed by context first: contexts are few, so this is one map per context, not one per node. */
+  private readonly built = new Map<Context, Map<object, object>>()
   private readonly building = new Set<object>()
 
-  get(source: object, context: string): object | undefined {
-    return this.built.get(source)?.get(context)
+  get(source: object, context: Context): object | undefined {
+    return this.built.get(context)?.get(source)
   }
 
-  build<T extends object>(source: object, context: string, output: T, fill: (output: T) => void): T {
-    let byContext = this.built.get(source)
-    if (byContext === undefined) {
-      byContext = new Map()
-      this.built.set(source, byContext)
+  build<T extends object>(source: object, context: Context, output: T, fill: (output: T) => void): T {
+    let bySource = this.built.get(context)
+    if (bySource === undefined) {
+      bySource = new Map()
+      this.built.set(context, bySource)
     }
-    byContext.set(context, output)
+    bySource.set(source, output)
     this.building.add(output)
     fill(output)
     this.building.delete(output)
@@ -481,7 +482,7 @@ class RebuildMemo {
 type NoiseLocation = 'document' | 'nested'
 
 function removeCollectionNoise(document: unknown, profile: OpenApiCollectProfile): unknown {
-  const memo = new RebuildMemo()
+  const memo = new RebuildMemo<NoiseLocation>()
 
   const visit = (value: unknown, location: NoiseLocation): unknown => {
     if (!Array.isArray(value) && !isRecord(value)) return value
@@ -537,11 +538,20 @@ function shouldDropNoise(
  * - `sortItems`: whether an array there is sorted (fields named `tags` or `security`).
  */
 type SortLocation = {
-  readonly keyOrder: 'document' | 'paths' | 'under-paths' | 'components' | 'plain'
+  readonly keyOrder: SortKeyOrder
   readonly sortItems: boolean
 }
 
-const DOCUMENT_SORT_LOCATION: SortLocation = { keyOrder: 'document', sortItems: false }
+type SortKeyOrder = 'document' | 'paths' | 'under-paths' | 'components' | 'plain'
+
+/** One value per context, so a location doubles as the memo key of its context. */
+const SORT_LOCATIONS: Record<SortKeyOrder, { readonly unsorted: SortLocation; readonly sorted: SortLocation }> = {
+  document: sortLocationPair('document'),
+  paths: sortLocationPair('paths'),
+  'under-paths': sortLocationPair('under-paths'),
+  components: sortLocationPair('components'),
+  plain: sortLocationPair('plain'),
+}
 const SORTED_ARRAY_FIELDS = new Set(['tags', 'security'])
 const COMPONENTS_ORDER = [
   'schemas',
@@ -556,11 +566,19 @@ const COMPONENTS_ORDER = [
   'pathItems',
 ]
 
-function childSortLocation(parent: SortLocation, key: string): SortLocation {
-  return { keyOrder: childKeyOrder(parent.keyOrder, key), sortItems: SORTED_ARRAY_FIELDS.has(key) }
+function sortLocationPair(keyOrder: SortKeyOrder): { unsorted: SortLocation; sorted: SortLocation } {
+  return { unsorted: { keyOrder, sortItems: false }, sorted: { keyOrder, sortItems: true } }
 }
 
-function childKeyOrder(parent: SortLocation['keyOrder'], key: string): SortLocation['keyOrder'] {
+function sortLocation(keyOrder: SortKeyOrder, sortItems: boolean): SortLocation {
+  return sortItems ? SORT_LOCATIONS[keyOrder].sorted : SORT_LOCATIONS[keyOrder].unsorted
+}
+
+function childSortLocation(parent: SortLocation, key: string): SortLocation {
+  return sortLocation(childKeyOrder(parent.keyOrder, key), SORTED_ARRAY_FIELDS.has(key))
+}
+
+function childKeyOrder(parent: SortKeyOrder, key: string): SortKeyOrder {
   switch (parent) {
     case 'document':
       return key === 'paths' ? 'paths' : key === 'components' ? 'components' : 'plain'
@@ -573,30 +591,29 @@ function childKeyOrder(parent: SortLocation['keyOrder'], key: string): SortLocat
 }
 
 function sortOpenApiObject(document: unknown): unknown {
-  const memo = new RebuildMemo()
+  const memo = new RebuildMemo<SortLocation>()
 
   const visit = (value: unknown, location: SortLocation): unknown => {
     if (!Array.isArray(value) && !isRecord(value)) return value
-    const context = `${location.keyOrder}:${location.sortItems}`
-    const cached = memo.get(value, context)
+    const cached = memo.get(value, location)
     if (cached !== undefined) return cached
 
     if (Array.isArray(value)) {
-      return memo.build(value, context, [] as unknown[], (items) => {
+      return memo.build(value, location, [] as unknown[], (items) => {
         value.forEach((item, index) => items.push(visit(item, childSortLocation(location, String(index)))))
         if (location.sortItems) items.sort(compareStable)
       })
     }
-    return memo.build(value, context, {} as Record<string, unknown>, (output) => {
+    return memo.build(value, location, {} as Record<string, unknown>, (output) => {
       const keys = Object.keys(value).sort((left, right) => compareOpenApiKeys(location.keyOrder, left, right))
       for (const key of keys) output[key] = visit(value[key], childSortLocation(location, key))
     })
   }
 
-  return visit(document, DOCUMENT_SORT_LOCATION)
+  return visit(document, sortLocation('document', false))
 }
 
-function compareOpenApiKeys(keyOrder: SortLocation['keyOrder'], left: string, right: string): number {
+function compareOpenApiKeys(keyOrder: SortKeyOrder, left: string, right: string): number {
   switch (keyOrder) {
     case 'document':
       return compareByOrder(ROOT_ORDER, left, right)
