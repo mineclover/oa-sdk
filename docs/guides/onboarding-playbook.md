@@ -7,6 +7,7 @@ audience:
 productVersions:
   - "@oa-sdk/codegen 0.9.0"
   - "@oa-sdk/router 0.2.2"
+  - "@oa-sdk/client 0.2.2"
   - "@oa-sdk/mock-server 0.1.4"
 owner: "OA SDK maintainers"
 status: active
@@ -14,440 +15,343 @@ status: active
 
 # 프로젝트 온보딩 & 점진적 도입 플레이북 (Onboarding & Adoption Playbook)
 
-이 가이드는 신규(Greenfield) 및 기존(Brownfield) 백엔드/풀스택 프로젝트에서 **`oa-sdk` 생태계를 30초 만에 점진적으로 도입**하여 팀 내 무가치 관리 포인트(Zero-Value Management Points)를 완전히 제거하고, 단일 진실 공급원(SSOT) 기반의 무결점 API 거버넌스를 확립하기 위한 실무 표준 플레이북입니다.
+이 가이드는 신규(Greenfield) 및 기존(Brownfield) 백엔드/풀스택 프로젝트에 `oa-sdk`를 단계적으로 도입하는 순서와, Fastify·Express·Hono·Elysia·NestJS에 연결하는 방법을 정리한 실무 플레이북입니다. 기존 코드베이스를 한 번에 바꿀 필요 없이 **3계층 가치 도입 사다리(3-Tier Value Adoption Ladder)**를 따라 필요한 단계까지만 적용합니다.
 
-기존 코드베이스를 전면 재작성할 필요 없이, **3계층 가치 도입 사다리(3-Tier Value Adoption Ladder)**를 따라 단계별로 즉시 측정 가능한 ROI를 회수할 수 있습니다.
+이 문서는 `@oa-sdk/codegen` 0.9.0 기준입니다. 공개 패키지는 Node.js 22 이상에서 동작하며, 설치와 첫 실행은 [Quick Start](./quick-start.md)를, 어떤 명령에 어떤 동반 패키지가 필요한지는 [동반 패키지 안내](./cli-setup.md#동반-패키지-companion-packages)를 따릅니다.
+
+> §1~§8은 다른 프로젝트에 `oa-sdk`를 도입하는 사용자용입니다. §9는 oa-sdk 저장소 자체에 기여하는 개발자용입니다.
 
 ---
 
-## 1. 5대 무가치 관리 포인트(Zero-Value Management Points)의 완전한 제거
+## 1. 도입으로 줄어드는 반복 작업
 
-전통적인 API 개발 및 코드 생성 도구(Swagger Codegen, OpenAPI Generator 등)는 여러 계층의 마찰과 수동 동기화 비용을 초래합니다. `oa-sdk`는 다음 5대 무가치 관리 포인트를 코드 레벨에서 근본적으로 제거합니다.
+API 계약이 여러 곳에 흩어져 있으면 아래 작업을 사람이 반복합니다. 표는 각 작업을 어떤 명령과 파일이 대신하는지 정리한 것이며, 도입 효과를 측정한 수치가 아닙니다. 가치별 근거는 [가이드 색인의 핵심 가치](./README.md#oa-sdk가-해결하는-문제와-핵심-가치)에 있습니다.
 
-| # | 무가치 관리 포인트 | 기존 레거시 방식의 고통 | `oa-sdk` 도입 후 제거 효과 | 정량적 ROI 지표 |
+| # | 반복 작업 | 도입 전 | `oa-sdk`가 대신하는 것 | 명령·파일 |
 |---|---|---|---|---|
-| **1** | **동기화 오버헤드<br>(Sync Overhead)** | 기획/백엔드/프론트엔드 간 API 변경 사항을 수동 문서화하고 정기 동기화 회의 진행. 문서와 코드 간 불일치 빈발. | TypeSpec / OpenAPI 3.2 단일 진실 공급원(SSOT)에서 타입, 클라이언트, 라우터 스텁이 자동 파생되어 수동 동기화가 불필요함. | 주당 **4~6시간**의 API 동기화 회의 완전 소멸 |
-| **2** | **덮어쓰기 딜레마<br>(Overwrite Dilemma)** | 스키마 수정 후 코드 재생성 시 개발자가 손수 작성한 비즈니스 핸들러 로직이 덮어쓰여 충돌 발생 및 재생성 공포(Regeneration Anxiety) 유발. | `@oa-sdk/router`의 **핸들러 계약 분리(`*.contract.ts`)**: 순수 TypeScript 인터페이스만 재생성되며, 비즈니스 구현체는 독립 파일에 완전히 격리 보존됨. | 스키마 재생성 시 코드 충돌 및 덮어쓰기 사고 **0건 (100% 안전)** |
-| **3** | **목업 병목 현상<br>(Mock Bottlenecks)** | 백엔드 API 구현이 완료될 때까지 프론트엔드/QA 팀이 대기하거나, 일회성 가짜 서버/하드코딩 JSON을 수동 작성. | **제로-빌드 실시간 핫리로드 Mock 서버 (`oa-gen mock --watch`)**: 스키마 수정 즉시 소켓 단절 없이 인메모리 라우트가 원자적으로 갱신됨. | 프론트엔드 개발 착수 지연 시간 **수일 $\rightarrow$ 0초** |
-| **4** | **프레임워크 락인<br>(Framework Lock-In)** | 특정 웹 프레임워크(Express, Fastify, NestJS 등)의 전용 Request/Response 객체에 비즈니스 로직이 강결합되어 프레임워크 마이그레이션 불가능. | 순수 데이터 컨텍스트(`{ params, query, body }`) 기반 핸들러 계약. `@oa-sdk/router`는 런타임 프레임워크 의존성이 0개이며, 바인더 파일 교체만으로 타겟 전환 가능. | 프레임워크 전환 비용 **수주 $\rightarrow$ 바인더 교체(수분)** |
-| **5** | **무음 파괴적 드리프트<br>(Silent Breaking Drift)** | 배포 전 필드 삭제, 타입 변경, 필수값 추가 등 파괴적 변경(Breaking Changes)을 인지하지 못해 운영 환경에서 런타임 에러 발생. | CI/CD 파이프라인에서 **`oa-gen diff --fail-on-breaking`** 실행으로 Git ref 간 AST 시맨틱 파괴적 변경을 100% 사전에 자동 차단. | 배포 후 API 불일치로 인한 운영 핫픽스 **0건 (Zero Drift)** |
+| **1** | **동기화** | 스펙 문서, 서버 DTO, 클라이언트 타입을 손으로 맞추고 어긋난 곳을 리뷰에서 찾습니다. | 원본(OpenAPI 문서 또는 TypeSpec) 하나에서 타입, 클라이언트, 핸들러 계약을 다시 생성합니다. `oa-gen check-artifact`를 CI에 걸면 원본과 어긋난 생성 OpenAPI 문서가 실패로 드러납니다. | `oa-gen typegen`, `oa-gen generate`, `oa-gen check-artifact` |
+| **2** | **덮어쓰기** | 생성 코드에 구현을 섞으면 다시 생성할 때 수정이 사라집니다. | 생성기는 핸들러 계약(`*.contract.ts`)만 쓰고, 구현은 그 인터페이스를 구현하는 별도 파일에 둡니다. 생성기는 구현 파일을 쓰지 않습니다. | `oa-gen generate`, `generateHandlerContract()` |
+| **3** | **mock 대기** | 백엔드 구현 전까지 프론트엔드·QA가 기다리거나 일회성 가짜 서버를 만듭니다. | 같은 원본을 mock 서버로 바로 띄우고, 계약에 맞지 않는 요청은 422로 거절합니다. `--watch`는 원본이 바뀌면 서버를 재시작하지 않고 route를 교체합니다. | `oa-gen mock --watch` |
+| **4** | **프레임워크 결합** | 비즈니스 로직이 프레임워크의 Request/Response 객체에 묶입니다. | 핸들러는 `{ params, query, body, context }`만 받는 함수입니다. 프레임워크 연결 코드는 `@oa-sdk/router`의 `generateRouter()`가 대상별로 만들므로, 대상을 바꿀 때는 `target` 값을 바꿔 다시 생성하고 서버 진입점을 고칩니다. | `generateRouter(spec, { target })` |
+| **5** | **늦게 발견하는 breaking change** | 기존 소비자를 깨뜨리는 변경(breaking change)을 운영 오류로 처음 압니다. | PR에서 이전 계약과 비교해 breaking change가 있으면 실패시킵니다. OpenAPI 파일 비교는 선택 필드 추가도 breaking으로 보는 보수적 규칙이고, TypeSpec 비교는 호환 변경을 구분합니다. | `oa-gen diff --fail-on-breaking`, `oa-gen tsp diff --fail-on-breaking` |
 
 ---
 
-## 2. Before / After 아키텍처 비교
+## 2. 도입 후 구조
 
-### 기존 레거시 아키텍처 (Before: High Friction & Coupling)
-
-수동 작성된 DTO, 수작업 클라이언트 코드, 런타임 프레임워크 객체에 직접 결합된 비즈니스 로직, 덮어쓰기 위험이 있는 모놀리식 스텁:
+원본에서 생성물이 나오고, 사람이 쓰는 코드는 핸들러 구현과 서버 진입점뿐입니다.
 
 ```mermaid
 flowchart TD
-    subgraph Spec [분리된 문서]
-        SwaggerDoc["Swagger UI / YAML (수동 작성)"]
+    subgraph Source [원본]
+        Schema["OpenAPI 3.2 문서 / TypeSpec (.tsp)"]
     end
 
-    subgraph SyncMeetings [동기화 마찰]
-        Meeting["주간 API 동기화 회의\n(변경 사항 수동 추적)"]
+    subgraph Generated [생성물: 손으로 고치지 않음]
+        Types["types.ts\n(oa-gen typegen)"]
+        Contract["api.contract.ts\n(ApiHandlers, HandlerResponse)"]
+        Router["api.router.ts\n(generateRouter: Fastify / Express / Hono / Elysia)"]
+        Client["client.ts, TanStack Query 키·옵션\n(oa-gen generate / generate:client / generate:tanstack)"]
     end
 
-    subgraph Backend [백엔드 레거시 구현]
-        FrameworkReq["Framework Request / Response\n(Express / Fastify / NestJS)"]
-        HandwrittenDTO["수작업 DTO / Interface\n(중복 선언)"]
-        BusinessLogic["비즈니스 로직\n(프레임워크 API에 강결합)"]
-        FrameworkReq --> BusinessLogic
-        HandwrittenDTO --> BusinessLogic
+    subgraph UserCode [사용자 코드]
+        Handlers["핸들러 구현\n(ApiHandlers 구현, 재생성 대상 아님)"]
+        Server["서버 진입점\n(라우터 마운트, getContext)"]
     end
 
-    subgraph Frontend [프론트엔드 대기]
-        ManualClient["수작업 fetch / axios 클라이언트"]
-        HardcodedMock["수작업 하드코딩 Mock 서버"]
+    subgraph Gates [개발·CI]
+        Mock["oa-gen mock --watch"]
+        Diff["oa-gen diff / tsp diff --fail-on-breaking"]
+        Fresh["oa-gen check-artifact"]
     end
 
-    SwaggerDoc -.-> Meeting
-    Meeting -.-> HandwrittenDTO
-    Meeting -.-> ManualClient
-    BusinessLogic -.->|"백엔드 완성 대기"| Frontend
-```
-
-### `oa-sdk` 3계층 아키텍처 (After: Contract-First Decoupled)
-
-단일 진실 공급원(SSOT)에서 생성되는 순수 핸들러 계약, 프레임워크 바인더와 비즈니스 로직의 완전한 격리, 실시간 무중단 Mocking 및 CI 파괴적 드리프트 방어:
-
-```mermaid
-flowchart TD
-    subgraph SSOT [Single Source of Truth]
-        Schema["OpenAPI 3.2 / TypeSpec (.tsp / .yaml / JSDoc)"]
-    end
-
-    subgraph Tier1 [Tier 1: Instant Discovery]
-        Init["oa-gen init --target <framework> --yes"]
-        Config["oa.config.ts 자동 구성"]
-        PkgPatch["package.json 스크립트 비파괴적 패치"]
-        Schema --> Init
-        Init --> Config
-        Init --> PkgPatch
-    end
-
-    subgraph Tier2 [Tier 2: Contract-First Decoupling]
-        ContractGen["generateHandlerContract()"]
-        PureContract["api.contract.ts\n(ApiHandlers, Context, HandlerResponse)\n[0 Framework Dependencies]"]
-        RouterBinder["Framework Router Binder\n(Fastify / Elysia / Hono / Express)\n[JIT Schema / Zero-Copy]"]
-        BusinessService["Business Service Implementation\n(User Handlers - NEVER Overwritten)"]
-
-        Config --> ContractGen
-        ContractGen --> PureContract
-        PureContract --> BusinessService
-        PureContract --> RouterBinder
-        BusinessService -->|"의존성 주입 (DI)"| RouterBinder
-    end
-
-    subgraph Tier3 [Tier 3: Governance & Drift Defense]
-        LiveMock["oa-gen mock --watch\n(Zero-Build 인메모리 핫리로드)"]
-        DiffGate["oa-gen diff --fail-on-breaking\n(CI/CD AST Breaking Change 차단)"]
-        FrontendTeam["프론트엔드 / QA 팀\n(즉시 병렬 개발)"]
-        CIPipeline["GitHub Actions / CI Gate\n(자동 배포 중단)"]
-
-        Schema --> LiveMock
-        Schema --> DiffGate
-        LiveMock --> FrontendTeam
-        DiffGate --> CIPipeline
-    end
+    Schema --> Types
+    Schema --> Contract
+    Schema --> Router
+    Schema --> Client
+    Types --> Contract
+    Contract --> Handlers
+    Contract --> Router
+    Handlers --> Server
+    Router --> Server
+    Schema --> Mock
+    Schema --> Diff
+    Schema --> Fresh
 ```
 
 ---
 
 ## 3. 3계층 점진적 가치 도입 사다리 (3-Tier Value Adoption Ladder)
 
-`oa-sdk`는 코드베이스의 성숙도와 마이그레이션 일정에 맞춰 3단계로 점진 적용할 수 있도록 설계되었습니다.
-
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  Tier 3: Automated Governance & Drift Defense               │
-│  - CI/CD AST 시맨틱 diff 게이트 (oa-gen diff --fail-on-breaking) │
-│  - 실시간 무중단 인메모리 핫리로드 Mock 서버 (oa-gen mock --watch) │
-├─────────────────────────────────────────────────────────────┤
-│  Tier 2: Contract-First Decoupling                          │
-│  - 핸들러 계약 분리 (api.contract.ts vs 라우터 바인더)             │
-│  - 프레임워크 런타임 제로 락인 (순수 Context 데이터 객체)        │
-│  - 스키마 갱신 시 비즈니스 로직 덮어쓰기 공포 완전 박멸           │
-├─────────────────────────────────────────────────────────────┤
-│  Tier 1: Instant Discovery & Zero-Friction Scan             │
-│  - 30초 마찰 제로 온보딩 (oa-gen init)                      │
-│  - 프레임워크 & 스키마 자동 감지, 비파괴적 package.json 패치    │
-│  - 기존 비즈니스 코드 수정 0줄                               │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│  Tier 3: CI gate                                                 │
+│  - breaking change 검사 (oa-gen diff / oa-gen tsp diff)           │
+│  - 생성물 신선도 검사 (oa-gen check-artifact)                       │
+├──────────────────────────────────────────────────────────────────┤
+│  Tier 2: 계약 분리                                                │
+│  - 핸들러 계약 (*.contract.ts) 구현                                 │
+│  - generateRouter()로 만든 라우터 코드에 핸들러 연결                    │
+├──────────────────────────────────────────────────────────────────┤
+│  Tier 1: 검증·타입·mock                                            │
+│  - oa-gen init, oa-gen validate, oa-gen typegen                  │
+│  - oa-gen mock --watch (기존 서버 코드 수정 없음)                     │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-### Tier 1: 즉각적 발견 및 마찰 제로 스캔 (Instant Discovery & Zero-Friction Scan)
-- **소요 시간**: 30초
-- **코드 수정**: 0줄
-- **동작 원리**: `oa-gen init` 명령어가 프로젝트 루트를 스캔하여 Fastify, Bun Elysia, Hono, Express, NestJS 등 프레임워크를 판별하고, `.tsp`, `openapi.yaml`, `openapi.json`, `@oaOperation` JSDoc 등의 스키마를 자동 탐색합니다.
-- **결과물**: 최적화된 `oa.config.ts` 생성 및 `package.json` 스크립트/의존성 비파괴적 병합 (들여쓰기, 개행 문자 100% 보존).
+### Tier 1: 검증·타입·mock (기존 코드 수정 없음)
+- **하는 일**: `oa-gen init`이 프레임워크(Fastify, Elysia, Hono, Express, NestJS)와 스펙(`.tsp`, `openapi.yaml`, `openapi.json`, `@oaOperation` JSDoc)을 감지해 `oa.config.ts`를 만들고 `package.json`에 스크립트와 의존성을 추가합니다. 이미 있는 항목은 `--force` 없이는 바꾸지 않습니다. 이어서 `oa-gen validate`로 계약을 검사하고, `oa-gen typegen`으로 타입을, `oa-gen mock`으로 mock 서버를 띄웁니다.
+- **결과물**: `oa.config.ts`, 검증 결과, `types.ts`, 프론트엔드가 바로 쓸 수 있는 mock 서버. 기존 서버 코드는 바꾸지 않습니다.
 
-### Tier 2: 계약 우선 분리 (Contract-First Decoupling)
-- **소요 시간**: 1~2시간 (신규 엔드포인트부터 점진 적용 가능)
-- **코드 수정**: 라우팅 진입점 연결
-- **동작 원리**: `@oa-sdk/router`의 `generateHandlerContract`를 통해 생성된 `*.contract.ts`를 구현합니다. 비즈니스 로직은 `ApiHandlers` 인터페이스를 구현하는 순수 함수로 작성되며, 프레임워크의 HTTP 세부 사항(Fastify JIT 직렬화, Bun zero-copy destructuring 등)은 자동 생성된 라우터 바인더가 전담합니다.
-- **결과물**: 스키마 재생성 시에도 비즈니스 로직 코드가 손상되지 않는 영구적인 분리 구조 확립.
+### Tier 2: 계약 분리 (신규 엔드포인트부터 적용)
+- **하는 일**: 핸들러 계약(`ApiHandlers`)을 구현하는 순수 함수로 비즈니스 로직을 쓰고, `@oa-sdk/router`의 `generateRouter()`가 만든 라우터 코드를 서버에 마운트합니다(§4). `oa-gen` 명령은 라우터 파일을 만들지 않으므로, 라우터 코드는 빌드 스크립트에서 생성합니다.
+- **결과물**: 원본을 바꿔 다시 생성해도 구현 파일은 그대로인 구조. 계약이 바뀌어 구현이 맞지 않으면 `tsc`가 알려 줍니다.
 
-### Tier 3: 자동화된 거버넌스 및 드리프트 방어 (Automated Governance & Drift Defense)
-- **소요 시간**: 15분 (CI 스크립트 설정)
-- **코드 수정**: `.github/workflows/ci.yml` 등록
-- **동작 원리**: PR 생성 시 `oa-gen diff --base origin/main --fail-on-breaking`을 실행하여 필드 삭제, 라우트 변경, 필수값 추가 등 클라이언트를 파괴하는 변경 사항을 원천 차단합니다. 로컬에서는 `oa-gen mock --watch`로 프론트엔드와 백엔드가 완벽하게 병렬 작업합니다.
-- **결과물**: 프로덕션 런타임 API 드리프트 0건 달성.
+### Tier 3: CI gate
+- **하는 일**: PR마다 이전 계약과 비교해 breaking change가 있으면 실패시키고(§6.2), 커밋된 생성물이 원본과 같은지 `oa-gen check-artifact`로 확인합니다. OpenAPI 문서는 `oa-gen diff`(파일 경로 두 개), TypeSpec 원본은 `oa-gen tsp diff`(파일, 디렉터리, git ref)로 비교합니다.
+- **결과물**: breaking change와 원본과 어긋난 생성물이 리뷰 전에 종료 코드로 드러납니다.
 
-### 3.4 Day 1 수명주기 아키타입 결정 매트릭스 (Day 1 Lifecycle Archetype Decision Matrix)
+### 3.4 아키타입 선택 (Archetype)
 
-`oa-sdk`는 모든 프로젝트에 일률적인 구성을 강요하지 않고, 서비스의 성숙도와 요구 조건에 맞춤화된 3대 **제품 수명주기 아키타입(Product Lifecycle Archetypes)**을 제공합니다. `oa-gen init --archetype <mvp|microservice|enterprise>` 플래그로 초기화할 수 있습니다:
+`oa-gen init --archetype <mvp|microservice|enterprise>`는 `oa.config.ts`에 기록하는 설정값, 출력 위치, `package.json` 스크립트와 의존성의 묶음을 고릅니다. 기록된 gate·persona 설정(`core.gates.*`, `product.jitSchema`, `product.zeroCopy`, `core.client.wireFormatSafety`, `product.personas.enforceCoverage`)을 읽어 동작을 바꾸는 명령은 아직 없습니다. 그래서 `init`이 쓴 설정에서 `archetype`이나 이 값들을 나중에 바꿔도 `oa-gen generate`의 결과와 CI 동작은 달라지지 않으며, 아키타입의 차이는 `init` 시점에 추가되는 스크립트와 의존성에 남습니다. breaking change gate는 §6.2처럼 CI에 직접 등록합니다.
 
-| 비교 차원 / 기능 | MVP 아키타입 (`mvp`) | 마이크로서비스 아키타입 (`microservice`) | 엔터프라이즈 아키타입 (`enterprise`) |
-|---|---|---|---|
-| **도입 목적 및 대상** | 빠른 가설 검증, POC, 초기 스타트업 프로토타입 (Day 1) | 대규모 트래픽 처리, 고성능 내부/외부 프로덕션 서비스 (Day 60+) | 다수 팀 협업, 규제 준수, 금융/SaaS 엔터프라이즈 플랫폼 (Day 180+) |
-| **처리량 & 직렬화 가속** | 표준 JSON 파싱/직렬화 (최소 오버헤드) | Fastify JIT 인라인 스키마 (`fast-json-stringify`) 또는 Bun Elysia Zero-Copy 컨텍스트 비구조화 | 다중 타겟 번들 투영, 서브밀리초 직렬화, 컴파일 타임 사전 인덱싱 |
-| **와이어 타입 안전성 (Wire Typing)** | 완화된 기본 타입 생성 | 엄격한 와이어 안전성 (`wireFormatSafety: true`, `JsonPrimitive<T>`) | 와이어 안전성 + 순환 참조 `z.lazy()` 해결 + 스키마 봉인 (`unevaluatedProperties: false`) |
-| **계약 단위 테스트 (Contract Testing)** | 수동 검증 또는 프론트엔드 실시간 Mock 연동 | 자동화된 핸들러 계약 단위 테스트 (`vitest` / Bun 네이티브 `bun test`) | Mock Mesh 서비스 시뮬레이션 + E2E 컨트랙트 통합 테스트 스위트 |
-| **CI/CD 파괴적 변경 게이트** | 권고/경고 수준 diff (Non-blocking) | PR 병합 차단 게이트 (`oa-gen diff --fail-on-breaking`) | 무관용 차단 (`--fail-on-breaking`) + TypeSpec 시맨틱 Diff + 페르소나 커버리지 감사 |
-| **컨텍스트 주입 (Context Injection)** | 정적 컨테이너 또는 컨텍스트 생략 | 요청별 테넌시(`tenantId`) 및 분산 트레이싱(`traceId`) 주입 | 엔터프라이즈 IAM 세션 (`user`, `roles`, `permissions`, `auditSpan`) 완비 |
-| **페르소나 거버넌스 (Personas)** | 미사용 (`personas: undefined`) | 민감 엔드포인트 선택적 역량 태깅 | 전사 `@personaCapability` 검증, `@pseudonymize` 비식별화 마스킹 |
-| **CLI 초기화 명령어** | `oa-gen init -t <target> -a mvp` | `oa-gen init -t <target> -a microservice` | `oa-gen init -t <target> -a enterprise` |
+아키타입별 기록 값, 추가 스크립트, 그리고 `microservice`·`enterprise`가 추가하지만 그대로는 동작하지 않는 스크립트(알려진 결함)와 대신 쓸 명령은 [CLI 명령 레퍼런스의 아키타입 절](./cli-command-reference.md#아키타입---archetype)에 정리했습니다. persona 관련 기능은 저장소 전용 비공개 패키지 `@oa-sdk/personas`가 필요하므로 oa-sdk 저장소 밖에서는 쓸 수 없습니다.
 
 ```bash
-# Feature-Sliced Design 및 마이크로서비스 아키타입으로 초기화
+# Fastify 대상, microservice 아키타입, FSD 출력 위치로 초기화
 npx oa-gen init --target fastify --archetype microservice --routing fsd --yes
 
-# 모노레포 다중 패키지 분산 및 엔터프라이즈 거버넌스로 초기화
-npx oa-gen init --target elysia --archetype enterprise --routing monorepo --yes
+# 파일을 쓰지 않고 감지 결과와 변경 계획만 확인
+npx oa-gen init --dry-run
 ```
 
 ---
 
-## 4. 프레임워크별 퀵 레시피 (Copy-Pasteable Recipes)
+## 4. 프레임워크 연결 레시피 (Framework Recipes)
 
-아래 레시피는 `@oa-sdk/codegen`과 동반 패키지 `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`가 설치된 프로젝트를 가정합니다. `oa-gen init`이 만드는 설정과 스크립트가 세 패키지를 모두 사용합니다([설치 안내](./cli-setup.md#동반-패키지-companion-packages)).
+`oa-gen generate`는 서버 쪽에 프레임워크와 무관한 핸들러 계약(`<id>.contract.ts`)만 생성합니다. Fastify·Express·Hono·Elysia 라우터 코드가 필요하면 빌드 스크립트에서 `@oa-sdk/router`의 `generateRouter()`를 호출해 파일로 씁니다. `oa-gen` 명령으로는 라우터 파일을 만들지 않으며, `init`이 프레임워크 대상에 추가하는 `generate:router` 스크립트(`oa-gen generate --target <프레임워크>`)도 `oa-gen generate`와 같은 일을 할 뿐 라우터 파일을 만들지 않습니다.
 
-### 4.1 Fastify 레시피 (`FastifyPluginAsync` + `fast-json-stringify` JIT)
+아래 레시피는 [Quick Start](./quick-start.md) 1단계의 `openapi.yaml`(operation `listUsers`, `createUser`, `getUser`)을 원본으로, `"type": "module"`인 TypeScript 프로젝트를 가정합니다. Fastify(5.8), Express(5), Hono(4) 레시피는 생성된 라우터와 아래 핸들러를 `tsc`로 검사하고 요청을 보내 200·201·404 응답을 확인했습니다. Elysia 레시피는 생성 코드의 시그니처를 기준으로 썼으며 `tsc`로 검사하지 않았습니다.
 
-Fastify는 고성능 직렬화를 위해 인라인 스키마를 요구합니다. `oa-sdk` Fastify 타겟은 OpenAPI 스펙을 파싱하여 Fastify 라우트 옵션의 `schema: { params, querystring, body, response }`에 JSON Schema를 인라인으로 주입하여 **2~3배의 응답 직렬화 성능 향상**을 이끌어냅니다.
+### 4.1 공통: 타입이 있는 핸들러 계약과 라우터 코드 생성
 
-#### 1단계: 온보딩 초기화
+`oa-gen generate`가 만드는 `<id>.contract.ts`는 요청·응답 타입이 `unknown`입니다. 타입이 있는 계약이 필요하면 `oa-gen typegen` 출력과 함께 `generateHandlerContract()`로 계약을 만듭니다.
+
+#### 1단계: 패키지 설치
+
 ```bash
-npx oa-gen init --target fastify --yes
+npm install --save-dev @oa-sdk/codegen @oa-sdk/router @oa-sdk/client @oa-sdk/mock-server yaml
 ```
 
-#### 2단계: 생성되는 순수 핸들러 계약 (`src/generated/api.contract.ts`)
+`yaml`은 빌드 스크립트가 `openapi.yaml`을 읽는 데 씁니다. 프레임워크 패키지(`fastify`, `express`, `hono`, `elysia`)는 각 레시피에서 설치합니다.
+
+#### 2단계: 빌드 스크립트 작성 (`scripts/generate-server.mjs`)
+
+```javascript
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { parse } from 'yaml'
+import { generateHandlerContract, generateRouter } from '@oa-sdk/router'
+
+const spec = parse(readFileSync('openapi.yaml', 'utf8'))
+
+mkdirSync('src/server', { recursive: true })
+writeFileSync('src/server/api.contract.ts', generateHandlerContract(spec, { typesImport: './types.js' }))
+writeFileSync(
+  'src/server/api.router.ts',
+  generateRouter(spec, {
+    target: process.argv[2] ?? 'hono', // 'fastify' | 'express' | 'hono' | 'elysia'
+    contractImport: './api.contract.js',
+    typesImport: './types.js',
+    contextInjection: true, // getContext로 요청별 컨텍스트를 핸들러에 전달
+  }),
+)
+```
+
+```bash
+# 타입 생성 후 계약과 라우터 코드 생성 (Fastify 대상)
+npx oa-gen typegen --spec ./openapi.yaml -o src/server/types.ts
+node scripts/generate-server.mjs fastify
+```
+
+이 파일들은 `.oa-manifest.json`에 기록되지 않으므로 `oa-gen generate`의 생성물 정리(§4.8)가 지우지 않습니다. 원본이 바뀌면 두 명령을 다시 실행합니다. `package.json` 스크립트(예: `"generate:server"`)로 묶어 두면 편합니다.
+
+#### 3단계: 생성되는 핸들러 계약 (`src/server/api.contract.ts`, 일부)
+
 ```typescript
-// 자동 생성 파일 — 직접 편집하지 마십시오. (재생성 시 덮어써짐)
-// 다중 상태 코드 및 오류 유니온을 지원하는 HandlerResponse 판별 유니온
-export type HandlerResponse<TSuccess = unknown, TErrorMap = Record<number, unknown>, THeaders = Record<string, string>> =
-  | TSuccess
-  | { status: 200; body: TSuccess; headers?: THeaders }
-  | { [K in keyof TErrorMap]: { status: K; body: TErrorMap[K]; headers?: Record<string, string> } }[keyof TErrorMap];
+// Auto-generated handler contracts from OpenAPI spec. Do not edit.
+import type { CreateUserBody, CreateUserResponse, GetUserPathParams, GetUserResponse, ListUsersResponse } from './types.js'
 
-export interface GetUserByIdContext<TContext = unknown> {
-  params: { id: string };
-  headers?: Record<string, string | undefined>;
-  context?: TContext;
+export interface GetUserContext<TContext = unknown> {
+  params: GetUserPathParams
+  context?: TContext
 }
 
-export interface CreateUserContext<TContext = unknown> {
-  body: { name: string; email: string };
-  headers?: Record<string, string | undefined>;
-  context?: TContext;
-}
-
-// 오퍼레이션별 에러 맵 정의: 스펙에 명시된 4xx/5xx 응답에 대해 100% 타입 안전성 제공
-export type GetUserByIdErrorMap = {
-  404: { code: 'USER_NOT_FOUND'; message: string };
-};
-
-export type CreateUserErrorMap = {
-  409: { code: 'USER_ALREADY_EXISTS'; field: string };
-};
-
-export type GetUserByIdHandler<TContext = unknown> = (
-  ctx: GetUserByIdContext<TContext>,
-) => Promise<HandlerResponse<{ id: string; name: string }, GetUserByIdErrorMap>>;
-
-export type CreateUserHandler<TContext = unknown> = (
-  ctx: CreateUserContext<TContext>,
-) => Promise<HandlerResponse<{ id: string; name: string; email: string }, CreateUserErrorMap>>;
+export type GetUserHandler<TContext = unknown> = (
+  ctx: GetUserContext<TContext>
+) => HandlerResponse<GetUserResponse> | Promise<HandlerResponse<GetUserResponse>>
 
 export interface ApiHandlers<TContext = unknown> {
-  getUserById: GetUserByIdHandler<TContext>;
-  createUser: CreateUserHandler<TContext>;
+  listUsers: ListUsersHandler<TContext>
+  createUser: CreateUserHandler<TContext>
+  getUser: GetUserHandler<TContext>
 }
 ```
 
-#### 3단계: 비즈니스 핸들러 구현체 (`src/services/user.service.ts`)
+핸들러는 성공 본문을 그대로 반환하거나 `{ status, body, headers? }`를 반환합니다. 오류 응답도 `{ status: 404, body }`처럼 반환하며, 현재 생성되는 계약은 오류 본문의 타입을 operation별로 좁히지 않습니다(`HandlerResponse`의 기본 오류 맵은 `Record<number, unknown>`).
+
+#### 4단계: 핸들러 구현 (`src/server/handlers.ts`, 사용자 작성 파일)
+
 ```typescript
-// 사용자 작성 파일 — 스키마가 변경되어도 절대 덮어써지지 않습니다!
-import type { ApiHandlers } from '../generated/api.contract.js';
+import type { ApiHandlers } from './api.contract.js'
 
 export interface AppContext {
-  tenantId?: string;
-  user?: { id: string; role: string };
+  tenantId: string
 }
 
-export const userHandlers: ApiHandlers<AppContext> = {
-  getUserById: async ({ params, context }) => {
-    if (params.id === 'unknown') {
-      // 100% 타입 검사되는 404 에러 응답 반환 (as any 캐스팅 불필요)
-      return {
-        status: 404,
-        body: { code: 'USER_NOT_FOUND', message: `User ${params.id} does not exist.` },
-      };
-    }
-    // 성공 시 raw body 또는 { status: 200, body } 반환 모두 허용
-    return {
-      status: 200,
-      body: { id: params.id, name: `Alice (Tenant: ${context?.tenantId ?? 'default'})` },
-    };
-  },
-  createUser: async ({ body }) => {
-    if (body.email.endsWith('@forbidden.com')) {
-      return {
-        status: 409,
-        body: { code: 'USER_ALREADY_EXISTS', field: 'email' },
-      };
+export const handlers: ApiHandlers<AppContext> = {
+  listUsers: async () => ({ items: [], total: 0 }),
+  createUser: async ({ body }) => ({
+    status: 201,
+    body: { id: 'usr_1', email: body.email, name: body.name, role: body.role ?? 'user', createdAt: new Date().toISOString() },
+  }),
+  getUser: async ({ params, context }) => {
+    if (params.userId === 'unknown') {
+      return { status: 404, body: { code: 'NOT_FOUND', message: `User ${params.userId} not found` } }
     }
     return {
-      status: 201,
-      body: { id: 'usr_' + Date.now(), name: body.name, email: body.email },
-    };
+      id: params.userId,
+      email: 'alice@example.com',
+      name: `Alice (${context?.tenantId ?? 'default'})`,
+      role: 'user',
+      createdAt: '2026-01-01T00:00:00Z',
+    }
   },
-};
+}
 ```
 
-#### 4단계: Fastify 서버 연결 (`src/server.ts`)
+### 4.2 Fastify 레시피 (`FastifyPluginAsync`)
+
+Fastify 대상의 라우터 코드는 `FastifyPluginAsync` 플러그인(`apiRouter`)이며, 각 route의 `schema.response`에 응답 JSON Schema를 넣으므로 Fastify가 그 스키마로 응답을 직렬화합니다.
+
+```bash
+npx oa-gen init --target fastify --yes
+npm install fastify
+node scripts/generate-server.mjs fastify
+```
+
 ```typescript
-import Fastify from 'fastify';
-import { apiRouter } from './generated/api.router.js';
-import { userHandlers } from './services/user.service.js';
+// src/server/main.ts
+import Fastify from 'fastify'
+import { apiRouter } from './api.router.js'
+import { handlers, type AppContext } from './handlers.js'
 
-const server = Fastify({ logger: true });
+const server = Fastify()
 
-// 자동 생성된 FastifyPluginAsync 플러그인 등록 및 getContext를 통한 커스텀 컨텍스트 주입
 await server.register(apiRouter, {
   prefix: '/api/v1',
-  handlers: userHandlers,
-  getContext: async (request) => ({
-    tenantId: request.headers['x-tenant-id'] as string,
-    user: (request as any).user,
+  handlers,
+  getContext: (request): AppContext => ({
+    tenantId: String(request.headers['x-tenant-id'] ?? 'default'),
   }),
-});
+})
 
-await server.listen({ port: 3000, host: '0.0.0.0' });
+await server.listen({ port: 3000 })
 ```
 
----
+`init --target fastify`는 `fastify` 의존성과 `dev`(`tsx watch src/server.ts`)·`build`(`tsc`) 스크립트를 추가하지만 서버 진입 파일과 `tsconfig.json`은 만들지 않습니다.
 
-### 4.2 Bun Elysia 레시피 (Fluent Chaining + Zero-Copy Destructuring)
+### 4.3 Express 레시피 (`Router`)
 
-Bun 런타임의 C++ 초고속 HTTP 파서와 Elysia 프레임워크를 사용할 때, 불필요한 객체 할당을 방지하고 `noUnusedLocals` 경고를 방지하기 위해 사용되는 필드(`{ params, query, body, set }`)만 선택적으로 비구조화 할당합니다.
+Express 대상의 라우터 코드는 `createRouter(handlers, options?)`가 돌려주는 Express `Router`입니다. 요청 본문은 `express.json()`이 파싱합니다.
 
-#### 1단계: 온보딩 초기화 (엄격한 Bun 런타임 격리 — Node 도구 일체 배제)
-```bash
-bun x oa-gen init --target elysia --yes
-```
-
-#### 2단계: 생성되는 Elysia 라우터 바인더 (`src/generated/api.router.ts`)
-```typescript
-// 자동 생성 파일 — Elysia Fluent Chaining 및 Bun Zero-Copy 최적화
-import { Elysia } from 'elysia';
-import type { ApiHandlers } from './api.contract.js';
-
-export interface ElysiaRouterOptions<TContext = unknown> {
-  getContext?: (ctx: any) => Promise<TContext> | TContext;
-  context?: TContext;
-}
-
-export function createRouter<TContext = unknown>(
-  handlers: ApiHandlers<TContext>,
-  options?: ElysiaRouterOptions<TContext>,
-) {
-  return new Elysia({ prefix: '/api/v1' })
-    .get('/users/:id', async ({ params, headers, request, set }) => {
-      const context = options?.getContext ? await options.getContext({ params, headers, request, set }) : options?.context;
-      const result = await handlers.getUserById({
-        params: params as any,
-        headers: {},
-        ...(context !== undefined ? { context } : {}),
-      });
-      // 3-Part Response Envelope Collision Defense
-      if (
-        result !== undefined &&
-        result !== null &&
-        typeof result === 'object' &&
-        'body' in result &&
-        ((result as any).status === undefined || typeof (result as any).status === 'number') &&
-        ((result as any).headers === undefined || typeof (result as any).headers === 'object')
-      ) {
-        const resp = result as { status?: number; headers?: Record<string, string>; body?: unknown };
-        if (resp.headers) {
-          for (const [k, v] of Object.entries(resp.headers)) set.headers[k] = v;
-        }
-        if (resp.status) set.status = resp.status;
-        if (resp.status === 204) return;
-        return resp.body;
-      }
-      return result;
-    })
-    .post('/users', async ({ body, headers, request, set }) => {
-      const context = options?.getContext ? await options.getContext({ body, headers, request, set }) : options?.context;
-      const result = await handlers.createUser({
-        body: body as any,
-        headers: {},
-        ...(context !== undefined ? { context } : {}),
-      });
-      // 3-Part Response Envelope Collision Defense
-      if (
-        result !== undefined &&
-        result !== null &&
-        typeof result === 'object' &&
-        'body' in result &&
-        ((result as any).status === undefined || typeof (result as any).status === 'number') &&
-        ((result as any).headers === undefined || typeof (result as any).headers === 'object')
-      ) {
-        const resp = result as { status?: number; headers?: Record<string, string>; body?: unknown };
-        if (resp.headers) {
-          for (const [k, v] of Object.entries(resp.headers)) set.headers[k] = v;
-        }
-        if (resp.status) set.status = resp.status;
-        if (resp.status === 204) return;
-        return resp.body;
-      }
-      return result;
-    });
-}
-```
-
-#### 3단계: Bun 서버 진입점 (`src/index.ts`)
-```typescript
-import { Elysia } from 'elysia';
-import { createRouter } from './generated/api.router.js';
-import { userHandlers } from './services/user.service.js';
-
-const app = new Elysia()
-  .use(createRouter(userHandlers, {
-    getContext: async ({ request }) => ({
-      tenantId: request.headers.get('x-tenant-id') ?? 'default',
-    }),
-  }))
-  .listen(3000);
-
-console.log(`🦊 Elysia server listening on http://localhost:${app.server?.port}`);
-```
-
----
-
-### 4.3 Express 레시피 (`router.all()` + 메서드 가드)
-
-기존의 방대한 레거시 Express 애플리케이션에서도 OAS 3.2 비표준 메서드(`QUERY`, `HEAD`, `TRACE`)를 안전하게 처리할 수 있도록 인라인 메서드 가드가 포함된 Express 라우터를 바인딩합니다.
-
-#### 1단계: 온보딩 초기화
 ```bash
 npx oa-gen init --target express --yes
+npm install express
+node scripts/generate-server.mjs express
 ```
 
-#### 2단계: Express 라우터 바인딩 및 컨텍스트 주입 (`src/app.ts`)
 ```typescript
-import express from 'express';
-import { createRouter } from './generated/api.router.js';
-import { userHandlers } from './services/user.service.js';
+// src/server/app.ts
+import express from 'express'
+import { createRouter } from './api.router.js'
+import { handlers, type AppContext } from './handlers.js'
 
-const app = express();
-app.use(express.json());
-
-// 계약 기반 라우터 장착 및 getContext를 통한 미들웨어 컨텍스트 전달
-const router = createRouter(userHandlers, {
-  getContext: (req) => ({
-    tenantId: req.headers['x-tenant-id'] as string,
-    user: (req as any).user,
+const app = express()
+app.use(express.json())
+app.use(
+  '/api/v1',
+  createRouter(handlers, {
+    getContext: (req): AppContext => ({ tenantId: String(req.headers['x-tenant-id'] ?? 'default') }),
   }),
-});
-app.use('/api/v1', router);
+)
 
-app.listen(3000, () => {
-  console.log('🚀 Express server listening on port 3000');
-});
+app.listen(3000)
 ```
 
----
+### 4.4 Hono 레시피
 
-### 4.4 NestJS 레시피 (`apps/nestjs-ref` 아티팩트 브릿징)
+Hono 대상의 라우터 코드는 `createRouter(handlers, options?)`가 돌려주는 `Hono` 앱입니다.
 
-NestJS는 IoC 컨테이너와 데코레이터 기반 아키텍처를 채택하고 있으므로, 프레임워크 컨트롤러를 무리하게 바꾸지 않고도 **Swagger 문서 추출 파이프라인과 거버넌스 브릿지**를 구축할 수 있습니다.
+```bash
+npx oa-gen init --target hono --yes
+npm install hono
+node scripts/generate-server.mjs hono
+```
 
-참조 레퍼런스 앱 경로: [`apps/nestjs-ref`](../../apps/nestjs-ref/openapi-governance.config.json)
+```typescript
+// src/server/app.ts
+import { Hono } from 'hono'
+import { createRouter } from './api.router.js'
+import { handlers, type AppContext } from './handlers.js'
+
+const app = new Hono()
+app.route(
+  '/api/v1',
+  createRouter(handlers, {
+    getContext: (c): AppContext => ({ tenantId: c.req.header('x-tenant-id') ?? 'default' }),
+  }),
+)
+
+export default app
+```
+
+### 4.5 Elysia 레시피
+
+Elysia 대상의 라우터 코드는 `createRouter(handlers, options?)`가 돌려주는 `Elysia` 인스턴스입니다. `contextInjection` 없이 생성하면 각 route가 쓰는 필드만 구조분해하고, 켜면 `getContext`에 넘길 필드를 모두 구조분해합니다. `init --target elysia`는 Bun 런타임용 스크립트(`bun x oa-gen ...`, `bun --watch src/index.ts`)를 씁니다. Bun은 CI에서 검증하지 않으며 지원 환경으로 약속하지 않습니다.
+
+```bash
+npx oa-gen init --target elysia --yes
+npm install elysia
+node scripts/generate-server.mjs elysia
+```
+
+```typescript
+// src/index.ts
+import { Elysia } from 'elysia'
+import { createRouter } from './server/api.router.js'
+import { handlers, type AppContext } from './server/handlers.js'
+
+new Elysia()
+  .use(
+    createRouter(handlers, {
+      getContext: ({ headers }): AppContext => ({ tenantId: headers['x-tenant-id'] ?? 'default' }),
+    }),
+  )
+  .listen(3000)
+```
+
+### 4.6 NestJS 레시피 (OpenAPI 산출물 수집)
+
+NestJS는 컨트롤러와 데코레이터가 라우팅을 맡으므로 라우터 코드를 생성하지 않습니다. 대신 NestJS가 만드는 Swagger 문서를 수집해 그 서비스의 계약으로 관리하고, 그 계약에서 타입과 클라이언트를 만듭니다. 전체 흐름과 CI 템플릿은 [NestJS Swagger / FastAPI Governance](./use-cases/nestjs-swagger-governance.md)를, 참조 앱은 [`apps/nestjs-ref`](../../apps/nestjs-ref/openapi-governance.config.json)를 따릅니다.
 
 #### 1단계: 온보딩 초기화
 ```bash
 npx oa-gen init --target nestjs --yes
 ```
-`NestJSTargetProfile`은 `@nestjs/core` 또는 `nest-cli.json`을 감지하여 `oa.config.ts` 타겟을 `generic`으로 안전하게 설정하고, 기존 `nest start --watch`를 유지합니다.
+`init`은 `@nestjs/core` 또는 `nest-cli.json`을 감지하면 spec target을 `id: 'nestjs-api'`, `target: 'nestjs'`로 기록하고, `start:dev`(`nest start --watch`), `generate:contract`(`oa-gen generate`와 같음), `mock` 스크립트를 추가합니다.
 
-#### 2단계: 무중단 OpenAPI 추출 스크립트 작성 (`scripts/export-openapi.ts`)
-HTTP 리스너를 열지 않고 NestJS 앱 인스턴스 메타데이터만 부트스트랩하여 OpenAPI 스펙을 디스크로 추출합니다:
+#### 2단계: OpenAPI 추출 스크립트 작성 (`scripts/export-openapi.ts`)
+HTTP 리스너를 열지 않고 NestJS 앱 메타데이터만 부트스트랩하여 OpenAPI 문서를 파일로 씁니다.
 ```typescript
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
@@ -474,24 +378,21 @@ async function exportOpenApi() {
 exportOpenApi();
 ```
 
-#### 3단계: 계약 거버넌스 및 클라이언트/타입 자동 동기화
-`contracts/openapi.raw.yaml`로부터 타입 및 계약을 자동 생성하여 프론트엔드 및 마이크로서비스 간 SSOT 동기화를 완성합니다:
+#### 3단계: 수집·검증과 클라이언트/타입 생성
+`oa-gen collect`는 원본(`openapi.raw.yaml`)을 그대로 두고 정규화본과 OpenAPI 3.2 분석본을 씁니다. 검증과 생성은 분석본으로 합니다.
 ```bash
+npx oa-gen collect --spec contracts/openapi.raw.yaml --normalized contracts/openapi.normalized.yaml --upgraded contracts/openapi.upgraded.yaml --profile nestjs-swagger
 npx oa-gen validate --spec contracts/openapi.upgraded.yaml --require-32
-# 또는 원본 OAS 3.0 명세 검증:
-npx oa-gen validate --spec contracts/openapi.raw.yaml
+npx oa-gen typegen --spec contracts/openapi.upgraded.yaml -o src/api/types.ts
+npx oa-gen generate:client --spec contracts/openapi.upgraded.yaml -o src/api/client.ts
 ```
+서비스별 수집·검사 스크립트와 CI 설정은 `oa-gen scaffold-governance --root . --service <name> --profile nestjs-swagger`가 만듭니다.
 
-### 4.4.1 응답 엔벨로프 충돌 방어 휴리스틱 (3-Part Response Envelope Collision Defense)
+### 4.7 응답 엔벨로프 충돌 방어 (Response Envelope Collision Defense)
 
-핸들러가 반환하는 객체 중에는 도메인 비즈니스 데이터 자체에 `status`나 `body` 필드가 포함된 경우가 빈번합니다.
-예를 들어 주문 엔티티 `{ id: 'order_1', status: 'PENDING', total: 5000 }`나 블로그 포스트 `{ id: 'p_1', title: 'Doc', body: '# Markdown', status: 'DRAFT' }`가 대표적입니다.
+핸들러가 반환하는 도메인 객체에 `status`나 `body` 필드가 들어 있는 경우가 많습니다(예: 주문 `{ id: 'order_1', status: 'PENDING', total: 5000 }`, 글 `{ id: 'p_1', title: 'Doc', body: '# Markdown', status: 'DRAFT' }`). `'status' in result || 'body' in result`처럼 검사하면 `'PENDING'`을 HTTP 상태 코드로 오인하거나 `body` 필드만 떼어 응답하는 데이터 손실이 생깁니다.
 
-과거 단순 프레임워크 바인더처럼 `'status' in result || 'body' in result`를 검사하면 치명적인 장애가 발생합니다:
-1. `'PENDING'`이나 `'DRAFT'`와 같은 문자열을 HTTP 상태 코드로 오인하여 `res.status(NaN)` 에러가 발생하거나,
-2. `{ id, title, body, status }` 엔티티에서 `body` 필드만 떼어내어 응답하고 나머지 필수 도메인 프로퍼티를 완전히 유실하는 데이터 손실이 일어납니다.
-
-`@oa-sdk/router`는 모든 프레임워크 타겟(Fastify, Elysia, Hono, Express)에 **엄격한 3단계 응답 엔벨로프 충돌 방어 휴리스틱**을 내장하여 이를 원천 해결합니다:
+`generateRouter()`가 만드는 라우터 코드는 모든 대상(Fastify, Express, Hono, Elysia)에서 다음 조건을 모두 만족할 때만 반환값을 `{ status, body, headers }` 엔벨로프로 해석합니다.
 
 ```typescript
 if (
@@ -504,509 +405,220 @@ if (
 )
 ```
 
-- **조건 1**: 객체 내에 `'body'` 프로퍼티가 반드시 존재해야 함.
-- **조건 2**: `status`가 생략되었거나, 명시된 경우 **반드시 `number` 타입**이어야 함 (`string`인 `'PENDING'`은 통과하지 못함).
-- **조건 3**: `headers`가 생략되었거나, 명시된 경우 **반드시 `object` 타입**이어야 함.
+- **조건 1**: 객체에 `'body'` 프로퍼티가 있어야 합니다.
+- **조건 2**: `status`가 없거나, 있으면 `number`여야 합니다(`'PENDING'` 같은 문자열은 통과하지 못함).
+- **조건 3**: `headers`가 없거나, 있으면 `object`여야 합니다.
 
-도메인 엔티티의 `status`가 문자열이거나 `body` 프로퍼티가 없는 경우, 조건 검사를 통과하지 않고 즉시 **순수 도메인 페이로드(HTTP 200)**로 정상 직렬화되어 데이터 손실이 0%로 보장됩니다.
+조건을 만족하지 않는 반환값은 도메인 객체 그대로 HTTP 200 본문으로 직렬화됩니다.
 
----
+### 4.8 출력 위치 지정 (`outputRouting`)과 생성물 정리
 
-### 4.5 Feature-Sliced Design (FSD) 산출물 커스텀 라우팅 레시피
+`oa-gen init --routing <default|fsd|monorepo|by-kind>`는 `product.outputRouting`을 기록해 `oa-gen generate`가 핸들러 계약, 클라이언트, TanStack Query 키·옵션을 쓸 위치를 정합니다.
 
-대규모 프론트엔드 프로젝트나 Feature-Sliced Design (FSD) 아키텍처를 채택한 코드베이스에서는 모든 생성 산출물을 단일 폴더(`src/api/generated/`)에 모아두는 기존 방식이 슬라이스 격리 원칙을 위배합니다.
+- 경로 템플릿의 `{tag}`는 OpenAPI tag가 아니라 **spec target id**(예: `generic-api`)이고, `{kind}`는 `contract`, `client`, `keys`, `queries`입니다. spec target 하나가 종류별로 한 파일을 만들며, OpenAPI tag별로 파일이 나뉘지 않습니다.
+- `<id>.openapi.json`과 `<id>.schema.json`은 outputRouting과 무관하게 spec target의 `outDir`에 씁니다.
+- 파일이 서로 다른 디렉터리에 놓여도 생성 파일 사이의 상대 import는 다시 계산됩니다.
 
-`oa-sdk`의 **산출물 경로 라우팅 커스터마이징 엔진 (`OutputRoutingConfig`)**은 OpenAPI 스펙의 태그(`{tag}`)와 산출물 종류(`{kind}`) 토큰을 동적으로 해석하여 피처별 슬라이스 디렉터리로 정확히 분산 배치합니다.
+| 프리셋 | 결과 (spec target id `generic-api`) |
+|---|---|
+| `default` | `src/api/generic-api/generic-api.{contract,client,keys,queries}.ts` |
+| `fsd` | `src/features/generic-api/api/generic-api.{contract,keys,queries}.ts`, `src/shared/api/client.ts` |
+| `monorepo` | `packages/contracts/src/api.contract.ts`, `packages/client-sdk/src/index.ts`, `apps/web/src/api/{queries,keys}.ts` |
+| `by-kind` | `src/contracts/generic-api.contract.ts`, `src/client/generic-api.client.ts`, `src/queries/generic-api.queries.ts`, `src/keys/generic-api.keys.ts` |
 
-#### 1단계: `oa.config.ts` 라우팅 규칙 정의
+`fsd` 프리셋이 함께 기록하는 `rules`의 tag(`common`, `shared`, `auth`, `system`)는 OpenAPI tag가 아니라 spec target id와 비교되고, `kind: 'schemas'` 규칙과 `monorepo` 프리셋의 `guards`·`schemas` 항목은 현재 출력 위치를 바꾸지 않습니다. 프레임워크 라우터 코드는 outputRouting 대상이 아니므로 §4.1의 빌드 스크립트에서 경로를 정합니다.
 
-```typescript
-import { defineConfig } from '@oa-sdk/codegen';
+`oa-gen generate`는 `.oa-manifest.json`에 기록된 생성 파일 중 이번 실행이 만들지 않고 내용도 바뀌지 않은 파일을 지웁니다. 지우는 파일은 manifest에 기록되어 있고(출처), 디스크의 내용 hash가 기록과 같으며(손으로 고치지 않음), 생성 배너가 남아 있는 파일뿐입니다. 손으로 고친 파일과 manifest에 없는 파일은 지우지 않습니다. 다만 `oa-gen generate:tanstack` 등 다른 명령이 같은 프로젝트에 쓴 파일도 지워지므로, `oa-gen generate`를 쓰는 프로젝트에서는 TanStack 코드도 `generate`가 만드는 `<id>.queries.ts`에서 가져옵니다. `outputRouting.pruneOrphans: false`는 현재 이 삭제를 막지 못합니다(알려진 결함).
 
-export default defineConfig({
-  rootDir: '.',
-  // outputRouting은 최상위 또는 product.outputRouting에 선언 가능
-  outputRouting: {
-    // 템플릿 패턴: 태그명 기반의 Feature 슬라이스 경로 (kebab-case 자동 정규화)
-    pattern: 'src/features/{tag}/api/{tag}.{kind}.ts',
+### 4.9 TanStack Query (React Query) v5 3계층 구조
 
-    // 규칙 매처: 공통 인프라 및 전역 모델은 shared 슬라이스로 우회
-    rules: [
-      {
-        tag: ['common', 'shared', 'auth', 'system'],
-        target: 'src/shared/api/{tag}.{kind}.ts',
-      },
-      {
-        kind: 'schemas',
-        target: 'src/shared/api/schemas.ts',
-      },
-    ],
+TanStack Query 코드는 쿼리 키 팩토리(Tier 1), 순수 옵션 팩토리(Tier 2), 훅(Tier 3)으로 나뉩니다. 옵션 팩토리는 React 훅이 아니라 `queryOptions()` 객체를 돌려주므로 Next.js Server Component의 `prefetchQuery`나 Vue·Svelte에서도 씁니다. 클라이언트 초기화, 인증, 오류 처리는 [프론트엔드 SDK 및 쿼리 소비 가이드](./client-and-query-consumption.md)를 따릅니다.
 
-    // 종류별 명시적 경로 매핑 (byKind)
-    byKind: {
-      client: 'src/shared/api/client.ts',
-    },
-  },
-});
-```
+| 생성 경로 | 파일 | 포함하는 Tier |
+|---|---|---|
+| `oa-gen generate:tanstack --spec ./openapi.yaml -o src/api` | `src/api/tanstack-query.ts` (같은 디렉터리의 `./client.js`를 import) | 1·2·3 |
+| `oa-gen generate` (outputRouting 있음, `init` 기본) | `<id>.keys.ts`, `<id>.queries.ts` | 1·2 (훅 없음) |
+| `oa-gen generate` (outputRouting 없음) | `<id>.queries.ts` | 1·2·3 |
 
-#### 2단계: 자동 분산 산출물 파일 구조
+Quick Start의 `openapi.yaml`(tag `users`)에서 생성되는 이름은 다음과 같습니다.
 
-위 설정으로 코드 생성을 수행하면 다음과 같은 FSD 표준 디렉터리 구조가 자동으로 구성됩니다:
+- **Tier 1 키**: `usersKeys`(`all`, `lists()`, `list(filters?)`, `details()`, `detail(id)`, `subresource(...)`, `mutation(operationId)`와 operation별 `listUsers()`, `getUser(params)` 등), 별칭 `userKeys`, 전체 묶음 `queryKeys`.
+- **Tier 2 옵션**: `listUsersQueryOptions(client, options?)`, `getUserQueryOptions(client, params, options?)`, `createUserMutationOptions(client, options?)`. 커서·페이지 파라미터가 있는 operation에는 `<operationId>InfiniteQueryOptions`도 생성됩니다.
+- **Tier 3 훅**: `useListUsersQuery`, `useGetUserQuery`, `useCreateUserMutation`(첫 인자는 클라이언트), 그리고 클라이언트를 돌려주는 훅을 받아 이 인자를 없앤 훅을 만드는 `createApiHooks(useClient)`.
 
-```text
-src/
-├── features/
-│   ├── users/
-│   │   └── api/
-│   │       ├── users.contract.ts   # Handler Contract (Tier 2)
-│   │       ├── users.keys.ts       # Query Key Factory (Tier 1)
-│   │       └── users.queries.ts    # Pure Options & Hooks (Tier 2/3)
-│   └── posts/
-│       └── api/
-│           ├── posts.contract.ts
-│           ├── posts.keys.ts
-│           └── posts.queries.ts
-└── shared/
-    └── api/
-        ├── client.ts               # 공통 Typed Fetch SDK
-        ├── schemas.ts              # Zod / TypeGuard 스키마
-        └── auth.queries.ts         # 공통 인증 쿼리
-```
-
-#### 3단계: 동적 상대 경로(Relative Import) 자동 재계산
-
-산출물이 서로 다른 디렉터리로 분산될 때, `users.queries.ts`가 `shared/api/client.ts`나 `users.keys.ts`를 import하는 상대 경로(`path.relative`)가 자동으로 재계산되어 빌드 타임 컴파일 오류가 전혀 발생하지 않습니다:
-
-```typescript
-// src/features/users/api/users.queries.ts 내부 (자동 생성)
-import type { ApiClient } from '../../../shared/api/client.js';
-import { usersKeys } from './users.keys.js';
-```
-
-#### 4단계: `.oa-manifest.json` 기반 3-Gate 안전 고아 파일 정리 (Safe Orphan Pruning)
-
-OpenAPI 스펙에서 특정 태그나 엔드포인트가 삭제되거나 이름이 변경되면, `.oa-manifest.json` 추적 매니페스트가 작동하여 더 이상 사용되지 않는 고아(Orphan) 생성 파일만 안전하게 제거합니다:
-- **Gate 1 (출처 검증, Provenance)**: 매니페스트에 등록되지 않은 개발자 수작업 파일은 절대 삭제 목록에 포함되지 않습니다.
-- **Gate 2 (해시 무결성, Hash Integrity)**: 생성 후 개발자가 코드를 일부 수정한 경우(SHA-256 불일치), 파일 보호를 위해 정리를 즉시 중단합니다.
-- **Gate 3 (배너 가드, Banner Guard)**: 자동 생성 배너 주석(`@generated`)이 누락된 파일은 삭제가 차단됩니다.
-
----
-
-### 4.6 모노레포 풀스택 분산 라우팅 레시피 (Monorepo Multi-Package Distribution)
-
-pnpm 워크스페이스 또는 Turborepo 기반의 풀스택 모노레포에서는 백엔드와 프론트엔드가 별도의 패키지로 격리되어 있습니다. `oa-sdk`를 사용하면 **단 하나의 OpenAPI 3.2 스펙**으로부터 패키지 경계를 가로질러 산출물을 다중 투영할 수 있습니다.
-
-#### 1단계: 모노레포 아키텍처 및 목표 산출물 배치
-
-- `packages/contracts/src/`: 순수 핸들러 계약 (`*.contract.ts`) 및 타입 가드
-- `packages/server/src/api/`: Fastify / Elysia 라우터 바인더 (`*.router.ts`)
-- `packages/client-sdk/src/`: 플랫폼 중립 Typed Fetch SDK (`*.client.ts`)
-- `apps/web/src/api/`: TanStack Query v5 옵션 및 리액트 훅 (`*.queries.ts`, `*.keys.ts`)
-
-#### 2단계: `oa.config.ts` 모노레포 분산 라우팅 구성
-
-```typescript
-import { defineConfig } from '@oa-sdk/codegen';
-
-export default defineConfig({
-  rootDir: '.',
-  outputRouting: {
-    byKind: {
-      contract: 'packages/contracts/src/api.contract.ts',
-      guards: 'packages/contracts/src/guards.ts',
-      schemas: 'packages/contracts/src/schemas.ts',
-      client: 'packages/client-sdk/src/index.ts',
-      queries: 'apps/web/src/api/queries.ts',
-      keys: 'apps/web/src/api/keys.ts',
-    },
-    rules: [
-      {
-        kind: 'queries',
-        target: 'apps/web/src/api/{tag}.queries.ts',
-      },
-      {
-        kind: 'keys',
-        target: 'apps/web/src/api/{tag}.keys.ts',
-      },
-    ],
-  },
-});
-```
-
-#### 3단계: 모노레포 패키지 간 import 경로 바인딩
-
-TypeScript `tsconfig.json`의 path alias(`@repo/contracts`, `@repo/client-sdk`)와 연동되어 프론트엔드와 백엔드가 동일한 와이어 인터페이스를 완벽한 컴파일 타임 타입 검사로 공유합니다.
-
----
-
-### 4.7 TanStack Query (React Query) v5 3계층 아키텍처 도입 가이드
-
-전통적인 클라이언트 코드 생성 도구는 UI 프레임워크에 강결합된 1:1 리액트 훅(`useGetUserQuery()`)을 무분별하게 쏟아내어 Next.js App Router 서버 컴포넌트나 캐시 무효화 제어에서 심각한 한계를 노출합니다.
-
-`oa-sdk`의 **TanStack Query v5 3계층 생성기**는 쿼리 키 팩토리, 순수 옵션 팩토리, 그리고 선택적 컴포지션 훅을 철저히 분리하여 최고의 유연성을 제공합니다.
-
-#### 3계층 아키텍처 구성
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│ Tier 3: Client Composition Hook Helpers (선택적 씬 래퍼)               │
-│ - useUserByIdQuery, useUpdateUserMutation, createApiHooks()             │
-│ - 오픈 제네릭 (TData, TError), 옵션 오버라이드 (select, enabled) 지원     │
-├─────────────────────────────────────────────────────────────────────────┤
-│ Tier 2: Pure Query & Mutation Options Factory (순수 함수형 옵션)         │
-│ - getUserByIdQueryOptions(client, params), updateUserMutationOptions()  │
-│ - UI 프레임워크 락인 0: React, Vue, Svelte, Next.js Server Components 호환│
-│ - 엄격한 와이어 타입 보장: JsonPrimitive<TResponse>, Resolved<TBody>     │
-├─────────────────────────────────────────────────────────────────────────┤
-│ Tier 1: Hierarchical Query Key Factory (계층형 쿼리 키 팩토리)          │
-│ - userKeys.all, userKeys.lists(), userKeys.detail(id), userKeys.subresource │
-│ - 순수 TypeScript 튜플 (as const), 런타임 의존성 0개                       │
-│ - 직관적이고 타입 안전한 단일/부분/전체 캐시 무효화                       │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-#### Tier 1: 계층형 쿼리 키 팩토리 (`userKeys`)
-
-```typescript
-// 순수 TypeScript 튜플로 방출 — 외부 의존성 0개
-export const usersKeys = {
-  all: ['users'] as const,
-  lists: () => [...usersKeys.all, 'list'] as const,
-  list: (filters?: Record<string, unknown>) => [...usersKeys.lists(), filters] as const,
-  details: () => [...usersKeys.all, 'detail'] as const,
-  detail: (id: string | number) => [...usersKeys.details(), id] as const,
-  subresource: (id: string | number, sub: string, query?: Record<string, unknown>) =>
-    [...usersKeys.detail(id), sub, query] as const,
-  mutation: (operationId: string) => [...usersKeys.all, 'mutation', operationId] as const,
-};
-
-// 단수형 별칭 지원
-export const userKeys = usersKeys;
-```
+옵션 팩토리의 `queryFn`은 TanStack Query가 넘기는 `signal`을 클라이언트 호출에 전달합니다(`client.getUser(params, { signal })`). 그래서 컴포넌트가 언마운트되거나 쿼리가 취소되면 진행 중인 `fetch`가 중단됩니다. 생성된 클라이언트 메서드는 마지막 인자로 `{ signal?, headers? }`를 받고, 클라이언트 내부 타임아웃 시그널과 사용자 시그널을 `AbortSignal.any()`(없으면 `AbortController`)로 합칩니다.
 
 타입 안전 캐시 무효화 패턴:
 ```typescript
-import { useQueryClient } from '@tanstack/react-query';
-import { userKeys } from './users.keys.js';
+import { useQueryClient } from '@tanstack/react-query'
+import { usersKeys } from './api/generic-api/generic-api.keys.js'
 
-const queryClient = useQueryClient();
-
-// 1. 유저 관련 모든 캐시(목록, 상세, 하위리소스) 일괄 무효화:
-queryClient.invalidateQueries({ queryKey: userKeys.all });
-
-// 2. 유저 목록 캐시만 정밀 타겟 무효화 (상세 캐시는 보존):
-queryClient.invalidateQueries({ queryKey: userKeys.lists() });
-
-// 3. 특정 유저 및 그 하위 리소스만 정밀 무효화:
-queryClient.invalidateQueries({ queryKey: userKeys.detail('usr_123') });
-```
-
-#### Tier 2: 순수 옵션 팩토리 (`queryOptions` & `mutationOptions`)
-
-순수 옵션 객체(`queryKey`, `queryFn`, `mutationKey`, `mutationFn`)만을 방출하므로 UI 프레임워크 종속성이 없습니다. `@oa-sdk/client`의 `JsonPrimitive<T>`와 결합하여 날짜(`Date` $\rightarrow$ `string`) 및 함수가 제거된 순수 JSON 와이어 타입을 엄격히 보장합니다.
-
-```typescript
-import { queryOptions, mutationOptions } from '@tanstack/react-query';
-import type { JsonPrimitive, Resolved } from '@oa-sdk/client';
-import type { ApiClient } from './client.js';
-import type { GetUserByIdResponse, UpdateUserBody, UpdateUserResponse } from './types.js';
-import { userKeys } from './users.keys.js';
-
-export function getUserByIdQueryOptions(client: ApiClient, params: { id: string }) {
-  return queryOptions({
-    queryKey: userKeys.detail(params.id),
-    queryFn: async ({ signal }): Promise<JsonPrimitive<GetUserByIdResponse>> => {
-      return client.getUserById({ path: { id: params.id }, signal });
-    },
-  });
-}
-
-export function updateUserMutationOptions(client: ApiClient) {
-  return mutationOptions({
-    mutationKey: userKeys.mutation('updateUser'),
-    mutationFn: async (variables: {
-      id: string;
-      body: Resolved<UpdateUserBody>;
-    }): Promise<JsonPrimitive<UpdateUserResponse>> => {
-      return client.updateUser({ path: { id: variables.id }, body: variables.body });
-    },
-  });
+export function useUserCacheInvalidation() {
+  const queryClient = useQueryClient()
+  return {
+    // 1. 유저 관련 모든 캐시(목록, 상세, 하위 리소스) 무효화
+    all: () => queryClient.invalidateQueries({ queryKey: usersKeys.all }),
+    // 2. 목록 캐시만 무효화 (상세 캐시는 유지)
+    lists: () => queryClient.invalidateQueries({ queryKey: usersKeys.lists() }),
+    // 3. 특정 유저와 그 하위 리소스만 무효화
+    detail: (id: string) => queryClient.invalidateQueries({ queryKey: usersKeys.detail(id) }),
+  }
 }
 ```
 
-#### Tier 3: 컴포지션 훅 헬퍼 (`use*Query`, `use*Mutation`)
+`generate:tanstack --types-import`에 `oa-gen typegen` 출력만 넘기면 `<Operation>ClientError` 타입이 없어 `tsc`가 실패합니다(TS2305, 알려진 결함). 타입 없이 쓰려면 클라이언트와 TanStack 모두 `--types-import` 없이 생성합니다. 타입이 필요하면 typegen 출력을 다시 export하고 `<Operation>ClientError` 별칭을 더한 모듈을 `--types-import`로 지정합니다([CLI 명령 레퍼런스](./cli-command-reference.md#generatetanstack-옵션-및-인수-명세)).
 
-리액트 환경에서 가장 적은 보일러플레이트로 사용할 수 있도록 오픈 제네릭(`select`를 통한 데이터 슬라이싱)을 지원하는 얇은 래퍼를 제공합니다:
+### 4.10 Next.js App Router SSR 프리페칭 & 하이드레이션
 
-```typescript
-'use client';
-import { useQuery, useMutation, type UseQueryOptions } from '@tanstack/react-query';
-import { getUserByIdQueryOptions, updateUserMutationOptions } from './users.queries.js';
+Tier 2 옵션 팩토리를 Server Component의 `prefetchQuery`와 Client Component의 `useQuery`에 같이 쓰면, 서버에서 받은 데이터로 바로 렌더링하고 클라이언트에서 다시 요청하지 않습니다. Server Component에서는 `'use client'` 지시문이 없는 옵션 파일을 import합니다. `oa-gen generate`의 `<id>.queries.ts`(outputRouting 있음)나 `oa-gen generate:tanstack --tier options`의 출력이 여기에 해당하며, 훅까지 담은 `tanstack-query.ts`는 `'use client'` 모듈입니다. 아래 예시의 `@/` 경로 별칭은 `src/`를 가리킨다고 가정합니다.
 
-export function useUserByIdQuery<TData = JsonPrimitive<GetUserByIdResponse>>(
-  client: ApiClient,
-  params: { id: string },
-  options?: Omit<UseQueryOptions<JsonPrimitive<GetUserByIdResponse>, Error, TData>, 'queryKey' | 'queryFn'>,
-) {
-  return useQuery({
-    ...getUserByIdQueryOptions(client, params),
-    ...options,
-  });
-}
-```
-
-#### 요청 취소 및 AbortSignal 파이프라인 (Request Cancellation Pass-Through)
-
-대규모 웹 애플리케이션에서 컴포넌트 언마운트, 탭 전환, 사용자 타이핑에 따른 빠른 검색어 변경 시 불필요한 네트워크 대역폭 낭비를 막기 위해 요청 취소가 필수적입니다.
-
-`@oa-sdk/client`와 TanStack Query v5 통합 생성기는 `AbortSignal | null` 전달 파이프라인을 1급 시민으로 지원합니다:
-
-1. **클라이언트 SDK 메서드 옵션**:
-   모든 생성된 SDK 호출 메서드는 `options?: { signal?: AbortSignal | null, headers?: Record<string, string> }`를 허용합니다:
-   ```typescript
-   const controller = new AbortController();
-   const userPromise = client.getUserById({ path: { id: 'usr_123' }, signal: controller.signal });
-   
-   // 필요 시 즉각 HTTP 연결 중단:
-   controller.abort();
-   ```
-
-2. **이중 시그널 안전 결합 (`__combineSignals`)**:
-   클라이언트 내부의 요청 타임아웃 시그널과 사용자가 전달한 외부 `signal`은 `__combineSignals` 헬퍼를 통해 결합됩니다. 런타임 환경이 `AbortSignal.any()`를 지원하면 네이티브 제로 코스트 결합을 사용하고, 레거시 환경에서는 `AbortController` 리스너로 안전하게 폴백합니다.
-
-3. **TanStack Query v5 자동 연동**:
-   Tier 2 순수 옵션 팩토리(`queryOptions`, `infiniteQueryOptions`)는 TanStack Query 쿼리 컨텍스트의 `signal`을 클라이언트 호출부로 자동 투망합니다:
-   ```typescript
-   export function getUserByIdQueryOptions(client: ApiClient, params: { id: string }) {
-     return queryOptions({
-       queryKey: userKeys.detail(params.id),
-       queryFn: async ({ signal }): Promise<JsonPrimitive<GetUserByIdResponse>> => {
-         return client.getUserById({ path: { id: params.id }, signal });
-       },
-     });
-   }
-   ```
-   리액트 컴포넌트가 언마운트되거나 쿼리 키가 무효화되면 전송 중이던 HTTP fetch 요청이 소켓 레벨에서 즉시 중단됩니다.
-
-4. **SSE 및 NDJSON 실시간 스트림 취소**:
-   `streamSse` 및 `streamNdjson` 스트리밍 리더에서도 `signal`을 전달하여 장시간 열려 있는 이벤트 소켓이나 LLM 토큰 스트림을 언제든지 안전하게 닫을 수 있습니다.
-
----
-
-### 4.8 Next.js App Router SSR / Server Component 프리페칭 & 하이드레이션 레시피
-
-Tier 2 순수 옵션 팩토리는 Next.js 15 App Router 환경에서 진가를 발휘합니다. 리액트 훅을 실행할 수 없는 서버 컴포넌트에서 `prefetchQuery`를 수행하고, 클라이언트 컴포넌트로 상태를 즉각 하이드레이션하여 **네트워크 워터폴 0, 로딩 스피너 없는 즉각 렌더링**을 구현합니다.
-
-#### 1단계: 서버 컴포넌트에서 프리페칭 (`app/users/[id]/page.tsx`)
+#### 1단계: Server Component에서 프리페칭 (`app/users/[id]/page.tsx`)
 
 ```tsx
-import { QueryClient, dehydrate, HydrationBoundary } from '@tanstack/react-query';
-import { createServerClient } from '@/shared/api/server-client';
-import { getUserByIdQueryOptions } from '@/features/users/api/users.queries';
-import { UserDetailView } from './user-detail-view';
+import { QueryClient, dehydrate, HydrationBoundary } from '@tanstack/react-query'
+import { createClient } from '@/api/generic-api/generic-api.client'
+import { getUserQueryOptions } from '@/api/generic-api/generic-api.queries'
+import { UserDetailView } from './user-detail-view'
 
-interface PageProps {
-  params: Promise<{ id: string }>;
-}
+export default async function UserPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const queryClient = new QueryClient()
+  const client = createClient({ baseUrl: process.env.API_BASE_URL })
 
-export default async function UserPage({ params }: PageProps) {
-  const { id } = await params;
-  const queryClient = new QueryClient();
-  const client = createServerClient();
-
-  // Tier 2 순수 옵션을 서버 컴포넌트에서 직접 프리페칭:
-  await queryClient.prefetchQuery(getUserByIdQueryOptions(client, { id }));
+  // Tier 2 순수 옵션을 서버에서 그대로 프리페칭
+  await queryClient.prefetchQuery(getUserQueryOptions(client, { userId: id }))
 
   return (
-    // dehydrate()를 통해 서버 쿼리 캐시 상태를 클라이언트 경계로 주입
+    // dehydrate()로 서버 쿼리 캐시를 클라이언트 경계에 넘김
     <HydrationBoundary state={dehydrate(queryClient)}>
       <UserDetailView userId={id} />
     </HydrationBoundary>
-  );
+  )
 }
 ```
 
-#### 2단계: 클라이언트 컴포넌트에서 데이터 소비 (`app/users/[id]/user-detail-view.tsx`)
+#### 2단계: Client Component에서 소비 (`app/users/[id]/user-detail-view.tsx`)
 
 ```tsx
-'use client';
+'use client'
 
-import { useQuery } from '@tanstack/react-query';
-import { useBrowserClient } from '@/shared/api/browser-client';
-import { getUserByIdQueryOptions } from '@/features/users/api/users.queries';
+import { useQuery } from '@tanstack/react-query'
+import { createClient } from '@/api/generic-api/generic-api.client'
+import { getUserQueryOptions } from '@/api/generic-api/generic-api.queries'
+
+const client = createClient({ baseUrl: '/api' })
 
 export function UserDetailView({ userId }: { userId: string }) {
-  const client = useBrowserClient();
-
-  // 서버에서 이미 프리페칭되어 하이드레이션되었으므로 로딩 없이 즉시 렌더링:
-  const { data: user } = useQuery(getUserByIdQueryOptions(client, { id: userId }));
-
-  return (
-    <div className="user-profile">
-      <h1>{user?.name}</h1>
-      <p>이메일: {user?.email}</p>
-      <span className="badge">서버 프리페칭 완료 (0 Network Waterfall)</span>
-    </div>
-  );
+  // 서버에서 프리페칭한 캐시로 바로 렌더링
+  const { data: user } = useQuery(getUserQueryOptions(client, { userId }))
+  return <pre>{JSON.stringify(user, null, 2)}</pre>
 }
 ```
+
+`oa-gen generate`가 만든 클라이언트의 응답 타입은 `unknown`이므로, 필드에 접근하려면 응답을 좁히거나 타입이 있는 클라이언트(`oa-gen generate:client --types-import`)를 씁니다.
 
 ---
 
 ## 5. Greenfield vs Brownfield 단계별 적용 전략
 
 ### Greenfield (신규 프로젝트)
-1. **스펙 우선(Spec-First) 시작**:
-   - `packages/schemas/typespec/main.tsp` 또는 루트 `openapi.yaml` 작성.
-2. **초기화 실행**:
+1. **스펙 먼저 작성**: 프로젝트 루트에 `openapi.yaml` 또는 TypeSpec 진입점(`main.tsp` 등)을 둡니다. TypeSpec 작성에 필요한 패키지는 [TypeSpec 작성 의존성](./cli-setup.md#typespec-작성-의존성)을 따릅니다.
+2. **초기화**:
    ```bash
    npx oa-gen init --yes
    ```
-3. **병렬 개발 가동**:
-   - 프론트엔드: `npx oa-gen mock --spec ./openapi.yaml --watch --port 4010` 구동 후 即시 UI 구현.
-   - 백엔드: 생성된 `api.contract.ts` 인터페이스를 주입받아 도메인 비즈니스 로직 작성.
+3. **병렬 개발**:
+   - 프론트엔드: `npx oa-gen mock --spec ./openapi.yaml --watch --port 4010`으로 mock 서버를 띄우고 UI를 구현합니다.
+   - 백엔드: §4.1처럼 타입이 있는 핸들러 계약(`src/server/api.contract.ts`)을 만들어 구현합니다. 타입이 필요 없다면 `oa-gen generate`가 만든 `src/api/<id>/<id>.contract.ts`를 구현해도 됩니다.
 
 ### Brownfield (기존 운영 프로젝트)
-1. **무중단 스캔**:
-   기존 파일 변경 없이 감지 결과만 미리보기:
+1. **변경 없이 미리보기**: 파일을 쓰지 않고 감지 결과와 변경 계획만 확인합니다.
    ```bash
    npx oa-gen init --dry-run
    ```
-2. **점진적 스크립트 병합**:
-   `--yes` 플래그로 기존 `package.json`의 포맷팅(들여쓰기, 줄바꿈)을 100% 보존하면서 개발 스크립트만 추가:
+2. **스크립트 추가**: `--yes`로 설정 파일과 스크립트를 추가합니다. `package.json`에 이미 있는 항목은 `--force` 없이는 바꾸지 않습니다.
    ```bash
    npx oa-gen init --yes
    ```
-3. **카나리 엔드포인트부터 계약 분리 적용**:
-   기존 컨트롤러 전체를 한 번에 전환할 필요 없이, 신규 추가되는 1~2개 API 경로에만 생성된 `apiRouter`를 마운트하여 안정성을 입증한 후 점진적 확대.
+3. **신규 엔드포인트부터 계약 분리**: 기존 컨트롤러를 한 번에 바꾸지 않고, 새로 추가하는 1~2개 경로만 원본에 선언한 뒤 §4의 라우터 코드를 별도 prefix(예: `/api/v1`)에 마운트해 검증하고 범위를 넓힙니다. 기존 서비스가 내보내는 OpenAPI가 있다면 먼저 `oa-gen collect`로 수집해 Tier 1(검증·타입)부터 적용합니다.
 
-### 5.3 단계별 무중단 진화 런북 (Zero-Breakage Evolution Runbooks)
+### 5.3 단계별 진화 런북 (Evolution Runbooks)
 
-#### 런북 1: 신규 프로젝트 무중단 수명주기 진화 (Day 1 MVP $\rightarrow$ Day 60 Microservice $\rightarrow$ Day 180 Enterprise)
+#### 런북 1: 아키타입을 바꾸며 진화하기 (MVP $\rightarrow$ Microservice $\rightarrow$ Enterprise)
 
-`oa-sdk`의 가장 강력한 아키텍처적 가치는 **비즈니스 서비스 로직과 핸들러 계약이 프로젝트의 생애주기 전반에 걸쳐 100% 불변(Invariant)**으로 유지된다는 점입니다.
+아키타입은 기록하는 설정과 스크립트의 묶음이므로, 프로젝트가 커지면서 해야 할 일은 대부분 사용자가 직접 추가합니다. 핸들러 구현 파일은 생성기가 쓰지 않으므로 이 과정에서 바뀌지 않습니다. 계약이 바뀌면 다시 생성한 계약에 맞춰 구현을 고칩니다.
 
-```
-[Day 1: MVP]                 [Day 60: Microservice]              [Day 180: Enterprise]
-- archetype: "mvp"           - archetype: "microservice"         - archetype: "enterprise"
-- mock --watch 실시간 목업     - Fastify JIT / Bun Zero-Copy       - oa-gen diff --fail-on-breaking
-- 즉각 Client SDK 배포        - wireFormatSafety: true            - @personaCapability & @pseudonymize
-                             - getContext (테넌시/트레이싱 주입)    - 엔터프라이즈 IAM 세션 완비
-        │                                  │                                  │
-        ▼                                  ▼                                  ▼
- ┌──────────────────────────────────────────────────────────────────────────────────┐
- │  불변 공유 코어 (INVARIANT CORE): api.contract.ts & src/services/user.service.ts  │
- │  - 스키마 와이어 인터페이스: 0줄 수정                                              │
- │  - 비즈니스 핸들러 구현체: 0줄 수정 (100% 보존)                                   │
- └──────────────────────────────────────────────────────────────────────────────────┘
-```
+1. **MVP 단계**: `npx oa-gen init --target fastify --archetype mvp --yes`로 시작합니다. 프론트엔드는 `oa-gen mock --watch`로, 백엔드는 §4의 핸들러 계약으로 개발합니다.
+2. **Microservice 단계**: 요청별 테넌트·추적 정보가 필요해지면 라우터 코드를 `contextInjection: true`로 생성하고 서버 진입점에서 `getContext`를 등록합니다(런북 2). `oa.config.ts`의 `archetype`을 `'microservice'`로 바꾸는 것만으로는 생성 결과가 달라지지 않습니다.
+3. **Enterprise 단계**: 여러 팀이 같은 계약을 쓰면 §6.2의 breaking change gate와 `oa-gen check-artifact`를 CI에 등록합니다. `enterprise` 아키타입이 추가하는 `diff`·`ci:gate` 스크립트는 그대로는 동작하지 않으므로(알려진 결함) §6.2의 명령을 씁니다.
 
-1. **Day 1: MVP 단계 (초기 가설 검증 & 초고속 프로토타이핑)**:
-   - 초기화: `npx oa-gen init --target fastify --archetype mvp --yes`
-   - 산출물: `oa.config.ts` (`archetype: 'mvp'`), 기본 `api.contract.ts`.
-   - 워크플로: 프론트엔드는 `oa-gen mock --watch`로 즉시 개발에 착수하고, 백엔드는 `src/services/user.service.ts`에 순수 핸들러를 작성합니다.
-2. **Day 60: Microservice 단계로의 진화 (고성능 직렬화 & 테넌시 컨텍스트 주입)**:
-   - 배경: 트래픽 증가로 인해 응답 직렬화 지연 시간을 최소화하고, 다중 테넌트 격리가 필요해졌습니다.
-   - 설정 승격: `oa.config.ts`의 `archetype`을 `'microservice'`로 변경합니다:
-     ```typescript
-     // oa.config.ts
-     export default defineConfig({
-       rootDir: '.',
-       archetype: 'microservice',
-       core: {
-         client: { enabled: true, wireFormatSafety: true },
-         gates: { driftCheck: true, failOnBreaking: true },
-       },
-       product: {
-         archetype: 'microservice',
-         framework: 'fastify',
-         jitSchema: true,
-       },
-     });
-     ```
-   - 컨텍스트 주입: 서버 진입점(`src/server.ts`)에서 `getContext` 콜백을 등록하여 HTTP 헤더의 테넌트 ID와 요청별 트레이싱 ID를 핸들러로 전달합니다.
-   - **불변 보장**: `src/services/user.service.ts`의 비즈니스 코드와 `api.contract.ts`의 와이어 파라미터는 단 한 줄도 바꿀 필요가 없습니다.
-3. **Day 180: Enterprise 단계로의 진화 (CI 무음 파괴 차단 & 페르소나 거버넌스)**:
-   - 배경: 다수 팀 협업과 금융/개인정보 보호 규제(GDPR, PII) 준수가 요구됩니다.
-   - 설정 승격: `oa.config.ts`의 `archetype`을 `'enterprise'`로 승격합니다.
-   - CI/CD 게이트 가동: GitHub Actions 워크플로에 `oa-gen diff --base origin/main --fail-on-breaking`을 등록하여 파괴적 변경 배포를 0건으로 차단합니다.
-   - 페르소나 데코레이터 적용: 민감 필드에 `@pseudonymize` 및 `@personaCapability`를 부착하여 데이터 마스킹과 역할별 프로젝션을 가동합니다.
-   - **불변 보장**: 공유 플랫폼 코어와 핸들러 구현체는 회귀 없이 100% 무결성을 유지합니다.
+#### 런북 2: 기존 서비스의 인증·멀티테넌시 컨텍스트 연결
 
-#### 런북 2: 브라운필드 서비스 컨텍스트 연동 (인증/멀티테넌시 무오염 통합)
+이미 쓰는 인증 미들웨어(Passport, JWT, Session)와 테넌트 헤더를 핸들러에 넘기는 방법입니다.
 
-기존 운영 중인 Express 또는 Fastify 서비스에서 이미 사용 중인 인증 미들웨어(Passport, JWT, Session)와 테넌시 헤더를 `oa-sdk` 계약 기반 핸들러에 통합하는 표준 절차입니다:
-
-1. **레거시 문제점 (와이어 스펙 오염 딜레마)**:
-   - 기존 컨트롤러 방식에서는 `req.user`나 `req.tenantId`에 접근하기 위해 Swagger 스키마에 내부 전용 query/header 파라미터를 추가하여 클라이언트 문서가 오염되거나, 반대로 자동 생성된 핸들러에서 세션 객체를 읽지 못해 프레임워크 락인이 발생하는 문제가 있었습니다.
-2. **`oa-sdk` 해결책 (제네릭 `TContext` 무오염 분리)**:
-   - **공개 스펙 순수성 유지**: `openapi.yaml`에는 클라이언트가 실제로 전송하는 표준 파라미터(`Authorization` 헤더 등)만 선언합니다.
-   - **타입 안전한 컨텍스트 정의 (`src/types/context.ts`)**:
+1. **문제**: 핸들러에서 `req.user`나 테넌트 ID를 읽으려고 공개 스펙에 내부용 파라미터를 추가하면 클라이언트 문서가 오염되고, 반대로 핸들러가 프레임워크 요청 객체를 직접 읽으면 프레임워크에 묶입니다.
+2. **해결**: 공개 스펙에는 클라이언트가 실제로 보내는 파라미터(`Authorization` 헤더 등)만 선언하고, 내부 정보는 제네릭 `TContext`로 넘깁니다.
+   - **컨텍스트 타입 정의 (`src/types/context.ts`)**:
      ```typescript
      export interface RequestContext {
        tenantId: string;
-       user: { id: string; email: string; roles: string[] };
+       user?: { id: string; email: string; roles: string[] };
      }
      ```
-   - **핸들러 구현체에서 컨텍스트 소비**:
+   - **핸들러에서 컨텍스트 사용**:
      ```typescript
-     import type { ApiHandlers } from '../generated/api.contract.js';
+     import type { ApiHandlers } from '../server/api.contract.js';
      import type { RequestContext } from '../types/context.js';
 
      export const secureHandlers: ApiHandlers<RequestContext> = {
-       getUserById: async ({ params, context }) => {
-         // 타입 안전한 내부 인프라 접근:
-         const tenantId = context?.tenantId;
-         const currentUser = context?.user;
-         return {
-           status: 200,
-           body: { id: params.id, name: currentUser?.email ?? 'anonymous' },
-         };
-       },
-       createUser: async ({ body }) => {
-         return {
-           status: 201,
-           body: { id: 'usr_' + Date.now(), name: body.name, email: body.email },
-         };
-       },
+       listUsers: async () => ({ items: [], total: 0 }),
+       createUser: async ({ body }) => ({
+         status: 201,
+         body: { id: 'usr_' + Date.now(), email: body.email, name: body.name, role: body.role ?? 'user', createdAt: new Date().toISOString() },
+       }),
+       getUser: async ({ params, context }) => ({
+         id: params.userId,
+         email: context?.user?.email ?? 'anonymous@example.com',
+         name: `tenant ${context?.tenantId ?? 'default'}`,
+         role: 'user',
+         createdAt: new Date().toISOString(),
+       }),
      };
      ```
-   - **프레임워크 라우터 바인더에서 추출 어댑터 연결**:
+   - **라우터 코드에서 컨텍스트 추출 (`contextInjection: true`로 생성한 Fastify 라우터)**:
      ```typescript
-     // Fastify 환경:
      await server.register(apiRouter, {
        handlers: secureHandlers,
-       getContext: async (request) => ({
-         tenantId: request.headers['x-tenant-id'] as string,
-         user: (request as any).user, // 인증 미들웨어가 주입한 유저 정보
+       getContext: (request): RequestContext => ({
+         tenantId: String(request.headers['x-tenant-id'] ?? 'default'),
+         user: (request as any).user, // 인증 미들웨어가 주입한 사용자 정보
        }),
      });
      ```
-3. **효과**: 공개 API 명세서에 내부 데이터베이스 풀이나 세션 구조가 1도 노출되지 않으며(Zero Wire Pollution), 비즈니스 로직은 Mocking 및 격리 테스트가 즉시 가능해집니다.
+3. **효과**: 공개 API 명세에 내부 세션 구조가 드러나지 않고, 핸들러는 컨텍스트 객체만 바꿔 넣어 단위 테스트할 수 있습니다.
 
 ---
 
 ## 6. CI/CD 파이프라인 연동 & 실시간 Mocking 워크플로
 
-### 6.1 실시간 무중단 Mock 서버 (`oa-gen mock --watch`)
+### 6.1 mock 서버 (`oa-gen mock --watch`)
 
-개발 중 스펙 파일(`openapi.yaml`, `main.tsp`, `@oaOperation` JSDoc)을 수정하면, 100ms 디바운스 후 활성 HTTP 소켓을 끊지 않고 인메모리 라우트 테이블을 원자적으로 핫스왑(`server.updateSpec`)합니다.
+개발 중 스펙 파일(`openapi.yaml`, `main.tsp`, `@oaOperation` JSDoc이 있는 TypeScript 소스)을 수정하면, 100ms 디바운스 후 서버를 재시작하지 않고 인메모리 route 테이블을 교체합니다(`server.updateSpec`). 수정 중 문법 오류가 나면 직전에 유효했던 route를 유지합니다.
 
 ```bash
-# OpenAPI YAML/JSON 기반 실시간 Mock 서버 구동 (포트 4010)
+# OpenAPI YAML/JSON 기반 mock 서버 (포트 4010)
 npx oa-gen mock --spec ./openapi.yaml --watch --port 4010
 
-# TypeSpec 기반 제로-빌드 실시간 Mock 서버 구동
+# TypeSpec 기반 mock 서버
 npx oa-gen mock --tsp ./main.tsp --watch --port 4010
 ```
 
-### 6.2 GitHub Actions CI 파이프라인 (파괴적 드리프트 자동 차단)
+### 6.2 GitHub Actions CI 파이프라인 (breaking change 차단)
 
-PR이 열릴 때 base 브랜치와 head 브랜치 간의 OpenAPI / TypeSpec AST를 비교하여 breaking change 발견 시 빌드를 즉각 차단합니다.
+PR마다 base 브랜치의 계약과 비교해 breaking change가 있으면 실패시킵니다. `oa-gen diff`는 OpenAPI 파일 경로 두 개만 받으므로 base 브랜치의 파일을 먼저 꺼내 두고, TypeSpec 원본은 `oa-gen tsp diff`에 `<ref>:<path>`를 넘깁니다.
 
 ```yaml
-name: API Contract Drift Defense Gate
+name: API Contract Gate
 
 on:
   pull_request:
@@ -1020,28 +632,29 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js & pnpm
-        uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
         with:
-          version: 10
+          node-version: 22
 
       - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
       - name: Verify API Breaking Changes (OpenAPI)
         run: |
-          npx oa-gen diff \
-            --base origin/main \
-            --head ./openapi.yaml \
-            --fail-on-breaking
+          git show origin/main:openapi.yaml > base.openapi.yaml
+          npx oa-gen diff --base base.openapi.yaml --head openapi.yaml --fail-on-breaking
 
-      - name: Verify TypeSpec Semantic Drift (TypeSpec 프로젝트인 경우)
-        run: |
-          npx oa-gen tsp diff \
-            --base origin/main \
-            --head ./main.tsp \
-            --fail-on-breaking
+      - name: Verify TypeSpec Breaking Changes (TypeSpec 프로젝트인 경우)
+        run: npx oa-gen tsp diff --base origin/main:main.tsp --head main.tsp --fail-on-breaking
+
+      - name: Verify Generated Artifacts Are Fresh
+        run: npx oa-gen check-artifact
 ```
+
+- `oa-gen diff`는 요청·응답·파라미터 스키마가 조금이라도 바뀌면 선택 필드 추가도 breaking으로 판정하는 보수적 규칙입니다. `--fail-on-breaking`을 CI에 걸면 호환 변경에서도 실패할 수 있습니다.
+- `oa-gen tsp diff`는 TypeSpec 원본을 의미 단위로 비교해 선택 속성 추가 같은 호환 변경을 non-breaking으로 구분합니다. git ref만 주면 커밋된 내용을 비교하므로, 위처럼 head에는 파일 경로를 줍니다.
+- `oa-gen check-artifact`는 커밋한 `<id>.openapi.json`이 원본에서 다시 만든 결과와 다르면 실패합니다. 생성물을 커밋하지 않는 프로젝트에서는 이 단계를 뺍니다.
+- base 브랜치에 `openapi.yaml`이 아직 없는 첫 PR에서는 `git show`가 실패하므로, 그 경우를 건너뛰는 조건을 추가합니다.
 
 ---
 
@@ -1049,21 +662,24 @@ jobs:
 
 | 증상 / 오류 메시지 | 근본 원인 | 해결 절차 |
 |---|---|---|
-| `TS6133: 'params' is declared but its value is never read` | Elysia 라우터 생성 시 파라미터가 없는 엔드포인트에서 모든 컨텍스트를 과도하게 비구조화함 | 최신 `@oa-sdk/router`를 사용하십시오. 선택적 비구조화 할당(`destructureFields`) 엔진이 사용된 필드(`{ set }`)만 추출하여 strict TS 빌드를 통과합니다. |
-| `Existing config retained: oa.config.ts` | 이미 설정 파일이 존재하여 비파괴 원칙에 따라 생성이 건너뛰어짐 | 설정을 강제로 재생성하려면 `--force` (`-f`) 플래그를 추가하십시오: `npx oa-gen init --force`. |
-| `Bun project contains tsx or nodemon` | Bun 프로젝트에 Node 도구가 주입되어 런타임 격리 불변식 위반 | `oa-gen init --target elysia`를 실행하십시오. Elysia 프로필은 순수 Bun 도구(`bun --watch`, `bun x`)만을 주입합니다. |
+| `TS6133: 'params' is declared but its value is never read` | 이전 `@oa-sdk/router`의 Elysia 라우터 코드가 파라미터가 없는 route에서도 모든 컨텍스트 필드를 구조분해함 | 최신 `@oa-sdk/router`로 라우터 코드를 다시 생성하십시오. Elysia 대상은 route가 쓰는 필드(`{ set }` 등)만 구조분해합니다. |
+| `Existing config retained: <프로젝트 경로>/oa.config.ts` | 이미 설정 파일이 있어 `init`이 덮어쓰지 않음 | 설정을 다시 만들려면 `--force` (`-f`)를 추가하십시오: `npx oa-gen init --force`. `--force`는 충돌하는 스크립트도 덮어씁니다. |
 | `[oa-gen generate] A requested output needs a companion package that is not installed` (여러 개면 `Requested outputs need companion packages that are not installed`) | `oa.config.ts`가 명시적으로 켠 산출물의 동반 패키지가 없음: `core.contracts.pureHandlers: true`는 `@oa-sdk/router`, `core.client.enabled: true`는 `@oa-sdk/client`가 필요하며, `oa-gen init`이 만든 설정도 두 스위치를 켭니다. `mock`, `generate:client`, `pack:client`, `generate:tanstack`도 같은 형식으로 필요한 패키지를 알립니다. | 오류에 출력된 설치 명령을 실행하십시오. 해당 산출물이 필요 없다면 스위치를 `false`로 설정합니다. [동반 패키지 안내](./cli-setup.md#동반-패키지-companion-packages)를 참고하십시오. |
 | `[oa-gen generate] Skipped outputs whose companion package is not installed` (경고) | 기본값으로만 암시된 산출물(지정하지 않은 스위치와 아키타입 프리셋, TanStack Query 옵션, CRDT 모듈, `--spec` 직접 실행)의 동반 패키지가 없음 | 산출물이 필요하면 경고에 출력된 설치 명령을 실행하십시오. 이전 실행이 생성한 해당 파일은 삭제되지 않고 유지됩니다. |
-| `Mock server drops socket on spec syntax error` | 스키마 편집 중 일시적인 구문 오류 발생 | `oa-gen mock --watch`는 에러 쉴딩(Error Shielding)이 내장되어 있습니다. 구문 오류 시 직전 유효 라우트를 유지하므로 소켓이 끊어지지 않으며, 올바른 문법으로 저장하면 즉시 회복됩니다. |
+| `import-not-found: Couldn't resolve import "@typespec/http"` | `.tsp`가 import하는 TypeSpec 라이브러리를 `.tsp` 파일 위치에서 찾지 못함(pnpm 등 끌어올리지 않는 레이아웃) | `@typespec/http`, `@typespec/openapi`, `@oa-sdk/typespec-decorators`를 프로젝트의 직접 개발 의존성으로 설치하십시오([TypeSpec 작성 의존성](./cli-setup.md#typespec-작성-의존성)). |
+| `Cannot find package 'msw'` | MSW 어댑터(`@oa-sdk/mock-server/adapters/msw`, `@oa-sdk/mock-server/browser`)를 `msw` 없이 import함 | MSW 어댑터를 쓸 때만 `msw`를 설치하십시오. `oa-gen mock`과 패키지 루트, Node HTTP 어댑터는 `msw` 없이 동작합니다. |
+| `oa-gen generate:tanstack` 출력이 사라짐 | 다음 `oa-gen generate` 실행이 `.oa-manifest.json`에 기록된 다른 명령의 생성물을 지움(알려진 결함) | `oa-gen generate`를 쓰는 프로젝트에서는 `generate`가 만드는 `<id>.queries.ts`를 쓰십시오(§4.8). |
+| 스펙 수정 중 구문 오류 | 스키마 편집 중 일시적인 YAML·TypeSpec 문법 오류 | `oa-gen mock --watch`는 구문 오류가 나면 직전 유효 route를 유지하고 서버를 계속 실행합니다. 올바른 문법으로 저장하면 다시 교체합니다. |
 
 ---
 
 ## 8. 다음 단계 및 참조 문서
 
-- [Quick Start 가이드](./quick-start.md) — 5분 안에 전 파이프라인 체험하기
+- [Quick Start 가이드](./quick-start.md) — 설치부터 검증·생성·mock 서버까지 한 프로젝트에서 실행
 - [CLI 명령 레퍼런스](./cli-command-reference.md) — `oa-gen` 전체 서브커맨드 및 옵션 명세
-- [라이브러리 진입점 명세](./library-entrypoints.md) — 모노레포 패키지별 export 및 사용법
-- [oa-sdk 모노레포 기여자 온보딩](#9-oa-sdk-모노레포-기여자-온보딩) — `oa-sdk` 내부 기여자를 위한 개발 환경 및 거버넌스 안내
+- [백엔드 핸들러 계약 가이드](./backend-handler-contracts.md) — 핸들러 계약 구현 패턴
+- [라이브러리 진입점 지도](./library-entrypoints.md) — 패키지별 배포 상태와 export
+- [oa-sdk 모노레포 기여자 온보딩](#9-oa-sdk-모노레포-기여자-온보딩) — `oa-sdk` 저장소 기여자를 위한 개발 환경 및 거버넌스 안내
 - [아키텍처 플랫폼 스코프](../internal/platform-scope.md) — 패키지 경계 및 릴리스 트랙
 
 ---
@@ -1108,13 +724,15 @@ pnpm install
 pnpm check:spec-governance
 ```
 
+저장소 루트에서는 `oa-gen`이 PATH에 없습니다. `pnpm --filter @oa-sdk/codegen build` 후 `node packages/codegen/dist/cli/index.js <명령>`으로 실행합니다.
+
 작업을 시작할 때는 루트의 [`.ai/spec-loader.yaml`](../../.ai/spec-loader.yaml)을 먼저 확인하고, [거버넌스 진입점](../spec-governance/README.md)과 [프로젝트 프로필](../spec-governance/project-profile.md)을 읽어 작업 범위와 검증 요건을 확정하십시오.
 
 ---
 
 ### 9.2 저장소 정본(Source of Truth) 결정 매트릭스
 
-`oa-sdk` 모노레포에서는 변경하려는 대상에 따라 가장 먼저 확인해야 할 단일 진실 공급원(SSOT)과 수정 대상 파일이 엄격히 분리되어 있습니다.
+`oa-sdk` 모노레포에서는 변경하려는 대상에 따라 가장 먼저 확인해야 할 정본 문서와 수정 대상 파일이 분리되어 있습니다.
 
 | 바꾸려는 대상 | 먼저 읽을 정본 문서 | 일반 변경 위치 |
 |---|---|---|
@@ -1234,9 +852,11 @@ PR을 제출하기 전 base 브랜치(`origin/main`)와의 계약 파괴적 변�
 
 ```bash
 git fetch origin --prune
-pnpm spec:diff -- --git origin/main
+node --import tsx scripts/spec-diff.ts --git origin/main
 pnpm schema:check-contract-version -- --base-ref origin/main
 ```
+
+`pnpm spec:diff`는 `pnpm build:scripts`가 만드는 `scripts/dist/spec-diff.js`를 실행하는데, 현재 그 번들이 `Dynamic require of "fs" is not supported`로 실패합니다(알려진 결함). 고쳐질 때까지 위처럼 `tsx`로 소스를 직접 실행합니다.
 
 - **버전 규칙**: Breaking change가 포함된 경우 `ContractVersion`이 SemVer 규칙에 따라 상향되어야 합니다 (v1.0 미만은 minor bump, v1.0 이상은 major bump 필수).
 - **후보 격리**: 후보 파일은 `.oa-sdk/typespec-candidates/`에 임시 저장되며, 커밋되는 스냅샷(`approved.openapi.yaml`)만이 공식 검토 기준입니다.
@@ -1257,7 +877,7 @@ pnpm schema:check-contract-version -- --base-ref origin/main
 
 #### 기여자 최소 완료 확인 게이트
 
-PR을 열기 전 다음 세 가지 게이트를 로컬에서 반드시 실행하여 100% 통과(Pass)를 확인하십시오:
+PR을 열기 전 다음 세 가지 게이트를 로컬에서 실행해 모두 통과하는지 확인하십시오:
 
 ```bash
 # 1. 스펙 거버넌스 및 정책 무결성 검증
