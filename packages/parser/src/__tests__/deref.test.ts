@@ -180,6 +180,38 @@ describe('derefSpec', () => {
     })
   })
 
+  it('dereferences the fields beside an unresolved $ref in Node and browser deref paths', () => {
+    const input = spec({
+      paths: {
+        '/miss': {
+          $ref: '#/components/pathItems/Missing',
+          get: {
+            parameters: [{ $ref: '#/components/parameters/Limit' }],
+            responses: { '200': { $ref: '#/components/responses/Ok' } },
+          },
+        },
+        '/external': {
+          $ref: './paths.yaml#/Item',
+          parameters: [{ $ref: '#/components/parameters/Limit' }],
+        },
+      },
+      components: {
+        parameters: { Limit: { name: 'limit', in: 'query', schema: { type: 'integer' } } },
+        responses: { Ok: { description: 'OK' } },
+      },
+    })
+    const limit = { name: 'limit', in: 'query', schema: { type: 'integer' } }
+
+    for (const result of [derefSpec(structuredClone(input)), derefInternalSpec(structuredClone(input))]) {
+      const paths = result.paths as Record<string, unknown>
+      expect(paths['/miss']).toEqual({
+        $ref: '#/components/pathItems/Missing',
+        get: { parameters: [limit], responses: { '200': { description: 'OK' } } },
+      })
+      expect(paths['/external']).toEqual({ $ref: './paths.yaml#/Item', parameters: [limit] })
+    }
+  })
+
   it('해석 실패 diagnostic을 수집한다', () => {
     const input = spec({
       paths: { '/miss': { $ref: '#/components/schemas/Missing' } },
@@ -427,6 +459,33 @@ describe('derefSpec — external file $ref', () => {
     expect((result.paths as Record<string, unknown>)['/ext']).toEqual({
       $ref: './nonexistent.json#/schemas/Foo',
     })
+  })
+
+  it('an unresolved $ref inside an external file dereferences its siblings against that file', () => {
+    writeFileSync(join(tmpDir, 'partial.json'), JSON.stringify({
+      Item: {
+        $ref: '#/components/pathItems/Missing',
+        get: { parameters: [{ $ref: '#/components/parameters/Local' }] },
+      },
+      components: { parameters: { Local: { name: 'fromPartial', in: 'query' } } },
+    }))
+    const input = spec({
+      paths: { '/ext': { $ref: './partial.json#/Item' } },
+      // Same pointers in the entry document must not be used for partial.json refs.
+      components: {
+        pathItems: { Missing: { delete: { operationId: 'entryDelete' } } },
+        parameters: { Local: { name: 'fromEntry', in: 'query' } },
+      },
+    })
+
+    const { document, diagnostics } = derefSpecWithDiagnostics(input, { basePath: mainFile })
+    expect((document.paths as Record<string, unknown>)['/ext']).toEqual({
+      $ref: '#/components/pathItems/Missing',
+      get: { parameters: [{ name: 'fromPartial', in: 'query' }] },
+    })
+    expect(diagnostics).toEqual([
+      expect.objectContaining({ code: 'ref-not-found', ref: '#/components/pathItems/Missing' }),
+    ])
   })
 
   it('외부 파일 내 존재하지 않는 포인터 → 원본 유지', () => {

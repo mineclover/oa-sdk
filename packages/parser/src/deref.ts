@@ -44,6 +44,8 @@ export type DerefOptions = {
  * - $ref sibling 필드는 해소된 대상에 병합하여 구조 정보를 보존
  * - 같은 대상의 전개 결과는 RefExpansionMemo로 사용처 간에 공유한다.
  *   결과 트리는 동일한 하위 객체를 공유할 수 있다 (비순환 DAG).
+ * - 해소하지 못한 `$ref`는 작성된 그대로 남기되 sibling 필드는 그 문서 기준으로
+ *   전개한다 (deref-internal과 동일)
  */
 export class DerefFolder extends SchemaFolder {
   private readonly memo = new RefExpansionMemo<DerefDiagnostic>()
@@ -98,7 +100,9 @@ export class DerefFolder extends SchemaFolder {
       return this.resolveCycle(ref, node)
     }
     if (resolution.diagnostic) this.emitDiagnostic(resolution.diagnostic)
-    if (!resolution.resolved) return node
+    // The `$ref` stays as written, but the fields beside it belong to this
+    // document and are dereferenced like any other node (as in deref-internal).
+    if (!resolution.resolved) return this.foldChildren(node)
 
     const key = resolution.cacheKey
     const external = resolution.kind === 'external' && resolution.basePath
