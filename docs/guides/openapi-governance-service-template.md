@@ -2,21 +2,47 @@
 
 새 서비스에 oa-sdk governance를 붙일 때 사용하는 표준 템플릿이다. 외부 프레임워크가
 생성하는 OpenAPI 산출물(NestJS Swagger, FastAPI 등)은 먼저 스캐폴드 명령으로
-`raw → normalized → upgraded` artifact interface를 만든다.
+`raw → normalized → upgraded` artifact interface를 만든다. Behavior on this page is for
+`@oa-sdk/codegen` 0.9.0.
+
+## Install
+
+The service repository installs the CLI itself; nothing here resolves an OA SDK
+monorepo path.
 
 ```bash
-oa-gen scaffold-governance \
+npm install --save-dev @oa-sdk/codegen
+```
+
+The governance commands (`collect`, `normalize`, `upgrade`, `validate`, `diff`,
+`check-artifact`, `inventory`, `target-check`, `drift`, `review-bundle`, `typegen`)
+need no companion package. Install `@oa-sdk/router`, `@oa-sdk/client`, or
+`@oa-sdk/mock-server` only if the service also runs `oa-gen generate` or
+`oa-gen mock` ([companion packages](./cli-setup.md#동반-패키지-companion-packages)).
+
+The examples below write `oa-gen`. Outside a package.json script, run them as
+`npx oa-gen` (or the package manager's equivalent) unless the CLI is on `PATH`.
+
+## Scaffold
+
+```bash
+npx oa-gen scaffold-governance \
   --root services/{service} \
   --service {service-name} \
   --profile generic \
   --source-command "{command-that-writes-contracts/openapi.raw.yaml}" \
   --runtime-openapi-url http://localhost:{port}/openapi.json \
-  --oa-gen-command "oa-gen" \
-  --oa-gen-setup-command "{service-specific-install-or-build-command}" \
+  --oa-gen-command "npx oa-gen" \
+  --oa-gen-setup-command "npm ci" \
   --typegen-policy verify-only
 ```
 
-NestJS Swagger 서비스는 `--profile nestjs-swagger`를 사용한다.
+`--profile` is `generic`, `nestjs-swagger` (NestJS Swagger), or `fastapi` (FastAPI).
+`--oa-gen-command` is how the generated script and workflow invoke the CLI
+(default `oa-gen`), and `--oa-gen-setup-command` is the trusted shell command the
+generated GitHub Actions workflow runs first to install it. The scaffold writes
+`openapi-governance.config.json`, `scripts/openapi-governance.sh`,
+`openapi-governance.md`, and `.github/workflows/openapi-governance.yml` under `--root`.
 
 ## Service Profile
 
@@ -316,16 +342,15 @@ The scaffold's `review-bundle` target invokes `oa-gen review-bundle --base BASEL
 
 ## CI Gate
 
-Use this as the service PR gate.
+External-artifact services use the generated workflow
+(`.github/workflows/openapi-governance.yml`): it runs the setup command, then
+`bash scripts/openapi-governance.sh ci`, and uploads `.oa-sdk/governance`.
+
+Definition Builder services run these checks as the PR gate, after installing
+the service's dependencies (`npm ci` or equivalent) so `@oa-sdk/codegen` is
+available:
 
 ```bash
-pnpm --filter @oa-sdk/codegen build
-pnpm --filter @oa-sdk/codegen typecheck
-pnpm --filter @oa-sdk/codegen test
-pnpm check:cli-spec
-pnpm check:feature-tests
-pnpm check:api-index
-
 oa-gen diff \
   --base contracts/baselines/{service-name}/v1.openapi.yaml \
   --head {path-to-managed-openapi.yaml} \
@@ -345,7 +370,8 @@ oa-gen target-check \
 
 ### External-artifact services (NestJS Swagger, FastAPI, etc.)
 
-- [ ] Ran `oa-gen scaffold-governance --root <service> --service <name> --profile <profile> --source-command "<cmd>" --runtime-openapi-url "<url>"`.
+- [ ] `@oa-sdk/codegen` is a devDependency of the service, and `--oa-gen-command` / `--oa-gen-setup-command` match how the service runs it.
+- [ ] Ran `oa-gen scaffold-governance --root <service> --service <name> --profile <generic|nestjs-swagger|fastapi> --source-command "<cmd>" --runtime-openapi-url "<url>"`.
 - [ ] `openapi-governance.config.json` artifact paths and `consumers` mapping reflect the service layout (re-run scaffold with `--force` after editing the source-of-truth fields).
 - [ ] `contracts/v1.openapi.yaml` baseline is committed (initial baseline via `bash scripts/openapi-governance.sh update-baseline`).
 - [ ] Raw / normalized / upgraded / collect-report / generated-types paths are gitignored.
@@ -355,6 +381,7 @@ oa-gen target-check \
 
 ### Definition Builder services
 
+- [ ] `@oa-sdk/codegen` is a devDependency of the service.
 - [ ] Service has a managed OpenAPI source path.
 - [ ] Service has a generated artifact path or target artifact output path.
 - [ ] Service has a baseline OpenAPI path.
@@ -364,4 +391,4 @@ oa-gen target-check \
 - [ ] Path folder conventions are followed.
 - [ ] Duplicate review is configured for fragment-based services.
 - [ ] Review bundle output path is stable.
-- [ ] CI runs diff, artifact freshness, target-check, and relevant package gates.
+- [ ] CI runs diff, artifact freshness, and target-check.
