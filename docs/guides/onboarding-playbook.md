@@ -5,9 +5,9 @@ canonical: true
 audience:
   competence: intermediate
 productVersions:
-  - "@oa-sdk/codegen 0.7.0"
-  - "@oa-sdk/router 0.3.0"
-  - "@oa-sdk/mock-server 0.3.0"
+  - "@oa-sdk/codegen 0.9.0"
+  - "@oa-sdk/router 0.2.2"
+  - "@oa-sdk/mock-server 0.1.4"
 owner: "OA SDK maintainers"
 status: active
 ---

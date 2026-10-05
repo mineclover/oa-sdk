@@ -5,13 +5,14 @@ canonical: true
 audience:
   competence: novice
 productVersions:
-  - "@oa-sdk/codegen 0.8.1 (public npm)"
-  - "@oa-sdk/ast-sync 0.1.0 (public npm)"
-  - "@oa-sdk/core 0.3.0 (public npm)"
-  - "@oa-sdk/parser 0.3.0 (public npm)"
-  - "@oa-sdk/tools 0.1.0 (public npm)"
-  - "@oa-sdk/client 0.2.0 (public npm)"
-  - "@oa-sdk/router 0.2.0 (public npm)"
+  - "@oa-sdk/codegen 0.9.0"
+  - "@oa-sdk/ast-sync 0.2.0"
+  - "@oa-sdk/core 0.3.1"
+  - "@oa-sdk/parser 0.4.0"
+  - "@oa-sdk/tools 0.1.1"
+  - "@oa-sdk/client 0.2.2"
+  - "@oa-sdk/router 0.2.2"
+  - "@oa-sdk/mock-server 0.1.4"
 tested:
   environment: "Node.js 22 LTS+, Bun 1.1+, pnpm 10.30.3"
   at: "2026-09-13"

@@ -2,6 +2,16 @@
 
 릴리스 단위가 아닌, 굵직한 surface 변경이 떨어졌을 때 한 항목으로 기록한다. 자세한 구현 상태는 [spec.md](./internal/spec.md), API 단일 소스는 [api-index.md](./internal/api-index.md), 기능↔테스트는 [feature-test-matrix.md](./internal/feature-test-matrix.md) 참조.
 
+## 2026-10-05 — Installable onboarding: companion packages and registry specifiers (`@oa-sdk/codegen` 0.9.0, `@oa-sdk/parser` 0.4.0, `@oa-sdk/typespec-decorators` 0.3.0, `@oa-sdk/core` 0.3.1; first npm release candidates `@oa-sdk/router` 0.2.2, `@oa-sdk/client` 0.2.2, `@oa-sdk/mock-server` 0.1.4, `@oa-sdk/surface-ir` 0.1.1)
+
+`npx @oa-sdk/codegen init --yes` → 설치 → `oa-gen generate`로 이어지는 공개 온보딩 흐름이 oa-sdk 워크스페이스 밖에서도 끝까지 동작하도록 정리했다.
+
+- **`oa-gen init`의 `@oa-sdk` 지정자 (`@oa-sdk/codegen`)**: 프로젝트와 해당 패키지가 같은 pnpm 워크스페이스의 멤버일 때만 `workspace:*`를, 그 밖에는 codegen이 빌드된 릴리스와 호환되는 범위(`^<version>`)를 쓴다. 이전에는 항상 `workspace:*`를 써서 npm이 `EUNSUPPORTEDPROTOCOL`로 설치를 거부했다. 비공개 `@oa-sdk/personas`는 그 패키지를 가진 워크스페이스 안에서만 추가하고, 밖에서는 추가하지 않은 이유를 출력한다.
+- **Companion package (`@oa-sdk/codegen`)**: router·client·mock-server가 만드는 산출물을 조용히 건너뛰지 않는다. 그 산출물만을 위한 명령과 명시적으로 켠 산출물의 `oa-gen generate`는 빌드 기준 버전으로 고정한 설치 명령을 출력하고 실패한다. `init`은 스캐폴드가 쓰는 companion을 `devDependencies`에 기록한다.
+- **Release gate**: codegen export는 embed된 companion 버전이 같은 export에 있거나 이미 npm에 있어야 통과한다. codegen pack smoke는 pack된 `oa-gen init`이 워크스페이스 밖에서 registry 범위만 쓰는지 확인한다.
+- **공유 route index (`@oa-sdk/parser`, `@oa-sdk/codegen`, `@oa-sdk/mock-server`)**: `loadSchema()`가 `parseDocument()`와 같은 route indexer로 `RouteIndex`를 만들어 두 진입점이 같은 route를 돌려준다. operation 위치의 Reference Object 처리와 typegen 출력 변화는 각 패키지 CHANGELOG에 정리했다.
+- **버전**: npm의 codegen 0.8.1, parser 0.3.0, core 0.3.0, typespec-decorators 0.2.0은 현재 소스와 내용이 달라 함께 올렸다. 새 codegen은 parser 0.3.0에 없는 `appendJsonPointer`를 import한다. router·client·mock-server·surface-ir는 이 릴리스에서 처음 npm에 배포된다.
+
 ## 2026-09-13 — Platform deficiency remediation: router response envelope defense, typed handler error unions, AbortSignal pass-through, infinite queries, monorepo import resolver, unified codegen pipeline, and Linux file watching (`@oa-sdk/codegen` 0.8.1, `@oa-sdk/client` 0.2.1, `@oa-sdk/router` 0.2.1, `@oa-sdk/spec-lens` 0.1.5)
 
 전수 코드 리뷰를 통해 식별된 9대 플랫폼 결함(R1–R9)을 전면 해결하고 실증 회귀 검증을 완료했다.

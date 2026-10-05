@@ -50,20 +50,20 @@ schema/spec 관리 제품을 소유하고, Downstream Integration 열두 패키�
 
 | Tier | Package | Current version | Role |
 | --- | --- | ---: | --- |
-| Core Platform | `@oa-sdk/core` | `0.3.0` | Shared utilities and browser-safe core helpers |
+| Core Platform | `@oa-sdk/core` | `0.3.1` | Shared utilities and browser-safe core helpers |
 | Core Platform | `@oa-sdk/openapi-projection-contract` | `0.2.0` | OpenAPI projection contract types and validation |
-| Core Platform | `@oa-sdk/typespec-decorators` | `0.2.0` | Versioned OA SDK TypeSpec decorators used by production schema source |
+| Core Platform | `@oa-sdk/typespec-decorators` | `0.3.0` | Versioned OA SDK TypeSpec decorators used by production schema source |
 | Core Platform | `@oa-sdk/schemas` | `0.1.0` | TypeSpec production source and OpenAPI artifacts |
-| Core Platform | `@oa-sdk/parser` | `0.3.0` | OpenAPI 3.2 parser, IR, query, browser entrypoint |
-| Core Platform | `@oa-sdk/codegen` | `0.8.1` | CLI, typegen, governance, and schema/code generation |
-| Core Platform | `@oa-sdk/spec-lens` | `0.1.5` | Spec history and observation package |
+| Core Platform | `@oa-sdk/parser` | `0.4.0` | OpenAPI 3.2 parser, IR, query, browser entrypoint |
+| Core Platform | `@oa-sdk/codegen` | `0.9.0` | CLI, typegen, governance, and schema/code generation |
+| Core Platform | `@oa-sdk/spec-lens` | `0.1.6` | Spec history and observation package |
 | Core Platform | `@oa-sdk/spec-lens-contract` | `0.1.0` | Browser-safe spec-lens HTTP wire contract |
-| Core Platform | `@oa-sdk/ast-sync` | `0.1.0` | V3 TypeScript AST bidirectional sync and standalone type guards |
+| Core Platform | `@oa-sdk/ast-sync` | `0.2.0` | V3 TypeScript AST bidirectional sync and standalone type guards |
 | Core Platform | `@oa-sdk/tools` | `0.1.1` | Universal Tool Engine for MCP, CLI, and Schema Bridge |
-| Core Platform | `@oa-sdk/surface-ir` | `0.1.0` | Target-neutral API surface IR and Forge projection adapter |
-| Downstream Integration | `@oa-sdk/router` | `0.2.1` | Server router generation |
-| Downstream Integration | `@oa-sdk/client` | `0.2.1` | Fetch client generation |
-| Downstream Integration | `@oa-sdk/mock-server` | `0.1.3` | Mock engine with MSW and Node HTTP adapters |
+| Core Platform | `@oa-sdk/surface-ir` | `0.1.1` | Target-neutral API surface IR and Forge projection adapter |
+| Downstream Integration | `@oa-sdk/router` | `0.2.2` | Server router generation |
+| Downstream Integration | `@oa-sdk/client` | `0.2.2` | Fetch client generation |
+| Downstream Integration | `@oa-sdk/mock-server` | `0.1.4` | Mock engine with MSW and Node HTTP adapters |
 | Downstream Integration | `@oa-sdk/chunk-stream` | `0.1.0` | Universal Chunk Stream core runtime, envelope, residency leases, virtualizer |
 | Downstream Integration | `@oa-sdk/chunk-stream-crdt` | `0.1.0` | CRDT Delta Semi-Lattice, vector clocks, compaction horizon |
 | Downstream Integration | `@oa-sdk/chunk-stream-ui` | `0.1.0` | UI Action cues, ContentPort batch bridge, PlaybackBridge, Storyboard adapter |
