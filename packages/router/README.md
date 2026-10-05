@@ -1,37 +1,23 @@
 # @oa-sdk/router
 
-OpenAPI 3.1 and 3.2 multi-framework router generator and framework-independent pure TypeScript handler contract engine.
+Build-time generator for framework-independent TypeScript handler contracts and for Hono, Express,
+Fastify, and Elysia routers bound to them, from an OpenAPI 3.1 or 3.2 document.
 
 ## Overview
 
-`@oa-sdk/router` translates normalized OpenAPI 3.1 and 3.2 operations into typed route handlers and decoupled handler contracts for **Hono**, **Express**, **Fastify**, and **Bun Elysia** applications.
+`@oa-sdk/router` returns generated source code as strings; write them to files from a build script.
+It has no runtime API and no CLI.
 
-It operates in two complementary paradigms:
-1. **Framework Router Binding (`generateRouter`)**: Renders framework-specific router definitions (Hono, Express, Fastify plugin, Bun Elysia instance) bound to typed handlers.
-2. **Pure Handler Contract Generation (`generateHandlerContract`)**: Emits framework-independent pure TypeScript handler signatures (`*.contract.ts`), completely decoupling business logic from routing plumbing.
+1. **Handler contracts (`generateHandlerContract`)**: an `ApiHandlers` interface with one handler per
+   operation, a `<Operation>Context` type per operation, and the `HandlerResponse`, `StreamingBody`
+   and `StreamingResponse` types. The contract file imports nothing but your types module, so it has
+   no framework or runtime dependency.
+2. **Framework routers (`generateRouter`)**: a Hono, Express, Fastify, or Elysia router that parses
+   each request, calls the matching handler, and writes its `HandlerResponse`. A generated router
+   imports the framework it targets.
 
-The generators run at build time and depend only on `@oa-sdk/core` and `@oa-sdk/parser`. Generated handler contracts import no framework; a generated router imports the framework it targets.
-
-## Features
-
-- **Multi-Framework Targets**:
-  - **Fastify**: `FastifyPluginAsync` with inlined JIT JSON Schema compilation for `fast-json-stringify` 2-3x serialization speedups.
-  - **Bun Elysia**: Fluent builder chaining with selective zero-copy context destructuring (only accesses used fields, preventing `TS6133` unused parameter warnings).
-  - **Hono**: Idiomatic `Hono` app with `c.body(...)` binary/stream routing and `app.on(...)` verb dispatch.
-  - **Express**: Standard `Router` with method guards and piped/chunked streaming support.
-- **First-Class Streaming & HTTP 206 Partial Content**:
-  - `StreamingBody` contract supporting `AsyncIterable<Uint8Array | string>`, `ReadableStream`, `NodeJS.ReadableStream`, `{ pipe(destination: any): any }`, and `Uint8Array`.
-  - `StreamingResponse` envelope for HTTP 200/206 streaming and range request handling.
-  - Transparent framework adaptation (e.g. `c.body()` on Hono, chunk iteration on Express).
-- **Decoupled Pure Handler Contracts (`*.contract.ts`)**:
-  - Eliminates codegen overwrite issues by isolating business logic into `ApiHandlers`.
-  - Pure context parameters (`params`, `query`, `querystring`, `headers`, `body`) without framework object leakage.
-  - Multi-status typed error unions (`HandlerResponse<TSuccess, TErrorMap>`) with 100% compile-time type safety.
-- **Strict Envelope Collision Defense**:
-  - 3-part heuristic (`'body' in result && typeof status === 'number' && typeof headers === 'object'`) ensuring business entities with `status` (e.g. `'ACTIVE'`) or `body` fields are never mistaken for HTTP envelopes.
-- **OAS 3.2 Non-Standard Verbs**:
-  - First-class support for `HEAD`, `TRACE`, and `QUERY` methods across all supported routers.
-  - Raw querystring parameter extraction (`in: 'querystring'`).
+Business logic lives in your own files, which the generators never write, so regenerating the
+contract and router leaves it untouched.
 
 ## Installation
 
@@ -39,127 +25,169 @@ The generators run at build time and depend only on `@oa-sdk/core` and `@oa-sdk/
 npm install --save-dev @oa-sdk/router
 ```
 
-`oa-gen generate` from `@oa-sdk/codegen` loads this package as a companion package to emit handler contracts and routers. Within the `oa-sdk` monorepo, build it with `pnpm --filter @oa-sdk/router build`.
+Requires Node.js 22 or later. The package depends on `@oa-sdk/core` and `@oa-sdk/parser`.
+`@oa-sdk/router` is published to npm for the first time with the `@oa-sdk/codegen` 0.9.0 release;
+it cannot be installed from npm before that release.
 
-## Quick Start
+`oa-gen generate` from `@oa-sdk/codegen` loads this package as a companion package to emit handler
+contracts (`<spec target id>.contract.ts`), and CRDT contract and router modules for schemas marked
+with `x-oa-sdk-crdt-entity`. Those contracts are untyped (`oa-gen generate` passes no `typesImport`).
+No `oa-gen` command writes framework routers: call `generateRouter()` in a build script.
 
-### 1. Generating Pure Handler Contracts
+Inside the oa-sdk source repository, build it with `pnpm --filter @oa-sdk/router build`.
 
-```typescript
-import { generateHandlerContract } from '@oa-sdk/router'
-import { parseDocument } from '@oa-sdk/parser'
+### Entry points
 
-const contractSource = generateHandlerContract(spec, {
-  typesImport: './types.js',
-  contractName: 'OrderApiHandlers',
-})
+| Import | Use |
+|---|---|
+| `@oa-sdk/router` | Node. Accepts `basePath` to resolve relative external `$ref`s. |
+| `@oa-sdk/router/browser` | Browser bundles. The same generators for in-memory documents (internal `$ref`s only). |
+
+Both throw when the document's `$ref`s do not resolve completely.
+
+## Quick start
+
+Generate the types with `oa-gen typegen`, then the contract and a router:
+
+```bash
+npx oa-gen typegen --spec ./openapi.yaml -o src/types.ts
+node scripts/gen-router.mjs
 ```
 
-Generated contract (`orders.contract.ts`):
+```js
+// scripts/gen-router.mjs
+import { readFileSync, writeFileSync } from 'node:fs'
+import { parse } from 'yaml'
+import { generateHandlerContract, generateRouter } from '@oa-sdk/router'
 
-```typescript
+const spec = parse(readFileSync('openapi.yaml', 'utf8'))
+
+writeFileSync('src/api.contract.ts', generateHandlerContract(spec, { typesImport: './types.js' }))
+writeFileSync(
+  'src/api.hono.ts',
+  generateRouter(spec, { target: 'hono', contractImport: './api.contract.js', typesImport: './types.js' }),
+)
+```
+
+Generated contract (excerpt):
+
+```ts
 export type HandlerResponse<TSuccess = unknown, TErrorMap = Record<number, unknown>, THeaders = Record<string, string>> =
-  | TSuccess
-  | { status: 200; body: TSuccess; headers?: THeaders }
-  | StreamingResponse<THeaders>
-  | { [K in keyof TErrorMap]: { status: K; body: TErrorMap[K]; headers?: Record<string, string> } }[keyof TErrorMap]
+| TSuccess
+| { status: 200; body: TSuccess; headers?: THeaders }
+| { status: 206; body: StreamingBody | TSuccess; headers?: THeaders }
+| StreamingResponse<THeaders>
+| { [K in keyof TErrorMap]: { status: K; body: TErrorMap[K]; headers?: Record<string, string> } }[keyof TErrorMap]
 
-export interface OrderApiHandlers {
-  getOrder(ctx: GetOrderContext): Promise<HandlerResponse<Order, { 404: NotFoundError }>>
-  streamLogs(ctx: StreamLogsContext): Promise<HandlerResponse<StreamingResponse>>
+/** Context for GET /users/{userId} */
+export interface GetUserByIdContext<TContext = unknown> {
+  params: GetUserByIdPathParams
+  context?: TContext
+}
+
+/** Handler signature for GET /users/{userId} */
+export type GetUserByIdHandler<TContext = unknown> = (
+  ctx: GetUserByIdContext<TContext>
+) => HandlerResponse<GetUserByIdResponse> | Promise<HandlerResponse<GetUserByIdResponse>>
+
+export interface ApiHandlers<TContext = unknown> {
+  getUserById: GetUserByIdHandler<TContext>
+  // ...one property per operation
 }
 ```
 
-### 2. Streaming Responses & HTTP 206 Partial Content
+A context has only the members its operation uses: `params`, `query`, `querystring`, `headers`,
+`body`, and `context` (filled by a router with context injection).
 
-Handlers can return real-time asynchronous streams or range chunks by returning a `StreamingResponse`:
+Implement the handlers and mount the router:
 
-```typescript
-import type { OrderApiHandlers, StreamingResponse } from './orders.contract.js'
-
-export const handlers: OrderApiHandlers = {
-  async getOrder({ params }) {
-    const order = await db.orders.find(params.id)
-    if (!order) return { status: 404, body: { code: 'NOT_FOUND', message: 'Order not found' } }
-    return order // HTTP 200 raw data
-  },
-
-  async streamLogs({ params }): Promise<StreamingResponse> {
-    const logStream = createLogReadableStream(params.id)
-    return {
-      status: 200,
-      headers: { 'Content-Type': 'text/event-stream' },
-      body: logStream, // ReadableStream or AsyncIterable<Uint8Array>
-    }
-  },
-
-  async downloadRange({ headers }): Promise<StreamingResponse> {
-    const chunk = await readFileChunk(headers['Range'])
-    return {
-      status: 206, // Partial Content
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'Content-Range': 'bytes 0-1023/4096',
-        'Accept-Ranges': 'bytes',
-      },
-      body: chunk, // Uint8Array or AsyncIterable
-    }
-  },
-}
-```
-
-### 3. Binding to Framework Routers
-
-#### Fastify
-
-```typescript
-import Fastify from 'fastify'
-import { generateRouter } from '@oa-sdk/router'
-import { handlers } from './orders.service.js'
-
-const fastifySource = generateRouter(spec, {
-  target: 'fastify',
-  typesImport: './types.js',
-  contractImport: './orders.contract.js',
-})
-```
-
-#### Hono
-
-```typescript
+```ts
 import { Hono } from 'hono'
-import { generateRouter } from '@oa-sdk/router'
+import type { ApiHandlers } from './api.contract.js'
+import { createRouter } from './api.hono.js'
 
-const honoSource = generateRouter(spec, {
-  target: 'hono',
-  typesImport: './types.js',
-  contractImport: './orders.contract.js',
-})
+const handlers: ApiHandlers = {
+  async getUserById({ params }) {
+    const user = await db.users.find(params.userId)
+    if (!user) return { status: 404, body: { code: 'NOT_FOUND', message: 'User not found' } }
+    return user // the operation's default success status (its lowest 2xx)
+  },
+  // ...every other operation
+}
+
+const app = new Hono()
+app.route('/v1', createRouter(handlers))
 ```
 
-## API Reference
+| Target | Generated export | Mount |
+|---|---|---|
+| `hono` | `createRouter(handlers): Hono` | `app.route('/v1', createRouter(handlers))` |
+| `express` | `createRouter(handlers): Router` | `app.use(express.json()); app.use('/api', createRouter(handlers))` |
+| `fastify` | `apiRouter: FastifyPluginAsync<ApiRouterOptions>` (also the default export) | `await app.register(apiRouter, { handlers })` |
+| `elysia` | `createRouter(handlers)` returning an `Elysia` instance | `new Elysia().use(createRouter(handlers))` |
 
-### `generateRouter(spec, options)`
+`createRouter()` and the Fastify `handlers` option take a complete `ApiHandlers`; combine partial
+service objects into one (`{ ...userHandlers, ...auditHandlers } satisfies ApiHandlers`).
 
-Generates framework router binding source code.
+## Handler responses
+
+- **Body only**: `return user` answers with the operation's default success status (the lowest
+  documented 2xx) as JSON.
+- **Envelope**: `return { status, body, headers? }` sets the status and headers.
+- **Streaming**: put a `ReadableStream`, an `AsyncIterable<Uint8Array | string>`, a Node stream
+  (anything with `pipe()`), or a `Uint8Array` in `body`, with status 200 or 206
+  (`StreamingResponse`); the router writes it chunk by chunk.
+
+A router treats a returned object as an envelope when it has a `body` property, its `status` is
+absent or a number, and its `headers` are absent or an object; it then sends only `body`. Wrap an
+entity that has its own `body` field: `return { status: 200, body: entity }`.
+
+Typing covers request members (typed when the contract has `typesImport`) and the success body.
+Error statuses and bodies are not narrowed: the error map is `Record<number, unknown>`, so any
+`{ status: <number>, body: <value> }` compiles.
+
+What the generated routers do not do:
+
+- Authentication: security requirements appear only as a `// Requires: <scheme>` comment above the
+  route. Add authentication middleware in the framework.
+- Request validation: Hono, Express, and Elysia routers pass requests to the handlers unvalidated.
+  Fastify routes carry a `schema` (querystring, params, body, response), so Fastify validates
+  requests and serializes responses with it.
+- Error masking: when a handler throws, the router answers 500 with
+  `{ error: { code: 'INTERNAL_ERROR', message: <the exception message>, details: [] } }`.
+
+## API reference
+
+### `generateRouter(spec, options?)`
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `target` | `'hono' \| 'express' \| 'fastify' \| 'elysia'` | `'hono'` | Target framework router |
-| `mode` | `'stub' \| 'contract'` | `'stub'` | Standalone stub or bound to handler contract |
-| `typesImport` | `string` | — | Path to import generated API types |
-| `contractImport` | `string` | — | Path to import handler contract |
-| `contractName` | `string` | `'ApiHandlers'` | Aggregate handlers interface name |
-| `banner` | `boolean` | `true` | Include header comment banner |
-| `basePath` | `string` | — | Base path for resolving relative external $refs |
+| `target` | `'hono' \| 'express' \| 'fastify' \| 'elysia'` | `'hono'` | Framework |
+| `mode` | `'stub' \| 'contract'` | `'contract'` when `contractImport` is set, otherwise `'stub'` | `stub` writes a standalone router whose routes hold `// TODO: implement <operationId>` placeholders; `contract` binds it to the contract's handlers interface |
+| `contractImport` | `string` | — | Module of the handler contract |
+| `contractName` | `string` | `'ApiHandlers'` | Handlers interface name |
+| `typesImport` | `string` | — | Module of the `oa-gen typegen` types |
+| `contextInjection` (alias `context`) | `boolean` | `false` | Adds an options argument (`getContext(c)` or a static `context`) whose value reaches handlers as `ctx.context` |
+| `contextImport`, `contextTypeName` | `string` | — | Module and name of your context type (implies context injection) |
+| `banner` | `boolean` | `true` | Header comment |
+| `basePath` | `string` | — | Path of the OpenAPI file, to resolve relative external `$ref`s (Node entry point only) |
 
-### `generateHandlerContract(spec, options)`
-
-Generates decoupled pure TypeScript handler contract signatures.
+### `generateHandlerContract(spec, options?)`
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `typesImport` | `string` | — | Path to import generated API types |
-| `contractName` | `string` | `'ApiHandlers'` | Aggregate handlers interface name |
-| `banner` | `boolean` | `true` | Include header comment banner |
-| `basePath` | `string` | — | Base path for resolving relative external $refs |
+| `typesImport` | `string` | — | Module of the `oa-gen typegen` types; without it, members are `Record<string, string>`, `unknown`, and `HandlerResponse<unknown>` |
+| `contractName` | `string` | `'ApiHandlers'` | Handlers interface name |
+| `contextImport`, `contextTypeName` | `string` | — | Imports your context type and makes it the default of the `TContext` parameter |
+| `banner` | `boolean` | `true` | Header comment |
+| `basePath` | `string` | — | Path of the OpenAPI file, to resolve relative external `$ref`s |
+
+### Other exports
+
+| Export | Description |
+|---|---|
+| `generateCrdtHandlerContract(spec, options?)` | Contract for schemas marked with `x-oa-sdk-crdt-entity` (`typesImport`, `contractName` default `'CrdtApiHandlers'`, `banner`, `basePath`) |
+| `generateCrdtRouter(spec, options?)` | CRDT WebSocket router (`target`: `hono` (default), `fastify`, `elysia`, `express`; `contractImport`, `contractName`, `typesImport`, `routePrefix`, `banner`, `basePath`) |
+| `extractCrdtEntities(spec)` | The CRDT entity and field metadata those generators read, from an OpenAPI document or a `ParsedDocument` |
+| `demuxChunkStream(stream, options?)` | Async generator that reads an NDJSON `StreamingBody` line by line and yields each parsed item, or a synthetic empty chunk for a line that does not parse or that `guard` rejects (`signal`, `guard`, `onInvalidChunk`, `defaultPayloadFormat`) |
+| Types | `RouterTarget`, `RouterMode`, `RouterOptions`, `RouterRenderOptions`, `HandlerContractOptions`, `CrdtContractOptions`, `CrdtRouterOptions`, `CrdtRouterTarget`, `CrdtEntityMeta`, `CrdtFieldMeta`, `DemuxChunkStreamOptions`, `SyntheticEmptyChunk` |
