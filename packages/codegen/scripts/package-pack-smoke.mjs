@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { builtinModules } from 'node:module'
 import { tmpdir } from 'node:os'
@@ -13,12 +13,14 @@ import { readBuiltAgainstVersions } from './workspace-versions.mjs'
  * must write and the private ones it must leave out, outside a workspace. Every archetype must
  * write codegen, and every `@oa-sdk` package any of them writes must carry its built-against
  * range; the lists name the packages only some archetypes use, so that the smoke fails when the
- * packed init stops writing or reporting them rather than checking fewer packages.
+ * packed init stops writing or reporting them rather than checking fewer packages. `runs` names
+ * the scripts the archetype must add and the smoke runs in its scaffold: `validate` must pass, and
+ * `mock` must serve the consumer's OpenAPI document.
  */
 const INIT_ARCHETYPES = [
-  { id: 'mvp', writes: [], omits: [] },
-  { id: 'microservice', writes: ['@oa-sdk/core'], omits: [] },
-  { id: 'enterprise', writes: ['@oa-sdk/core'], omits: ['@oa-sdk/personas'] },
+  { id: 'mvp', writes: [], omits: [], runs: ['validate', 'mock'] },
+  { id: 'microservice', writes: ['@oa-sdk/core'], omits: [], runs: [] },
+  { id: 'enterprise', writes: ['@oa-sdk/core'], omits: ['@oa-sdk/personas'], runs: [] },
 ]
 
 const packageDirectory = new URL('..', import.meta.url)
@@ -84,8 +86,9 @@ try {
   // them.
   const builtAgainst = readBuiltAgainstVersions(fileURLToPath(packageDirectory))
   symlinkSync(fileURLToPath(new URL('../node_modules', import.meta.url)), join(temporaryDirectory, 'package', 'node_modules'), 'dir')
+  const oaGen = join(temporaryDirectory, 'package', manifest.bin['oa-gen'])
   const scaffolds = INIT_ARCHETYPES.map(archetype =>
-    runPackedInit(join(temporaryDirectory, 'package', manifest.bin['oa-gen']), join(temporaryDirectory, `consumer-${archetype.id}`), archetype))
+    runPackedInit(oaGen, join(temporaryDirectory, `consumer-${archetype.id}`), archetype))
   for (const { archetype, specifiers, omitted } of scaffolds) {
     const described = `${archetype.id}: ${specifiers.map(([name, specifier]) => `${name}=${specifier}`).join(', ') || '(none)'}`
     const unpinned = specifiers.filter(([name, specifier]) => builtAgainst[name] === undefined || specifier !== `^${builtAgainst[name]}`)
@@ -103,6 +106,31 @@ try {
         `packed oa-gen init must leave out and report the private packages ${unreported.join(', ')} ` +
           `outside a workspace, received ${described}; reported as not added: ${omitted.join(', ') || '(none)'}`,
       )
+    }
+  }
+
+  // The scripts `oa-gen init` adds must run in the scaffold as written. They read the scaffolded
+  // oa.config.ts, which imports @oa-sdk/codegen, installed in the consumer as a registry install
+  // would place it.
+  for (const { archetype, consumer, scripts } of scaffolds.filter(({ archetype }) => archetype.runs.length > 0)) {
+    for (const script of archetype.runs) {
+      if (typeof scripts[script] !== 'string' || !scripts[script].startsWith('oa-gen ')) {
+        throw new Error(`packed oa-gen init must add an oa-gen "${script}" script for ${archetype.id}, received ${JSON.stringify(scripts[script])}`)
+      }
+    }
+    mkdirSync(join(consumer, 'node_modules', '@oa-sdk'), { recursive: true })
+    symlinkSync(join(temporaryDirectory, 'package'), join(consumer, 'node_modules', manifest.name), 'dir')
+    if (archetype.runs.includes('validate')) {
+      execFileSync(process.execPath, [oaGen, ...scripts.validate.split(' ').slice(1)], {
+        cwd: consumer,
+        stdio: ['ignore', 'ignore', 'inherit'],
+      })
+    }
+    if (archetype.runs.includes('mock')) {
+      const mockResponse = await serveOnce([oaGen, ...scripts.mock.split(' ').slice(1), '--port', '0'], consumer, '/health')
+      if (mockResponse.status !== 200) {
+        throw new Error(`the mock script of packed oa-gen init (${archetype.id}) answered GET /health with ${mockResponse.status}: ${mockResponse.body}`)
+      }
     }
   }
 
@@ -130,10 +158,45 @@ try {
       `or a dynamically loaded companion (${[...companions].map(name => `${name}@^${builtAgainst[name]}`).join(', ')}), ` +
       `init writes registry ranges (${scaffolds.map(({ archetype, specifiers, omitted }) =>
         `${archetype.id}: ${specifiers.map(([name, specifier]) => `${name}@${specifier}`).join(', ')}` +
-          `${omitted.length > 0 ? `; leaves out ${omitted.join(', ')}` : ''}`).join(' | ')})`,
+          `${omitted.length > 0 ? `; leaves out ${omitted.join(', ')}` : ''}`).join(' | ')}), ` +
+      `and its ${INIT_ARCHETYPES.filter(({ runs }) => runs.length > 0)
+        .map(({ id, runs }) => `${id} ${runs.join(' and ')}`).join(', ')} scripts run in a "type": "commonjs" project`,
   )
 } finally {
   rmSync(temporaryDirectory, { recursive: true, force: true })
+}
+
+/**
+ * Starts the packed `oa-gen` with `args` in `cwd`, waits for the mock server it prints, requests
+ * `path` from it and stops it. Rejects when the command exits first or takes longer than a minute.
+ */
+function serveOnce(args, cwd, path) {
+  return new Promise((resolvePromise, rejectPromise) => {
+    const child = spawn(process.execPath, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] })
+    let output = ''
+    let settled = false
+    const settle = (action) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      child.kill('SIGTERM')
+      action()
+    }
+    const timer = setTimeout(() => settle(() => rejectPromise(new Error(`oa-gen ${args.slice(1).join(' ')} did not start a server:\n${output}`))), 60_000)
+    const collect = (chunk) => {
+      output += chunk
+      const url = output.match(/running at: (http:\/\/\S+)/)?.[1]
+      if (url && !settled) {
+        fetch(new URL(path, url)).then(
+          async response => settle(() => resolvePromise({ status: response.status, body: response.status === 200 ? '' : output })),
+          error => settle(() => rejectPromise(error)),
+        )
+      }
+    }
+    child.stdout.on('data', collect)
+    child.stderr.on('data', chunk => { output += chunk })
+    child.on('exit', code => settle(() => rejectPromise(new Error(`oa-gen ${args.slice(1).join(' ')} exited with ${code}:\n${output}`))))
+  })
 }
 
 function stripRelativePrefix(value) {
@@ -142,12 +205,24 @@ function stripRelativePrefix(value) {
 
 /**
  * Runs the packed `oa-gen init --yes` for `archetype` in a new consumer project at `consumer`,
- * outside any workspace, and returns the `@oa-sdk` specifiers it wrote to package.json and the
- * packages it reported as not added.
+ * outside any workspace, and returns the `@oa-sdk` specifiers it wrote to package.json, the
+ * packages it reported as not added, and the scripts it wrote. The consumer is what `npm init -y`
+ * writes since npm 11, "type": "commonjs" included, with an OpenAPI document for init to detect.
  */
 function runPackedInit(cli, consumer, archetype) {
   mkdirSync(consumer)
-  writeFileSync(join(consumer, 'package.json'), `${JSON.stringify({ name: 'consumer', private: true }, null, 2)}\n`)
+  writeFileSync(join(consumer, 'package.json'), `${JSON.stringify({ name: 'consumer', private: true, type: 'commonjs' }, null, 2)}\n`)
+  writeFileSync(join(consumer, 'openapi.yaml'), [
+    'openapi: 3.2.0',
+    'info: { title: Pack smoke, version: 1.0.0 }',
+    'paths:',
+    '  /health:',
+    '    get:',
+    '      operationId: getHealth',
+    '      summary: Health',
+    "      responses: { '200': { description: OK, content: { application/json: { example: { ok: true } } } } }",
+    '',
+  ].join('\n'))
   const output = execFileSync(process.execPath, [cli, 'init', '--yes', '--archetype', archetype.id, '--cwd', consumer], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'inherit'],
@@ -160,7 +235,7 @@ function runPackedInit(cli, consumer, archetype) {
     ...scaffolded.peerDependencies,
   }).filter(([name]) => name.startsWith('@oa-sdk/'))
   const omitted = [...output.matchAll(/"(@oa-sdk\/[^"]+)": not added \(/g)].map(match => match[1])
-  return { archetype, specifiers, omitted }
+  return { archetype, consumer, specifiers, omitted, scripts: scaffolded.scripts ?? {} }
 }
 
 /**
