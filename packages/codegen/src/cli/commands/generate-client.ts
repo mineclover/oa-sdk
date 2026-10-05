@@ -55,8 +55,7 @@ export const generateClientCommand: Command = {
     }
 
     const isPack = bool(args, 'pack')
-    const { generateClient } = await requireCompanion('@oa-sdk/client', {
-      command: isPack ? 'pack:client' : 'generate:client',
+    const { generateClient } = await requireCompanion(isPack ? 'pack:client' : 'generate:client', {
       output: isPack ? 'the client SDK package' : 'the client SDK',
       importer: companionImporterFrom(context),
     })

@@ -5,11 +5,20 @@ import type {
   OutputRoutingPreset,
 } from './types.js'
 import type { ArchetypeProfile, ArchetypeGenerateOptions } from './archetypes/types.js'
+import type { SharedPlatformCoreConfig } from '../../../config.js'
+import {
+  commandCompanion,
+  explicitCompanionOutputs,
+  type CompanionPackageName,
+} from '../companion-packages.js'
+
+/** Specifier `oa-gen init` writes for `@oa-sdk` packages, as the target and archetype profiles do. */
+const OA_SDK_PACKAGE_SPECIFIER = 'workspace:*'
 
 /**
  * Format a JavaScript/TypeScript object literal into formatted multi-line string.
  */
-function formatObject(obj: Record<string, unknown>, indentLevel = 1): string {
+function formatObject(obj: object, indentLevel = 1): string {
   const indent = '  '.repeat(indentLevel)
   const innerIndent = '  '.repeat(indentLevel + 1)
   const entries: string[] = []
@@ -26,14 +35,14 @@ function formatObject(obj: Record<string, unknown>, indentLevel = 1): string {
         const formattedItems = value.map((v) => {
           if (typeof v === 'object' && v !== null) {
             const itemIndent = '  '.repeat(indentLevel + 2)
-            return `${itemIndent}{\n${formatObject(v as Record<string, unknown>, indentLevel + 2)}\n${itemIndent}}`
+            return `${itemIndent}{\n${formatObject(v, indentLevel + 2)}\n${itemIndent}}`
           }
           return `${'  '.repeat(indentLevel + 2)}${JSON.stringify(v)}`
         })
         entries.push(`${innerIndent}${key}: [\n${formattedItems.join(',\n')}\n${innerIndent}],`)
       }
     } else if (typeof value === 'object' && value !== null) {
-      entries.push(`${innerIndent}${key}: {\n${formatObject(value as Record<string, unknown>, indentLevel + 1)}\n${innerIndent}},`)
+      entries.push(`${innerIndent}${key}: {\n${formatObject(value, indentLevel + 1)}\n${innerIndent}},`)
     } else if (typeof value === 'string') {
       entries.push(`${innerIndent}${key}: '${value}',`)
     } else {
@@ -97,33 +106,10 @@ export function getOutputRoutingSnippet(preset: OutputRoutingPreset = 'default')
 }
 
 /**
- * Generates the complete, dual-layer oa.config.ts content by composing
- * the Framework Target with the Lifecycle Archetype.
+ * The Shared Platform Core block of the scaffolded oa.config.ts.
  */
-export function composeInitConfig(
-  target: TargetProfile,
-  archetype: ArchetypeProfile,
-  options: TargetGenerateOptions,
-): string {
-  const schemaEntry = options.detectedSchema?.filePath ?? 'openapi.yaml'
-  const archetypeOptions: ArchetypeGenerateOptions = {
-    ...options,
-    archetypeId: archetype.id,
-  }
-
-  const snippet = archetype.getArchetypeConfig(archetypeOptions)
-
-  // Determine spec target properties
-  const specObj: Record<string, unknown> = {
-    id: `${target.id}-api`,
-    schemaEntry,
-    outDir: './src/generated',
-    target: target.id,
-    ...(snippet.specFields ?? {}),
-  }
-
-  // Compose Shared Platform Core SSOT
-  const coreConfig: Record<string, unknown> = {
+export function composeInitCoreConfig(archetype: ArchetypeProfile): SharedPlatformCoreConfig {
+  return {
     dialect: {
       oasVersion: '3.2.0',
       jsonSchemaDialect: 'draft-2020-12',
@@ -151,6 +137,36 @@ export function composeInitConfig(
       preflightLint: archetype.id === 'mvp' ? 'warn' : 'error',
     },
   }
+}
+
+/**
+ * Generates the complete, dual-layer oa.config.ts content by composing
+ * the Framework Target with the Lifecycle Archetype.
+ */
+export function composeInitConfig(
+  target: TargetProfile,
+  archetype: ArchetypeProfile,
+  options: TargetGenerateOptions,
+): string {
+  const schemaEntry = options.detectedSchema?.filePath ?? 'openapi.yaml'
+  const archetypeOptions: ArchetypeGenerateOptions = {
+    ...options,
+    archetypeId: archetype.id,
+  }
+
+  const snippet = archetype.getArchetypeConfig(archetypeOptions)
+
+  // Determine spec target properties
+  const specObj: Record<string, unknown> = {
+    id: `${target.id}-api`,
+    schemaEntry,
+    outDir: './src/generated',
+    target: target.id,
+    ...(snippet.specFields ?? {}),
+  }
+
+  // Compose Shared Platform Core SSOT
+  const coreConfig = composeInitCoreConfig(archetype)
 
   // Compose Product-Specific Domain Layer
   const productConfig: Record<string, unknown> = {
@@ -232,6 +248,39 @@ export function composeInitScripts(
 }
 
 /**
+ * `oa-gen` commands invoked by a shell command line, e.g. `mock` for
+ * `bun x oa-gen mock --watch && oa-gen validate` (which also yields `validate`).
+ */
+export function oaGenCommandsIn(commandLine: string): string[] {
+  const commands: string[] = []
+  for (const match of commandLine.matchAll(/(?:^|[\s;&|(])oa-gen\s+([^\s;&|()]+)/g)) {
+    commands.push(match[1]!)
+  }
+  return commands
+}
+
+/**
+ * Companion packages the scaffold cannot work without: the ones its
+ * configuration requests explicitly, which `oa-gen generate` refuses to run
+ * without, and the ones the `oa-gen` commands in its scripts load.
+ */
+export function composeInitCompanionPackages(
+  core: SharedPlatformCoreConfig,
+  scripts: Record<string, string>,
+): CompanionPackageName[] {
+  const packages = new Set<CompanionPackageName>(
+    explicitCompanionOutputs({ core }).map(output => output.packageName),
+  )
+  for (const commandLine of Object.values(scripts)) {
+    for (const command of oaGenCommandsIn(commandLine)) {
+      const packageName = commandCompanion(command)
+      if (packageName !== undefined) packages.add(packageName)
+    }
+  }
+  return [...packages]
+}
+
+/**
  * Composes recommended dependencies and devDependencies with strict runtime isolation.
  */
 export function composeInitDependencies(
@@ -253,6 +302,18 @@ export function composeInitDependencies(
   const devDependencies: Record<string, string> = {
     ...(targetDeps.devDependencies ?? {}),
     ...(archetypeDeps.devDependencies ?? {}),
+  }
+
+  // `oa-gen` loads companion packages instead of depending on them, so the
+  // scaffold lists the ones its own configuration and scripts need.
+  const companions = composeInitCompanionPackages(
+    composeInitCoreConfig(archetype),
+    composeInitScripts(target, archetype, options),
+  )
+  for (const name of companions) {
+    if (dependencies[name] === undefined && devDependencies[name] === undefined) {
+      devDependencies[name] = OA_SDK_PACKAGE_SPECIFIER
+    }
   }
 
   // STRICT RUNTIME ISOLATION GUARANTEE:

@@ -56,8 +56,7 @@ export const generateTanstackCommand: Command = {
       throw new CliExitError(1)
     }
 
-    const { generateTanstackQuery } = await requireCompanion('@oa-sdk/client', {
-      command: 'generate:tanstack',
+    const { generateTanstackQuery } = await requireCompanion('generate:tanstack', {
       output: 'TanStack Query options',
       importer: companionImporterFrom(context),
     })

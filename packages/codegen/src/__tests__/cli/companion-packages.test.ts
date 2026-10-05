@@ -9,11 +9,15 @@ import { generate } from '../../cli/commands/generate.js'
 import { mock, type MockCommandContext } from '../../cli/commands/mock.js'
 import { CliExitError } from '../../cli/lib/errors.js'
 import {
+  COMMAND_COMPANIONS,
   CompanionLoader,
+  commandCompanion,
+  explicitCompanionOutputs,
   importCompanion,
   isMissingPackageError,
   companionInstallCommand,
   requireCompanion,
+  type CompanionCommand,
   type CompanionCommandContext,
   type CompanionImporter,
 } from '../../cli/lib/companion-packages.js'
@@ -156,6 +160,37 @@ describe('companionInstallCommand', () => {
   })
 })
 
+describe('what needs which companion', () => {
+  it('treats only switches set to true in the configuration as explicit requests', () => {
+    expect(explicitCompanionOutputs({})).toEqual([])
+    expect(explicitCompanionOutputs({ core: { contracts: { pureHandlers: false }, client: {} } })).toEqual([])
+    expect(explicitCompanionOutputs({ core: { contracts: { pureHandlers: true }, client: { enabled: true } } })).toEqual([
+      {
+        output: 'handler contracts',
+        packageName: '@oa-sdk/router',
+        configSwitch: 'core.contracts.pureHandlers',
+        requestedBy: 'core.contracts.pureHandlers: true',
+      },
+      {
+        output: 'client SDK',
+        packageName: '@oa-sdk/client',
+        configSwitch: 'core.client.enabled',
+        requestedBy: 'core.client.enabled: true',
+      },
+    ])
+  })
+
+  it('names the companion of each single-purpose command and of no other command', () => {
+    expect(commandCompanion('mock')).toBe('@oa-sdk/mock-server')
+    expect(commandCompanion('generate:client')).toBe('@oa-sdk/client')
+    expect(commandCompanion('pack:client')).toBe('@oa-sdk/client')
+    expect(commandCompanion('generate:tanstack')).toBe('@oa-sdk/client')
+    expect(commandCompanion('generate')).toBeUndefined()
+    expect(commandCompanion('validate')).toBeUndefined()
+    expect(commandCompanion('toString')).toBeUndefined()
+  })
+})
+
 describe('commands that cannot run without their companion package', () => {
   let tmpDir: string
   let specPath: string
@@ -249,9 +284,11 @@ describe('commands that cannot run without their companion package', () => {
     expect(fs.existsSync(path.join(tmpDir, 'queries'))).toBe(false)
   })
 
-  it('requireCompanion returns the module when the package is installed', async () => {
-    const router = await requireCompanion('@oa-sdk/router', { command: 'generate', output: 'handler contracts' })
-    expect(typeof router.generateHandlerContract).toBe('function')
+  it('requireCompanion returns the module of the command\'s companion when it is installed', async () => {
+    for (const command of Object.keys(COMMAND_COMPANIONS) as CompanionCommand[]) {
+      const loaded = await requireCompanion(command, { output: 'the output' })
+      expect(loaded, command).toBe(await importCompanion(COMMAND_COMPANIONS[command]))
+    }
     expect(errors).toEqual([])
   })
 })

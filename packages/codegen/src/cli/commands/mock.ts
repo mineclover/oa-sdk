@@ -60,8 +60,7 @@ export const mock: Command = {
       throw new CliExitError(1)
     }
 
-    const { createNodeMockServer } = await requireCompanion('@oa-sdk/mock-server', {
-      command: 'mock',
+    const { createNodeMockServer } = await requireCompanion('mock', {
       output: 'the mock server',
       importer: companionImporterFrom(context),
     })

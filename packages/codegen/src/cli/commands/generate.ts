@@ -4,7 +4,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { parse as parseYaml } from 'yaml'
 import { parseDocument, type OasDocument, type ParsedDocument } from '@oa-sdk/parser'
 import type { Command, CommandArgValue } from '../lib/types.js'
-import type { ArtifactKind, CodegenConfig, OaConfig } from '../../config.js'
+import type { CodegenConfig, OaConfig } from '../../config.js'
 import { resolveConfigWithDefaults } from '../../config.js'
 import type { OutputOptions } from '../../types.js'
 import { generateComponents } from '../../generator.js'
@@ -14,10 +14,14 @@ import type { StandaloneGuardGeneratorOptions } from '../../standalone-guards/ty
 import { loadOaConfig, resolveProfileTarget } from '../lib/config-loader.js'
 import {
   CompanionLoader,
+  GENERATE_COMPANION_OUTPUTS,
+  explicitCompanionOutputs,
   formatMissingCompanionError,
   missingCompanionPackages,
   companionImporterFrom,
   companionInstallCommand,
+  type CompanionOutput,
+  type ExplicitCompanionOutput,
   type MissingCompanionOutput,
   type CompanionImporter,
   type CompanionModules,
@@ -139,57 +143,10 @@ export const generate: Command = {
 
 type Args = Record<string, CommandArgValue>
 
-/** A pipeline output produced by a companion package, with the artifact kinds it writes. */
-interface CompanionOutput {
-  label: string
-  kinds: readonly ArtifactKind[]
-}
-
-const COMPANION_OUTPUTS = {
-  contracts: { label: 'handler contracts', kinds: ['contract'] },
-  client: { label: 'client SDK', kinds: ['client'] },
-  tanstack: { label: 'TanStack Query options', kinds: ['keys', 'queries'] },
-  crdt: { label: 'CRDT modules', kinds: ['crdt-contract', 'crdt-router', 'crdt-client', 'crdt-hooks'] },
-} as const satisfies Record<string, CompanionOutput>
-
-/** An output the user's own config turns on, together with the switch that does so. */
-interface ExplicitCompanionOutput extends MissingCompanionOutput {
-  configSwitch: string
-}
-
 /**
- * Outputs that the configuration requests explicitly.
- *
- * A config switch set to `true` by the user is an explicit request; it is read
- * from the raw config, before archetype defaults are merged in. Everything else
- * the pipeline produces through a companion package is only implied: switches left
- * at their default, TanStack Query options (no switch), and CRDT modules (driven
- * by spec extensions).
- */
-function explicitCompanionOutputs(config: OaConfig): ExplicitCompanionOutput[] {
-  const requested: ExplicitCompanionOutput[] = []
-  if (config.core?.contracts?.pureHandlers === true) {
-    requested.push({
-      output: COMPANION_OUTPUTS.contracts.label,
-      packageName: '@oa-sdk/router',
-      configSwitch: 'core.contracts.pureHandlers',
-      requestedBy: 'core.contracts.pureHandlers: true',
-    })
-  }
-  if (config.core?.client?.enabled === true) {
-    requested.push({
-      output: COMPANION_OUTPUTS.client.label,
-      packageName: '@oa-sdk/client',
-      configSwitch: 'core.client.enabled',
-      requestedBy: 'core.client.enabled: true',
-    })
-  }
-  return requested
-}
-
-/**
- * Fails, before any artifact is written, when an explicitly requested output
- * needs a companion package that is not installed.
+ * Fails, before any artifact is written, when an output the configuration
+ * requests explicitly (read from the configuration as written, before
+ * archetype defaults) needs a companion package that is not installed.
  */
 async function assertExplicitCompanionOutputsAvailable(config: OaConfig, companions: CompanionLoader): Promise<void> {
   const unavailable: ExplicitCompanionOutput[] = []
@@ -350,7 +307,7 @@ async function runConfigDrivenPipeline(
   let contractsGeneratedCount = 0
   if (contractsConfig?.pureHandlers !== false && specResults.length > 0) {
     try {
-      const router = await loadCompanionFor(COMPANION_OUTPUTS.contracts, '@oa-sdk/router', specTags)
+      const router = await loadCompanionFor(GENERATE_COMPANION_OUTPUTS.contracts, '@oa-sdk/router', specTags)
       if (router) {
         for (const res of specResults) {
           const contractCode = router.generateHandlerContract(parsedSpec(res), {
@@ -390,7 +347,7 @@ async function runConfigDrivenPipeline(
   let clientGeneratedCount = 0
   if (clientConfig?.enabled !== false && specResults.length > 0) {
     try {
-      const client = await loadCompanionFor(COMPANION_OUTPUTS.client, '@oa-sdk/client', specTags)
+      const client = await loadCompanionFor(GENERATE_COMPANION_OUTPUTS.client, '@oa-sdk/client', specTags)
       if (client) {
         for (const res of specResults) {
           const typesImport = clientConfig?.typesImport ?? (res.target as any).typesImport
@@ -428,7 +385,7 @@ async function runConfigDrivenPipeline(
   let tanstackGeneratedCount = 0
   if (specResults.length > 0) {
     try {
-      const client = await loadCompanionFor(COMPANION_OUTPUTS.tanstack, '@oa-sdk/client', specTags)
+      const client = await loadCompanionFor(GENERATE_COMPANION_OUTPUTS.tanstack, '@oa-sdk/client', specTags)
       if (client) {
         const { generateTanstackQuery } = client
         for (const res of specResults) {
@@ -511,8 +468,8 @@ async function runConfigDrivenPipeline(
     if (hasCrdtEntity) {
       try {
         // The four CRDT modules reference each other, so they are produced together or not at all.
-        const router = await loadCompanionFor(COMPANION_OUTPUTS.crdt, '@oa-sdk/router', [res.target.id])
-        const client = await loadCompanionFor(COMPANION_OUTPUTS.crdt, '@oa-sdk/client', [res.target.id])
+        const router = await loadCompanionFor(GENERATE_COMPANION_OUTPUTS.crdt, '@oa-sdk/router', [res.target.id])
+        const client = await loadCompanionFor(GENERATE_COMPANION_OUTPUTS.crdt, '@oa-sdk/client', [res.target.id])
         if (!router || !client) continue
         const { generateCrdtHandlerContract, generateCrdtRouter } = router
         const { generateCrdtClient, generateCrdtHooks } = client

@@ -11,7 +11,12 @@
  * Every load goes through this module so that "the package is not installed" is
  * told apart from "the package is installed but failed to load", and so that
  * the former is reported with the command that installs it.
+ *
+ * This module is also the one record of which output and which `oa-gen`
+ * command needs which companion, so that `oa-gen init` recommends the same
+ * packages that the commands of its scaffold load.
  */
+import type { ArtifactKind, OaConfig } from '../../config.js'
 import { CliExitError } from './errors.js'
 import type { CommandContext } from './types.js'
 
@@ -92,15 +97,6 @@ export class CompanionLoader {
   }
 }
 
-/** An output that could not be produced because its companion package is absent. */
-export interface MissingCompanionOutput {
-  /** Human-readable output name, e.g. "handler contracts". */
-  output: string
-  packageName: CompanionPackageName
-  /** What requested the output explicitly, e.g. a config switch or a command name. */
-  requestedBy?: string
-}
-
 /**
  * Install command for `packages`, in the dialect of the package manager that
  * launched `oa-gen` (read from `npm_config_user_agent`), falling back to npm.
@@ -118,6 +114,101 @@ export function companionInstallCommand(
     case 'bun': return `bun add -d ${list}`
     default: return `npm install --save-dev ${list}`
   }
+}
+
+// ---------------------------------------------------------------------------
+// What needs which companion
+
+/** An output of `oa-gen generate` that a companion package produces, with the artifact kinds it writes. */
+export interface CompanionOutput {
+  label: string
+  kinds: readonly ArtifactKind[]
+}
+
+/** Outputs of `oa-gen generate` that companion packages produce. */
+export const GENERATE_COMPANION_OUTPUTS = {
+  contracts: { label: 'handler contracts', kinds: ['contract'] },
+  client: { label: 'client SDK', kinds: ['client'] },
+  tanstack: { label: 'TanStack Query options', kinds: ['keys', 'queries'] },
+  crdt: { label: 'CRDT modules', kinds: ['crdt-contract', 'crdt-router', 'crdt-client', 'crdt-hooks'] },
+} as const satisfies Record<string, CompanionOutput>
+
+/** An output that could not be produced because its companion package is absent. */
+export interface MissingCompanionOutput {
+  /** Human-readable output name, e.g. "handler contracts". */
+  output: string
+  packageName: CompanionPackageName
+  /** What requested the output explicitly, e.g. a config switch or a command name. */
+  requestedBy?: string
+}
+
+/** An output the configuration turns on, together with the switch that does so. */
+export interface ExplicitCompanionOutput extends MissingCompanionOutput {
+  configSwitch: string
+}
+
+/** Configuration switches that turn on a companion-produced `oa-gen generate` output. */
+const COMPANION_CONFIG_SWITCHES = [
+  {
+    configSwitch: 'core.contracts.pureHandlers',
+    output: GENERATE_COMPANION_OUTPUTS.contracts,
+    packageName: '@oa-sdk/router',
+    value: (config: Pick<OaConfig, 'core'>) => config.core?.contracts?.pureHandlers,
+  },
+  {
+    configSwitch: 'core.client.enabled',
+    output: GENERATE_COMPANION_OUTPUTS.client,
+    packageName: '@oa-sdk/client',
+    value: (config: Pick<OaConfig, 'core'>) => config.core?.client?.enabled,
+  },
+] as const satisfies ReadonlyArray<{
+  configSwitch: string
+  output: CompanionOutput
+  packageName: CompanionPackageName
+  value: (config: Pick<OaConfig, 'core'>) => boolean | undefined
+}>
+
+/**
+ * Outputs that a configuration requests explicitly.
+ *
+ * A switch set to `true` in the configuration file is an explicit request,
+ * whoever wrote it: the user, or `oa-gen init`, which recommends the matching
+ * companion packages for every switch it writes. Pass the configuration as
+ * written, before archetype defaults are merged in. Everything else the
+ * pipeline produces through a companion package is only implied: switches left
+ * at their default, TanStack Query options (no switch), and CRDT modules
+ * (driven by spec extensions).
+ */
+export function explicitCompanionOutputs(config: Pick<OaConfig, 'core'>): ExplicitCompanionOutput[] {
+  return COMPANION_CONFIG_SWITCHES
+    .filter(entry => entry.value(config) === true)
+    .map(entry => ({
+      output: entry.output.label,
+      packageName: entry.packageName,
+      configSwitch: entry.configSwitch,
+      requestedBy: `${entry.configSwitch}: true`,
+    }))
+}
+
+/**
+ * `oa-gen` commands that exist to produce a single companion's output, with
+ * that companion. They cannot run at all without it, unlike `oa-gen generate`,
+ * whose needs depend on the configuration (see `explicitCompanionOutputs`).
+ */
+export const COMMAND_COMPANIONS = {
+  mock: '@oa-sdk/mock-server',
+  'generate:client': '@oa-sdk/client',
+  'pack:client': '@oa-sdk/client',
+  'generate:tanstack': '@oa-sdk/client',
+} as const satisfies Readonly<Record<string, CompanionPackageName>>
+
+export type CompanionCommand = keyof typeof COMMAND_COMPANIONS
+
+/** The companion package `command` cannot run without, if it is one of `COMMAND_COMPANIONS`. */
+export function commandCompanion(command: string): CompanionPackageName | undefined {
+  return Object.hasOwn(COMMAND_COMPANIONS, command)
+    ? COMMAND_COMPANIONS[command as CompanionCommand]
+    : undefined
 }
 
 /** Packages named by `entries`, in first-seen order. */
@@ -141,19 +232,20 @@ export function formatMissingCompanionError(command: string, entries: readonly M
 }
 
 /**
- * Loads a package the running command cannot work without. When it is not
+ * Loads the companion package `command` cannot run without. When it is not
  * installed, prints the install command and exits with status 1.
  */
-export async function requireCompanion<N extends CompanionPackageName>(
-  name: N,
-  request: { command: string; output: string; importer?: CompanionImporter },
-): Promise<CompanionModules[N]> {
-  const loaded = await new CompanionLoader(request.importer).load(name)
+export async function requireCompanion<C extends CompanionCommand>(
+  command: C,
+  request: { output: string; importer?: CompanionImporter | undefined },
+): Promise<CompanionModules[(typeof COMMAND_COMPANIONS)[C]]> {
+  const packageName = COMMAND_COMPANIONS[command]
+  const loaded = await new CompanionLoader(request.importer).load(packageName)
   if (loaded === undefined) {
-    console.error(formatMissingCompanionError(request.command, [{
+    console.error(formatMissingCompanionError(command, [{
       output: request.output,
-      packageName: name,
-      requestedBy: `oa-gen ${request.command}`,
+      packageName,
+      requestedBy: `oa-gen ${command}`,
     }]))
     throw new CliExitError(1)
   }

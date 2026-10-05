@@ -21,10 +21,13 @@ import {
 } from './archetypes/index.js'
 import {
   composeInitConfig,
+  composeInitCoreConfig,
+  composeInitCompanionPackages,
   composeInitScripts,
   composeInitDependencies,
   composeInitPackagePatches,
   getOutputRoutingSnippet,
+  oaGenCommandsIn,
 } from './composer.js'
 import {
   promptTargetSelection,
@@ -71,10 +74,13 @@ export {
   MicroserviceArchetypeProfile,
   EnterpriseArchetypeProfile,
   composeInitConfig,
+  composeInitCoreConfig,
+  composeInitCompanionPackages,
   composeInitScripts,
   composeInitDependencies,
   composeInitPackagePatches,
   getOutputRoutingSnippet,
+  oaGenCommandsIn,
   promptTargetSelection,
   promptArchetypeSelection,
   promptRoutingSelection,
