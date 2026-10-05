@@ -27,6 +27,11 @@ export function retryAfterMs(value: string | null | undefined, now: number = Dat
   return 0
 }
 
+/** Retry delay a transport error carries in its `retryAfterMs` member, or 0. */
+function errorRetryAfterMs(error: Error): number {
+  return 'retryAfterMs' in error && typeof error.retryAfterMs === 'number' ? error.retryAfterMs : 0
+}
+
 /**
  * Helper to pause execution with abort signal support.
  */
@@ -157,10 +162,7 @@ export async function* createResilientChunkReader<TItem = unknown>(
         }
 
         attempts++
-        const errorRecord = lastError as unknown as Record<string, unknown>
-        const retryAfter = typeof errorRecord.retryAfterMs === 'number'
-          ? (errorRecord.retryAfterMs as number)
-          : 0
+        const retryAfter = errorRetryAfterMs(lastError)
 
         const computedDelay = Math.min(
           maxDelayMs,
@@ -234,8 +236,7 @@ export async function* createResilientNdjsonReader<TItem = unknown>(
       if (attempt >= maxRetries) throw err
       attempt++
       const error = err instanceof Error ? err : new Error(String(err))
-      const errRec = error as unknown as Record<string, unknown>
-      const retryDelay = typeof errRec.retryAfterMs === 'number' ? errRec.retryAfterMs : 0
+      const retryDelay = errorRetryAfterMs(error)
       const computedDelay = Math.min(
         maxDelayMs,
         initialDelayMs * Math.pow(backoffFactor, attempt - 1),

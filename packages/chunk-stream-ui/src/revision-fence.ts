@@ -26,9 +26,9 @@ export interface BeginRequestOptions {
   readonly timeoutMs?: number | undefined;
 }
 
-interface RevisionRecord {
+/** Request state shared with its RevisionRequest handle. */
+interface RevisionState {
   readonly requestId: string;
-  request: RevisionRequest;
   readonly controller: AbortController;
   readonly sequence: number;
   readonly expectedRevision: string;
@@ -42,8 +42,12 @@ interface RevisionRecord {
   detachExternal?: (() => void) | undefined;
 }
 
+interface RevisionRecord extends RevisionState {
+  readonly request: RevisionRequest;
+}
+
 export class RevisionRequest {
-  constructor(private readonly owner: RevisionFence, private readonly record: RevisionRecord) {}
+  constructor(private readonly owner: RevisionFence, private readonly record: RevisionState) {}
 
   get requestId(): string { return this.record.requestId; }
   get id(): string { return this.record.requestId; }
@@ -129,8 +133,7 @@ export class RevisionFence {
 
     const existing = this.records.get(requestId);
     const finalId = existing && existing.status === "pending" ? `${requestId}:${seq}` : requestId;
-    const record: RevisionRecord = {
-      request: undefined as unknown as RevisionRequest,
+    const state: RevisionState = {
       controller,
       sequence: seq,
       expectedRevision,
@@ -141,8 +144,9 @@ export class RevisionFence {
       terminalCurrent: true,
       requestId: finalId,
     };
-    const request = new RevisionRequest(this, record);
-    record.request = request;
+    const request = new RevisionRequest(this, state);
+    // Object.assign keeps the identity the request handle already references.
+    const record: RevisionRecord = Object.assign(state, { request });
     this.records.set(finalId, record);
 
     const previous = this.latest;

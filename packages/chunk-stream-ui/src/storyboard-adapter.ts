@@ -19,7 +19,8 @@ import {
   type ChunkPlaybackBridgeOptions,
 } from "./playback-bridge.js";
 
-function cleanJson<T>(value: T): T {
+/** JSON round trip: drops undefined members and yields a plain JSON value. */
+function cleanJson(value: unknown): JsonValue {
   return JSON.parse(JSON.stringify(value));
 }
 
@@ -175,8 +176,8 @@ export function storyboardToChunkStream(
       fromFrame,
       toFrame,
       payloadFormat: "ui-action@v1",
-      data: cleanJson(actionsData) as unknown as JsonValue,
-      state: cleanJson(state) as unknown as JsonValue,
+      data: cleanJson(actionsData),
+      state: cleanJson(state),
       resources: Object.freeze(resources),
       residentBytes,
     });

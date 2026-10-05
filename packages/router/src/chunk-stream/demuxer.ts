@@ -67,14 +67,12 @@ async function* toAsyncIterable(body: StreamingBody): AsyncIterable<Uint8Array |
     yield body
     return
   }
-  const candidate = body as unknown as { [Symbol.asyncIterator]?: () => AsyncIterator<Uint8Array | string> }
-  if (candidate && typeof candidate[Symbol.asyncIterator] === 'function') {
-    yield* body as AsyncIterable<Uint8Array | string>
+  if (Symbol.asyncIterator in body && typeof body[Symbol.asyncIterator] === 'function') {
+    yield* body
     return
   }
-  const streamCandidate = body as unknown as { getReader?: () => ReadableStreamDefaultReader<Uint8Array> }
-  if (streamCandidate && typeof streamCandidate.getReader === 'function') {
-    const reader = streamCandidate.getReader()
+  if ('getReader' in body && typeof body.getReader === 'function') {
+    const reader = body.getReader()
     try {
       while (true) {
         const { done, value } = await reader.read()

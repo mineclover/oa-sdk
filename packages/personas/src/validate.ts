@@ -284,6 +284,13 @@ interface PathRead {
   unsupported?: boolean
 }
 
+/** Read an identity dimension by its registry name. Identity values are strings by contract. */
+function identityValue(identity: Persona['identity'], dimension: string): string | undefined {
+  if (!Object.prototype.hasOwnProperty.call(identity, dimension)) return undefined
+  const value: unknown = Reflect.get(identity, dimension)
+  return typeof value === 'string' ? value : undefined
+}
+
 function readPath(persona: Persona, path: string): PathRead {
   // v0.11: top-level fields (skills) handled with no dot
   if (path === 'skills') {
@@ -293,7 +300,7 @@ function readPath(persona: Persona, path: string): PathRead {
   if (!bucket || !dim) return { values: [], unsupported: true }
 
   if (bucket === 'identity') {
-    const v = (persona.identity as unknown as Record<string, string | undefined>)[dim]
+    const v = identityValue(persona.identity, dim)
     return { values: v ? [v] : [] }
   }
   if (bucket === 'reference') {
@@ -351,7 +358,7 @@ function checkVocabularyMatch(
   // identity dimensions with a vocabulary
   for (const [dim, spec] of Object.entries(buckets.identity.dimensions)) {
     if (!spec.vocabulary) continue
-    const value = (persona.identity as unknown as Record<string, string | undefined>)[dim]
+    const value = identityValue(persona.identity, dim)
     if (value === undefined || value === '') continue
     const known = traitValueSets.get(dim)
     if (known && !known.has(value)) {
