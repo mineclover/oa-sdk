@@ -1,4 +1,4 @@
-import { projectRefGraph } from '@oa-sdk/parser'
+import { findNearestJsonPointerEntry, projectRefGraph } from '@oa-sdk/parser'
 import type { CachePort } from '../ports/cache.port.js'
 import type { BuildSpecProvenanceMap } from '@oa-sdk/codegen/spec-lens'
 import type { SpecGraph, SpecSnapshotStored } from '../../domain/index.js'
@@ -102,20 +102,12 @@ function buildEdgesFromSpec(
   const edges: SpecGraph['edges'] = []
   for (const edge of projectRefGraph(spec).edges) {
     if (edge.sourceFilePath !== undefined || !edge.target.startsWith('#')) continue
-    const source = nearestCanonicalId(edge.sourcePointer, pointerToId)
-    const target = nearestCanonicalId(edge.target, pointerToId)
+    const source = findNearestJsonPointerEntry(edge.sourcePointer, pointerToId)?.value
+    const target = findNearestJsonPointerEntry(edge.target, pointerToId)?.value
     if (source === undefined || target === undefined || source === target) continue
     edges.push({ source, target, refPointer: edge.sourcePointer.slice(0, -'/$ref'.length) })
   }
   return edges
-}
-
-function nearestCanonicalId(pointer: string, pointerToId: ReadonlyMap<string, string>): string | undefined {
-  for (let candidate = pointer; ; candidate = candidate.slice(0, candidate.lastIndexOf('/'))) {
-    const id = pointerToId.get(candidate)
-    if (id !== undefined) return id
-    if (candidate.lastIndexOf('/') <= 0) return undefined
-  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

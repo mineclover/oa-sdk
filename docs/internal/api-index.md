@@ -670,6 +670,7 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `appendJsonPointer()` | `json-pointer.ts` | JSON Pointer 또는 `#` fragment 끝에 escape한 token(문자열/배열 index) 추가 |
 | `formatJsonPointer()` | `json-pointer.ts` | token 목록 → JSON Pointer. 빈 목록은 root pointer `''` |
 | `parseJsonPointer()` | `json-pointer.ts` | JSON Pointer → unescape된 token 목록. `''`→`[]`, 선행 `/` 누락이나 잘못된 `~` escape는 `undefined` |
+| `findNearestJsonPointerEntry()` | `json-pointer.ts` | pointer 자신, 없으면 가장 가까운 상위 pointer(token 경계 기준, root 포함)를 key로 가진 Map entry를 찾는다. build-spec provenance의 `canonicalId` 조회를 spec-lens graph와 `oa-gen ref-projection`이 공유하며 `@oa-sdk/parser/browser`에도 export |
 | `createSourceLocationIndex()` | `source-location.ts` | YAML/JSON 원문 → JSON Pointer source location index. YAML은 line/column 매핑, JSON은 빈 index fallback |
 | `createYamlSourceLocationIndex()` | `source-location.ts` | YAML AST range 기반 JSON Pointer → line/column index 생성 |
 | `CANONICAL_DEFINITION_KINDS` | `definition-id.ts` | canonical definition id kind 허용 목록 |
@@ -730,6 +731,7 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `RefGraphDiagnosticCode` | `ref-graph.ts` | ref graph diagnostic 코드 |
 | `RefGraphOptions` | `ref-graph.ts` | ref graph basePath + optional source location lookup 옵션 |
 | `RefKind` | `ref-graph.ts` | internal/external/unsupported ref 분류 |
+| `JsonPointerEntryMatch` | `json-pointer.ts` | `findNearestJsonPointerEntry()`가 찾은 key pointer와 값 |
 | `SourceLocation` | `source-location.ts` | filePath/pointer/line/column source coordinate |
 | `SourceLocationIndex` | `source-location.ts` | pointer lookup과 전체 source location entries 조회 인터페이스 |
 | `SourceLocationIndexOptions` | `source-location.ts` | source location index 생성 옵션 (file path, syntax) |

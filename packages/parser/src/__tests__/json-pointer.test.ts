@@ -7,6 +7,7 @@ import {
   canonicalJsonPointerFragment,
   decodeJsonPointerFragment,
   escapeJsonPointerToken,
+  findNearestJsonPointerEntry,
   formatJsonPointer,
   parseJsonPointer,
   resolveJsonPointer,
@@ -187,11 +188,82 @@ describe('JSON Reference URI fragments', () => {
   })
 })
 
+describe('findNearestJsonPointerEntry', () => {
+  const entries = new Map([
+    ['#/components/schemas/User', 'user'],
+    ['#/paths/~1users', 'users'],
+    ['#/paths/~1users/get', 'users.get'],
+  ])
+
+  it('returns the entry stored under the pointer itself', () => {
+    expect(findNearestJsonPointerEntry('#/components/schemas/User', entries))
+      .toEqual({ pointer: '#/components/schemas/User', value: 'user' })
+  })
+
+  it('returns the entry of the nearest ancestor', () => {
+    expect(findNearestJsonPointerEntry('#/components/schemas/User/properties/role/$ref', entries))
+      .toEqual({ pointer: '#/components/schemas/User', value: 'user' })
+    expect(findNearestJsonPointerEntry('#/paths/~1users/get/responses/200', entries))
+      .toEqual({ pointer: '#/paths/~1users/get', value: 'users.get' })
+    expect(findNearestJsonPointerEntry('#/paths/~1users/post', entries))
+      .toEqual({ pointer: '#/paths/~1users', value: 'users' })
+  })
+
+  it('treats only token boundaries as ancestors', () => {
+    // `~1users~1{id}` is one token, and `#/components/schemas/Use` is a string prefix, not a parent.
+    expect(findNearestJsonPointerEntry('#/paths/~1users~1{id}/get', entries)).toBeUndefined()
+    expect(findNearestJsonPointerEntry('#/components/schemas/UserList', entries)).toBeUndefined()
+  })
+
+  it('reaches the document root of fragments and plain pointers', () => {
+    const roots = new Map([['#', 'fragment-root'], ['', 'pointer-root']])
+    expect(findNearestJsonPointerEntry('#/a/b', roots)).toEqual({ pointer: '#', value: 'fragment-root' })
+    expect(findNearestJsonPointerEntry('#', roots)).toEqual({ pointer: '#', value: 'fragment-root' })
+    expect(findNearestJsonPointerEntry('/a/b', roots)).toEqual({ pointer: '', value: 'pointer-root' })
+    expect(findNearestJsonPointerEntry('', roots)).toEqual({ pointer: '', value: 'pointer-root' })
+  })
+
+  it('keeps fragments and plain pointers apart', () => {
+    expect(findNearestJsonPointerEntry('/components/schemas/User', entries)).toBeUndefined()
+    expect(findNearestJsonPointerEntry('#/a', new Map([['/a', 'plain']]))).toBeUndefined()
+  })
+
+  it('returns undefined for malformed pointers', () => {
+    const all = new Map([['#', 'root'], ['', 'root']])
+    expect(findNearestJsonPointerEntry('#a', all)).toBeUndefined()
+    expect(findNearestJsonPointerEntry('#/a~2b', all)).toBeUndefined()
+    expect(findNearestJsonPointerEntry('a/b', all)).toBeUndefined()
+  })
+
+  it('matches a walk over the escaped string for every short well-formed fragment', () => {
+    // Reference: strip one `/`-separated segment at a time, as spec-lens did before
+    // the walk moved here. It is exact for well-formed pointers because escaped
+    // tokens never contain `/`.
+    const walk = (pointer: string, keys: ReadonlyMap<string, string>): string | undefined => {
+      for (let candidate = pointer; ; candidate = candidate.slice(0, candidate.lastIndexOf('/'))) {
+        if (keys.has(candidate)) return candidate
+        if (candidate.lastIndexOf('/') < 0) return undefined
+      }
+    }
+    const tokens = allStrings(['~', '/', 'a'], 2)
+    const pointers = ['#']
+    for (const first of tokens) {
+      pointers.push(`#${formatJsonPointer([first])}`)
+      for (const second of tokens) pointers.push(`#${formatJsonPointer([first, second])}`)
+    }
+    const keys = new Map(pointers.filter((_, index) => index % 3 === 1).map(pointer => [pointer, pointer]))
+    for (const pointer of pointers) {
+      expect(findNearestJsonPointerEntry(pointer, keys)?.pointer).toBe(walk(pointer, keys))
+    }
+  })
+})
+
 describe('package entries', () => {
   it('exports the same JSON Pointer helpers from the root and browser entries', () => {
     const names = [
       'appendJsonPointer',
       'escapeJsonPointerToken',
+      'findNearestJsonPointerEntry',
       'formatJsonPointer',
       'parseJsonPointer',
       'unescapeJsonPointerToken',

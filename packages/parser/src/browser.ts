@@ -48,7 +48,9 @@ export { getQuerystringParameter } from './querystring.js'
 export {
   appendJsonPointer,
   escapeJsonPointerToken,
+  findNearestJsonPointerEntry,
   formatJsonPointer,
   parseJsonPointer,
   unescapeJsonPointerToken,
 } from './json-pointer.js'
+export type { JsonPointerEntryMatch } from './json-pointer.js'

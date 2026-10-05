@@ -101,6 +101,45 @@ export function decodeJsonPointerFragment(ref: string): string[] | undefined {
   return parseJsonPointer(fragment)
 }
 
+/** An entry found by {@link findNearestJsonPointerEntry}. */
+export type JsonPointerEntryMatch<T> = {
+  /** The key that matched: the queried pointer itself or one of its ancestors. */
+  pointer: string
+  value: T
+}
+
+/**
+ * Find the entry stored under a JSON Pointer or, failing that, under its
+ * nearest ancestor.
+ *
+ * `pointer` is a JSON Pointer (`/a/b`) or a `#`-prefixed URI fragment
+ * (`#/a/b`) in the unencoded spelling that {@link formatJsonPointer} produces,
+ * and the keys of `entries` use the same spelling. The candidates are the
+ * pointer itself, then each parent up to and including the document root
+ * (`''` or `#`). Parents are formed from the parsed tokens, so an escaped `/`
+ * (`~1`) inside a token is never taken for a boundary.
+ *
+ * Returns `undefined` when no candidate is a key, and for a malformed pointer
+ * (see {@link parseJsonPointer}). Normalize a percent-encoded `$ref` fragment
+ * with {@link canonicalJsonPointerFragment} before looking it up.
+ */
+export function findNearestJsonPointerEntry<T>(
+  pointer: string,
+  entries: ReadonlyMap<string, T>,
+): JsonPointerEntryMatch<T> | undefined {
+  const root = pointer.startsWith('#') ? '#' : ''
+  const tokens = parseJsonPointer(pointer.slice(root.length))
+  if (!tokens) return undefined
+
+  const candidates = [root]
+  for (const token of tokens) candidates.push(appendJsonPointer(candidates[candidates.length - 1]!, token))
+  for (let index = candidates.length - 1; index >= 0; index -= 1) {
+    const candidate = candidates[index]!
+    if (entries.has(candidate)) return { pointer: candidate, value: entries.get(candidate) as T }
+  }
+  return undefined
+}
+
 export function isJsonPointerFragment(ref: string): boolean {
   return decodeJsonPointerFragment(ref) !== undefined
 }

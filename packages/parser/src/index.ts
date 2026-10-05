@@ -74,10 +74,12 @@ export type { RefGraph, RefGraphDiagnostic, RefGraphDiagnosticCode, RefGraphNode
 export {
   appendJsonPointer,
   escapeJsonPointerToken,
+  findNearestJsonPointerEntry,
   formatJsonPointer,
   parseJsonPointer,
   unescapeJsonPointerToken,
 } from './json-pointer.js'
+export type { JsonPointerEntryMatch } from './json-pointer.js'
 
 // ─── Source Locations ──────────────────────────────────────────────────────
 export { createSourceLocationIndex, createYamlSourceLocationIndex } from './source-location.js'
