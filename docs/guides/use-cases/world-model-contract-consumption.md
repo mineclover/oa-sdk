@@ -10,11 +10,13 @@ appliesWhen:
   - "World Model operation과 revision-pinned projection contract를 검토할 때"
 productVersions:
   - "OA SDK API contract 0.5.0"
+  - "@oa-sdk/codegen 0.9.0"
+  - "@oa-sdk/client 0.2.2"
 riskLevel: low
 owner: "packages/schemas/typespec/"
 reviewDue: "2026-11-10"
 status: active
-lastReviewed: "2026-08-30"
+lastReviewed: "2026-10-06"
 sourceOfTruth:
   - packages/schemas/typespec/world-model.tsp
   - packages/schemas/typespec/metadata/service.tsp
@@ -23,6 +25,8 @@ sourceOfTruth:
 ---
 
 # World Model 계약을 검증하고 소비 준비하기
+
+> 이 문서는 oa-sdk 저장소 기여자용입니다. 다른 프로젝트는 [Quick Start](../quick-start.md)를 따릅니다.
 
 World Model 연동을 시작할 때는 `packages/schemas/src/.merged.yaml`을 직접 수정하지 않고,
 TypeSpec source에서 생성한 OpenAPI 3.2 artifact를 검증한 뒤 client 또는 HTTP integration의
@@ -39,7 +43,7 @@ storage, transaction 완료 시점은 연동 대상 runtime의 정본에서 확�
 
 ## 시작 전 조건
 
-- 안정화 lane인 Node.js 24 LTS 이상과 저장소의 `pnpm` 설정을 사용할 수 있어야 한다.
+- 이 저장소를 빌드·테스트하려면 Node.js 24 이상과 pnpm 10.30.3(루트 `packageManager`)이 필요하다.
 - 저장소 의존성을 설치하고 `pnpm build:core`를 한 번 실행한 상태여야 한다. 이는 TypeSpec
   validation과 CLI가 요구하는 workspace dependency closure를 materialize한다.
 - contract를 변경하는 경우에는 [TypeSpec Authoring Conventions](../typespec-authoring-conventions.md)의 승인 흐름을 따라야 한다.
@@ -101,9 +105,10 @@ artifact를 직접 편집해 누락을 보정하지 않는다.
 
 ## 3. 필요한 consumer code를 생성한다
 
-저장소에서 TypeScript 선언만 필요하면 `typegen`을 사용한다. client integration까지 생성하려면
-private Downstream client package가 빌드되어 있어야 한다. 공개 `oa-gen` CLI에는 `client`
-command가 없으므로, client는 package API로 생성한다.
+TypeScript 선언은 `typegen`, fetch client는 `generate:client`로 생성한다. `generate:client`는 동반
+패키지(companion package) `@oa-sdk/client`에서 생성기를 불러오며, 저장소에서는 이 패키지를 먼저
+빌드한다(`pnpm build:downstream` 또는 `pnpm --filter @oa-sdk/client build`). `@oa-sdk/client`는
+`@oa-sdk/codegen` 0.9.0 릴리스에서 처음 npm에 배포되는 공개 패키지다.
 
 ```bash
 pnpm --filter @oa-sdk/codegen build
@@ -113,36 +118,21 @@ mkdir -p .oa-sdk/world-model
 node packages/codegen/dist/cli/index.js typegen \
   --spec packages/schemas/src/.merged.yaml \
   --output .oa-sdk/world-model/types.ts
+node packages/codegen/dist/cli/index.js generate:client \
+  --spec packages/schemas/src/.merged.yaml \
+  --types-import ./types.js \
+  -o .oa-sdk/world-model/client.ts
 ```
 
-그 다음 `@oa-sdk/client` dependency가 선언된 playground workspace에
-`apps/playground/examples/generate-world-model-client.ts`를 만들고 package API를 호출한다.
-
-```typescript
-import { readFileSync, writeFileSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { generateClient } from '@oa-sdk/client'
-import type { OasDocument } from '@oa-sdk/parser'
-import { parse } from 'yaml'
-
-const exampleDirectory = dirname(fileURLToPath(import.meta.url))
-const repositoryRoot = resolve(exampleDirectory, '../../..')
-const spec = parse(readFileSync(resolve(repositoryRoot, 'packages/schemas/src/.merged.yaml'), 'utf8')) as OasDocument
-writeFileSync(
-  resolve(repositoryRoot, '.oa-sdk/world-model/client.ts'),
-  generateClient(spec, { typesImport: './types.js' }),
-)
-```
-
-```bash
-pnpm --filter @oa-sdk/playground exec tsx examples/generate-world-model-client.ts
-```
+생성된 client는 `--types-import`로 지정한 `./types.js` 외에는 아무것도 import하지 않는다. 설정과
+호출 규칙은 [생성 클라이언트와 TanStack Query 사용 가이드](../client-and-query-consumption.md)를 따른다.
+script에서 생성해야 하면 같은 생성기를 `@oa-sdk/client`의 `generateClient(spec, { typesImport: './types.js' })`로
+직접 호출할 수 있다.
 
 생성된 파일은 작업 산출물 디렉터리에 두고 source artifact로 커밋하지 않는다. 프로젝트가
 생성물을 커밋하는 정책을 사용한다면 그 정책의 output 경로와 freshness gate를 먼저
-확인한다. client 생성 script가 `@oa-sdk/client`를 찾지 못해 실패하면 package build와 workspace
-의존성 설치 상태를 확인한다.
+확인한다. `generate:client`가 `@oa-sdk/client`를 찾지 못해 설치 명령을 출력하고 실패하면
+package build와 workspace 의존성 설치 상태를 확인한다.
 
 ## 4. runtime 요청 경계를 연결한다
 

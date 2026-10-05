@@ -154,6 +154,13 @@ artifact를 읽을 뿐 production source를 갱신하지 않는다.
 node packages/codegen/dist/cli/index.js typegen --spec packages/schemas/src/.merged.yaml -o src/types.ts
 ```
 
+CI처럼 같은 입력으로 반복 실행하는 곳에서는 `--incremental`을 붙이면 입력·옵션·출력이 그대로인
+대상의 재생성을 건너뜁니다(캐시 위치는 `--cache-dir`, 기본 `./.oa-cache`).
+
+```bash
+node packages/codegen/dist/cli/index.js typegen --spec packages/schemas/src/.merged.yaml -o src/types.ts --incremental
+```
+
 생성 결과 (JSDoc + $ref 참조):
 
 ```typescript
@@ -183,8 +190,12 @@ import type { OasDocument } from '@oa-sdk/parser'
 import { parse } from 'yaml'
 
 const spec = parse(readFileSync('packages/schemas/src/.merged.yaml', 'utf8')) as OasDocument
-writeFileSync('src/router.ts', generateRouter(spec, { typesImport: './types' }))
+writeFileSync('src/router.ts', generateRouter(spec, { typesImport: './types.js' }))
 ```
+
+`contractImport` 없이 호출하면 route마다 `// TODO` 자리만 있는 독립 라우터 스텁(`mode: 'stub'`,
+기본 대상 Hono)이 나온다. 핸들러 계약(`ApiHandlers`)에 묶인 라우터를 만들고 구현을 연결하는 방법은
+[백엔드 핸들러 계약 구현 가이드](../backend-handler-contracts.md)를 따른다.
 
 생성된 라우터와 타입은 API 계약을 구현하기 위한 골격이다. 생성 파일을 직접 수정하기보다
 handler/use-case/service에서 실제 로직을 구현하고, 반환값이 generated response type을
@@ -197,16 +208,22 @@ handler/use-case/service에서 실제 로직을 구현하고, 반환값이 gener
 
 ```bash
 node packages/codegen/dist/cli/index.js generate:client \
-  --spec packages/schemas/src/.merged.yaml --types-import ./types -o src/client.ts
+  --spec packages/schemas/src/.merged.yaml --types-import ./types.js -o src/client.ts
 ```
 
-script에서는 package API를 직접 호출한다.
+script에서는 package API를 직접 호출한다. `spec`은 3절과 같이 읽는다.
 
 ```typescript
+import { readFileSync, writeFileSync } from 'node:fs'
 import { generateClient } from '@oa-sdk/client'
+import type { OasDocument } from '@oa-sdk/parser'
+import { parse } from 'yaml'
 
-writeFileSync('src/client.ts', generateClient(spec, { typesImport: './types' }))
+const spec = parse(readFileSync('packages/schemas/src/.merged.yaml', 'utf8')) as OasDocument
+writeFileSync('src/client.ts', generateClient(spec, { typesImport: './types.js' }))
 ```
+
+생성된 클라이언트의 설정과 호출 규칙은 [생성 클라이언트와 TanStack Query 사용 가이드](../client-and-query-consumption.md)를 따른다.
 
 SSE 스트리밍 엔드포인트는 `async *` 제너레이터로 생성된다. 현재 native OpenAPI 3.2
 `itemSchema`의 payload 타입은 typegen alias로 투영되지 않으므로 iterator 원소는 안전하게
@@ -228,6 +245,10 @@ breaking change는 spec diff에서 먼저 확인한다.
 OA SDK production 계약의 기본 gate는 `pnpm schema:validate`다. 아래의
 `duplicate-review`와 `target-check`는 Definition Builder fragment/target을 위한
 rollback/reference 검증이며, TypeSpec-first production composition을 대신하지 않는다.
+
+아래 `contracts/baselines/v1.openapi.yaml`(이전 릴리스에서 저장해 둔 기준 계약)과
+`runtime.openapi.yaml`(실행 중인 서버가 내보낸 OpenAPI)은 예시 경로다. 저장소에 들어 있는 파일이
+아니므로 자기 기준선과 runtime 산출물 경로로 바꾼다.
 
 ```bash
 pnpm schema:validate
@@ -294,7 +315,7 @@ node packages/codegen/dist/cli/index.js typegen --spec packages/schemas/src/.mer
 pnpm --filter @oa-sdk/playground test -- codegen-pipeline.test.ts
 ```
 
-→ [CLI 전체 명령어](../cli-setup.md)
+→ [CLI 전체 명령어](../cli-command-reference.md)
 → [API 상세](../../internal/api-index.md)
 → [Zod 타입 커버리지](../../internal/spec.md)
 → [Behavior ECS](../../concepts/behavior-ecs.md)

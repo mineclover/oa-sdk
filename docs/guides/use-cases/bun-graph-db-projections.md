@@ -261,7 +261,7 @@ const fullDocument = JSON.parse(
 
 writeFileSync(
   'src/generated/bun-graph-db-api.client.ts',
-  generateClient(fullDocument, { typesImport: './bun-graph-db-api.types' }),
+  generateClient(fullDocument, { typesImport: './bun-graph-db-api.types.js' }),
 )
 ```
 
@@ -277,7 +277,7 @@ const tableDocument = JSON.parse(
 
 writeFileSync(
   'src/generated/project-tasks.client.ts',
-  generateClient(tableDocument, { typesImport: './project-tasks.types' }),
+  generateClient(tableDocument, { typesImport: './project-tasks.types.js' }),
 )
 ```
 
@@ -286,23 +286,31 @@ writeFileSync(
 Mock server는 operation이 있는 OpenAPI document를 입력으로 받는다. Stable API mock은 full document를 사용한다.
 
 ```typescript
-import { createNodeMockServer } from '@oa-sdk/mock-server/adapters/node-http'
-import { createTestClient } from '@oa-sdk/mock-server'
-import spec from './contracts/bun-graph-db/openapi.json'
+import { readFileSync } from 'node:fs'
+import { createNodeMockServer, createTestClient } from '@oa-sdk/mock-server'
+
+const spec = JSON.parse(readFileSync('contracts/bun-graph-db/openapi.json', 'utf8'))
 
 const server = createNodeMockServer(spec, { port: 0 })
 await server.start()
 const client = createTestClient(server)
 ```
 
+패키지 루트와 `@oa-sdk/mock-server/adapters/node-http`는 `msw` 없이 동작한다. JSON 파일을 ESM
+`import`로 읽으려면 import attribute가 필요하다(`import spec from './contracts/bun-graph-db/openapi.json' with { type: 'json' }`).
+
 Table-specific create/update payload test는 `operation-contract` snapshot을 fixture로 사용한다.
 
 ```typescript
-import projectionSpec from './contracts/bun-graph-db/tables/project_tasks/operation-contract.openapi.json'
+const projectionSpec = JSON.parse(
+  readFileSync('contracts/bun-graph-db/tables/project_tasks/operation-contract.openapi.json', 'utf8'),
+)
 
-const server = createNodeMockServer(projectionSpec, { port: 0 })
-await server.start()
+const projectionServer = createNodeMockServer(projectionSpec, { port: 0 })
+await projectionServer.start()
 ```
+
+mock 서버의 응답 규칙과 검증 오류 형식은 [Mock 서버 사용 가이드](../mock-server-usage.md)를 따른다.
 
 `component-bundle`은 operation path가 없으므로 mock-server용 endpoint fixture가 아니다. schema-only 검증이나 custom validator 입력으로 사용한다.
 

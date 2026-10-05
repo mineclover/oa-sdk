@@ -35,7 +35,7 @@ NestJS 앱 (code-first)
 │
 ├── scripts/
 │   ├── export-openapi.ts            ← NestJS 앱 컨텍스트로 스펙 추출
-│   └── openapi-governance.sh        ← scaffold가 만든 collect/check/review/review-bundle/typegen/inventory/validate-upgraded/drift/update-baseline/all 표준 진입점
+│   └── openapi-governance.sh        ← scaffold가 만든 collect/check/review/review-bundle/typegen/inventory/validate-upgraded/drift/update-baseline/ci/all 표준 진입점
 │
 └── contracts/
     ├── v1.openapi.yaml              ← committed baseline (git 관리)
@@ -58,8 +58,9 @@ oa-gen scaffold-governance \
 스캐폴드는 다음 파일을 만든다.
 
 - `openapi-governance.config.json`: oa-sdk 기능별 artifact interface.
-- `scripts/openapi-governance.sh`: collect/check/review/review-bundle/typegen/inventory/validate-upgraded/drift/update-baseline/all 실행 표준 스크립트.
+- `scripts/openapi-governance.sh`: collect/check/review/review-bundle/typegen/inventory/validate-upgraded/drift/update-baseline/ci/all 실행 표준 스크립트.
 - `openapi-governance.md`: 서비스별 governance 설정 문서.
+- `.github/workflows/openapi-governance.yml`: `ci` 단계를 실행하는 GitHub Actions workflow 템플릿(아래 [CI 통합 예시](#ci-통합-예시)).
 
 ---
 
@@ -312,33 +313,43 @@ bash apps/nestjs-ref/scripts/openapi-governance.sh update-baseline  # baseline �
 
 ## CI 통합 예시
 
+CI에서는 scaffold 스크립트의 `ci` 단계를 실행한다. `ci`는 수집(export → collect), baseline 확인,
+`review-bundle`(`--inventory` 포함, `.oa-sdk/governance/review-bundle.md`에 저장), 3.2 분석본
+`validate`, typegen을 차례로 실행한다.
+
+스크립트는 `openapi-governance.config.json`의 `oaGenCommand`로 `oa-gen`을 호출한다. 이 값은 scaffold의
+`--oa-gen-command`로 정하고(기본값 `oa-gen`), 실행할 때 `OA_GEN` 환경 변수로 덮어쓸 수 있다. 외부
+서비스는 `@oa-sdk/codegen`을 서비스의 devDependency로 설치하고 패키지 매니저 경유 명령으로 scaffold한다.
+
+```bash
+pnpm add -D @oa-sdk/codegen
+pnpm exec oa-gen scaffold-governance --root . --service my-api --profile nestjs-swagger \
+  --source-command "pnpm export:openapi" --oa-gen-command "pnpm exec oa-gen"
+```
+
+scaffold는 `<root>/.github/workflows/openapi-governance.yml`도 만든다. 이 workflow는
+`bash scripts/openapi-governance.sh ci`를 실행하고 `.oa-sdk/governance`를 artifact로 올린다. 의존성
+설치 단계는 비워 두므로, checkout 다음에 서비스의 설치 단계를 추가한다.
+
 ```yaml
-# .github/workflows/openapi-governance.yml
-name: OpenAPI Governance
-on: [pull_request]
-jobs:
-  governance:
-    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v3
+      - uses: pnpm/action-setup@v4
       - run: pnpm install
-      - run: pnpm --filter @oa-sdk/codegen build
-      - working-directory: apps/nestjs-ref
-        run: |
-          pnpm export:openapi
-          oa-gen collect \
-            --spec contracts/openapi.raw.yaml \
-            --normalized contracts/openapi.normalized.yaml \
-            --upgraded contracts/openapi.upgraded.yaml \
-            --profile nestjs-swagger
-          oa-gen check-artifact \
-            --head contracts/openapi.normalized.yaml \
-            --artifact contracts/v1.openapi.yaml
-          oa-gen review \
-            --base contracts/v1.openapi.yaml \
-            --head contracts/openapi.normalized.yaml \
-            --format markdown >> $GITHUB_STEP_SUMMARY
+      - name: OpenAPI governance
+        run: bash scripts/openapi-governance.sh ci
+```
+
+`--root`가 저장소 루트가 아니면 workflow 파일도 그 아래에 생기므로, GitHub Actions가 읽는 저장소 루트의
+`.github/workflows/`로 옮기고 `working-directory`를 서비스 경로로 지정한다.
+
+oa-sdk 저장소의 레퍼런스 앱(`apps/nestjs-ref`)은 `@oa-sdk/codegen`을 의존하지 않으므로 앱 디렉터리에서
+`oa-gen`이 PATH에 없다. 이 앱의 `oaGenCommand`는 저장소에서 빌드한 CLI(`node ../../packages/codegen/dist/cli/index.js`)이므로,
+저장소에서는 codegen을 먼저 빌드한 뒤 package 스크립트를 실행한다(저장소 기여자용).
+
+```bash
+pnpm --filter @oa-sdk/codegen build
+pnpm --filter @oa-sdk/nestjs-ref governance:ci
 ```
 
 ---
