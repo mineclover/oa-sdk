@@ -12,6 +12,11 @@ WebMCP peer registry, HTTP bridge route와 provider room을 제공하는 Node.js
   HTTP `/call`은 provider를 최대 3.5초 기다리고, 전송 후 응답은 최대 30초 기다립니다.
 - `/home/mcp`는 서버 진단용 tool catalog와 JSON-RPC `tools/list`, `tools/call`을 처리합니다.
 - `FilePeerStore`는 기본 `~/.webmcp/peers.json`에 peer metadata와 tool catalog를 원자적으로 저장합니다.
+  저장되는 tool은 `name`, `description`, `inputSchema`만 가집니다.
+- 연결된 peer의 `GET /tools`는 `/announce`로 받은 tool member를 그대로 반환합니다(`title`,
+  `annotations`, `outputSchema`, `_meta` 등). `description`이나 `inputSchema`의 타입이 틀리면
+  announce가 400으로 거부됩니다. 타입이 틀린 `title`, `annotations`, `outputSchema`와 JSON 값이
+  아닌 그 밖의 member는 announce를 거부하지 않고 catalog에서만 뺍니다.
 
 서버는 WebSocket upgrade handler나 SDP/ICE 교환을 구현하지 않습니다. descriptor의 `/ws` URL을
 사용하려면 호스트가 signaling adapter를 제공해야 합니다. `/announce`의 metadata 등록만으로

@@ -47,10 +47,16 @@ export interface SignalingRoomEntry {
   status: 'connected' | 'disconnected' | 'refreshing'
   providerSocket?: SignalingPeerSocket | undefined
   allowedTools?: string[] | undefined
+  /** The provider's tool catalog as announced; GET /tools serves it as-is. */
   cachedTools: Array<{
     name: string
     description?: string | undefined
     inputSchema?: Record<string, unknown> | undefined
+    title?: string | undefined
+    annotations?: Record<string, unknown> | undefined
+    outputSchema?: Record<string, unknown> | undefined
+    /** Other JSON members of the announced tool, such as `_meta`. */
+    [member: string]: unknown
   }>
   updatedAt: number
 }

@@ -29,7 +29,7 @@ export function isSafeToolName(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0 && value.length <= 256 && !/[\u0000-\u001f\u007f]/.test(value)
 }
 
-function boundedString(value: unknown, max = MAX_STRING_LENGTH): value is string {
+export function boundedString(value: unknown, max = MAX_STRING_LENGTH): value is string {
   return typeof value === 'string' && value.length <= max
 }
 

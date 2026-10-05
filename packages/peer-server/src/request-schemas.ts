@@ -6,8 +6,9 @@
  * route returns to the client.
  */
 import type { WebMcpPeerRecord } from '@oa-sdk/peer-transport'
-import { isPlainRecord, isSafeToolName, parsePeerRecord } from './peer-record.js'
+import { boundedString, isPlainRecord, isSafeToolName, parsePeerRecord } from './peer-record.js'
 import { isSafeAlias } from './store.js'
+import type { SignalingRoomEntry } from './types.js'
 
 const MAX_SESSION_ID_LENGTH = 256
 const MAX_ANNOUNCED_TOOLS = 1000
@@ -63,23 +64,95 @@ function isExactHttpOrigin(value: string): boolean {
  */
 const SERVER_OWNED_ANNOUNCEMENT_FIELDS = ['updatedAt'] as const
 
+type RoomTool = SignalingRoomEntry['cachedTools'][number]
+
+/** A validated `POST /announce` body. */
+export interface PeerAnnouncement {
+  /** The record as the peer store keeps it: known fields only. */
+  record: WebMcpPeerRecord
+  /** The announced tool catalog as the live room serves it from `GET /tools`. */
+  roomTools: RoomTool[]
+}
+
+/**
+ * True when `value` is JSON data as JSON.parse produces it: null, a boolean,
+ * a string, a finite number, or an array or plain object of those, with no
+ * object reached twice.
+ */
+function isJsonValue(value: unknown): boolean {
+  // Iterative, so a deeply nested announcement cannot overflow the stack.
+  const pending: unknown[] = [value]
+  const seen = new Set<object>()
+  while (pending.length > 0) {
+    const current = pending.pop()
+    if (current === null || typeof current === 'string' || typeof current === 'boolean') continue
+    if (typeof current === 'number') {
+      if (!Number.isFinite(current)) return false
+      continue
+    }
+    if (typeof current !== 'object' || seen.has(current)) return false
+    seen.add(current)
+    if (Array.isArray(current)) {
+      for (const item of current) pending.push(item)
+    } else if (isPlainRecord(current)) {
+      for (const member of Object.values(current)) pending.push(member)
+    } else {
+      return false
+    }
+  }
+  return true
+}
+
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return isPlainRecord(value) && isJsonValue(value)
+}
+
+/**
+ * Type checks for the MCP tool members the room catalog knows. `description`
+ * and `inputSchema` are also checked by parsePeerRecord, which rejects the
+ * whole announcement when they have the wrong type.
+ */
+const ROOM_TOOL_MEMBER_CHECKS = new Map<string, (value: unknown) => boolean>([
+  ['description', boundedString],
+  ['inputSchema', isJsonObject],
+  ['title', boundedString],
+  ['annotations', isJsonObject],
+  ['outputSchema', isJsonObject],
+])
+
+/**
+ * One announced tool as the room serves it. The name must be safe. Every other
+ * member is kept as announced when it passes its type check (known members)
+ * or is JSON data (other members, such as `_meta`); a member that fails is
+ * left out without rejecting the announcement.
+ */
+function parseRoomTool(entry: unknown): RoomTool {
+  if (!isPlainRecord(entry) || !isSafeToolName(entry.name)) throw new RequestError(400, 'Invalid cachedTools catalog')
+  const tool: RoomTool = { name: entry.name }
+  for (const [member, memberValue] of Object.entries(entry)) {
+    // An own `__proto__` member (JSON.parse creates one) is never copied.
+    if (member === 'name' || member === '__proto__') continue
+    const check = ROOM_TOOL_MEMBER_CHECKS.get(member) ?? isJsonValue
+    if (check(memberValue)) tool[member] = memberValue
+  }
+  return tool
+}
+
 /**
  * `POST /announce`. The announced record is rebuilt with the same contract as
  * the peer store, so a field of the wrong type is a 400 rather than a store
- * failure after the request was accepted.
+ * failure after the request was accepted. The store keeps the normalized
+ * record; the live room keeps the announced tool members (see parseRoomTool).
  */
-export const PeerAnnouncementSchema: RequestSchema<WebMcpPeerRecord> = {
+export const PeerAnnouncementSchema: RequestSchema<PeerAnnouncement> = {
   parse(value) {
     if (!isPlainRecord(value)) throw new RequestError(400, 'Peer record must be an object')
     if (!isSafeAlias(value.alias)) throw new RequestError(400, 'Invalid peer alias')
     const cachedTools = value.cachedTools ?? []
-    if (
-      !Array.isArray(cachedTools)
-      || cachedTools.length > MAX_ANNOUNCED_TOOLS
-      || cachedTools.some((entry) => !isPlainRecord(entry) || !isSafeToolName(entry.name))
-    ) {
+    if (!Array.isArray(cachedTools) || cachedTools.length > MAX_ANNOUNCED_TOOLS) {
       throw new RequestError(400, 'Invalid cachedTools catalog')
     }
+    const roomTools = cachedTools.map(parseRoomTool)
     if (value.origin !== undefined) {
       if (typeof value.origin !== 'string' || value.origin.length > MAX_ORIGIN_LENGTH || !isExactHttpOrigin(value.origin)) {
         throw new RequestError(400, 'Invalid peer origin')
@@ -87,11 +160,13 @@ export const PeerAnnouncementSchema: RequestSchema<WebMcpPeerRecord> = {
     }
     const announced: Record<string, unknown> = { ...value, cachedTools }
     for (const field of SERVER_OWNED_ANNOUNCEMENT_FIELDS) delete announced[field]
+    let record: WebMcpPeerRecord
     try {
-      return parsePeerRecord(value.alias, announced)
+      record = parsePeerRecord(value.alias, announced)
     } catch {
       throw new RequestError(400, 'Invalid peer record')
     }
+    return { record, roomTools }
   },
 }
 

@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createPeerServer, type PeerServerInstance } from '../src/index.js'
+import { PeerAnnouncementSchema } from '../src/request-schemas.js'
 
 describe('@oa-sdk/peer-server — request body schemas', () => {
   let directory: string
@@ -70,6 +71,47 @@ describe('@oa-sdk/peer-server — request body schemas', () => {
     expect(status.peers['peer-b']).not.toHaveProperty('invitationUrl')
   })
 
+  it('serves the announced tool members of a live peer from GET /tools', async () => {
+    const search = {
+      name: 'search',
+      title: 'Search items',
+      description: 'Search',
+      inputSchema: { type: 'object' },
+      outputSchema: { type: 'object', properties: { hits: { type: 'array' } } },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+      _meta: { 'vendor/rank': 1 },
+    }
+    const announced = await post('/announce', JSON.stringify({
+      alias: 'peer-tools',
+      cachedTools: [
+        search,
+        // Known optional members of the wrong type are left out; the tool stays.
+        { name: 'echo', title: 7, annotations: 'read-only', outputSchema: [], icons: [{ src: 'https://icons.example/echo.png' }] },
+      ],
+    }))
+    expect(announced.status).toBe(200)
+
+    const tools = await fetch(`${baseUrl}/tools?peer=peer-tools`).then(async (res) => res.json())
+    expect(tools).toEqual({
+      tools: [search, { name: 'echo', icons: [{ src: 'https://icons.example/echo.png' }] }],
+    })
+
+    // The peer store keeps its normalized record.
+    expect((await peerServer.store.getPeer('peer-tools'))?.cachedTools).toEqual([
+      { name: 'search', description: 'Search', inputSchema: { type: 'object' } },
+      { name: 'echo' },
+    ])
+  })
+
+  it('never copies an announced __proto__ tool member onto the room catalog', async () => {
+    const announced = await post('/announce', '{"alias":"peer-proto","cachedTools":[{"name":"echo","__proto__":{"polluted":true}}]}')
+    expect(announced.status).toBe(200)
+    const [tool] = peerServer.roomManager.getRoom('peer-proto')?.cachedTools ?? []
+    expect(tool).toEqual({ name: 'echo' })
+    expect(Object.getPrototypeOf(tool)).toBe(Object.prototype)
+    expect(Object.hasOwn(tool ?? {}, '__proto__')).toBe(false)
+  })
+
   it('reports each /call payload violation with the route error message', async () => {
     await expect(post('/call', '[]')).resolves.toEqual({ status: 400, data: { error: 'Request payload must be an object' } })
     await expect(post('/call', JSON.stringify({ tool: 'echo', args: [] }))).resolves.toEqual({ status: 400, data: { error: 'Invalid tool call payload' } })
@@ -88,5 +130,31 @@ describe('@oa-sdk/peer-server — request body schemas', () => {
 
     const badParams = await post('/home/mcp', JSON.stringify({ jsonrpc: '2.0', id: 'call-1', method: 'tools/call', params: { name: 'home_service_status', arguments: [] } }))
     expect(badParams.data).toEqual({ jsonrpc: '2.0', id: 'call-1', error: { code: -32600, message: 'Invalid tools/call params' } })
+  })
+})
+
+describe('@oa-sdk/peer-server — announced room tool catalog', () => {
+  it('keeps only JSON data among the members it does not know', () => {
+    const cyclic: Record<string, unknown> = {}
+    cyclic.self = cyclic
+    const { roomTools } = PeerAnnouncementSchema.parse({
+      alias: 'peer-json',
+      cachedTools: [{
+        name: 'echo',
+        _meta: { rank: 1, tags: ['a', null, true] },
+        notFinite: { score: Number.NaN },
+        callback: () => 'not JSON',
+        cyclic,
+        date: new Date(0),
+      }],
+    })
+    expect(roomTools).toEqual([{ name: 'echo', _meta: { rank: 1, tags: ['a', null, true] } }])
+  })
+
+  it('checks deeply nested members without overflowing the stack', () => {
+    let nested: unknown = 'leaf'
+    for (let depth = 0; depth < 100_000; depth += 1) nested = [nested]
+    const { roomTools } = PeerAnnouncementSchema.parse({ alias: 'peer-deep', cachedTools: [{ name: 'echo', nested }] })
+    expect(roomTools[0]?.nested).toBe(nested)
   })
 })

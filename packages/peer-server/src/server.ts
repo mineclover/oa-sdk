@@ -254,7 +254,7 @@ export function createPeerServer(options: PeerServerOptions = {}): PeerServerIns
 
     // 4. POST /announce (Provider registration)
     if (req.method === 'POST' && pathname === '/announce') {
-      const announced = await readJsonBody(req, maxBodyBytes, PeerAnnouncementSchema)
+      const { record: announced, roomTools } = await readJsonBody(req, maxBodyBytes, PeerAnnouncementSchema)
       const updated = await store.updatePeer(announced.alias, announced)
       roomManager.registerRoom({
         id: announced.id ?? announced.alias,
@@ -262,7 +262,7 @@ export function createPeerServer(options: PeerServerOptions = {}): PeerServerIns
         title: announced.title,
         origin: announced.origin,
         status: 'connected',
-        cachedTools: announced.cachedTools ?? [],
+        cachedTools: roomTools,
         allowedTools: announced.allowedTools,
         updatedAt: Date.now(),
       })
