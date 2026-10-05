@@ -1,21 +1,157 @@
-# 스키마 아키텍처 및 작성 규칙 (4-Stage TypeSpec-First Pipeline SSOT & V3 AST Sync)
+---
+docType: explanation
+sourceLocale: ko
+canonical: true
+audience:
+  competence: competent
+productVersions:
+  - "@oa-sdk/codegen 0.9.0"
+  - "@oa-sdk/openapi-projection-contract 0.2.0"
+owner: "OA SDK maintainers"
+status: active
+lastReviewed: "2026-10-06"
+sourceOfTruth:
+  - packages/codegen/src/spec-projector.ts
+  - packages/codegen/src/cli/commands/generate.ts
+  - packages/openapi-projection-contract/src/index.ts
+---
 
-> **Canonical Authority**: Browser Studio Core Architecture & Schema Governance
-> **Target Monorepo**: `@browser-studio/*` & `@oa-sdk/*` downstream applications
-> **Schema Governance Engine**: `@oa-sdk/*` (`@oa-sdk/openapi-projection-contract`, `@oa-sdk/parser`, `@oa-sdk/mock-server`, `@oa-sdk/codegen`, `@oa-sdk/ast-sync`, `@oa-sdk/tools`)
-> **Specification Version**: 1.2.0 (Approved Standard)
-> **Status**: Normative Standard
-> **Target Environments**: Chrome Extension (Manifest V3), Node.js Session Host, MCP Stdio Daemons, DevTools Panel, Headless CI, CLI Tools
+# 스키마 아키텍처와 파이프라인
 
-> 🧭 **스펙 문서 체계 안내 (Schema Triad SSOT)**:
-> - **[가이드 종합 색인 및 아키텍처 지도](./README.md)**: 선언자(Author)와 소비자(Consumer) 트랙별 전체 가이드 맵과 추천 읽기 경로를 제공합니다.
-> - **[기본 스펙 사용 기준](./basic-spec-usage.md)**: 저장소 스펙 거버넌스 및 산출물 소유권 SSOT. `oa-sdk` 모노레포 코어 스펙(`packages/schemas`)의 TypeSpec-first 정본 관리와 산출물 소유권을 다룹니다.
-> - **[순수 타입 선언 및 가드 실무 가이드](./pure-types-and-guards.md)**: HTTP 엔드포인트 없는 순수 데이터 모델/DTO 선언, 타입 생성 및 제로-eval 독립형 가드 실무를 다룹니다.
-> - **[스키마 작성 가이드](./schema-authoring.md)**: 실무 TypeSpec & OpenAPI 3.2 작성 플레이북. TypeSpec 모델/오퍼레이션 및 OAS 3.2 문법 실무 작성을 다룹니다.
-> - **[스키마 아키텍처 및 작성 규칙 (현재 문서)](./schema-architecture-and-conventions.md)**: 4단계 TypeSpec-First 파이프라인 SSOT (TypeSpec $\rightarrow$ JSON Schema 2020-12 $\rightarrow$ OAS 3.1/3.2 $\rightarrow$ Standalone AJV Type Guards with zero eval for Chrome MV3 CSP) 및 V3 AST 동기화 표준을 다룹니다.
-> - **[선언적 스펙 설정 가이드](./declarative-spec-configuration.md)**: `oa.config.ts`의 이중 레이어 구조(`core` vs `product`), 라이프사이클 아키타입(`mvp`, `microservice`, `enterprise`), 출력 경로 라우팅(`outputRouting`) 설정 표준을 다룹니다.
+이 문서는 두 부분으로 나뉩니다.
+
+- **1부 oa-sdk 스키마 파이프라인**: `oa-gen`이 원본에서 OpenAPI 문서, JSON Schema, 타입 가드, 클라이언트, 핸들러 계약을
+  만드는 실제 흐름입니다. `@oa-sdk/codegen` 0.9.0 기준이며 외부 프로젝트와 이 저장소 모두에 해당합니다.
+- **[부록 Browser Studio 스키마 표준](#부록-browser-studio-스키마-표준-외부-저장소-사례)**: oa-sdk를 쓰는 외부 저장소
+  Browser Studio의 규범 문서를 사례로 옮긴 것입니다. 그 안의 패키지와 경로(`@browser-studio/*`, `packages/devlink-contracts`,
+  `packages/surface-engine`, `schemas/transitions/video-transitions.tsp` 등)는 이 저장소에 없으며, RFC 9457 오류 형식 같은
+  규칙은 Browser Studio의 선택입니다.
+
+oa-sdk가 해결하는 문제와 가치는 [가이드 색인](./README.md#oa-sdk가-해결하는-문제와-핵심-가치)에, 이 저장소의 production
+계약을 다루는 방법은 [기본 스펙 사용 기준](./basic-spec-usage.md)에, `oa.config.ts` 항목별 동작은
+[선언적 스펙 설정 가이드](./declarative-spec-configuration.md)에 있습니다.
 
 ---
+
+# 1부. oa-sdk 스키마 파이프라인
+
+## 원본에서 생성물까지
+
+사람이 고치는 원본은 `oa.config.ts` spec target의 `schemaEntry`입니다. 나머지는 모두 원본에서 다시 만들 수 있는 생성물입니다.
+
+```text
+원본 (schemaEntry)
+  .tsp  |  OpenAPI YAML·JSON  |  Zod 스키마를 export하는 TypeScript 모듈
+     │
+     │  oa-gen generate  (spec target마다)
+     ▼
+<id>.openapi.json   OpenAPI 문서 + x-schema-engine-* 메타데이터
+<id>.schema.json    JSON Schema 2020-12 ($defs)
+     │
+     ├─ guards 설정             → 독립형 타입 가드 is<Name>() + .d.ts
+     ├─ @oa-sdk/router          → 핸들러 계약 <id>.contract.ts
+     ├─ @oa-sdk/client          → fetch 클라이언트 <id>.client.ts, TanStack Query <id>.keys.ts·<id>.queries.ts
+     └─ x-oa-sdk-crdt-entity    → CRDT 모듈 4개 (스펙에 있을 때만)
+```
+
+`@oa-sdk/router`, `@oa-sdk/client`는 `oa-gen`이 실행 중 불러오는 동반 패키지(companion package)입니다. 없을 때의 동작은
+[선언적 스펙 설정 가이드](./declarative-spec-configuration.md#명시적-요청과-암시적-기본값-동반-패키지)에 있습니다.
+`oa-gen generate`는 프레임워크 라우터 파일을 만들지 않습니다. Fastify·Express·Hono·Elysia 라우터 코드가 필요하면 빌드
+스크립트에서 `@oa-sdk/router`의 `generateRouter()`를 호출합니다.
+
+`oa-gen generate`는 `<id>.openapi.json`에 다음 메타데이터를 붙입니다(`@oa-sdk/openapi-projection-contract`의 상수).
+
+| 확장 | 내용 |
+|---|---|
+| `x-schema-engine-profile` | spec target의 `profile` |
+| `x-schema-engine-version-hash` | 메타데이터를 뺀 문서의 결정적 hash (`sha256:...`, 키 순서는 RFC 8785) |
+| `x-schema-engine-sources` | component 이름별 원본 위치 (`kind`, `filePath`, `pointer`) |
+| `x-schema-engine-refs` | 문서 안 `$ref` 엣지 (`from`, `to`, `ref`) |
+
+명령별로 보면 다음과 같습니다. 설정 파일이 필요한 명령과 파일 경로를 받는 명령이 섞여 있습니다.
+
+| 단계 | 명령 | 결과 |
+|---|---|---|
+| 검증 | `oa-gen validate`(설정의 모든 target), `oa-gen validate --spec <파일> --require-32` | 구조·참조·린트 오류, OpenAPI 3.2 강제 |
+| 투영과 코드 생성 | `oa-gen generate` | 위 그림의 생성물 |
+| 타입 | `oa-gen typegen --spec <파일> -o <파일>` | TypeScript 타입 (설정 파일을 읽지 않음) |
+| 런타임 검증 스키마 | `oa-gen generate:zod --spec <파일> -o <경로>` | Zod 4 스키마 |
+| 가드만 | `oa-gen generate:guards --input <파일> -o <디렉터리>` | 독립형 타입 가드 |
+| mock 서버 | `oa-gen mock` | 원본을 읽어 요청을 검증하는 서버 (디스크에 생성물을 쓰지 않음) |
+| 생성물 최신 여부 | `oa-gen check-artifact` | `<id>.openapi.json`이 원본에서 다시 만든 결과와 다르면 종료 코드 1 |
+| 변경 분류 | `oa-gen diff`, `oa-gen tsp diff` | `--fail-on-breaking`이면 breaking change에서 종료 코드 1 |
+| runtime drift | `oa-gen drift` | 실행 중 서버가 내보내는 OpenAPI와 관리 중인 계약의 차이 |
+| 번들 감사 | `oa-gen audit:csp --bundle <경로>` | `eval`, `new Function`, 금지된 런타임 import 검사 |
+
+```bash
+# 설정의 spec target 전체를 생성하고, 생성물이 원본과 일치하는지 확인
+npx oa-gen generate
+npx oa-gen check-artifact
+# 생성된 가드 디렉터리 감사
+npx oa-gen audit:csp --bundle ./src/generated/guards
+```
+
+## 원본 형식별 결과
+
+| 원본 | `<id>.openapi.json`의 OpenAPI 버전 | 주의 |
+|---|---|---|
+| `.tsp` | 3.2.0 | codegen에 들어 있는 TypeSpec 컴파일러(1.16)로 메모리 컴파일합니다. 네임스페이스에 `@service`가 없으면 model만 선언한 파일은 component를 하나도 내보내지 않습니다. `@oaUseResponseComponent` 같은 OA SDK extension은 이 경로에서 응답으로 바뀌지 않습니다([스키마 작성 가이드 1절](./schema-authoring.md#1-새-api-작성-경로-저장소)). |
+| OpenAPI YAML·JSON | 원본에 적힌 버전 | 3.2를 강제하려면 `oa-gen validate --spec <파일> --require-32`를 씁니다. |
+| TypeScript 모듈(Zod) | 3.1.0 | export한 Zod 스키마가 component가 됩니다(`OrderSchema` → `Order`). |
+
+`oa-gen generate` 요약 출력은 형식과 관계없이 `OpenAPI 3.1`로 표시하고 `N ops`에 path 수를 표시합니다(알려진 결함).
+실제 버전은 파일의 `openapi` 필드를 봅니다.
+
+## 검증 엔진 고르기
+
+| 엔진 | 만드는 명령 | 런타임 의존성 | 맞는 곳 |
+|---|---|---|---|
+| Zod 4 스키마 | `oa-gen generate:zod` | `zod` | 서버 입력 검증, 필드별 오류 메시지가 필요한 곳 |
+| 독립형 타입 가드 | `guards` 설정, `oa-gen generate:guards` | 없음 (`ajv`, `zod`, `@oa-sdk/*`를 import하지 않음) | Manifest V3 확장처럼 `eval`을 금지하는 CSP 환경, 번들 크기가 중요한 곳 |
+
+선택 기준과 측정값은 [순수 타입 선언 및 가드 실무 가이드](./pure-types-and-guards.md)와
+[Validation Engine Benchmark Report](../benchmarks/validation-engines.md)에 있습니다. Typia까지 비교한 Browser Studio의
+결정은 부록 3.4절에 있습니다. 가드 생성의 알려진 제한(component 이름에 `.`이 있으면 실패)은
+[선언적 스펙 설정 가이드 6.3절](./declarative-spec-configuration.md#63-독립형-타입-가드-guards)에 있습니다.
+
+## 오류 응답 형식
+
+oa-sdk가 제공하거나 생성하는 오류 본문은 모두 같은 모양이며, RFC 9457(`application/problem+json`) 형식이 아닙니다.
+
+| 위치 | 형식 |
+|---|---|
+| `@oa-sdk/typespec-decorators`의 `StandardError` (`ErrorResponse<Status>`, `StandardHttpErrors`가 사용) | `{ code, message, details?, _meta? }` |
+| 이 저장소 production 계약의 `Error` (`packages/schemas/typespec/common.tsp`) | `{ code, message, details?, _meta? }` (`code`는 enum) |
+| `oa-gen mock`·`@oa-sdk/mock-server`의 요청 검증 오류 | 422 + `{ "error": { "code", "message", "details", "_meta" } }` |
+
+RFC 9457 본문이 필요하면 계약에 직접 선언합니다. Browser Studio가 그렇게 한 예가 부록 4.4절입니다.
+
+## "surface"의 세 가지 뜻
+
+| 표기 | 뜻 | 문서 |
+|---|---|---|
+| `x-surface-*` vendor extension | Browser Studio Surface Engine의 live-patch 메타데이터. 타입은 `@oa-sdk/openapi-projection-contract`의 `SurfaceExtensionFields` | 부록 6.6절 |
+| lint 카테고리 `surface` | `oa-gen lint --categories surface`가 `x-surface-*` 형식과 `targetProperty`를 검사 | [CLI 명령 레퍼런스](./cli-command-reference.md) |
+| `oa-gen surface` | 계약에서 Surface IR과 Cloudflare Forge용 SDK·CLI projection 생성 (`@oa-sdk/surface-ir`) | [Cloudflare Forge 지원](./forge-support.md) |
+
+## 이 저장소의 production 계약
+
+이 저장소는 `oa-gen generate` 대신 TypeSpec 번들 restore 경로를 씁니다: `packages/schemas/typespec`의 TypeSpec 모듈 →
+승인 snapshot(`approved.openapi.yaml`) → `packages/schemas/src/.merged.yaml`(OpenAPI 3.2) → parser, codegen, mock 서버,
+downstream gate. 이 경로에서는 OA SDK extension이 실제 응답·예제로 바뀝니다. 명령과 작업 순서는
+[기본 스펙 사용 기준](./basic-spec-usage.md)에 있습니다.
+
+---
+
+# 부록. Browser Studio 스키마 표준 (외부 저장소 사례)
+
+> **읽기 전에**
+>
+> - 아래는 Browser Studio 저장소의 규범 문서(원문 버전 1.2.0)를 사례로 옮긴 것입니다. 원문 머리말: *Canonical Authority: Browser Studio Core Architecture & Schema Governance. Target: `@browser-studio/*` applications that use `@oa-sdk/*`. Environments: Chrome Extension (Manifest V3), Node.js Session Host, MCP Stdio Daemons, DevTools Panel, Headless CI, CLI Tools.*
+> - `@browser-studio/*`, `packages/devlink-*`, `packages/surface-engine`, `packages/inspector-controls`, `packages/visual-ir`, `schemas/` 경로는 이 저장소에 없습니다.
+> - RFC 9457 Problem Details(4.4절), DevLink RPC·MCP operation 목록(4.1·4.2절), 60fps 예산(3절), Zod 스키마 명명 규칙(6.2절)은 Browser Studio의 규칙입니다. oa-sdk의 기본 오류 형식은 1부의 [오류 응답 형식](#오류-응답-형식)입니다.
+> - `pnpm exec oa-gen ...` 명령은 `@oa-sdk/codegen`을 devDependency로 설치한 Browser Studio 저장소에서 실행하는 형태입니다.
+> - 옮기면서 현재 oa-sdk 동작과 다른 서술은 고쳤습니다. `@oa-sdk/ast-sync`는 TypeSpec을 읽거나 쓰지 않습니다(Zod, TypeScript interface, Typia, JSON Schema 어댑터만 있음). `.tsp` 원본에서 `oa-gen generate`가 만드는 OpenAPI 문서는 3.2.0입니다. `@oa-sdk/mock-server`의 검증 오류는 RFC 9457 형식이 아닙니다. 아래 JSON·YAML 예시 중 `openapi: 3.1.0` 문서는 Zod 모듈 원본에서 나온 형태입니다.
 
 ## 1. Executive Summary & Architectural Scope
 
@@ -24,11 +160,11 @@ The **Browser Studio Schema Architecture** establishes a strictly decoupled, det
 
 #### Unified Architectural Scope:
 - **Primary Single Source of Truth (SSOT)**: Master domain models, polymorphic entities (such as video transition parameters, visual IR nodes, and surface blocks), RPC operations, and data exchange contracts are authored in **TypeSpec (`.tsp`)**.
-- **Zod & TypeScript Bi-directional Interoperability**: In TypeScript-centric application codebases or runtime daemon hosts, Zod schemas (`zod@^4.4.3`) serve as an official adapter layer via **V3 AST Sync (`@oa-sdk/ast-sync`)**. `EntitySpec` guarantees zero-loss bidirectional translation between `.tsp` and Zod.
+- **Zod & TypeScript Bi-directional Interoperability**: In TypeScript-centric application codebases or runtime daemon hosts, Zod schemas (`zod@^4.4.3`) serve as an official adapter layer via **V3 AST Sync (`@oa-sdk/ast-sync`)**. `EntitySpec` translates between Zod schemas, TypeScript interfaces, Typia types, and JSON Schema. `@oa-sdk/ast-sync` has no TypeSpec adapter, so a Zod schema and a `.tsp` model are two sources that review must keep equal.
 - **Universal Build-Time Projection**: All downstream artifacts—JSON Schema Draft 2020-12, OpenAPI 3.1/3.2 specifications, pre-compiled standalone AJV type guards, protocol mock endpoints, and MCP/CLI tools—are projected deterministically at **build time**.
 
 The fundamental tenet of this architecture is:
-> **Single Source of Truth (SSOT)**: Domain schemas and polymorphic parameter contracts are authored once in TypeSpec (`.tsp`) (or synchronized via Zod adapters). All downstream artifacts—JSON Schema Draft 2020-12, OpenAPI 3.1/3.2 specifications, pre-compiled standalone AJV type guards, and MCP/CLI tools—are projected deterministically at **build time**.
+> **Single Source of Truth (SSOT)**: Domain schemas and polymorphic parameter contracts are authored once, in TypeSpec (`.tsp`) or, for TypeScript-first packages, in Zod. All downstream artifacts—JSON Schema Draft 2020-12, OpenAPI 3.1/3.2 specifications, pre-compiled standalone AJV type guards, and MCP/CLI tools—are projected deterministically at **build time**.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
@@ -120,7 +256,7 @@ model SurfaceParam {
 ```
 
 #### TypeScript & Zod Interoperability Adapter:
-In TypeScript-first packages, frontend libraries, or legacy codebases, Zod (`zod@^4.4.3`) serves as the official bidirectional synchronization adapter. The **V3 AST Sync Engine (`@oa-sdk/ast-sync`)** and `EntitySpec` intermediate representation guarantee 100% loss-free roundtripping between `.tsp` and Zod:
+In TypeScript-first packages, frontend libraries, or legacy codebases, Zod (`zod@^4.4.3`) is the authoring format. The **V3 AST Sync Engine (`@oa-sdk/ast-sync`)** and its `EntitySpec` intermediate representation roundtrip between Zod, TypeScript interfaces, Typia, and JSON Schema. It does not read or write TypeSpec, so the Zod schema below is a second source that must match the `.tsp` model above:
 
 ```typescript
 // Example: packages/surface-engine/src/types/schemas.ts
@@ -190,8 +326,8 @@ JSON Schema Draft 2020-12 is the universal intermediate representation used for 
 }
 ```
 
-### 2.3 Stage 3: OpenAPI 3.1 Specification Projections (`@oa-sdk`)
-OpenAPI 3.1 projections wrap schemas into standardized governance envelopes defined by `@oa-sdk/openapi-projection-contract`.
+### 2.3 Stage 3: OpenAPI Specification Projections (`@oa-sdk`)
+OpenAPI projections wrap schemas into standardized governance envelopes defined by `@oa-sdk/openapi-projection-contract`. `oa-gen generate` emits OpenAPI 3.2.0 for `.tsp` sources, the source's own version for OpenAPI files, and 3.1.0 for Zod/TypeScript modules; the 3.1 examples below come from Zod modules.
 
 #### Profile Semantics:
 - **`component-bundle` Profile**:
@@ -202,15 +338,15 @@ OpenAPI 3.1 projections wrap schemas into standardized governance envelopes defi
 - **`operation-contract` Profile**:
   - Used for DevLink Native RPC methods (`/rpc/{method}`) and MCP stdio operations (`/mcp/{operation}`).
   - `paths` is **required** and must declare at least one HTTP operation method (POST).
-  - Every operation must declare a `requestBody` (referencing param schemas) and a `responses` object with `200` (success), `409` (conflict/lease error), `422` (validation error), and `500` (internal error) conforming to RFC 9457 `application/problem+json`.
+  - Every operation must declare a `requestBody` (referencing param schemas) and a `responses` object with `200` (success), `409` (conflict/lease error), `422` (validation error), and `500` (internal error) conforming to RFC 9457 `application/problem+json`. This is a Browser Studio rule: `@oa-sdk/openapi-projection-contract` only requires at least one operation under `paths`.
 - **`full-api-document` Profile**:
   - Complete REST/RPC API documentation including info, servers, paths, operations, security requirements, and components.
 
 #### Required Extension Metadata (`x-schema-engine-*`):
-Every projected OpenAPI 3.1 document must attach canonical `@oa-sdk` metadata:
+`oa-gen generate` attaches canonical `@oa-sdk` metadata to every projected document:
 - `x-schema-engine-profile`: `'component-bundle' | 'operation-contract' | 'full-api-document'`
 - `x-schema-engine-version-hash`: Deterministic SHA-256 hash of the schema content.
-- `x-schema-engine-sources`: Array of source coordinates mapping schemas to TypeScript source files (`kind: 'file'`, `filePath`, `pointer`).
+- `x-schema-engine-sources`: Map from component name to its source coordinate (`kind: 'file'`, `filePath`, `pointer`).
 - `x-schema-engine-refs`: Reference graph edges tracking inter-schema dependencies.
 
 ```yaml
@@ -259,7 +395,7 @@ components:
 ```
 
 ### 2.4 Stage 4: Standalone AJV Type Guards
-For high-frequency runtime validation in browser extension contexts (Content Scripts, DevTools Panel, Side Panel), JSON Schema Draft 2020-12 files are compiled at build time into pure JavaScript standalone functions using `ajv/dist/2020` and `ajv/dist/standalone` via `@oa-sdk/codegen --target standalone-guards`.
+For high-frequency runtime validation in browser extension contexts (Content Scripts, DevTools Panel, Side Panel), JSON Schema Draft 2020-12 files are compiled at build time into pure JavaScript standalone functions using `ajv/dist/2020` and `ajv/dist/standalone`, either through the `guards` setting of `oa.config.ts` (`oa-gen generate`) or `oa-gen generate:guards --input <spec>`.
 
 #### Properties of Standalone Guards:
 - **Zero Runtime Dependencies**: The generated `.js` files contain static verification logic with no runtime dependency on `ajv`, `zod`, or `@oa-sdk`.
@@ -270,6 +406,7 @@ For high-frequency runtime validation in browser extension contexts (Content Scr
   export function isPatchOp(data: unknown): data is PatchOp;
   export function isDevLinkMcpControlRequest(data: unknown): data is DevLinkMcpControlRequestV1;
   export function isProblemDetails(data: unknown): data is ProblemDetails;
+  ```
 
 ### 2.5 Stage 5 (Bridge): Zero-Drift MCP Tools & Interactive CLI (`@oa-sdk/tools`)
 To bridge specifications directly to AI Agents (via Model Context Protocol) and human developers (via Terminal CLIs) without maintaining duplicated schema definitions, `@oa-sdk/tools` consumes Stage 2 JSON Schema Draft 2020-12 representations at runtime or build time via `createSchemaTool`:
@@ -294,10 +431,11 @@ export const surfaceParamTool = createSchemaTool({
     },
     required: ['id', 'name', 'value'],
   },
-  execute: async (params) => {
+  // execute receives (ctx: ToolContext, input) — the validated input is the second argument
+  execute: async (_ctx, input) => {
     return {
       success: true,
-      result: `Parameter ${params.name} updated to ${params.value}`,
+      result: `Parameter ${input.name} updated to ${input.value}`,
     };
   },
 });
@@ -462,7 +600,7 @@ Domain models that represent shared data interchange structures are projected un
 
 ### 4.4 RFC 9457 Problem Details Error Payload Convention
 
-All error responses across HTTP/RPC endpoints, DevLink operation contracts, and `@oa-sdk/mock-server` simulations must strictly conform to **RFC 9457: Problem Details for HTTP APIs** (`application/problem+json`).
+In Browser Studio, all error responses across HTTP/RPC endpoints and DevLink operation contracts must conform to **RFC 9457: Problem Details for HTTP APIs** (`application/problem+json`). This is a Browser Studio convention, not an oa-sdk default: oa-sdk's `StandardError`, the oa-sdk production `Error` schema, and `@oa-sdk/mock-server` validation errors all use `{ code, message, details, _meta }` (see Part 1, [오류 응답 형식](#오류-응답-형식)). Mock responses in RFC 9457 form therefore come from `override()` (7.3) or from examples declared in the contract.
 
 #### Standard RFC 9457 Fields:
 1. `type` (`string`, format `uri`): A URI reference that identifies the problem type. When dereferenced, it should provide human-readable documentation. Defaults to `"about:blank"` if unspecified.
@@ -748,9 +886,9 @@ The **V3 Unified Architecture** eliminates impedance mismatch between schema rep
                     │                                                 ▼
 ┌───────────────────┴─────────────────┐             ┌─────────────────────────────────────┐
 │ PLUGGABLE TYPE ADAPTERS             │             │ GRANULAR AST DIFF & TEXT EDITS      │
-│  • ZodAdapter: z.object({...})      │             │  • DiffEngine: computeDiff(old, new)│
-│  • TsAstAdapter: interface / type   │             │  • Reverse-Offset Patch Application │
-│  • TypiaAdapter: T & tags.Type<...> │             │  • Zero-loss formatting retention   │
+│  • ZodTypeAdapter: z.object({...})  │             │  • computeEntitySpecDiff(old, new)  │
+│  • TsAstTypeAdapter: interface/type │             │  • Reverse-Offset Patch Application │
+│  • TypiaTypeAdapter, JsonSchema...  │             │  • Zero-loss formatting retention   │
 └─────────────────────────────────────┘             └─────────────────────────────────────┘
 ```
 
@@ -758,30 +896,34 @@ The **V3 Unified Architecture** eliminates impedance mismatch between schema rep
 The `TypeAdapter` interface allows arbitrary schema and code representations to seamlessly roundtrip into `EntitySpec`:
 
 ```typescript
-export interface TypeAdapter<TInput = string, TOutput = string> {
-  readonly name: string; // 'zod' | 'ts-ast' | 'typia'
+export interface TypeAdapter<TSource = string, TTarget = string> {
+  readonly name: string; // 'zod' | 'ts-ast' | 'typia' | 'json-schema'
   readonly supportedDialects: string[];
 
-  read(source: TInput): EntitySpec;
-  write(spec: EntitySpec): TOutput;
+  read(source: TSource): EntitySpec;
+  write(spec: EntitySpec, originalSource?: TSource): TTarget;
 }
 ```
 
-1. **Zod Adapter (`packages/codegen/src/ast-sync/adapters/zod.ts`)**:
+1. **Zod Adapter (`ZodTypeAdapter`, `packages/ast-sync/src/adapters/zod.ts`)**:
    - Parses `z.object()`, `z.discriminatedUnion()`, `.min()`, `.max()`, `.describe()`.
    - Generates idiomatic Zod schema code with method chaining.
-2. **TypeScript AST Adapter (`packages/codegen/src/ast-sync/adapters/ts-ast.ts`)**:
+2. **TypeScript AST Adapter (`TsAstTypeAdapter`, `packages/ast-sync/src/adapters/ts-ast.ts`)**:
    - Uses `typescript` compiler API to parse `interface` and `type` declarations.
    - Extracts JSDoc validation and documentation tags into `EntityPropertySpec`.
-3. **Typia Adapter (`packages/codegen/src/ast-sync/adapters/typia.ts`)**:
+3. **Typia Adapter (`TypiaTypeAdapter`, `packages/ast-sync/src/adapters/typia.ts`)**:
    - Parses Typia comment validation tags (`@minimum`, `@format`).
    - Generates ultra-fast Typia validation interfaces.
+4. **JSON Schema Adapter (`JsonSchemaTypeAdapter`, `packages/ast-sync/src/adapters/json-schema.ts`)**:
+   - Reads and writes JSON Schema objects or strings.
+
+There is no TypeSpec adapter.
 
 ### 5.3 Granular AST Diff Engine & Bitwise Invariance
-When an `EntitySpec` is modified in memory (e.g. adding a property or updating a constraint), the `ASTDiffEngine` computes granular diff operations (`ASTDiff`):
+When an `EntitySpec` is modified in memory (e.g. adding a property or updating a constraint), `computeEntitySpecDiff()` computes granular diff operations:
 - `add-property`, `remove-property`, `update-property`, `update-entity`, `add-extends`, `remove-extends`, `update-doc-comment`, `update-discriminator`.
 
-Instead of regenerating the entire file from scratch (which wipes out comments, whitespace, and formatting), the diff engine produces precise `TextEdit` spans applied in **reverse-offset bottom-up order** ($s_i \ge s_{i+1}$), guaranteeing **100% bitwise invariance** across all unedited regions of the source file.
+Instead of regenerating the entire file from scratch (which wipes out comments, whitespace, and formatting), the diff engine produces precise `TextEdit` spans (`applyTextEdits()`) applied in **reverse-offset bottom-up order** ($s_i \ge s_{i+1}$), guaranteeing **100% bitwise invariance** across all unedited regions of the source file.
 
 ---
 
@@ -984,6 +1126,8 @@ TypeSpec의 `@discriminator("type")`과 모델 상속(`extends VideoTransitionBa
 
 ```tsp
 // schemas/transitions/video-transitions.tsp
+// @service가 있어야 OpenAPI emitter가 operation에서 참조하지 않는 model도 components.schemas로 내보낸다.
+@service(#{ title: "Studio Media Transitions" })
 namespace Studio.Media.Transitions;
 
 @doc("Standard interpolation curve and easing timing functions")
@@ -1126,11 +1270,11 @@ model ZoomTransition extends VideoTransitionBase {
   origin?: Point2D;
 
   @doc("Initial scale factor (> 0.0)")
-  @minValue(0.01)
+  @minValueExclusive(0.0)
   scaleStart?: float64 = 1.0;
 
   @doc("Final scale factor (> 0.0)")
-  @minValue(0.01)
+  @minValueExclusive(0.0)
   scaleEnd?: float64 = 2.0;
 
   @doc("Simulate directional camera motion blur during zoom")
@@ -1152,7 +1296,7 @@ model GlTransition extends VideoTransitionBase {
   textureFiltering?: "linear" | "nearest" = "linear";
 }
 
-@doc("Exhaustive polymorphic union of all video transition types")
+// Exhaustive polymorphic union of all video transition types (alias에는 decorator를 붙일 수 없다)
 alias VideoTransition =
   | FadeTransition
   | WipeTransition
@@ -1163,7 +1307,7 @@ alias VideoTransition =
 ```
 
 #### 3. Stage 2 산출물: JSON Schema Draft 2020-12 투영 (`video-transitions.json`)
-빌드 시 `oa-gen generate`를 실행하면 모든 트랜지션 파라미터가 엄격한 Draft 2020-12 스펙으로 변환됩니다. `$defs`에 개별 변형체가 배치되고 최상위는 `oneOf` 및 `discriminator`로 인덱싱됩니다:
+아래 JSON은 Browser Studio 표준이 기대하는 Draft 2020-12 형태입니다. 위 `.tsp`로 `oa-gen generate`(TypeSpec 1.16)를 실행하면 실제로는 OpenAPI 3.2.0 문서와 `$defs` 번들이 생기고, `discriminator.mapping`은 `VideoTransitionBase`에 붙으며 각 변형은 `allOf`로 base를 참조합니다. alias `VideoTransition`은 component가 되지 않습니다:
 
 ```json
 {
@@ -1275,7 +1419,7 @@ alias VideoTransition =
 ```
 
 #### 4. Stage 3 산출물: OpenAPI 3.1 오퍼레이션 컨트랙트 투영
-트랜지션 미리보기 렌더링 RPC/REST 엔드포인트는 RFC 9457 `ProblemDetails` 오류 응답과 함께 엄격한 오퍼레이션 컨트랙트로 컴파일됩니다:
+트랜지션 미리보기 렌더링 RPC/REST 엔드포인트는 RFC 9457 `ProblemDetails` 오류 응답과 함께 엄격한 오퍼레이션 컨트랙트로 선언합니다(아래는 Zod 모듈 원본에서 나온 3.1 형태의 예시입니다):
 
 ```yaml
 openapi: 3.1.0
@@ -1423,7 +1567,7 @@ export const previewVideoTransitionTool = createSchemaTool({
     },
     required: ['timelineId', 'transition'],
   },
-  execute: async ({ timelineId, transition, frameOffsetMs = 0 }) => {
+  execute: async (_ctx, { timelineId, transition, frameOffsetMs = 0 }) => {
     return {
       success: true,
       previewUrl: `https://studio.local/previews/${timelineId}/frame_${frameOffsetMs}.webp`,
@@ -1438,9 +1582,9 @@ export const previewVideoTransitionTool = createSchemaTool({
 |---|---|---|
 | **다형성 유니언 작성 편의성** | `@discriminator("type")` + `model extends`로 선언적 작성 | `z.discriminatedUnion([...])` 긴 배열 수작업 나열 |
 | **타입 추론 복잡도** | 컴파일 타임 네이티브 AST 심볼 색인 (컴파일 속도 최적) | 깊은 제네릭 체인으로 `TS2589` 유발 위험 |
-| **엄격한 수치 경계 투영** | `@minValue`, `@maxValue`가 Draft 2020-12 / OAS 3.1에 100% 매핑 | `.refine()` 사용 시 정적 OpenAPI 메타데이터 누락 |
+| **엄격한 수치 경계 투영** | `@minValue`, `@maxValue`, `@minValueExclusive`, `@maxValueExclusive`가 Draft 2020-12 / OpenAPI 키워드로 매핑 | `.refine()` 사용 시 정적 OpenAPI 메타데이터 누락 |
 | **번들 디커플링 & CSP** | 0 KB 런타임 (정적 컴파일 산출물만 배포) | 런타임 번들 포함 시 번들 비대화 및 MV3 CSP 위험 |
-| **MCP Tool & CLI 브릿지** | Stage 2 JSON Schema로 자동 연동 | 매번 수작업 인풋 스키마 재작성 필요 |
+| **MCP Tool & CLI 브릿지** | Stage 2 JSON Schema를 `createSchemaTool`에 전달 | 매번 수작업 인풋 스키마 재작성 필요 |
 
 ---
 
@@ -1718,7 +1862,7 @@ During projection to JSON Schema Draft 2020-12 or OpenAPI 3.1:
 ```
 
 #### OpenAPI 3.1 Cyclic `$ref` Validation Behavior
-OpenAPI 3.1 and JSON Schema Draft 2020-12 natively support cyclic `$ref` structures within `components.schemas` and `$defs`. While legacy OpenAPI 3.0 linters occasionally flag self-referential schemas as invalid circular references (`ref-cycle`), `@oa-sdk` CLI validation (`oa-gen validate`) automatically identifies and permits valid recursive schema structures, suppressing false-positive circular reference diagnostics.
+OpenAPI 3.1 and JSON Schema Draft 2020-12 natively support cyclic `$ref` structures within `components.schemas` and `$defs`. `@oa-sdk/parser` treats a cycle that passes through an instance-descending keyword (`properties`, `items`, ...) as valid recursion and reports nothing; only a cycle that never descends (e.g. `A: { $ref: B }`, `B: { $ref: A }`) is a `refs/cycle` error, which `oa-gen lint` reports. `oa-gen validate` currently filters out every `refs/cycle` diagnostic (known defect), so run `oa-gen lint` to catch the non-descending kind.
 
 ---
 
@@ -1859,7 +2003,7 @@ export const surfaceParamExtensions: SurfaceExtensionFields = {
 
 ---
 
-### 6.6 Rich JSDoc Metadata & Description Annotations
+### 6.7 Rich JSDoc Metadata & Description Annotations
 Every property and schema must declare `.describe()` metadata. This description is preserved across JSON Schema 2020-12, OpenAPI 3.1 docs, and generated TypeScript JSDoc:
 
 ```typescript
@@ -1900,7 +2044,8 @@ To test DevLink extensions, MCP tools, and session hosts without launching real 
 │   • Validates incoming parameters & body against OpenAPI 3.1 schema (AJV 2020)          │
 │   • Evaluates programmatic overrides (server.override('materializeCss', { status: 200 }))│
 │   • Generates realistic mock responses matching schema definitions (generateAlgebra)    │
-│   • Emits structured 422 / 409 RFC 9457 ProblemDetails errors on invalid test payloads  │
+│   • Emits 422 { error: { code, message, details } } on invalid payloads (RFC 9457 via   │
+│     override() only)                                                                    │
 └─────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -2046,8 +2191,8 @@ pnpm exec oa-gen validate
 # 2. Export all OpenAPI specifications, JSON Schemas, and standalone type guards
 pnpm exec oa-gen generate
 
-# 3. Generate TypeScript clients and type definitions
-pnpm exec oa-gen typegen
+# 3. Generate TypeScript type definitions from a projected artifact
+pnpm exec oa-gen typegen --spec artifacts/specs/gateway-api.openapi.json --output src/generated/gateway-api.types.ts
 
 # 4. Verify deterministic hash drift between source AST and committed artifacts (CI Gate)
 pnpm exec oa-gen drift:check
@@ -2100,7 +2245,7 @@ When introducing a new data model, polymorphic transition parameter, or RPC meth
 Before submitting schema changes or pull requests, verify compliance against this normative checklist:
 
 - [ ] **SSOT**: Master schema is authored in TypeSpec (`.tsp`) (or synchronized via Zod adapter with static `z.infer` TypeScript type).
-- [ ] **RFC 9457**: Error responses use `ProblemDetailsSchema` with `application/problem+json` Content-Type for 422, 409, 500.
+- [ ] **RFC 9457** (Browser Studio convention): Error responses use `ProblemDetailsSchema` with `application/problem+json` Content-Type for 422, 409, 500.
 - [ ] **Numeric Bounds**: $x \ge 0$ authored as `minimum: 0` (`.nonnegative()`); $x > 0$ authored as `exclusiveMinimum: 0` (`.positive()`).
 - [ ] **Recursive Trees**: Authored using `z.ZodType<T> = z.lazy(...)` with explicit interface and registered in registry `refs`.
 - [ ] **Surface Scope**: Object-level `x-surface-*` specifies valid `targetProperty`; property-level overrides are correctly scoped.
@@ -2112,4 +2257,4 @@ Before submitting schema changes or pull requests, verify compliance against thi
 
 ## 10. Conclusion
 
-By adhering strictly to the **4-Stage Schema Pipeline**, establishing **TypeSpec (`.tsp`) as the Primary Single Source of Truth** (with seamless Zod AST synchronization via `@oa-sdk/ast-sync`), standardizing on **RFC 9457 Problem Details**, and enforcing **Zero-Runtime-Weight Bundle Decoupling**, Browser Studio and downstream projects achieve enterprise-grade specification governance through `@oa-sdk/*` while delivering sub-millisecond 60fps performance and 100% Manifest V3 CSP compliance in browser extensions.
+By adhering strictly to the **4-Stage Schema Pipeline**, establishing **TypeSpec (`.tsp`) as the Primary Single Source of Truth** (with Zod as the TypeScript-first authoring format and `@oa-sdk/ast-sync` for Zod, TypeScript, Typia, and JSON Schema roundtrips), standardizing on **RFC 9457 Problem Details** for its own error bodies, and enforcing **Zero-Runtime-Weight Bundle Decoupling**, Browser Studio and downstream projects achieve enterprise-grade specification governance through `@oa-sdk/*` while delivering sub-millisecond 60fps performance and 100% Manifest V3 CSP compliance in browser extensions.
