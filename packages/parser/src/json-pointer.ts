@@ -1,9 +1,12 @@
 /**
  * RFC 6901 JSON Pointer helpers.
  *
- * This module is the workspace's single implementation of reference-token
- * escaping. parser, codegen, mock-server, spec-lens and surface-ir import these
- * helpers instead of re-implementing `~0` / `~1` handling.
+ * This module is the shared implementation of reference-token escaping for the
+ * packages that depend on `@oa-sdk/parser`: parser, codegen, mock-server,
+ * spec-lens and surface-ir import these helpers instead of re-implementing
+ * `~0` / `~1` handling. Code that does not depend on parser (tools, apps,
+ * personas, dpm, root scripts) or cannot load it at runtime (the schemas
+ * scripts run as CommonJS) still has its own copies.
  *
  * Representations used below:
  * - reference token: one unescaped object key or array index (`a/b`)

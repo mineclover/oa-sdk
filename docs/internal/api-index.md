@@ -665,7 +665,7 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `collectRefs()` | `ref-graph.ts` | 문서 트리에서 `$ref` 위치 수집 |
 | `isRelativeRef()` | `ref-graph.ts` | 상대 파일 `$ref` 판별 |
 | `resolvePointer()` | `ref-graph.ts` | JSON Pointer 해소 |
-| `escapeJsonPointerToken()` | `json-pointer.ts` | RFC 6901 reference token escape (`~`→`~0` 다음 `/`→`~1`). workspace 유일 구현, `@oa-sdk/parser/browser`에도 export |
+| `escapeJsonPointerToken()` | `json-pointer.ts` | RFC 6901 reference token escape (`~`→`~0` 다음 `/`→`~1`). parser에 의존하는 패키지의 공용 구현(parser에 의존하지 않거나 런타임에 로드할 수 없는 코드는 자체 사본 유지), `@oa-sdk/parser/browser`에도 export |
 | `unescapeJsonPointerToken()` | `json-pointer.ts` | RFC 6901 token unescape를 한 번의 좌→우 패스로 수행 (`~01`→`~1`). 잘못된 `~` 시퀀스는 그대로 둠 |
 | `appendJsonPointer()` | `json-pointer.ts` | JSON Pointer 또는 `#` fragment 끝에 escape한 token(문자열/배열 index) 추가 |
 | `formatJsonPointer()` | `json-pointer.ts` | token 목록 → JSON Pointer. 빈 목록은 root pointer `''` |
