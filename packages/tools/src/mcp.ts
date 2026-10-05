@@ -33,6 +33,7 @@ import {
   readToolNodeJsonRequest,
   ToolHttpError,
   validateToolHttpOptions,
+  type ToolJsonBodySchema,
 } from './http-boundary.js'
 
 export interface McpServerOptions {
@@ -55,23 +56,24 @@ export interface JsonRpcRequest {
   jsonrpc: '2.0'
   id?: string | number | null | undefined
   method: string
-  params?: Record<string, any> | undefined
+  params?: Record<string, unknown> | undefined
 }
 
 export interface JsonRpcResponse {
   jsonrpc: '2.0'
   id: string | number | null
-  result?: any
+  result?: unknown
   error?: {
     code: number
     message: string
-    data?: any
+    data?: unknown
   } | undefined
 }
 
 export interface StatelessMcpDispatcher {
+  /** Dispatch a decoded JSON-RPC body. The body is validated as a JSON-RPC 2.0 request first. */
   dispatch(
-    body: any,
+    body: unknown,
     headers?: Record<string, string | string[] | undefined> | Headers | undefined,
   ): Promise<{ status: number; response: JsonRpcResponse; headers: Record<string, string> }>
   handleNodeRequest(req: IncomingMessage, res: ServerResponse): Promise<void>
@@ -131,6 +133,91 @@ function httpBoundaryMessage(error: unknown): string {
   return error instanceof ToolHttpError ? error.message : 'Internal Server Error'
 }
 
+type JsonRpcId = JsonRpcResponse['id']
+
+/** A decoded MCP request body: a valid JSON-RPC 2.0 request, or the id to answer an invalid one with. */
+type McpRequestEnvelope =
+  | { valid: true; request: JsonRpcRequest; id: JsonRpcId }
+  | { valid: false; id: JsonRpcId }
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isJsonRpcId(value: unknown): value is JsonRpcId {
+  return value === null || typeof value === 'string' || typeof value === 'number'
+}
+
+/**
+ * JSON-RPC 2.0 request envelope. Never throws: an invalid envelope still gets
+ * a JSON-RPC error reply, echoing the id only when it has a protocol type.
+ */
+const McpRequestEnvelopeSchema: ToolJsonBodySchema<McpRequestEnvelope> = {
+  parse(value) {
+    if (!isPlainObject(value)) return { valid: false, id: null }
+    const rawId = value.id
+    if (rawId !== undefined && !isJsonRpcId(rawId)) return { valid: false, id: null }
+    const id = rawId ?? null
+    if (value.jsonrpc !== '2.0' || typeof value.method !== 'string') return { valid: false, id }
+    const params = value.params
+    if (params !== undefined && !isPlainObject(params)) return { valid: false, id }
+    return {
+      valid: true,
+      id,
+      request: {
+        jsonrpc: '2.0',
+        method: value.method,
+        ...(rawId === undefined ? {} : { id: rawId }),
+        ...(params === undefined ? {} : { params }),
+      },
+    }
+  },
+}
+
+/** Map a tool's return value onto an MCP CallToolResult. */
+function toCallToolResult(result: unknown): CallToolResult {
+  const objectResult = typeof result === 'object' && result !== null ? result : undefined
+
+  // Multi Round-Trip Request (MRTR) input_required detection
+  if (objectResult && 'status' in objectResult && objectResult.status === 'input_required') {
+    const prompt = 'prompt' in objectResult && typeof objectResult.prompt === 'string' ? objectResult.prompt : undefined
+    const continuationToken = 'continuationToken' in objectResult && typeof objectResult.continuationToken === 'string'
+      ? objectResult.continuationToken
+      : undefined
+    return {
+      content: 'content' in objectResult && Array.isArray(objectResult.content)
+        // Content items come from the tool implementation, which owns their MCP shape.
+        ? objectResult.content as CallToolResult['content']
+        : [{ type: 'text', text: prompt ?? 'Input required for continuation' }],
+      status: 'input_required',
+      continuationToken,
+      prompt,
+      isError: false,
+    }
+  }
+
+  const content: CallToolResult['content'] =
+    objectResult && 'content' in objectResult && Array.isArray(objectResult.content)
+      ? objectResult.content as CallToolResult['content']
+      : [{ type: 'text', text: typeof result === 'string' ? result : JSON.stringify(result, null, 2) }]
+
+  const rawData: unknown =
+    objectResult && 'structuredContent' in objectResult
+      ? objectResult.structuredContent
+      : objectResult && 'data' in objectResult
+        ? objectResult.data
+        : objectResult && !('content' in objectResult)
+          ? objectResult
+          : undefined
+
+  return {
+    content,
+    ...(rawData !== undefined ? { structuredContent: rawData, data: rawData } : {}),
+    isError: false,
+    status: 'success',
+  }
+}
+
 /**
  * Create a pure Stateless MCP 2026-07-28 Dispatcher
  */
@@ -163,7 +250,10 @@ export function createStatelessMcpDispatcher(
     })
   }
 
-  const dispatch: StatelessMcpDispatcher['dispatch'] = async (body, headers) => {
+  const dispatchEnvelope = async (
+    envelope: McpRequestEnvelope,
+    headers: Parameters<StatelessMcpDispatcher['dispatch']>[1],
+  ): ReturnType<StatelessMcpDispatcher['dispatch']> => {
     const responseHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
       [McpHeaders.PROTOCOL_VERSION]: MCP_PROTOCOL_VERSION_2026_07_28,
@@ -178,7 +268,7 @@ export function createStatelessMcpDispatcher(
         headers: responseHeaders,
         response: {
           jsonrpc: '2.0',
-          id: body?.id ?? null,
+          id: envelope.id,
           error: {
             code: status === 401 ? -32001 : -32003,
             message: httpBoundaryMessage(error),
@@ -187,13 +277,13 @@ export function createStatelessMcpDispatcher(
       }
     }
 
-    if (!body || typeof body !== 'object' || body.jsonrpc !== '2.0' || typeof body.method !== 'string') {
+    if (!envelope.valid) {
       return {
         status: 400,
         headers: responseHeaders,
         response: {
           jsonrpc: '2.0',
-          id: body?.id ?? null,
+          id: envelope.id,
           error: {
             code: -32600,
             message: 'Invalid Request: missing or invalid jsonrpc 2.0 structure',
@@ -202,7 +292,8 @@ export function createStatelessMcpDispatcher(
       }
     }
 
-    const reqId = body.id ?? null
+    const body = envelope.request
+    const reqId = envelope.id
     const headerMethod = getHeaderValue(headers, McpHeaders.METHOD)
     const headerName = getHeaderValue(headers, McpHeaders.NAME)
 
@@ -258,6 +349,20 @@ export function createStatelessMcpDispatcher(
 
       case 'tools/call': {
         const { name, arguments: args } = body.params ?? {}
+        if (typeof name !== 'string') {
+          return {
+            status: 200,
+            headers: responseHeaders,
+            response: {
+              jsonrpc: '2.0',
+              id: reqId,
+              error: {
+                code: -32602,
+                message: 'Invalid params: tools/call requires a string name',
+              },
+            },
+          }
+        }
         const tool = toolMap.get(name)
 
         if (!tool) {
@@ -303,63 +408,14 @@ export function createStatelessMcpDispatcher(
         })
 
         try {
-          const result = await executeTool(tool, validation.data, ctx)
-
-          // Multi Round-Trip Request (MRTR) input_required detection
-          if (result && typeof result === 'object' && result.status === 'input_required') {
-            return {
-              status: 200,
-              headers: responseHeaders,
-              response: {
-                jsonrpc: '2.0',
-                id: reqId,
-                result: {
-                  content: result.content ?? [
-                    {
-                      type: 'text',
-                      text: result.prompt ?? 'Input required for continuation',
-                    },
-                  ],
-                  status: 'input_required',
-                  continuationToken: result.continuationToken,
-                  prompt: result.prompt,
-                  isError: false,
-                },
-              },
-            }
-          }
-
-          const content =
-            result && typeof result === 'object' && Array.isArray(result.content)
-              ? result.content
-              : [
-                  {
-                    type: 'text',
-                    text: typeof result === 'string' ? result : JSON.stringify(result, null, 2),
-                  },
-                ]
-
-          const rawData =
-            result && typeof result === 'object' && 'structuredContent' in result
-              ? (result as any).structuredContent
-              : result && typeof result === 'object' && 'data' in result
-                ? (result as any).data
-                : result && typeof result === 'object' && !('content' in result)
-                  ? result
-                  : undefined
-
+          const result: unknown = await executeTool(tool, validation.data, ctx)
           return {
             status: 200,
             headers: responseHeaders,
             response: {
               jsonrpc: '2.0',
               id: reqId,
-              result: {
-                content,
-                ...(rawData !== undefined ? { structuredContent: rawData, data: rawData } : {}),
-                isError: false,
-                status: 'success',
-              },
+              result: toCallToolResult(result),
             },
           }
         } catch (error) {
@@ -456,11 +512,14 @@ export function createStatelessMcpDispatcher(
     }
   }
 
+  const dispatch: StatelessMcpDispatcher['dispatch'] = (body, headers) =>
+    dispatchEnvelope(McpRequestEnvelopeSchema.parse(body), headers)
+
   const handleNodeRequest = async (req: IncomingMessage, res: ServerResponse) => {
-    let parsedBody: any
+    let envelope: McpRequestEnvelope
     try {
       authorizeToolHttpRequest(req.headers, options)
-      parsedBody = await readToolNodeJsonRequest(req, maxBodyBytes)
+      envelope = await readToolNodeJsonRequest(req, maxBodyBytes, McpRequestEnvelopeSchema)
     } catch (error) {
       const boundary = error instanceof ToolHttpError ? error : undefined
       const status = boundary?.status ?? 400
@@ -482,16 +541,16 @@ export function createStatelessMcpDispatcher(
       return
     }
 
-    const { status, response, headers: resHeaders } = await dispatch(parsedBody, req.headers)
+    const { status, response, headers: resHeaders } = await dispatchEnvelope(envelope, req.headers)
     res.writeHead(status, resHeaders)
     res.end(JSON.stringify(response))
   }
 
   const handleFetchRequest = async (req: Request): Promise<Response> => {
-    let body: any
+    let envelope: McpRequestEnvelope
     try {
       authorizeToolHttpRequest(req.headers, options)
-      body = await readToolJsonRequest(req, maxBodyBytes)
+      envelope = await readToolJsonRequest(req, maxBodyBytes, McpRequestEnvelopeSchema)
     } catch (error) {
       const boundary = error instanceof ToolHttpError ? error : undefined
       const status = boundary?.status ?? 400
@@ -514,7 +573,7 @@ export function createStatelessMcpDispatcher(
       )
     }
 
-    const { status, response, headers: resHeaders } = await dispatch(body, req.headers)
+    const { status, response, headers: resHeaders } = await dispatchEnvelope(envelope, req.headers)
     return new Response(JSON.stringify(response), {
       status,
       headers: resHeaders,
@@ -619,49 +678,8 @@ export function createMcpServer(
       })
 
       try {
-        const result = await executeTool(tool, validation.data, ctx)
-
-        // Handle MRTR input_required
-        if (result && typeof result === 'object' && result.status === 'input_required') {
-          return {
-            content: result.content ?? [
-              {
-                type: 'text',
-                text: result.prompt ?? 'Input required for continuation',
-              },
-            ],
-            status: 'input_required',
-            continuationToken: result.continuationToken,
-            prompt: result.prompt,
-            isError: false,
-          }
-        }
-
-        const content =
-          result && typeof result === 'object' && Array.isArray(result.content)
-            ? result.content
-            : [
-                {
-                  type: 'text',
-                  text: typeof result === 'string' ? result : JSON.stringify(result, null, 2),
-                },
-              ]
-
-        const rawData =
-          result && typeof result === 'object' && 'structuredContent' in result
-            ? (result as any).structuredContent
-            : result && typeof result === 'object' && 'data' in result
-              ? (result as any).data
-              : result && typeof result === 'object' && !('content' in result)
-                ? result
-                : undefined
-
-        return {
-          content,
-          ...(rawData !== undefined ? { structuredContent: rawData, data: rawData } : {}),
-          isError: false,
-          status: 'success',
-        }
+        const result: unknown = await executeTool(tool, validation.data, ctx)
+        return toCallToolResult(result)
       } catch (error) {
         return {
           content: [{ type: 'text', text: safeExecutionError(ctx.requestId) }],

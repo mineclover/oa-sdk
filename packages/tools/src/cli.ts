@@ -9,6 +9,12 @@ import { createToolContext, executeTool } from './context.js'
 import { normalizeJsonSchema, validateToolInput } from './schema.js'
 import type { ToolDefinition } from './types.js'
 
+/** Message of a thrown value: its `message` member when present, otherwise its string form. */
+function thrownMessage(error: unknown): string {
+  const message: unknown = typeof error === 'object' && error !== null ? Reflect.get(error, 'message') : undefined
+  return message === undefined || message === null ? String(error) : String(message)
+}
+
 export interface CliAdapterOptions {
   name?: string | undefined
   version?: string | undefined
@@ -171,8 +177,8 @@ function addToolCommand(parent: Command, tool: ToolDefinition, globalInteractive
 
       const format = (globalOpts.output as string) ?? 'json'
       console.log(formatOutput(result, format))
-    } catch (error: any) {
-      console.error(`Error: ${error.message ?? String(error)}`)
+    } catch (error: unknown) {
+      console.error(`Error: ${thrownMessage(error)}`)
       if (globalOpts.debug) {
         console.error(error)
       }
@@ -188,7 +194,7 @@ export async function promptMissingFields(
   schemaInput: unknown,
   currentInput: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
-  const schema = normalizeJsonSchema(schemaInput as any)
+  const schema = normalizeJsonSchema(typeof schemaInput === 'object' && schemaInput !== null ? schemaInput : {})
   const required = schema.required ?? []
   const properties = schema.properties ?? {}
   const result = { ...currentInput }

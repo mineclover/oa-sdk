@@ -138,9 +138,9 @@ export type ToolSchema<T = unknown> =
 export type InferSchema<T> =
   T extends z.ZodType<infer O, any, any>
     ? O
-    : T extends { parse: (val: any) => infer O }
+    : T extends { parse: (val: never) => infer O }
       ? O
-      : any
+      : unknown
 
 /**
  * Tool execution handler accepting (ctx, input)

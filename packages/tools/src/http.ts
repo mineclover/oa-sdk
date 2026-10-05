@@ -4,7 +4,8 @@
  * Exposes ToolDefinitions as HTTP REST endpoints with automatic OpenAPI 3.1 documentation
  * and Swagger UI.
  */
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
+import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { swaggerUI } from '@hono/swagger-ui'
 import { serve, type ServerType } from '@hono/node-server'
 import { createToolContext, executeTool } from './context.js'
@@ -16,7 +17,18 @@ import {
   readToolJsonRequest,
   ToolHttpError,
   validateToolHttpOptions,
+  type ToolJsonBodySchema,
 } from './http-boundary.js'
+
+/** REST tool input: the body must be a JSON object before the tool schema checks its fields. */
+const ToolInputObjectSchema: ToolJsonBodySchema<Record<string, unknown>> = {
+  parse(value) {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      throw new ToolHttpError(400, 'Request body must be a JSON object')
+    }
+    return { ...value }
+  },
+}
 
 export interface HttpAdapterOptions {
   title?: string | undefined
@@ -52,7 +64,7 @@ export function createHttpApp(
   // Generate OpenAPI 3.1 document
   const openApiDoc = generateOpenApiDoc(tools, options)
 
-  const authorize = (c: any, includeAuth = true) => {
+  const authorize = (c: Context, includeAuth = true): Response | undefined => {
     try {
       // A public health check still observes an explicitly configured origin
       // policy, while intentionally skipping only the bearer credential.
@@ -83,11 +95,11 @@ export function createHttpApp(
   })
 
   // Swagger UI
-  app.get('/docs', (c, next) => {
+  app.get('/docs', async (c, next) => {
     const denied = authorize(c)
     return denied ?? swaggerUI({ url: '/openapi.json' })(c, next)
   })
-  app.get('/api/v1/docs', (c, next) => {
+  app.get('/api/v1/docs', async (c, next) => {
     const denied = authorize(c)
     return denied ?? swaggerUI({ url: '/api/v1/openapi.json' })(c, next)
   })
@@ -129,7 +141,7 @@ export function createHttpApp(
     const rawPath = tool.api?.path ?? `/${tool.category ?? 'tools'}/${tool.name}`
     const method = (tool.api?.method ?? (tool.hints?.readOnly ? 'GET' : 'POST')).toLowerCase()
 
-    const routeHandler = async (c: any) => {
+    const routeHandler = async (c: Context) => {
       const denied = authorize(c)
       if (denied) return denied
 
@@ -137,11 +149,7 @@ export function createHttpApp(
       if (c.req.method === 'GET') input = c.req.query()
       else {
         try {
-          const parsed = await readToolJsonRequest(c.req.raw, maxBodyBytes)
-          if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-            return c.json({ error: 'Request body must be a JSON object' }, 400)
-          }
-          input = parsed as Record<string, unknown>
+          input = await readToolJsonRequest(c.req.raw, maxBodyBytes, ToolInputObjectSchema)
         } catch (error) {
           const status = error instanceof ToolHttpError ? error.status : 400
           return c.json(
@@ -161,7 +169,7 @@ export function createHttpApp(
       if (!validation.success) {
         return c.json(
           { error: 'Validation failed', detail: validation.error },
-          resolveToolStatus(tool, 'validationError', 400) as any,
+          contentfulStatus(tool, 'validationError', resolveToolStatus(tool, 'validationError', 400)),
         )
       }
 
@@ -170,13 +178,13 @@ export function createHttpApp(
       try {
         const result = await executeTool(tool, validation.data, ctx)
         const successStatus = method === 'post' && tool.api?.statusCodes?.created !== undefined
-          ? tool.api.statusCodes.created
-          : resolveToolStatus(tool, 'success', 200)
-        return c.json(result, successStatus as any)
-      } catch (err: any) {
+          ? contentfulStatus(tool, 'created', tool.api.statusCodes.created)
+          : contentfulStatus(tool, 'success', resolveToolStatus(tool, 'success', 200))
+        return c.json(result, successStatus)
+      } catch {
         return c.json(
           { error: `Tool execution failed (requestId: ${ctx.requestId})` },
-          resolveToolStatus(tool, 'serverError', 500) as any,
+          contentfulStatus(tool, 'serverError', resolveToolStatus(tool, 'serverError', 500)),
         )
       }
     }
@@ -393,6 +401,23 @@ function generateOpenApiDoc(tools: ToolDefinition[], options: HttpAdapterOptions
         }
       : {}),
   }
+}
+
+const CONTENTLESS_STATUS_CODES: ReadonlySet<number> = new Set([101, 204, 205, 304])
+
+/**
+ * Narrow a configured status to one a JSON response may carry. Fetch Responses
+ * only accept 200-599, and contentless statuses cannot have a JSON body.
+ */
+function contentfulStatus(
+  tool: ToolDefinition,
+  key: 'success' | 'created' | 'validationError' | 'serverError',
+  status: number,
+): ContentfulStatusCode {
+  if (!Number.isInteger(status) || status < 200 || status > 599 || CONTENTLESS_STATUS_CODES.has(status)) {
+    throw new RangeError(`Tool ${tool.name} statusCodes.${key} must be an integer between 200 and 599 that allows a response body`)
+  }
+  return status as ContentfulStatusCode
 }
 
 function resolveToolStatus(

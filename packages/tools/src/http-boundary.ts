@@ -53,15 +53,30 @@ export function authorizeToolHttpRequest(headers: ToolRequestHeaders | undefined
   }
 }
 
-function parseJson(text: string): unknown {
+/** A runtime validator applied to a decoded JSON request body before it is returned. */
+export interface ToolJsonBodySchema<T> {
+  /** Return the validated body or throw; throw a ToolHttpError to choose the HTTP status. */
+  parse(value: unknown): T
+}
+
+/**
+ * Decode a request body. Without a schema the caller receives `unknown` and
+ * must validate it; with a schema the decoded value is validated here.
+ */
+function decodeJsonBody(text: string): unknown
+function decodeJsonBody<T>(text: string, schema: ToolJsonBodySchema<T>): T
+function decodeJsonBody<T>(text: string, schema?: ToolJsonBodySchema<T>): unknown {
   try {
-    return JSON.parse(text)
-  } catch {
-    throw new ToolHttpError(400, 'Invalid JSON')
+    if (schema === undefined) return JSON.parse(text)
+    return schema.parse(JSON.parse(text))
+  } catch (error) {
+    // JSON.parse reports malformed text as SyntaxError; schema errors keep their own status.
+    if (error instanceof SyntaxError) throw new ToolHttpError(400, 'Invalid JSON')
+    throw error
   }
 }
 
-export async function readToolJsonRequest(request: Request, maxBytes: number): Promise<unknown> {
+async function readRequestText(request: Request, maxBytes: number): Promise<string> {
   const reader = request.body?.getReader()
   if (!reader) throw new ToolHttpError(400, 'Invalid JSON')
   const chunks: Uint8Array[] = []
@@ -80,10 +95,10 @@ export async function readToolJsonRequest(request: Request, maxBytes: number): P
   } finally {
     reader.releaseLock()
   }
-  return parseJson(Buffer.concat(chunks).toString('utf8'))
+  return Buffer.concat(chunks).toString('utf8')
 }
 
-export async function readToolNodeJsonRequest(request: IncomingMessage, maxBytes: number): Promise<unknown> {
+async function readNodeRequestText(request: IncomingMessage, maxBytes: number): Promise<string> {
   const chunks: Buffer[] = []
   let size = 0
   // destroyOnReturn:false lets the adapter send 413 before closing an oversized request.
@@ -96,5 +111,21 @@ export async function readToolNodeJsonRequest(request: IncomingMessage, maxBytes
     }
     chunks.push(buffer)
   }
-  return parseJson(Buffer.concat(chunks).toString('utf8'))
+  return Buffer.concat(chunks).toString('utf8')
+}
+
+/** Read a bounded JSON body from a Fetch request, optionally validating it with `schema`. */
+export async function readToolJsonRequest(request: Request, maxBytes: number): Promise<unknown>
+export async function readToolJsonRequest<T>(request: Request, maxBytes: number, schema: ToolJsonBodySchema<T>): Promise<T>
+export async function readToolJsonRequest<T>(request: Request, maxBytes: number, schema?: ToolJsonBodySchema<T>): Promise<unknown> {
+  const text = await readRequestText(request, maxBytes)
+  return schema === undefined ? decodeJsonBody(text) : decodeJsonBody(text, schema)
+}
+
+/** Read a bounded JSON body from a Node request, optionally validating it with `schema`. */
+export async function readToolNodeJsonRequest(request: IncomingMessage, maxBytes: number): Promise<unknown>
+export async function readToolNodeJsonRequest<T>(request: IncomingMessage, maxBytes: number, schema: ToolJsonBodySchema<T>): Promise<T>
+export async function readToolNodeJsonRequest<T>(request: IncomingMessage, maxBytes: number, schema?: ToolJsonBodySchema<T>): Promise<unknown> {
+  const text = await readNodeRequestText(request, maxBytes)
+  return schema === undefined ? decodeJsonBody(text) : decodeJsonBody(text, schema)
 }

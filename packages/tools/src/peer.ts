@@ -15,22 +15,42 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { ToolApp, createToolApp } from './app.js'
 import type { ToolDefinition } from './types.js'
+import {
+  PeerCallResponseSchema,
+  PeerStatusSchema,
+  PeerStoreSchema,
+  PeerToolArgumentsSchema,
+  PeerToolListSchema,
+  WebMcpCallInputSchema,
+  type PeerCallResponse,
+} from './peer-protocol.js'
 
 export interface WebMcpPeerRecord {
   alias: string
-  id?: string
-  title?: string
-  origin?: string
-  signalingUrl?: string
-  invitationUrl?: string
-  status?: string
-  allowedTools?: string[]
+  id?: string | undefined
+  title?: string | undefined
+  origin?: string | undefined
+  signalingUrl?: string | undefined
+  invitationUrl?: string | undefined
+  status?: string | undefined
+  allowedTools?: string[] | undefined
   cachedTools?: Array<{
     name: string
-    description?: string
-    inputSchema?: Record<string, unknown>
-  }>
-  updatedAt?: number
+    description?: string | undefined
+    inputSchema?: Record<string, unknown> | undefined
+  }> | undefined
+  updatedAt?: number | undefined
+}
+
+/** Bridge `/status` document, or the status derived from the local peer registry. */
+export interface WebMcpPeerStatus {
+  ok: boolean
+  activeAlias?: string | undefined
+  targetAlias?: string | undefined
+  connected?: boolean | undefined
+  toolsCount?: number | undefined
+  tools?: string[] | undefined
+  peers?: WebMcpPeerRecord[] | undefined
 }
 
 export interface WebMcpPeerConfig {
@@ -48,16 +68,21 @@ export interface WebMcpPeerConfig {
   refreshRetryMs?: number
 }
 
+/** The part of @oa-sdk/peer-transport's WebMcpBridgeClient this adapter delegates to. */
 interface SharedBridgeClient {
   resolvePeer: (alias?: string) => Promise<WebMcpPeerRecord | null>
-  getStatus: () => Promise<Record<string, any>>
+  getStatus: () => Promise<WebMcpPeerStatus>
   listTools: (alias?: string) => Promise<Array<{ name: string; description: string; inputSchema: Record<string, unknown> }>>
   callTool: (payload: { tool: string; args?: Record<string, unknown>; peer?: string }) => Promise<{
     result?: unknown
-    error?: string
-    isError?: boolean
-    status?: string
+    error?: string | undefined
+    isError?: boolean | undefined
+    status?: string | undefined
   }>
+}
+
+function errorName(error: unknown): string | undefined {
+  return error instanceof Error ? error.name : undefined
 }
 
 export class WebMcpPeerBridgeClient {
@@ -95,9 +120,7 @@ export class WebMcpPeerBridgeClient {
     if (!existsSync(this.storePath)) return null
     try {
       const text = await readFile(this.storePath, 'utf-8')
-      const data = JSON.parse(text)
-      const peer = data?.peers?.[alias]
-      return peer ? (peer as WebMcpPeerRecord) : null
+      return PeerStoreSchema.parse(JSON.parse(text))[alias] ?? null
     } catch {
       return null
     }
@@ -106,21 +129,15 @@ export class WebMcpPeerBridgeClient {
   /**
    * Query status of the local WebMCP bridge / server
    */
-  async getStatus(): Promise<{
-    ok: boolean
-    activeAlias?: string
-    connected?: boolean
-    toolsCount?: number
-    peers?: WebMcpPeerRecord[]
-  }> {
-    if (this.sharedClient) return (await this.sharedClient.getStatus()) as any
+  async getStatus(): Promise<WebMcpPeerStatus> {
+    if (this.sharedClient) return this.sharedClient.getStatus()
     try {
       const res = await fetch(`${this.serverUrl}/status`, {
         headers: this.headers(),
         signal: AbortSignal.timeout(5000),
       })
       if (res.ok) {
-        return (await res.json()) as any
+        return PeerStatusSchema.parse(JSON.parse(await res.text()))
       }
     } catch {
       // Fallback to local store status
@@ -152,10 +169,11 @@ export class WebMcpPeerBridgeClient {
         signal: AbortSignal.timeout(5000),
       })
       if (res.ok) {
-        const body = (await res.json()) as any
-        if (Array.isArray(body?.tools)) return body.tools
+        return PeerToolListSchema.parse(JSON.parse(await res.text()))
       }
-    } catch {}
+    } catch {
+      // A missing bridge or a malformed catalog falls back to the registry cache.
+    }
 
     // 2. Fallback to cachedTools from peers.json
     const peer = await this.resolvePeer(alias)
@@ -177,7 +195,7 @@ export class WebMcpPeerBridgeClient {
     tool: string,
     args: Record<string, unknown> = {},
     alias = this.alias,
-  ): Promise<any> {
+  ): Promise<unknown> {
     if (this.sharedClient) {
       const result = await this.sharedClient.callTool({ tool, args, peer: alias })
       if (result.isError) throw new Error(result.error ?? 'Tool call failed')
@@ -196,16 +214,16 @@ export class WebMcpPeerBridgeClient {
           signal: AbortSignal.timeout(this.timeoutMs),
         })
 
-        let body: Record<string, any>
+        let body: PeerCallResponse
         try {
-          body = (await res.json()) as Record<string, any>
+          body = PeerCallResponseSchema.parse(JSON.parse(await res.text()))
         } catch {
           // Preserve the fallback's tolerant handling for error responses,
           // while treating an invalid successful response as terminal.
           if (res.ok) throw new Error('Bridge returned invalid JSON')
-          body = {}
+          body = { result: {} }
         }
-        const errorText = typeof body.error === 'string' ? body.error : undefined
+        const errorText = body.error
 
         // Only the bridge's explicit PEER_UNAVAILABLE signal is transient. A
         // 404, another 503, or any other HTTP error is a terminal tool error;
@@ -215,10 +233,11 @@ export class WebMcpPeerBridgeClient {
         } else if (!res.ok) {
           throw new Error(errorText || body.message || `Tool call failed with HTTP ${res.status}`)
         } else {
-          return body.result ?? body
+          return body.result
         }
-      } catch (err: any) {
-        if (err.name === 'AbortError' || err.name === 'TimeoutError') {
+      } catch (err: unknown) {
+        const name = errorName(err)
+        if (name === 'AbortError' || name === 'TimeoutError') {
           throw new Error(`Tool call timeout after ${this.timeoutMs}ms`)
         }
         // Network errors and malformed responses are terminal. The retry
@@ -250,7 +269,7 @@ export async function createWebMcpPeerApp(options: WebMcpPeerAppOptions = {}): P
   let sharedClient: SharedBridgeClient | undefined
   try {
     const transport = await import('@oa-sdk/peer-transport')
-    sharedClient = new transport.WebMcpBridgeClient(options) as unknown as SharedBridgeClient
+    sharedClient = new transport.WebMcpBridgeClient(options)
   } catch {
     // Keep the local implementation available when the optional transport peer is absent.
   }
@@ -312,9 +331,9 @@ export async function createWebMcpPeerApp(options: WebMcpPeerAppOptions = {}): P
       },
       required: ['tool'],
     },
-    execute: async (_ctx, input: any) => {
-      const result = await client.callTool(input.tool, input.args ?? {}, input.peer)
-      return result
+    execute: async (_ctx, input: unknown) => {
+      const call = WebMcpCallInputSchema.parse(input)
+      return client.callTool(call.tool, call.args, call.peer)
     },
   }
 
@@ -331,10 +350,7 @@ export async function createWebMcpPeerApp(options: WebMcpPeerAppOptions = {}): P
         name: t.name,
         description: t.description,
         inputSchema: t.inputSchema || { type: 'object', properties: {} },
-        execute: async (_ctx, input: any) => {
-          const result = await client.callTool(t.name, input || {})
-          return result
-        },
+        execute: async (_ctx, input: unknown) => client.callTool(t.name, PeerToolArgumentsSchema.parse(input)),
       }
       app.tools(peerTool)
     }

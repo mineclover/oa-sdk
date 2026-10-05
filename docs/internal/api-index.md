@@ -1515,9 +1515,9 @@ EntitySpec IR과 소스 코드의 동기화, 타입 어댑터, shape 분류 및 
 | `CliAdapterOptions`, `createCli`, `promptMissingFields` | `tools/src/cli.ts` | Commander CLI 생성과 누락된 필드 입력 |
 | `HttpAdapterOptions`, `createHttpApp`, `serveHttpApp` | `tools/src/http.ts` | Hono HTTP 앱 구성과 close 가능한 서버 실행 |
 | `ToolRequestHeaders`, `ToolHttpSecurityOptions`, `ToolHttpError`, `readToolHeader`, `validateToolHttpOptions`, `authorizeToolHttpRequest` | `tools/src/http-boundary.ts` | 공유 인증·origin·body 크기 정책 및 안전한 HTTP 오류 |
-| `readToolJsonRequest`, `readToolNodeJsonRequest` | `tools/src/http-boundary.ts` | Fetch·Node HTTP 요청의 크기 제한 JSON 읽기 |
+| `ToolJsonBodySchema`, `readToolJsonRequest`, `readToolNodeJsonRequest` | `tools/src/http-boundary.ts` | Fetch·Node HTTP 요청의 크기 제한 JSON 읽기와 선택적 body schema 검증 |
 | `ToolAppConfig`, `ToolApp`, `createToolApp`, `createApp` | `tools/src/app.ts` | 도구 registry와 adapter lifecycle을 묶는 앱 |
-| `WebMcpPeerRecord`, `WebMcpPeerConfig`, `WebMcpPeerAppOptions`, `WebMcpPeerBridgeClient`, `createWebMcpPeerApp` | `tools/src/peer.ts` | WebMCP peer 연결 계약과 bridge client |
+| `WebMcpPeerRecord`, `WebMcpPeerStatus`, `WebMcpPeerConfig`, `WebMcpPeerAppOptions`, `WebMcpPeerBridgeClient`, `createWebMcpPeerApp` | `tools/src/peer.ts` | WebMCP peer 연결 계약, bridge 상태 문서와 bridge client |
 | `ChunkStreamToolsOptions`, `createChunkStreamTools`, `registerChunkStreamTools` | `tools/src/chunk-stream.ts` | chunk-stream 도구 생성과 앱 등록 |
 
 ---

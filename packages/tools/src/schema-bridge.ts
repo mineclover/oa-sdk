@@ -72,7 +72,7 @@ export interface SchemaBridgeOptions<TInput = any, TOutput = any> {
 export function createSchemaTool<TInput = any, TOutput = any>(
   options: SchemaBridgeOptions<TInput, TOutput>,
 ): ToolDefinition<TInput, TOutput> {
-  const base = normalizeJsonSchema(options.schema as any)
+  const base = normalizeJsonSchema(options.schema)
   const sourceProps = base.properties ?? {}
   const targetProps: Record<string, JsonSchemaProperty> = {}
   let targetRequired = new Set<string>(base.required ?? [])

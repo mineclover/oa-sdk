@@ -55,6 +55,18 @@ export function isZodSchema(schema: unknown): schema is z.ZodType<unknown> {
   )
 }
 
+/** Read a property of an arbitrary value without asserting its shape. */
+function readProperty(value: unknown, key: string): unknown {
+  return typeof value === 'object' && value !== null ? Reflect.get(value, key) : undefined
+}
+
+/** Return `key` as a callable bound to `target`, or undefined when it is not a function. */
+function readMethod(target: unknown, key: string): ((input: unknown) => unknown) | undefined {
+  const method = readProperty(target, key)
+  if (typeof method !== 'function') return undefined
+  return (input: unknown): unknown => Reflect.apply(method, target, [input])
+}
+
 /** Resolve the component name in a local JSON Schema/OpenAPI reference. */
 function refName(ref: string): string | undefined {
   const match = ref.match(/^#\/(?:components\/schemas|\$defs)\/(.+)$/)
@@ -63,7 +75,7 @@ function refName(ref: string): string | undefined {
 
 /** Keep component definitions available for recursive references after expansion. */
 function attachComponents(schema: JsonSchemaObject, components: Record<string, JsonSchemaObject>): JsonSchemaObject {
-  const rewrite = (value: unknown): any => {
+  const rewrite = (value: unknown): unknown => {
     if (Array.isArray(value)) return value.map(rewrite)
     if (!value || typeof value !== 'object') {
       if (typeof value === 'string') return value.replace(/^#\/components\/schemas\//, '#/$defs/')
@@ -95,7 +107,7 @@ export function dereferenceSchema(
 ): JsonSchemaObject {
   if (!components || !schema || typeof schema !== 'object') return schema
 
-  const visit = (value: unknown, active: Set<string>): any => {
+  const visit = (value: unknown, active: Set<string>): unknown => {
     if (Array.isArray(value)) return value.map((item) => visit(item, active))
     if (!value || typeof value !== 'object') return value
 
@@ -148,8 +160,8 @@ export function normalizeJsonSchema(
       // Zod 4 exposes this conversion on every schema instance. Calling the
       // instance method avoids making the optional zod peer a runtime import.
       // Older Zod versions have no lossless conversion and fail explicitly.
-      const toJSONSchema = (schema as any).toJSONSchema
-      const jsonSchema = typeof toJSONSchema === 'function' ? toJSONSchema.call(schema) : null
+      const toJSONSchema = readMethod(schema, 'toJSONSchema')
+      const jsonSchema = toJSONSchema === undefined ? null : toJSONSchema(undefined)
 
       if (jsonSchema && typeof jsonSchema === 'object') {
         const normalized = { ...(jsonSchema as JsonSchemaObject) }
@@ -237,8 +249,10 @@ function formatValidationError(error: ErrorObject): string {
  * abstraction used by `validateToolInput`; every standard constraint is checked
  * by Ajv, including refs, composition, formats, and length/range keywords.
  */
-const validatorCache = new WeakMap<object, WeakMap<object, JsonSchemaValidator<any>>>()
-const undefinedComponentsCache = new WeakMap<object, JsonSchemaValidator<any>>()
+// Cached validators are keyed by schema identity; the caller's T names the
+// shape that schema validates, so the cache stores them as JsonSchemaValidator<unknown>.
+const validatorCache = new WeakMap<object, WeakMap<object, JsonSchemaValidator<unknown>>>()
+const undefinedComponentsCache = new WeakMap<object, JsonSchemaValidator<unknown>>()
 
 export function createJsonSchemaValidator<T = unknown>(
   schema: JsonSchemaObject,
@@ -267,7 +281,7 @@ export function createJsonSchemaValidator<T = unknown>(
       validate: () => ({ success: false, error: `Invalid schema: ${message}` }),
     }
     if (components) {
-      const byComponent = validatorCache.get(schema) ?? new WeakMap<object, JsonSchemaValidator<any>>()
+      const byComponent = validatorCache.get(schema) ?? new WeakMap<object, JsonSchemaValidator<unknown>>()
       byComponent.set(components, invalid)
       validatorCache.set(schema, byComponent)
     } else {
@@ -287,7 +301,7 @@ export function createJsonSchemaValidator<T = unknown>(
     },
   }
   if (components) {
-    const byComponent = validatorCache.get(schema) ?? new WeakMap<object, JsonSchemaValidator<any>>()
+    const byComponent = validatorCache.get(schema) ?? new WeakMap<object, JsonSchemaValidator<unknown>>()
     byComponent.set(components, compiled)
     validatorCache.set(schema, byComponent)
   } else {
@@ -296,47 +310,65 @@ export function createJsonSchemaValidator<T = unknown>(
   return compiled
 }
 
+/** Join Zod-style issues as "path: message" pairs. */
+function describeIssues(error: unknown): string | undefined {
+  const issues = readProperty(error, 'issues')
+  if (!Array.isArray(issues)) return undefined
+  const messages = issues.map((issue: unknown) => {
+    const path = readProperty(issue, 'path')
+    const location = (Array.isArray(path) ? path.map(String).join('.') : '') || 'input'
+    return `${location}: ${String(readProperty(issue, 'message'))}`
+  })
+  return messages.join(', ') || undefined
+}
+
+function describeSafeParseError(error: unknown): string {
+  if (error instanceof Error) return error.message
+  const message = readProperty(error, 'message')
+  return typeof message === 'string' ? message : String(error ?? 'Validation failed')
+}
+
 /**
  * Validate input against a ToolSchema with rich error messages.
+ *
+ * The schema is the authority for T: a successful result carries the value the
+ * schema accepted (or produced, for transforming validators) as T.
  */
 export function validateToolInput<T>(
   schema: ToolSchema<T>,
   data: unknown,
   components?: Record<string, JsonSchemaObject>,
 ): ValidationResult<T> {
+  const safeParse = readMethod(schema, 'safeParse')
+
   // Case 1: Zod schema with safeParse
-  if (isZodSchema(schema) && typeof (schema as any).safeParse === 'function') {
-    const res = (schema as any).safeParse(data)
-    if (res.success) return { success: true, data: res.data as T }
-    const issueMessages = res.error?.issues?.map((i: any) => `${i.path.join('.') || 'input'}: ${i.message}`).join(', ')
-    const errMsg = issueMessages || res.error?.message || 'Validation failed'
-    return { success: false, error: errMsg }
+  if (isZodSchema(schema) && safeParse !== undefined) {
+    const res = safeParse(data)
+    if (readProperty(res, 'success')) return { success: true, data: readProperty(res, 'data') as T }
+    const error = readProperty(res, 'error')
+    const message = readProperty(error, 'message')
+    return { success: false, error: describeIssues(error) || (typeof message === 'string' && message) || 'Validation failed' }
   }
 
   // Case 2: Custom validator objects. Keep these contracts useful even when
   // they are not Zod: safeParse is preferred, parse may transform the value,
   // and validate is a boolean/type-guard fallback.
-  if (schema && typeof (schema as any).safeParse === 'function') {
-    const res = (schema as any).safeParse(data)
-    if (res?.success) return { success: true, data: res.data as T }
-    const validationError = res?.error as { message?: unknown } | undefined
-    const message =
-      res?.error instanceof Error
-        ? res.error.message
-        : typeof validationError?.message === 'string'
-          ? validationError.message
-          : String(res?.error ?? 'Validation failed')
-    return { success: false, error: message }
+  if (safeParse !== undefined) {
+    const res = safeParse(data)
+    if (readProperty(res, 'success')) return { success: true, data: readProperty(res, 'data') as T }
+    return { success: false, error: describeSafeParseError(readProperty(res, 'error')) }
   }
-  if (schema && typeof (schema as any).parse === 'function') {
+  const parse = readMethod(schema, 'parse')
+  if (parse !== undefined) {
     try {
-      return { success: true, data: (schema as any).parse(data) as T }
+      return { success: true, data: parse(data) as T }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Validation failed' }
     }
   }
-  if (schema && typeof (schema as any).validate === 'function') {
-    if ((schema as any).validate(data)) return { success: true, data: data as T }
+  const validate = readMethod(schema, 'validate')
+  if (validate !== undefined) {
+    if (validate(data)) return { success: true, data: data as T }
     return { success: false, error: 'Validation failed against schema type guard' }
   }
 

@@ -1,0 +1,160 @@
+/**
+ * @oa-sdk/tools — WebMCP bridge protocol validation for the built-in peer client.
+ *
+ * The bridge daemon, the local peers.json registry, and MCP callers are all
+ * outside this process. Their JSON passes through these named schemas before
+ * it becomes a WebMCP domain type.
+ */
+import type { WebMcpPeerRecord, WebMcpPeerStatus } from './peer.js'
+
+/** A named runtime validator: `parse` returns the validated value or throws a TypeError. */
+export interface PeerProtocolSchema<T> {
+  parse(value: unknown): T
+}
+
+export interface PeerToolDescriptor {
+  name: string
+  description: string
+  inputSchema: Record<string, unknown>
+}
+
+export interface PeerCallResponse {
+  error?: string | undefined
+  message?: string | undefined
+  /** The `result` member, or the whole document when the bridge replies without one. */
+  result: unknown
+}
+
+/** Arguments of the `webmcp_call` meta-tool. */
+export interface WebMcpCallInput {
+  tool: string
+  args: Record<string, unknown>
+  peer?: string | undefined
+}
+
+type CachedTool = NonNullable<WebMcpPeerRecord['cachedTools']>[number]
+
+const OPTIONAL_STRING_FIELDS = ['id', 'title', 'origin', 'signalingUrl', 'invitationUrl', 'status'] as const
+
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isToolName(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && value.length <= 256 && !/[\u0000-\u001f\u007f]/.test(value)
+}
+
+function parseCachedTool(value: unknown): CachedTool | undefined {
+  if (!isRecord(value) || !isToolName(value.name)) return undefined
+  return {
+    name: value.name,
+    ...(typeof value.description === 'string' ? { description: value.description } : {}),
+    ...(isRecord(value.inputSchema) ? { inputSchema: value.inputSchema } : {}),
+  }
+}
+
+/** Rebuild a peer record from typed known fields; credentials and unknown fields are not copied. */
+function parsePeerRecord(value: unknown): WebMcpPeerRecord | undefined {
+  if (!isRecord(value) || typeof value.alias !== 'string' || value.alias.length === 0) return undefined
+  const record: WebMcpPeerRecord = { alias: value.alias }
+  for (const field of OPTIONAL_STRING_FIELDS) {
+    const fieldValue = value[field]
+    if (typeof fieldValue === 'string') record[field] = fieldValue
+  }
+  if (Array.isArray(value.allowedTools)) record.allowedTools = value.allowedTools.filter(isToolName)
+  if (Array.isArray(value.cachedTools)) {
+    record.cachedTools = value.cachedTools.flatMap((entry) => {
+      const tool = parseCachedTool(entry)
+      return tool === undefined ? [] : [tool]
+    })
+  }
+  if (typeof value.updatedAt === 'number' && Number.isFinite(value.updatedAt)) record.updatedAt = value.updatedAt
+  return record
+}
+
+function parsePeerList(value: unknown): WebMcpPeerRecord[] | undefined {
+  const entries = Array.isArray(value) ? value : isRecord(value) ? Object.values(value) : undefined
+  return entries?.flatMap((entry) => {
+    const peer = parsePeerRecord(entry)
+    return peer === undefined ? [] : [peer]
+  })
+}
+
+/** The local peers.json registry, as its alias-keyed `peers` directory. */
+export const PeerStoreSchema: PeerProtocolSchema<Record<string, WebMcpPeerRecord>> = {
+  parse(value) {
+    if (!isRecord(value)) throw new TypeError('Peer registry must be a JSON object')
+    const directory: Record<string, WebMcpPeerRecord> = {}
+    if (!isRecord(value.peers)) return directory
+    for (const [alias, entry] of Object.entries(value.peers)) {
+      const peer = parsePeerRecord(entry)
+      if (peer !== undefined) directory[alias] = peer
+    }
+    return directory
+  },
+}
+
+/** The bridge `/status` document. `peers` is normalized to the declared array form. */
+export const PeerStatusSchema: PeerProtocolSchema<WebMcpPeerStatus> = {
+  parse(value) {
+    if (!isRecord(value)) throw new TypeError('Bridge status must be a JSON object')
+    const peers = parsePeerList(value.peers)
+    const toolsCount = value.toolsCount
+    return {
+      ok: value.ok === true,
+      ...(typeof value.activeAlias === 'string' ? { activeAlias: value.activeAlias } : {}),
+      ...(typeof value.targetAlias === 'string' ? { targetAlias: value.targetAlias } : {}),
+      ...(typeof value.connected === 'boolean' ? { connected: value.connected } : {}),
+      ...(typeof toolsCount === 'number' && Number.isSafeInteger(toolsCount) && toolsCount >= 0 ? { toolsCount } : {}),
+      ...(Array.isArray(value.tools) ? { tools: value.tools.filter(isToolName) } : {}),
+      ...(peers === undefined ? {} : { peers }),
+    }
+  },
+}
+
+/** The bridge `/tools` document. Entries without a usable tool name are skipped. */
+export const PeerToolListSchema: PeerProtocolSchema<PeerToolDescriptor[]> = {
+  parse(value) {
+    if (!isRecord(value) || !Array.isArray(value.tools)) throw new TypeError('Bridge tool list must contain a tools array')
+    return value.tools.flatMap((entry) => {
+      const tool = parseCachedTool(entry)
+      if (tool === undefined) return []
+      return [{
+        name: tool.name,
+        description: tool.description ?? `WebMCP tool ${tool.name}`,
+        inputSchema: tool.inputSchema ?? { type: 'object', properties: {} },
+      }]
+    })
+  },
+}
+
+/** The bridge `/call` document. A tool result is arbitrary JSON by protocol, so it stays `unknown`. */
+export const PeerCallResponseSchema: PeerProtocolSchema<PeerCallResponse> = {
+  parse(value) {
+    if (!isRecord(value)) return { result: value }
+    return {
+      ...(typeof value.error === 'string' ? { error: value.error } : {}),
+      ...(typeof value.message === 'string' ? { message: value.message } : {}),
+      result: value.result ?? value,
+    }
+  },
+}
+
+/** `webmcp_call` arguments, checked again here because execute can be called directly. */
+export const WebMcpCallInputSchema: PeerProtocolSchema<WebMcpCallInput> = {
+  parse(value) {
+    if (!isRecord(value) || !isToolName(value.tool)) throw new TypeError('webmcp_call requires a tool name')
+    if (value.args !== undefined && !isRecord(value.args)) throw new TypeError('webmcp_call args must be an object')
+    if (value.peer !== undefined && typeof value.peer !== 'string') throw new TypeError('webmcp_call peer must be a string')
+    return { tool: value.tool, args: value.args ?? {}, ...(value.peer === undefined ? {} : { peer: value.peer }) }
+  },
+}
+
+/** Arguments forwarded to a discovered peer tool: an object, or nothing. */
+export const PeerToolArgumentsSchema: PeerProtocolSchema<Record<string, unknown>> = {
+  parse(value) {
+    if (value === undefined || value === null) return {}
+    if (!isRecord(value)) throw new TypeError('Peer tool arguments must be an object')
+    return value
+  },
+}
