@@ -223,7 +223,7 @@ export function handleRouteRequest(
     if (result.errors.some(error => error.path === '/security' && error.code === 'MISSING_REQUIRED_FIELD')) {
       // A selected response is intentionally reused here so both adapters preserve
       // the operation's documented content type, headers, and Error body.
-      return toCheckedResult(route.unauthorizedChecked(), entry, [])
+      return rejectedRequestResult(route.unauthorizedChecked(), entry)
     }
 
     const documentedValidation = documentedValidationResponse(route, result.errors)
@@ -231,7 +231,7 @@ export function handleRouteRequest(
       // A documented 422 owns both its wire representation and public error
       // schema. Keep validation diagnostics only when that selected schema accepts
       // their content-free form.
-      return toCheckedResult(documentedValidation, entry, [])
+      return rejectedRequestResult(documentedValidation, entry)
     }
 
     return {
@@ -289,9 +289,10 @@ function finalizeChecked(
   return { type: 'success', picked: checked.picked, callbacks: simulateCallbackPosts(entry, parts, checked.picked) }
 }
 
-function toCheckedResult(checked: CheckedResponse, entry: HandlerEntry, callbacks: CallbackPostAttempt[]): HandlerResult {
+/** A documented response to a rejected request: served as is (it triggers no callbacks) unless its schema rejects it. */
+function rejectedRequestResult(checked: CheckedResponse, entry: HandlerEntry): HandlerResult {
   if (checked.errors) return responseSchemaError(checked.errors, entry)
-  return { type: 'success', picked: checked.picked, callbacks }
+  return { type: 'success', picked: checked.picked, callbacks: [] }
 }
 
 function responseSchemaError(errors: MockErrorDetail[], entry: HandlerEntry): HandlerResult {
