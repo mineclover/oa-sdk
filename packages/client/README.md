@@ -1,0 +1,164 @@
+# @oa-sdk/client
+
+Generates a typed `fetch` client and TanStack Query v5 code from an OpenAPI 3.1 or 3.2 document, and
+ships the runtime helpers that code uses.
+
+- `oa-gen` from `@oa-sdk/codegen` loads this package as a companion package for
+  `oa-gen generate:client`, `oa-gen pack:client`, `oa-gen generate:tanstack`, and the client,
+  TanStack Query, and CRDT outputs of `oa-gen generate`.
+- The generators are also a library you can call from a build script.
+- The generated client depends on nothing but `fetch`; generated TanStack Query code imports types
+  from this package.
+
+## Installation
+
+```bash
+npm install --save-dev @oa-sdk/client
+```
+
+Requires Node.js 22 or later. The package depends on `@oa-sdk/core` and `@oa-sdk/parser`.
+`@oa-sdk/client` is published to npm for the first time with the `@oa-sdk/codegen` 0.9.0 release;
+it cannot be installed from npm before that release.
+
+Without this package, `oa-gen generate:client`, `pack:client` and `generate:tanstack` print the
+install command for the version range they were built against and exit with code 1. `oa-gen generate`
+fails the same way when `oa.config.ts` sets `core.client.enabled: true`, and otherwise skips the client
+and TanStack Query outputs with a warning.
+
+### Entry points
+
+| Import | Use |
+|---|---|
+| `@oa-sdk/client` | Node. All generators; `basePath` resolves relative external `$ref`s. |
+| `@oa-sdk/client/browser` | Browser bundles. The client, CRDT, and chunk-stream APIs for in-memory documents (internal `$ref`s only). No TanStack Query generators. |
+
+Generators throw when the document's `$ref`s do not resolve completely.
+
+## Generating a client
+
+With the CLI:
+
+```bash
+npx oa-gen typegen --spec ./openapi.yaml -o src/api/types.ts
+npx oa-gen generate:client --spec ./openapi.yaml --types-import ./types.js -o src/api/client.ts
+npx oa-gen generate:tanstack --spec ./openapi.yaml -o src/api
+```
+
+With the library:
+
+```js
+import { readFileSync, writeFileSync } from 'node:fs'
+import { parse } from 'yaml'
+import { generateClient, generateTanstackQuery } from '@oa-sdk/client'
+
+const spec = parse(readFileSync('openapi.yaml', 'utf8'))
+
+writeFileSync('src/api/client.ts', generateClient(spec, { typesImport: './types.js' }))
+const { combinedCode } = generateTanstackQuery(spec, { clientImport: './client.js' })
+writeFileSync('src/api/tanstack-query.ts', combinedCode)
+```
+
+Without `typesImport` the client is untyped: methods take `Record<string, string>`,
+`Record<string, unknown>` and `unknown`, and return `unknown`. With it, they use the types that
+`oa-gen typegen` writes, and the client also exports per-operation error types and guards.
+
+## The generated client
+
+```ts
+import { createClient, bearerAuth, isClientError } from './api/client.js'
+
+const client = createClient({
+  baseUrl: 'https://api.example.com', // defaults to the spec's servers[0] URL
+  headers: { 'X-App': 'web' },
+  timeout: 10_000, // per attempt, in ms
+  retry: { maxRetries: 3, baseDelay: 500 }, // defaults: 0 retries, 1000 ms
+  validate: true, // check parameters and body against the spec before sending
+  middleware: [bearerAuth(token)],
+})
+
+const user = await client.getUserById({ userId: 'u-1' }) // path parameters are an object
+```
+
+- **Methods**: one per operation, named by its operationId. Arguments come in this order, skipping
+  what the operation lacks: path parameters object, body, query object, header parameters object,
+  options `{ signal?, headers? }`. Pass `undefined` for a skipped optional argument.
+- **Middleware**: `{ onRequest?(url, init), onResponse?(response), onError?(error) }`. `onRequest`
+  must return the `RequestInit`; it runs once before any retry.
+- **Retries**: GET, HEAD, OPTIONS and DELETE operations, and operations marked
+  `x-oa-sdk-retryable: true`, retry network errors and 5xx responses with exponential backoff,
+  honoring `Retry-After`. Streaming methods do not retry.
+- **Auth helpers**: one function per `components.securitySchemes` entry, named after the scheme key
+  (`Auth` appended unless it already ends in `auth`). This package also exports `bearerAuth(token)`,
+  `basicAuth(username, password)` and `apiKeyAuth(...)`, which work with any generated client.
+- **Response headers**: operations that document response headers (and do not stream) also get
+  `client.withResponse.<operationId>()`, which resolves to `{ body, headers, response }`. Header keys
+  keep the spec's casing, and values are parsed to the declared type.
+- **Errors**: non-2xx responses throw `ClientError` (`status`, `statusText`, `body`/`data`,
+  `response`, `operationId`). `isClientError()` also recognizes errors from another realm by shape.
+  A typed client adds `<Operation>ClientError`, `is<Operation>ClientError(error, status?)` and
+  `is<Operation>ErrorBody(body, status?)` for operations that document error responses.
+- **Streaming**: SSE and NDJSON operations become `AsyncGenerator<unknown>` methods. Narrow each item
+  before use. SSE `data` frames that are not JSON, and `[DONE]` frames, are skipped.
+
+The generated client imports nothing except the `typesImport` module. Generated TanStack Query code
+imports `JsonPrimitive` and `Resolved` from `@oa-sdk/client`, the TanStack Query package of the target
+framework, and `ApiClient` from `./client.js` (or `clientImport`).
+
+## Known limitations
+
+- `generateTanstackQuery({ typesImport })` with the plain `oa-gen typegen` output does not compile: the
+  generated code imports `<Operation>ClientError` for every operation and `<Operation>Response` for
+  streaming operations, which typegen does not emit (TS2305/TS2724). Generate both the client and
+  the TanStack code without `typesImport`, or point `typesImport` at a module that re-exports the
+  typegen output and adds the missing names.
+- The runtime accepts single-object calls (`{ params, body, query, headers, signal }`), an options
+  object in place of a skipped argument, and `signal` inside the query object, but the typed
+  signatures do not declare them, so TypeScript rejects them.
+- Cursor-based `<operationId>InfiniteQueryOptions` sends `cursor=null` on the first request; pass
+  `initialPageParam: undefined` (with `getNextPageParam`) in the options to omit it.
+- TanStack query options are also generated for streaming operations, but their `queryFn` returns the
+  `AsyncGenerator` as data; read streams with the client method instead.
+
+## API reference
+
+### Client generation
+
+| Export | Description |
+|---|---|
+| `generateClient(spec, options?)` | Client source. Options: `typesImport`, `banner` (default `true`), `basePath` (Node) |
+| `ClientError`, `isClientError` | Runtime error class and guard, for code that handles generated clients |
+| `bearerAuth`, `basicAuth`, `apiKeyAuth` | Auth middleware factories |
+| `ClientConfig`, `ClientMiddleware`, `ClientMethodOptions`, `ClientResponse` | Types matching the generated client |
+| `JsonPrimitive`, `Resolved` | Wire-format types used by generated code (from `@oa-sdk/core`) |
+
+### TanStack Query generation (Node entry point only)
+
+| Export | Description |
+|---|---|
+| `generateTanstackQuery(spec, options?)` | Returns `{ keysCode, queriesCode, hooksCode, combinedCode }`. Options: `queryPackage` (default `@tanstack/react-query`), `typesImport`, `clientImport` (default `./client.js`), `clientName` (default `ApiClient`), `keysImport`, `queriesImport`, `tier` (`all`, `keys`, `options`, `hooks`), `includeHooks`, `banner`, `basePath` |
+| `generateKeyFactory`, `generateOptionsFactory`, `generateHookFactory` | One tier at a time |
+| `isQueryOperation`, `getOperationTag`, `toKeyFactoryName` | The naming rules the generators use |
+
+Generated names: key factories `<camelCase tag>Keys` (plus a singular or plural alias) and
+`queryKeys`; `<operationId>QueryOptions`, `<operationId>MutationOptions`, and
+`<operationId>InfiniteQueryOptions` for operations with a `cursor`, `page`, or `offset`-style query
+parameter; React hooks `use<OperationId>Query`, `use<OperationId>Mutation`,
+`use<OperationId>InfiniteQuery`, and `createApiHooks(useClient)`.
+
+### CRDT generation
+
+| Export | Description |
+|---|---|
+| `generateCrdtClient`, `generateCrdtClientFromParsed` | WebSocket collaboration clients for schemas marked with `x-oa-sdk-crdt-entity` and `x-oa-sdk-crdt` |
+| `generateCrdtHooks`, `generateCrdtHooksFromParsed` | React hooks for those clients |
+| `extractCrdtEntitiesFromDoc` | The entity and field metadata the generators read |
+| `LwwJsonAdapter` | Dependency-free last-write-wins engine |
+
+### Chunk streams
+
+| Export | Description |
+|---|---|
+| `createResilientChunkReader(fetchChunk, descriptors, options?)` | Fetches chunks in order with retries and an empty-chunk fallback |
+| `createResilientNdjsonReader(url, options?)` | Reads a live NDJSON response with the same retry and fallback rules |
+| `createChunkStreamStore`, `generateChunkStreamReactHooks` | A store for `useSyncExternalStore` and a generated React hook on top of it |
+| `retryAfterMs`, `synthesizeEmptyChunk` | Helpers used by the readers |
