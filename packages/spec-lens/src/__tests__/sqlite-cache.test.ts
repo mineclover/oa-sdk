@@ -291,6 +291,19 @@ describe('SqliteCache — saveDiff / getDiff', () => {
     await cache.saveDiff(diff, PROJECT_A)
     expect(await cache.getDiff('base-001', 'head-001', PROJECT_B)).toBeNull()
   })
+
+  it('reads rows that are not JSON, or break the stored contract, as cache misses', async () => {
+    await cache.saveSnapshot(makeSnapshot('rev-001', '/f', 'api'), makeEntries())
+    await cache.saveDiff(makeDiff('base-001', 'head-001'), PROJECT_A)
+
+    runRaw('UPDATE snapshots SET data = ? WHERE revision_id = ?', '{"schemaVersion":', 'rev-001')
+    runRaw('UPDATE diffs SET data = ? WHERE base_revision_id = ?', 'not json', 'base-001')
+    expect(await cache.getSnapshotByRevision('rev-001', PROJECT_A)).toBeNull()
+    expect(await cache.getDiff('base-001', 'head-001', PROJECT_A)).toBeNull()
+
+    overwriteStoredJson('diffs', 'base_revision_id = ?', ['base-001'], { schemaVersion: 'spec-lens.diff.v2', projectKey: PROJECT_A })
+    expect(await cache.getDiff('base-001', 'head-001', PROJECT_A)).toBeNull()
+  })
 })
 
 describe('SqliteCache — upsertTimelineEntry / listTimeline', () => {

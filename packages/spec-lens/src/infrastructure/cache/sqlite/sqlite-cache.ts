@@ -151,13 +151,13 @@ export class SqliteCache implements CachePort {
       'SELECT data FROM snapshots WHERE revision_id = ? AND project_key = ? LIMIT 1',
     ).get(revisionId, projectKey) as { data: string } | undefined
     if (row === undefined) return null
-    let value: unknown
     try {
-      value = JSON.parse(row.data) as unknown
-    } catch {
-      return null
+      return storedSnapshotSchema(projectKey, revisionId, expectedToolchainFingerprint).parse(JSON.parse(row.data))
+    } catch (error) {
+      // A row that is not JSON is a cache miss, like a row that fails the snapshot contract.
+      if (error instanceof SyntaxError) return null
+      throw error
     }
-    return decodeStoredSnapshot(value, projectKey, revisionId, expectedToolchainFingerprint)
   }
 
   async getDiff(
@@ -169,13 +169,13 @@ export class SqliteCache implements CachePort {
       'SELECT data FROM diffs WHERE base_revision_id = ? AND head_revision_id = ? AND project_key = ?',
     ).get(baseRevisionId, headRevisionId, projectKey) as { data: string } | undefined
     if (row === undefined) return null
-    let value: unknown
     try {
-      value = JSON.parse(row.data) as unknown
-    } catch {
-      return null
+      return storedDiffSchema(projectKey, baseRevisionId, headRevisionId).parse(JSON.parse(row.data))
+    } catch (error) {
+      // A row that is not JSON is a cache miss, like a row that fails the diff contract.
+      if (error instanceof SyntaxError) return null
+      throw error
     }
-    return decodeStoredDiff(value, projectKey, baseRevisionId, headRevisionId)
   }
 
   async listPaths(options: ListPathsOptions): Promise<SpecPathEntry[]> {
@@ -496,6 +496,24 @@ function rowToPathEntry(row: PathRow): SpecPathEntry | null {
     lastChangedRevisionId: row.last_changed_revision,
     lastChangedTimestamp: row.last_changed_timestamp,
   }
+}
+
+/** Decoder for a cached snapshot row of one project revision; a contract violation reads as a miss (null). */
+function storedSnapshotSchema(
+  projectKey: string,
+  revisionId: string,
+  expectedToolchainFingerprint?: string,
+): { parse(value: unknown): SpecSnapshotStored | null } {
+  return { parse: value => decodeStoredSnapshot(value, projectKey, revisionId, expectedToolchainFingerprint) }
+}
+
+/** Decoder for a cached diff row between two revisions; a contract violation reads as a miss (null). */
+function storedDiffSchema(
+  projectKey: string,
+  baseRevisionId: string,
+  headRevisionId: string,
+): { parse(value: unknown): SpecTimelineDiff | null } {
+  return { parse: value => decodeStoredDiff(value, projectKey, baseRevisionId, headRevisionId) }
 }
 
 function decodeStoredSnapshot(
@@ -945,10 +963,16 @@ function sameStrings(left: readonly string[], right: readonly string[]): boolean
   return left.length === right.length && left.every((value, index) => value === right[index])
 }
 
+/** A JSON string-array column; any other JSON value reads as null. */
+const StoredStringArraySchema = {
+  parse(value: unknown): string[] | null {
+    return isStringArray(value) ? value : null
+  },
+}
+
 function parseStoredStringArray(value: string): string[] | null {
   try {
-    const parsed = JSON.parse(value) as unknown
-    return isStringArray(parsed) ? parsed : null
+    return StoredStringArraySchema.parse(JSON.parse(value))
   } catch {
     return null
   }

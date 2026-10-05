@@ -213,7 +213,7 @@ export class GithubApiAdapter implements SpecSourcePort {
           githubBlobJsonByteCap(MAX_TYPESPEC_EVIDENCE_INPUT_BYTES),
           `GitHub evidence input ${input.path}`,
         )
-        const payload = JSON.parse(text) as { content?: string; encoding?: string; type?: string }
+        const payload = GithubContentsFileSchema.parse(JSON.parse(text))
         if (payload.type !== 'file' || typeof payload.content !== 'string' || payload.encoding !== 'base64') {
           return {
             path: input.path,
@@ -341,6 +341,25 @@ type GithubBlobReadLimits = {
 }
 
 const GITHUB_BLOB_JSON_FIXED_OVERHEAD_BYTES = 64 * 1024
+
+type GithubContentsFile = { type?: string; content?: string; encoding?: string }
+
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** GitHub contents API payload for one path. Members of an unexpected type read as absent. */
+const GithubContentsFileSchema = {
+  parse(value: unknown): GithubContentsFile {
+    if (!isJsonObject(value)) return {}
+    const { type, content, encoding } = value
+    return {
+      ...(typeof type === 'string' ? { type } : {}),
+      ...(typeof content === 'string' ? { content } : {}),
+      ...(typeof encoding === 'string' ? { encoding } : {}),
+    }
+  },
+}
 
 function githubBlobJsonByteCap(expectedBytes: number): number {
   // GitHub normally returns base64, while some compatible Enterprise APIs use
