@@ -113,10 +113,8 @@ export class EnterpriseArchetypeProfile implements ArchetypeProfile {
 
   getRecommendedDependencies(_options: ArchetypeGenerateOptions): RecommendedDependencies {
     return {
-      devDependencies: {
-        '@oa-sdk/personas': 'workspace:*',
-        '@oa-sdk/core': 'workspace:*',
-      },
+      devDependencies: {},
+      oaSdkDevDependencies: ['@oa-sdk/personas', '@oa-sdk/core'],
     }
   }
 }

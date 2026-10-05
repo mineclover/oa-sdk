@@ -82,12 +82,11 @@ export default defineConfig({
         'fastify': '^4.26.0',
       },
       devDependencies: {
-        '@oa-sdk/codegen': 'workspace:*',
-        '@oa-sdk/router': 'workspace:*',
         'tsx': '^4.7.0',
         'typescript': '^5.4.0',
         '@types/node': '^20.0.0',
       },
+      oaSdkDevDependencies: ['@oa-sdk/codegen', '@oa-sdk/router'],
     }
   }
 }

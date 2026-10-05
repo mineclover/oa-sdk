@@ -72,10 +72,9 @@ export default defineConfig({
         'elysia': '^1.0.0',
       },
       devDependencies: {
-        '@oa-sdk/codegen': 'workspace:*',
-        '@oa-sdk/router': 'workspace:*',
         '@types/bun': 'latest',
       },
+      oaSdkDevDependencies: ['@oa-sdk/codegen', '@oa-sdk/router'],
     }
   }
 }

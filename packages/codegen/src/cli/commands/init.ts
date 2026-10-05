@@ -106,6 +106,9 @@ export const init: Command = {
       for (const d of result.patchResult.dependencies) {
         console.log(`   - dependency "${d.key}": ${d.action} (${d.after})`)
       }
+      for (const p of result.unavailablePackages ?? []) {
+        console.log(`   - devDependency "${p.name}": not added (${p.reason})`)
+      }
     }
   },
 }

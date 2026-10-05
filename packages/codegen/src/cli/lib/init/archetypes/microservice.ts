@@ -105,19 +105,16 @@ export class MicroserviceArchetypeProfile implements ArchetypeProfile {
   getRecommendedDependencies(options: ArchetypeGenerateOptions): RecommendedDependencies {
     if (options.runtime === 'bun') {
       return {
-        devDependencies: {
-          '@oa-sdk/core': 'workspace:*',
-          '@oa-sdk/router': 'workspace:*',
-        },
+        devDependencies: {},
+        oaSdkDevDependencies: ['@oa-sdk/core', '@oa-sdk/router'],
       }
     }
 
     return {
       devDependencies: {
-        '@oa-sdk/core': 'workspace:*',
-        '@oa-sdk/router': 'workspace:*',
         'vitest': '^1.6.0',
       },
+      oaSdkDevDependencies: ['@oa-sdk/core', '@oa-sdk/router'],
     }
   }
 }

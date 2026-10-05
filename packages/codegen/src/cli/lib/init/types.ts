@@ -1,4 +1,9 @@
 import type { ProductLifecycleArchetype } from '../../../config.js'
+import type {
+  OaSdkPackageName,
+  OaSdkPackageSources,
+  UnavailableOaSdkPackage,
+} from './oa-sdk-packages.js'
 
 export type TargetFrameworkId =
   | 'fastify'
@@ -20,6 +25,12 @@ export interface TargetDetectionResult {
 export interface RecommendedDependencies {
   dependencies?: Record<string, string> | undefined
   devDependencies: Record<string, string>
+  /**
+   * `@oa-sdk` packages to add as dev dependencies, named without a specifier:
+   * which specifier installs them depends on where the project lives, so
+   * `composeInitDependencies` resolves them (see oa-sdk-packages.ts).
+   */
+  oaSdkDevDependencies?: readonly OaSdkPackageName[] | undefined
 }
 
 export interface DetectedSchemaItem {
@@ -47,6 +58,8 @@ export interface TargetGenerateOptions {
   packageJson?: Record<string, unknown> | undefined
   force?: boolean | undefined
   routing?: OutputRoutingPreset | undefined
+  /** Where the project installs `@oa-sdk` packages from; the registry when omitted. */
+  oaSdkSources?: OaSdkPackageSources | undefined
 }
 
 export interface TargetProfile {
@@ -112,5 +125,7 @@ export interface InitResult {
   configFileCreated?: boolean | undefined
   packageJsonPatched?: boolean | undefined
   packageJsonPath?: string | undefined
+  /** `@oa-sdk` packages the scaffold uses that package.json does not list, because the project cannot install them. */
+  unavailablePackages?: UnavailableOaSdkPackage[] | undefined
   dryRun?: boolean | undefined
 }

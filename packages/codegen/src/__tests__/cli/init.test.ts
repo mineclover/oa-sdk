@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import * as os from 'node:os'
 import { runInit } from '../../cli/lib/init/index.js'
 import { init } from '../../cli/commands/init.js'
+import { BUILT_AGAINST_VERSIONS } from '../../cli/lib/built-against-versions.js'
 
 describe('oa-gen init CLI & Orchestrator', () => {
   let tmpDir: string
@@ -148,7 +149,8 @@ describe('oa-gen init CLI & Orchestrator', () => {
     expect(pkg.scripts['generate:contract']).toBeDefined()
     expect(pkg.scripts['audit:wire']).toBeDefined()
     expect(pkg.devDependencies['vitest']).toBeDefined()
-    expect(pkg.devDependencies['@oa-sdk/core']).toBe('workspace:*')
+    // Outside any workspace, the release of @oa-sdk/core this codegen was built against.
+    expect(pkg.devDependencies['@oa-sdk/core']).toBe(`^${BUILT_AGAINST_VERSIONS['@oa-sdk/core']}`)
   })
 
   it('initializes project with explicit --archetype enterprise', async () => {
@@ -173,7 +175,9 @@ describe('oa-gen init CLI & Orchestrator', () => {
     expect(pkg.scripts['ci:gate']).toContain('--fail-on-breaking')
     expect(pkg.scripts['diff']).toBeDefined()
     expect(pkg.scripts['personas:check']).toBeDefined()
-    expect(pkg.devDependencies['@oa-sdk/personas']).toBe('workspace:*')
+    // @oa-sdk/personas is private, so outside a workspace that contains it init leaves it out and says so.
+    expect(pkg.devDependencies['@oa-sdk/personas']).toBeUndefined()
+    expect(res.unavailablePackages?.map(entry => entry.name)).toEqual(['@oa-sdk/personas'])
   })
 
   it('rejects invalid archetype via CLI run method', async () => {
@@ -239,7 +243,8 @@ describe('oa-gen init CLI & Orchestrator', () => {
     // Enterprise scripts added
     expect(pkg.scripts['ci:gate']).toBeDefined()
     expect(pkg.scripts['diff']).toBeDefined()
-    expect(pkg.devDependencies['@oa-sdk/personas']).toBeDefined()
+    expect(pkg.devDependencies['@oa-sdk/core']).toBe(`^${BUILT_AGAINST_VERSIONS['@oa-sdk/core']}`)
+    expect(enterpriseRes.unavailablePackages?.map(entry => entry.name)).toEqual(['@oa-sdk/personas'])
   })
 
   describe('outputRouting presets in init', () => {
@@ -336,6 +341,85 @@ describe('oa-gen init CLI & Orchestrator', () => {
       await expect(
         init.run({ cwd: tmpDir, routing: 'invalid-preset' }, { cwd: tmpDir, projectRoot: tmpDir }),
       ).rejects.toThrow()
+    })
+  })
+
+  describe('@oa-sdk package specifiers follow where the project lives', () => {
+    type Manifest = { devDependencies?: Record<string, string> }
+    const oaSdkDevDependencies = (manifest: Manifest) =>
+      Object.fromEntries(Object.entries(manifest.devDependencies ?? {}).filter(([name]) => name.startsWith('@oa-sdk/')))
+    const builtAgainst = (name: string) => `^${BUILT_AGAINST_VERSIONS[name]}`
+
+    const writeJson = async (file: string, value: unknown) => {
+      await fs.mkdir(path.dirname(file), { recursive: true })
+      await fs.writeFile(file, JSON.stringify(value, null, 2))
+    }
+
+    /** A pnpm workspace with `packages/*` and `apps/*` members, like the oa-sdk repository. */
+    const createWorkspace = async (memberPackages: string[]) => {
+      await fs.writeFile(path.join(tmpDir, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n  - "apps/*"\n')
+      await writeJson(path.join(tmpDir, 'package.json'), { name: 'workspace-root', private: true })
+      for (const name of memberPackages) {
+        await writeJson(path.join(tmpDir, 'packages', name.split('/')[1]!, 'package.json'), { name, version: '0.0.0' })
+      }
+    }
+
+    it('writes the ranges this codegen was built against outside any workspace', async () => {
+      await writeJson(path.join(tmpDir, 'package.json'), { name: 'consumer', dependencies: { express: '^4.19.0' } })
+
+      const res = await runInit({ cwd: tmpDir, target: 'express', archetype: 'enterprise', yes: true })
+
+      const pkg = JSON.parse(await fs.readFile(path.join(tmpDir, 'package.json'), 'utf-8')) as Manifest
+      const written = oaSdkDevDependencies(pkg)
+      expect(Object.keys(written).sort())
+        .toEqual(['@oa-sdk/client', '@oa-sdk/codegen', '@oa-sdk/core', '@oa-sdk/mock-server', '@oa-sdk/router'])
+      for (const [name, specifier] of Object.entries(written)) expect(specifier, name).toBe(builtAgainst(name))
+      expect(res.unavailablePackages).toEqual([{ name: '@oa-sdk/personas', reason: expect.stringContaining('not published') }])
+    })
+
+    it('writes workspace:* for the @oa-sdk packages of the pnpm workspace the project is a member of', async () => {
+      await createWorkspace(['@oa-sdk/codegen', '@oa-sdk/core', '@oa-sdk/personas'])
+      const appDir = path.join(tmpDir, 'apps', 'orders')
+      await writeJson(path.join(appDir, 'package.json'), { name: 'orders', dependencies: { express: '^4.19.0' } })
+
+      const res = await runInit({ cwd: appDir, target: 'express', archetype: 'enterprise', yes: true })
+
+      const pkg = JSON.parse(await fs.readFile(path.join(appDir, 'package.json'), 'utf-8')) as Manifest
+      expect(oaSdkDevDependencies(pkg)).toEqual({
+        '@oa-sdk/codegen': 'workspace:*',
+        '@oa-sdk/core': 'workspace:*',
+        '@oa-sdk/personas': 'workspace:*',
+        // Not a member of this workspace, so it installs from the registry.
+        '@oa-sdk/router': builtAgainst('@oa-sdk/router'),
+        '@oa-sdk/client': builtAgainst('@oa-sdk/client'),
+        '@oa-sdk/mock-server': builtAgainst('@oa-sdk/mock-server'),
+      })
+      expect(res.unavailablePackages).toEqual([])
+    })
+
+    it('writes registry ranges for a project inside the workspace directory that is not a member', async () => {
+      await createWorkspace(['@oa-sdk/codegen', '@oa-sdk/core', '@oa-sdk/personas'])
+      const scratchDir = path.join(tmpDir, 'scratch', 'orders')
+      await writeJson(path.join(scratchDir, 'package.json'), { name: 'orders', dependencies: { express: '^4.19.0' } })
+
+      const res = await runInit({ cwd: scratchDir, target: 'express', archetype: 'enterprise', yes: true })
+
+      const pkg = JSON.parse(await fs.readFile(path.join(scratchDir, 'package.json'), 'utf-8')) as Manifest
+      for (const [name, specifier] of Object.entries(oaSdkDevDependencies(pkg))) expect(specifier, name).toBe(builtAgainst(name))
+      expect(res.unavailablePackages?.map(entry => entry.name)).toEqual(['@oa-sdk/personas'])
+    })
+
+    it('tells the user which packages it left out of package.json and why', async () => {
+      await writeJson(path.join(tmpDir, 'package.json'), { name: 'consumer' })
+      const logs: string[] = []
+      const log = console.log
+      console.log = (...parts: unknown[]) => { logs.push(parts.map(String).join(' ')) }
+      try {
+        await init.run({ cwd: tmpDir, target: 'generic', archetype: 'enterprise', yes: true })
+      } finally {
+        console.log = log
+      }
+      expect(logs.join('\n')).toContain('devDependency "@oa-sdk/personas": not added (private package, not published to the registry')
     })
   })
 })

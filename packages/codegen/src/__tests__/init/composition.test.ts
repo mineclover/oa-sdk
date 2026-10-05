@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { BUILT_AGAINST_VERSIONS } from '../../cli/lib/built-against-versions.js'
 import {
   TARGET_PROFILES,
   getTargetProfile,
@@ -8,6 +9,8 @@ import {
   composeInitScripts,
   composeInitDependencies,
   composeInitPackagePatches,
+  OA_SDK_INIT_PACKAGES,
+  type OaSdkPackageSources,
 } from '../../cli/lib/init/index.js'
 import type { TargetFrameworkId } from '../../cli/lib/init/types.js'
 import type { LifecycleArchetypeId } from '../../cli/lib/init/archetypes/types.js'
@@ -15,6 +18,11 @@ import type { LifecycleArchetypeId } from '../../cli/lib/init/archetypes/types.j
 describe('Orthogonal Target x Archetype Composition Engine ($6 \\times 3 = 18$ Matrix)', () => {
   const targetIds: TargetFrameworkId[] = ['fastify', 'elysia', 'hono', 'express', 'nestjs', 'generic']
   const archetypeIds: LifecycleArchetypeId[] = ['mvp', 'microservice', 'enterprise']
+  /** A project in a pnpm workspace that has every `@oa-sdk` package init recommends as a member. */
+  const inOaSdkWorkspace: OaSdkPackageSources = {
+    workspacePackages: new Set(Object.keys(OA_SDK_INIT_PACKAGES)),
+    versions: BUILT_AGAINST_VERSIONS,
+  }
 
   describe('1. Full Matrix Permutations (18 Compositions)', () => {
     for (const tId of targetIds) {
@@ -49,10 +57,16 @@ describe('Orthogonal Target x Archetype Composition Engine ($6 \\times 3 = 18$ M
           const scripts = composeInitScripts(target, archetype, options)
           expect(Object.keys(scripts).length).toBeGreaterThanOrEqual(2)
 
-          // 3. Dependencies Generation
+          // 3. Dependencies Generation: outside a workspace, codegen installs from the registry...
           const deps = composeInitDependencies(target, archetype, options)
           expect(deps.devDependencies).toBeDefined()
-          expect(deps.devDependencies['@oa-sdk/codegen']).toBe('workspace:*')
+          expect(deps.devDependencies['@oa-sdk/codegen']).toBe(`^${BUILT_AGAINST_VERSIONS['@oa-sdk/codegen']}`)
+          const specifiers = Object.values({ ...deps.dependencies, ...deps.devDependencies })
+          expect(specifiers.filter(specifier => specifier.startsWith('workspace:'))).toEqual([])
+
+          // ...and inside a pnpm workspace that has it, through the workspace protocol.
+          const workspaceDeps = composeInitDependencies(target, archetype, { ...options, oaSdkSources: inOaSdkWorkspace })
+          expect(workspaceDeps.devDependencies['@oa-sdk/codegen']).toBe('workspace:*')
         })
       }
     }
@@ -168,7 +182,18 @@ describe('Orthogonal Target x Archetype Composition Engine ($6 \\times 3 = 18$ M
         expect(patches.scripts['diff'], `${tId} diff script`).toBeDefined()
         expect(patches.scripts['ci:gate'], `${tId} ci:gate script`).toBeDefined()
         expect(patches.scripts['personas:check'], `${tId} personas:check script`).toBeDefined()
-        expect(patches.devDependencies['@oa-sdk/personas'], `${tId} personas devDep`).toBeDefined()
+
+        // @oa-sdk/personas is private: only a workspace that contains it can provide it.
+        expect(patches.devDependencies['@oa-sdk/personas'], `${tId} personas devDep`).toBeUndefined()
+        expect(patches.unavailable.map(entry => entry.name), `${tId} unavailable`).toEqual(['@oa-sdk/personas'])
+        const workspacePatches = composeInitPackagePatches(target, enterprise, {
+          cwd: '.',
+          frameworkId: target.id,
+          runtime: target.defaultRuntime,
+          oaSdkSources: inOaSdkWorkspace,
+        })
+        expect(workspacePatches.devDependencies['@oa-sdk/personas'], `${tId} personas devDep in workspace`).toBe('workspace:*')
+        expect(workspacePatches.unavailable, `${tId} unavailable in workspace`).toEqual([])
       }
     })
 

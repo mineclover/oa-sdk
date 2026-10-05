@@ -37,6 +37,15 @@ import {
 } from './interactive.js'
 import { detectSchemas } from './common/schema-detector.js'
 import { patchPackageJson } from './common/package-patcher.js'
+import { findPnpmWorkspace } from './common/pnpm-workspace.js'
+import {
+  OA_SDK_INIT_PACKAGES,
+  REGISTRY_SOURCES,
+  UNPINNED_SPECIFIER,
+  WORKSPACE_SPECIFIER,
+  findOaSdkPackageSources,
+  resolveOaSdkPackage,
+} from './oa-sdk-packages.js'
 import type {
   InitOptions,
   InitResult,
@@ -49,8 +58,17 @@ import type {
   OutputRoutingPreset,
 } from './types.js'
 import type { ArchetypeProfile } from './archetypes/types.js'
+import type { UnavailableOaSdkPackage } from './oa-sdk-packages.js'
 
 export * from './types.js'
+export type { ComposedDependencies } from './composer.js'
+export type { PnpmWorkspace } from './common/pnpm-workspace.js'
+export type {
+  OaSdkPackageName,
+  OaSdkPackageResolution,
+  OaSdkPackageSources,
+  UnavailableOaSdkPackage,
+} from './oa-sdk-packages.js'
 export type {
   ArchetypeProfile,
   ArchetypeGenerateOptions,
@@ -87,6 +105,13 @@ export {
   isInteractiveSession,
   detectSchemas,
   patchPackageJson,
+  findPnpmWorkspace,
+  OA_SDK_INIT_PACKAGES,
+  REGISTRY_SOURCES,
+  UNPINNED_SPECIFIER,
+  WORKSPACE_SPECIFIER,
+  findOaSdkPackageSources,
+  resolveOaSdkPackage,
 }
 
 /**
@@ -176,6 +201,7 @@ export async function runInit(options: InitOptions = {}): Promise<InitResult> {
     runtime: matchedProfile.defaultRuntime,
     detectedSchema: primarySchema,
     routing: routingPreset,
+    oaSdkSources: await findOaSdkPackageSources(cwd),
   }
 
   // 4. Generate oa.config.ts content via composer
@@ -194,6 +220,7 @@ export async function runInit(options: InitOptions = {}): Promise<InitResult> {
 
   // 5. Non-destructively patch package.json if present
   let patchResult: PackagePatchResult | undefined
+  let unavailablePackages: UnavailableOaSdkPackage[] | undefined
   const pkgPath = path.join(cwd, 'package.json')
   let packageJsonPatched = false
 
@@ -207,6 +234,7 @@ export async function runInit(options: InitOptions = {}): Promise<InitResult> {
       devDependencies: patches.devDependencies,
       force: options.force,
     })
+    unavailablePackages = patches.unavailable
 
     if (!options.dryRun && patchResult.modified) {
       await fs.writeFile(pkgPath, patchResult.patchedContent, 'utf-8')
@@ -227,6 +255,7 @@ export async function runInit(options: InitOptions = {}): Promise<InitResult> {
     configFileCreated,
     packageJsonPatched,
     packageJsonPath: pkgPath,
+    unavailablePackages,
     dryRun: options.dryRun ?? false,
   }
 }

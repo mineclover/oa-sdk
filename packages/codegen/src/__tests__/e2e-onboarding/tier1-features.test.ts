@@ -477,7 +477,10 @@ describe('E2E Tier 1: Feature Coverage (Features 1–17)', () => {
 
       expect(mvpDeps['@oa-sdk/client']).toBeDefined()
       expect(msDeps['@oa-sdk/core']).toBeDefined()
-      expect(entDeps['@oa-sdk/personas']).toBeDefined()
+      expect(entDeps['@oa-sdk/core']).toBeDefined()
+      // The private persona registry is recommended only where the workspace provides it.
+      expect(entDeps['@oa-sdk/personas']).toBeUndefined()
+      expect(getRecommendedDevDepsForPair('fastify', 'enterprise', 'node', 'workspace')['@oa-sdk/personas']).toBeDefined()
     })
   })
 

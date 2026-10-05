@@ -64,10 +64,8 @@ export default defineConfig({
 
   getRecommendedDependencies(_options: TargetGenerateOptions): RecommendedDependencies {
     return {
-      devDependencies: {
-        '@oa-sdk/codegen': 'workspace:*',
-        '@oa-sdk/router': 'workspace:*',
-      },
+      devDependencies: {},
+      oaSdkDevDependencies: ['@oa-sdk/codegen', '@oa-sdk/router'],
     }
   }
 }

@@ -69,9 +69,8 @@ export default defineConfig({
         '@types/express': '^4.17.21',
         'tsx': '^4.7.0',
         '@types/node': '^20.0.0',
-        '@oa-sdk/codegen': 'workspace:*',
-        '@oa-sdk/router': 'workspace:*',
       },
+      oaSdkDevDependencies: ['@oa-sdk/codegen', '@oa-sdk/router'],
     }
   }
 }

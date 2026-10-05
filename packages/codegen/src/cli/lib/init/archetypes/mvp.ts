@@ -106,10 +106,8 @@ export class MvpArchetypeProfile implements ArchetypeProfile {
 
   getRecommendedDependencies(_options: ArchetypeGenerateOptions): RecommendedDependencies {
     return {
-      devDependencies: {
-        '@oa-sdk/client': 'workspace:*',
-        '@oa-sdk/mock-server': 'workspace:*',
-      },
+      devDependencies: {},
+      oaSdkDevDependencies: ['@oa-sdk/client', '@oa-sdk/mock-server'],
     }
   }
 }

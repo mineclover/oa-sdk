@@ -20,6 +20,8 @@ import {
   composeInitDependencies,
   composeInitScripts,
   oaGenCommandsIn,
+  REGISTRY_SOURCES,
+  resolveOaSdkPackage,
   runInit,
 } from '../../cli/lib/init/index.js'
 import type { TargetRuntime } from '../../cli/lib/init/types.js'
@@ -94,12 +96,22 @@ describe('oa-gen init recommends the companion packages its scaffold needs', () 
     }
   }
 
-  it('keeps an archetype or target recommendation of a companion instead of replacing it', () => {
-    const fastify = TARGET_PROFILES.fastify
-    const microservice = ARCHETYPE_PROFILES.find(profile => profile.id === 'microservice')!
-    const options = { cwd: '/workspace/app', frameworkId: fastify.id, runtime: 'node' as const }
-    const { devDependencies } = composeInitDependencies(fastify, microservice, options)
-    expect(devDependencies['@oa-sdk/router']).toBe(fastify.getRecommendedDependencies(options).devDependencies['@oa-sdk/router'])
+  it('gives a companion the same specifier whether a profile names it or only the scaffold needs it', () => {
+    // fastify names @oa-sdk/router; generic does not, but the scaffold's handler contracts need it.
+    const mvp = ARCHETYPE_PROFILES.find(profile => profile.id === 'mvp')!
+    const { fastify, generic } = TARGET_PROFILES
+    const options = (target: typeof fastify) => ({ cwd: '/workspace/app', frameworkId: target.id, runtime: 'node' as const })
+    expect(fastify.getRecommendedDependencies(options(fastify)).oaSdkDevDependencies).toContain('@oa-sdk/router')
+    expect(generic.getRecommendedDependencies(options(generic)).oaSdkDevDependencies).not.toContain('@oa-sdk/router')
+
+    const inWorkspace = { ...REGISTRY_SOURCES, workspacePackages: new Set(['@oa-sdk/router']) }
+    for (const oaSdkSources of [REGISTRY_SOURCES, inWorkspace]) {
+      const expected = resolveOaSdkPackage('@oa-sdk/router', oaSdkSources).specifier
+      for (const target of [fastify, generic]) {
+        const { devDependencies } = composeInitDependencies(target, mvp, { ...options(target), oaSdkSources })
+        expect(devDependencies['@oa-sdk/router'], target.id).toBe(expected)
+      }
+    }
   })
 })
 

@@ -1,7 +1,6 @@
 import type {
   TargetProfile,
   TargetGenerateOptions,
-  RecommendedDependencies,
   OutputRoutingPreset,
 } from './types.js'
 import type { ArchetypeProfile, ArchetypeGenerateOptions } from './archetypes/types.js'
@@ -11,9 +10,11 @@ import {
   explicitCompanionOutputs,
   type CompanionPackageName,
 } from '../companion-packages.js'
-
-/** Specifier `oa-gen init` writes for `@oa-sdk` packages, as the target and archetype profiles do. */
-const OA_SDK_PACKAGE_SPECIFIER = 'workspace:*'
+import {
+  resolveOaSdkPackage,
+  type OaSdkPackageName,
+  type UnavailableOaSdkPackage,
+} from './oa-sdk-packages.js'
 
 /**
  * Format a JavaScript/TypeScript object literal into formatted multi-line string.
@@ -280,6 +281,14 @@ export function composeInitCompanionPackages(
   return [...packages]
 }
 
+/** Dependencies of the scaffold, as `oa-gen init` writes them to package.json. */
+export interface ComposedDependencies {
+  dependencies: Record<string, string>
+  devDependencies: Record<string, string>
+  /** `@oa-sdk` packages the scaffold uses but the project cannot install where it lives. */
+  unavailable: UnavailableOaSdkPackage[]
+}
+
 /**
  * Composes recommended dependencies and devDependencies with strict runtime isolation.
  */
@@ -287,7 +296,7 @@ export function composeInitDependencies(
   target: TargetProfile,
   archetype: ArchetypeProfile,
   options: TargetGenerateOptions,
-): RecommendedDependencies {
+): ComposedDependencies {
   const targetDeps = target.getRecommendedDependencies(options)
   const archetypeDeps = archetype.getRecommendedDependencies({
     ...options,
@@ -304,15 +313,24 @@ export function composeInitDependencies(
     ...(archetypeDeps.devDependencies ?? {}),
   }
 
-  // `oa-gen` loads companion packages instead of depending on them, so the
-  // scaffold lists the ones its own configuration and scripts need.
-  const companions = composeInitCompanionPackages(
-    composeInitCoreConfig(archetype),
-    composeInitScripts(target, archetype, options),
-  )
-  for (const name of companions) {
-    if (dependencies[name] === undefined && devDependencies[name] === undefined) {
-      devDependencies[name] = OA_SDK_PACKAGE_SPECIFIER
+  // `@oa-sdk` packages: the profiles' own, and the companion packages the
+  // scaffold's configuration and scripts need, which `oa-gen` loads instead of
+  // depending on them. Their specifiers depend on where the project lives.
+  const oaSdkPackages = new Set<OaSdkPackageName>([
+    ...(targetDeps.oaSdkDevDependencies ?? []),
+    ...(archetypeDeps.oaSdkDevDependencies ?? []),
+    ...composeInitCompanionPackages(
+      composeInitCoreConfig(archetype),
+      composeInitScripts(target, archetype, options),
+    ),
+  ])
+  const unavailable: UnavailableOaSdkPackage[] = []
+  for (const name of oaSdkPackages) {
+    const resolution = resolveOaSdkPackage(name, options.oaSdkSources)
+    if (resolution.specifier === undefined) {
+      unavailable.push({ name, reason: resolution.reason })
+    } else {
+      devDependencies[name] = resolution.specifier
     }
   }
 
@@ -337,27 +355,21 @@ export function composeInitDependencies(
   return {
     dependencies,
     devDependencies,
+    unavailable,
   }
 }
 
 /**
- * Composes all package patches (scripts, dependencies, devDependencies).
+ * Composes all package patches (scripts, dependencies, devDependencies), and
+ * the `@oa-sdk` packages left out of them because the project cannot install them.
  */
 export function composeInitPackagePatches(
   target: TargetProfile,
   archetype: ArchetypeProfile,
   options: TargetGenerateOptions,
-): {
-  scripts: Record<string, string>
-  dependencies: Record<string, string>
-  devDependencies: Record<string, string>
-} {
-  const scripts = composeInitScripts(target, archetype, options)
-  const deps = composeInitDependencies(target, archetype, options)
-
+): ComposedDependencies & { scripts: Record<string, string> } {
   return {
-    scripts,
-    dependencies: deps.dependencies ?? {},
-    devDependencies: deps.devDependencies,
+    scripts: composeInitScripts(target, archetype, options),
+    ...composeInitDependencies(target, archetype, options),
   }
 }

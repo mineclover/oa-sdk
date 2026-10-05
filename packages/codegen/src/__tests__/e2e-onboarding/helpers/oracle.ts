@@ -1,3 +1,5 @@
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import { z } from 'zod'
 import type { OasDocument, ParsedDocument } from '@oa-sdk/parser/browser'
 import { isParsedDocument, parseDocument } from '@oa-sdk/parser/browser'
@@ -501,17 +503,56 @@ export function getRecommendedScriptsForPair(
   return scripts
 }
 
+/**
+ * Where the onboarded project installs `@oa-sdk` packages from: the npm
+ * `registry`, or the pnpm `workspace` it is a member of, which has every
+ * `@oa-sdk` package as a member (the oa-sdk repository itself).
+ */
+export type OaSdkInstallSource = 'registry' | 'workspace'
+
+/** `@oa-sdk` packages that are never published, so only a workspace containing them provides them. */
+const PRIVATE_OA_SDK_PACKAGES = new Set(['@oa-sdk/personas'])
+
+const CODEGEN_PACKAGE_DIR = path.resolve(__dirname, '../../../..')
+
+/**
+ * The release of `name` this codegen is built and tested against: codegen's
+ * own version, or the version of the package linked into its node_modules.
+ */
+export function builtAgainstVersion(name: string): string {
+  const manifest = name === '@oa-sdk/codegen'
+    ? path.join(CODEGEN_PACKAGE_DIR, 'package.json')
+    : path.join(CODEGEN_PACKAGE_DIR, 'node_modules', name, 'package.json')
+  return (JSON.parse(fs.readFileSync(manifest, 'utf8')) as { version: string }).version
+}
+
+/**
+ * Specifier `oa-gen init` writes for `name`: the workspace protocol inside the
+ * workspace, the releases compatible with the built-against version from the
+ * registry, and nothing for a private package outside the workspace.
+ */
+export function expectedOaSdkSpecifier(name: string, source: OaSdkInstallSource): string | undefined {
+  if (source === 'workspace') return 'workspace:*'
+  if (PRIVATE_OA_SDK_PACKAGES.has(name)) return undefined
+  return `^${builtAgainstVersion(name)}`
+}
+
 export function getRecommendedDevDepsForPair(
   framework: TargetFrameworkId,
   archetype: ProductLifecycleArchetype,
   runtime: TargetRuntime,
+  source: OaSdkInstallSource = 'registry',
 ): Record<string, string> {
-  const deps: Record<string, string> = {
-    '@oa-sdk/codegen': 'workspace:*',
+  const deps: Record<string, string> = {}
+  const addOaSdk = (name: string) => {
+    const specifier = expectedOaSdkSpecifier(name, source)
+    if (specifier !== undefined) deps[name] = specifier
   }
 
+  addOaSdk('@oa-sdk/codegen')
+
   if (framework !== 'generic') {
-    deps['@oa-sdk/router'] = 'workspace:*'
+    addOaSdk('@oa-sdk/router')
   }
 
   if (runtime === 'bun') {
@@ -523,16 +564,16 @@ export function getRecommendedDevDepsForPair(
   }
 
   if (archetype === 'mvp') {
-    deps['@oa-sdk/client'] = 'workspace:*'
-    deps['@oa-sdk/mock-server'] = 'workspace:*'
+    addOaSdk('@oa-sdk/client')
+    addOaSdk('@oa-sdk/mock-server')
   } else if (archetype === 'microservice') {
-    deps['@oa-sdk/core'] = 'workspace:*'
+    addOaSdk('@oa-sdk/core')
     if (runtime === 'node') {
       deps['vitest'] = '^1.6.0'
     }
   } else if (archetype === 'enterprise') {
-    deps['@oa-sdk/core'] = 'workspace:*'
-    deps['@oa-sdk/personas'] = 'workspace:*'
+    addOaSdk('@oa-sdk/core')
+    addOaSdk('@oa-sdk/personas')
   }
 
   return deps

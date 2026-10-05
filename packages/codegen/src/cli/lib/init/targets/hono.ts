@@ -79,20 +79,18 @@ export default defineConfig({
       return {
         dependencies: { 'hono': '^4.0.0' },
         devDependencies: {
-          '@oa-sdk/codegen': 'workspace:*',
-          '@oa-sdk/router': 'workspace:*',
           '@types/bun': 'latest',
         },
+        oaSdkDevDependencies: ['@oa-sdk/codegen', '@oa-sdk/router'],
       }
     }
     return {
       dependencies: { 'hono': '^4.0.0' },
       devDependencies: {
-        '@oa-sdk/codegen': 'workspace:*',
-        '@oa-sdk/router': 'workspace:*',
         'tsx': '^4.7.0',
         '@types/node': '^20.0.0',
       },
+      oaSdkDevDependencies: ['@oa-sdk/codegen', '@oa-sdk/router'],
     }
   }
 }

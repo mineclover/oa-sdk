@@ -90,8 +90,9 @@ describe('Modular Archetype Engine (packages/codegen/src/cli/lib/init/archetypes
         archetypeId: 'mvp',
       })
 
-      expect(deps.devDependencies['@oa-sdk/client']).toBe('workspace:*')
-      expect(deps.devDependencies['@oa-sdk/mock-server']).toBe('workspace:*')
+      // `@oa-sdk` packages are named only; init picks their specifiers (oa-sdk-packages.ts).
+      expect(deps.oaSdkDevDependencies).toEqual(['@oa-sdk/client', '@oa-sdk/mock-server'])
+      expect(deps.devDependencies['@oa-sdk/client']).toBeUndefined()
     })
 
     it('detects early stage version markers in detect()', async () => {
@@ -191,8 +192,7 @@ describe('Modular Archetype Engine (packages/codegen/src/cli/lib/init/archetypes
         archetypeId: 'microservice',
       })
       expect(nodeDeps.devDependencies['vitest']).toBeDefined()
-      expect(nodeDeps.devDependencies['@oa-sdk/core']).toBe('workspace:*')
-      expect(nodeDeps.devDependencies['@oa-sdk/router']).toBe('workspace:*')
+      expect(nodeDeps.oaSdkDevDependencies).toEqual(['@oa-sdk/core', '@oa-sdk/router'])
 
       const bunDeps = microservice.getRecommendedDependencies({
         cwd: '.',
@@ -201,8 +201,7 @@ describe('Modular Archetype Engine (packages/codegen/src/cli/lib/init/archetypes
         archetypeId: 'microservice',
       })
       expect(bunDeps.devDependencies['vitest']).toBeUndefined()
-      expect(bunDeps.devDependencies['@oa-sdk/core']).toBe('workspace:*')
-      expect(bunDeps.devDependencies['@oa-sdk/router']).toBe('workspace:*')
+      expect(bunDeps.oaSdkDevDependencies).toEqual(['@oa-sdk/core', '@oa-sdk/router'])
     })
 
     it('detects Dockerfile and k8s in detect()', async () => {
@@ -306,8 +305,7 @@ describe('Modular Archetype Engine (packages/codegen/src/cli/lib/init/archetypes
         archetypeId: 'enterprise',
       })
 
-      expect(deps.devDependencies['@oa-sdk/personas']).toBe('workspace:*')
-      expect(deps.devDependencies['@oa-sdk/core']).toBe('workspace:*')
+      expect(deps.oaSdkDevDependencies).toEqual(['@oa-sdk/personas', '@oa-sdk/core'])
     })
 
     it('detects skill.yaml and pnpm-workspace in detect()', async () => {

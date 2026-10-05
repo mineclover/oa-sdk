@@ -11,7 +11,21 @@ import {
   getRecommendedScriptsForPair,
   getRecommendedDevDepsForPair,
   generateHandlerContractWithContext,
+  builtAgainstVersion,
+  expectedOaSdkSpecifier,
+  PRODUCT_LIFECYCLE_ARCHETYPES,
+  TARGET_FRAMEWORK_IDS,
+  type OaSdkInstallSource,
 } from './helpers/oracle.js'
+import { BUILT_AGAINST_VERSIONS } from '../../cli/lib/built-against-versions.js'
+import {
+  OA_SDK_INIT_PACKAGES,
+  REGISTRY_SOURCES,
+  composeInitDependencies,
+  getArchetypeProfile,
+  getTargetProfile,
+  type OaSdkPackageSources,
+} from '../../cli/lib/init/index.js'
 
 const REPO_ROOT = path.resolve(__dirname, '../../../../..')
 const CODEGEN_SRC = path.resolve(__dirname, '../..')
@@ -43,10 +57,17 @@ describe('E2E Tier 3: Cross-Feature Pairwise Combinations (20 Combinations)', ()
     expect(scripts['mock']).toBe('oa-gen mock --watch')
     expect(scripts['generate:client']).toBe('oa-gen generate --target client')
 
-    expect(deps['@oa-sdk/router']).toBe('workspace:*')
-    expect(deps['@oa-sdk/client']).toBe('workspace:*')
-    expect(deps['@oa-sdk/mock-server']).toBe('workspace:*')
+    // Outside a workspace, the releases compatible with the ones codegen was built against.
+    expect(deps['@oa-sdk/router']).toBe(`^${builtAgainstVersion('@oa-sdk/router')}`)
+    expect(deps['@oa-sdk/client']).toBe(`^${builtAgainstVersion('@oa-sdk/client')}`)
+    expect(deps['@oa-sdk/mock-server']).toBe(`^${builtAgainstVersion('@oa-sdk/mock-server')}`)
     expect(deps['tsx']).toBe('^4.7.0')
+
+    // Inside the oa-sdk workspace, its own packages.
+    const workspaceDeps = getRecommendedDevDepsForPair('fastify', 'mvp', 'node', 'workspace')
+    expect(workspaceDeps['@oa-sdk/router']).toBe('workspace:*')
+    expect(workspaceDeps['@oa-sdk/client']).toBe('workspace:*')
+    expect(workspaceDeps['@oa-sdk/mock-server']).toBe('workspace:*')
   })
 
   it('T3-02: Fastify x Microservice — Fastify JIT router with pure contracts and vitest contract tests', () => {
@@ -58,7 +79,7 @@ describe('E2E Tier 3: Cross-Feature Pairwise Combinations (20 Combinations)', ()
     expect(scripts['test:contract']).toBe('vitest run src/__tests__/contracts')
     expect(scripts['audit:wire']).toBe('oa-gen audit:shape --strict')
 
-    expect(deps['@oa-sdk/core']).toBe('workspace:*')
+    expect(deps['@oa-sdk/core']).toBe(`^${builtAgainstVersion('@oa-sdk/core')}`)
     expect(deps['vitest']).toBe('^1.6.0')
   })
 
@@ -69,7 +90,9 @@ describe('E2E Tier 3: Cross-Feature Pairwise Combinations (20 Combinations)', ()
     expect(scripts['diff']).toBe('oa-gen diff --base origin/main --head HEAD --fail-on-breaking')
     expect(scripts['personas:check']).toBe('oa-gen personas:check')
     expect(scripts['ci:gate']).toContain('diff --base origin/main --fail-on-breaking')
-    expect(deps['@oa-sdk/personas']).toBe('workspace:*')
+    // @oa-sdk/personas is private: only the workspace provides it.
+    expect(deps['@oa-sdk/personas']).toBeUndefined()
+    expect(getRecommendedDevDepsForPair('fastify', 'enterprise', 'node', 'workspace')['@oa-sdk/personas']).toBe('workspace:*')
   })
 
   it('T3-04: Bun Elysia x MVP — Bun native server with zero Node tools and live mock', () => {
@@ -107,7 +130,8 @@ describe('E2E Tier 3: Cross-Feature Pairwise Combinations (20 Combinations)', ()
 
     expect(scripts['diff']).toBe('bun x oa-gen diff --base origin/main --head HEAD --fail-on-breaking')
     expect(scripts['ci:gate']).toContain('bun x oa-gen diff --base origin/main --fail-on-breaking')
-    expect(deps['@oa-sdk/personas']).toBe('workspace:*')
+    expect(deps['@oa-sdk/personas']).toBeUndefined()
+    expect(getRecommendedDevDepsForPair('elysia', 'enterprise', 'bun', 'workspace')['@oa-sdk/personas']).toBe('workspace:*')
     expect(deps['tsx']).toBeUndefined()
   })
 
@@ -153,7 +177,7 @@ describe('E2E Tier 3: Cross-Feature Pairwise Combinations (20 Combinations)', ()
     expect(scripts['generate']).toBe('oa-gen generate')
     expect(scripts['mock']).toBe('oa-gen mock --watch')
     expect(deps['@oa-sdk/router']).toBeUndefined() // generic has 0 router dependency
-    expect(deps['@oa-sdk/client']).toBe('workspace:*')
+    expect(deps['@oa-sdk/client']).toBe(`^${builtAgainstVersion('@oa-sdk/client')}`)
   })
 
   it('T3-12: Generic x Enterprise — Framework-agnostic full governance baseline', () => {
@@ -344,5 +368,30 @@ export default defineConfig({
     const res = runOaCli(['init', '--help'])
     expect(res.status).toBe(0)
     expect(res.stdout).toContain('init')
+  })
+
+  it('T3-21: init writes the expected specifier for every @oa-sdk package, from the registry and inside the workspace', () => {
+    const sources: Array<[OaSdkInstallSource, OaSdkPackageSources]> = [
+      ['registry', REGISTRY_SOURCES],
+      ['workspace', { workspacePackages: new Set(Object.keys(OA_SDK_INIT_PACKAGES)), versions: BUILT_AGAINST_VERSIONS }],
+    ]
+    for (const framework of TARGET_FRAMEWORK_IDS) {
+      for (const archetype of PRODUCT_LIFECYCLE_ARCHETYPES) {
+        const target = getTargetProfile(framework)
+        for (const [source, oaSdkSources] of sources) {
+          const label = `${framework} x ${archetype} (${source})`
+          const { devDependencies, unavailable } = composeInitDependencies(target, getArchetypeProfile(archetype), {
+            cwd: '/workspace/app',
+            frameworkId: framework,
+            runtime: target.defaultRuntime,
+            oaSdkSources,
+          })
+          for (const [name, specifier] of Object.entries(devDependencies)) {
+            if (name.startsWith('@oa-sdk/')) expect(specifier, `${label}: ${name}`).toBe(expectedOaSdkSpecifier(name, source))
+          }
+          for (const { name } of unavailable) expect(expectedOaSdkSpecifier(name, source), `${label}: ${name}`).toBeUndefined()
+        }
+      }
+    }
   })
 })
