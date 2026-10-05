@@ -50,13 +50,14 @@ try {
     codegen,
     router,
     client,
-    mockServer,
+    mockServerMsw,
   ] = await Promise.all([
     import('../packages/parser/dist/index.js'),
     import('../packages/codegen/dist/index.js'),
     import('../packages/router/dist/index.js'),
     import('../packages/client/dist/index.js'),
-    import('../packages/mock-server/dist/index.js'),
+    // The MSW adapter has its own entry point, as msw is an optional peer of mock-server.
+    import('../packages/mock-server/dist/adapters/msw.js'),
   ])
 
   const validation = parser.validateDocument(spec, {
@@ -113,7 +114,7 @@ try {
   })
   await compileSyntheticGeneratedConsumers({ codegen, router, client })
 
-  const handlers = mockServer.createMswHandlers(spec)
+  const handlers = mockServerMsw.createMswHandlers(spec)
   if (handlers.length < parsed.operations.length) {
     throw new Error(`mock-server produced too few handlers: ${handlers.length} for ${parsed.operations.length} operations`)
   }

@@ -1,7 +1,8 @@
 // ─── 어댑터 ───────────────────────────────────────────────────────────────────
-export { createMswHandlers, createMswMockServer } from './adapters/msw.js'
-export type { MswHandlerOptions, MswMockServer } from './adapters/msw.js'
-
+// The MSW adapter is not re-exported here: `msw` is an optional peer, and this
+// entry (which `oa-gen mock` loads) must import without it. MSW users import
+// '@oa-sdk/mock-server/adapters/msw' or '@oa-sdk/mock-server/browser', the
+// entry points release-policy.json declares under optionalPeerEntryPoints.
 export { createNodeMockServer } from './adapters/node-http.js'
 export type { NodeMockServer, NodeMockServerOptions, OverrideResponse } from './adapters/node-http.js'
 

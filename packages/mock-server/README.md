@@ -24,9 +24,14 @@ only if this package becomes an approved distribution candidate.
 
 Use `createMswHandlers` to generate MSW `RequestHandler[]` from an OpenAPI spec. The handlers intercept requests, validate them against the spec, and return example-driven or schema-generated responses.
 
+`msw` is an optional peer dependency, so package managers do not install it for you. The MSW
+adapter is therefore not part of the root `@oa-sdk/mock-server` entry point, which loads without
+`msw`: import it from `@oa-sdk/mock-server/adapters/msw` (Node and Vitest) or
+`@oa-sdk/mock-server/browser` (browser bundles), and install `msw >= 2.0` next to it.
+
 ```ts
 import { setupServer } from 'msw/node'
-import { createMswHandlers } from '@oa-sdk/mock-server'
+import { createMswHandlers } from '@oa-sdk/mock-server/adapters/msw'
 
 const spec = {
   openapi: '3.2.0',
@@ -375,6 +380,10 @@ Multiple conditions use OR semantics — if any condition matches, the route is 
 ## API Reference
 
 ### Adapters
+
+The MSW exports (`createMswHandlers`, `createMswMockServer`, `MswHandlerOptions`,
+`MswMockServer`) come from `@oa-sdk/mock-server/adapters/msw` and `@oa-sdk/mock-server/browser`,
+which need `msw`; the root entry point does not export them.
 
 | Export | Description |
 |--------|-------------|

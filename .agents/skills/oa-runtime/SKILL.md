@@ -520,6 +520,7 @@ function __combineSignals(a?: AbortSignal | null, b?: AbortSignal | null): Abort
      ```
 2. **MSW Adapter (`createMswHandlers`)**:
    - Emits an array of Mock Service Worker (MSW) `RequestHandler` instances using `http.get`, `http.post`, etc.
+   - Import it from `@oa-sdk/mock-server/adapters/msw` (Node, Vitest) or `@oa-sdk/mock-server/browser`. `msw` is an optional peer, so the root `@oa-sdk/mock-server` entry does not export the MSW adapter and loads without `msw`.
    - Ideal for Vitest browser mode, Playwright network interception, or Storybook previews.
 
 ### 3.2 Route Matching & Literal-First Specificity Algorithm

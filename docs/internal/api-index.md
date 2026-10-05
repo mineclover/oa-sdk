@@ -1194,14 +1194,22 @@ Governance manifest: `packages/codegen/src/cli/spec/oa-gen-governance.ts` 및 `d
 
 | 함수/타입 | 파일 | 용도 |
 |-----------|------|------|
-| `createMswHandlers()` | `adapters/msw.ts` | MSW 2.x 핸들러 배열 생성 |
-| `createMswMockServer()` | `adapters/msw.ts` | MSW 핸들러 + override API 통합 |
-| `MswHandlerOptions` | `adapters/msw.ts` | MSW 옵션 타입 (request hook, route filter, request schema preflight, callback hook) |
-| `MswMockServer` | `adapters/msw.ts` | MSW mock 서버 타입 (handlers + override) |
 | `createNodeMockServer()` | `adapters/node-http.ts` | Node HTTP 목 서버 생성 |
 | `NodeMockServer` | `adapters/node-http.ts` | Node 서버 인스턴스 타입 (override 포함) |
 | `NodeMockServerOptions` | `adapters/node-http.ts` | Node 서버 옵션 타입 (port/host, server variables, route filter, request schema preflight, callback hook) |
 | `OverrideResponse` | `adapters/node-http.ts` | override 응답 타입 |
+
+## MSW 어댑터 (`@oa-sdk/mock-server/adapters/msw`, `@oa-sdk/mock-server/browser`)
+
+`msw`는 optional peer라서 root entry point는 MSW 어댑터를 export하지 않는다. 아래 export는
+`msw`가 설치된 consumer에서 `./adapters/msw`(Node, Vitest)와 `./browser`(browser bundle)로 import한다.
+
+| 함수/타입 | 파일 | 용도 |
+|-----------|------|------|
+| `createMswHandlers()` | `adapters/msw.ts` | MSW 2.x 핸들러 배열 생성 |
+| `createMswMockServer()` | `adapters/msw.ts` | MSW 핸들러 + override API 통합 |
+| `MswHandlerOptions` | `adapters/msw.ts` | MSW 옵션 타입 (request hook, route filter, request schema preflight, callback hook) |
+| `MswMockServer` | `adapters/msw.ts` | MSW mock 서버 타입 (handlers + override) |
 
 ## parser re-exports (`@oa-sdk/mock-server`)
 

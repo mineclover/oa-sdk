@@ -42,6 +42,7 @@ const [
   clientNode,
   clientBrowser,
   mockNode,
+  mockNodeMsw,
   mockBrowser,
 ] = await Promise.all([
   loadBuiltSurface('packages/core/dist/index.js'),
@@ -55,6 +56,7 @@ const [
   loadBuiltSurface('packages/client/dist/index.js'),
   loadBuiltSurface('packages/client/dist/browser.js'),
   loadBuiltSurface('packages/mock-server/dist/index.js'),
+  loadBuiltSurface('packages/mock-server/dist/adapters/msw.js'),
   loadBuiltSurface('packages/mock-server/dist/browser.js'),
 ])
 
@@ -104,8 +106,10 @@ assert.deepEqual(
   ['derefInternalSpec', 'derefInternalSpecWithDiagnostics'],
   '@oa-sdk/parser/browser gained an undocumented browser-only runtime export',
 )
+// The Node root entry leaves the MSW adapter to its own subpath, as msw is an
+// optional peer; together they are the Node surface the browser entry mirrors.
 assert.deepEqual(
-  browserOnlyExports(mockNode, mockBrowser),
+  browserOnlyExports({ ...mockNode, ...mockNodeMsw }, mockBrowser),
   ['derefInternalSpec', 'parseDocument'],
   '@oa-sdk/mock-server/browser gained an undocumented browser-only runtime export',
 )
@@ -175,7 +179,7 @@ assert.equal(
 )
 assert.deepEqual(
   normalizeMswHandlers(mockBrowser.createMswHandlers(paritySpec)),
-  normalizeMswHandlers(mockNode.createMswHandlers(paritySpec)),
+  normalizeMswHandlers(mockNodeMsw.createMswHandlers(paritySpec)),
   'Node/browser MSW handler generation drifted',
 )
 
