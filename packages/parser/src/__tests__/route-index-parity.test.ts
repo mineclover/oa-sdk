@@ -180,6 +180,94 @@ const fixtures = {
       pathItems: { Shared: { get: { operationId: 'getShared', responses: ok } } },
     },
   }),
+  pathItemSiblings: doc({
+    paths: {
+      '/shared/{id}': {
+        $ref: '#/components/pathItems/Shared',
+        summary: 'Local summary',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+        servers: [{ url: 'https://local.example.com' }],
+        post: { operationId: 'postLocal', responses: ok },
+      },
+    },
+    components: {
+      pathItems: {
+        Shared: {
+          summary: 'Shared summary',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'verbose', in: 'query', schema: { type: 'boolean' } },
+          ],
+          servers: [{ url: 'https://shared.example.com' }],
+          get: { operationId: 'getShared', responses: ok },
+          post: { operationId: 'postShared', responses: ok },
+        },
+      },
+    },
+  }),
+  referenceSiblings: doc({
+    paths: {
+      '/pets': {
+        get: {
+          operationId: 'listPets',
+          parameters: [
+            {
+              $ref: '#/components/parameters/Limit',
+              name: 'renamed',
+              in: 'header',
+              required: true,
+              schema: { type: 'string' },
+              summary: 'Parameter Objects define no summary',
+              description: 'Page size for this listing',
+            },
+            { $ref: '#/components/parameters/OffsetAlias', description: 'Offset for this listing' },
+          ],
+          requestBody: {
+            $ref: '#/components/requestBodies/Pet',
+            required: false,
+            content: {},
+            description: 'Pet filter for this listing',
+          },
+          responses: {
+            '200': {
+              $ref: '#/components/responses/Ok',
+              content: {},
+              headers: { 'X-Ignored': { schema: { type: 'string' } } },
+              summary: 'Listing',
+              description: 'Pets on this page',
+            },
+            '404': { $ref: '#/components/responses/MissingAlias' },
+          },
+          callbacks: {
+            onEvent: {
+              $ref: '#/components/callbacks/Event',
+              summary: 'Callback Objects define no summary',
+              description: 'Callback Objects define no description',
+              '{$request.body#/otherUrl}': { post: { operationId: 'ignoredEvent', responses: ok } },
+            },
+          },
+        },
+      },
+    },
+    components: {
+      parameters: {
+        Limit: { name: 'limit', in: 'query', description: 'Component limit', schema: { type: 'integer' } },
+        OffsetAlias: { $ref: '#/components/parameters/Offset', required: true, description: 'Alias offset' },
+        Offset: { name: 'offset', in: 'query', schema: { type: 'integer' } },
+      },
+      requestBodies: {
+        Pet: { required: true, content: { 'application/json': { schema: { type: 'object' } } } },
+      },
+      responses: {
+        Ok: { summary: 'OK', description: 'OK', content: { 'application/json': { schema: { type: 'array' } } } },
+        MissingAlias: { $ref: '#/components/responses/Missing', content: {}, description: 'No pet matched' },
+        Missing: { description: 'Missing', content: { 'application/json': { schema: { type: 'object' } } } },
+      },
+      callbacks: {
+        Event: { '{$request.body#/eventUrl}': { post: { operationId: 'event', responses: ok } } },
+      },
+    },
+  }),
   unresolvedExternal: doc({
     paths: {
       '/external': {
@@ -279,6 +367,19 @@ describe.each(PIPELINES)('loadSchema ↔ parseDocument parity (%s)', (_label, pa
     expect(entry(routes, '/shared', 'get').operationId).toBe('getShared')
   })
 
+  it('fields beside a Path Item $ref overlay the referenced Path Item', () => {
+    const routes = expectParity(fixtures.pathItemSiblings, passes)
+    expect([...routes.get('/shared/{id}')!.keys()]).toEqual(['get', 'post'])
+    expect(entry(routes, '/shared/{id}', 'post').operationId).toBe('postLocal')
+    // Path Item fields are overlaid whole: the local `parameters` and
+    // `servers` replace the referenced ones for every operation.
+    expect(entry(routes, '/shared/{id}', 'get')).toMatchObject({
+      operationId: 'getShared',
+      parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+      servers: [{ url: 'https://local.example.com' }],
+    })
+  })
+
   it('unresolvable references are omitted instead of leaking Reference Objects', () => {
     const routes = expectParity(fixtures.unresolvedExternal, passes)
     const get = entry(routes, '/external', 'get')
@@ -292,10 +393,36 @@ describe.each(PIPELINES)('loadSchema ↔ parseDocument parity (%s)', (_label, pa
 })
 
 describe('route-index fallback resolution', () => {
-  it('matches the deref pipeline when the targets carry no nested refs', () => {
+  it('matches the deref pipeline when targets carry no nested refs and references add only summary/description', () => {
     for (const spec of [fixtures.refParameters, fixtures.callbacks, fixtures.pathItemRef]) {
       expect(loadSchema(structuredClone(spec), [])).toEqual(loadSchema(structuredClone(spec)))
     }
+  })
+
+  // OAS 3.2 §4.8.23: a Reference Object overrides only `summary` and
+  // `description`, and only where the referenced object type defines the
+  // field; any other added property SHALL be ignored. The deref pass still
+  // overlays every sibling, so this is asserted on the no-deref pipeline only.
+  it('Reference Objects override only the summary/description their target type defines', () => {
+    const routes = expectParity(fixtures.referenceSiblings, [])
+    const get = entry(routes, '/pets', 'get')
+    const components = fixtures.referenceSiblings.components!
+
+    expect(get.parameters).toEqual([
+      { name: 'limit', in: 'query', description: 'Page size for this listing', schema: { type: 'integer' } },
+      // The outermost description wins over the intermediate alias; the
+      // alias's `required` sibling is ignored as well.
+      { name: 'offset', in: 'query', description: 'Offset for this listing', schema: { type: 'integer' } },
+    ])
+    expect(get.requestBody).toEqual({
+      ...components.requestBodies!.Pet,
+      description: 'Pet filter for this listing',
+    })
+    expect(get.responses).toEqual({
+      '200': { ...components.responses!.Ok, summary: 'Listing', description: 'Pets on this page' },
+      '404': { ...components.responses!.Missing, description: 'No pet matched' },
+    })
+    expect(get.callbacks).toEqual({ onEvent: components.callbacks!.Event })
   })
 
   it('omits cyclic reference chains without looping', () => {
@@ -343,6 +470,7 @@ describe('browser loadSchema shares the builder', () => {
       fixtures.additionalOperations,
       fixtures.extensions,
       fixtures.pathItemRef,
+      fixtures.pathItemSiblings,
     ]) {
       const browserRoutes = loadBrowserSchema(structuredClone(spec))
       expect(browserRoutes).toStrictEqual(parseBrowserDocument(structuredClone(spec)).routes)

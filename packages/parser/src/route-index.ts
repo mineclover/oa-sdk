@@ -21,15 +21,26 @@
  * - `security` is operation ?? document ?? []; `servers` is
  *   operation ?? path item ?? document ?? [].
  * - Operation-level `x-*` extensions are copied onto the entry.
- * - `OperationEntry` exposes resolved objects. A Reference Object the pipeline
- *   left at an indexed position (Path Item, parameter, requestBody, response,
- *   callback) is resolved against the same document by local JSON pointer,
- *   following reference chains, with sibling fields overlaying the target the
- *   way the deref pass merges them. A reference that cannot be resolved locally
- *   (external without a loader, missing target, cycle) is omitted instead of
- *   leaking a Reference Object into the IR; completeness is reported by
- *   `ParsedDocument.resolution`. An unresolved Path Item `$ref` still
- *   contributes the operations declared beside it.
+ * - `OperationEntry` exposes resolved objects. A `$ref` the pipeline left at an
+ *   indexed position (Path Item, parameter, requestBody, response, callback) is
+ *   resolved against the same document by local JSON pointer, following
+ *   reference chains. What the referencing object contributes depends on the
+ *   position (see `ReferenceSiblings`):
+ *   - parameter, requestBody, response and callback hold Reference Objects
+ *     (OAS 3.2 §4.8.23). Only `summary` and `description` override, and only
+ *     where the referenced object type defines that field; every other added
+ *     property is ignored. Along a chain the outermost override wins.
+ *   - A Path Item `$ref` is a Path Item field, not a Reference Object. Fields
+ *     declared beside it are Path Item fields and overlay the referenced Path
+ *     Item; where both define a field (undefined behavior in OAS 3.2) the
+ *     referencing object wins, as in the deref pass.
+ *   A reference that cannot be resolved locally (external without a loader,
+ *   missing target, cycle) is omitted instead of leaking a Reference Object
+ *   into the IR; completeness is reported by `ParsedDocument.resolution`. An
+ *   unresolved Path Item `$ref` still contributes the fields declared beside it.
+ *   The deref pass still overlays every sibling at Reference Object positions,
+ *   so a pipeline with deref can differ from this resolution for siblings other
+ *   than `summary`/`description`.
  * - The input document is never mutated; entries share sub-objects with it.
  */
 
@@ -48,6 +59,29 @@ import { resolveJsonPointer } from './json-pointer.js'
 import { createSafeRecord } from './safe-record.js'
 
 type JsonRecord = Record<string, unknown>
+
+/** The Reference Object fields that may override the referenced component. */
+type ReferenceOverrideField = 'summary' | 'description'
+
+/**
+ * Which fields of a referencing object apply to the resolved target:
+ * `'path-item'` overlays every field declared beside a Path Item `$ref`; a field
+ * list applies only those Reference Object overrides.
+ */
+type ReferenceSiblings = 'path-item' | readonly ReferenceOverrideField[]
+
+/**
+ * Reference Object overrides per position. OAS 3.2 §4.8.23: an override has no
+ * effect when the referenced object type does not define the field.
+ */
+const REFERENCE_OVERRIDES = {
+  parameter: ['description'],
+  requestBody: ['description'],
+  response: ['summary', 'description'],
+  // A Callback Object maps runtime expressions to Path Items and defines
+  // neither field; an override key would read as a callback expression.
+  callback: [],
+} as const satisfies Record<string, readonly ReferenceOverrideField[]>
 
 export type PathOperationIndex = {
   /** Path operations in document order: paths, fixed-field methods, then additionalOperations. */
@@ -132,16 +166,16 @@ function buildEntry(
     tags: op.tags ?? [],
     deprecated: op.deprecated ?? false,
     parameters: mergeParameters(pathParams, resolveParameters(doc, op.parameters)),
-    responses: resolveReferenceMap<OasResponse>(doc, op.responses),
+    responses: resolveReferenceMap<OasResponse>(doc, op.responses, REFERENCE_OVERRIDES.response),
     security: op.security ?? doc.security ?? [],
     servers: op.servers ?? item.servers ?? doc.servers ?? [],
-    callbacks: resolveReferenceMap<OasCallback>(doc, op.callbacks),
+    callbacks: resolveReferenceMap<OasCallback>(doc, op.callbacks, REFERENCE_OVERRIDES.callback),
   }
 
   if (op.operationId !== undefined) entry.operationId = op.operationId
   if (op.summary !== undefined) entry.summary = op.summary
   if (op.description !== undefined) entry.description = op.description
-  const requestBody = resolveReference<OasRequestBody>(doc, op.requestBody)
+  const requestBody = resolveReference<OasRequestBody>(doc, op.requestBody, REFERENCE_OVERRIDES.requestBody)
   if (requestBody) entry.requestBody = requestBody
   if (op.externalDocs !== undefined) entry.externalDocs = op.externalDocs
   for (const [key, value] of Object.entries(op)) {
@@ -155,7 +189,7 @@ function resolveParameters(doc: OasDocument, parameters: unknown): OasParameter[
   if (!Array.isArray(parameters)) return []
   const resolved: OasParameter[] = []
   for (const parameter of parameters) {
-    const value = resolveReference<OasParameter>(doc, parameter)
+    const value = resolveReference<OasParameter>(doc, parameter, REFERENCE_OVERRIDES.parameter)
     if (value) resolved.push(value)
   }
   return resolved
@@ -169,17 +203,21 @@ function mergeParameters(path: OasParameter[], op: OasParameter[]): OasParameter
   return [...map.values()]
 }
 
-function resolveReferenceMap<T>(doc: OasDocument, map: unknown): Record<string, T> {
+function resolveReferenceMap<T>(
+  doc: OasDocument,
+  map: unknown,
+  siblings: ReferenceSiblings,
+): Record<string, T> {
   const resolved = createSafeRecord<T>()
   for (const [key, value] of entriesOf(map)) {
-    const target = resolveReference<T>(doc, value)
+    const target = resolveReference<T>(doc, value, siblings)
     if (target) resolved[key] = target
   }
   return resolved
 }
 
 function resolvePathItem(doc: OasDocument, value: unknown): OasPathItem | undefined {
-  const resolved = resolveReference<OasPathItem>(doc, value)
+  const resolved = resolveReference<OasPathItem>(doc, value, 'path-item')
   if (resolved) return resolved
   if (!isRecord(value)) return undefined
   // Unlike a Reference Object, a Path Item may declare operations beside its
@@ -189,10 +227,11 @@ function resolvePathItem(doc: OasDocument, value: unknown): OasPathItem | undefi
 }
 
 /**
- * Resolve a Reference Object left in place by the pipeline. Objects without
- * `$ref` are returned as-is so the result keeps sharing them with the document.
+ * Resolve a `$ref` left in place by the pipeline, applying the fields of each
+ * referencing object that `siblings` allows. Objects without `$ref` are returned
+ * as-is so the result keeps sharing them with the document.
  */
-function resolveReference<T>(doc: OasDocument, value: unknown): T | undefined {
+function resolveReference<T>(doc: OasDocument, value: unknown, siblings: ReferenceSiblings): T | undefined {
   if (!isRecord(value)) return undefined
   if (!hasOwn(value, '$ref')) return value as T
 
@@ -204,18 +243,27 @@ function resolveReference<T>(doc: OasDocument, value: unknown): T | undefined {
     visited.add(current)
     const ref = current.$ref
     if (typeof ref !== 'string') return undefined
-    overlays.push(siblingFields(current))
+    overlays.push(referencingFields(current, siblings))
     current = resolveJsonPointer(doc, ref)
   }
   if (!isRecord(current)) return undefined
 
-  // The outermost reference's siblings win, as in the deref pass.
+  // The outermost referencing object's fields win, as in the deref pass.
   let merged: JsonRecord = current
   for (let index = overlays.length - 1; index >= 0; index -= 1) {
     const layer = overlays[index]!
     if (Object.keys(layer).length > 0) merged = { ...merged, ...layer }
   }
   return merged as T
+}
+
+function referencingFields(record: JsonRecord, siblings: ReferenceSiblings): JsonRecord {
+  if (siblings === 'path-item') return siblingFields(record)
+  const overrides = createSafeRecord<unknown>()
+  for (const field of siblings) {
+    if (hasOwn(record, field)) overrides[field] = record[field]
+  }
+  return overrides
 }
 
 function siblingFields(record: JsonRecord): JsonRecord {

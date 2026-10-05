@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseDocument, type OasDocument } from '@oa-sdk/parser'
+import { parseDocument, type OasDocument, type OasPathItem } from '@oa-sdk/parser'
 import { generateClient } from '@oa-sdk/client'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -1495,6 +1495,32 @@ describe('generateTypesFromSpec — referenced operation components', () => {
     expect(params).toContain('/** Page size for this listing */')
     expect(params).toContain('limit?: number')
     expect(params).not.toContain('Component limit description')
+  })
+
+  // OAS 3.2 §4.8.23: properties added to a Reference Object other than
+  // `summary` and `description` SHALL be ignored.
+  it('ignores Reference Object siblings other than summary and description', () => {
+    const spec = referencedComponentsSpec()
+    const pets = spec.paths!['/pets'] as OasPathItem
+    pets.get!.parameters = [{
+      $ref: '#/components/parameters/Limit',
+      name: 'size',
+      in: 'header',
+      required: true,
+      description: 'Page size for this listing',
+    }]
+    pets.post!.requestBody = { $ref: '#/components/requestBodies/PetBody', required: false, content: {} }
+    pets.post!.responses = { '201': { $ref: '#/components/responses/PetCreated', content: {} } }
+
+    const ts = generateTypesFromSpec(spec)
+
+    const params = objectDeclaration(ts, 'ListPetsQueryParams')
+    expect(params).toContain('/** Page size for this listing */')
+    expect(params).toContain('limit?: number')
+    expect(ts).not.toContain('ListPetsHeaderParams')
+    expect(ts).toContain('export type CreatePetBody = Pet\n')
+    expect(ts).toContain('export type CreatePetResponse = Pet\n')
+    expect(objectDeclaration(ts, 'CreatePetOp')).toContain('body: CreatePetBody')
   })
 
   // Scope: Reference Objects at operation level only (Path Item, parameter,
