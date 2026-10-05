@@ -3,6 +3,7 @@
  */
 
 export type CliConfig = {
+  /** Where spec revisions are read from. A config without `source` reads the local git repository. */
   source: 'github' | 'gitlab' | 'local-git'
   github?: { owner: string; repo: string; branch?: string; host?: string; repoCache?: string }
   gitlab?: { host?: string; projectId: string | number }
@@ -41,7 +42,7 @@ function requiredConfigString(record: Record<string, unknown>, key: string, path
 export const CliConfigSchema = {
   parse(value: unknown): CliConfig {
     const root = configObject(value, 'config')
-    const source = root.source
+    const source = root.source === undefined ? 'local-git' : root.source
     if (source !== 'github' && source !== 'gitlab' && source !== 'local-git') {
       throw new Error('config.source must be one of local-git, github, gitlab')
     }
@@ -79,5 +80,16 @@ export const CliConfigSchema = {
       ...optionalConfigString(root, 'dbPath', 'config'),
       ...optionalConfigString(root, 'branch', 'config'),
     }
+  },
+}
+
+/**
+ * A whole spec-lens.config document. An empty document (a YAML file with no
+ * content or only comments, or JSON `null`) carries no configuration, so it
+ * yields `null` and the CLI auto-detects the project as it does without a file.
+ */
+export const CliConfigDocumentSchema = {
+  parse(value: unknown): CliConfig | null {
+    return value === null || value === undefined ? null : CliConfigSchema.parse(value)
   },
 }

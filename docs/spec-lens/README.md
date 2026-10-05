@@ -168,7 +168,7 @@ graph TD
 ```yaml
 # spec-lens.config.yaml
 
-source: local-git           # local-git | github | gitlab
+source: local-git           # local-git | github | gitlab (생략 시 local-git)
 project:
   kind: definition-builder
   sourceRoot: packages/schemas/src/fragments
@@ -208,7 +208,7 @@ provenance에 남긴다. 어느 경우도 historical compiler에 임의 설정�
 직접 줄 수 있다. 기존 `watchPaths`는 `candidate-only` 호환 alias이며, `observation`,
 `observationInputs`, `watchPaths` 중 하나만 사용한다.
 
-**설정 파일이 없으면** 다음 경로를 자동 감지한다:
+**설정 파일이 없거나 비어 있으면**(주석만 있는 YAML 포함) 다음 경로를 자동 감지한다:
 - `packages/schemas/typespec/oa-sdk.typespec-bundle.json` (production, 최우선)
 - `packages/schemas/src/targets/book-notebook-api.yaml`
 - `packages/schemas/src/targets/admin-api.yaml`

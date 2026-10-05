@@ -22,7 +22,7 @@ import {
   resolveSpecProjectConfig,
 } from './domain/project.js'
 import type { SpecSourcePort } from './application/ports/spec-source.port.js'
-import { CliConfigSchema, type CliConfig } from './cli-config.js'
+import { CliConfigDocumentSchema, type CliConfig } from './cli-config.js'
 
 function findConfig(): CliConfig | null {
   const candidates = [
@@ -35,7 +35,7 @@ function findConfig(): CliConfig | null {
     if (existsSync(p)) {
       const raw = readFileSync(p, 'utf8')
       try {
-        return name.endsWith('.json') ? CliConfigSchema.parse(JSON.parse(raw)) : CliConfigSchema.parse(parseYaml(raw))
+        return name.endsWith('.json') ? CliConfigDocumentSchema.parse(JSON.parse(raw)) : CliConfigDocumentSchema.parse(parseYaml(raw))
       } catch (err) {
         throw new Error(`Failed to parse config '${name}': ${err instanceof Error ? err.message : String(err)}`)
       }
