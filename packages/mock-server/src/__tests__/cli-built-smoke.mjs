@@ -1,14 +1,22 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { existsSync, readdirSync, statSync } from 'node:fs'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { dirname, join, relative, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { checkBuiltCli } from './built-cli-freshness.mjs'
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
-const cliPath = join(packageRoot, 'dist/cli/index.js')
-assertBuiltCliIsCurrent()
+const builtFile = 'dist/cli/index.js'
+const cliPath = join(packageRoot, builtFile)
+// test:ci runs this smoke against the dist/ already on disk; see built-cli-freshness.mjs for how
+// a missing or stale build is caught.
+const freshness = checkBuiltCli({ packageRoot, builtFile })
+if (!freshness.ok) {
+  process.stderr.write(`oa-mock CLI smoke: ${freshness.message}\n`)
+  process.exit(1)
+}
+process.stdout.write(`${freshness.message}\n`)
 
 const directory = await mkdtemp(join(tmpdir(), 'oa-mock-cli-'))
 const specPath = join(directory, 'openapi.yaml')
@@ -115,67 +123,4 @@ function runBuiltCli(command, spec) {
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
-// This smoke runs the dist/ already on disk and never builds it. test:ci is meant to run through
-// turbo (`turbo run test:ci`): there test:ci depends on this package's build task, which builds
-// dist/, or restores it from cache, for the current content of every build input. Run directly,
-// nothing builds first, so fall back to modification times and require the built CLI to be newer
-// than every file that shapes dist/.
-function assertBuiltCliIsCurrent() {
-  const remedy = 'Run test:ci through turbo (`pnpm exec turbo run test:ci --filter=@oa-sdk/mock-server`), '
-    + 'which builds this package and its workspace dependencies first, '
-    + 'or rebuild it with `pnpm --filter @oa-sdk/mock-server build`.'
-  const builtCli = relative(packageRoot, cliPath)
-  if (!existsSync(cliPath)) fail(`built CLI is missing: ${builtCli}. ${remedy}`)
-
-  // turbo sets TURBO_HASH in the environment of every task it runs. Its build dependency keys
-  // dist/ on file content; modification times would only add false alarms there, because a cache
-  // hit leaves dist/ untouched when it already holds that build's output.
-  if (process.env.TURBO_HASH) {
-    process.stdout.write(`${builtCli} comes from the turbo build task test:ci depends on\n`)
-    return
-  }
-
-  const builtAt = statSync(cliPath).mtimeMs
-  const inputs = buildInputs()
-  const newer = inputs
-    .map(file => ({ file, modifiedAt: statSync(file).mtimeMs }))
-    .filter(input => input.modifiedAt > builtAt)
-    .sort((left, right) => right.modifiedAt - left.modifiedAt)
-    .map(input => relative(packageRoot, input.file))
-  if (newer.length > 0) {
-    const shown = newer.slice(0, 5).join(', ') + (newer.length > 5 ? `, and ${newer.length - 5} more` : '')
-    fail(`built CLI ${builtCli} is stale: ${newer.length} build input(s) changed after it was built (${shown}). ${remedy}`)
-  }
-  process.stdout.write(`${builtCli} is newer than its ${inputs.length} build inputs\n`)
-}
-
-// The files that shape dist/: the manifest, the tsup and TypeScript configuration, and src/ minus
-// the test-only files (__tests__/, fixtures/, *.test.*) that turbo.json also leaves out of the
-// build inputs, so editing a test never marks dist/ stale. Hidden entries (editor swap files,
-// .DS_Store) are never imported by an entry point and are skipped too.
-function buildInputs() {
-  const files = readdirSync(packageRoot)
-    .filter(name => /^(package\.json|tsup\.config\.[cm]?[jt]s|tsconfig.*\.json)$/.test(name))
-    .map(name => join(packageRoot, name))
-  collectSources(join(packageRoot, 'src'), files)
-  return files
-}
-
-function collectSources(directory, files) {
-  for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    if (entry.name.startsWith('.')) continue
-    const path = join(directory, entry.name)
-    if (entry.isDirectory()) {
-      if (entry.name !== '__tests__' && entry.name !== 'fixtures') collectSources(path, files)
-    } else if (!entry.name.includes('.test.')) {
-      files.push(path)
-    }
-  }
-}
-
-function fail(message) {
-  process.stderr.write(`oa-mock CLI smoke: ${message}\n`)
-  process.exit(1)
 }
