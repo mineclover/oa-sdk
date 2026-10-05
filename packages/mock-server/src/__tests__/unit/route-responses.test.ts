@@ -3,10 +3,11 @@
  * computed once per route and shared, everything request-dependent is not.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { parseDocument, type OperationEntry } from '@oa-sdk/parser'
+import { parseDocument, type OasResponse, type OasSchema, type OperationEntry } from '@oa-sdk/parser'
 import { getResponse } from 'msw'
 import { generator } from '../../core/generate.js'
 import { handleRouteRequest, RouteResponses } from '../../core/handler.js'
+import { pickResponse, validatePickedResponse } from '../../core/response-picker.js'
 import type { RequestParts } from '../../core/request-validator.js'
 import type { MockPlugin } from '../../core/plugin.js'
 import { createMswHandlers } from '../../adapters/msw.js'
@@ -94,6 +95,46 @@ describe('RouteResponses', () => {
     expect(first).toEqual(['data: {"seq":1}\n\n', 'data: {"seq":1}\n\n', 'data: {"seq":1}\n\n'])
     expect(second).toEqual(first)
     expect(fold).not.toHaveBeenCalled()
+  })
+})
+
+describe('RouteResponses with a response schema that fails to compile', () => {
+  /**
+   * Responses whose only schema violates the 2020-12 meta-schema (`examples`
+   * must be an array). Every call returns a new schema object, because the
+   * validator remembers the schema objects it has compiled.
+   */
+  const uncompilableResponses = (status: string): Record<string, OasResponse> => {
+    const schema: OasSchema = {
+      type: 'object',
+      required: ['code'],
+      properties: { code: { type: 'string' } },
+      examples: { sample: { value: { code: 'x' } } } as unknown as unknown[],
+    }
+    return { [status]: { description: status, content: { 'application/json': { schema } } } }
+  }
+
+  it.each([
+    ['operation', '200', (route: RouteResponses) => route.defaultChecked()!],
+    ['documented 401', '401', (route: RouteResponses) => route.unauthorizedChecked()],
+    ['documented 422', '422', (route: RouteResponses) => route.documentedValidationChecked()!],
+  ])('checks the %s response on every call until its schema compiles, as an uncached check does', (_, status, check) => {
+    // An uncached check validates the response on every call, against its own schema object.
+    const uncached = pickResponse(uncompilableResponses(status))!
+    const uncachedErrors = [1, 2, 3].map(() => {
+      const validation = validatePickedResponse(uncached)
+      return validation.valid ? undefined : validation.errors
+    })
+    const route = new RouteResponses(uncompilableResponses(status))
+
+    const checks = [1, 2, 3].map(() => check(route))
+
+    // The validator reports the meta-schema violation on the first compile of a schema object only.
+    expect(uncachedErrors[0]).toEqual([expect.objectContaining({ code: 'SCHEMA_COMPILE_ERROR', path: '/response/body' })])
+    expect(uncachedErrors.slice(1)).toEqual([undefined, undefined])
+    expect(checks.map(checked => checked.errors)).toEqual(uncachedErrors)
+    expect(checks.map(checked => checked.picked.status)).toEqual([Number(status), Number(status), Number(status)])
+    expect(checks[2]!.picked).toBe(checks[0]!.picked)
   })
 })
 

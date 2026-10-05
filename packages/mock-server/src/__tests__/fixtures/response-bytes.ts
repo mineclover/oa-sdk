@@ -402,6 +402,78 @@ export function createStatefulBytesSpec(): OasDocument {
   }
 }
 
+/**
+ * A spec whose response schemas violate the JSON Schema 2020-12 meta-schema:
+ * each carries an OAS 3.0-style keyed `examples` map where an array is
+ * required (as a 3.0 document upgraded without rewriting it would), so the
+ * response validator cannot compile them. `/first` and `/second` share one
+ * such schema through a component; `/guarded` documents such a 401 for
+ * requests without credentials, and `/tags` such a 422 whose body is not a
+ * JSON object, so request validation details are never added to it.
+ *
+ * Every call returns new schema objects: the validator remembers the schema
+ * objects it has compiled, so each test needs its own.
+ */
+export function createUncompilableResponseSpec(): OasDocument {
+  const keyedExamples = (value: unknown) => ({ sample: { value } }) as unknown as unknown[]
+  const errorSchema: OasSchema = {
+    type: 'object',
+    required: ['code', 'message'],
+    properties: { code: { type: 'string' }, message: { type: 'string' } },
+    examples: keyedExamples({ code: 'UNAUTHORIZED', message: 'sign in' }),
+  }
+  return {
+    openapi: '3.2.0',
+    info: { title: 'Uncompilable response schemas', version: '1.0.0' },
+    servers: [{ url: 'https://api.example.test/v1' }],
+    components: {
+      securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer' } },
+      schemas: {
+        Status: {
+          type: 'object',
+          required: ['status'],
+          properties: { status: { type: 'string', enum: ['ok'] } },
+          examples: keyedExamples({ status: 'ok' }),
+        },
+      },
+    },
+    paths: {
+      '/first': {
+        get: { operationId: 'getFirst', responses: { '200': { description: 'OK', content: json({ $ref: '#/components/schemas/Status' }) } } },
+      },
+      '/second': {
+        get: { operationId: 'getSecond', responses: { '200': { description: 'OK', content: json({ $ref: '#/components/schemas/Status' }) } } },
+      },
+      '/guarded': {
+        get: {
+          operationId: 'getGuarded',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            '200': { description: 'OK', content: { 'application/json': { example: { secret: true } } } },
+            '401': { description: 'Unauthorized', content: json(errorSchema) },
+          },
+        },
+      },
+      '/tags': {
+        post: {
+          operationId: 'createTag',
+          requestBody: {
+            required: true,
+            content: json({ type: 'object', required: ['name'], properties: { name: { type: 'string', minLength: 1 } } }),
+          },
+          responses: {
+            '201': { description: 'Created', content: { 'application/json': { example: { name: 'tag' } } } },
+            '422': {
+              description: 'Invalid tag',
+              content: json({ type: 'array', minItems: 1, items: { type: 'string' }, examples: keyedExamples(['invalid']) }),
+            },
+          },
+        },
+      },
+    },
+  }
+}
+
 export type TranscriptRequest = {
   name: string
   method: string
@@ -457,4 +529,21 @@ export const STATEFUL_REQUESTS: readonly TranscriptRequest[] = [
   { name: 'invalid create is rejected before the store', method: 'POST', path: '/notes', headers: jsonHeaders, body: '{"text":""}' },
   { name: 'generated fallback report', method: 'GET', path: '/reports' },
   { name: 'generated fallback report again', method: 'GET', path: '/reports' },
+]
+
+/**
+ * Requests to `createUncompilableResponseSpec()`: the two routes that share a
+ * schema in interleaved order, then the documented 401 and 422, twice each.
+ */
+export const UNCOMPILABLE_RESPONSE_REQUESTS: readonly TranscriptRequest[] = [
+  { name: 'first 1', method: 'GET', path: '/first' },
+  { name: 'first 2', method: 'GET', path: '/first' },
+  { name: 'first 3', method: 'GET', path: '/first' },
+  { name: 'second 1', method: 'GET', path: '/second' },
+  { name: 'second 2', method: 'GET', path: '/second' },
+  { name: 'first 4', method: 'GET', path: '/first' },
+  { name: 'missing credentials 1', method: 'GET', path: '/guarded' },
+  { name: 'missing credentials 2', method: 'GET', path: '/guarded' },
+  { name: 'invalid tag 1', method: 'POST', path: '/tags', headers: jsonHeaders, body: '{"name":""}' },
+  { name: 'invalid tag 2', method: 'POST', path: '/tags', headers: jsonHeaders, body: '{}' },
 ]

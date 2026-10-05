@@ -43,7 +43,10 @@ type CheckedResponse = {
   errors: MockErrorDetail[] | undefined
 }
 
-/** A response picked once (undefined when the spec documents none) and, once checked, its schema errors. */
+/**
+ * A response picked once (undefined when the spec documents none) and, once
+ * its schema check is final (see `isFinalCheck`), that check's errors.
+ */
 type PickedOnce = {
   picked: PickedResponse | undefined
   checked?: { errors: MockErrorDetail[] | undefined }
@@ -55,10 +58,13 @@ type PickedOnce = {
  * `pickResponse` is a pure function of the operation's response objects: the
  * status, media type, header values and body all come from the spec, and
  * generated values come from the stateless built-in generator, so every
- * request to the operation gets the same response. Validating that response
- * against its schema, serializing it and generating its stream events are
- * pure functions of it as well. An instance computes each of these on first
- * use and returns the same value afterwards.
+ * request to the operation gets the same response. Serializing that response
+ * and generating its stream events are pure functions of it as well, and so is
+ * validating it against its schema once the schema has compiled. An instance
+ * computes each of these on first use and returns the same value afterwards,
+ * except a schema check whose schema failed to compile: that check is repeated
+ * on every use until the schema compiles (see `isFinalCheck`), so a route
+ * reports the compile error to exactly the requests an uncached mock would.
  *
  * Adapters keep one instance per compiled route, so a route's response is
  * generated, validated and serialized once instead of on every request, and
@@ -70,7 +76,7 @@ type PickedOnce = {
  */
 export class RouteResponses {
   private defaultResponse: PickedOnce | undefined
-  private unauthorized: CheckedResponse | undefined
+  private unauthorized: (PickedOnce & { picked: PickedResponse }) | undefined
   private documentedValidation: PickedOnce | undefined
   private readonly serializedBodies = new Map<PickedResponse, string>()
   private readonly streamChunkLists = new Map<PickedResponse, readonly string[]>()
@@ -98,18 +104,13 @@ export class RouteResponses {
   defaultChecked(): CheckedResponse | undefined {
     const picked = this.defaultPicked()
     if (!picked) return undefined
-    const response = this.defaultResponse!
-    response.checked ??= { errors: picked.schema ? validationErrors(picked) : undefined }
-    return { picked, errors: response.checked.errors }
+    return recordedCheck(this.defaultResponse!, picked, picked.schema !== undefined)
   }
 
   /** The documented 401 response, or the standard Error-shaped 401, with its schema validation. */
   unauthorizedChecked(): CheckedResponse {
-    if (!this.unauthorized) {
-      const picked = pickUnauthorizedResponse(this.responses)
-      this.unauthorized = { picked, errors: validationErrors(picked) }
-    }
-    return this.unauthorized
+    this.unauthorized ??= { picked: pickUnauthorizedResponse(this.responses) }
+    return recordedCheck(this.unauthorized, this.unauthorized.picked, true)
   }
 
   /** The documented 422 response, or undefined when the operation documents none. */
@@ -122,9 +123,7 @@ export class RouteResponses {
   documentedValidationChecked(): CheckedResponse | undefined {
     const picked = this.documentedValidationPicked()
     if (!picked) return undefined
-    const response = this.documentedValidation!
-    response.checked ??= { errors: validationErrors(picked) }
-    return { picked, errors: response.checked.errors }
+    return recordedCheck(this.documentedValidation!, picked, true)
   }
 
   /**
@@ -322,6 +321,31 @@ function operationMeta(entry: HandlerEntry): { operationId?: string; method: str
 function validationErrors(picked: PickedResponse): MockErrorDetail[] | undefined {
   const validation = validatePickedResponse(picked)
   return validation.valid ? undefined : validation.errors
+}
+
+/**
+ * `picked`, the response `response` holds, with its schema check: the check
+ * `response` recorded, or else a new one, which is recorded when it is final.
+ * With `validate` false the response is not validated and has no errors.
+ */
+function recordedCheck(response: PickedOnce, picked: PickedResponse, validate: boolean): CheckedResponse {
+  if (response.checked) return { picked, errors: response.checked.errors }
+  const errors = validate ? validationErrors(picked) : undefined
+  if (isFinalCheck(errors)) response.checked = { errors }
+  return { picked, errors }
+}
+
+/**
+ * Whether a response schema check gives the same result on every later
+ * request. A check whose schema compiled does: the compiled validator is kept
+ * per schema object and depends only on the response it checks. A check whose
+ * schema failed to compile may not: the shared validator keeps a schema that
+ * fails its meta-schema check, so compiling the same schema object again skips
+ * that check and can succeed. Such a check is repeated on the next request,
+ * exactly as an uncached mock repeats it.
+ */
+function isFinalCheck(errors: readonly MockErrorDetail[] | undefined): boolean {
+  return errors === undefined || !errors.some(error => error.code === 'SCHEMA_COMPILE_ERROR')
 }
 
 function toPickedResponse(result: MockPluginResponse | PickedResponse): PickedResponse {

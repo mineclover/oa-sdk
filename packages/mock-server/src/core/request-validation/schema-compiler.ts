@@ -38,6 +38,14 @@ export function runSchemaValidation(
   }))
 }
 
+/**
+ * The validator of `schema`, compiled once per schema object.
+ *
+ * A failure is not remembered, and the next compile of the same object may
+ * succeed: Ajv keeps a schema that fails its meta-schema check, so compiling
+ * that object again skips the check. Callers that reuse a validation result
+ * must not reuse one that reports SCHEMA_COMPILE_ERROR.
+ */
 export function compileSchema(
   schema: OasSchema,
   basePath: string,

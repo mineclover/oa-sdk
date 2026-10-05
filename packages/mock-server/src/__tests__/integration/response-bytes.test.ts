@@ -17,8 +17,10 @@ import type { MockPlugin } from '../../core/plugin.js'
 import {
   createResponseBytesSpec,
   createStatefulBytesSpec,
+  createUncompilableResponseSpec,
   RESPONSE_BYTES_REQUESTS,
   STATEFUL_REQUESTS,
+  UNCOMPILABLE_RESPONSE_REQUESTS,
 } from '../fixtures/response-bytes.js'
 import { replayOnMsw, replayOnNode, type Exchange } from '../support/transcript.js'
 
@@ -245,6 +247,59 @@ describe('adapter response bytes', () => {
     for (const exchange of Object.values(transcript)) {
       expect(exchange).toEqual({ status: 405, headers: { allow: 'GET, DELETE', 'content-length': '0' }, body: '' })
     }
+  })
+})
+
+describe('response schemas that fail to compile', () => {
+  const compileErrorEnvelope = (operationId: string, method: string, path: string) => ({
+    error: {
+      code: 'SCHEMA_COMPILE_ERROR',
+      message: '응답 검증 스키마 컴파일 실패',
+      details: [{
+        path: '/response/body',
+        code: 'SCHEMA_COMPILE_ERROR',
+        message: '응답 검증 스키마를 컴파일할 수 없습니다',
+        expected: 'schema is invalid: data/examples must be array',
+        stage: 'validate',
+      }],
+      _meta: { operationId, method, path },
+    },
+  })
+  const status = jsonExchange(200, { status: 'ok' })
+
+  /**
+   * The response validator reports a schema's meta-schema violation on the
+   * first compile of that schema object only: it keeps the schema it rejected,
+   * and a later compile of the same object succeeds. So whichever request first
+   * validates against a shared schema gets the compile error, on any of the
+   * routes sharing it, and every later request gets the response. Reusing a
+   * route's checked response must not change which request that is.
+   */
+  const EXPECTED_UNCOMPILABLE_TRANSCRIPT: Record<string, Exchange> = {
+    'first 1': jsonExchange(500, compileErrorEnvelope('getFirst', 'get', '/first')),
+    'first 2': status,
+    'first 3': status,
+    'second 1': status,
+    'second 2': status,
+    'first 4': status,
+    'missing credentials 1': jsonExchange(500, compileErrorEnvelope('getGuarded', 'get', '/guarded')),
+    'missing credentials 2': jsonExchange(401, { code: '', message: '' }),
+    'invalid tag 1': jsonExchange(500, compileErrorEnvelope('createTag', 'post', '/tags')),
+    'invalid tag 2': jsonExchange(422, ['']),
+  }
+
+  it('Node HTTP adapter reports the compile error to the first request that validates against the schema only', async () => {
+    const server = await startNode(createUncompilableResponseSpec())
+
+    expect(await replayOnNode(server, UNCOMPILABLE_RESPONSE_REQUESTS)).toEqual(EXPECTED_UNCOMPILABLE_TRANSCRIPT)
+  })
+
+  it('MSW adapter reports the compile error to the first request that validates against the schema only', async () => {
+    const handlers = createMswHandlers(createUncompilableResponseSpec())
+
+    expect(await replayOnMsw(handlers, MSW_ORIGIN, UNCOMPILABLE_RESPONSE_REQUESTS)).toEqual(
+      asMswTranscript(EXPECTED_UNCOMPILABLE_TRANSCRIPT, ['first 1', 'missing credentials 1', 'invalid tag 1']),
+    )
   })
 })
 
