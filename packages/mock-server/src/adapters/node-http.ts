@@ -12,8 +12,8 @@ import {
   type OperationEntry,
   type RouteIndex,
 } from '@oa-sdk/parser'
-import { handleRequest } from '../core/handler.js'
-import { isStreamingContentType, generateStreamChunks } from '../core/stream.js'
+import { handleRouteRequest, RouteResponses } from '../core/handler.js'
+import { isStreamingContentType } from '../core/stream.js'
 import { filterRouteIndex, type RouteFilter } from '../core/route-filter.js'
 import { assertValidRequestSchemas, createMultipartBody, type MultipartPartMetadata } from '../core/request-validator.js'
 import { serializeResponseBody } from '../core/body-serialization.js'
@@ -93,11 +93,19 @@ type PrecomputedResponse = {
   originalBody: unknown
 }
 
+/** Request-independent state of one operation, compiled together with its spec. */
+type CompiledRoute = {
+  responses: RouteResponses
+  /** The operation's own non-streaming response, serialized with its framing headers. */
+  precomputed: PrecomputedResponse | undefined
+}
+
 type ServerRoutingState = {
   parsed: ReturnType<typeof parseDocument>
   basePath: string
   index: RouteIndex
-  precomputed: Map<OperationEntry, PrecomputedResponse>
+  /** One entry per operation in `index`: bounded by the route count, replaced on hot swap. */
+  routes: Map<OperationEntry, CompiledRoute>
   allowedHeadersCache: Map<string, string>
 }
 
@@ -161,30 +169,34 @@ export function createNodeMockServer(
     const nextIndex = filterRouteIndex(nextMergedRoutes, include)
     if (shouldValidateRequestSchemas) assertValidRequestSchemas(nextIndex)
     // Precalculate default static responses for all operation entries
-    const precomputed = new Map<OperationEntry, PrecomputedResponse>()
-    const allowedHeadersCache = new Map<string, string>()
+    const routes = new Map<OperationEntry, CompiledRoute>()
 
     for (const [, methodMap] of nextIndex) {
       for (const [, entry] of methodMap) {
-        if (entry.responses) {
-          const picked = pickResponse(entry.responses)
-          if (picked && !isStreamingContentType(picked.contentType)) {
-            const payload = serializeResponseBody(picked.contentType, picked.body, picked.schema)
-            const contentLength = Buffer.byteLength(payload)
-            const headers: Record<string, string | number> = {
-              ...picked.headers,
-              'Content-Type': picked.contentType,
-              'Content-Length': contentLength,
-            }
-            precomputed.set(entry, {
-              status: picked.status,
-              contentType: picked.contentType,
-              payload,
-              headers,
-              originalBody: picked.body,
-            })
+        if (!entry.responses) {
+          routes.set(entry, { responses: new RouteResponses(entry.responses), precomputed: undefined })
+          continue
+        }
+        const picked = pickResponse(entry.responses)
+        const responses = new RouteResponses(entry.responses, picked)
+        let precomputed: PrecomputedResponse | undefined
+        if (picked && !isStreamingContentType(picked.contentType)) {
+          const payload = responses.serializedBody(picked)
+          const contentLength = Buffer.byteLength(payload)
+          const headers: Record<string, string | number> = {
+            ...picked.headers,
+            'Content-Type': picked.contentType,
+            'Content-Length': contentLength,
+          }
+          precomputed = {
+            status: picked.status,
+            contentType: picked.contentType,
+            payload,
+            headers,
+            originalBody: picked.body,
           }
         }
+        routes.set(entry, { responses, precomputed })
       }
     }
 
@@ -192,8 +204,8 @@ export function createNodeMockServer(
       parsed: nextParsed,
       basePath: nextBasePath,
       index: nextIndex,
-      precomputed,
-      allowedHeadersCache,
+      routes,
+      allowedHeadersCache: new Map<string, string>(),
     }
   }
 
@@ -291,6 +303,8 @@ export function createNodeMockServer(
     }
 
     const { entry, pathParams } = matched
+    const route = currentState.routes.get(entry)
+      ?? { responses: new RouteResponses(entry.responses), precomputed: undefined }
 
     // override 체크 — 해당 operationId에 오버라이드가 있으면 바로 반환
     const ov = entry.operationId ? overrides.get(entry.operationId) : undefined
@@ -325,7 +339,7 @@ export function createNodeMockServer(
     const contentType = headers['content-type']
     const parsedBody = await readBody(req)
 
-    const hr = await handleRequest(
+    const hr = handleRouteRequest(
       {
         pathParams,
         queryParams,
@@ -338,7 +352,8 @@ export function createNodeMockServer(
       },
       entry,
       currentState.parsed.securitySchemes,
-      { plugins: configuredPlugins },
+      configuredPlugins,
+      route.responses,
     )
 
     if (hr.type === 'validation-error') { await writeJson(res, hr.status, hr.body, chaos?.throttleBytesPerSec); return }
@@ -355,7 +370,7 @@ export function createNodeMockServer(
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
       })
-      for await (const chunk of generateStreamChunks(picked)) {
+      for await (const chunk of route.responses.streamChunks(picked)) {
         if (res.destroyed || res.writableEnded) break
         const chunkBuf = Buffer.from(chunk)
         if (chaos?.throttleBytesPerSec && chaos.throttleBytesPerSec > 0) {
@@ -383,7 +398,7 @@ export function createNodeMockServer(
     }
 
     // Fast path: reuse pre-calculated serialized body and pre-allocated static headers
-    const precalc = currentState.precomputed.get(entry)
+    const precalc = route.precomputed
     if (precalc && picked.status === precalc.status && picked.body === precalc.originalBody) {
       if (chaos?.throttleBytesPerSec && chaos.throttleBytesPerSec > 0) {
         await writeThrottled(res, precalc.status, precalc.headers, precalc.payload, chaos.throttleBytesPerSec)
@@ -394,7 +409,7 @@ export function createNodeMockServer(
       return
     }
 
-    await writeBody(res, picked.status, picked.contentType, picked.body, picked.headers, picked.schema, chaos?.throttleBytesPerSec)
+    await writePayload(res, picked.status, picked.contentType, route.responses.serializedBody(picked), picked.headers, chaos?.throttleBytesPerSec)
   }
 
   return {
@@ -522,7 +537,17 @@ function writeBody(
   schema?: OasSchema,
   throttleBytesPerSec?: number,
 ): Promise<void> | void {
-  const payload = serializeResponseBody(contentType, body, schema)
+  return writePayload(res, status, contentType, serializeResponseBody(contentType, body, schema), extraHeaders, throttleBytesPerSec)
+}
+
+function writePayload(
+  res: ServerResponse,
+  status: number,
+  contentType: string,
+  payload: string,
+  extraHeaders: Record<string, string> = {},
+  throttleBytesPerSec?: number,
+): Promise<void> | void {
   const byteLength = Buffer.byteLength(payload)
   const headers = Object.keys(extraHeaders).length === 0
     ? { 'Content-Type': contentType, 'Content-Length': byteLength }

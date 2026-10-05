@@ -11,6 +11,8 @@ import type { OasCallback, OasParameter, OasRequestBody, OasResponse, OasSecurit
 import { validateRequest, type RequestParts } from './request-validator.js'
 import { pickResponse, validatePickedResponse, type PickedResponse } from './response-picker.js'
 import { simulateCallbackPosts, type CallbackPostAttempt } from './callbacks.js'
+import { serializeResponseBody } from './body-serialization.js'
+import { generateStreamChunks } from './stream.js'
 import type { MockErrorDetail, MockErrorResponse } from '../errors/types.js'
 import type { MockPlugin, MockPluginContext, MockPluginResponse } from './plugin.js'
 
@@ -24,23 +26,175 @@ export type HandlerOptions = {
   plugins?: MockPlugin[]
 }
 
+type HandlerEntry = {
+  operationId?: string
+  method: string
+  openApiPath: string
+  parameters: OasParameter[]
+  requestBody?: OasRequestBody
+  responses: Record<string, OasResponse>
+  security: OasSecurityRequirement[]
+  callbacks?: Record<string, OasCallback>
+}
+
+/** A response together with the errors its response schema reported (undefined when it conforms). */
+type CheckedResponse = {
+  picked: PickedResponse
+  errors: MockErrorDetail[] | undefined
+}
+
+/** A response picked once (undefined when the spec documents none) and, once checked, its schema errors. */
+type PickedOnce = {
+  picked: PickedResponse | undefined
+  checked?: { errors: MockErrorDetail[] | undefined }
+}
+
+/**
+ * The parts of one operation's mock response that do not depend on the request.
+ *
+ * `pickResponse` is a pure function of the operation's response objects: the
+ * status, media type, header values and body all come from the spec, and
+ * generated values come from the stateless built-in generator, so every
+ * request to the operation gets the same response. Validating that response
+ * against its schema, serializing it and generating its stream events are
+ * pure functions of it as well. An instance computes each of these on first
+ * use and returns the same value afterwards.
+ *
+ * Adapters keep one instance per compiled route, so a route's response is
+ * generated, validated and serialized once instead of on every request, and
+ * the number of instances is the number of routes. Recompiling routes (a spec
+ * hot swap, or new MSW handlers) creates new instances.
+ *
+ * The values are shared by every request to the route and must be treated as
+ * read-only. Responses produced by plugins are never stored here.
+ */
+export class RouteResponses {
+  private defaultResponse: PickedOnce | undefined
+  private unauthorized: CheckedResponse | undefined
+  private documentedValidation: PickedOnce | undefined
+  private readonly serializedBodies = new Map<PickedResponse, string>()
+  private readonly streamChunkLists = new Map<PickedResponse, readonly string[]>()
+
+  /**
+   * @param precomputedDefault `pickResponse(responses)` when the caller has already computed it.
+   */
+  constructor(
+    private readonly responses: Record<string, OasResponse>,
+    precomputedDefault?: PickedResponse | null,
+  ) {
+    if (precomputedDefault !== undefined) this.defaultResponse = { picked: precomputedDefault ?? undefined }
+  }
+
+  /** The operation's own response (`pickResponse`), or undefined when it documents none. */
+  defaultPicked(): PickedResponse | undefined {
+    this.defaultResponse ??= { picked: pickResponse(this.responses) ?? undefined }
+    return this.defaultResponse.picked
+  }
+
+  /**
+   * The operation's own response with its schema validation, or undefined when
+   * it documents none. A response without a media type schema is not validated.
+   */
+  defaultChecked(): CheckedResponse | undefined {
+    const picked = this.defaultPicked()
+    if (!picked) return undefined
+    const response = this.defaultResponse!
+    response.checked ??= { errors: picked.schema ? validationErrors(picked) : undefined }
+    return { picked, errors: response.checked.errors }
+  }
+
+  /** The documented 401 response, or the standard Error-shaped 401, with its schema validation. */
+  unauthorizedChecked(): CheckedResponse {
+    if (!this.unauthorized) {
+      const picked = pickUnauthorizedResponse(this.responses)
+      this.unauthorized = { picked, errors: validationErrors(picked) }
+    }
+    return this.unauthorized
+  }
+
+  /** The documented 422 response, or undefined when the operation documents none. */
+  documentedValidationPicked(): PickedResponse | undefined {
+    this.documentedValidation ??= { picked: pickDocumentedResponse(this.responses, 422) }
+    return this.documentedValidation.picked
+  }
+
+  /** The documented 422 response as documented (without request details), with its schema validation. */
+  documentedValidationChecked(): CheckedResponse | undefined {
+    const picked = this.documentedValidationPicked()
+    if (!picked) return undefined
+    const response = this.documentedValidation!
+    response.checked ??= { errors: validationErrors(picked) }
+    return { picked, errors: response.checked.errors }
+  }
+
+  /**
+   * The wire body of `picked`. Only responses this instance produced are
+   * serialized once and reused; any other response is serialized on each call.
+   */
+  serializedBody(picked: PickedResponse): string {
+    if (!this.owns(picked)) return serializeResponseBody(picked.contentType, picked.body, picked.schema)
+    let body = this.serializedBodies.get(picked)
+    if (body === undefined) {
+      body = serializeResponseBody(picked.contentType, picked.body, picked.schema)
+      this.serializedBodies.set(picked, body)
+    }
+    return body
+  }
+
+  /**
+   * The stream chunks of a streaming `picked`. Only responses this instance
+   * produced are generated once and reused; any other response is generated
+   * on each call.
+   */
+  async *streamChunks(picked: PickedResponse): AsyncGenerator<string> {
+    if (!this.owns(picked)) {
+      yield* generateStreamChunks(picked)
+      return
+    }
+    let chunks = this.streamChunkLists.get(picked)
+    if (chunks === undefined) {
+      const generated: string[] = []
+      for await (const chunk of generateStreamChunks(picked)) generated.push(chunk)
+      chunks = generated
+      this.streamChunkLists.set(picked, chunks)
+    }
+    yield* chunks
+  }
+
+  private owns(picked: PickedResponse): boolean {
+    return picked === this.defaultResponse?.picked
+      || picked === this.unauthorized?.picked
+      || picked === this.documentedValidation?.picked
+  }
+}
+
 /**
  * 요청 검증 + 응답 선택 공통 로직
+ *
+ * Every call computes the operation's response anew, so the returned response
+ * belongs to the caller.
  */
 export function handleRequest(
   parts: RequestParts,
-  entry: {
-    operationId?: string
-    method: string
-    openApiPath: string
-    parameters: OasParameter[]
-    requestBody?: OasRequestBody
-    responses: Record<string, OasResponse>
-    security: OasSecurityRequirement[]
-    callbacks?: Record<string, OasCallback>
-  },
+  entry: HandlerEntry,
   securitySchemes: Record<string, OasSecurityScheme>,
   options?: HandlerOptions,
+): HandlerResult {
+  return handleRouteRequest(parts, entry, securitySchemes, options?.plugins ?? [], new RouteResponses(entry.responses))
+}
+
+/**
+ * `handleRequest` for adapters that keep a `RouteResponses` per route: the
+ * request-independent parts of the response come from `route`, so a returned
+ * response may be shared with other requests to the route and must not be
+ * modified.
+ */
+export function handleRouteRequest(
+  parts: RequestParts,
+  entry: HandlerEntry,
+  securitySchemes: Record<string, OasSecurityScheme>,
+  plugins: readonly MockPlugin[],
+  route: RouteResponses,
 ): HandlerResult {
   const result = validateRequest(
     parts,
@@ -60,72 +214,24 @@ export function handleRequest(
             code: 'SCHEMA_COMPILE_ERROR',
             message: '요청 검증 스키마 컴파일 실패',
             details: result.errors,
-            _meta: {
-              ...(entry.operationId !== undefined && { operationId: entry.operationId }),
-              method: entry.method,
-              path: entry.openApiPath,
-            },
+            _meta: operationMeta(entry),
           },
         },
       }
     }
 
     if (result.errors.some(error => error.path === '/security' && error.code === 'MISSING_REQUIRED_FIELD')) {
-      const picked = pickUnauthorizedResponse(entry.responses)
-      const responseValidation = validatePickedResponse(picked)
-      if (!responseValidation.valid) {
-        const compileError = responseValidation.errors.some(error => error.code === 'SCHEMA_COMPILE_ERROR')
-        return {
-          type: 'schema-error',
-          status: 500,
-          body: {
-            error: {
-              code: compileError ? 'SCHEMA_COMPILE_ERROR' : 'CONSTRAINT_VIOLATION',
-              message: compileError ? '응답 검증 스키마 컴파일 실패' : '생성된 응답이 응답 스키마를 만족하지 않습니다',
-              details: responseValidation.errors,
-              _meta: {
-                ...(entry.operationId !== undefined && { operationId: entry.operationId }),
-                method: entry.method,
-                path: entry.openApiPath,
-              },
-            },
-          },
-        }
-      }
-
       // A selected response is intentionally reused here so both adapters preserve
       // the operation's documented content type, headers, and Error body.
-      return { type: 'success', picked, callbacks: [] }
+      return toCheckedResult(route.unauthorizedChecked(), entry, [])
     }
 
-    const documentedValidation = pickDocumentedResponse(entry.responses, 422)
+    const documentedValidation = documentedValidationResponse(route, result.errors)
     if (documentedValidation) {
-      const picked = withContractSafeValidationDetails(documentedValidation, result.errors)
-      const responseValidation = validatePickedResponse(picked)
-      if (!responseValidation.valid) {
-        const compileError = responseValidation.errors.some(error => error.code === 'SCHEMA_COMPILE_ERROR')
-        return {
-          type: 'schema-error',
-          status: 500,
-          body: {
-            error: {
-              code: compileError ? 'SCHEMA_COMPILE_ERROR' : 'CONSTRAINT_VIOLATION',
-              message: compileError ? '응답 검증 스키마 컴파일 실패' : '생성된 응답이 응답 스키마를 만족하지 않습니다',
-              details: responseValidation.errors,
-              _meta: {
-                ...(entry.operationId !== undefined && { operationId: entry.operationId }),
-                method: entry.method,
-                path: entry.openApiPath,
-              },
-            },
-          },
-        }
-      }
-
       // A documented 422 owns both its wire representation and public error
       // schema. Keep validation diagnostics only when that selected schema accepts
       // their content-free form.
-      return { type: 'success', picked, callbacks: [] }
+      return toCheckedResult(documentedValidation, entry, [])
     }
 
     return {
@@ -136,42 +242,42 @@ export function handleRequest(
           code: 'CONSTRAINT_VIOLATION',
           message: '요청 검증 실패',
           details: result.errors,
-          _meta: {
-            ...(entry.operationId !== undefined && { operationId: entry.operationId }),
-            method: entry.method,
-            path: entry.openApiPath,
-          },
+          _meta: operationMeta(entry),
         },
       },
     }
   }
 
-  const plugins = options?.plugins ?? []
-  if (plugins.length === 0) {
-    const picked = pickResponse(entry.responses) ?? undefined
-    return finalizeResult(picked, entry, parts)
-  }
+  if (plugins.length === 0) return finalizeChecked(route.defaultChecked(), entry, parts)
 
   const context: MockPluginContext = { parts, entry, securitySchemes }
-  const picked = applyPlugins(plugins, context, () => pickResponse(entry.responses) ?? undefined)
-  return finalizeResult(picked, entry, parts)
+  const matched = matchPlugins(plugins, context)
+  if (matched) return finalizeResult(transformResponse(plugins, toPickedResponse(matched), context), entry, parts)
+
+  // Response hooks may change the response they are given, so they get a
+  // freshly picked one. Without hooks the operation's own response is served
+  // unchanged, exactly as when no plugin is configured.
+  if (!plugins.some(plugin => plugin.onResponse)) return finalizeChecked(route.defaultChecked(), entry, parts)
+  const picked = pickResponse(entry.responses) ?? undefined
+  return finalizeResult(picked && transformResponse(plugins, picked, context), entry, parts)
 }
 
+/** Validate a per-request response, then finish it like a precomputed one. */
 function finalizeResult(
   picked: PickedResponse | undefined,
-  entry: {
-    operationId?: string
-    method: string
-    openApiPath: string
-    parameters: OasParameter[]
-    requestBody?: OasRequestBody
-    responses: Record<string, OasResponse>
-    security: OasSecurityRequirement[]
-    callbacks?: Record<string, OasCallback>
-  },
+  entry: HandlerEntry,
   parts: RequestParts,
 ): HandlerResult {
-  if (!picked) {
+  if (!picked) return finalizeChecked(undefined, entry, parts)
+  return finalizeChecked({ picked, errors: picked.schema ? validationErrors(picked) : undefined }, entry, parts)
+}
+
+function finalizeChecked(
+  checked: CheckedResponse | undefined,
+  entry: HandlerEntry,
+  parts: RequestParts,
+): HandlerResult {
+  if (!checked) {
     return {
       type: 'no-response',
       status: 500,
@@ -179,30 +285,42 @@ function finalizeResult(
     }
   }
 
-  if (picked.schema) {
-    const responseValidation = validatePickedResponse(picked)
-    if (!responseValidation.valid) {
-      const compileError = responseValidation.errors.some(error => error.code === 'SCHEMA_COMPILE_ERROR')
-      return {
-        type: 'schema-error',
-        status: 500,
-        body: {
-          error: {
-            code: compileError ? 'SCHEMA_COMPILE_ERROR' : 'CONSTRAINT_VIOLATION',
-            message: compileError ? '응답 검증 스키마 컴파일 실패' : '생성된 응답이 응답 스키마를 만족하지 않습니다',
-            details: responseValidation.errors,
-            _meta: {
-              ...(entry.operationId !== undefined && { operationId: entry.operationId }),
-              method: entry.method,
-              path: entry.openApiPath,
-            },
-          },
-        },
-      }
-    }
-  }
+  if (checked.errors) return responseSchemaError(checked.errors, entry)
+  return { type: 'success', picked: checked.picked, callbacks: simulateCallbackPosts(entry, parts, checked.picked) }
+}
 
-  return { type: 'success', picked, callbacks: simulateCallbackPosts(entry, parts, picked) }
+function toCheckedResult(checked: CheckedResponse, entry: HandlerEntry, callbacks: CallbackPostAttempt[]): HandlerResult {
+  if (checked.errors) return responseSchemaError(checked.errors, entry)
+  return { type: 'success', picked: checked.picked, callbacks }
+}
+
+function responseSchemaError(errors: MockErrorDetail[], entry: HandlerEntry): HandlerResult {
+  const compileError = errors.some(error => error.code === 'SCHEMA_COMPILE_ERROR')
+  return {
+    type: 'schema-error',
+    status: 500,
+    body: {
+      error: {
+        code: compileError ? 'SCHEMA_COMPILE_ERROR' : 'CONSTRAINT_VIOLATION',
+        message: compileError ? '응답 검증 스키마 컴파일 실패' : '생성된 응답이 응답 스키마를 만족하지 않습니다',
+        details: errors,
+        _meta: operationMeta(entry),
+      },
+    },
+  }
+}
+
+function operationMeta(entry: HandlerEntry): { operationId?: string; method: string; path: string } {
+  return {
+    ...(entry.operationId !== undefined && { operationId: entry.operationId }),
+    method: entry.method,
+    path: entry.openApiPath,
+  }
+}
+
+function validationErrors(picked: PickedResponse): MockErrorDetail[] | undefined {
+  const validation = validatePickedResponse(picked)
+  return validation.valid ? undefined : validation.errors
 }
 
 function toPickedResponse(result: MockPluginResponse | PickedResponse): PickedResponse {
@@ -217,34 +335,65 @@ function toPickedResponse(result: MockPluginResponse | PickedResponse): PickedRe
   }
 }
 
-function applyPlugins(
+/** The first plugin `onMatch` response, asking plugins in order. */
+function matchPlugins(
   plugins: readonly MockPlugin[],
   context: MockPluginContext,
-  fallbackPicker: () => PickedResponse | undefined,
-): PickedResponse | undefined {
-  for (let i = 0; i < plugins.length; i++) {
-    const p = plugins[i]!
-    if (!p.onMatch) continue
-    const res = p.onMatch(context)
-    if (res) {
-      let current = toPickedResponse(res)
-      for (const pr of plugins) {
-        if (pr.onResponse) {
-          current = pr.onResponse(current, context)
-        }
-      }
-      return current
-    }
+): MockPluginResponse | PickedResponse | undefined {
+  for (const plugin of plugins) {
+    if (!plugin.onMatch) continue
+    const response = plugin.onMatch(context)
+    if (response) return response
   }
+  return undefined
+}
 
-  let current = fallbackPicker()
-  if (!current) return undefined
-  for (const pr of plugins) {
-    if (pr.onResponse) {
-      current = pr.onResponse(current, context)
-    }
+/** Pass a response through every plugin `onResponse` hook in order. */
+function transformResponse(
+  plugins: readonly MockPlugin[],
+  picked: PickedResponse,
+  context: MockPluginContext,
+): PickedResponse {
+  let current = picked
+  for (const plugin of plugins) {
+    if (plugin.onResponse) current = plugin.onResponse(current, context)
   }
   return current
+}
+
+/**
+ * The documented 422 response for a request that failed validation: with the
+ * request's validation details when its schema accepts them, otherwise as
+ * documented. Undefined when the operation documents no 422.
+ */
+function documentedValidationResponse(
+  route: RouteResponses,
+  errors: readonly MockErrorDetail[],
+): CheckedResponse | undefined {
+  const documented = route.documentedValidationPicked()
+  if (!documented) return undefined
+
+  const candidate = withContractSafeValidationDetails(documented, errors)
+  if (candidate) return { picked: candidate, errors: undefined }
+  return route.documentedValidationChecked()
+}
+
+/** `picked` with the request's validation details, when its schema accepts them; otherwise undefined. */
+function withContractSafeValidationDetails(
+  picked: PickedResponse,
+  errors: readonly MockErrorDetail[],
+): PickedResponse | undefined {
+  if (!picked.schema || !isJsonMediaType(picked.contentType) || !isRecord(picked.body)) return undefined
+
+  const candidate: PickedResponse = {
+    ...picked,
+    body: {
+      ...picked.body,
+      details: errors.map(toContractValidationDetail),
+    },
+  }
+
+  return validatePickedResponse(candidate).valid ? candidate : undefined
 }
 
 function pickUnauthorizedResponse(responses: Record<string, OasResponse>): PickedResponse {
@@ -271,23 +420,6 @@ function pickDocumentedResponse(
   const response = responses[key]
   if (!response) return undefined
   return pickResponse({ [key]: response }) ?? undefined
-}
-
-function withContractSafeValidationDetails(
-  picked: PickedResponse,
-  errors: readonly MockErrorDetail[],
-): PickedResponse {
-  if (!picked.schema || !isJsonMediaType(picked.contentType) || !isRecord(picked.body)) return picked
-
-  const candidate: PickedResponse = {
-    ...picked,
-    body: {
-      ...picked.body,
-      details: errors.map(toContractValidationDetail),
-    },
-  }
-
-  return validatePickedResponse(candidate).valid ? candidate : picked
 }
 
 function toContractValidationDetail(error: MockErrorDetail): Record<string, unknown> {

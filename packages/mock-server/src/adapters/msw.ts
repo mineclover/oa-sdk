@@ -10,8 +10,8 @@ import {
   type RouteIndex,
 } from '@oa-sdk/parser/browser'
 import { toColonPath } from '@oa-sdk/core/browser'
-import { handleRequest } from '../core/handler.js'
-import { isStreamingContentType, generateStreamChunks } from '../core/stream.js'
+import { handleRouteRequest, RouteResponses } from '../core/handler.js'
+import { isStreamingContentType } from '../core/stream.js'
 import { filterRouteIndex, type RouteFilter } from '../core/route-filter.js'
 import { assertValidRequestSchemas, createMultipartBody, type MultipartPartMetadata } from '../core/request-validator.js'
 import { serializeResponseBody } from '../core/body-serialization.js'
@@ -141,6 +141,9 @@ function buildMswHandlers(
       if (!entry) continue
 
       const httpMethod = http[method as keyof typeof http] as typeof http.get
+      // Request-independent response parts, computed on first use and reused by
+      // every request this handler serves.
+      const route = new RouteResponses(entry.responses)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const handler = httpMethod(mswPath, async ({ request, params }: any) => {
         options.onRequest?.({
@@ -193,11 +196,12 @@ function buildMswHandlers(
         const parsedBody = request.body ? await parseBody(request, contentType) : { body: undefined }
         const rawQueryString = extractRawQueryString(request.url)
 
-        const hr = await handleRequest(
+        const hr = handleRouteRequest(
           { pathParams, queryParams, ...(rawQueryString !== undefined ? { rawQueryString } : {}), headers, body: parsedBody.body, ...(parsedBody.parseError ? { bodyParseError: parsedBody.parseError } : {}), contentType, url: request.url },
           { ...entry, openApiPath },
           parsed.securitySchemes,
-          { plugins: configuredPlugins },
+          configuredPlugins,
+          route,
         )
 
         if (hr.type === 'validation-error') return HttpResponse.json(hr.body, { status: hr.status })
@@ -211,7 +215,7 @@ function buildMswHandlers(
           const readable = new ReadableStream({
             async start(controller) {
               const enc = new TextEncoder()
-              for await (const chunk of generateStreamChunks(picked)) {
+              for await (const chunk of route.streamChunks(picked)) {
                 controller.enqueue(enc.encode(chunk))
               }
               controller.close()
@@ -224,7 +228,7 @@ function buildMswHandlers(
         }
 
         return new HttpResponse(
-          serializeResponseBody(picked.contentType, picked.body, picked.schema),
+          route.serializedBody(picked),
           { status: picked.status, headers: { ...picked.headers, 'Content-Type': picked.contentType } },
         )
       })
