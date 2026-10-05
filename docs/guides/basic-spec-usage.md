@@ -37,7 +37,7 @@ sourceOfTruth:
 | 원본 | `packages/schemas/typespec/main.tsp`(import만 하는 진입점), `metadata/`, `version.tsp`, `{common,auth,health,me,users,world-model}.tsp` | 수정 |
 | 번들 manifest | `packages/schemas/typespec/oa-sdk.typespec-bundle.json` | 의미가 바뀔 때만 |
 | 승인 snapshot | `packages/schemas/typespec/approved.openapi.yaml` | 금지. 검토 후 승인 명령으로만 갱신 |
-| 정본 생성물 | `packages/schemas/src/.merged.yaml`(OpenAPI 3.2, git 무시) | 금지 |
+| 기준 생성물 | `packages/schemas/src/.merged.yaml`(OpenAPI 3.2, git 무시). 저장소 안 도구가 읽는 입력 | 금지 |
 | 3.1 호환 생성물 | `packages/schemas/src/.merged.3.1.yaml`, `.merged.3.1.meta.json`(git 추적, CI가 최신 여부 확인) | 금지 |
 | 패키지 번들 | `packages/schemas/dist/openapi.{yaml,json}`(3.1 호환, git 무시) | 금지 |
 | 배포 환경 projection | `packages/schemas/typespec/oa-sdk.typespec-projections.json` | server URL만 |

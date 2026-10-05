@@ -6,8 +6,8 @@
 관리하려면 [Quick Start](../../docs/guides/quick-start.md)를 따릅니다.
 
 - 원본: `typespec/`의 TypeSpec 모듈([ADR-009](../../docs/internal/architecture/009-typespec-first-authoring.md)).
-- 정본 생성물: `src/.merged.yaml`(OpenAPI 3.2). 저장소 안의 parser, codegen, mock 서버, downstream gate가 이 파일을 읽습니다.
-- 패키지 export: `dist/openapi.{json,yaml}`. OpenAPI **3.1** 호환 번들이며 3.2 정본이 아닙니다.
+- 기준 생성물: `src/.merged.yaml`(OpenAPI 3.2). 저장소 안의 parser, codegen, mock 서버, downstream gate가 이 파일을 읽습니다.
+- 패키지 export: `dist/openapi.{json,yaml}`. OpenAPI **3.1** 호환 번들이며 3.2 기준 생성물이 아닙니다.
 
 어떤 파일을 고치고 어떤 명령으로 검증하는지는 [기본 스펙 사용 기준](../../docs/guides/basic-spec-usage.md)이
 정본입니다. 이 README는 패키지 안의 배치와 스크립트만 설명합니다. `package.json`의 `description`
@@ -27,7 +27,7 @@
 | `typespec/approved.openapi.yaml` | 검토를 거친 OpenAPI 3.2 snapshot | 추적 | 금지. 승인 명령으로만 갱신 |
 | `typespec/accepted-restored-drift.json` | 승인된 restore 차이 목록(현재 0건) | 추적 | 검토 후 |
 | `typespec/oa-sdk.typespec-projections.json` | 배포 환경별 server URL profile | 추적 | server 값만 |
-| `src/.merged.yaml` | TypeSpec에서 만든 정본 OpenAPI 3.2 생성물 | 무시(`.gitignore`) | 금지 |
+| `src/.merged.yaml` | TypeSpec에서 만든 OpenAPI 3.2 기준 생성물 | 무시(`.gitignore`) | 금지 |
 | `src/.merged.3.1.yaml`, `src/.merged.3.1.meta.json` | 3.1 호환 생성물과 3.2 전용 필드 sidecar | 추적(CI가 최신인지 확인) | 금지 |
 | `src/.builder/`, `src/.projected/` | 번들 리포트, 배포 환경 projection 출력 | 무시 | 금지 |
 | `src/fragments/`, `src/targets/` | Definition Builder rollback·참조 경로의 원본 | 추적 | rollback 경로를 고칠 때만 |
