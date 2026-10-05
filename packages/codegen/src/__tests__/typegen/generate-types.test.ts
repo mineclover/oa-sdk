@@ -1375,6 +1375,25 @@ describe('generateTypes — webhooks', () => {
   })
 })
 
+/** The body of `export type <name> = { ... }` up to its closing brace. */
+function objectDeclaration(ts: string, name: string): string {
+  const start = ts.indexOf(`export type ${name} = {`)
+  expect(start, `${name} is declared`).toBeGreaterThanOrEqual(0)
+  return ts.slice(start, ts.indexOf('\n}', start) + 2)
+}
+
+function exportedTypeNames(ts: string): Set<string> {
+  return new Set([...ts.matchAll(/^export (?:type|interface) ([A-Za-z_$][\w$]*)/gm)].map(match => match[1]!))
+}
+
+/** The type names that a client generated with `typesImport: './types.js'` imports. */
+function clientImportedTypeNames(spec: OasDocument): string[] {
+  const client = generateClient(structuredClone(spec), { typesImport: './types.js' })
+  const importLine = client.match(/^import type \{ ([^}]+) \} from '\.\/types\.js'$/m)
+  expect(importLine, 'client imports operation types').not.toBeNull()
+  return importLine![1]!.split(',').map(name => name.trim())
+}
+
 /**
  * `generateTypesFromSpec` parses without the deref pass so schema `$ref`s stay
  * name references. Reference Objects at operation positions (Path Item,
@@ -1440,17 +1459,6 @@ describe('generateTypesFromSpec — referenced operation components', () => {
         petAdded: { $ref: '#/components/pathItems/PetAdded' },
       },
     } as Partial<OasDocument>)
-  }
-
-  /** The body of `export type <name> = { ... }` up to its closing brace. */
-  function objectDeclaration(ts: string, name: string): string {
-    const start = ts.indexOf(`export type ${name} = {`)
-    expect(start, `${name} is declared`).toBeGreaterThanOrEqual(0)
-    return ts.slice(start, ts.indexOf('\n}', start) + 2)
-  }
-
-  function exportedTypeNames(ts: string): Set<string> {
-    return new Set([...ts.matchAll(/^export (?:type|interface) ([A-Za-z_$][\w$]*)/gm)].map(match => match[1]!))
   }
 
   it('a $ref requestBody yields <Op>Body that keeps the schema name and a body field on <Op>Op', () => {
@@ -1523,22 +1531,127 @@ describe('generateTypesFromSpec — referenced operation components', () => {
     expect(objectDeclaration(ts, 'CreatePetOp')).toContain('body: CreatePetBody')
   })
 
+  // Typegen emits no callback types, but it declares a local alias for every
+  // nested component schema ref it finds in an operation, callbacks included.
+  // A `$ref` callback therefore yields the aliases of the same callback written
+  // inline, and aliases whose base names collide are numbered in sorted ref order.
+  it('a $ref callback yields the nested schema aliases of the same inline callback', () => {
+    const accountProperty = (name: string) => ({ $ref: `#/components/schemas/Account/properties/${name}` })
+    const event = {
+      '{$request.body#/callbackUrl}': {
+        post: {
+          requestBody: { content: json(accountProperty('Owner')) },
+          responses: { '204': { description: 'Received' } },
+        },
+      },
+    }
+    function subscriptionSpec(callback: unknown): OasDocument {
+      return doc({
+        components: {
+          schemas: {
+            Account: {
+              type: 'object',
+              properties: {
+                owner: { type: 'object', properties: { id: { type: 'string' } } },
+                Owner: { type: 'object', properties: { name: { type: 'string' } } },
+              },
+            },
+          },
+          callbacks: { Event: event },
+        },
+        paths: {
+          '/subscriptions': {
+            post: {
+              operationId: 'subscribe',
+              callbacks: { onEvent: callback },
+              responses: { '201': { description: 'Created', content: json(accountProperty('owner')) } },
+            },
+          },
+        },
+      } as Partial<OasDocument>)
+    }
+
+    const ts = generateTypesFromSpec(subscriptionSpec({ $ref: '#/components/callbacks/Event' }))
+
+    expect(ts).toBe(generateTypesFromSpec(subscriptionSpec(structuredClone(event))))
+    expect(objectDeclaration(ts, 'AccountPropertiesOwner')).toContain('name?: string')
+    expect(objectDeclaration(ts, 'AccountPropertiesOwner2')).toContain('id?: string')
+    expect(ts).toContain('export type SubscribeResponse = AccountPropertiesOwner2\n')
+  })
+
   // Scope: Reference Objects at operation level only (Path Item, parameter,
-  // requestBody, response). References nested inside those objects, such as a
-  // response header or OAS 3.2 media-type `$ref`, are a known typegen gap
-  // (docs/internal/spec.md, "typegen operation refs") and are not covered here.
+  // requestBody, response) without siblings other than summary/description.
+  // References nested inside those objects, such as a response header or OAS 3.2
+  // media-type `$ref`, are a known typegen gap (docs/internal/spec.md, "typegen
+  // operation refs") and are not covered here.
   it('declares the operation types the generated client imports for operation-level $refs', () => {
     const spec = referencedComponentsSpec()
     const ts = generateTypesFromSpec(structuredClone(spec))
-    const client = generateClient(structuredClone(spec), { typesImport: './types.js' })
-
-    const importLine = client.match(/^import type \{ ([^}]+) \} from '\.\/types\.js'$/m)
-    expect(importLine, 'client imports operation types').not.toBeNull()
-    const imported = importLine![1]!.split(',').map(name => name.trim())
+    const imported = clientImportedTypeNames(spec)
     expect(imported).toEqual(expect.arrayContaining(['CreatePetBody', 'CreatePetResponse', 'GetPetPathParams', 'GetPetResponse']))
 
     const exported = exportedTypeNames(ts)
     expect(imported.filter(name => !exported.has(name))).toEqual([])
+  })
+
+  // Known gap (docs/internal/spec.md, "typegen operation refs", gap 3):
+  // generateClient parses with the default deref pass, which still merges every
+  // sibling of a Reference Object into its target, while typegen applies only
+  // `summary`/`description`. A sibling that changes which operation types exist
+  // makes the client import a type that types.ts does not declare. Once the deref
+  // pass applies only `summary`/`description` at Reference Object positions, both
+  // sides agree and this test must expect no missing names.
+  it('known gap: the client imports types that types.ts lacks when other Reference Object siblings apply under deref', () => {
+    const spec = referencedComponentsSpec()
+    spec.components!.requestBodies!.PetUpload = {
+      content: { 'application/octet-stream': { schema: { type: 'string', format: 'binary' } } },
+    }
+    const pets = spec.paths!['/pets'] as OasPathItem
+    pets.get!.parameters = [{ $ref: '#/components/parameters/Limit', name: 'size', in: 'header' }]
+    pets.post!.requestBody = {
+      $ref: '#/components/requestBodies/PetUpload',
+      content: { 'application/json': { schema: { $ref: '#/components/schemas/Pet' } } },
+    }
+
+    const ts = generateTypesFromSpec(structuredClone(spec))
+    const imported = clientImportedTypeNames(spec)
+
+    expect(objectDeclaration(ts, 'ListPetsQueryParams')).toContain('limit?: number')
+    expect(imported).toEqual(expect.arrayContaining(['CreatePetBody', 'ListPetsHeaderParams']))
+    const exported = exportedTypeNames(ts)
+    expect(imported.filter(name => !exported.has(name)).sort()).toEqual(['CreatePetBody', 'ListPetsHeaderParams'])
+  })
+})
+
+describe('generateTypesFromSpec — additionalOperations', () => {
+  const json = (schema: unknown) => ({ 'application/json': { schema } })
+
+  // OAS 3.2 forbids an additionalOperations entry for a method that a fixed field
+  // can define; the parser's route indexer ignores such an entry when the Path
+  // Item defines that fixed field.
+  it('emits entries under their verbatim method and skips one that repeats a fixed-field method', () => {
+    const spec = doc({
+      paths: {
+        '/items': {
+          post: { operationId: 'createItem', responses: { '200': { description: 'OK', content: json({ type: 'string' }) } } },
+          additionalOperations: {
+            POST: { operationId: 'create-item', responses: { '200': { description: 'OK', content: json({ type: 'number' }) } } },
+            COPY: { operationId: 'copyItem', responses: { '200': { description: 'OK', content: json({ type: 'boolean' }) } } },
+          },
+        },
+      },
+    } as Partial<OasDocument>)
+
+    for (const ts of [generateTypesFromSpec(structuredClone(spec)), generateBrowserTypesFromSpec(structuredClone(spec))]) {
+      expect(ts).toContain('export type CopyItemResponse = boolean\n')
+      expect(objectDeclaration(ts, 'CopyItemOp')).toContain("method: 'COPY'")
+      // The ignored entry's operationId has the same type base name, so the fixed
+      // operation keeps the unnumbered name.
+      expect(ts).toContain('export type CreateItemResponse = string\n')
+      expect(objectDeclaration(ts, 'CreateItemOp')).toContain("method: 'post'")
+      expect(ts).not.toContain('CreateItem2')
+      expect(ts).not.toContain("method: 'POST'")
+    }
   })
 })
 
