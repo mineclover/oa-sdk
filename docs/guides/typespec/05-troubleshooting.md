@@ -1,20 +1,33 @@
+---
+docType: troubleshooting
+sourceLocale: ko
+canonical: true
+audience:
+  competence: intermediate
+productVersions:
+  - "@oa-sdk/codegen 0.9.0"
+  - "@oa-sdk/typespec-decorators 0.3.0"
+owner: "OA SDK maintainers"
+status: active
+---
+
 # TypeSpec 트러블슈팅 및 자주 묻는 질문 (FAQ & Troubleshooting)
 
-이 문서는 TypeSpec(`.tsp`) 작성 및 검증 과정에서 마주칠 수 있는 대표적인 컴파일 오류, 데코레이터 진단 경고, 스냅샷 불일치(Drift) 문제의 원인과 해결 방법을 안내합니다.
+TypeSpec(`.tsp`)을 작성하고 검증할 때 만나는 컴파일 오류, decorator 진단, 승인 스냅샷 불일치, 생성물 문제의 원인과 해결 방법입니다. 진단 문구는 TypeSpec 1.16과 `@oa-sdk/codegen` 0.9.0에서 확인했습니다. 2절은 oa-sdk 저장소 기여자용입니다.
 
 ---
 
 ## 1. 컴파일 오류 및 데코레이터 진단
 
 ### Q1. `Cannot decorate alias statement` 오류가 발생합니다.
-- **원인**: TypeSpec에서 `alias` 구문은 컴파일러 차원에서 데코레이터(`@doc`, `@summary` 등)를 지원하지 않습니다.
+- **원인**: `alias`에는 decorator(`@doc`, `@summary` 등)를 붙일 수 없습니다(`invalid-decorator-location`).
 - **해결책**:
   ```typespec
   // ❌ 잘못된 코드
   @doc("사용자 권한 열거형")
   alias UserRole = "admin" | "user";
 
-  // ✅ 올바른 코드 (JSDoc 또는 주석 사용)
+  // ✅ 올바른 코드 (문서 주석 사용)
   /** 사용자 권한 열거형 */
   alias UserRole = "admin" | "user";
   ```
@@ -22,85 +35,73 @@
 ---
 
 ### Q2. 정의한 템플릿 모델이 OpenAPI `components/schemas`에 불필요하게 생성됩니다.
-- **원인**: 제네릭 인자(`<T>`)가 없는 일반 `model`은 TypeSpec 컴파일러가 공개 스키마 컴포넌트로 간주하여 무조건 OpenAPI로 방출합니다.
-- **해결책**:
-  - 실제 엔드포인트에서 아직 사용하지 않는 헬퍼 모델은 제네릭 매개변수(기본값 포함)를 부여하여 템플릿화합니다:
+- **원인**: 템플릿 매개변수(`<T>`)가 없는 `model`은 OpenAPI emitter가 공개 schema 컴포넌트로 출력합니다.
+- **해결책**: 아직 쓰지 않는 헬퍼 모델에는 기본값이 있는 템플릿 매개변수를 줍니다.
   ```typespec
-  // ❌ 컴파일 시 #/components/schemas/NoContent 자동 방출
+  // ❌ #/components/schemas/NoContent 가 출력됨
   model NoContent { @statusCode statusCode: 204; }
 
-  // ✅ 제네릭 매개변수 부여 시 인스턴스화 전까지 방출되지 않음
+  // ✅ 템플릿 매개변수가 있으면 인스턴스화 전까지 출력되지 않음
   model NoContent<T = void> { @statusCode statusCode: 204; }
   ```
 
 ---
 
-### Q3. `@oaUseResponseComponent`에서 중복 또는 잘못된 상태 코드 오류가 발생합니다.
-- **원인**:
-  1. 하나의 Operation에 동일한 상태 코드가 2회 이상 선언된 경우 (예: 401이 2개).
-  2. 상태 코드가 3자리 숫자(`100`~`599`) 또는 `default` 형식이 아닌 경우.
-- **해결책**:
-  - 중복된 상태 코드를 제거하고, 올바른 상태 코드 문자열을 전달합니다:
+### Q3. `@oaUseResponseComponent`에서 `invalid-response-component-reference` 오류가 발생합니다.
+- **원인**: 상태 코드가 세 자리 숫자(`100`~`599`)나 `default`가 아니거나, 컴포넌트 이름이 영문자로 시작하는 단순 이름(`[A-Za-z][A-Za-z0-9._-]*`)이 아닙니다.
+- **해결책**: 상태 코드를 문자열로, 컴포넌트 이름을 단순 이름으로 넘깁니다.
   ```typespec
-  // ✅ 올바른 코드
   @oaUseResponseComponent("401", "Unauthorized")
   @oaUseResponseComponent("404", "NotFound")
-  op getUserById(@path id: string): Ok<User>;
+  op getUserById(@path id: string): Ok<User> | ErrorResponse<401> | ErrorResponse<404>;
   ```
+- 같은 상태 코드를 두 번 선언하면 진단 없이 operation에 가장 가까운(아래쪽) 선언 하나만 남습니다. 오류가 나지 않으므로 리뷰에서 확인합니다.
 
 ---
 
-### Q4. `@personaCapability`에서 진단 오류가 발생합니다.
-- **원인**: 선언된 특성(Trait) 이름이 `packages/personas/src/traits/skill.yaml`의 21대 역량 카탈로그에 등록되어 있지 않은 경우입니다.
-- **해결책**:
-  - `skill.yaml`에 정의된 공식 특성 ID(`pagination`, `sse-stream`, `audit-emission`, `pii-masked-default`, `idempotent` 등)를 확인하고 철자를 수정합니다.
+### Q4. `@personaCapability`에서 `invalid-persona-trait` 오류가 발생합니다.
+- **원인**: trait 이름이 `packages/personas/src/traits/skill.yaml`의 표준 trait 24종(`VALID_PERSONA_TRAITS`)에 없습니다.
+- **해결책**: `pagination`, `sse-stream`, `audit-emission`, `pii-masked-default`, `idempotent` 같은 표준 trait ID로 고칩니다. 전체 목록은 [`@oa-sdk/typespec-decorators` README](../../../packages/typespec-decorators/README.md)의 `VALID_PERSONA_TRAITS` 설명과 `skill.yaml`을 봅니다.
 
 ---
 
-## 2. 스냅샷 불일치(Drift) 및 검증 게이트 해결
+## 2. 승인 스냅샷과 검증 게이트 (저장소 기여자용)
 
-### Q5. `pnpm schema:typespec-check` 실행 시 `restored normalized diff: fail`이 뜹니다.
-- **원인**: `.tsp` 파일을 수정하여 OpenAPI 스펙에 변경이 발생했으나, 커밋된 베이스라인 스냅샷(`packages/schemas/typespec/approved.openapi.yaml`)이 아직 갱신되지 않았기 때문입니다.
-- **해결 절차**:
-  1. 먼저 변경 사항이 의도된 것인지 정규화된 Diff를 확인합니다:
-     ```bash
-     pnpm schema:approve-typespec-reference
-     ```
-  2. 변경 사항이 올바르다면 베이스라인 스냅샷을 갱신합니다:
-     ```bash
-     pnpm schema:approve-typespec-reference -- --write
-     ```
-  3. 다시 게이트를 실행하여 통과를 확인합니다:
-     ```bash
-     pnpm schema:typespec-check
-     ```
+승인 절차의 정본은 [계약 변경 절차](../typespec-authoring-conventions.md#7-계약-변경-절차-contract-change-workflow)입니다.
+
+### Q5. `pnpm schema:typespec-check` 결과에 `restored normalized diff: fail`이 나옵니다.
+- **원인**: `.tsp`를 고쳐 OpenAPI가 바뀌었지만 커밋된 승인 스냅샷(`packages/schemas/typespec/approved.openapi.yaml`)을 아직 갱신하지 않았습니다.
+- **해결 절차**: `pnpm schema:approve-typespec-reference`로 candidate diff가 의도한 변경인지 확인하고, `pnpm schema:approve-typespec-reference -- --write`로 갱신한 뒤 `pnpm schema:typespec-check`를 다시 실행합니다.
 
 ---
 
-### Q6. 변경 사항 승인 시 `accepted restored drift` 경고가 발생합니다.
-- **원인**: 이전에 임시로 수용한 드리프트(`accepted-restored-drift.json`)가 존재하는 상태에서 새로운 스냅샷 승인이 이루어지는 경우입니다.
-- **해결책**:
-  - 드리프트를 초기화하고 스냅샷을 함께 승인하도록 플래그를 추가합니다:
+### Q6. 승인 명령이 `cannot promote while ... has N accepted entries`로 거부됩니다.
+- **원인**: 이전에 수용한 drift(`accepted-restored-drift.json`)가 남아 있는 상태에서 스냅샷을 승격하려 했습니다. 경고가 아니라 오류로 승격을 거부합니다.
+- **해결책**: 남은 항목을 리뷰한 뒤, drift manifest 초기화와 스냅샷 승격을 함께 수행합니다.
   ```bash
   pnpm schema:approve-typespec-reference -- --write --clear-accepted-restored-drift
   ```
 
 ---
 
-## 3. IDE 및 LSP 관련 트러블슈팅
-
-### Q7. VS Code에서 자동완성이나 하이라이팅이 동작하지 않습니다.
-1. `pnpm install`을 실행하여 로컬 `node_modules/@typespec/compiler`가 정상 설치되어 있는지 확인합니다.
-2. 명령 팔레트(`Cmd+Shift+P` / `Ctrl+Shift+P`)를 열고 `TypeSpec: Restart Server`를 실행합니다.
-3. `.vscode/settings.json`에서 `typespec.typespec-vscode`가 활성화되어 있는지 확인합니다.
+### Q7. 승인 명령이 `cannot approve TypeSpec snapshot: compatibilitySidecar` 또는 `compatibilitySidecar, provenance`로 실패합니다.
+- **원인**: `@oaUseResponseComponent`(또는 raw `x-oa-sdk-operation-component-refs`)를 쓴 operation에 필요한 나머지가 없습니다. 반환 타입에 그 상태 응답이 없으면 bundle check 출력에 `restore targets: N applied, M missing`이, 응답 예제 확장(`x-oa-sdk-operation-examples`)이 없으면 `sidecar re-extract`의 불일치가 보입니다. `oa-gen tsp-scaffold`가 만든 코드를 그대로 승인하면 이렇게 실패합니다.
+- **해결책**: [재사용 응답 컴포넌트에 연결하기](../typespec-authoring-conventions.md#31-재사용-응답-컴포넌트에-연결하기)의 세 가지를 갖추거나, `@oaUseResponseComponent` 줄을 지우고 반환 타입에 `ErrorResponse<Status>`를 선언합니다([퀵스타트 2단계](./01-quickstart-5min.md#2-crud-스캐폴딩과-응답-정리)).
 
 ---
 
-## 4. 컴파일러 및 아티팩트 생성 실무 트러블슈팅
+## 3. IDE 및 LSP
 
-### Q8. `error invalid-ref: Unknown decorator @operationId` 에러가 발생합니다.
-- **원인**: TypeSpec에서 `@operationId`는 기본 `@typespec/http`가 아니라 **`@typespec/openapi` 패키지에 속해 있습니다.**
-- **해결책**: 파일 상단에 `@typespec/openapi` 임포트와 `using OpenAPI;`를 추가하십시오:
+### Q8. VS Code에서 자동완성이나 하이라이팅이 동작하지 않습니다.
+[TypeSpec IDE 설정의 트러블슈팅](../typespec-ide-setup.md#4-트러블슈팅)을 봅니다.
+
+---
+
+## 4. 컴파일러 및 생성물
+
+### Q9. `error invalid-ref: Unknown decorator @operationId` 에러가 발생합니다.
+- **원인**: `@operationId`는 `@typespec/http`가 아니라 `@typespec/openapi`에 있습니다.
+- **해결책**: 파일 상단에 `@typespec/openapi` import와 `using OpenAPI;`를 추가합니다.
   ```typespec
   import "@typespec/http";
   import "@typespec/openapi";
@@ -109,9 +110,9 @@
   using OpenAPI;
   ```
 
-### Q9. `error expect-value: Is a model expression type, but is being used as a value here. Use #{}` 에러가 발생합니다.
-- **원인**: TypeSpec 0.60+ 최신 사양에서는 `@service`나 `@extension` 등의 데코레이터 인자로 일반 객체 리터럴(`{ key: "val" }`)을 전달하면 모델 표현식으로 파싱되어 에러가 발생합니다.
-- **해결책**: 반드시 `#{}` 표기법(객체 값 리터럴)을 사용하십시오:
+### Q10. `error expect-value: Is a model expression type, but is being used as a value here. Use #{} to create an object value.` 에러가 발생합니다.
+- **원인**: TypeSpec 1.x에서 `@service`, `@extension` 같은 decorator에 일반 객체 리터럴(`{ key: "val" }`)을 넘기면 모델 표현식으로 해석됩니다.
+- **해결책**: 객체 값 문법 `#{}`를 씁니다.
   ```typespec
   // ❌ 에러 발생
   @service({ title: "My API" })
@@ -120,23 +121,32 @@
   @service(#{ title: "My API" })
   ```
 
-### Q10. 생성된 `queries.ts`나 `client.ts`에서 TypeScript 모듈을 찾을 수 없다고 나옵니다.
-- **원인**: 백엔드 계약(`*.contract.ts`)은 무의존성이지만, 생성된 쿼리 훅(`*.queries.ts`)은 `@tanstack/react-query`, 클라이언트(`*.client.ts`)는 `@oa-sdk/client`의 정적 타입을 참조합니다.
-- **해결책**: 해당 코드를 사용하는 프론트엔드/소비자 패키지에 의존성을 설치하십시오:
+### Q11. 생성된 `queries.ts`에서 모듈을 찾을 수 없다고 나옵니다.
+- **원인**: 생성된 fetch 클라이언트(`*.client.ts`)와 핸들러 계약(`*.contract.ts`)은 import가 없습니다. TanStack Query 코드(`*.queries.ts`, `tanstack-query.ts`)만 `@tanstack/react-query`와 `@oa-sdk/client`의 타입(`import type { JsonPrimitive, Resolved } from '@oa-sdk/client'`)을 import합니다.
+- **해결책**: 이 코드를 쓰는 프로젝트에 두 패키지를 설치합니다.
   ```bash
-  pnpm add @tanstack/react-query
-  pnpm add -D @oa-sdk/client
+  npm install @tanstack/react-query
+  npm install --save-dev @oa-sdk/client
   ```
+  `@oa-sdk/client`는 `@oa-sdk/codegen` 0.9.0 릴리스부터 npm에서 제공됩니다.
 
-### Q11. `Couldn't resolve import "@typespec/http"` 에러가 발생합니다.
-- **원인**: `@typespec/compiler`가 프로젝트 루트 외부(예: `/tmp/`)에서 실행되어 상향 경로에서 `node_modules`를 찾을 수 없는 경우입니다.
-- **해결책**: `.tsp` 파일은 반드시 `@typespec/http` 및 `@typespec/compiler`가 설치된 프로젝트/모노레포 루트 내부의 경로에 위치시켜 실행하십시오.
+### Q12. `Couldn't resolve import "@typespec/http"` (`import-not-found`) 에러가 발생합니다.
+- **원인**: TypeSpec은 `.tsp`의 `import "@typespec/http"`를 그 파일 위치에서 Node 방식으로 찾습니다. pnpm처럼 엄격한 레이아웃에서는 `@oa-sdk/codegen`이 의존하는 사본이 보이지 않으므로, 프로젝트에 직접 설치하지 않았으면 실패합니다. 프로젝트 밖(예: `/tmp`)에 둔 `.tsp`도 같은 이유로 실패합니다.
+- **해결책**: `.tsp`가 import하는 라이브러리(`@typespec/http`, `@typespec/openapi`, `@oa-sdk/typespec-decorators`)를 프로젝트의 직접 devDependency로 설치합니다. 설치 명령은 [`@oa-sdk/typespec-decorators` README](../../../packages/typespec-decorators/README.md#install)에 있습니다.
+
+### Q13. `oa-gen mock`, `generate:client`, `generate:tanstack`이 설치 명령을 출력하고 종료 코드 1로 끝납니다.
+- **원인**: 이 명령은 `@oa-sdk/codegen`에 포함되지 않은 동반 패키지(companion package)를 불러옵니다. `oa-gen mock`은 `@oa-sdk/mock-server`, `generate:client`와 `generate:tanstack`은 `@oa-sdk/client`가 필요합니다.
+- **해결책**: 출력된 설치 명령을 실행합니다. 명령별 필요 패키지와 `oa-gen generate`에서의 동작은 [동반 패키지](../cli-setup.md#동반-패키지-companion-packages)를 봅니다.
+
+### Q14. `@oaUseResponseComponent`로 선언한 4xx 응답이 mock 서버나 생성된 타입에 없습니다.
+- **원인**: 이 decorator는 `x-oa-sdk-operation-component-refs` 확장만 기록합니다. 재사용 응답으로 바뀌는 곳은 bundle restore(`oa-gen tsp-bundle-check`, 저장소의 `pnpm schema:typespec-check`)뿐이고, `oa-gen mock --tsp`나 `.tsp`를 넣은 `generate`·`typegen`은 반환 타입에 선언한 응답만 만듭니다.
+- **해결책**: 4xx 응답을 반환 타입에 `ErrorResponse<Status>`나 `StandardHttpErrors`로 선언합니다. 이 응답은 메모리 컴파일 경로에도 나옵니다.
 
 ---
 
 ## 다음 단계
-- [TypeSpec 5분 퀵스타트 가이드](./01-quickstart-5min.md)
-- [TypeSpec 작성 규칙 및 컨벤션 표준](./02-authoring-conventions.md)
-- [TypeSpec 종합 데코레이터 레퍼런스 및 8대 실전 작성 패턴](./03-decorators-reference.md)
+- [TypeSpec 5분 퀵스타트 (저장소 기여자용)](./01-quickstart-5min.md)
+- [TypeSpec 작성 규칙](../typespec-authoring-conventions.md)
+- [TypeSpec 데코레이터 레퍼런스](./03-decorators-reference.md)
 - [스캐폴딩 및 Semantic Diff 도구 활용법](./04-scaffolding-and-diff.md)
 - [아티팩트 생성 토폴로지 및 아키텍처 규칙](./06-generation-topologies-and-rules.md)
