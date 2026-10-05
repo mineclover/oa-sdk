@@ -35,6 +35,17 @@ describe('@oa-sdk/peer-server — request body schemas', () => {
     expect(await peerServer.store.getPeer('peer-a')).toBeNull()
   })
 
+  it('ignores a client updatedAt of any type because the server stamps its own', async () => {
+    for (const [alias, updatedAt] of [['peer-iso', '2026-10-05T00:00:00Z'], ['peer-null', null], ['peer-number', 1]] as const) {
+      const before = Date.now()
+      const { status, data } = await post('/announce', JSON.stringify({ alias, updatedAt }))
+      expect(status).toBe(200)
+      const stored = await peerServer.store.getPeer(alias)
+      expect(stored?.updatedAt).toBeGreaterThanOrEqual(before)
+      expect(data.peer).toEqual({ alias, cachedTools: [], updatedAt: stored?.updatedAt })
+    }
+  })
+
   it('stores an announcement but never serves its token or invitation URL', async () => {
     const announced = await post('/announce', JSON.stringify({
       alias: 'peer-b',

@@ -57,6 +57,13 @@ function isExactHttpOrigin(value: string): boolean {
 }
 
 /**
+ * Record fields the server owns. The store stamps `updatedAt` with its own
+ * clock on every announcement, so a client value is ignored rather than
+ * validated (`alias` is checked separately and passed explicitly).
+ */
+const SERVER_OWNED_ANNOUNCEMENT_FIELDS = ['updatedAt'] as const
+
+/**
  * `POST /announce`. The announced record is rebuilt with the same contract as
  * the peer store, so a field of the wrong type is a 400 rather than a store
  * failure after the request was accepted.
@@ -78,8 +85,10 @@ export const PeerAnnouncementSchema: RequestSchema<WebMcpPeerRecord> = {
         throw new RequestError(400, 'Invalid peer origin')
       }
     }
+    const announced: Record<string, unknown> = { ...value, cachedTools }
+    for (const field of SERVER_OWNED_ANNOUNCEMENT_FIELDS) delete announced[field]
     try {
-      return parsePeerRecord(value.alias, { ...value, cachedTools })
+      return parsePeerRecord(value.alias, announced)
     } catch {
       throw new RequestError(400, 'Invalid peer record')
     }
