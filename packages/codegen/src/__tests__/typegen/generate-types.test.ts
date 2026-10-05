@@ -1496,6 +1496,46 @@ describe('generateTypesFromSpec — referenced operation components', () => {
     expect(op).toContain('body: PetAddedWebhookBody')
   })
 
+  // Node typegen indexes without deref and the browser one after internal deref.
+  // Both keep the operations declared beside every Path Item `$ref` along a
+  // chain whose later hop cannot be followed (another file, a missing target).
+  it('operations declared along an unresolvable Path Item $ref chain yield the same operation types in Node and browser output', () => {
+    const noContent = { '204': { description: 'No content' } }
+    const spec = doc({
+      components: {
+        schemas: referencedComponentsSpec().components!.schemas!,
+        pathItems: {
+          ExternalAlias: {
+            $ref: './paths.yaml#/Pets',
+            get: { operationId: 'listAliasedPets', responses: { '200': { description: 'OK', content: json(petRef) } } },
+          },
+          MissingAlias: {
+            $ref: '#/components/pathItems/Missing',
+            delete: { operationId: 'deleteAliasedPet', responses: noContent },
+          },
+        },
+      },
+      paths: {
+        '/aliased-pets': { $ref: '#/components/pathItems/ExternalAlias' },
+        '/aliased-pets/{petId}': {
+          $ref: '#/components/pathItems/MissingAlias',
+          parameters: [{ name: 'petId', in: 'path', required: true, schema: { type: 'string' } }],
+          post: { operationId: 'renameAliasedPet', responses: noContent },
+        },
+      },
+    } as Partial<OasDocument>)
+
+    const ts = generateTypesFromSpec(structuredClone(spec))
+    const browserTs = generateBrowserTypesFromSpec(structuredClone(spec))
+    const operationTypes = (output: string) => [...exportedTypeNames(output)].filter(name => name.endsWith('Op')).sort()
+
+    expect(operationTypes(ts)).toEqual(['DeleteAliasedPetOp', 'ListAliasedPetsOp', 'RenameAliasedPetOp'])
+    expect(operationTypes(browserTs)).toEqual(operationTypes(ts))
+    expect(objectDeclaration(ts, 'ListAliasedPetsOp')).toContain("path: '/aliased-pets'")
+    expect(objectDeclaration(ts, 'DeleteAliasedPetOp')).toContain('params: DeleteAliasedPetPathParams')
+    expect(objectDeclaration(ts, 'RenameAliasedPetOp')).toContain("path: '/aliased-pets/{petId}'")
+  })
+
   it('a description beside a parameter $ref overrides the referenced description', () => {
     const ts = generateTypesFromSpec(referencedComponentsSpec())
 
