@@ -39,17 +39,26 @@ sourceOfTruth:
 
 # Quick Start (5분 빠른 시작 가이드)
 
-5분 안에 `@oa-sdk`의 전체 엔드투엔드 파이프라인(온보딩 $\rightarrow$ TypeSpec 선언 및 스펙 검증 $\rightarrow$ 정적 타입 생성 $\rightarrow$ Zod 4 검증 스키마 $\rightarrow$ TanStack Query 프론트엔드 $\rightarrow$ 순수 핸들러 계약 및 고성능 백엔드 라우터 $\rightarrow$ 실시간 목 서버 핫리로드)을 직접 체험합니다.
+다른 프로젝트에 공개 패키지를 설치해 `@oa-sdk`의 전체 흐름(온보딩 $\rightarrow$ 스펙 검증 $\rightarrow$ 정적 타입 생성 $\rightarrow$ Zod 4 검증 스키마 $\rightarrow$ TanStack Query 프론트엔드 $\rightarrow$ 핸들러 계약·클라이언트 일괄 생성 $\rightarrow$ mock 서버)을 직접 실행합니다. 이 문서는 `@oa-sdk/codegen` 0.9.0 기준입니다.
 
-> 🚀 **TypeSpec 기반 API 개발 5분 퀵스타트**: `oa-sdk` 모노레포의 API 계약 단일 진실 공급원(SSOT)은 **TypeSpec(`.tsp`)**입니다. 엔드포인트 스캐폴딩, 실시간 핫리로드 목 서버, AST 시맨틱 브레이킹 체인지 검사의 전체 개발 루프는 **[TypeSpec 5분 퀵스타트 가이드](./typespec/01-quickstart-5min.md)**를 참조하십시오.
+> 💡 **TypeSpec(`.tsp`)으로 작성하는 경우**: 이 가이드의 예시는 `openapi.yaml`을 원본으로 쓰지만, `validate`, `typegen`, `generate:zod`, `generate:client`, `generate:tanstack`의 `--spec`에는 `.tsp` 파일을 그대로 넘길 수 있고 `mock`은 `--tsp`로 받습니다. TypeSpec 작성에 필요한 패키지는 [CLI 설치 및 설정 가이드](./cli-setup.md#typespec-작성-의존성)를 따릅니다.
+>
+> 💡 **oa-sdk 저장소 기여자**: 저장소의 production TypeSpec 계약(`packages/schemas`)을 고치는 흐름은 이 가이드가 아니라 [TypeSpec 기여 워크플로](./typespec/01-quickstart-5min.md)를 따릅니다.
+>
 > 💡 **패키지 매니저별 설치 및 런타임 설정 상세**: [CLI 설치 및 설정 가이드](./cli-setup.md)
+>
 > 💡 **선언적 설정 파일(`oa.config.ts`) 상세 스펙**: [선언적 사양 설정 가이드](./declarative-spec-configuration.md)
 
 ---
 
 ## 0단계: 30초 제로 마찰 온보딩 (`oa-gen init`)
 
-프로젝트 루트에서 `oa-gen init`을 실행하면 프레임워크(Fastify, Bun Elysia, Hono, Express, NestJS)와 스펙 소스(`.tsp`, `openapi.yaml`, `openapi.json`, `@oaOperation` JSDoc)를 자동으로 감지하여 최적화된 `oa.config.ts`와 `package.json` 스크립트를 즉시 구성합니다.
+프로젝트 루트에서 `oa-gen init`을 실행하면 프레임워크(Fastify, Elysia, Hono, Express, NestJS)와 스펙 소스(`.tsp`, `openapi.yaml`, `openapi.json`, `@oaOperation` JSDoc)를 감지하여 `oa.config.ts`와 `package.json` 스크립트를 구성합니다.
+
+> **준비**
+> - Node.js 22 이상. CI가 Node.js 22·24·26에서 배포 후보를 설치해 확인합니다.
+> - `@oa-sdk/codegen` 0.9.0 이상. `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`는 `@oa-sdk/codegen` 0.9.0 릴리스에서 처음 npm에 배포됩니다. 이 릴리스 전에는 npm에서 설치할 수 없습니다. 설치할 수 있는 버전은 [변경 이력](../changelog.md)에서 확인합니다.
+> - Bun은 CI에서 검증하지 않습니다. `oa-gen init`이 Bun용 스크립트를 쓸 수는 있지만 지원 환경으로 약속하지 않습니다.
 
 ```bash
 # 로컬 개발 의존성 설치: CLI와 4~6단계가 사용하는 동반 패키지
@@ -59,9 +68,7 @@ npm install --save-dev @oa-sdk/codegen @oa-sdk/router @oa-sdk/client @oa-sdk/moc
 npx oa-gen init --yes
 ```
 
-> **Bun 환경**: `bun add -d @oa-sdk/codegen @oa-sdk/router @oa-sdk/client @oa-sdk/mock-server && bunx oa-gen init --yes`
-
-`@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`는 `oa-gen`이 필요할 때 불러오는 **동반 패키지**입니다. `@oa-sdk/codegen`을 설치해도 함께 설치되지 않으므로 위처럼 같이 설치합니다.
+`@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`는 `oa-gen`이 필요할 때 불러오는 **동반 패키지(companion package)**입니다. `@oa-sdk/codegen`을 설치해도 함께 설치되지 않으므로 위처럼 같이 설치합니다.
 
 - `init`이 생성하는 `oa.config.ts`는 핸들러 계약과 클라이언트 SDK를 켭니다(`core.contracts.pureHandlers: true`, `core.client.enabled: true`). 그래서 5단계의 `oa-gen generate`에는 `@oa-sdk/router`와 `@oa-sdk/client`가 필요합니다.
 - 4단계의 `generate:client`·`generate:tanstack`에는 `@oa-sdk/client`가, 6단계의 `mock`과 `init`이 추가하는 `mock` 스크립트에는 `@oa-sdk/mock-server`가 필요합니다. mock-server는 MSW 어댑터를 `@oa-sdk/mock-server/adapters/msw`·`/browser`에만 두고 `oa-gen mock`은 Node HTTP 어댑터만 쓰므로, MSW(`msw`)는 설치하지 않아도 됩니다.
@@ -73,11 +80,11 @@ npx oa-gen init --yes
 
 ---
 
-## 1단계: TypeSpec 계약 작성 및 OpenAPI 3.2 스펙 유효성 검증 (`oa-gen validate`)
+## 1단계: OpenAPI·TypeSpec 스펙 검증 (`oa-gen validate`)
 
-`oa-sdk`는 **TypeSpec(`.tsp`)** 소스를 단일 진실 공급원으로 사용합니다. 엔드포인트 선언 및 변경은 `.tsp` 파일에서 수행하며, 컴파일된 OpenAPI 3.2 사양 문서의 문법, 컴포넌트 참조($ref), OpenAPI 3.2 전용 확장 기능의 정합성을 사전 검증합니다.
+사람이 고치는 원본은 OpenAPI 문서나 TypeSpec(`.tsp`) 파일 하나입니다. `oa-gen validate`는 원본의 문법, 컴포넌트 참조(`$ref`), OpenAPI 3.2 전용 기능의 정합성을 검사합니다.
 
-이 가이드의 예시 출력은 프로젝트 루트에 둔 다음 `openapi.yaml`(사용자 API)을 기준으로 합니다. 0단계의 `init`은 스펙이 없으면 이 경로를 `schemaEntry`로 기록합니다. TypeSpec으로 관리한다면 컴파일된 OpenAPI 문서를 이 위치에 둡니다.
+이 가이드의 예시 출력은 프로젝트 루트에 둔 다음 `openapi.yaml`(사용자 API)을 기준으로 합니다. 0단계의 `init`은 스펙이 없으면 이 경로를 `schemaEntry`로 기록합니다. TypeSpec으로 작성한다면 `.tsp` 진입점을 `--spec`에 그대로 넘깁니다.
 
 ```yaml
 openapi: 3.2.0
@@ -149,7 +156,7 @@ components:
 ```
 
 ```bash
-# TypeSpec에서 파생된 프로덕션 스펙 또는 관리 대상 스펙 검증
+# 관리 대상 계약은 OpenAPI 3.2.x를 요구 (.tsp 진입점도 같은 옵션으로 검증)
 npx oa-gen validate --spec ./openapi.yaml --require-32
 ```
 
@@ -167,7 +174,7 @@ npx oa-gen validate --spec ./openapi.yaml --require-32
 
 ## 2단계: 순수 TypeScript AST 정적 타입 생성 (`oa-gen typegen`)
 
-OpenAPI 스펙으로부터 런타임 오버헤드가 전혀 없는 100% 순수 TypeScript 타입 선언 파일을 방출합니다.
+OpenAPI 스펙으로부터 런타임 코드가 없는 TypeScript 타입 선언 파일을 만듭니다.
 
 ```bash
 npx oa-gen typegen --spec ./openapi.yaml -o types.ts
@@ -203,7 +210,7 @@ export type User = {
 
 ## 3단계: Zod 4 검증 스키마 생성 (`oa-gen generate:zod`)
 
-OpenAPI 3.2 사양(JSON Schema Draft 2020-12 어휘)을 관용적인 Zod 4 코드로 컴파일합니다. 수치 배타적 경계(`.gt()`, `.lt()`), 튜플 프리픽스(`z.tuple()`), 순환 참조(`z.lazy()`)를 완벽히 지원합니다.
+OpenAPI 3.2 사양(JSON Schema Draft 2020-12 어휘)을 Zod 4 코드로 변환합니다. 수치 배타적 경계(`.gt()`, `.lt()`), 튜플 프리픽스(`z.tuple()`), 순환 참조(`z.lazy()`)를 지원합니다. 생성된 파일은 `zod`(4.x)를 import하므로 프로젝트에 `zod`를 설치합니다.
 
 ```bash
 npx oa-gen generate:zod --spec ./openapi.yaml -o schemas.ts
@@ -264,37 +271,38 @@ export function UserProfile({ userId }: { userId: string }) {
 
 ---
 
-## 5단계: 백엔드 순수 핸들러 계약 및 라우터 방출 (`oa-gen generate`)
+## 5단계: 핸들러 계약·클라이언트 일괄 생성 (`oa-gen generate`)
 
-선언적 `oa.config.ts` 설정에 따라 백엔드 라우터와 순수 핸들러 계약을 방출합니다. 핸들러 계약은 `@oa-sdk/router`, 클라이언트 SDK는 `@oa-sdk/client`가 생성합니다. `init`이 만든 설정은 두 산출물을 명시적으로 켜므로, 둘 중 하나라도 설치되어 있지 않으면 `oa-gen generate`는 파일을 쓰기 전에 설치 명령을 출력하고 종료 코드 1로 실패합니다.
+선언적 `oa.config.ts` 설정에 따라 OpenAPI 문서, 핸들러 계약, 클라이언트 SDK, TanStack Query 키·옵션을 한 번에 생성합니다. 핸들러 계약은 `@oa-sdk/router`, 클라이언트 SDK는 `@oa-sdk/client`가 생성합니다. `init`이 만든 설정은 두 산출물을 명시적으로 켜므로, 둘 중 하나라도 설치되어 있지 않으면 `oa-gen generate`는 파일을 쓰기 전에 설치 명령을 출력하고 종료 코드 1로 실패합니다.
 
 ```bash
 npx oa-gen generate
 ```
 
-- **핸들러 계약 분리 (`*.contract.ts`)**: 프레임워크 런타임 종속성이 전혀 없는 순수 TypeScript 인터페이스(`ApiHandlers`, `Context`, `HandlerResponse`)를 생성합니다. 스펙을 재생성하더라도 개발자가 구현한 비즈니스 로직 파일이 덮어쓰여지지 않습니다.
-- **고성능 프레임워크 바인더 (`*.router.ts`)**: Fastify(JIT 스키마 가속) 또는 Bun Elysia(Zero-copy 컨텍스트 구조분해) 바인더가 생성되어 비즈니스 핸들러와 라우트를 물리적으로 결합합니다.
+`init`이 프레임워크를 감지하지 못한 프로젝트(`target: 'generic'`, spec target id `generic-api`)에서는 다음 파일을 씁니다. 프레임워크를 감지한 프로젝트는 파일 이름의 id만 다릅니다(예: `fastify-api`).
 
-`init`이 프레임워크를 감지하지 못한 프로젝트(`target: 'generic'`, spec target id `generic-api`)에서는 `*.router.ts` 바인더 없이 다음 파일을 씁니다.
-
-- `src/generated/generic-api.openapi.json`, `src/generated/generic-api.schema.json`: OpenAPI 3.1 projection과 JSON Schema
-- `src/api/generic-api/generic-api.contract.ts`: 핸들러 계약
+- `src/generated/generic-api.openapi.json`, `src/generated/generic-api.schema.json`: OpenAPI 문서(설정의 `core.dialect.oasVersion`, init 기본 3.2.0)와 JSON Schema
+- `src/api/generic-api/generic-api.contract.ts`: 프레임워크와 무관한 핸들러 계약(`ApiHandlers`, `<Operation>Context`, `HandlerResponse`). 구현은 이 파일이 아니라 별도 파일에 쓰므로 다시 생성해도 구현 코드는 덮어쓰이지 않습니다.
 - `src/api/generic-api/generic-api.client.ts`: 클라이언트 SDK
 - `src/api/generic-api/generic-api.keys.ts`, `src/api/generic-api/generic-api.queries.ts`: TanStack Query 키·옵션 팩토리
 
-`oa-gen generate`는 `.oa-manifest.json`에 기록된 생성 파일 중 이번 실행이 만들지 않은 파일을 지웁니다. 4단계의 `generate:tanstack`이 기록한 `src/api/tanstack-query.ts`도 지워지므로, 4단계 예제는 같은 팩토리를 담은 `./api/generic-api/generic-api.queries.js`와 `./api/generic-api/generic-api.client.js`에서 `getUserQueryOptions`와 `createClient`를 import하도록 바꿉니다.
+`oa-gen generate`는 서버 쪽에 프레임워크와 무관한 핸들러 계약(`<id>.contract.ts`)만 생성합니다. Fastify·Express·Hono·Elysia 라우터 코드가 필요하면 빌드 스크립트에서 `@oa-sdk/router`의 `generateRouter()`를 호출해 파일로 씁니다. `oa-gen` 명령으로는 라우터 파일을 만들지 않으며, `init`이 프레임워크 대상에 추가하는 `generate:router` 스크립트도 `oa-gen generate`와 같은 일을 할 뿐 라우터 파일을 만들지 않습니다. 빌드 스크립트 예시는 [온보딩 플레이북의 프레임워크 연결 레시피](./onboarding-playbook.md#4-프레임워크-연결-레시피-framework-recipes)에 있습니다.
+
+`oa-gen generate`가 만든 핸들러 계약과 클라이언트의 요청·응답 타입은 `unknown`입니다. 타입이 있는 핸들러 계약이 필요하면 위 레시피처럼 `oa-gen typegen` 출력과 `generateHandlerContract(spec, { typesImport })`를 함께 씁니다.
+
+`oa-gen generate`는 `.oa-manifest.json`에 기록된 생성 파일 중 이번 실행이 만들지 않고 내용도 바뀌지 않은 파일을 지웁니다. `oa-gen generate:tanstack` 등 다른 명령이 같은 프로젝트에 쓴 파일도 지워지므로, `oa-gen generate`를 쓰는 프로젝트에서는 TanStack 코드도 `generate`가 만드는 `<id>.queries.ts`에서 가져옵니다. `outputRouting.pruneOrphans: false`는 현재 이 삭제를 막지 못합니다(알려진 결함). 그래서 4단계의 `src/api/tanstack-query.ts`가 지워지며, 4단계 예제는 같은 팩토리를 담은 `./api/generic-api/generic-api.queries.js`와 `./api/generic-api/generic-api.client.js`에서 `getUserQueryOptions`와 `createClient`를 import하도록 바꿉니다. outputRouting을 쓰는 `init` 설정의 `<id>.queries.ts`에는 `use*` 훅이 없으므로, 훅이 필요하면 4단계처럼 `useQuery(getUserQueryOptions(client, { userId }))`로 씁니다.
 
 ---
 
-## 6단계: 제로 빌드 실시간 목(Mock) HTTP 서버 (`oa-gen mock`)
+## 6단계: mock HTTP 서버 (`oa-gen mock`)
 
-별도의 사전 빌드 없이 TypeSpec 소스(`.tsp`) 또는 OpenAPI 스펙 문서를 메모리 상에서 직접 서빙하며, 사양 파일이 수정되면 소켓 연결을 끊지 않고 원자적으로 라우트를 핫스왑합니다. 서버는 0단계에서 설치한 동반 패키지 `@oa-sdk/mock-server`가 구동합니다.
+별도의 사전 빌드 없이 TypeSpec 소스(`.tsp`) 또는 OpenAPI 스펙 문서를 메모리에서 바로 서빙하며, `--watch`를 주면 스펙 파일이 바뀔 때 서버를 재시작하지 않고 route를 교체합니다. 요청은 계약으로 검증해 잘못된 본문은 422로 거절합니다. 서버는 0단계에서 설치한 동반 패키지 `@oa-sdk/mock-server`가 구동합니다.
 
 ```bash
-# A. TypeSpec 소스 직접 관측 및 실시간 핫리로드 (권장 SSOT 워크플로, 프로젝트의 TypeSpec 진입점 경로)
+# A. TypeSpec 원본을 직접 서빙 (프로젝트의 TypeSpec 진입점 경로)
 npx oa-gen mock --tsp typespec/main.tsp --watch --port 4010
 
-# B. OpenAPI 스펙 문서 관측 및 실시간 핫리로드
+# B. OpenAPI 스펙 문서를 서빙
 npx oa-gen mock --spec ./openapi.yaml --watch --port 4010
 ```
 
@@ -309,7 +317,7 @@ B의 출력은 다음과 같습니다(경로는 절대 경로로 표시됩니다
 
 `init`이 추가한 `mock` 스크립트(`npm run mock`, 즉 `oa-gen mock --watch`)는 경로 옵션 없이 `oa.config.ts`의 spec target(`openapi.yaml`)을 같은 방식으로 서빙합니다.
 
-다른 터미널에서 즉시 목 요청을 테스트할 수 있습니다:
+다른 터미널에서 mock 요청을 테스트할 수 있습니다:
 
 ```bash
 curl http://localhost:4010/users
@@ -342,11 +350,9 @@ npx oa-gen audit:shape --source ./types.ts
 
 ## 다음 단계 및 권장 문서
 
-- [TypeSpec 5분 퀵스타트 가이드](./typespec/01-quickstart-5min.md) — `.tsp` 엔드포인트 스캐폴딩, 실시간 목 서버, AST diff 및 스냅샷 승인
-- [TypeSpec 아티팩트 생성 토폴로지 및 아키텍처 규칙](./typespec/06-generation-topologies-and-rules.md) — Co-located(피처 인접), FSD, Monorepo 4대 생성 방식 및 실무 권장 팁
-- [기본 스펙 사용 기준](./basic-spec-usage.md) — 저장소 스펙 거버넌스 및 TypeSpec 정본/산출물 소유권 SSOT
-- [TypeSpec 작성 규칙 가이드](./typespec-authoring-conventions.md) — 프로덕션 스펙 작성 규칙, 익스텐션 및 승인 기준
-- [CLI 설치 및 환경 설정 가이드](./cli-setup.md) — 패키지 매니저 매트릭스, 런타임 요건, 6단계 루트 탐색
-- [프로젝트 온보딩 플레이북](./onboarding-playbook.md) — Fastify, Bun Elysia, Express, NestJS 3계층 온보딩 사다리
-- [선언적 사양 설정 가이드 (oa.config.ts)](./declarative-spec-configuration.md) — 이중 계층 설정(`core` vs `product`), 3대 아키타입, `outputRouting` 상세
+- [CLI 설치 및 환경 설정 가이드](./cli-setup.md) — 패키지 매니저 매트릭스, 런타임 요건, 동반 패키지, TypeSpec 작성 의존성
 - [CLI 명령 레퍼런스](./cli-command-reference.md) — 전체 명령어, 옵션 플래그 및 조건부 파라미터 규격
+- [프로젝트 온보딩 플레이북](./onboarding-playbook.md) — 단계별 도입 순서와 Fastify, Express, Hono, Elysia, NestJS 연결 레시피
+- [선언적 사양 설정 가이드 (oa.config.ts)](./declarative-spec-configuration.md) — 이중 계층 설정(`core` vs `product`), 아키타입, `outputRouting` 상세
+- [TypeSpec 아티팩트 생성 토폴로지 및 아키텍처 규칙](./typespec/06-generation-topologies-and-rules.md) — Co-located(피처 인접), FSD, Monorepo 생성 방식
+- oa-sdk 저장소 기여자용: [TypeSpec 기여 워크플로](./typespec/01-quickstart-5min.md), [기본 스펙 사용 기준](./basic-spec-usage.md), [TypeSpec 작성 규칙 가이드](./typespec-authoring-conventions.md)
