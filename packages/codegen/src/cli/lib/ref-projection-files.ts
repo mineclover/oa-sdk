@@ -1,10 +1,11 @@
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
-import { isAbsolute, relative, resolve, sep } from 'node:path'
+import { resolve } from 'node:path'
 import { parse as parseYaml } from 'yaml'
 import { parseBuildSpecProvenanceMap } from './provenance-report.js'
 import {
   createRefProjectionArtifact,
+  rootRelativePath,
   type RefProjectionArtifact,
   type RefProjectionArtifactGenerator,
   type RefProjectionArtifactSourceFile,
@@ -16,8 +17,9 @@ export type CreateRefProjectionArtifactFromFilesOptions = {
   /** Provenance map JSON written by `oa-gen build-spec --provenance`. */
   provenancePath?: string
   /**
-   * Directory that relative input paths resolve against. Source file paths in
-   * the artifact are written relative to it with `/` separators.
+   * Project root: relative input paths resolve against it, and the input files
+   * and the fragment `sourcePath`s of the provenance map are written relative
+   * to it with `/` separators.
    */
   root: string
   generator: RefProjectionArtifactGenerator
@@ -94,14 +96,7 @@ function readProvenance(path: string, root: string) {
   } catch (error) {
     throw new Error(`provenance 파일을 파싱할 수 없습니다: ${path} (${errorMessage(error)})`)
   }
-  return { map: parseBuildSpecProvenanceMap(parsed, path), source: file.source }
-}
-
-/** `path` relative to `root` with `/` separators; absolute when no relative path exists. */
-export function rootRelativePath(root: string, path: string): string {
-  const relativePath = relative(resolve(root), path)
-  const portable = relativePath === '' || isAbsolute(relativePath) ? path : relativePath
-  return portable.split(sep).join('/')
+  return { map: parseBuildSpecProvenanceMap(parsed, path), source: file.source, root }
 }
 
 function errorMessage(error: unknown): string {

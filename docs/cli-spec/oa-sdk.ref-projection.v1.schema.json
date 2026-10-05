@@ -173,6 +173,7 @@
           "$ref": "#/$defs/pointerFragment"
         },
         "sourcePath": {
+          "description": "Fragment file of the definition, relative to the project root with \"/\" separators. An absolute provenance sourcePath (build-spec writes them) is rewritten; a relative one is already root-relative and kept as written.",
           "type": "string"
         },
         "sourcePointer": {

@@ -4,11 +4,12 @@ import { fileURLToPath } from 'node:url'
 import type { Command } from '../lib/types.js'
 import { optStr, str } from '../lib/args.js'
 import {
+  rootRelativePath,
   serializeRefProjectionArtifact,
   summarizeRefProjectionArtifact,
 } from '../lib/ref-projection-artifact.js'
 import { validateRefProjectionArtifact } from '../lib/ref-projection-artifact-schema.js'
-import { createRefProjectionArtifactFromFiles, rootRelativePath } from '../lib/ref-projection-files.js'
+import { createRefProjectionArtifactFromFiles } from '../lib/ref-projection-files.js'
 
 const GENERATOR_NAME = '@oa-sdk/codegen'
 

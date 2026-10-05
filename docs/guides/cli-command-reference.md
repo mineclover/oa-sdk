@@ -247,15 +247,18 @@ artifact 계약의 정본은 codegen이 공개하는 JSON Schema
 | `generator` | 생성한 package 이름과 version (`@oa-sdk/codegen`) |
 | `source` | 입력 파일의 project root 기준 경로와 `sha256:` content hash. `spec`은 필수, `provenance`는 넘겼을 때만 |
 | `nodes[]` | 진입 문서의 `components.*`·`paths`·`webhooks` 선언과 외부 파일의 참조 대상. `id`는 진입 문서 선언이면 JSON Pointer fragment(`#/components/schemas/Pet`), 외부 대상이면 파일 + pointer(`./shared.yaml#/components/schemas/Owner`) |
-| `nodes[].identity` | `status: mapped`이면 `canonicalId`와 일치한 provenance pointer, fragment `sourcePath`/`sourcePointer`/`contentHash`. `status: unmapped`이면 `reason`이 `external-document`(다른 파일의 노드), `provenance-not-supplied`(`--provenance` 없음), `no-enclosing-provenance-entry`(노드 pointer와 그 상위 어디에도 provenance entry 없음) 중 하나 |
+| `nodes[].identity` | `status: mapped`이면 `canonicalId`와 일치한 provenance pointer, fragment `sourcePath`(project root 기준)/`sourcePointer`/`contentHash`. `status: unmapped`이면 `reason`이 `external-document`(다른 파일의 노드), `provenance-not-supplied`(`--provenance` 없음), `no-enclosing-provenance-entry`(노드 pointer와 그 상위 어디에도 provenance entry 없음) 중 하나 |
 | `edges[]` | `$ref` occurrence 하나당 하나. `source`/`target`은 occurrence와 참조 대상을 포함하는 노드 id, `id`는 occurrence 위치. `recursion`은 순환이 instance로 내려가면 `guarded`, 내려가지 않으면 `unguarded`(`ref-cycle` 진단과 같은 occurrence), 순환이 아니면 `none` |
 | `diagnostics[]` | `ref-cycle`, `ref-not-found`, `external-ref-*`, `unsupported-ref` 진단 |
 
 같은 입력 파일이면 어느 위치에서 실행해도 byte 단위로 같은 출력이 나옵니다. 노드·엣지·
-진단은 code unit 순서로 정렬하고, timestamp를 넣지 않으며, 모든 파일 경로는 진입 문서
-디렉터리 기준 `$ref` 형식(`./shared.yaml`)으로 씁니다. `canonicalId` 매핑은 노드 pointer
-자신 또는 가장 가까운 상위 pointer의 provenance entry를 쓰며, spec-lens graph와 같은
-`findNearestJsonPointerEntry()`(`@oa-sdk/parser`)를 공유합니다.
+진단은 code unit 순서로 정렬하고, timestamp를 넣지 않습니다. 그래프의 파일 경로는 진입
+문서 디렉터리 기준 `$ref` 형식(`./shared.yaml`)으로 쓰고, provenance의 fragment
+`sourcePath`는 project root 기준 상대 경로로 씁니다(build-spec이 기록한 절대 경로를
+변환하고, 이미 상대 경로면 그대로 둠). 단 build-spec provenance 파일 자체는 checkout마다
+다른 절대 경로를 담으므로, checkout이 다르면 `source.provenance.contentHash`만 달라집니다.
+`canonicalId` 매핑은 노드 pointer 자신 또는 가장 가까운 상위 pointer의 provenance entry를
+쓰며, spec-lens graph와 같은 `findNearestJsonPointerEntry()`(`@oa-sdk/parser`)를 공유합니다.
 
 종료 코드는 artifact를 쓰면 `0`이고, `--spec` 누락, 읽을 수 없거나 파싱할 수 없는 spec·provenance,
 형식이 틀린 provenance entry이면 `1`입니다(출력 파일을 쓰지 않음). `ref-cycle` 같은 진단은

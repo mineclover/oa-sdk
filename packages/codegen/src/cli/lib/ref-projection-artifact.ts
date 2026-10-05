@@ -3,11 +3,12 @@
  * (`projectRefGraph` in `@oa-sdk/parser`) as a versioned exchange artifact.
  *
  * The artifact is a pure function of its inputs: nodes, edges and diagnostics
- * are sorted by code unit, it carries no timestamps, and every file path is
- * written relative to the entry document's directory, so the same files give
- * byte-identical output on any machine. Each node also carries the definition
- * identity behind it: the build-spec provenance `canonicalId` of its nearest
- * enclosing output pointer, or the reason it has none.
+ * are sorted by code unit, it carries no timestamps, files of the graph are
+ * written relative to the entry document's directory, and the definition
+ * fragments that provenance names relative to the project root, so the same
+ * files give byte-identical output in any checkout. Each node also carries the
+ * definition identity behind it: the build-spec provenance `canonicalId` of its
+ * nearest enclosing output pointer, or the reason it has none.
  *
  * The JSON Schema of the artifact is `REF_PROJECTION_ARTIFACT_SCHEMA_V1`.
  */
@@ -111,6 +112,11 @@ export type RefProjectionNodeIdentity =
     canonicalId: string
     /** The provenance key that matched: the node's pointer or its nearest ancestor. */
     provenancePointer: string
+    /**
+     * Fragment file of the definition, relative to the project root with `/`
+     * separators. Provenance that records it absolute (build-spec does) is
+     * rewritten; a relative one is already root-relative and kept as written.
+     */
     sourcePath: string
     sourcePointer: string
     contentHash: string
@@ -179,7 +185,7 @@ export type CreateRefProjectionArtifactOptions = {
   /**
    * Path of the file `document` was read from; a relative path resolves
    * against the working directory. Relative external `$ref`s resolve against
-   * it and file paths in the artifact are written relative to its directory.
+   * it and the files of the graph are written relative to its directory.
    * Without it, external `$ref`s are reported as `unsupported-ref`.
    */
   entryPath?: string
@@ -188,6 +194,11 @@ export type CreateRefProjectionArtifactOptions = {
   provenance?: {
     map: BuildSpecProvenanceMap
     source: RefProjectionArtifactSourceFile
+    /**
+     * Project root: absolute fragment `sourcePath`s of `map` are written
+     * relative to it.
+     */
+    root: string
   }
   generator: RefProjectionArtifactGenerator
 }
@@ -202,7 +213,7 @@ export function createRefProjectionArtifact(options: CreateRefProjectionArtifact
   const files = new EntryRelativeFiles(entryPath)
   const provenance = options.provenance === undefined
     ? undefined
-    : new Map(Object.entries(options.provenance.map))
+    : { entries: new Map(Object.entries(options.provenance.map)), root: options.provenance.root }
 
   const nodeIds = new Map<string, string>()
   const nodes = projection.nodes.map((node): RefProjectionArtifactNode => {
@@ -293,17 +304,18 @@ export function summarizeRefProjectionArtifact(artifact: RefProjectionArtifact):
 
 function nodeIdentity(
   node: RefProjectionNode,
-  provenance: ReadonlyMap<string, BuildSpecProvenanceEntry> | undefined,
+  provenance: { entries: ReadonlyMap<string, BuildSpecProvenanceEntry>; root: string } | undefined,
 ): RefProjectionNodeIdentity {
   if (node.filePath !== undefined) return { status: 'unmapped', reason: 'external-document' }
   if (provenance === undefined) return { status: 'unmapped', reason: 'provenance-not-supplied' }
-  const match = findNearestJsonPointerEntry(node.pointer, provenance)
+  const match = findNearestJsonPointerEntry(node.pointer, provenance.entries)
   if (match === undefined) return { status: 'unmapped', reason: 'no-enclosing-provenance-entry' }
+  const { sourcePath } = match.value
   return {
     status: 'mapped',
     canonicalId: match.value.canonicalId,
     provenancePointer: match.pointer,
-    sourcePath: match.value.sourcePath,
+    sourcePath: isAbsolute(sourcePath) ? rootRelativePath(provenance.root, sourcePath) : sourcePath,
     sourcePointer: match.value.sourcePointer,
     contentHash: match.value.contentHash,
   }
@@ -355,6 +367,16 @@ class EntryRelativeFiles {
     }
     return result
   }
+}
+
+/**
+ * Absolute `path` relative to `root` with `/` separators; `path` itself when no
+ * relative path names it (another Windows drive, or `root` itself).
+ */
+export function rootRelativePath(root: string, path: string): string {
+  const relativePath = relative(resolve(root), path)
+  const portable = relativePath === '' || isAbsolute(relativePath) ? path : relativePath
+  return portable.split(sep).join('/')
 }
 
 /** `$ref` file part naming `filePath` from `fromDirectory`, as the parser resolver writes it. */

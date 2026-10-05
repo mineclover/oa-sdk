@@ -128,6 +128,26 @@ describe('oa-sdk.ref-projection.v1 artifact', () => {
     expect(secondText).not.toContain(second)
   })
 
+  it('writes the absolute fragment paths of build-spec provenance relative to the project root', () => {
+    // `oa-gen build-spec --provenance` records each sourcePath as an absolute
+    // path of the checkout it ran in; the artifact must not carry it.
+    const golden = JSON.parse(
+      readFileSync(join(fixtureDir, 'expected.ref-projection.json'), 'utf8'),
+    ) as RefProjectionArtifact
+    for (const root of [tempDir(), join(tempDir(), 'nested', 'copy')]) {
+      cpSync(fixtureDir, root, { recursive: true })
+      const provenance = Object.fromEntries(
+        Object.entries(readFixtureProvenance())
+          .map(([pointer, entry]) => [pointer, { ...entry, sourcePath: join(root, entry.sourcePath) }]),
+      )
+      writeFileSync(join(root, 'provenance.json'), JSON.stringify(provenance, null, 2))
+
+      const artifact = fixtureArtifact(root)
+      expect(artifact.nodes).toEqual(golden.nodes)
+      expect(serializeRefProjectionArtifact(artifact)).not.toContain(root)
+    }
+  })
+
   it('reads an entry document named by a relative or unnormalized entryPath as the entry document', () => {
     // shared.yaml refers back into api.yaml, so the projection meets the entry
     // file again through an external document and must recognize it.
@@ -156,7 +176,7 @@ describe('oa-sdk.ref-projection.v1 artifact', () => {
         document,
         entryPath,
         spec,
-        provenance: { map: provenance, source: { path: 'provenance.json', contentHash: spec.contentHash } },
+        provenance: { map: provenance, source: { path: 'provenance.json', contentHash: spec.contentHash }, root: fixtureDir },
         generator,
       }))
 
@@ -177,7 +197,7 @@ describe('oa-sdk.ref-projection.v1 artifact', () => {
       document,
       entryPath: join(fixtureDir, 'api.yaml'),
       spec,
-      provenance: { map: provenance, source: spec },
+      provenance: { map: provenance, source: spec, root: fixtureDir },
       generator,
     })
     expect(document).toEqual(documentBefore)
@@ -216,6 +236,7 @@ describe('oa-sdk.ref-projection.v1 artifact', () => {
           '#/paths/~1pets~1{id}/get': entry('path:public/pets/pet-by-id'),
         },
         source: spec,
+        root: fixtureDir,
       },
       generator,
     })

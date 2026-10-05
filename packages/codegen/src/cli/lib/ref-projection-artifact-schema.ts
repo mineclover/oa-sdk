@@ -97,7 +97,10 @@ export const REF_PROJECTION_ARTIFACT_SCHEMA_V1 = {
         status: { const: 'mapped' },
         canonicalId: { $ref: '#/$defs/nonEmptyString' },
         provenancePointer: { $ref: '#/$defs/pointerFragment' },
-        sourcePath: { type: 'string' },
+        sourcePath: {
+          description: 'Fragment file of the definition, relative to the project root with "/" separators. An absolute provenance sourcePath (build-spec writes them) is rewritten; a relative one is already root-relative and kept as written.',
+          type: 'string',
+        },
         sourcePointer: { type: 'string' },
         contentHash: { type: 'string' },
       },
