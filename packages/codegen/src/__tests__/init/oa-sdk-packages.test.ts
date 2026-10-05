@@ -15,6 +15,7 @@ import {
   composeInitDependencies,
   findOaSdkPackageSources,
   findPnpmWorkspace,
+  findUninstallableOaSdkEntries,
   resolveOaSdkPackage,
   type OaSdkPackageName,
 } from '../../cli/lib/init/index.js'
@@ -130,6 +131,52 @@ describe('REGISTRY_OA_SDK_PACKAGES', () => {
 
   it('include every companion package, whose install hints name the same built-against range', () => {
     for (const name of COMPANION_PACKAGES) expect(REGISTRY_OA_SDK_PACKAGES, name).toContain(name)
+  })
+})
+
+describe('findUninstallableOaSdkEntries', () => {
+  const versions = { '@oa-sdk/core': '0.3.1', '@oa-sdk/parser': '0.4.0' }
+  const outside = { workspacePackages: new Set<string>(), versions }
+  const manifest = (value: unknown) => JSON.stringify(value)
+
+  it('tells to remove a private package outside a workspace that has it, whatever its specifier', () => {
+    const entries = findUninstallableOaSdkEntries(manifest({
+      devDependencies: { '@oa-sdk/personas': '^0.1.0' },
+      peerDependencies: { '@oa-sdk/personas': 'workspace:*' },
+    }), outside)
+    expect(entries).toEqual([
+      { name: '@oa-sdk/personas', section: 'devDependencies', specifier: '^0.1.0', reason: expect.stringContaining('not published to the registry'), fix: { action: 'remove' } },
+      { name: '@oa-sdk/personas', section: 'peerDependencies', specifier: 'workspace:*', reason: expect.stringContaining('not published to the registry'), fix: { action: 'remove' } },
+    ])
+  })
+
+  it('tells to replace a workspace: entry outside a workspace that has the package with the registry specifier init writes', () => {
+    const entries = findUninstallableOaSdkEntries(manifest({
+      dependencies: { '@oa-sdk/parser': 'workspace:^', '@oa-sdk/dpm': 'workspace:*', 'not-oa-sdk': 'workspace:*' },
+      devDependencies: { '@oa-sdk/core': 'workspace:*', '@oa-sdk/client': 'workspace:*', '@oa-sdk/router': '^0.2.0' },
+    }), outside)
+    expect(entries.map(({ name, section, specifier, fix }) => ({ name, section, specifier, fix }))).toEqual([
+      // Not recommended by init, but built against: its range.
+      { name: '@oa-sdk/parser', section: 'dependencies', specifier: 'workspace:^', fix: { action: 'replace', replacement: '^0.4.0' } },
+      // Neither: no version this build knows.
+      { name: '@oa-sdk/dpm', section: 'dependencies', specifier: 'workspace:*', fix: { action: 'replace', replacement: undefined } },
+      { name: '@oa-sdk/core', section: 'devDependencies', specifier: 'workspace:*', fix: { action: 'replace', replacement: '^0.3.1' } },
+      // A registry package whose built-against version this build does not know: what init writes for it.
+      { name: '@oa-sdk/client', section: 'devDependencies', specifier: 'workspace:*', fix: { action: 'replace', replacement: UNPINNED_SPECIFIER } },
+    ])
+    expect(entries[0]!.reason).toBe('the workspace: protocol resolves only in a pnpm workspace that has @oa-sdk/parser as a member')
+  })
+
+  it('finds nothing to fix for the packages of the workspace the project is a member of', () => {
+    const member = { workspacePackages: new Set(['@oa-sdk/personas', '@oa-sdk/core']), versions }
+    expect(findUninstallableOaSdkEntries(manifest({
+      devDependencies: { '@oa-sdk/personas': 'workspace:*', '@oa-sdk/core': 'workspace:*', '@oa-sdk/router': '^0.2.2' },
+    }), member)).toEqual([])
+  })
+
+  it('finds no entries in JSON that is not a manifest with dependency maps', () => {
+    expect(findUninstallableOaSdkEntries('[]', outside)).toEqual([])
+    expect(findUninstallableOaSdkEntries(manifest({ devDependencies: 'workspace:*' }), outside)).toEqual([])
   })
 })
 

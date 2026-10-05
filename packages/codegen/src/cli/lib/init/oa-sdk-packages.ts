@@ -15,6 +15,7 @@
  * - A private package has no other source, so outside such a workspace it is
  *   not written at all and init reports it instead.
  */
+import { z } from 'zod'
 import { BUILT_AGAINST_VERSIONS, builtAgainstRange } from '../built-against-versions.js'
 import type { CompanionPackageName } from '../companion-packages.js'
 import { findPnpmWorkspace } from './common/pnpm-workspace.js'
@@ -99,6 +100,83 @@ export function resolveOaSdkPackage(
     }
   }
   return { name, specifier: builtAgainstRange(name, sources.versions) ?? UNPINNED_SPECIFIER }
+}
+
+// ---------------------------------------------------------------------------
+// Entries package.json already has
+
+/** Sections of package.json whose entries a package manager installs. */
+export const DEPENDENCY_SECTIONS = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'] as const
+
+export type DependencySection = (typeof DEPENDENCY_SECTIONS)[number]
+
+const DependencyEntries = z.record(z.string(), z.unknown()).optional()
+
+const ManifestDependencies = z.object({
+  dependencies: DependencyEntries,
+  devDependencies: DependencyEntries,
+  optionalDependencies: DependencyEntries,
+  peerDependencies: DependencyEntries,
+})
+
+/**
+ * An `@oa-sdk` entry of package.json that the project cannot install where it
+ * lives, with what to do instead: `remove` it, or `replace` its specifier
+ * with `replacement`, the registry specifier `oa-gen init` would write, which
+ * is `undefined` for a package this build of codegen has no version of.
+ */
+export interface UninstallableOaSdkEntry {
+  name: string
+  section: DependencySection
+  specifier: string
+  reason: string
+  fix: { action: 'remove' } | { action: 'replace'; replacement: string | undefined }
+}
+
+/**
+ * The `@oa-sdk` entries of `packageJson` (the text of a package.json) that
+ * the project cannot install from `sources`:
+ *
+ * - a private package (`workspace` in `OA_SDK_INIT_PACKAGES`), whatever its
+ *   specifier, outside a workspace that has it: no registry has it, so the
+ *   entry has to be removed. `oa-gen init` leaves such a package out, but an
+ *   entry an earlier init wrote stays, and `--force` does not remove it.
+ * - any other package specified with the `workspace:` protocol outside a
+ *   workspace that has it: pnpm cannot resolve it there and npm rejects the
+ *   protocol, so the entry has to name a registry version instead.
+ *
+ * A JSON value other than an object with dependency maps has no entries;
+ * text that is not JSON throws.
+ */
+export function findUninstallableOaSdkEntries(
+  packageJson: string,
+  sources: OaSdkPackageSources = REGISTRY_SOURCES,
+): UninstallableOaSdkEntry[] {
+  const manifest = ManifestDependencies.safeParse(JSON.parse(packageJson))
+  if (!manifest.success) return []
+  const entries: UninstallableOaSdkEntry[] = []
+  for (const section of DEPENDENCY_SECTIONS) {
+    for (const [name, specifier] of Object.entries(manifest.data[section] ?? {})) {
+      if (!name.startsWith('@oa-sdk/') || typeof specifier !== 'string' || sources.workspacePackages.has(name)) continue
+      const resolution = isOaSdkInitPackage(name) ? resolveOaSdkPackage(name, sources) : undefined
+      if (resolution !== undefined && resolution.specifier === undefined) {
+        entries.push({ name, section, specifier, reason: resolution.reason, fix: { action: 'remove' } })
+      } else if (specifier.startsWith('workspace:')) {
+        entries.push({
+          name,
+          section,
+          specifier,
+          reason: `the workspace: protocol resolves only in a pnpm workspace that has ${name} as a member`,
+          fix: { action: 'replace', replacement: resolution?.specifier ?? builtAgainstRange(name, sources.versions) },
+        })
+      }
+    }
+  }
+  return entries
+}
+
+function isOaSdkInitPackage(name: string): name is OaSdkPackageName {
+  return Object.hasOwn(OA_SDK_INIT_PACKAGES, name)
 }
 
 /** Where the project in `projectDir` installs `@oa-sdk` packages from. */

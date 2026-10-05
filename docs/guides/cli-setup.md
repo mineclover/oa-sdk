@@ -70,7 +70,10 @@ pnpm add -D @oa-sdk/router @oa-sdk/client @oa-sdk/mock-server
 - 그 밖에는 이 codegen이 빌드·테스트에 사용한 릴리스와 호환되는 범위(`^<버전>`)를 씁니다. npm은 `workspace:` 프로토콜을 지원하지 않으므로(`EUNSUPPORTEDPROTOCOL`), 워크스페이스 밖에서 설치되는 것은 이 범위입니다.
 - `enterprise` 아키타입이 권장하는 `@oa-sdk/personas`는 레지스트리에 배포되지 않는 비공개 패키지입니다. 이 패키지를 멤버로 가진 워크스페이스 안에서만 추가하고, 그 밖에서는 추가하지 않은 이유를 `init` 출력에 표시합니다.
 
-`init`은 `package.json`에 이미 있는 항목을 `--force` 없이는 바꾸지 않습니다. 이전 버전의 `init`이 워크스페이스 밖에 쓴 `workspace:*` 항목은 위 범위로 직접 바꿉니다(`--force`는 `oa.config.ts`와 스크립트도 덮어씁니다).
+`init`은 `package.json`에 이미 있는 항목을 `--force` 없이는 바꾸지 않습니다(`--force`는 `oa.config.ts`와 스크립트도 덮어씁니다). 그 뒤 프로젝트가 있는 위치에서 설치할 수 없는 `@oa-sdk` 항목을 모두, 해야 할 조치와 함께 출력합니다.
+
+- 해당 패키지를 멤버로 가진 워크스페이스 밖의 `workspace:` 항목(이전 버전의 `init`이 쓴 항목 등)은 `init`이 출력하는 범위로 바꿉니다. `init`이 쓰는 패키지라면 `--force`가 이렇게 바꿉니다.
+- 그 패키지를 멤버로 가진 워크스페이스 밖의 `@oa-sdk/personas` 항목은 지정자와 관계없이 삭제합니다. 레지스트리에 없는 패키지이고, `init`이 더 이상 쓰지 않으므로 `--force`도 그 항목을 그대로 둡니다.
 
 패키지가 설치되어 있지 않으면 `oa-gen`은 해당 산출물을 조용히 건너뛰지 않습니다.
 

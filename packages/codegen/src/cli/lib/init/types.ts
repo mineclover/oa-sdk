@@ -3,6 +3,7 @@ import type {
   OaSdkPackageName,
   OaSdkPackageSources,
   UnavailableOaSdkPackage,
+  UninstallableOaSdkEntry,
 } from './oa-sdk-packages.js'
 
 export type TargetFrameworkId =
@@ -125,7 +126,12 @@ export interface InitResult {
   configFileCreated?: boolean | undefined
   packageJsonPatched?: boolean | undefined
   packageJsonPath?: string | undefined
-  /** `@oa-sdk` packages the scaffold uses that package.json does not list, because the project cannot install them. */
+  /** `@oa-sdk` packages the scaffold uses that init does not add to package.json, because the project cannot install them. */
   unavailablePackages?: UnavailableOaSdkPackage[] | undefined
+  /**
+   * `@oa-sdk` entries package.json has (after the patch) that the project cannot install where it
+   * lives, such as `workspace:*` entries an earlier init wrote outside a workspace.
+   */
+  uninstallableEntries?: UninstallableOaSdkEntry[] | undefined
   dryRun?: boolean | undefined
 }

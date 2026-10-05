@@ -2,6 +2,7 @@ import type { Command } from '../lib/types.js'
 import { bool, optStr } from '../lib/args.js'
 import { CliExitError } from '../lib/errors.js'
 import { runInit } from '../lib/init/index.js'
+import type { DependencySection, UninstallableOaSdkEntry } from '../lib/init/index.js'
 
 export const init: Command = {
   name: 'init',
@@ -106,11 +107,35 @@ export const init: Command = {
       for (const d of result.patchResult.dependencies) {
         console.log(`   - dependency "${d.key}": ${d.action} (${d.after})`)
       }
+      const uninstallable = result.uninstallableEntries ?? []
       for (const p of result.unavailablePackages ?? []) {
+        // An entry package.json already has is reported below, with what to do about it.
+        if (uninstallable.some(entry => entry.name === p.name)) continue
         console.log(`   - devDependency "${p.name}": not added (${p.reason})`)
+      }
+      if (uninstallable.length > 0) {
+        console.log(`⚠️ package.json lists @oa-sdk packages this project cannot install where it lives${dryRun ? ' (after the planned patch)' : ''}:`)
+        for (const entry of uninstallable) console.log(`   - ${describeUninstallableEntry(entry)}`)
       }
     }
   },
+}
+
+const SECTION_LABELS: Record<DependencySection, string> = {
+  dependencies: 'dependency',
+  devDependencies: 'devDependency',
+  optionalDependencies: 'optionalDependency',
+  peerDependencies: 'peerDependency',
+}
+
+/** One line for an entry of package.json the project cannot install, ending with what to do about it. */
+function describeUninstallableEntry(entry: UninstallableOaSdkEntry): string {
+  const fix = entry.fix.action === 'remove'
+    ? 'remove it'
+    : entry.fix.replacement === undefined
+      ? 'replace it with a version published to the registry, or remove it'
+      : `replace it with "${entry.fix.replacement}"`
+  return `${SECTION_LABELS[entry.section]} "${entry.name}": "${entry.specifier}" cannot be installed here (${entry.reason}); ${fix}`
 }
 
 export const initCommand = init

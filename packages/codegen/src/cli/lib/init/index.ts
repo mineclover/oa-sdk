@@ -45,6 +45,7 @@ import {
   UNPINNED_SPECIFIER,
   WORKSPACE_SPECIFIER,
   findOaSdkPackageSources,
+  findUninstallableOaSdkEntries,
   resolveOaSdkPackage,
 } from './oa-sdk-packages.js'
 import type {
@@ -59,16 +60,18 @@ import type {
   OutputRoutingPreset,
 } from './types.js'
 import type { ArchetypeProfile } from './archetypes/types.js'
-import type { UnavailableOaSdkPackage } from './oa-sdk-packages.js'
+import type { UnavailableOaSdkPackage, UninstallableOaSdkEntry } from './oa-sdk-packages.js'
 
 export * from './types.js'
 export type { ComposedDependencies } from './composer.js'
 export type { PnpmWorkspace } from './common/pnpm-workspace.js'
 export type {
+  DependencySection,
   OaSdkPackageName,
   OaSdkPackageResolution,
   OaSdkPackageSources,
   UnavailableOaSdkPackage,
+  UninstallableOaSdkEntry,
 } from './oa-sdk-packages.js'
 export type {
   ArchetypeProfile,
@@ -113,6 +116,7 @@ export {
   UNPINNED_SPECIFIER,
   WORKSPACE_SPECIFIER,
   findOaSdkPackageSources,
+  findUninstallableOaSdkEntries,
   resolveOaSdkPackage,
 }
 
@@ -223,6 +227,7 @@ export async function runInit(options: InitOptions = {}): Promise<InitResult> {
   // 5. Non-destructively patch package.json if present
   let patchResult: PackagePatchResult | undefined
   let unavailablePackages: UnavailableOaSdkPackage[] | undefined
+  let uninstallableEntries: UninstallableOaSdkEntry[] | undefined
   const pkgPath = path.join(cwd, 'package.json')
   let packageJsonPatched = false
 
@@ -237,6 +242,9 @@ export async function runInit(options: InitOptions = {}): Promise<InitResult> {
       force: options.force,
     })
     unavailablePackages = patches.unavailable
+    // Entries the patch keeps (existing ones, without --force) or never touches (packages init
+    // no longer writes) can still be ones the project cannot install where it lives.
+    uninstallableEntries = findUninstallableOaSdkEntries(patchResult.patchedContent, targetGenOptions.oaSdkSources)
 
     if (!options.dryRun && patchResult.modified) {
       await fs.writeFile(pkgPath, patchResult.patchedContent, 'utf-8')
@@ -258,6 +266,7 @@ export async function runInit(options: InitOptions = {}): Promise<InitResult> {
     packageJsonPatched,
     packageJsonPath: pkgPath,
     unavailablePackages,
+    uninstallableEntries,
     dryRun: options.dryRun ?? false,
   }
 }

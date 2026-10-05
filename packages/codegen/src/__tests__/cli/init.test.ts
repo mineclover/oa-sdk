@@ -421,5 +421,88 @@ describe('oa-gen init CLI & Orchestrator', () => {
       }
       expect(logs.join('\n')).toContain('devDependency "@oa-sdk/personas": not added (private package, not published to the registry')
     })
+
+    /** Runs the `init` command, returning what it printed. */
+    const runInitCommand = async (args: Record<string, unknown>): Promise<string> => {
+      const logs: string[] = []
+      const log = console.log
+      console.log = (...parts: unknown[]) => { logs.push(parts.map(String).join(' ')) }
+      try {
+        await init.run({ cwd: tmpDir, target: 'generic', yes: true, ...args })
+      } finally {
+        console.log = log
+      }
+      return logs.join('\n')
+    }
+
+    /** package.json of a project an earlier init scaffolded as if it were a workspace member. */
+    const earlierWorkspaceInit = {
+      name: 'consumer',
+      devDependencies: {
+        '@oa-sdk/codegen': 'workspace:*',
+        '@oa-sdk/core': 'workspace:*',
+        '@oa-sdk/personas': 'workspace:*',
+        '@oa-sdk/router': '^0.2.0',
+      },
+    }
+
+    it('tells the user to remove a private package entry --force cannot fix outside a workspace', async () => {
+      await writeJson(path.join(tmpDir, 'package.json'), earlierWorkspaceInit)
+
+      const output = await runInitCommand({ archetype: 'enterprise', force: true })
+
+      const pkg = JSON.parse(await fs.readFile(path.join(tmpDir, 'package.json'), 'utf-8')) as Manifest
+      expect(oaSdkDevDependencies(pkg)).toMatchObject({
+        '@oa-sdk/codegen': builtAgainst('@oa-sdk/codegen'),
+        '@oa-sdk/core': builtAgainst('@oa-sdk/core'),
+        '@oa-sdk/router': builtAgainst('@oa-sdk/router'),
+        // init no longer writes it, so --force leaves the entry as it is.
+        '@oa-sdk/personas': 'workspace:*',
+      })
+      expect(output).not.toContain('"@oa-sdk/personas": not added')
+      expect(output).toContain(
+        'devDependency "@oa-sdk/personas": "workspace:*" cannot be installed here (private package, not published to the registry; ' +
+          'only a pnpm workspace that contains it can install it); remove it',
+      )
+      expect(output).not.toMatch(/"@oa-sdk\/(?:codegen|core|router)": "[^"]*" cannot be installed here/)
+    })
+
+    it('reports workspace: entries it keeps without --force, with the range to use instead', async () => {
+      await writeJson(path.join(tmpDir, 'package.json'), {
+        ...earlierWorkspaceInit,
+        dependencies: { '@oa-sdk/parser': 'workspace:^' },
+      })
+
+      const output = await runInitCommand({ archetype: 'enterprise' })
+
+      const pkg = JSON.parse(await fs.readFile(path.join(tmpDir, 'package.json'), 'utf-8')) as Manifest
+      expect(oaSdkDevDependencies(pkg)).toMatchObject({ '@oa-sdk/codegen': 'workspace:*', '@oa-sdk/core': 'workspace:*' })
+      const protocol = 'the workspace: protocol resolves only in a pnpm workspace that has'
+      expect(output).toContain(
+        `devDependency "@oa-sdk/codegen": "workspace:*" cannot be installed here (${protocol} @oa-sdk/codegen as a member); ` +
+          `replace it with "${builtAgainst('@oa-sdk/codegen')}"`,
+      )
+      expect(output).toContain(
+        `devDependency "@oa-sdk/core": "workspace:*" cannot be installed here (${protocol} @oa-sdk/core as a member); ` +
+          `replace it with "${builtAgainst('@oa-sdk/core')}"`,
+      )
+      // Not a package init recommends, but one this codegen was built against.
+      expect(output).toContain(
+        `dependency "@oa-sdk/parser": "workspace:^" cannot be installed here (${protocol} @oa-sdk/parser as a member); ` +
+          `replace it with "${builtAgainst('@oa-sdk/parser')}"`,
+      )
+      expect(output).toContain('"@oa-sdk/personas": "workspace:*" cannot be installed here (private package')
+      expect(output).not.toMatch(/"@oa-sdk\/router": "[^"]*" cannot be installed here/)
+    })
+
+    it('reports nothing for the workspace: entries of a member of a workspace that has the packages', async () => {
+      await createWorkspace(['@oa-sdk/codegen', '@oa-sdk/core', '@oa-sdk/personas'])
+      const appDir = path.join(tmpDir, 'apps', 'orders')
+      await writeJson(path.join(appDir, 'package.json'), { ...earlierWorkspaceInit, name: 'orders' })
+
+      const res = await runInit({ cwd: appDir, target: 'generic', archetype: 'enterprise', yes: true })
+
+      expect(res.uninstallableEntries).toEqual([])
+    })
   })
 })

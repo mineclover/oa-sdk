@@ -57,9 +57,14 @@ where the project installs it from:
 - `@oa-sdk/personas`, which the `enterprise` archetype recommends, is private and not published.
   `init` adds it only inside a workspace that has it, and otherwise prints that it left it out.
 
-`init` keeps entries `package.json` already has unless `--force` is given, so change a
-`workspace:*` entry that an earlier `init` wrote outside a workspace to the range by hand
-(`--force` also overwrites `oa.config.ts` and the scripts).
+`init` keeps entries `package.json` already has unless `--force` is given (`--force` also
+overwrites `oa.config.ts` and the scripts). It then reports every `@oa-sdk` entry the project
+cannot install where it lives, with what to do about it:
+
+- A `workspace:` entry outside a workspace that has the package, such as one an earlier `init`
+  wrote: replace it with the range `init` prints. `--force` does this for the packages `init` writes.
+- `@oa-sdk/personas` outside a workspace that has it, whatever its specifier: remove it. No
+  registry has it, and `--force` leaves the entry in place because `init` no longer writes it.
 
 When one of them is not installed, `oa-gen` never drops the output silently:
 
