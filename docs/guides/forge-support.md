@@ -93,7 +93,7 @@ TypeSpec (.tsp)
 9. **Forge Overlay를 통한 비파괴 target projection**
 
    TypeSpec source, approved snapshot, canonical OpenAPI artifact를 수정하지 않고 Forge용
-   metadata를 Overlay로 추가합니다. target-specific metadata는 TypeSpec SSOT에 섞이지 않습니다.
+   metadata를 Overlay로 추가합니다. target-specific metadata는 TypeSpec 원본에 섞이지 않습니다.
 
 10. **Forge method parity 검증**
 
