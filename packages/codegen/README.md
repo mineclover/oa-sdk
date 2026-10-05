@@ -46,6 +46,21 @@ instead.
 `oa.config.ts` turns handler contracts and the client SDK on (`core.contracts.pureHandlers: true`,
 `core.client.enabled: true`), and the generated `mock` script runs `oa-gen mock`.
 
+The specifier `oa-gen init` writes for each `@oa-sdk` package, `@oa-sdk/codegen` included, follows
+where the project installs it from:
+
+- `workspace:*` when the project is a member of a pnpm workspace (`pnpm-workspace.yaml`) that also
+  has the package as a member, such as an app inside the oa-sdk repository.
+- Otherwise the range compatible with the release this codegen was built and tested against
+  (`^<version>`). npm rejects the `workspace:` protocol (`EUNSUPPORTEDPROTOCOL`), so outside such a
+  workspace this range is what installs.
+- `@oa-sdk/personas`, which the `enterprise` archetype recommends, is private and not published.
+  `init` adds it only inside a workspace that has it, and otherwise prints that it left it out.
+
+`init` keeps entries `package.json` already has unless `--force` is given, so change a
+`workspace:*` entry that an earlier `init` wrote outside a workspace to the range by hand
+(`--force` also overwrites `oa.config.ts` and the scripts).
+
 When one of them is not installed, `oa-gen` never drops the output silently:
 
 - `mock`, `generate:client`, `pack:client`, and `generate:tanstack` exist to produce that output, so

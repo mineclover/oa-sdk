@@ -274,6 +274,8 @@ oa-gen mock --spec ./openapi.yaml --watch
 | `--force` | `-f` | `boolean` | `false` | 기존 `oa.config.ts` 및 충돌하는 스크립트 강제 덮어쓰기 |
 | `--dry-run` | | `boolean` | `false` | 디스크에 파일을 쓰지 않고 계획된 변경 사항만 미리보기 |
 
+`package.json`의 `devDependencies`에 기록하는 `@oa-sdk` 패키지의 버전은 프로젝트 위치에 따릅니다. 프로젝트와 해당 패키지가 같은 pnpm 워크스페이스의 멤버이면 `workspace:*`, 그 밖에는 이 codegen이 빌드된 릴리스와 호환되는 범위(`^<버전>`)입니다. 비공개 패키지 `@oa-sdk/personas`(`enterprise`)는 워크스페이스 밖에서는 추가하지 않고 그 사실을 출력합니다. 자세한 규칙은 [동반 패키지 안내](./cli-setup.md#동반-패키지-companion-packages)를 참고하세요.
+
 ### 3대 라이프사이클 아키타입 (`--archetype`)
 - **`mvp`**: 빠른 프로토타이핑. `driftCheck: false`, `failOnBreaking: false`, `preflightLint: "warn"`, 와이어 안전성 완화.
 - **`microservice`**: 프로덕션 마이크로서비스 안정성. `driftCheck: true`, `failOnBreaking: false`, `preflightLint: "error"`, `wireFormatSafety: true`, `jitSchema: true`, `zeroCopy: true`.

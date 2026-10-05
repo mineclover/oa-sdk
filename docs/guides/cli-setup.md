@@ -64,6 +64,14 @@ pnpm add -D @oa-sdk/router @oa-sdk/client @oa-sdk/mock-server
 
 `oa-gen init`은 스캐폴드가 사용하는 동반 패키지를 `devDependencies`에 추가합니다. 생성되는 `oa.config.ts`가 핸들러 계약과 클라이언트 SDK를 켜고(`core.contracts.pureHandlers: true`, `core.client.enabled: true`), 생성되는 `mock` 스크립트가 `oa-gen mock`을 실행하기 때문입니다.
 
+`oa-gen init`이 `@oa-sdk` 패키지(`@oa-sdk/codegen` 자신과 동반 패키지 포함)에 쓰는 버전 지정자는 프로젝트가 그 패키지를 설치하는 위치를 따릅니다.
+
+- 프로젝트가 pnpm 워크스페이스(`pnpm-workspace.yaml`)의 멤버이고 그 워크스페이스가 해당 패키지도 멤버로 가지면 `workspace:*`를 씁니다. oa-sdk 저장소 안의 앱이 이 경우입니다.
+- 그 밖에는 이 codegen이 빌드·테스트에 사용한 릴리스와 호환되는 범위(`^<버전>`)를 씁니다. npm은 `workspace:` 프로토콜을 지원하지 않으므로(`EUNSUPPORTEDPROTOCOL`), 워크스페이스 밖에서 설치되는 것은 이 범위입니다.
+- `enterprise` 아키타입이 권장하는 `@oa-sdk/personas`는 레지스트리에 배포되지 않는 비공개 패키지입니다. 이 패키지를 멤버로 가진 워크스페이스 안에서만 추가하고, 그 밖에서는 추가하지 않은 이유를 `init` 출력에 표시합니다.
+
+`init`은 `package.json`에 이미 있는 항목을 `--force` 없이는 바꾸지 않습니다. 이전 버전의 `init`이 워크스페이스 밖에 쓴 `workspace:*` 항목은 위 범위로 직접 바꿉니다(`--force`는 `oa.config.ts`와 스크립트도 덮어씁니다).
+
 패키지가 설치되어 있지 않으면 `oa-gen`은 해당 산출물을 조용히 건너뛰지 않습니다.
 
 - `mock`, `generate:client`, `pack:client`, `generate:tanstack`은 그 산출물만을 위한 명령이므로 설치 명령을 출력하고 종료 코드 1로 실패합니다.

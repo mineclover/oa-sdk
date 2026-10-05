@@ -56,7 +56,7 @@ npx oa-gen init --yes
 
 - `init`이 생성하는 `oa.config.ts`는 핸들러 계약과 클라이언트 SDK를 켭니다(`core.contracts.pureHandlers: true`, `core.client.enabled: true`). 그래서 5단계의 `oa-gen generate`에는 `@oa-sdk/router`와 `@oa-sdk/client`가 필요합니다.
 - 4단계의 `generate:tanstack`에는 `@oa-sdk/client`가, 6단계의 `mock`과 `init`이 추가하는 `mock` 스크립트에는 `@oa-sdk/mock-server`가 필요합니다.
-- `init`도 이 패키지들을 `devDependencies`에 기록하지만, `package.json`에 이미 있는 버전은 바꾸지 않습니다(`--force` 제외).
+- `init`도 이 패키지들을 `devDependencies`에 기록하지만, `package.json`에 이미 있는 버전은 바꾸지 않습니다(`--force` 제외). 기록하는 버전은 이 codegen이 빌드된 릴리스와 호환되는 범위(`^<버전>`)이고, 해당 패키지를 멤버로 가진 pnpm 워크스페이스 안에서만 `workspace:*`입니다.
 - 동반 패키지 없이 이 명령들을 실행하면, 출력을 건너뛰지 않고 설치 명령을 출력한 뒤 종료 코드 1로 실패합니다.
 
 자세한 규칙은 [동반 패키지 안내](./cli-setup.md#동반-패키지-companion-packages)를 참고하세요.
