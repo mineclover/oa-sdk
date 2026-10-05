@@ -383,6 +383,14 @@ freshly picked response on every request, so it may change it in place; plugins
 that only implement `onMatch` and return nothing let the shared response
 through. `handleRequest()` also returns a fresh response on every call.
 
+A response schema check is reused only once the schema has compiled. The
+response validator reports a schema that violates the JSON Schema meta-schema
+(for example an OAS 3.0-style keyed `examples` map) on the first compile of
+that schema object only, so the first request validated against it, on any
+route that shares it, gets a `500` `SCHEMA_COMPILE_ERROR` and later requests
+get the response. A check that failed to compile is therefore repeated on the
+next request, so the same requests get the error as without reuse.
+
 The Node adapter's per-route state is bounded by the number of operations in
 the spec; nothing is retained per concrete request URL.
 
