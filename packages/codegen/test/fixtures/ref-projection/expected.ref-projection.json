@@ -1,0 +1,299 @@
+{
+  "schemaVersion": "oa-sdk.ref-projection.v1",
+  "generator": {
+    "name": "@oa-sdk/codegen",
+    "version": "0.0.0-fixture"
+  },
+  "source": {
+    "spec": {
+      "path": "api.yaml",
+      "contentHash": "sha256:e96930c9a33a49c9913ddb2b25ac61d56d5ad2fe39348bd23fe8f0c9ccb1b978"
+    },
+    "provenance": {
+      "path": "provenance.json",
+      "contentHash": "sha256:be6b6ef89f454b33eef09620e25dd53bc3dc6881c4153f0739525b86fca8b57f"
+    }
+  },
+  "nodes": [
+    {
+      "id": "#/components/responses/OwnerList",
+      "kind": "response",
+      "name": "OwnerList",
+      "pointer": "#/components/responses/OwnerList",
+      "identity": {
+        "status": "mapped",
+        "canonicalId": "response:public/owners/OwnerList",
+        "provenancePointer": "#/components/responses/OwnerList",
+        "sourcePath": "fragments/response/owners/OwnerList.yaml",
+        "sourcePointer": "#",
+        "contentHash": "sha256:be2073fbd5e8d28cf5d7d7a1b40d5ea3518228c9f8294788eb557a7a86aed59f"
+      }
+    },
+    {
+      "id": "#/components/schemas/Alias",
+      "kind": "schema",
+      "name": "Alias",
+      "pointer": "#/components/schemas/Alias",
+      "identity": {
+        "status": "mapped",
+        "canonicalId": "schema:public/pets/Alias",
+        "provenancePointer": "#/components/schemas/Alias",
+        "sourcePath": "fragments/schema/pets/Alias.yaml",
+        "sourcePointer": "#",
+        "contentHash": "sha256:641434cc18eab0a6cc781ca3dea7e4e017704e78cdeffed123dc7bdde6526eb9"
+      }
+    },
+    {
+      "id": "#/components/schemas/Broken",
+      "kind": "schema",
+      "name": "Broken",
+      "pointer": "#/components/schemas/Broken",
+      "identity": {
+        "status": "unmapped",
+        "reason": "no-enclosing-provenance-entry"
+      }
+    },
+    {
+      "id": "#/components/schemas/Loop",
+      "kind": "schema",
+      "name": "Loop",
+      "pointer": "#/components/schemas/Loop",
+      "identity": {
+        "status": "unmapped",
+        "reason": "no-enclosing-provenance-entry"
+      }
+    },
+    {
+      "id": "#/components/schemas/Pet",
+      "kind": "schema",
+      "name": "Pet",
+      "pointer": "#/components/schemas/Pet",
+      "identity": {
+        "status": "mapped",
+        "canonicalId": "schema:public/pets/Pet",
+        "provenancePointer": "#/components/schemas/Pet",
+        "sourcePath": "fragments/schema/pets/Pet.yaml",
+        "sourcePointer": "#",
+        "contentHash": "sha256:f27aea0af521c9a85311de7d82b32f4c24d85f62c8714cf8e4ad20ac3ed167a8"
+      }
+    },
+    {
+      "id": "#/components/schemas/Tag",
+      "kind": "schema",
+      "name": "Tag",
+      "pointer": "#/components/schemas/Tag",
+      "identity": {
+        "status": "mapped",
+        "canonicalId": "schema:public/pets/Tag",
+        "provenancePointer": "#/components/schemas/Tag",
+        "sourcePath": "fragments/schema/pets/Tag.yaml",
+        "sourcePointer": "#",
+        "contentHash": "sha256:6486a059f1c6c34d0602a464ccc838b55e186e9f69f8052cb1dd9578d28af318"
+      }
+    },
+    {
+      "id": "#/paths/~1health",
+      "kind": "path",
+      "name": "/health",
+      "pointer": "#/paths/~1health",
+      "identity": {
+        "status": "unmapped",
+        "reason": "no-enclosing-provenance-entry"
+      }
+    },
+    {
+      "id": "#/paths/~1owners",
+      "kind": "path",
+      "name": "/owners",
+      "pointer": "#/paths/~1owners",
+      "identity": {
+        "status": "mapped",
+        "canonicalId": "path:public/owners/owners",
+        "provenancePointer": "#/paths/~1owners",
+        "sourcePath": "fragments/path/owners/owners.yaml",
+        "sourcePointer": "#",
+        "contentHash": "sha256:dee08938fe0af8137d9d6711ed65713dff4fe54724646434c89badc969e49733"
+      }
+    },
+    {
+      "id": "#/paths/~1pets~1{id}",
+      "kind": "path",
+      "name": "/pets/{id}",
+      "pointer": "#/paths/~1pets~1{id}",
+      "identity": {
+        "status": "mapped",
+        "canonicalId": "path:public/pets/pet-by-id",
+        "provenancePointer": "#/paths/~1pets~1{id}",
+        "sourcePath": "fragments/path/pets/pet-by-id.yaml",
+        "sourcePointer": "#",
+        "contentHash": "sha256:ea0b7a75752d565c5e3023c08cb297de26c36a134effea92dc338b22a7146d4f"
+      }
+    },
+    {
+      "id": "#/webhooks/petAdopted",
+      "kind": "webhook",
+      "name": "petAdopted",
+      "pointer": "#/webhooks/petAdopted",
+      "identity": {
+        "status": "unmapped",
+        "reason": "no-enclosing-provenance-entry"
+      }
+    },
+    {
+      "id": "./health-path.yaml#",
+      "kind": "external",
+      "name": "./health-path.yaml",
+      "pointer": "#",
+      "filePath": "./health-path.yaml",
+      "identity": {
+        "status": "unmapped",
+        "reason": "external-document"
+      }
+    },
+    {
+      "id": "./shared.yaml#/components/schemas/Address",
+      "kind": "external",
+      "name": "Address",
+      "pointer": "#/components/schemas/Address",
+      "filePath": "./shared.yaml",
+      "identity": {
+        "status": "unmapped",
+        "reason": "external-document"
+      }
+    },
+    {
+      "id": "./shared.yaml#/components/schemas/Owner",
+      "kind": "external",
+      "name": "Owner",
+      "pointer": "#/components/schemas/Owner",
+      "filePath": "./shared.yaml",
+      "identity": {
+        "status": "unmapped",
+        "reason": "external-document"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "#/components/responses/OwnerList/content/application~1json/schema/items/$ref",
+      "source": "#/components/responses/OwnerList",
+      "target": "./shared.yaml#/components/schemas/Owner",
+      "ref": "./shared.yaml#/components/schemas/Owner",
+      "sourcePointer": "#/components/responses/OwnerList/content/application~1json/schema/items/$ref",
+      "recursion": "none"
+    },
+    {
+      "id": "#/components/schemas/Alias/$ref",
+      "source": "#/components/schemas/Alias",
+      "target": "#/components/schemas/Loop",
+      "ref": "#/components/schemas/Loop",
+      "sourcePointer": "#/components/schemas/Alias/$ref",
+      "recursion": "unguarded"
+    },
+    {
+      "id": "#/components/schemas/Loop/$ref",
+      "source": "#/components/schemas/Loop",
+      "target": "#/components/schemas/Alias",
+      "ref": "#/components/schemas/Alias",
+      "sourcePointer": "#/components/schemas/Loop/$ref",
+      "recursion": "unguarded"
+    },
+    {
+      "id": "#/components/schemas/Pet/properties/owner/$ref",
+      "source": "#/components/schemas/Pet",
+      "target": "./shared.yaml#/components/schemas/Owner",
+      "ref": "./shared.yaml#/components/schemas/Owner",
+      "sourcePointer": "#/components/schemas/Pet/properties/owner/$ref",
+      "recursion": "guarded"
+    },
+    {
+      "id": "#/components/schemas/Pet/properties/parent/$ref",
+      "source": "#/components/schemas/Pet",
+      "target": "#/components/schemas/Pet",
+      "ref": "#/components/schemas/Pet",
+      "sourcePointer": "#/components/schemas/Pet/properties/parent/$ref",
+      "recursion": "guarded"
+    },
+    {
+      "id": "#/components/schemas/Pet/properties/tag/$ref",
+      "source": "#/components/schemas/Pet",
+      "target": "#/components/schemas/Tag",
+      "ref": "#/components/schemas/Tag",
+      "sourcePointer": "#/components/schemas/Pet/properties/tag/$ref",
+      "recursion": "none"
+    },
+    {
+      "id": "#/paths/~1health/$ref",
+      "source": "#/paths/~1health",
+      "target": "./health-path.yaml#",
+      "ref": "./health-path.yaml",
+      "sourcePointer": "#/paths/~1health/$ref",
+      "recursion": "none"
+    },
+    {
+      "id": "#/paths/~1owners/get/responses/200/$ref",
+      "source": "#/paths/~1owners",
+      "target": "#/components/responses/OwnerList",
+      "ref": "#/components/responses/OwnerList",
+      "sourcePointer": "#/paths/~1owners/get/responses/200/$ref",
+      "recursion": "none"
+    },
+    {
+      "id": "#/paths/~1pets~1{id}/get/responses/200/content/application~1json/schema/$ref",
+      "source": "#/paths/~1pets~1{id}",
+      "target": "#/components/schemas/Pet",
+      "ref": "#/components/schemas/Pet",
+      "sourcePointer": "#/paths/~1pets~1{id}/get/responses/200/content/application~1json/schema/$ref",
+      "recursion": "none"
+    },
+    {
+      "id": "#/webhooks/petAdopted/post/requestBody/content/application~1json/schema/$ref",
+      "source": "#/webhooks/petAdopted",
+      "target": "#/components/schemas/Pet",
+      "ref": "#/components/schemas/Pet",
+      "sourcePointer": "#/webhooks/petAdopted/post/requestBody/content/application~1json/schema/$ref",
+      "recursion": "none"
+    },
+    {
+      "id": "./shared.yaml#/components/schemas/Owner/properties/address/$ref",
+      "source": "./shared.yaml#/components/schemas/Owner",
+      "target": "./shared.yaml#/components/schemas/Address",
+      "ref": "#/components/schemas/Address",
+      "sourcePointer": "#/components/schemas/Owner/properties/address/$ref",
+      "sourceFilePath": "./shared.yaml",
+      "recursion": "none"
+    },
+    {
+      "id": "./shared.yaml#/components/schemas/Owner/properties/pets/items/$ref",
+      "source": "./shared.yaml#/components/schemas/Owner",
+      "target": "#/components/schemas/Pet",
+      "ref": "./api.yaml#/components/schemas/Pet",
+      "sourcePointer": "#/components/schemas/Owner/properties/pets/items/$ref",
+      "sourceFilePath": "./shared.yaml",
+      "recursion": "guarded"
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "ref-cycle",
+      "ref": "#/components/schemas/Loop",
+      "message": "순환 $ref 감지: #/components/schemas/Loop",
+      "sourcePointer": "#/components/schemas/Alias/$ref",
+      "pointer": "#/components/schemas/Loop"
+    },
+    {
+      "code": "ref-not-found",
+      "ref": "#/components/schemas/DoesNotExist",
+      "message": "참조 대상을 찾을 수 없습니다: #/components/schemas/DoesNotExist",
+      "sourcePointer": "#/components/schemas/Broken/properties/missing/$ref",
+      "pointer": "#/components/schemas/DoesNotExist"
+    },
+    {
+      "code": "ref-cycle",
+      "ref": "#/components/schemas/Alias",
+      "message": "순환 $ref 감지: #/components/schemas/Alias",
+      "sourcePointer": "#/components/schemas/Loop/$ref",
+      "pointer": "#/components/schemas/Alias"
+    }
+  ]
+}

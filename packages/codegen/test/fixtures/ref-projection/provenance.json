@@ -1,0 +1,58 @@
+{
+  "#/components/responses/OwnerList": {
+    "canonicalId": "response:public/owners/OwnerList",
+    "kind": "response",
+    "sourcePath": "fragments/response/owners/OwnerList.yaml",
+    "sourcePointer": "#",
+    "contentHash": "sha256:be2073fbd5e8d28cf5d7d7a1b40d5ea3518228c9f8294788eb557a7a86aed59f"
+  },
+  "#/components/schemas/Alias": {
+    "canonicalId": "schema:public/pets/Alias",
+    "kind": "schema",
+    "sourcePath": "fragments/schema/pets/Alias.yaml",
+    "sourcePointer": "#",
+    "contentHash": "sha256:641434cc18eab0a6cc781ca3dea7e4e017704e78cdeffed123dc7bdde6526eb9"
+  },
+  "#/components/schemas/Pet": {
+    "canonicalId": "schema:public/pets/Pet",
+    "kind": "schema",
+    "sourcePath": "fragments/schema/pets/Pet.yaml",
+    "sourcePointer": "#",
+    "contentHash": "sha256:f27aea0af521c9a85311de7d82b32f4c24d85f62c8714cf8e4ad20ac3ed167a8"
+  },
+  "#/components/schemas/Tag": {
+    "canonicalId": "schema:public/pets/Tag",
+    "kind": "schema",
+    "sourcePath": "fragments/schema/pets/Tag.yaml",
+    "sourcePointer": "#",
+    "contentHash": "sha256:6486a059f1c6c34d0602a464ccc838b55e186e9f69f8052cb1dd9578d28af318"
+  },
+  "#/paths/~1owners": {
+    "canonicalId": "path:public/owners/owners",
+    "kind": "path",
+    "sourcePath": "fragments/path/owners/owners.yaml",
+    "sourcePointer": "#",
+    "contentHash": "sha256:dee08938fe0af8137d9d6711ed65713dff4fe54724646434c89badc969e49733"
+  },
+  "#/paths/~1owners/get": {
+    "canonicalId": "path:public/owners/owners",
+    "kind": "path",
+    "sourcePath": "fragments/path/owners/owners.yaml",
+    "sourcePointer": "#/get",
+    "contentHash": "sha256:dee08938fe0af8137d9d6711ed65713dff4fe54724646434c89badc969e49733"
+  },
+  "#/paths/~1pets~1{id}": {
+    "canonicalId": "path:public/pets/pet-by-id",
+    "kind": "path",
+    "sourcePath": "fragments/path/pets/pet-by-id.yaml",
+    "sourcePointer": "#",
+    "contentHash": "sha256:ea0b7a75752d565c5e3023c08cb297de26c36a134effea92dc338b22a7146d4f"
+  },
+  "#/paths/~1pets~1{id}/get": {
+    "canonicalId": "path:public/pets/pet-by-id",
+    "kind": "path",
+    "sourcePath": "fragments/path/pets/pet-by-id.yaml",
+    "sourcePointer": "#/get",
+    "contentHash": "sha256:ea0b7a75752d565c5e3023c08cb297de26c36a134effea92dc338b22a7146d4f"
+  }
+}

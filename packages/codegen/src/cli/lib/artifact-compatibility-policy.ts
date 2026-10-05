@@ -74,6 +74,13 @@ export const OA_SDK_ARTIFACT_COMPATIBILITY_POLICY_V1: ArtifactCompatibilityPolic
       stability: 'external',
       migration: { whenUnsupported: 'regenerate-from-source', guide: 'docs/internal/typespec-roundtrip/parallel-evidence-contract.md' },
     },
+    {
+      artifact: 'ref-projection',
+      currentSchemaVersion: 'oa-sdk.ref-projection.v1',
+      supportedSchemaVersions: ['oa-sdk.ref-projection.v1'],
+      stability: 'experimental',
+      migration: { whenUnsupported: 'regenerate-from-source', guide: 'docs/guides/cli-command-reference.md' },
+    },
   ],
 }
 

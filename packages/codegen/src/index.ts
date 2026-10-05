@@ -108,6 +108,15 @@ export {
   supportsArtifactSchemaVersion,
 } from './cli/lib/artifact-compatibility-policy.js'
 export {
+  REF_PROJECTION_SCHEMA_VERSION,
+  createRefProjectionArtifact,
+  serializeRefProjectionArtifact,
+} from './cli/lib/ref-projection-artifact.js'
+export {
+  REF_PROJECTION_ARTIFACT_SCHEMA_V1,
+  validateRefProjectionArtifact,
+} from './cli/lib/ref-projection-artifact-schema.js'
+export {
   CodegenSourceAdapterRegistry,
   adaptDrizzleTables,
   adaptOpenApiProjectionEnvelope,
@@ -167,6 +176,19 @@ export type {
   ArtifactCompatibilityEntry,
   ArtifactCompatibilityPolicyV1,
 } from './cli/lib/artifact-compatibility-policy.js'
+export type {
+  CreateRefProjectionArtifactOptions,
+  RefProjectionArtifact,
+  RefProjectionArtifactDiagnostic,
+  RefProjectionArtifactEdge,
+  RefProjectionArtifactGenerator,
+  RefProjectionArtifactNode,
+  RefProjectionArtifactRecursion,
+  RefProjectionArtifactSourceFile,
+  RefProjectionNodeIdentity,
+  RefProjectionUnmappedReason,
+} from './cli/lib/ref-projection-artifact.js'
+export type { RefProjectionArtifactSchemaIssue } from './cli/lib/ref-projection-artifact-schema.js'
 export type {
   CodegenSourceAdapter,
   CodegenSourceAdapterOptions,

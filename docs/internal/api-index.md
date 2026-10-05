@@ -897,6 +897,11 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `supportsArtifactSchemaVersion()` | `cli/lib/artifact-compatibility-policy.ts` | artifact의 입력 schema version이 현재 지원 창에 포함되는지 확인한다 |
 | `ARTIFACT_COMPATIBILITY_POLICY_SCHEMA_VERSION` | `cli/lib/artifact-compatibility-policy.ts` | artifact 호환성 정책 wire schema version |
 | `OA_SDK_ARTIFACT_COMPATIBILITY_POLICY_V1` | `cli/lib/artifact-compatibility-policy.ts` | provenance, parallel evidence, governance config의 현재 schema·migration support policy |
+| `createRefProjectionArtifact()` | `cli/lib/ref-projection-artifact.ts` | parsed OpenAPI 문서를 `projectRefGraph`로 `$ref` 전개 없이 투영해 `oa-sdk.ref-projection.v1` artifact 생성. 노드·엣지·진단을 code unit 순서로 정렬하고 파일 경로를 진입 문서 기준 `$ref` 형식으로 쓰며, build-spec provenance가 있으면 노드별 `canonicalId`(가장 가까운 상위 provenance pointer) 또는 unmapped reason을 붙인다. 입력은 수정하지 않음 |
+| `serializeRefProjectionArtifact()` | `cli/lib/ref-projection-artifact.ts` | ref projection artifact를 `oa-gen ref-projection`이 쓰는 2-space JSON + trailing newline으로 직렬화 |
+| `validateRefProjectionArtifact()` | `cli/lib/ref-projection-artifact-schema.ts` | 값을 `REF_PROJECTION_ARTIFACT_SCHEMA_V1`(JSON Schema 2020-12, Ajv)로 검사해 schema issue 목록 반환. 빈 목록이면 적합 |
+| `REF_PROJECTION_SCHEMA_VERSION` | `cli/lib/ref-projection-artifact.ts` | ref projection artifact format id `oa-sdk.ref-projection.v1` |
+| `REF_PROJECTION_ARTIFACT_SCHEMA_V1` | `cli/lib/ref-projection-artifact-schema.ts` | `oa-sdk.ref-projection.v1` artifact JSON Schema 정본. 언어 중립 사본은 `docs/cli-spec/oa-sdk.ref-projection.v1.schema.json`이고 `check:cli-spec`이 drift를 검사 |
 | `adaptZodSchemas()` | `cli/lib/source-adapters.ts` | Zod schema map을 OpenAPI source fragment로 변환 |
 | `adaptDrizzleTables()` | `cli/lib/source-adapters.ts` | Drizzle table projection을 OpenAPI source fragment로 변환 |
 | `adaptOpenApiProjectionEnvelope()` | `cli/lib/source-adapters.ts` | OpenAPI Projection envelope을 metadata 보존 source fragment로 변환 |
@@ -1065,6 +1070,17 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `OpenApiGovernanceTypegenPolicy` | `cli/lib/openapi-governance-scaffold.ts` | `verify-only` 또는 `commit-required` generated TypeScript CI ownership 정책 |
 | `ArtifactCompatibilityEntry` | `cli/lib/artifact-compatibility-policy.ts` | artifact별 current/supported schema, stability, deterministic migration 경로 |
 | `ArtifactCompatibilityPolicyV1` | `cli/lib/artifact-compatibility-policy.ts` | OA SDK machine-readable artifact support window policy |
+| `RefProjectionArtifact` | `cli/lib/ref-projection-artifact.ts` | `oa-sdk.ref-projection.v1` artifact: schemaVersion, generator, source spec/provenance identity, nodes, edges, diagnostics |
+| `RefProjectionArtifactNode` | `cli/lib/ref-projection-artifact.ts` | 선언 또는 외부 참조 대상 노드 (id, kind, name, pointer, optional filePath, identity) |
+| `RefProjectionArtifactEdge` | `cli/lib/ref-projection-artifact.ts` | `$ref` occurrence 하나의 엣지 (occurrence 위치 id, source/target 노드 id, recursion) |
+| `RefProjectionArtifactDiagnostic` | `cli/lib/ref-projection-artifact.ts` | 진입 문서 기준 상대 파일 경로를 쓰는 ref graph 진단 |
+| `RefProjectionArtifactRecursion` | `cli/lib/ref-projection-artifact.ts` | 엣지 recursion 분류 `none` / `guarded` / `unguarded` |
+| `RefProjectionArtifactSourceFile` | `cli/lib/ref-projection-artifact.ts` | artifact 입력 파일 identity (path, `sha256:` contentHash) |
+| `RefProjectionArtifactGenerator` | `cli/lib/ref-projection-artifact.ts` | artifact를 만든 package name/version |
+| `RefProjectionNodeIdentity` | `cli/lib/ref-projection-artifact.ts` | 노드의 `mapped`(canonicalId, provenancePointer, source path/pointer/hash) 또는 `unmapped`(reason) identity |
+| `RefProjectionUnmappedReason` | `cli/lib/ref-projection-artifact.ts` | `external-document` / `provenance-not-supplied` / `no-enclosing-provenance-entry` |
+| `CreateRefProjectionArtifactOptions` | `cli/lib/ref-projection-artifact.ts` | `createRefProjectionArtifact()` 입력 (document, entryPath, spec identity, optional provenance map + identity, generator) |
+| `RefProjectionArtifactSchemaIssue` | `cli/lib/ref-projection-artifact-schema.ts` | `validateRefProjectionArtifact()`가 반환하는 instancePath/keyword/message |
 | `CodegenSourceAdapter` | `cli/lib/source-adapters.ts` | source input을 normalized OpenAPI fragment로 만드는 application-owned adapter contract |
 | `CodegenSourceAdapterOptions` | `cli/lib/source-adapters.ts` | source path/pointer/metadata 공통 adapter 옵션 |
 | `CodegenSourceAdapterResult` | `cli/lib/source-adapters.ts` | source fragment와 adapter diagnostic 반환 envelope |

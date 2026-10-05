@@ -1,0 +1,292 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://oa-sdk.dev/schema/ref-projection/oa-sdk.ref-projection.v1.schema.json",
+  "title": "OA SDK ref projection artifact v1",
+  "description": "Ref-preserving graph of an OpenAPI document: one node per reusable declaration or external reference target, one edge per $ref occurrence, and the canonical definition id of each node when build-spec provenance maps it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "generator",
+    "source",
+    "nodes",
+    "edges",
+    "diagnostics"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "oa-sdk.ref-projection.v1"
+    },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "version": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spec"
+      ],
+      "properties": {
+        "spec": {
+          "$ref": "#/$defs/sourceFile"
+        },
+        "provenance": {
+          "$ref": "#/$defs/sourceFile"
+        }
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/node"
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/edge"
+      }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/diagnostic"
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "pointerFragment": {
+      "description": "Canonical, unencoded JSON Pointer URI fragment: \"#\" or \"#/\" followed by RFC 6901 escaped tokens.",
+      "type": "string",
+      "pattern": "^#(?:/(?:[^~/]|~[01])*)*$"
+    },
+    "filePath": {
+      "description": "File relative to the entry document's directory, written as a $ref file part (\"./shared.yaml\", \"../common/types.yaml\").",
+      "$ref": "#/$defs/nonEmptyString"
+    },
+    "sourceFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "contentHash"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "contentHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "pointer",
+        "identity"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "kind": {
+          "enum": [
+            "schema",
+            "response",
+            "parameter",
+            "example",
+            "requestBody",
+            "header",
+            "securityScheme",
+            "link",
+            "callback",
+            "pathItem",
+            "mediaType",
+            "path",
+            "webhook",
+            "external"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "pointer": {
+          "$ref": "#/$defs/pointerFragment"
+        },
+        "filePath": {
+          "$ref": "#/$defs/filePath"
+        },
+        "identity": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/mappedIdentity"
+            },
+            {
+              "$ref": "#/$defs/unmappedIdentity"
+            }
+          ]
+        }
+      }
+    },
+    "mappedIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "canonicalId",
+        "provenancePointer",
+        "sourcePath",
+        "sourcePointer",
+        "contentHash"
+      ],
+      "properties": {
+        "status": {
+          "const": "mapped"
+        },
+        "canonicalId": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "provenancePointer": {
+          "$ref": "#/$defs/pointerFragment"
+        },
+        "sourcePath": {
+          "type": "string"
+        },
+        "sourcePointer": {
+          "type": "string"
+        },
+        "contentHash": {
+          "type": "string"
+        }
+      }
+    },
+    "unmappedIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "reason"
+      ],
+      "properties": {
+        "status": {
+          "const": "unmapped"
+        },
+        "reason": {
+          "enum": [
+            "external-document",
+            "provenance-not-supplied",
+            "no-enclosing-provenance-entry"
+          ]
+        }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "source",
+        "target",
+        "ref",
+        "sourcePointer",
+        "recursion"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "source": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "target": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "ref": {
+          "type": "string"
+        },
+        "sourcePointer": {
+          "$ref": "#/$defs/pointerFragment"
+        },
+        "sourceFilePath": {
+          "$ref": "#/$defs/filePath"
+        },
+        "recursion": {
+          "enum": [
+            "none",
+            "guarded",
+            "unguarded"
+          ]
+        }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "ref",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "enum": [
+            "ref-cycle",
+            "ref-not-found",
+            "external-ref-read-failed",
+            "external-ref-pointer-not-found",
+            "unsupported-ref"
+          ]
+        },
+        "ref": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "sourcePointer": {
+          "type": "string"
+        },
+        "sourceFilePath": {
+          "$ref": "#/$defs/filePath"
+        },
+        "filePath": {
+          "$ref": "#/$defs/filePath"
+        },
+        "pointer": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}

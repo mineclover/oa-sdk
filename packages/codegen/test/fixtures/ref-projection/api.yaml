@@ -1,0 +1,66 @@
+openapi: 3.2.0
+info:
+  title: Ref projection fixture
+  version: 1.0.0
+paths:
+  /pets/{id}:
+    get:
+      responses:
+        '200':
+          description: The pet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+  /owners:
+    get:
+      responses:
+        '200':
+          $ref: '#/components/responses/OwnerList'
+  /health:
+    $ref: './health-path.yaml'
+webhooks:
+  petAdopted:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pet'
+      responses:
+        '200':
+          description: Acknowledged
+components:
+  schemas:
+    # Guarded recursion: a self-reference and a cycle through shared.yaml, both
+    # descending into properties.
+    Pet:
+      type: object
+      properties:
+        parent:
+          $ref: '#/components/schemas/Pet'
+        owner:
+          $ref: './shared.yaml#/components/schemas/Owner'
+        tag:
+          $ref: '#/components/schemas/Tag'
+    Tag:
+      type: string
+    # Unguarded recursion: an alias cycle that never descends into the instance.
+    Alias:
+      $ref: '#/components/schemas/Loop'
+    Loop:
+      $ref: '#/components/schemas/Alias'
+    Broken:
+      type: object
+      properties:
+        missing:
+          $ref: '#/components/schemas/DoesNotExist'
+  responses:
+    OwnerList:
+      description: Owners
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: './shared.yaml#/components/schemas/Owner'

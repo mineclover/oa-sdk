@@ -74,9 +74,16 @@ export function createBuildSpecProvenanceMap(
 
 export function loadBuildSpecProvenanceMap(filePath: string): BuildSpecProvenanceMap {
   const resolved = resolve(process.cwd(), filePath)
-  const parsed = JSON.parse(readFileSync(resolved, 'utf8')) as unknown
+  return parseBuildSpecProvenanceMap(JSON.parse(readFileSync(resolved, 'utf8')) as unknown, resolved)
+}
+
+/**
+ * Check a parsed provenance sidecar and return it as a map sorted by pointer.
+ * `label` names the sidecar in error messages.
+ */
+export function parseBuildSpecProvenanceMap(parsed: unknown, label: string): BuildSpecProvenanceMap {
   if (!isRecord(parsed)) {
-    throw new Error(`Provenance sidecar must be an object: ${resolved}`)
+    throw new Error(`Provenance sidecar must be an object: ${label}`)
   }
 
   const map: BuildSpecProvenanceMap = {}

@@ -10,6 +10,7 @@ import { join, relative, resolve } from 'node:path'
 import { commands as oaGenCommands } from '../packages/codegen/src/cli/commands.js'
 import { oaGenGovernanceManifest } from '../packages/codegen/src/cli/spec/oa-gen-governance.js'
 import { OA_SDK_ARTIFACT_COMPATIBILITY_POLICY_V1 } from '../packages/codegen/src/cli/lib/artifact-compatibility-policy.js'
+import { REF_PROJECTION_ARTIFACT_SCHEMA_V1 } from '../packages/codegen/src/cli/lib/ref-projection-artifact-schema.js'
 import type { Command } from '../packages/codegen/src/cli/lib/types.js'
 
 type CliCommandManifest = {
@@ -53,6 +54,14 @@ type CliInputComponent = {
 const root = resolve(process.cwd())
 const schemaPath = join(root, 'docs/cli-spec/cli-command.schema.json')
 const artifactCompatibilityPolicyPath = join(root, 'docs/cli-spec/oa-sdk-artifact-compatibility-policy.v1.json')
+// JSON Schemas of artifacts that oa-gen emits, mirrored for non-TypeScript readers.
+const artifactSchemaMirrors = [
+  {
+    docsPath: join(root, 'docs/cli-spec/oa-sdk.ref-projection.v1.schema.json'),
+    schema: REF_PROJECTION_ARTIFACT_SCHEMA_V1,
+    label: 'REF_PROJECTION_ARTIFACT_SCHEMA_V1',
+  },
+] as const
 const manifestSpecs = [
   {
     label: 'oa-gen',
@@ -134,6 +143,14 @@ function main(): void {
     issues.push(`missing artifact compatibility policy: ${relative(root, artifactCompatibilityPolicyPath)}`)
   } else if (stableJson(readAnyJson(artifactCompatibilityPolicyPath)) !== stableJson(OA_SDK_ARTIFACT_COMPATIBILITY_POLICY_V1)) {
     issues.push(`${relative(root, artifactCompatibilityPolicyPath)} drifted from OA_SDK_ARTIFACT_COMPATIBILITY_POLICY_V1`)
+  }
+
+  for (const mirror of artifactSchemaMirrors) {
+    if (!existsSync(mirror.docsPath)) {
+      issues.push(`missing artifact schema: ${relative(root, mirror.docsPath)}`)
+    } else if (stableJson(readAnyJson(mirror.docsPath)) !== stableJson(mirror.schema)) {
+      issues.push(`${relative(root, mirror.docsPath)} drifted from ${mirror.label}`)
+    }
   }
 
   if (issues.length > 0) {

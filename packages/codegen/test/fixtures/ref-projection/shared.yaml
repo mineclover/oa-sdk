@@ -1,0 +1,16 @@
+components:
+  schemas:
+    Owner:
+      type: object
+      properties:
+        address:
+          $ref: '#/components/schemas/Address'
+        pets:
+          type: array
+          items:
+            $ref: './api.yaml#/components/schemas/Pet'
+    Address:
+      type: object
+      properties:
+        city:
+          type: string
