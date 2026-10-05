@@ -1,7 +1,30 @@
 import { describe, it, expect, vi } from 'vitest'
+import type { StreamingBody } from '../contracts/handler-contract.js'
 import { demuxChunkStream } from '../chunk-stream/demuxer.js'
 
+/** Drain demuxChunkStream the way an untyped JavaScript caller would call it. */
+async function drainUntyped(body: unknown): Promise<unknown[]> {
+  const items: unknown[] = []
+  // StreamingBody excludes these values, but JavaScript callers can still pass them.
+  for await (const item of demuxChunkStream(body as StreamingBody)) items.push(item)
+  return items
+}
+
 describe('Router demuxChunkStream Pipeline', () => {
+  it.each([
+    ['null', null],
+    ['undefined', undefined],
+    ['a string', '{"id":"c000"}\n'],
+    ['a number', 42],
+    ['a plain object', { id: 'c000' }],
+  ])('yields no chunks for %s body', async (_label, body) => {
+    await expect(drainUntyped(body)).resolves.toEqual([])
+  })
+
+  it('yields no chunks for the null body of a 204 response', async () => {
+    await expect(drainUntyped(new Response(null, { status: 204 }).body)).resolves.toEqual([])
+  })
+
   it('demuxes clean NDJSON stream into typed objects', async () => {
     const ndjson = [
       JSON.stringify({ id: 'c000', sequence: 0, cues: [{ id: '1' }] }) + '\n',

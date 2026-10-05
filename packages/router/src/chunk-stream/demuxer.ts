@@ -67,6 +67,10 @@ async function* toAsyncIterable(body: StreamingBody): AsyncIterable<Uint8Array |
     yield body
     return
   }
+  // JavaScript callers can pass a value outside StreamingBody, such as the null
+  // `Response.body` of a 204 or HEAD response. Like any body without a stream
+  // interface it yields no chunks; the `in` checks below would throw on it.
+  if (body === null || (typeof body !== 'object' && typeof body !== 'function')) return
   if (Symbol.asyncIterator in body && typeof body[Symbol.asyncIterator] === 'function') {
     yield* body
     return
