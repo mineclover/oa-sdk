@@ -14,6 +14,7 @@ import {
   type WorkspaceIndex,
 } from '../workspace-index.js'
 import { createSQLiteWorkspaceIndex, loadSqliteDriver, SQLITE_WORKSPACE_INDEX_SCHEMA_VERSION } from '../sqlite-workspace-index.js'
+import { isGenerationTargetStore, type GenerationTargetRecord } from '../generation-target-store.js'
 
 const apiFile: WorkspaceFileRecord = {
   filePath: 'api.yaml',
@@ -425,6 +426,8 @@ describe('WorkspaceIndex', () => {
           'components',
           'diagnostics',
           'files',
+          'generation_target_inputs',
+          'generation_targets',
           'meta',
           'refs',
           'source_locations',
@@ -444,6 +447,70 @@ describe('WorkspaceIndex', () => {
       }
     } finally {
       index.close()
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('persists generation targets with absent inputs and stdout content, and clears them with the cache', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-sqlite-targets-'))
+    const cacheDir = join(tmp, '.oa-cache')
+    const fileTarget: GenerationTargetRecord = {
+      targetKey: 'target-file',
+      command: 'typegen',
+      optionsHash: 'options-a',
+      generatorHash: 'generator-a',
+      inputs: [
+        { filePath: '/workspace/api.yaml', contentHash: 'hash-api' },
+        { filePath: '/workspace/missing.yaml', contentHash: null },
+      ],
+      output: { kind: 'file', filePath: '/workspace/out.ts', contentHash: 'hash-out' },
+      messages: ['warning a'],
+      lastRun: 'run-a',
+    }
+    const stdoutTarget: GenerationTargetRecord = {
+      targetKey: 'target-stdout',
+      command: 'typegen',
+      optionsHash: 'options-a',
+      generatorHash: 'generator-a',
+      inputs: [{ filePath: '/workspace/api.yaml', contentHash: 'hash-api' }],
+      output: { kind: 'stdout', contentHash: 'hash-stdout', content: 'export type A = string\n' },
+      messages: [],
+    }
+
+    const index = createSQLiteWorkspaceIndex({ cacheDir, compatibility: { command: 'typegen' } })
+    try {
+      expect(isGenerationTargetStore(index)).toBe(true)
+      if (!isGenerationTargetStore(index)) return
+      expect(index.getGenerationTarget('target-file')).toBeUndefined()
+
+      index.replaceGenerationTarget(fileTarget)
+      index.replaceGenerationTarget(stdoutTarget)
+      expect(index.getGenerationTarget('target-file')).toEqual(fileTarget)
+      expect(index.getGenerationTarget('target-stdout')).toEqual(stdoutTarget)
+
+      const replaced: GenerationTargetRecord = {
+        ...fileTarget,
+        inputs: [{ filePath: '/workspace/api.yaml', contentHash: 'hash-api-2' }],
+        messages: [],
+        lastRun: 'run-b',
+      }
+      index.replaceGenerationTarget(replaced)
+      expect(index.getGenerationTarget('target-file')).toEqual(replaced)
+
+      index.deleteGenerationTarget('target-stdout')
+      expect(index.getGenerationTarget('target-stdout')).toBeUndefined()
+      // Workspace file invalidation does not touch generation targets.
+      index.invalidateFiles(['/workspace/api.yaml'])
+      expect(index.getGenerationTarget('target-file')).toEqual(replaced)
+    } finally {
+      index.close()
+    }
+
+    const incompatible = createSQLiteWorkspaceIndex({ cacheDir, compatibility: { command: 'other' } })
+    try {
+      expect(isGenerationTargetStore(incompatible) && incompatible.getGenerationTarget('target-file')).toBeUndefined()
+    } finally {
+      incompatible.close()
       rmSync(tmp, { recursive: true, force: true })
     }
   })

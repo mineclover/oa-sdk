@@ -33,6 +33,12 @@ import type {
   WorkspaceTypeAliasFilter,
   WorkspaceTypeAliasRecord,
 } from './workspace-index.js'
+import type {
+  GenerationTargetInputRecord,
+  GenerationTargetOutputRecord,
+  GenerationTargetRecord,
+  GenerationTargetStore,
+} from './generation-target-store.js'
 
 export const SQLITE_WORKSPACE_INDEX_SCHEMA_VERSION = 2
 
@@ -79,7 +85,7 @@ export function createSQLiteWorkspaceIndex(options: SQLiteWorkspaceIndexOptions 
   return new NodeSQLiteWorkspaceIndex(options)
 }
 
-class NodeSQLiteWorkspaceIndex implements SQLiteWorkspaceIndex {
+class NodeSQLiteWorkspaceIndex implements SQLiteWorkspaceIndex, GenerationTargetStore {
   readonly mode = 'sqlite'
   readonly dbPath: string
   driverName?: SqliteDriverName
@@ -697,6 +703,67 @@ class NodeSQLiteWorkspaceIndex implements SQLiteWorkspaceIndex {
     }
   }
 
+  getGenerationTarget(targetKey: string): GenerationTargetRecord | undefined {
+    return this.read(() => {
+      const db = this.database()
+      const row = db.prepare('SELECT * FROM generation_targets WHERE target_key = ?').get(targetKey)
+      if (!row) return undefined
+      const inputRows = db
+        .prepare('SELECT file_path, content_hash FROM generation_target_inputs WHERE target_key = ? ORDER BY file_path')
+        .all(targetKey)
+      return generationTargetFromRows(row, inputRows)
+    }, undefined)
+  }
+
+  replaceGenerationTarget(record: GenerationTargetRecord): void {
+    this.write(() => {
+      const db = this.database()
+      db.prepare('DELETE FROM generation_target_inputs WHERE target_key = ?').run(record.targetKey)
+      db.prepare('DELETE FROM generation_targets WHERE target_key = ?').run(record.targetKey)
+      db.prepare(`
+        INSERT INTO generation_targets (
+          target_key,
+          command,
+          options_hash,
+          generator_hash,
+          output_kind,
+          output_path,
+          output_hash,
+          output_content,
+          messages_json,
+          last_run
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        record.targetKey,
+        record.command,
+        record.optionsHash,
+        record.generatorHash,
+        record.output.kind,
+        record.output.kind === 'file' ? record.output.filePath : null,
+        record.output.contentHash,
+        record.output.kind === 'stdout' ? record.output.content : null,
+        JSON.stringify(record.messages),
+        record.lastRun ?? null,
+      )
+      const insertInput = db.prepare(`
+        INSERT INTO generation_target_inputs (target_key, file_path, content_hash)
+        VALUES (?, ?, ?)
+        ON CONFLICT(target_key, file_path) DO UPDATE SET content_hash = excluded.content_hash
+      `)
+      for (const input of record.inputs) {
+        insertInput.run(record.targetKey, input.filePath, input.contentHash)
+      }
+    })
+  }
+
+  deleteGenerationTarget(targetKey: string): void {
+    this.write(() => {
+      const db = this.database()
+      db.prepare('DELETE FROM generation_target_inputs WHERE target_key = ?').run(targetKey)
+      db.prepare('DELETE FROM generation_targets WHERE target_key = ?').run(targetKey)
+    })
+  }
+
   close(): void {
     if (!this.db) return
     try {
@@ -933,6 +1000,35 @@ class NodeSQLiteWorkspaceIndex implements SQLiteWorkspaceIndex {
 
       CREATE INDEX IF NOT EXISTS type_exposures_surface_idx
         ON type_exposures(package_name, export_key, runtime, export_name);
+
+      -- Generation targets are self-contained (no foreign key into files):
+      -- their freshness is checked against their own input stamps, so file
+      -- invalidation for one command never makes another target look fresh.
+      -- Additive tables: older readers ignore them, so the schema version is unchanged.
+      CREATE TABLE IF NOT EXISTS generation_targets (
+        target_key TEXT PRIMARY KEY,
+        command TEXT NOT NULL,
+        options_hash TEXT NOT NULL,
+        generator_hash TEXT NOT NULL,
+        output_kind TEXT NOT NULL,
+        output_path TEXT,
+        output_hash TEXT NOT NULL,
+        output_content TEXT,
+        messages_json TEXT NOT NULL,
+        last_run TEXT,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS generation_target_inputs (
+        target_key TEXT NOT NULL,
+        file_path TEXT NOT NULL,
+        content_hash TEXT,
+        PRIMARY KEY (target_key, file_path),
+        FOREIGN KEY(target_key) REFERENCES generation_targets(target_key) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS generation_target_inputs_file_idx
+        ON generation_target_inputs(file_path);
     `)
   }
 
@@ -1000,6 +1096,8 @@ class NodeSQLiteWorkspaceIndex implements SQLiteWorkspaceIndex {
   private clearData(): void {
     const db = this.database()
     db.exec(`
+      DELETE FROM generation_target_inputs;
+      DELETE FROM generation_targets;
       DELETE FROM type_exposures;
       DELETE FROM type_boundaries;
       DELETE FROM type_relations;
@@ -1300,6 +1398,66 @@ function typeExposureFromRow(row: Record<string, unknown>): TypeExposureRecord {
   assignOptionalString(record, 'localName', row.local_name)
   assignOptionalString(record, 'targetSpecifier', row.target_specifier)
   return record
+}
+
+/**
+ * Rebuild a generation target from its rows. A row that does not match the
+ * expected shape yields undefined, which callers treat as "no reusable record"
+ * (regenerate and overwrite) instead of a store failure.
+ */
+function generationTargetFromRows(
+  row: Record<string, unknown>,
+  inputRows: readonly Record<string, unknown>[],
+): GenerationTargetRecord | undefined {
+  const { target_key, command, options_hash, generator_hash, output_kind, output_path, output_hash, output_content } = row
+  if (
+    typeof target_key !== 'string'
+    || typeof command !== 'string'
+    || typeof options_hash !== 'string'
+    || typeof generator_hash !== 'string'
+    || typeof output_hash !== 'string'
+  ) return undefined
+
+  let output: GenerationTargetOutputRecord
+  if (output_kind === 'file' && typeof output_path === 'string') {
+    output = { kind: 'file', filePath: output_path, contentHash: output_hash }
+  } else if (output_kind === 'stdout' && typeof output_content === 'string') {
+    output = { kind: 'stdout', contentHash: output_hash, content: output_content }
+  } else {
+    return undefined
+  }
+
+  const messages = parseStringArray(row.messages_json)
+  if (!messages) return undefined
+
+  const inputs: GenerationTargetInputRecord[] = []
+  for (const inputRow of inputRows) {
+    const { file_path, content_hash } = inputRow
+    if (typeof file_path !== 'string' || (content_hash !== null && typeof content_hash !== 'string')) return undefined
+    inputs.push({ filePath: file_path, contentHash: content_hash })
+  }
+
+  const record: GenerationTargetRecord = {
+    targetKey: target_key,
+    command,
+    optionsHash: options_hash,
+    generatorHash: generator_hash,
+    inputs,
+    output,
+    messages,
+  }
+  assignOptionalString(record, 'lastRun', row.last_run)
+  return record
+}
+
+function parseStringArray(value: unknown): string[] | undefined {
+  if (typeof value !== 'string') return undefined
+  try {
+    const parsed: unknown = JSON.parse(value)
+    return Array.isArray(parsed) && parsed.every(item => typeof item === 'string') ? parsed : undefined
+  } catch {
+    return undefined
+  }
 }
 
 function requireString(row: Record<string, unknown>, key: string): string {
