@@ -1,7 +1,7 @@
 # Release Readiness
 
 Status: active
-Last reviewed: 2026-09-22
+Last reviewed: 2026-10-05
 Policy authority: [`release-policy.json`](./release-policy.json)
 
 이 문서는 oa-sdk source repository에서 **검토 가능한 public artifact를 만들 준비가 되었는지**
@@ -29,11 +29,11 @@ Policy authority: [`release-policy.json`](./release-policy.json)
 
 ## 현재 판단 입력
 
-| 항목 | 2026-09-22 기준 | 다음 판단 |
+| 항목 | 2026-10-05 기준 | 다음 판단 |
 | --- | --- | --- |
 | Public artifact candidates | release policy의 `distributionCandidates` 20개 (`core`, `openapi-projection-contract`, `typespec-decorators`, `parser`, `codegen`, `ast-sync`, `tools`, `surface-ir`, `chunk-stream*`, `peer-transport`, `peer-server`, `collab-workspace`, `mcp-mesh`, `router`, `client`, `mock-server`) | 선택한 package와 target version을 release record에 고정 |
 | Release-tracked, non-candidate packages | `schemas`, `spec-lens-contract`, `spec-lens` 3개 | package lifecycle이 곧 public npm 배포 승인은 아님 |
-| Version intent | `@oa-sdk/core`·`@oa-sdk/parser` `0.2.0`, `@oa-sdk/codegen` `0.6.0`; private dependency closure patch 반영 | Changeset version 결과와 release note를 review·commit한 뒤 public candidate와 release ID를 decision record에 고정 |
+| Version intent | codegen 0.9.0 release candidate (version commit `f8a9d42b`): `@oa-sdk/codegen` `0.9.0`, `@oa-sdk/parser` `0.4.0`, `@oa-sdk/typespec-decorators` `0.3.0`, `@oa-sdk/core` `0.3.1`, 첫 npm 배포인 `@oa-sdk/router` `0.2.2`·`@oa-sdk/client` `0.2.2`·`@oa-sdk/mock-server` `0.1.4`·`@oa-sdk/surface-ir` `0.1.1`. `@oa-sdk/ast-sync`·`@oa-sdk/openapi-projection-contract` `0.2.0`은 npm 배포본과 같아 export하지 않고, private `@oa-sdk/spec-lens` `0.1.6`은 배포 대상이 아니다. `@oa-sdk/tools`(minor)·`@oa-sdk/chunk-stream`(patch) 변경은 pending changeset으로 남아 이 RC export에 포함하지 않는다 | 이 version과 release note를 review한 clean commit에서 official export를 수행하고 public candidate와 release ID를 decision record에 고정 |
 | TypeSpec baseline | approved snapshot과 restored contract drift가 검증 대상 | contract를 변경했다면 snapshot diff와 downstream gate를 다시 실행 |
 | Runtime API launch | production server/auth metadata는 이 source repository에서 확정하지 않음 | 실제 API 공개는 runtime owner의 base URL·issuer·scope 결정 전까지 보류 |
 | npm promotion | external artifact repository가 소유 | 그 repository의 approval, manifest, provenance/OIDC 정책을 확인한 뒤에만 승인 |
