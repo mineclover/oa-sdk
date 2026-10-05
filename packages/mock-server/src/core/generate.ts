@@ -98,16 +98,24 @@ export const generateAlgebra: SchemaAlgebra<unknown> = {
  */
 export class GenerateFolder {
   /**
-   * 스키마를 fold하여 값을 생성.
+   * 스키마를 `foldSchema(node, this.algebra())`로 fold하여 값을 생성.
    *
-   * 내장 object 핸들러(`generateAlgebra.object`)는 required 속성만 남기므로,
-   * 그 핸들러를 쓰는 동안에는 선택 속성을 fold하지 않는다 — 생성 결과는
-   * `foldSchema(node, algebra)`와 같고 버려질 하위 트리 순회만 생략된다.
-   * object 핸들러를 교체한 algebra는 기존처럼 모든 속성의 fold 결과를 받는다.
+   * 생성 동작이 내장 그대로인 folder — `algebra()`와 `generateString()`을
+   * 서브클래스·인스턴스·프로토타입 어디서도 바꾸지 않았고 `generateAlgebra`의
+   * 핸들러도 원래 것인 경우 — 만 예외다. 그 핸들러들은 부수 효과가 없고 내장
+   * object 핸들러는 required가 아닌 속성의 값을 버리므로, 그 속성의 하위 트리를
+   * fold하지 않는다. 생성되는 값은 같고, 버려질 하위 트리에서 내장 핸들러가 던졌을
+   * 예외(예: 엔진의 최대 문자열 길이를 넘는 `minLength`)만 더 이상 나지 않는다.
+   *
+   * 생성 동작을 바꾼 folder는 모든 속성을 foldSchema 순서대로 순회하므로, 상태를
+   * 갖거나 예외를 던지는 핸들러도 선택 속성을 포함해 기존과 같은 호출을 받는다.
    */
   fold(node: unknown): unknown {
     const algebra = this.algebra()
-    return algebra.object === generateAlgebra.object
+    const builtinGeneration = this.algebra === BUILTIN_METHODS.algebra
+      && this.generateString === BUILTIN_METHODS.generateString
+      && hasBuiltinHandlers(algebra)
+    return builtinGeneration
       ? foldRequiredProperties(node, algebra)
       : foldSchema(node, algebra)
   }
@@ -128,6 +136,46 @@ export class GenerateFolder {
 
 /** GenerateFolder 싱글턴 — 상태가 없으므로 공유 사용 가능 */
 export const generator = new GenerateFolder()
+
+// ─── 내장 생성 동작 판별 ─────────────────────────────────────────────────────
+
+/**
+ * 모듈 로드 시점의 내장 메서드와 핸들러 — fold가 생성 동작이 바뀌었는지 판별하는 기준.
+ * 이후 오버라이드하거나 대입한 메서드·핸들러는 이 기준과 달라 foldSchema 경로를 탄다.
+ */
+const BUILTIN_METHODS = {
+  algebra: GenerateFolder.prototype['algebra'],
+  generateString: GenerateFolder.prototype['generateString'],
+}
+const BUILTIN_HANDLERS: Readonly<SchemaAlgebra<unknown>> = Object.freeze({ ...generateAlgebra })
+
+/**
+ * `algebra`의 핸들러가 모두 내장 핸들러인지 — foldSchema가 읽는 SchemaAlgebra 키 전부를,
+ * `typeUnion`처럼 내장 algebra에 없는 선택 키까지 비교한다(없어야 같다).
+ *
+ * `string`만 비교하지 않는다: GenerateFolder.algebra()가 인스턴스의 generateString을
+ * 감싸 매번 새로 만들므로 BUILTIN_METHODS.generateString으로 판별한다.
+ * fold마다 호출되므로 반복문 대신 이름 있는 속성 비교로 적는다. 빠진 키가 없다는 것은
+ * generate.test.ts가 SchemaAlgebra의 키 목록(`satisfies`로 타입과 대조)으로 검증한다.
+ */
+function hasBuiltinHandlers(algebra: SchemaAlgebra<unknown>): boolean {
+  const builtin = BUILTIN_HANDLERS
+  return algebra.integer === builtin.integer
+    && algebra.number === builtin.number
+    && algebra.boolean === builtin.boolean
+    && algebra.null === builtin.null
+    && algebra.object === builtin.object
+    && algebra.array === builtin.array
+    && algebra.allOf === builtin.allOf
+    && algebra.oneOf === builtin.oneOf
+    && algebra.anyOf === builtin.anyOf
+    && algebra.typeUnion === builtin.typeUnion
+    && algebra.const_ === builtin.const_
+    && algebra.ref === builtin.ref
+    && algebra.example === builtin.example
+    && algebra.default_ === builtin.default_
+    && algebra.fallback === builtin.fallback
+}
 
 // ─── required 속성만 순회하는 fold ───────────────────────────────────────────
 

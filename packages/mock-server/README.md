@@ -386,10 +386,16 @@ through. `handleRequest()` also returns a fresh response on every call.
 The Node adapter's per-route state is bounded by the number of operations in
 the spec; nothing is retained per concrete request URL.
 
-`GenerateFolder` (and therefore the built-in generator) folds only the
-`required` properties of an object while the algebra keeps the built-in
-`object` handler, because that handler drops the optional ones. An algebra that
-replaces `object` still receives every property.
+The built-in generation skips the optional properties of an object instead of
+generating values for them and then dropping them: a `GenerateFolder` whose
+`algebra()` and `generateString()` are not overridden (by a subclass, on the
+instance or on the prototype), with every `generateAlgebra` handler unchanged,
+folds only the `required` properties. Those handlers have no side effects, so
+the generated values are the same; only an error a built-in handler would have
+raised inside a dropped property (such as a `minLength` beyond the engine's
+string length limit) no longer occurs. A folder with any customized handler is
+folded with `foldSchema` as before, so its handlers are called for every
+property, optional ones included, in the same order.
 
 To measure the request path, build this package and `@oa-sdk/schemas`, then run
 `pnpm bench:request-path`. Add `--baseline <dist directory of another build>` to
