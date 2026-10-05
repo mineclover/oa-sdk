@@ -5,7 +5,11 @@
  */
 import { TRANSPORT_CHANNELS, type DataChannelPacket, type TransportChannelType } from './types.js'
 
-export interface ChannelListener<T = any> {
+/**
+ * Packet listener. Payloads arrive from a remote peer, so the default payload
+ * type is `unknown`; a listener that names `T` is responsible for narrowing.
+ */
+export interface ChannelListener<T = unknown> {
   (packet: DataChannelPacket<T>): void
 }
 
@@ -154,8 +158,11 @@ export class P2pTransportChannel {
       void this.sendDirect(packet, sender).catch(() => undefined)
     }, this.heartbeatIntervalMs)
     // Node timers should not keep a CLI process alive solely for liveness checks.
-    const unref = (this.heartbeatTimer as unknown as { unref?: () => void }).unref
-    unref?.call(this.heartbeatTimer)
+    // Browser timers are numeric handles without unref.
+    const timer: unknown = this.heartbeatTimer
+    if (typeof timer === 'object' && timer !== null && 'unref' in timer && typeof timer.unref === 'function') {
+      timer.unref()
+    }
   }
 
   /**
@@ -329,7 +336,7 @@ export class P2pTransportChannel {
   }
 
   /** Subscribe to a specific multiplexed channel. */
-  on<T = any>(channel: TransportChannelType | '*', listener: ChannelListener<T>): () => void {
+  on<T = unknown>(channel: TransportChannelType | '*', listener: ChannelListener<T>): () => void {
     if (!this.listeners.has(channel)) this.listeners.set(channel, new Set())
     this.listeners.get(channel)!.add(listener as ChannelListener)
     return () => this.listeners.get(channel)?.delete(listener as ChannelListener)

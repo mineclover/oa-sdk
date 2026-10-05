@@ -13,21 +13,20 @@ import type {
   PeerCallResult,
   WebMcpPeerRecord,
 } from './types.js'
+import {
+  BridgeCallResponseSchema,
+  BridgeStatusSchema,
+  BridgeToolListSchema,
+  PeerDirectorySchema,
+  isRecord,
+  isSafeAlias,
+  isSafeToolName,
+  type BridgeSchema,
+  type BridgeCallResponse,
+} from './bridge-protocol.js'
 
 const MAX_JSON_BYTES = 4 * 1024 * 1024
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]'])
-
-function isSafeAlias(value: unknown): value is string {
-  return typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(value)
-}
-
-function isSafeTool(value: unknown): value is string {
-  return typeof value === 'string' && value.length > 0 && value.length <= 256 && !/[\u0000-\u001f\u007f]/.test(value)
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
 
 function finiteTimeout(value: number, name: string, max: number): number {
   if (!Number.isSafeInteger(value) || value < 1 || value > max) throw new RangeError(`${name} must be an integer between 1 and ${max}`)
@@ -49,16 +48,24 @@ function combineSignals(a: AbortSignal | null | undefined, b: AbortSignal): Abor
   return controller.signal
 }
 
-async function readJsonResponse(res: Response): Promise<unknown> {
+/** Read a bounded JSON response and validate it with `schema`. An empty body is read as `{}`. */
+async function readJsonResponse<T>(res: Response, schema: BridgeSchema<T>): Promise<T> {
   const declared = Number(res.headers.get('content-length'))
   if (Number.isFinite(declared) && declared > MAX_JSON_BYTES) throw new Error('Bridge response too large')
   const text = await res.text()
   if (Buffer.byteLength(text, 'utf8') > MAX_JSON_BYTES) throw new Error('Bridge response too large')
+  if (!text) return schema.parse({})
   try {
-    return text ? JSON.parse(text) : {}
-  } catch {
-    throw new Error('Bridge returned invalid JSON')
+    return schema.parse(JSON.parse(text))
+  } catch (error) {
+    // JSON.parse reports malformed text as SyntaxError; schema violations keep their own message.
+    if (error instanceof SyntaxError) throw new Error('Bridge returned invalid JSON')
+    throw error
   }
+}
+
+function errorName(error: unknown): string | undefined {
+  return error instanceof Error ? error.name : undefined
 }
 
 export class WebMcpBridgeClient {
@@ -99,13 +106,13 @@ export class WebMcpBridgeClient {
     return this.authToken ? { ...extra, Authorization: `Bearer ${this.authToken}` } : extra
   }
 
-  private async getJson(path: string, timeoutMs: number): Promise<{ response: Response; body: unknown }> {
+  private async getJson<T>(path: string, timeoutMs: number, schema: BridgeSchema<T>): Promise<{ response: Response; body: T }> {
     const response = await fetch(`${this.serverUrl}${path}`, {
       headers: this.headers(),
       redirect: 'error',
       signal: AbortSignal.timeout(timeoutMs),
     })
-    const body = await readJsonResponse(response)
+    const body = await readJsonResponse(response, schema)
     return { response, body }
   }
 
@@ -115,24 +122,8 @@ export class WebMcpBridgeClient {
   async listPeers(): Promise<Record<string, WebMcpPeerRecord>> {
     // 1. Try server /status or /peers
     try {
-      const { response: res, body } = await this.getJson('/status', 3000)
-      if (res.ok) {
-        const data = isRecord(body) ? body : {}
-        if (isRecord(data.peers) || Array.isArray(data.peers)) {
-          if (Array.isArray(data.peers)) {
-            const map: Record<string, WebMcpPeerRecord> = {}
-            for (const p of data.peers) {
-              if (isRecord(p) && isSafeAlias(p.alias)) map[p.alias] = this.sanitizePeer(p)
-            }
-            return map
-          }
-          const map: Record<string, WebMcpPeerRecord> = {}
-          for (const [alias, peer] of Object.entries(data.peers)) {
-            if (isSafeAlias(alias) && isRecord(peer) && isSafeAlias(peer.alias)) map[alias] = this.sanitizePeer(peer)
-          }
-          return map
-        }
-      }
+      const { response: res, body: peers } = await this.getJson('/status', 3000, PeerDirectorySchema)
+      if (res.ok && peers !== undefined) return peers
     } catch {
       // Fallback to local store
     }
@@ -141,21 +132,10 @@ export class WebMcpBridgeClient {
     try {
       const text = await readFile(this.storePath, 'utf-8')
       if (Buffer.byteLength(text, 'utf8') > MAX_JSON_BYTES) return {}
-      const data = JSON.parse(text) as unknown
-      if (!isRecord(data) || !isRecord(data.peers)) return {}
-      const peers: Record<string, WebMcpPeerRecord> = {}
-      for (const [alias, peer] of Object.entries(data.peers)) {
-        if (isSafeAlias(alias) && isRecord(peer) && isSafeAlias(peer.alias)) peers[alias] = this.sanitizePeer(peer)
-      }
-      return peers
+      return PeerDirectorySchema.parse(JSON.parse(text)) ?? {}
     } catch {
       return {}
     }
-  }
-
-  private sanitizePeer(peer: Record<string, unknown>): WebMcpPeerRecord {
-    const { token: _token, ...safe } = peer
-    return safe as unknown as WebMcpPeerRecord
   }
 
   /**
@@ -172,17 +152,15 @@ export class WebMcpBridgeClient {
   async getStatus(): Promise<{
     ok: boolean
     activeAlias?: string | undefined
+    targetAlias?: string | undefined
     connected?: boolean | undefined
     toolsCount?: number | undefined
+    tools?: string[] | undefined
     peers?: WebMcpPeerRecord[] | undefined
   }> {
     try {
-      const { response: res, body } = await this.getJson('/status', 3000)
-      if (res.ok) {
-        return (isRecord(body) ? body : {}) as {
-          ok: boolean; activeAlias?: string; connected?: boolean; toolsCount?: number; peers?: WebMcpPeerRecord[]
-        }
-      }
+      const { response: res, body: status } = await this.getJson('/status', 3000, BridgeStatusSchema)
+      if (res.ok) return status
     } catch {
       // Fallback to local store status
     }
@@ -207,16 +185,8 @@ export class WebMcpBridgeClient {
   }>> {
     if (!isSafeAlias(alias)) return []
     try {
-      const { response: res, body } = await this.getJson(`/tools?peer=${encodeURIComponent(alias)}`, 5000)
-      if (res.ok) {
-        if (isRecord(body) && Array.isArray(body.tools)) {
-          return body.tools.filter((tool): tool is Record<string, unknown> => isRecord(tool) && isSafeTool(tool.name)).map((tool) => ({
-            name: tool.name as string,
-            description: typeof tool.description === 'string' ? tool.description : `WebMCP tool ${tool.name as string}`,
-            inputSchema: isRecord(tool.inputSchema) ? tool.inputSchema : { type: 'object', properties: {} },
-          }))
-        }
-      }
+      const { response: res, body: tools } = await this.getJson(`/tools?peer=${encodeURIComponent(alias)}`, 5000, BridgeToolListSchema)
+      if (res.ok) return tools
     } catch {
       // Fallback
     }
@@ -236,9 +206,9 @@ export class WebMcpBridgeClient {
   /**
    * Execute tool with resilient retry buffering for browser F5 refresh
    */
-  async callTool<T = any>(payload: PeerCallPayload): Promise<PeerCallResult<T>> {
+  async callTool<T = unknown>(payload: PeerCallPayload): Promise<PeerCallResult<T>> {
     const targetAlias = payload.peer ?? this.alias
-    if (!isSafeAlias(targetAlias) || !isSafeTool(payload.tool) || (payload.args !== undefined && !isRecord(payload.args))) {
+    if (!isSafeAlias(targetAlias) || !isSafeToolName(payload.tool) || (payload.args !== undefined && !isRecord(payload.args))) {
       return { error: 'Invalid tool call payload', isError: true, status: 'error' }
     }
     const timeout = finiteTimeout(payload.timeoutMs ?? this.timeoutMs, 'timeoutMs', 300_000)
@@ -263,9 +233,9 @@ export class WebMcpBridgeClient {
           signal: combineSignals(payload.signal, timeoutController),
         })
 
-        let body: unknown
+        let body: BridgeCallResponse
         try {
-          body = await readJsonResponse(res)
+          body = await readJsonResponse(res, BridgeCallResponseSchema)
         } catch (error) {
           // Keep malformed error responses tolerant, but never report a
           // successful call when the bridge did not return valid JSON.
@@ -276,37 +246,40 @@ export class WebMcpBridgeClient {
               status: 'error',
             }
           }
-          body = {}
+          body = { result: {} }
         }
-        const errorText = isRecord(body) && typeof body.error === 'string' ? body.error : undefined
+        const errorText = body.error
         if (res.status === 503 && errorText?.startsWith('PEER_UNAVAILABLE')) {
           lastError = new Error(errorText)
         } else if (!res.ok) {
           return {
-            error: errorText || (isRecord(body) && typeof body.message === 'string' ? body.message : undefined) || `Tool call failed with HTTP ${res.status}`,
+            error: errorText || body.message || `Tool call failed with HTTP ${res.status}`,
             isError: true,
             status: 'error',
           }
         } else {
-          const rawResult: any = isRecord(body) && 'result' in body ? body.result : body
-          if (rawResult && typeof rawResult === 'object' && rawResult.status === 'input_required') {
+          // T is chosen by the caller; the bridge protocol only guarantees JSON.
+          const result = body.result as T
+          const rawResult = body.result
+          if (isRecord(rawResult) && rawResult.status === 'input_required') {
             return {
-              result: rawResult,
+              result,
               status: 'input_required',
-              continuationToken: rawResult.continuationToken,
-              prompt: rawResult.prompt,
+              continuationToken: typeof rawResult.continuationToken === 'string' ? rawResult.continuationToken : undefined,
+              prompt: typeof rawResult.prompt === 'string' ? rawResult.prompt : undefined,
               isError: false,
             }
           }
           return {
-            result: rawResult,
+            result,
             isError: false,
             status: 'success',
           }
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         shouldRetry = false
-        if (err.name === 'AbortError' || err.name === 'TimeoutError') {
+        const name = errorName(err)
+        if (name === 'AbortError' || name === 'TimeoutError') {
           return {
             error: `Tool call timeout after ${timeout}ms`,
             isError: true,
