@@ -1,0 +1,48 @@
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { WebMcpBridgeClient, type WebMcpPeerRecord } from '@oa-sdk/peer-transport'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { SkillRegistry } from '../src/index.js'
+
+describe('@oa-sdk/mcp-mesh — peer allow-lists read through the bridge client', () => {
+  let directory: string
+  let storePath: string
+
+  beforeEach(async () => {
+    directory = await mkdtemp(join(tmpdir(), 'mcp-mesh-allow-list-'))
+    storePath = join(directory, 'peers.json')
+    // The bridge is offline, so peers come from the local registry.
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
+  })
+
+  afterEach(async () => {
+    vi.unstubAllGlobals()
+    await rm(directory, { recursive: true, force: true })
+  })
+
+  async function resolveRegistryPeer(record: Record<string, unknown>): Promise<WebMcpPeerRecord> {
+    await writeFile(storePath, JSON.stringify({ peers: { 'shop-local': { alias: 'shop-local', ...record } } }))
+    const peer = await new WebMcpBridgeClient({ storePath }).resolvePeer('shop-local')
+    if (peer === null) throw new Error('registry peer did not resolve')
+    return peer
+  }
+
+  const cachedTools = [{ name: 'search' }, { name: 'delete_all' }]
+
+  it('never registers the tools of a peer whose allowedTools is not an array', async () => {
+    for (const allowedTools of ['search', { search: true }, 5, null]) {
+      const peer = await resolveRegistryPeer({ allowedTools, cachedTools })
+      const registry = new SkillRegistry()
+      expect(() => registry.hydratePeerSession(peer)).toThrow('peer catalog contains tool not in allowedTools: search')
+      expect(registry.listDomainSkills()).toEqual([])
+    }
+  })
+
+  it('still registers the catalog of a peer without an allow-list or within its allow-list', async () => {
+    for (const record of [{ cachedTools }, { allowedTools: ['search', 'delete_all'], cachedTools }]) {
+      const { skill } = new SkillRegistry().hydratePeerSession(await resolveRegistryPeer(record))
+      expect(skill.tools.map((tool) => tool.name)).toEqual(['search', 'delete_all'])
+    }
+  })
+})

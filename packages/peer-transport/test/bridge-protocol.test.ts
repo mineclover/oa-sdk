@@ -40,6 +40,21 @@ describe('bridge protocol schemas', () => {
     })
   })
 
+  it('fails closed on an allowedTools that is not an array', () => {
+    for (const allowedTools of ['search', { search: true }, 5, true, null]) {
+      expect(parsePeerRecord({ alias: 'shop-local', allowedTools, cachedTools: [{ name: 'search' }] })).toEqual({
+        alias: 'shop-local',
+        allowedTools: [],
+        cachedTools: [{ name: 'search' }],
+      })
+    }
+    // Only an absent allowedTools means the record has no allow-list.
+    expect(parsePeerRecord({ alias: 'shop-local', cachedTools: [{ name: 'search' }] })).toEqual({
+      alias: 'shop-local',
+      cachedTools: [{ name: 'search' }],
+    })
+  })
+
   it('rejects peer records without a safe alias', () => {
     expect(parsePeerRecord({ alias: '../escape' })).toBeUndefined()
     expect(parsePeerRecord(['wireframe-local'])).toBeUndefined()
@@ -127,6 +142,21 @@ describe('WebMcpBridgeClient boundary validation', () => {
     })
     const peer = await client.resolvePeer('wireframe-local')
     expect(peer).not.toHaveProperty('token')
+  })
+
+  it('resolves a local peer with a malformed allowedTools to an empty allow-list', async () => {
+    const storePath = join(directory, 'peers.json')
+    await writeFile(storePath, JSON.stringify({
+      peers: { 'shop-local': { alias: 'shop-local', allowedTools: 'search', cachedTools: [{ name: 'search' }, { name: 'delete_all' }] } },
+    }))
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
+    const client = new WebMcpBridgeClient({ storePath })
+
+    await expect(client.resolvePeer('shop-local')).resolves.toEqual({
+      alias: 'shop-local',
+      allowedTools: [],
+      cachedTools: [{ name: 'search' }, { name: 'delete_all' }],
+    })
   })
 
   it('treats a corrupt local registry as empty', async () => {

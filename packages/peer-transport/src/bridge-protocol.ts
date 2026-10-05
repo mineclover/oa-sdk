@@ -72,6 +72,17 @@ function parseCachedTool(value: unknown): CachedTool | undefined {
   }
 }
 
+/**
+ * An allow-list only ever narrows a peer, so it fails closed: unsafe names are
+ * left out, and an `allowedTools` that is present but not an array (null
+ * included) becomes an empty list. Dropping it instead would leave the record
+ * with no allow-list, which consumers such as mcp-mesh read as "every tool".
+ */
+function parseAllowedTools(value: unknown): string[] | undefined {
+  if (value === undefined) return undefined
+  return Array.isArray(value) ? value.filter(isSafeToolName) : []
+}
+
 function parseSkillManifest(value: unknown): SkillManifest | undefined {
   if (!isRecord(value)) return undefined
   const { id, name, version, description, instructions } = value
@@ -83,8 +94,9 @@ function parseSkillManifest(value: unknown): SkillManifest | undefined {
 
 /**
  * Validate one peer record. A record without a safe alias is rejected; an
- * optional field with the wrong type is dropped, unknown fields are not
- * copied, and the bridge token is never part of the result.
+ * optional field with the wrong type is dropped, except `allowedTools`, which
+ * fails closed (see parseAllowedTools). Unknown fields are not copied, and the
+ * bridge token is never part of the result.
  */
 export function parsePeerRecord(value: unknown): WebMcpPeerRecord | undefined {
   if (!isRecord(value) || !isSafeAlias(value.alias)) return undefined
@@ -93,7 +105,8 @@ export function parsePeerRecord(value: unknown): WebMcpPeerRecord | undefined {
     const fieldValue = value[field]
     if (typeof fieldValue === 'string') record[field] = fieldValue
   }
-  if (Array.isArray(value.allowedTools)) record.allowedTools = value.allowedTools.filter(isSafeToolName)
+  const allowedTools = parseAllowedTools(value.allowedTools)
+  if (allowedTools !== undefined) record.allowedTools = allowedTools
   if (Array.isArray(value.cachedTools)) {
     record.cachedTools = value.cachedTools.flatMap((entry) => {
       const tool = parseCachedTool(entry)
