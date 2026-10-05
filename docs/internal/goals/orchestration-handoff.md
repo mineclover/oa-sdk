@@ -105,6 +105,7 @@
 | A1 | 어휘 사전 검사(`mayContainCspViolation`)로 위반이 불가능한 파일의 파싱을 건너뛰고, TS를 지연 로드하고, `setParentNodes`를 끈다. dist 기준 약 6.2초 → 1.6초, 264개 중 263개 파일이 파싱을 건너뛴다. 하위 프로세스 테스트 자체는 바꾸지 않았다(실제 CLI를 바깥에서 실행하는 것이 목적). | **done** (`1d63b225`) |
 | A2 | **부하 상태 검증 미완.** A1 커밋 시점까지 load average 11 이상에서 돌린 `packages/codegen` 전체 스위트 결과가 나오지 않았다. 원래 실패하던 tier4, subdirectory-conformance, challenger-m4 테스트가 부하 상태에서 통과하는지 확인한다. 통과하지 않으면 원인(스캔 / 기동 / 테스트 타임아웃 예산)을 분류해 고친다. | ready |
 | A3 | **사전 검사와 규칙의 이중 관리 제거.** 사전 검사의 단어 목록(`eval`/`Function`/`setTimeout`/`setInterval`, `ajv`/`zod`/`@oa-sdk`)과 AST 규칙의 대상(`target === 'eval'`, `DISALLOWED_IMPORT_PATTERN`)이 따로 적혀 있어, 규칙을 추가하면서 사전 검사를 빠뜨리면 위반이 조용히 누락된다. 규칙 표 하나에서 AST 검사와 사전 검사를 함께 도출하고, 모든 `CspRuleId`에 사전 검사 회귀 사례가 있는지 타입 수준에서 강제한다. | ready |
+| A4 | A2 측정 결과, 부하 40 이상·swap 고갈 상태에서는 tsx CLI를 5번 이상 순차 실행하는 테스트(T1-F02-3, T3-06, T4-03, challenger-m3 "non-object valid JSON" 등)가 60초 예산을 넘는다. 원인은 실행마다 CLI 모듈 약 950개를 즉시 로드하는 것이다. `src/cli/commands.ts`를 지연 command registry로 바꿔 실행한 명령만 로드한다. CLI 사용자 체감 속도도 함께 개선된다. C4·E3와 같은 파일을 만지므로 Wave 1 통합 뒤에 한다. | ready (Wave 1 이후) |
 
 ### WS-B — Goal 70 Sirius Web 통합 · `decision`
 
@@ -147,16 +148,18 @@
 
 - **남은 위험**: GitHub runner에서 아직 한 번도 돌리지 않았다. cache·artifact 동작, `BENCH_PARSER_BUDGET_SCALE=2` 가정, hosted runner의 CPU 시간 정확도는 첫 CI 실행에서 확인한다.
 
-### WS-E — Core 정리 · `ready`
+### WS-E — Core 정리 · E1·E5·E6 `done`, 나머지 진행 중
 
-| 단위 | 내용 | 확인된 근거 | 충돌 |
-|---|---|---|---|
-| E1 | JSON Pointer escape/unescape 사본 36곳을 `parser/src/json-pointer.ts` export로 통일한다. 대상은 parser, codegen, mock-server, spec-lens, surface-ir, schemas scripts, dpm이다. Goal 69에서 추가한 ref-graph, ref-projection, deref-internal도 포함한다. | 전수 grep (2026-10-05) | 없음 (dpm은 maintenance-only이므로 제외하거나 별도로 처리) |
-| E2 | `loadSchema`(`parser/src/schema-loader.ts`)가 `parse-core.ts`를 따로 재구현하면서 어긋났다. webhooks 처리가 0건이고, `additionalOperations`, `x-` 확장, `$ref` 파라미터 처리도 확인이 필요하다. `parse-core` 위에 다시 만든다. | `webhooks` grep: schema-loader 0건, parse-core 5건 | `schema-loader.test.ts`가 미커밋 변경과 충돌 |
-| E3 | `--incremental`이 dirty 집합을 계산하지만(`incremental.ts:62`) typegen은 작업을 건너뛰는 데 쓰지 않는다(`typegen.ts`에 `dirty` 참조 0건). 파일 해시도 두 번 계산한다(`workspace-index.ts:205-235`). | grep | 없음 |
-| E4 | 전역 identity `seen` 집합이 DAG 입력에서 오동작할 수 있는 곳을 확인한다. `codegen/src/cli/lib/openapi-collect.ts`의 `removeCollectionNoise`는 공유 객체를 노이즈 제거 없이 반환한다. `parser/src/lint.ts`의 `traverseDocumentNodes`는 YAML anchor로 공유된 노드의 두 번째 위치를 lint하지 않는다. | 미검증. 입력이 deref 출력인지 먼저 확인 | 없음 |
-| E5 | `DerefFolder`가 `includeInternalFilePath: false`로 동작해서, 외부 문서 안의 내부 ref가 진입 문서와 같은 `<root>` 키 공간을 쓴다. 그래서 순환 판정이 잘못될 수 있다. 메모는 외부 전개를 저장하지 않으므로 메모 정합성은 안전하다. | Goal 69 Decisions | 없음 |
-| E6 | `bench:parser`를 CI에 연결한다. 예산 초과 시 실패하게 한다. | — | `ci.yml` 충돌 → WS-D와 함께 처리 |
+| 단위 | 내용 | 상태 |
+|---|---|---|
+| E1 | JSON Pointer escape/unescape 사본 38곳을 `parser/src/json-pointer.ts`의 공용 helper(`escapeJsonPointerToken`, `unescapeJsonPointerToken`, `appendJsonPointer`, `formatJsonPointer`, `parseJsonPointer`)로 통일했다. `@oa-sdk/parser`와 `/browser` 양쪽에서 export한다. 교체한 사본은 모두 RFC 6901 순서가 맞아 출력은 바뀌지 않는다. 별도로 spec-lens timeline이 `#/paths/~1users`를 `//users`로 디코드하던 버그를 고쳤다. | **done** (`05124488`..`6ea63d46`, `896ca666`) |
+| E1-r | E1 잔여: (1) schemas scripts는 CommonJS로 실행되는데 parser exports에 `import` 조건만 있어 helper를 쓸 수 없다. schemas를 ESM으로 바꿀지, parser에 `default` 조건을 추가할지 결정이 필요하다. (2) 루트 scripts(`schema-typespec-check.ts`, `typespec-create-authored-canonical-fixture.ts`)는 helper import로 바꿀 수 있다. (3) `personas/src/resolver.ts`는 unescape를 하지 않아 이름에 `/`·`~`가 든 ref를 못 푼다(maintenance-only). | decision (1), ready (2), maintenance (3) |
+| E2 | `loadSchema`를 parse-core의 공용 route-index builder 위로 다시 만든다. webhooks, `additionalOperations`, `x-` 확장, `$ref` 파라미터를 맞춘다. | 진행 중 (3차 리뷰 지적: Reference Object sibling overlay를 OAS 3.2대로 `summary`/`description`만 허용) |
+| E3 | `--incremental`이 dirty 집합으로 typegen 작업을 건너뛰게 하고, 파일 해시를 한 번만 계산한다. | 진행 중 |
+| E4 | DAG 입력에서 전역 identity `seen` 집합이 두 번째 위치를 건너뛰는 곳을 찾아 고친다. | 진행 중 |
+| E5 | `$ref` 순환 판정을 (문서, pointer) 키로 바꿔 외부 문서의 내부 ref가 진입 문서와 키를 공유하지 않게 했다. `preserve-ref`가 남기는 재귀 절단 ref는 진입 문서 기준으로 표기한다. | **done** (`c42dd12a`..`e88ef9df`) |
+| E6 | `bench:parser` CI 게이트 | **done** (WS-D D1과 함께) |
+| E7 | deref pass는 Reference Object 위치(parameter, requestBody, response, callback)에서 sibling을 모두 덮어쓴다. OAS 3.2는 `summary`/`description`만 허용한다. Schema Object 위치는 JSON Schema 의미대로 sibling을 유지하고, Reference Object 위치만 제한하는 위치 인지 overlay가 필요하다. E2가 route-index builder를 OAS 3.2에 맞추면 deref 경로와 비-deref 경로의 결과가 갈리므로 E2 다음에 처리한다. | ready (E2 이후) |
 
 ### WS-F — 패키지 위생 · 결정 입력 문서 `done`, 최종 결정은 사용자
 
