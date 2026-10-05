@@ -261,7 +261,7 @@ artifact 계약의 정본은 codegen이 공개하는 JSON Schema
 쓰며, spec-lens graph와 같은 `findNearestJsonPointerEntry()`(`@oa-sdk/parser`)를 공유합니다.
 
 종료 코드는 artifact를 쓰면 `0`이고, `--spec` 누락, 읽을 수 없거나 파싱할 수 없는 spec·provenance,
-형식이 틀린 provenance entry이면 `1`입니다(출력 파일을 쓰지 않음). `ref-cycle` 같은 진단은
+형식이 틀린 provenance entry(문자열 필드 누락, 빈 `canonicalId`)이면 `1`입니다(출력 파일을 쓰지 않음). `ref-cycle` 같은 진단은
 artifact 내용이며 종료 코드를 바꾸지 않습니다.
 
 ## generate:tanstack 옵션 및 인수 명세

@@ -152,12 +152,26 @@ describe('oa-gen ref-projection', () => {
   it('exits 1 without writing output when an input is missing or invalid', () => {
     writeFileSync(join(workDir, 'broken.yaml'), 'openapi: [3.2.0\n')
     writeFileSync(join(workDir, 'bad-provenance.json'), JSON.stringify({ '#/paths/~1x': 'path:public/x/x' }))
+    // An empty canonicalId is reported against the input entry, not as an invalid artifact.
+    writeFileSync(join(workDir, 'empty-id-provenance.json'), JSON.stringify({
+      '#/components/schemas/Pet': {
+        canonicalId: '',
+        kind: 'schema',
+        sourcePath: 'fragments/schema/pets/Pet.yaml',
+        sourcePointer: '#',
+        contentHash: `sha256:${'0'.repeat(64)}`,
+      },
+    }))
     const cases: Array<{ args: string[]; stderr: RegExp }> = [
       { args: [], stderr: /--spec 옵션이 필요합니다/ },
       { args: ['--spec', 'absent.yaml'], stderr: /spec 파일을 읽을 수 없습니다/ },
       { args: ['--spec', 'broken.yaml'], stderr: /spec 파일을 파싱할 수 없습니다/ },
       { args: ['--spec', 'api.yaml', '--provenance', 'absent.json'], stderr: /provenance 파일을 읽을 수 없습니다/ },
       { args: ['--spec', 'api.yaml', '--provenance', 'bad-provenance.json'], stderr: /Invalid provenance entry/ },
+      {
+        args: ['--spec', 'api.yaml', '--provenance', 'empty-id-provenance.json'],
+        stderr: /Invalid provenance entry at #\/components\/schemas\/Pet: canonicalId must not be empty/,
+      },
     ]
     for (const { args, stderr } of cases) {
       const result = runCli([...args, '--output', 'out/artifact.json'])

@@ -80,6 +80,11 @@ export function loadBuildSpecProvenanceMap(filePath: string): BuildSpecProvenanc
 /**
  * Check a parsed provenance sidecar and return it as a map sorted by pointer.
  * `label` names the sidecar in error messages.
+ *
+ * An entry needs the five string fields, and its `canonicalId` must not be
+ * empty: an empty id identifies nothing. The id grammar is not checked here,
+ * because producers differ in it (spec-lens names TypeSpec declarations by
+ * their source file).
  */
 export function parseBuildSpecProvenanceMap(parsed: unknown, label: string): BuildSpecProvenanceMap {
   if (!isRecord(parsed)) {
@@ -99,6 +104,9 @@ export function parseBuildSpecProvenanceMap(parsed: unknown, label: string): Bui
       || typeof value.contentHash !== 'string'
     ) {
       throw new Error(`Invalid provenance entry at ${pointer}: missing canonicalId/kind/sourcePath/sourcePointer/contentHash`)
+    }
+    if (value.canonicalId === '') {
+      throw new Error(`Invalid provenance entry at ${pointer}: canonicalId must not be empty`)
     }
     map[pointer] = {
       canonicalId: value.canonicalId as CanonicalDefinitionId,

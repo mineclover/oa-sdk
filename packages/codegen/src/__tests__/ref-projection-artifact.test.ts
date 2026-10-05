@@ -339,6 +339,9 @@ describe('oa-sdk.ref-projection.v1 artifact', () => {
     writeFileSync(join(dir, 'api.json'), '{"openapi": "3.2.0", "paths": {}}')
     writeFileSync(join(dir, 'not-json.json'), '{')
     writeFileSync(join(dir, 'bad-entry.json'), JSON.stringify({ '#/paths/~1x': { canonicalId: 'path:public/x/x' } }))
+    writeFileSync(join(dir, 'empty-id.json'), JSON.stringify({
+      '#/paths/~1x': { canonicalId: '', kind: 'path', sourcePath: 'x.yaml', sourcePointer: '#', contentHash: 'h' },
+    }))
     const create = (specPath: string, provenancePath?: string) => () => createRefProjectionArtifactFromFiles({
       specPath,
       ...(provenancePath !== undefined ? { provenancePath } : {}),
@@ -353,6 +356,7 @@ describe('oa-sdk.ref-projection.v1 artifact', () => {
     expect(create('api.json', 'absent.json')).toThrow(/provenance 파일을 읽을 수 없습니다/)
     expect(create('api.json', 'not-json.json')).toThrow(/provenance 파일을 파싱할 수 없습니다/)
     expect(create('api.json', 'bad-entry.json')).toThrow(/Invalid provenance entry at #\/paths\/~1x/)
+    expect(create('api.json', 'empty-id.json')).toThrow('Invalid provenance entry at #/paths/~1x: canonicalId must not be empty')
     expect(create('api.json')()).toMatchObject({ source: { spec: { path: 'api.json' } }, nodes: [] })
   })
 })
