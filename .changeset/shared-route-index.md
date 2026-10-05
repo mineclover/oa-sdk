@@ -11,13 +11,23 @@ These changes apply to every document, including fully dereferenced ones on the 
 - `loadSchema()`, which `@oa-sdk/mock-server` re-exports, now indexes OAS 3.2 `additionalOperations` and copies operation `x-*` extensions onto route entries.
 - In both `loadSchema()` and `parseDocument()`, an `additionalOperations` entry is now ignored when it repeats a method that the same Path Item defines as a fixed field. The method names are compared case-insensitively. Code generated from `parseDocument()`, such as typegen output and generated clients and routers, no longer includes that entry.
 
-The following change only affects documents that still contain Reference Objects after the pass pipeline, such as with a custom pass list like `[]` or with unresolved external refs. In those documents, local references at operation positions (Path Item, parameter, requestBody, response, callback) are now resolved by following the reference chain. Before, they were dropped or left in place.
+The following changes only affect documents that still contain Reference Objects at operation positions (Path Item, parameter, requestBody, response, callback) after the pass pipeline. What happens to them depends on whether a pass of the pipeline resolves `$ref`s. `SpecPass` has a new optional `resolvesRefs` flag for this. `createDerefPass()` sets it, so `derefPass`, the default passes and the deref pass that `parseDocument()` builds from its options have it. Set it on a custom pass that resolves references, for example one that wraps `derefSpec()`.
+
+With such a pass, a reference left at an operation position is one the pass could not resolve, and route entries now omit it.
+
+- The reference keeps the spelling of the file it was written in. With `basePath`, that can be an external file that the pass inlined, so resolving it against the entry document could return an unrelated object with the same pointer.
+- Before, `parseDocument()` resolved such parameter and response references against the entry document and kept callback Reference Objects. `loadSchema()` kept all of them as Reference Objects.
+- Fields declared beside a Path Item `$ref` that could not be resolved still apply.
+
+Without such a pass, for example with a custom pass list like `[]`, local references at operation positions are now resolved by following the reference chain. Before, they were dropped or left in place.
 
 - At parameter, requestBody, response and callback positions, the `$ref` is an OAS 3.2 Reference Object. Only a `summary` or `description` beside it overrides the target, and only when the target's object type defines that field: `description` for parameters and request bodies, both for responses, neither for callbacks. Other sibling fields are ignored.
 - Fields declared beside a Path Item `$ref` overlay the referenced Path Item.
 - The operations declared beside an unresolvable Path Item `$ref` are kept.
 
-References that the default pipeline's deref pass resolves are not affected by this change. That pass resolves them before indexing and still merges every sibling field into the target.
+References that the default pipeline's deref pass resolves are not affected by these changes. That pass resolves them before indexing and still merges every sibling field into the target.
+
+`derefSpec()`, `DerefFolder` and the deref pass, which `@oa-sdk/mock-server` re-exports, now dereference the fields beside a `$ref` they cannot resolve, as `derefInternalSpec()` already did. The `$ref` itself stays as written. Before, the whole object was kept as written, so, for example, the operations declared beside an unresolvable Path Item `$ref` kept their own parameter, requestBody, response and callback references unresolved. Inside an external file, those fields resolve against that file.
 
 @oa-sdk/codegen: `generateTypesFromSpec()`, used by `oa-gen typegen` and `generate-client --pack`, parses with `parseDocument(spec, [])`. Its output changes in the following cases.
 

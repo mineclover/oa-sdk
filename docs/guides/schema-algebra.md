@@ -160,11 +160,13 @@ abstract class SchemaFolder {
 스펙 문서를 단계별로 변환하는 파이프라인 패턴. 각 pass는 이름과 변환 함수를 가진다.
 
 ```typescript
-type SpecPass = { name: string; run(spec): OasDocument }
+type SpecPass = { name: string; resolvesRefs?: boolean; run(spec): OasDocument }
 runPipeline(spec, [derefPass, ...customPasses])
 ```
 
 pass를 조합하여 deref -> lint -> custom 순으로 스펙을 정규화할 수 있다.
+
+`resolvesRefs`는 그 pass가 `$ref`를 해소한다는 선언이다. `createDerefPass()`가 설정하고, `derefSpec()`을 감싼 custom pass도 설정해야 한다. pipeline에 이런 pass가 있으면 `parseDocument()`와 `loadSchema()`의 route index는 남은 `$ref`를 해소하지 못한 ref로 보고 생략한다. 없으면 operation 위치의 로컬 `$ref`를 직접 해소한다.
 
 ---
 
