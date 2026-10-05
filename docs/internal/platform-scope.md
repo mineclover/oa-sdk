@@ -138,7 +138,7 @@ scope-reactivation decision을 남겨야 한다. 최소한 다음 내용을 기�
 | User problem | mock-server가 요청마다 응답 본문을 다시 생성하고 Ajv로 다시 검증해 `node-http.ts`의 사전 계산 fast path가 사실상 쓰이지 않는다. `allowedHeadersCache` 키가 구체 URL이라 장시간 실행 시 메모리가 끝없이 커지고, 생성기가 선택 속성까지 모두 접은 뒤 버린다. |
 | Core relation | 새 capability가 아니라 기존 mock 런타임의 성능·메모리 결함 수정이다. 파서 DAG 계약(Goal 69)과 `matchRoute`(C2) 개선을 소비한다. |
 | Owner | OA SDK maintainers가 mock-server 런타임 동작 호환성과 downstream 테스트를 유지한다. |
-| Release/CI | 기존 downstream build/test/typecheck tier와 `test:cli-smoke`가 검증한다. 버전과 publish 정책은 바꾸지 않는다. |
+| Release/CI | 기존 downstream build/test/typecheck tier가 검증한다. built CLI smoke(`test:cli-smoke:prebuilt`)는 mock-server `test:ci` 안에서 Turbo build task가 만든 dist로 실행한다. 버전과 publish 정책은 바꾸지 않는다. |
 | Location | `packages/mock-server`에 유지한다. |
 | Exit condition | 요청당 재생성·재검증이 제거되거나 캐시되고, 캐시 크기가 라우트 수로 제한되며, 기존 응답 바이트·검증 오류 출력이 회귀 테스트로 고정된다. before/after 측정치를 남긴다. |
 | Boundary | 응답 생성 규칙, 검증 의미, 공개 API는 바꾸지 않는다. 새 mock 기능(시나리오, 상태 저장 확장 등)은 이 결정에 포함하지 않는다. |
