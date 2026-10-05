@@ -2,6 +2,8 @@
 
 이 문서는 Microsoft TypeSpec의 공식 오픈소스 도구 체계(`typespec-vscode`, `@typespec/compiler`)의 내부 LSP(Language Server Protocol) 동작 원리를 분석하고, `oa-sdk` 모노레포 환경에서 하이라이팅, 자동완성, 정적 검증이 어떻게 통합·수행되는지 설명합니다.
 
+> 이 문서는 사용 안내가 아니라 구조 설명입니다. 편집기 설정과 스니펫은 [TypeSpec IDE 설정](./typespec-ide-setup.md)을 따릅니다. 아래에 나오는 `@oa-sdk/typespec-erd`와 `@oa-sdk/typespec-tooling`은 비공개 유지보수 패키지(maintenance-only, 저장소 전용)입니다.
+
 ---
 
 ## 1. TypeSpec 도구 체계와 오픈소스 분석
@@ -90,20 +92,23 @@ TypeSpec LSP는 `textDocument/publishDiagnostics` 알림을 통해 파일 저장
    - 예: `@oaUseResponseComponent("999", "Bad")` 입력 시 1~5로 시작하지 않는 상태코드에 대해 즉시 빨간 밑줄과 진단 메시지 출력.
    - 예: `@primaryKey`에 중복 순서 할당 시 컴파일 진단 오류 출력.
 4. **플러그인 린터 룰 (Linter Diagnostics)**:
-   - `@oa-sdk/typespec-tooling`에서 제공하는 `require-operation-id`, `require-documentation` 등의 린터 규칙 위반 시 경고(Warning) 표시.
+   - TypeSpec은 라이브러리가 export한 linter를 `tspconfig.yaml`의 `linter` 설정으로 켜면 규칙 위반을 경고로 표시합니다.
+   - `@oa-sdk/typespec-tooling`에는 `require-operation-id`, `require-documentation` 등의 규칙이 정의되어 있지만, 이 패키지는 TypeSpec이 읽는 linter를 export하지 않고 `packages/schemas/typespec/tspconfig.yaml`에도 `linter` 설정이 없습니다. 현재 이 규칙은 실행되지 않으며 경고와 Quick Fix도 나타나지 않습니다.
 
 ---
 
 ## 3. 구현 방식 비교 (방법 1, 2, 3)
 
-| 구분 | 방법 1: IDE Native LSP (채택) | 방법 2: Monaco 경량 토크나이저 | 방법 3: 브라우저 WASM/Worker LSP |
+방법 1만 채택했습니다. 방법 2와 3은 검토한 대안이며 구현되어 있지 않습니다.
+
+| 구분 | 방법 1: IDE Native LSP (채택) | 방법 2: Monaco 경량 토크나이저 (미채택) | 방법 3: 브라우저 WASM/Worker LSP (미채택) |
 |---|---|---|---|
 | **실행 주체** | VS Code / Cursor + `tsp-server` | 프론트엔드 JavaScript (Monaco) | 브라우저 Web Worker 내 WASM |
-| **적용 영역** | 모노레포 실제 스펙 개발 워크스페이스 | Spec-Lens 웹 대시보드 뷰어/수정 | 독립 웹 플레이그라운드 |
+| **적용 후보** | 모노레포 실제 스펙 개발 워크스페이스 | 웹 대시보드의 `.tsp` 뷰어/편집기 | 독립 웹 플레이그라운드 |
 | **하이라이팅** | TextMate + Semantic Tokens (AST) | Monarch 정규식 매칭 | Semantic Tokens (LSP Client) |
-| **자동완성** | AST 스코프 기반 100% 정밀 완성 | 정적 토큰/스니펫 목록 반환 | AST 스코프 기반 100% 정밀 완성 |
-| **실시간 검증** | 컴파일러 + 커스텀 데코레이터 진단 | 없음 (별도 서버 호출 필요) | Worker 내 실시간 컴파일러 진단 |
-| **리소스 비용** | 0 KB 추가 웹 번들 (IDE 로컬 구동) | < 50 KB 경량 JS | 10~20 MB 고용량 번들 + 가상 FS |
+| **자동완성** | AST 스코프 기반 완성 | 정적 토큰/스니펫 목록 반환 | AST 스코프 기반 완성 |
+| **실시간 검증** | 컴파일러 + 커스텀 데코레이터 진단 | 없음 (별도 서버 호출 필요) | Worker 내 컴파일러 진단 |
+| **추가 웹 번들** | 없음 (IDE 로컬 구동) | 경량 JS | 컴파일러 번들과 가상 FS |
 
 ### 채택 결론
-`oa-sdk` 모노레포는 로컬 엔지니어링 작업이 중심이므로 **방법 1(IDE Native LSP)**을 주력 표준으로 설정합니다. 이를 위해 모노레포 루트에 `.vscode/` 설정을 배포하고, 도구 및 스니펫을 패키지화한 `@oa-sdk/typespec-tooling`을 구축했습니다.
+`oa-sdk` 모노레포는 로컬 엔지니어링 작업이 중심이므로 **방법 1(IDE Native LSP)**을 표준으로 정했습니다. 모노레포 루트에 `.vscode/` 설정(`settings.json`, `extensions.json`, `typespec.code-snippets`)을 두었습니다. 도구·스니펫·lint 규칙을 묶은 `@oa-sdk/typespec-tooling`도 만들었지만, lint 규칙은 TypeSpec 프로젝트에 연결되어 있지 않고 VS Code는 이 패키지의 스니펫이 아니라 `.vscode/typespec.code-snippets`를 씁니다([패키지 정리 결정](../internal/package-hygiene-decisions.md)).

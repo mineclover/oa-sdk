@@ -3,6 +3,11 @@
 `@oa-sdk/typespec-erd`는 DB를 생성하는 도구가 아니라, 논리 entity·field·key·relationship을
 TypeSpec으로 선언하고 검토 가능한 `oa-sdk.logical-erd.v1` artifact로 내보내는 prototype이다.
 
+Release tier: maintenance-only, `private: true`, `release: ignored` in
+[release-policy.json](../internal/release-policy.json). It is not published to npm, so a `.tsp` file
+can `import "@oa-sdk/typespec-erd"` only inside this repository (for example under
+`packages/typespec-erd/`).
+
 ## Authority boundary
 
 | Fact | Authority | This prototype does |
@@ -50,17 +55,23 @@ rename. Every property of an `@entity` must have `@field`; the compiler rejects 
 
 ## Artifact workflow
 
-The package-local CLI has no OpenAPI, DPM, database, or migration command:
+The package-local CLI (`oa-erd`) has no OpenAPI, DPM, database, or migration command. The package
+does not link its own bin, so `pnpm --filter @oa-sdk/typespec-erd exec oa-erd` fails with
+`Command "oa-erd" not found`. Build the package and its contract dependency, then run the built
+CLI from the repository root, where relative paths resolve from the root:
 
 ```bash
-pnpm --filter @oa-sdk/typespec-erd exec oa-erd emit --project ./logical-schema --output logical-erd.json
-pnpm --filter @oa-sdk/typespec-erd exec oa-erd check --artifact logical-erd.json
-pnpm --filter @oa-sdk/typespec-erd exec oa-erd diff \
+pnpm --filter "@oa-sdk/typespec-erd..." build
+node packages/typespec-erd/dist/cli/index.js emit --project packages/typespec-erd/examples/commerce --output logical-erd.json
+node packages/typespec-erd/dist/cli/index.js check --artifact logical-erd.json
+node packages/typespec-erd/dist/cli/index.js diff \
   --base main.logical-erd.json --next logical-erd.json --fail-on-breaking
-pnpm --filter @oa-sdk/typespec-erd exec oa-erd review \
+node packages/typespec-erd/dist/cli/index.js review \
   --artifact logical-erd.json --catalog-evidence dpm-catalog-evidence.json \
   --format markdown --output logical-erd.review.md
 ```
+
+`node packages/typespec-erd/dist/cli/index.js --help` lists every option.
 
 `emit` invokes the TypeSpec compiler with the ERD emitter. The artifact preserves declaration and
 decorator spans so a relationship diff can point to the originating `.tsp` location. `diff` treats
