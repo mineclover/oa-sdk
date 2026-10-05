@@ -10,6 +10,7 @@ import {
   type WorkspaceDiagnosticRecord,
   type WorkspaceDirtyDetectionResult,
   type WorkspaceFileRecord,
+  type WorkspaceFileStampCache,
   type WorkspaceIndex,
   type WorkspaceIndexCompatibilityMetadata,
   type WorkspaceRefRecord,
@@ -32,6 +33,8 @@ export type CliIncrementalRun = {
   index: WorkspaceIndex
   scannedFiles: WorkspaceFileRecord[]
   dirty: WorkspaceDirtyDetectionResult
+  /** Per-run file stamp memo shared by every scan of the run: each file is hashed once. */
+  stamps: WorkspaceFileStampCache
 }
 
 export type RecordCliIncrementalIndexOptions = {
@@ -52,12 +55,14 @@ export function createCliIncrementalRun(options: CliIncrementalRunOptions): CliI
     console.warn(`⚠️  SQLite workspace index unavailable; falling back to full rebuild: ${fallbackReason}`)
   }
   try {
+    const stamps: WorkspaceFileStampCache = new Map()
     const externalRefFiles = options.enabled ? listWorkspaceExternalRefFiles(index) : []
     const scannedFiles = scanWorkspaceFiles({
       entrySpecs: [resolvedSpecPath],
       externalRefFiles,
       parserVersion: CLI_WORKSPACE_INDEX_VERSION,
       runId,
+      stamps,
     })
     const dirty = detectWorkspaceDirtyFiles(index, scannedFiles)
     if (options.enabled) invalidateWorkspaceDirtyFiles(index, dirty)
@@ -69,6 +74,7 @@ export function createCliIncrementalRun(options: CliIncrementalRunOptions): CliI
       index,
       scannedFiles,
       dirty,
+      stamps,
     }
   } catch (error) {
     const maybeClosable = index as WorkspaceIndex & { close?: () => void }
@@ -91,6 +97,7 @@ export async function recordCliIncrementalIndex(
     externalRefFiles: collectGraphFilePaths(graph.nodes, graph.diagnostics),
     parserVersion: CLI_WORKSPACE_INDEX_VERSION,
     runId: run.runId,
+    stamps: run.stamps,
   })
   const discoveredFilePaths = new Set(discoveredFiles.map(file => file.filePath))
   const sourceLocations = createCliSourceLocationResolver()

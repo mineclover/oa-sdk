@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
+import { readFileSync, realpathSync, statSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createSQLiteWorkspaceIndex, type SQLiteWorkspaceIndexOptions } from './sqlite-workspace-index.js'
 import {
@@ -116,6 +116,56 @@ export type WorkspaceFileScanOptions = {
   externalRefFiles?: readonly string[]
   parserVersion?: string
   runId?: string
+  /** Shared per-run stamp memo; files already stamped in it are not read or hashed again. */
+  stamps?: WorkspaceFileStampCache
+}
+
+/** Content identity of one regular file at the moment it was read. */
+export type WorkspaceFileStamp = {
+  filePath: string
+  realPath: string
+  contentHash: string
+  size: number
+  mtimeMs: number
+}
+
+/**
+ * Per-run memo of file stamps keyed by absolute path, so each file is read and
+ * hashed at most once per run. `null` records a path that was absent or not a
+ * regular file when it was first looked up.
+ */
+export type WorkspaceFileStampCache = Map<string, WorkspaceFileStamp | null>
+
+/**
+ * Stamp one file (absolute or relative to `baseDir`), reusing `stamps` when the
+ * path was already stamped in this run. Returns undefined for absent paths and
+ * non-regular files.
+ */
+export function readWorkspaceFileStamp(
+  filePath: string,
+  stamps?: WorkspaceFileStampCache,
+  baseDir: string = process.cwd(),
+): WorkspaceFileStamp | undefined {
+  const resolvedPath = resolve(baseDir, filePath)
+  const cached = stamps?.get(resolvedPath)
+  if (cached !== undefined) return cached ?? undefined
+
+  const stamp = computeWorkspaceFileStamp(resolvedPath)
+  stamps?.set(resolvedPath, stamp ?? null)
+  return stamp
+}
+
+function computeWorkspaceFileStamp(resolvedPath: string): WorkspaceFileStamp | undefined {
+  const stat = statSync(resolvedPath, { throwIfNoEntry: false })
+  if (!stat?.isFile()) return undefined
+
+  return {
+    filePath: resolvedPath,
+    realPath: realpathSync.native(resolvedPath),
+    contentHash: createHash('sha256').update(readFileSync(resolvedPath)).digest('hex'),
+    size: stat.size,
+    mtimeMs: stat.mtimeMs,
+  }
 }
 
 export type WorkspaceFileChangeSet = {
@@ -214,19 +264,14 @@ export function scanWorkspaceFiles(options: WorkspaceFileScanOptions): Workspace
     ...(options.externalRefFiles ?? []),
   ]) {
     const resolvedPath = resolve(baseDir, filePath)
-    if (seen.has(resolvedPath) || !existsSync(resolvedPath)) continue
+    if (seen.has(resolvedPath)) continue
     seen.add(resolvedPath)
 
-    const stat = statSync(resolvedPath)
-    if (!stat.isFile()) continue
+    const stamp = readWorkspaceFileStamp(resolvedPath, options.stamps)
+    if (!stamp) continue
 
-    const content = readFileSync(resolvedPath)
     files.push({
-      filePath: resolvedPath,
-      realPath: realpathSync.native(resolvedPath),
-      contentHash: createHash('sha256').update(content).digest('hex'),
-      size: stat.size,
-      mtimeMs: stat.mtimeMs,
+      ...stamp,
       ...(options.parserVersion ? { parserVersion: options.parserVersion } : {}),
       ...(options.runId ? { lastSeenRun: options.runId } : {}),
     })

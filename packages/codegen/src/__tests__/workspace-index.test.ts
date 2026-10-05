@@ -7,8 +7,10 @@ import {
   createWorkspaceIndex,
   detectWorkspaceDirtyFiles,
   invalidateWorkspaceDirtyFiles,
+  readWorkspaceFileStamp,
   scanWorkspaceFiles,
   type WorkspaceFileRecord,
+  type WorkspaceFileStampCache,
   type WorkspaceIndex,
 } from '../workspace-index.js'
 import { createSQLiteWorkspaceIndex, loadSqliteDriver, SQLITE_WORKSPACE_INDEX_SCHEMA_VERSION } from '../sqlite-workspace-index.js'
@@ -184,6 +186,46 @@ describe('WorkspaceIndex', () => {
       expect(dirty.changed[0]!.contentHash).toMatch(/^[a-f0-9]{64}$/)
       expect(dirty.changed[0]!.size).toBeGreaterThan(0)
       expect(dirty.changed[0]!.mtimeMs).toBeGreaterThan(0)
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('hashes each file once per run when scans share a stamp memo', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-workspace-stamps-'))
+    const entryPath = join(tmp, 'openapi.yaml')
+    const sharedPath = join(tmp, 'shared.yaml')
+    const laterPath = join(tmp, 'later.yaml')
+
+    try {
+      writeFileSync(entryPath, 'openapi: 3.2.0\n')
+      writeFileSync(sharedPath, 'components: {}\n')
+      const stamps: WorkspaceFileStampCache = new Map()
+      const scan = (memo?: WorkspaceFileStampCache) => scanWorkspaceFiles({
+        entrySpecs: [entryPath],
+        externalRefFiles: [sharedPath, laterPath],
+        runId: 'run-a',
+        ...(memo ? { stamps: memo } : {}),
+      })
+
+      const first = scan(stamps)
+      expect(first.map(file => file.filePath)).toEqual([entryPath, sharedPath])
+      expect([...stamps.keys()].sort()).toEqual([entryPath, laterPath, sharedPath].sort())
+      expect(stamps.get(laterPath)).toBeNull()
+
+      // Content written after the first lookup is not re-read within the same run...
+      writeFileSync(sharedPath, 'components:\n  schemas: {}\n')
+      writeFileSync(laterPath, 'components: {}\n')
+      const second = scan(stamps)
+      expect(second).toEqual(first)
+      expect(readWorkspaceFileStamp(sharedPath, stamps)?.contentHash).toBe(first[1]!.contentHash)
+      expect(readWorkspaceFileStamp(laterPath, stamps)).toBeUndefined()
+
+      // ...while a new run (fresh memo) sees the current content.
+      const nextRun = scan(new Map())
+      expect(nextRun.map(file => file.filePath)).toEqual([laterPath, entryPath, sharedPath].sort())
+      expect(nextRun.find(file => file.filePath === sharedPath)!.contentHash).not.toBe(first[1]!.contentHash)
+      expect(scan()).toEqual(nextRun)
     } finally {
       rmSync(tmp, { recursive: true, force: true })
     }
