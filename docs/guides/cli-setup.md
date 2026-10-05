@@ -46,6 +46,28 @@ yarn add -D @oa-sdk/codegen
 bun add -d @oa-sdk/codegen
 ```
 
+### 동반 패키지 (Companion Packages)
+
+라우터·클라이언트·목 서버 산출물은 `oa-gen`이 필요할 때 불러오는 **동반 패키지**가 생성합니다. 릴리스 정책상 Core Platform 패키지(`@oa-sdk/codegen`)는 Downstream Integration 패키지를 배포 manifest에 의존성으로 선언하지 않으므로, `@oa-sdk/codegen`을 설치해도 이들은 설치되지 않습니다. 사용하는 산출물에 맞춰, 사용 중인 `@oa-sdk/codegen`과 함께 릴리스된 버전을 직접 추가합니다.
+
+| 패키지 | 필요한 산출물 |
+|---|---|
+| `@oa-sdk/router` | `oa-gen generate`의 핸들러 계약(`*.contract.ts`)과 CRDT 계약/라우터 모듈 |
+| `@oa-sdk/client` | `oa-gen generate:client`, `pack:client`, `generate:tanstack`, 그리고 `oa-gen generate`의 클라이언트 SDK, TanStack Query 옵션, CRDT 클라이언트/훅 모듈 |
+| `@oa-sdk/mock-server` | `oa-gen mock` |
+
+```bash
+pnpm add -D @oa-sdk/router @oa-sdk/client @oa-sdk/mock-server
+```
+
+패키지가 설치되어 있지 않으면 `oa-gen`은 해당 산출물을 조용히 건너뛰지 않습니다.
+
+- `mock`, `generate:client`, `pack:client`, `generate:tanstack`은 그 산출물만을 위한 명령이므로 설치 명령을 출력하고 종료 코드 1로 실패합니다.
+- `oa-gen generate`는 설정이 산출물을 **명시적으로** 켠 경우(`core.contracts.pureHandlers: true` → `@oa-sdk/router`, `core.client.enabled: true` → `@oa-sdk/client`) 어떤 파일도 쓰기 전에 종료 코드 1로 실패합니다. 해당 산출물이 필요 없다면 스위치를 `false`로 설정합니다.
+- 기본값으로만 **암시된** 산출물(값을 지정하지 않은 스위치와 아키타입 프리셋, TanStack Query 옵션, CRDT 모듈, `--spec` 직접 실행의 모든 동반 패키지 산출물)은 패키지 이름과 설치 명령을 담은 경고와 함께 건너뜁니다. 이전 실행이 생성한 해당 산출물 파일은 고아 파일로 정리되지 않고 유지됩니다.
+
+자세한 설정 규칙은 [선언적 사양 설정 가이드](./declarative-spec-configuration.md#명시적-요청과-암시적-기본값-동반-패키지)를 참고하세요.
+
 ---
 
 ## 3. 로컬 설치 권장 vs 전역 설치 안티패턴
@@ -108,8 +130,8 @@ bunx @oa-sdk/codegen init --yes
 # 기존 OpenAPI 사양 즉시 검증
 npx @oa-sdk/codegen validate --spec ./openapi.yaml --require-32
 
-# 제로 빌드 실시간 목(Mock) 서버 즉시 구동 (포트 4010)
-npx @oa-sdk/codegen mock --spec ./openapi.yaml --watch --port 4010
+# 제로 빌드 실시간 목(Mock) 서버 즉시 구동 (포트 4010, 동반 패키지 @oa-sdk/mock-server 포함)
+npx -p @oa-sdk/codegen -p @oa-sdk/mock-server oa-gen mock --spec ./openapi.yaml --watch --port 4010
 ```
 
 ---

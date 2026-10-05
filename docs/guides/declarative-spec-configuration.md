@@ -51,6 +51,16 @@
 - **`typegen`**: TypeChecker 기반 DFS 심볼 순환 감지(`resolveSymbolCycles: true`), OAS 3.2 `discriminator` + `defaultMapping` 유니온 지원, 타겟 어댑터(`ts` | `zod` | `typia`).
 - **`gates`**: CI 결정론적 해시 드리프트 차단(`driftCheck: true`), 시맨틱 브레이킹 체인지 차단(`failOnBreaking: true`), 기준 베이스 브랜치(`baseRef: "origin/main"`), 사전 린트 검증 수준(`preflightLint: "off" | "warn" | "error"`).
 
+#### 명시적 요청과 암시적 기본값 (동반 패키지)
+핸들러 계약은 `@oa-sdk/router`, 클라이언트 SDK와 TanStack Query 옵션은 `@oa-sdk/client`가 생성하며, 두 패키지는 `@oa-sdk/codegen` 옆에 별도로 설치하는 동반 패키지입니다([설치 안내](./cli-setup.md#동반-패키지-companion-packages)). `oa-gen generate`는 패키지가 없을 때 산출물이 어떻게 요청되었는지에 따라 다르게 동작합니다.
+
+| 요청 방식 | 판단 기준 | 패키지가 없을 때 |
+|---|---|---|
+| 명시적 요청 | 사용자 설정 파일이 `core.contracts.pureHandlers: true` 또는 `core.client.enabled: true`를 직접 지정 | 파일을 쓰기 전에 패키지 이름과 설치 명령을 출력하고 종료 코드 1로 실패 |
+| 암시적 기본값 | 스위치를 지정하지 않음(아키타입 프리셋 기본값 포함), TanStack Query 옵션, 스펙 확장으로 활성화되는 CRDT 모듈, `--spec` 직접 실행 | 패키지 이름과 설치 명령을 담은 경고와 함께 건너뛰고, 이전 실행이 생성한 해당 산출물 파일은 유지 |
+
+스위치를 `false`로 지정하면 해당 산출물을 생성하지 않으며 패키지도 필요하지 않습니다.
+
 ### 2.2 제품 특화 도메인 확장 레이어 (`product: ProductDomainConfig`)
 개별 서비스의 제품 생애주기, 백엔드 프레임워크 및 폴더 구조에 따라 유연하게 구성되는 영역입니다:
 - **`archetype`**: 제품 라이프사이클 아키타입 (`"mvp"` | `"microservice"` | `"enterprise"`).

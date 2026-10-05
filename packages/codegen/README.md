@@ -17,9 +17,37 @@ The published package includes its runtime dependencies (`@oa-sdk/core`,
 `@oa-sdk/typespec-decorators`). It requires Node.js 22 or later.
 
 This distribution boundary covers the core OA Gen CLI: collection, normalization, review,
-validation, type generation, provenance/evidence, and governance scaffolding. Router, client,
-and mock generation remain private workspace integrations and are deliberately absent from the
-published `oa-gen` command registry.
+validation, type generation, provenance/evidence, and governance scaffolding.
+
+### Companion packages
+
+Router, client, and mock outputs come from companion packages that `oa-gen` loads on demand. They
+are not dependencies of `@oa-sdk/codegen` (the release policy keeps Downstream Integration packages
+out of a Core Platform package's published manifest), so installing codegen does not install them.
+Add the ones you use, at the versions released with your `@oa-sdk/codegen`:
+
+| Package | Needed for |
+| --- | --- |
+| `@oa-sdk/router` | handler contracts and CRDT contract/router modules from `oa-gen generate` |
+| `@oa-sdk/client` | `oa-gen generate:client`, `pack:client`, `generate:tanstack`, and the client SDK, TanStack Query options, and CRDT client/hook modules from `oa-gen generate` |
+| `@oa-sdk/mock-server` | `oa-gen mock` |
+
+```bash
+pnpm add -D @oa-sdk/router @oa-sdk/client @oa-sdk/mock-server
+```
+
+When one of them is not installed, `oa-gen` never drops the output silently:
+
+- `mock`, `generate:client`, `pack:client`, and `generate:tanstack` exist to produce that output, so
+  they exit with status 1 and print the install command.
+- `oa-gen generate` exits with status 1, before writing any file, when the configuration turns the
+  output on explicitly: `core.contracts.pureHandlers: true` needs `@oa-sdk/router` and
+  `core.client.enabled: true` needs `@oa-sdk/client`. Set the switch to `false` to stop generating
+  that output instead.
+- Outputs that are only implied are skipped with a warning that names the package and the install
+  command: switches left unset (archetype presets included), TanStack Query options, CRDT modules,
+  and every companion output of a direct `oa-gen generate --spec <file>` run. Files an earlier run
+  generated for a skipped output are kept, not pruned as orphans.
 
 ## First governance scaffold
 
