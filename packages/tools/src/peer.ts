@@ -50,7 +50,11 @@ export interface WebMcpPeerStatus {
   connected?: boolean | undefined
   toolsCount?: number | undefined
   tools?: string[] | undefined
-  peers?: WebMcpPeerRecord[] | undefined
+  /**
+   * Peers in the form the bridge sent them: @oa-sdk/peer-server reports an
+   * alias-keyed directory, and the local-registry fallback reports an array.
+   */
+  peers?: Record<string, WebMcpPeerRecord> | WebMcpPeerRecord[] | undefined
 }
 
 export interface WebMcpPeerConfig {

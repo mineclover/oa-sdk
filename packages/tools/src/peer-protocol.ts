@@ -72,9 +72,27 @@ function parsePeerRecord(value: unknown): WebMcpPeerRecord | undefined {
   return record
 }
 
-function parsePeerList(value: unknown): WebMcpPeerRecord[] | undefined {
-  const entries = Array.isArray(value) ? value : isRecord(value) ? Object.values(value) : undefined
-  return entries?.flatMap((entry) => {
+/**
+ * Validate an alias-keyed peer directory. Invalid entries are skipped, and the
+ * result has no prototype so an alias such as `__proto__` stays an own key.
+ */
+function parsePeerDirectory(value: Record<string, unknown>): Record<string, WebMcpPeerRecord> {
+  const directory: Record<string, WebMcpPeerRecord> = Object.create(null)
+  for (const [alias, entry] of Object.entries(value)) {
+    const peer = parsePeerRecord(entry)
+    if (peer !== undefined) directory[alias] = peer
+  }
+  return directory
+}
+
+/**
+ * Validate `/status` peers without changing their form: an array stays an
+ * array and an alias-keyed directory stays keyed.
+ */
+function parseStatusPeers(value: unknown): NonNullable<WebMcpPeerStatus['peers']> | undefined {
+  if (isRecord(value)) return parsePeerDirectory(value)
+  if (!Array.isArray(value)) return undefined
+  return value.flatMap((entry) => {
     const peer = parsePeerRecord(entry)
     return peer === undefined ? [] : [peer]
   })
@@ -84,21 +102,15 @@ function parsePeerList(value: unknown): WebMcpPeerRecord[] | undefined {
 export const PeerStoreSchema: PeerProtocolSchema<Record<string, WebMcpPeerRecord>> = {
   parse(value) {
     if (!isRecord(value)) throw new TypeError('Peer registry must be a JSON object')
-    const directory: Record<string, WebMcpPeerRecord> = {}
-    if (!isRecord(value.peers)) return directory
-    for (const [alias, entry] of Object.entries(value.peers)) {
-      const peer = parsePeerRecord(entry)
-      if (peer !== undefined) directory[alias] = peer
-    }
-    return directory
+    return parsePeerDirectory(isRecord(value.peers) ? value.peers : {})
   },
 }
 
-/** The bridge `/status` document. `peers` is normalized to the declared array form. */
+/** The bridge `/status` document. Each peer record is validated; `peers` keeps the form the bridge sent. */
 export const PeerStatusSchema: PeerProtocolSchema<WebMcpPeerStatus> = {
   parse(value) {
     if (!isRecord(value)) throw new TypeError('Bridge status must be a JSON object')
-    const peers = parsePeerList(value.peers)
+    const peers = parseStatusPeers(value.peers)
     const toolsCount = value.toolsCount
     return {
       ok: value.ok === true,

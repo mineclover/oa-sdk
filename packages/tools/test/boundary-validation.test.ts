@@ -193,7 +193,44 @@ describe('WebMCP peer bridge fallback client', () => {
     await expect(client.listTools()).resolves.toEqual([
       { name: 'live', description: 'WebMCP tool live', inputSchema: { type: 'object', properties: {} } },
     ])
-    await expect(client.getStatus()).resolves.toEqual({ ok: true, connected: true, peers: [{ alias: 'wireframe-test' }] })
+    await expect(client.getStatus()).resolves.toEqual({ ok: true, connected: true, peers: { 'wireframe-test': { alias: 'wireframe-test' } } })
+  })
+
+  it('keeps the form of bridge status peers and serves them unchanged from the status meta-tools', async () => {
+    const keyedStatus = {
+      ok: true,
+      targetAlias: 'tab-a',
+      peers: { 'tab-a': { alias: 'tab-a', token: 'secret' }, 'tab-b': { alias: 'tab-b', origin: 'http://localhost:5173' } },
+    }
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => jsonResponse(keyedStatus)))
+    const client = new WebMcpPeerBridgeClient({ alias: 'wireframe-test', storePath })
+    const expected = {
+      ok: true,
+      targetAlias: 'tab-a',
+      peers: { 'tab-a': { alias: 'tab-a' }, 'tab-b': { alias: 'tab-b', origin: 'http://localhost:5173' } },
+    }
+    await expect(client.getStatus()).resolves.toEqual(expected)
+
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => jsonResponse({ ok: true, peers: [{ alias: 'tab-a', token: 'secret' }, { alias: '' }] })))
+    await expect(client.getStatus()).resolves.toEqual({ ok: true, peers: [{ alias: 'tab-a' }] })
+
+    // The meta-tools report the status document as the bridge shaped it.
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async (url: string) => (
+      url.includes('/tools') ? jsonResponse({ tools: [] }) : jsonResponse(keyedStatus)
+    )))
+    const app = await createWebMcpPeerApp({ alias: 'wireframe-test', storePath, serverUrl: 'http://127.0.0.1:8787' })
+    const ctx = { requestId: 't', logger: console }
+    for (const name of ['webmcp_list_peers', 'webmcp_peer_status']) {
+      const result = await app.getTool(name)!.execute(ctx, {}) as { content: Array<{ text: string }> }
+      expect(JSON.parse(result.content[0]!.text)).toEqual(expected)
+    }
+  })
+
+  it('reads a peer registry alias as an own key only', async () => {
+    await writeFile(storePath, '{"peers":{"__proto__":{"alias":"__proto__","status":"connected"}}}')
+    const client = new WebMcpPeerBridgeClient({ alias: 'wireframe-test', storePath })
+    await expect(client.resolvePeer('__proto__')).resolves.toEqual({ alias: '__proto__', status: 'connected' })
+    await expect(client.resolvePeer('toString')).resolves.toBeNull()
   })
 
   it('falls back to the registry when the bridge status is not an object', async () => {
