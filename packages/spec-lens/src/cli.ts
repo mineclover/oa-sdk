@@ -22,19 +22,7 @@ import {
   resolveSpecProjectConfig,
 } from './domain/project.js'
 import type { SpecSourcePort } from './application/ports/spec-source.port.js'
-
-type CliConfig = {
-  source: 'github' | 'gitlab' | 'local-git'
-  github?: { owner: string; repo: string; branch?: string; host?: string; repoCache?: string }
-  gitlab?: { host?: string; projectId: string | number }
-  localGit?: { repoPath?: string }
-  project?: unknown
-  fragmentsDir?: string
-  targetPath?: string
-  port?: number
-  dbPath?: string
-  branch?: string
-}
+import { CliConfigSchema, type CliConfig } from './cli-config.js'
 
 function findConfig(): CliConfig | null {
   const candidates = [
@@ -47,7 +35,7 @@ function findConfig(): CliConfig | null {
     if (existsSync(p)) {
       const raw = readFileSync(p, 'utf8')
       try {
-        return (name.endsWith('.json') ? JSON.parse(raw) : parseYaml(raw)) as CliConfig
+        return name.endsWith('.json') ? CliConfigSchema.parse(JSON.parse(raw)) : CliConfigSchema.parse(parseYaml(raw))
       } catch (err) {
         throw new Error(`Failed to parse config '${name}': ${err instanceof Error ? err.message : String(err)}`)
       }
