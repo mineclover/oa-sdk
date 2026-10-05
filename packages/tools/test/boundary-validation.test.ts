@@ -148,6 +148,31 @@ describe('custom validator objects', () => {
     expect(validateToolInput(opaque, {})).toEqual({ success: false, error: 'nope' })
   })
 
+  it('uses safeParse, parse, and validate methods attached to a callable validator', () => {
+    const safeParsing = Object.assign(() => undefined, {
+      safeParse: (input: unknown) => (typeof input === 'object' && input !== null
+        ? { success: true as const, data: { ...input, coerced: true } }
+        : { success: false as const, error: new Error('expected an object') }),
+    })
+    expect(validateToolInput(safeParsing, {})).toEqual({ success: true, data: { coerced: true } })
+    expect(validateToolInput(safeParsing, 'a')).toEqual({ success: false, error: 'expected an object' })
+
+    const parsing = Object.assign(() => undefined, {
+      parse: (input: unknown) => {
+        if (typeof input !== 'string') throw new Error('expected a string')
+        return input.toUpperCase()
+      },
+    })
+    expect(validateToolInput(parsing, 'a')).toEqual({ success: true, data: 'A' })
+    expect(validateToolInput(parsing, 1)).toEqual({ success: false, error: 'expected a string' })
+
+    const guarding = Object.assign(() => undefined, {
+      validate: (input: unknown): input is number => typeof input === 'number',
+    })
+    expect(validateToolInput(guarding, 5)).toEqual({ success: true, data: 5 })
+    expect(validateToolInput(guarding, 'five')).toEqual({ success: false, error: 'Validation failed against schema type guard' })
+  })
+
   it('formats zod-like issues with their paths', () => {
     const zodLike = {
       _zod: {},

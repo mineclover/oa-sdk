@@ -55,9 +55,14 @@ export function isZodSchema(schema: unknown): schema is z.ZodType<unknown> {
   )
 }
 
-/** Read a property of an arbitrary value without asserting its shape. */
+/**
+ * Read a property of an arbitrary value without asserting its shape. Functions
+ * carry properties too: a callable validator can expose safeParse/parse/validate.
+ */
 function readProperty(value: unknown, key: string): unknown {
-  return typeof value === 'object' && value !== null ? Reflect.get(value, key) : undefined
+  return (typeof value === 'object' && value !== null) || typeof value === 'function'
+    ? Reflect.get(value, key)
+    : undefined
 }
 
 /** Return `key` as a callable bound to `target`, or undefined when it is not a function. */
