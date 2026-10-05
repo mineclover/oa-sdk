@@ -1,12 +1,12 @@
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { builtinModules } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { embeddedVersionTables } from './embedded-workspace-versions.mjs'
-import { readWorkspaceDependencyVersions } from './workspace-versions.mjs'
+import { readBuiltAgainstVersions } from './workspace-versions.mjs'
 
 const packageDirectory = new URL('..', import.meta.url)
 const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
@@ -63,22 +63,46 @@ try {
     throw new Error(`packed oa-gen imports packages a published install cannot resolve: ${unresolvable.join('; ')}`)
   }
 
-  // Install hints for a missing companion name the range this codegen supports, from the
-  // versions the build embeds (tsup.config.ts); they must be the companions it was built against.
-  const builtAgainst = readWorkspaceDependencyVersions(fileURLToPath(packageDirectory))
-  const embeddedTables = embeddedVersionTables(join(temporaryDirectory, 'package'), companions)
-  const unembedded = [...companions].filter(name =>
+  // Install hints for a missing companion, and the specifiers `oa-gen init` writes, name the
+  // range this codegen supports, from the versions the build embeds (tsup.config.ts); they must
+  // be the companions it was built against and codegen's own version.
+  const builtAgainst = readBuiltAgainstVersions(fileURLToPath(packageDirectory))
+  const embeddedPackages = [...companions, manifest.name]
+  const embeddedTables = embeddedVersionTables(join(temporaryDirectory, 'package'), embeddedPackages)
+  const unembedded = embeddedPackages.filter(name =>
     builtAgainst[name] === undefined || !embeddedTables.some(table => table[name] === builtAgainst[name]))
   if (unembedded.length > 0) {
     throw new Error(
-      `packed oa-gen does not embed the companion versions it was built against: ` +
+      `packed oa-gen does not embed the versions it was built against: ` +
         unembedded.map(name => `${name}@${builtAgainst[name] ?? '(not a workspace dependency)'}`).join(', '),
+    )
+  }
+
+  // `oa-gen init` in a consumer outside any workspace must write specifiers a registry install
+  // accepts: npm rejects the `workspace:` protocol. The packed CLI runs against this package's
+  // own dependencies, linked next to it as an install would place them.
+  symlinkSync(fileURLToPath(new URL('../node_modules', import.meta.url)), join(temporaryDirectory, 'package', 'node_modules'), 'dir')
+  const consumer = join(temporaryDirectory, 'consumer')
+  mkdirSync(consumer)
+  writeFileSync(join(consumer, 'package.json'), `${JSON.stringify({ name: 'consumer', private: true }, null, 2)}\n`)
+  execFileSync(process.execPath, [join(temporaryDirectory, 'package', manifest.bin['oa-gen']), 'init', '--yes', '--cwd', consumer], {
+    stdio: ['ignore', 'ignore', 'inherit'],
+  })
+  const scaffolded = JSON.parse(readFileSync(join(consumer, 'package.json'), 'utf8'))
+  const initSpecifiers = Object.entries({ ...scaffolded.dependencies, ...scaffolded.devDependencies })
+    .filter(([name]) => name.startsWith('@oa-sdk/'))
+  const uninstallable = initSpecifiers.filter(([name, specifier]) => specifier !== `^${builtAgainst[name]}`)
+  if (!initSpecifiers.some(([name]) => name === manifest.name) || uninstallable.length > 0) {
+    throw new Error(
+      `packed oa-gen init must write the built-against range of every @oa-sdk package outside a workspace, ` +
+        `received: ${initSpecifiers.map(([name, specifier]) => `${name}=${specifier}`).join(', ') || '(none)'}`,
     )
   }
 
   console.log(
     `OA Gen pack smoke OK: ${files.size} files, no workspace protocols, every import declared ` +
-      `or a dynamically loaded companion (${[...companions].map(name => `${name}@^${builtAgainst[name]}`).join(', ')})`,
+      `or a dynamically loaded companion (${[...companions].map(name => `${name}@^${builtAgainst[name]}`).join(', ')}), ` +
+      `init writes registry ranges (${initSpecifiers.map(([name, specifier]) => `${name}@${specifier}`).join(', ')})`,
   )
 } finally {
   rmSync(temporaryDirectory, { recursive: true, force: true })
