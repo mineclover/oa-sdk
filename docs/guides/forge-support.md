@@ -3,6 +3,11 @@
 oa-sdk는 TypeSpec 원본을 Cloudflare Forge가 직접 읽도록 연결하지 않습니다. TypeSpec에서
 생성한 OpenAPI 계약을 `@oa-sdk/parser`의 `ParsedDocument` IR로 읽고, `@oa-sdk/surface-ir`가
 SDK·CLI 표면을 target-neutral IR로 만든 뒤 Forge용 OpenAPI projection과 Overlay를 생성합니다.
+이 문서는 `@oa-sdk/codegen` 0.9.0과 `@oa-sdk/surface-ir` 0.1.1 기준입니다.
+
+외부 프로젝트는 자기 OpenAPI 문서(또는 `.tsp`)를 `oa-gen surface`나 `@oa-sdk/surface-ir` API에
+넘깁니다. 아래에서 `packages/schemas/...` 경로, 개수(34개 operation, 5개 command), Forge 연동
+데모와 검증 절은 oa-sdk 저장소의 production 계약 기준이며 저장소 기여자용입니다.
 
 ```text
 TypeSpec (.tsp)
@@ -18,14 +23,14 @@ TypeSpec (.tsp)
 
 | 영역 | 지원 수준 | 설명 |
 | --- | --- | --- |
-| TypeSpec 계약 입력 | 지원 | TypeSpec을 컴파일해 OpenAPI artifact를 생성한 뒤 사용한다. |
-| OpenAPI 3.1 bundle 입력 | 권장 | Forge target 입력으로 `packages/schemas/dist/openapi.json`을 사용한다. |
-| OpenAPI 3.2 canonical 입력 | 제한적 | Forge core resolver smoke test는 가능하지만 Fern 기반 전체 SDK 생성은 별도 검증이 필요하다. |
-| Surface IR 생성 | 지원 | 34개 production operation을 operation contract, projection, runtime profile, provenance로 변환한다. |
+| TypeSpec 계약 입력 | 지원 | `oa-gen surface --spec <file>.tsp`는 메모리에서 컴파일한 OpenAPI를 사용한다. |
+| OpenAPI 3.1 bundle 입력 | 권장 | Forge target 입력으로 `$ref`를 모두 해석한 3.1 문서를 쓴다. 이 저장소에서는 `packages/schemas/dist/openapi.json`이다. |
+| OpenAPI 3.2 canonical 입력 | 제한적 | Surface IR 생성과 Forge core resolver smoke test는 가능하지만 Fern 기반 전체 SDK 생성은 별도 검증이 필요하다. |
+| Surface IR 생성 | 지원 | operation마다 contract, projection, runtime profile, provenance를 만든다. 이 저장소의 production 계약은 34개 operation이다. |
 | Forge operation projection | 지원 | SDK group/method, availability, visibility, CLI override를 `x-fern-*`/`x-forge-*`로 투영한다. |
 | Forge command catalog | 지원 | OpenAPI tag와 surface projection에서 command/group description과 method catalog를 생성한다. |
 | Forge Overlay | 지원 | top-level command마다 하나의 OpenAPI Overlay를 생성한다. |
-| Forge core 초기화 | 검증됨 | 현재 production artifact가 5개 command, 34개 method로 초기화된다. |
+| Forge core 초기화 | 검증됨 | 이 저장소의 production artifact가 5개 command, 34개 method로 초기화된다. |
 | Fern TypeScript SDK 전체 생성 | 조건부 | Docker, Fern generator, custom runtime, generated SDK typecheck가 필요하다. |
 | SSE `itemSchema` | 제한적 | canonical OAS 3.2에는 보존되지만 3.1 downgrade artifact에서는 손실될 수 있다. |
 | Cloudflare envelope runtime | 별도 profile 필요 | oa-sdk의 direct body/error/page 모델과 Cloudflare `result` envelope를 구분해야 한다. |
@@ -103,6 +108,15 @@ TypeSpec (.tsp)
 
 ## 현재 API
 
+```bash
+npm install @oa-sdk/surface-ir @oa-sdk/parser
+```
+
+`@oa-sdk/surface-ir`는 Node.js 22 이상에서 동작합니다. `@oa-sdk/codegen` 0.9.0 릴리스에서 처음
+npm에 배포되므로, 이 릴리스 전에는 npm에서 설치할 수 없습니다. 설치할 수 있는 버전은
+[변경 이력](../changelog.md)에서 확인합니다. `oa-gen surface`만 쓴다면 `@oa-sdk/codegen`이 이
+패키지를 런타임 의존성으로 함께 설치하므로 따로 설치하지 않아도 됩니다.
+
 ```ts
 import { parseDocument } from '@oa-sdk/parser'
 import {
@@ -117,20 +131,37 @@ const projection = toForgeProjection(surface, parsed)
 const overlays = emitForgeOverlays(surface, parsed)
 ```
 
-`emitForgeOverlays()`는 Forge의 command 단위 overlay 해석 방식에 맞춰 command마다 하나의
-Overlay를 반환합니다. 현재 production artifact 검증 결과는 5개 command와 34개 method입니다.
+- `buildSurfaceIr()` 옵션: `target`(`generic` 기본, `forge`), `defaultAvailability`,
+  `operationOverrides`(operationId별 `groupPath`, `methodName`, `availability`, `visibility`,
+  `aliases`, `cli`), `groupForOperation`, `methodForOperation`, `defaultEnvelope`, `defaultErrors`.
+- 문제는 예외가 아니라 `surface.diagnostics`로 보고합니다(참조 미해결 문서, operationId 없음,
+  group/method 충돌, Forge의 `QUERY` 메서드 등).
+- `emitForgeOverlays()`는 Forge의 command 단위 overlay 해석 방식에 맞춰 command마다 하나의
+  Overlay를 반환합니다. 모든 operation을 Overlay 하나에 담으려면 `emitForgeOverlay()`를 씁니다.
+
+옵션과 진단 코드 전체는 [`@oa-sdk/surface-ir` README](../../packages/surface-ir/README.md)를 봅니다.
 
 ## `oa-gen surface`
 
-공식 CLI 진입점은 `surface`입니다. 기본 출력에는 Surface IR, Forge projection, command별
-Overlay, surface manifest가 포함됩니다.
+공식 CLI 진입점은 `surface`입니다. `--spec`에는 OpenAPI YAML/JSON이나 TypeSpec `.tsp`를 줍니다.
 
 ```bash
-oa-gen surface \
-  --spec packages/schemas/dist/openapi.json \
+npx oa-gen surface \
+  --spec ./openapi.json \
   --target forge \
   --out-dir artifacts/surface/forge
 ```
+
+`--out-dir`(기본값 `artifacts/surface/forge`)에 다음 파일을 씁니다.
+
+| 파일 | 내용 |
+| --- | --- |
+| `surface-ir.json` | Surface IR (`oa-sdk.surface-ir.v1`) |
+| `forge-projection.json` | operation별 `x-fern-*`/`x-forge-*` metadata와 command catalog |
+| `forge.<command>.overlay.yaml` | top-level command마다 하나의 OpenAPI Overlay |
+| `surface-manifest.json` | 입력 artifact hash, Surface IR version hash, operation/command 수, diagnostic 수, Overlay 경로 |
+
+이 저장소의 production 계약은 `--spec packages/schemas/dist/openapi.json`으로 실행합니다(저장소 기여자용).
 
 operation별 SDK 이름과 lifecycle을 별도 mapping 파일로 관리할 수 있습니다.
 
@@ -150,20 +181,20 @@ operations:
 ```
 
 ```bash
-oa-gen surface \
-  --spec packages/schemas/dist/openapi.json \
+npx oa-gen surface \
+  --spec ./openapi.json \
   --target forge \
   --mapping config/forge-surface.yaml \
   --out-dir artifacts/surface/forge
 ```
 
-`surface-manifest.json`에는 입력 artifact hash, Surface IR version hash, operation/command 수,
-diagnostic 수, 생성된 Overlay 경로가 기록됩니다. warning까지 CI에서 차단하려면
+error diagnostic이 있으면 종료 코드 1로 실패합니다. warning까지 CI에서 차단하려면
 `--fail-on-warning`을 사용합니다.
 
-## Forge 연동 데모
+## Forge 연동 데모 (저장소 기여자용)
 
-Forge checkout을 준비한 뒤 저장소의 demo script를 실행하면 현재 production artifact를
+oa-sdk 저장소 checkout에서 실행합니다. `scripts/forge-surface-demo.ts`는 배포 패키지에 들어 있지
+않습니다. Forge checkout을 준비한 뒤 demo script를 실행하면 이 저장소의 production artifact를
 실제 Forge `init()`에 넣어 command/method parity를 확인할 수 있습니다.
 
 ```bash
@@ -203,7 +234,7 @@ TypeScript SDK 생성과 generated runtime 동작은 별도 downstream test입�
 - generated SDK의 Docker/Fern 실행, custom fetcher, binary/multipart, SSE runtime 동작은
   별도의 downstream integration test가 필요합니다.
 
-## 검증
+## 검증 (저장소 기여자용)
 
 ```bash
 pnpm --filter @oa-sdk/parser typecheck
