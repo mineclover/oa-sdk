@@ -12,7 +12,12 @@ import {
   validateArtifactReleasePolicy,
   validateTrackDependencyBoundaries,
 } from './check-release-policy.js'
-import { externalPeerDependencies } from './lib/public-manifest.mjs'
+import { missingPackageName, probePublicImports } from './lib/public-import-probe.mjs'
+import {
+  consumerPeerDependencies,
+  declaredOptionalPeerImports,
+  optionalPeerEntryPointIssues,
+} from './lib/public-manifest.mjs'
 import { embeddedVersionTables } from '../packages/codegen/scripts/embedded-workspace-versions.mjs'
 import { COMPANION_PACKAGES } from '../packages/codegen/src/cli/lib/companion-packages.js'
 import { OA_SDK_INIT_PACKAGES } from '../packages/codegen/src/cli/lib/init/oa-sdk-packages.js'
@@ -195,20 +200,67 @@ try {
     'dependencies dependency @oa-sdk/private is not a distribution candidate',
   ])
 
-  // A consumer that installs the packed packages without peers gets every peer
-  // they do not provide themselves, optional ones included.
-  assert.deepEqual(externalPeerDependencies([
+  // A consumer's package manager installs the required peers of the packages,
+  // not their optional ones: the smokes' consumers get the same, so that an
+  // entry point importing an optional peer fails there as it would for a user.
+  const peerManifests = [
     { name: '@oa-sdk/react-bindings', peerDependencies: { react: '>=18.0.0', '@oa-sdk/core': '^0.3.0' } },
     { name: '@oa-sdk/core', peerDependencies: { zod: '>=4.0.0' }, peerDependenciesMeta: { zod: { optional: true } } },
     { name: '@oa-sdk/tools', peerDependencies: { zod: '>=3.0.0', msw: '' } },
-  ]), { msw: '*', react: '>=18.0.0', zod: '>=4.0.0 >=3.0.0' })
+    {
+      name: '@oa-sdk/mock-server',
+      peerDependencies: { msw: '>=2.0.0', typescript: '>=5.0.0' },
+      peerDependenciesMeta: { msw: { optional: true }, typescript: { optional: true } },
+    },
+  ]
+  // A peer one package requires is installed even where another marks it
+  // optional, at a range satisfying every declaration (msw: tools requires any
+  // version, mock-server's optional declaration asks for >=2.0.0).
+  assert.deepEqual(consumerPeerDependencies(peerManifests), { msw: '>=2.0.0', react: '>=18.0.0', zod: '>=4.0.0 >=3.0.0' })
+  assert.deepEqual(consumerPeerDependencies(peerManifests.slice(3)), {})
+  // Optional peers are installed only when named.
+  assert.deepEqual(consumerPeerDependencies(peerManifests.slice(3), { optionalPeers: ['msw'] }), { msw: '>=2.0.0' })
+  assert.deepEqual(consumerPeerDependencies(peerManifests, { optionalPeers: ['typescript'] }), {
+    msw: '>=2.0.0',
+    react: '>=18.0.0',
+    typescript: '>=5.0.0',
+    zod: '>=4.0.0 >=3.0.0',
+  })
   assert.throws(
-    () => externalPeerDependencies([
+    () => consumerPeerDependencies(peerManifests, { optionalPeers: ['vitest'] }),
+    /vitest is not a peer dependency of these packages/,
+  )
+  assert.throws(
+    () => consumerPeerDependencies([
       { name: 'a', peerDependencies: { react: '^18.0.0 || ^19.0.0' } },
       { name: 'b', peerDependencies: { react: '>=18.2.0' } },
     ]),
     /peer dependency react has ranges that cannot be combined: \^18\.0\.0 \|\| \^19\.0\.0, >=18\.2\.0/,
   )
+
+  // Only a subpath may import an optional peer, and only one the package
+  // declares optional: the root entry point is what every consumer imports.
+  const optionalPeerManifest = {
+    name: '@oa-sdk/example',
+    exports: { '.': './dist/index.js', './adapters/msw': './dist/msw.js' },
+    peerDependencies: { msw: '>=2.0.0', react: '>=18.0.0' },
+    peerDependenciesMeta: { msw: { optional: true } },
+  }
+  assert.deepEqual(optionalPeerEntryPointIssues(optionalPeerManifest, { './adapters/msw': ['msw'] }), [])
+  assert.deepEqual(optionalPeerEntryPointIssues(optionalPeerManifest, {
+    '.': ['msw'],
+    './missing': ['msw'],
+    './adapters/msw': ['react', 'zod'],
+  }), [
+    'the root entry point must import without optional peers (declared: msw); move what needs them to a subpath',
+    'optional peer entry point ./missing is not one of its exports',
+    'optional peer entry point ./adapters/msw declares react, a required peer that every consumer installs; drop it from the declaration',
+    'optional peer entry point ./adapters/msw declares zod, which is not one of its peer dependencies',
+  ])
+  assert.deepEqual(declaredOptionalPeerImports({ '@oa-sdk/example': { './adapters/msw': ['msw'] } }, '@oa-sdk/example'), [
+    { specifier: '@oa-sdk/example/adapters/msw', peers: ['msw'] },
+  ])
+  assert.deepEqual(declaredOptionalPeerImports(undefined, '@oa-sdk/example'), [])
 
   // Every distribution candidate of this repository meets them.
   const releaseCandidates = new Set(configuration.candidates)
@@ -221,7 +273,95 @@ try {
     const manifest = workspaceManifests.find(entry => entry.name === candidate)
     assert.ok(manifest, `${candidate} must be a workspace package`)
     assert.deepEqual(distributionCandidateManifestIssues(manifest, 'public', releaseCandidates), [], candidate)
+    assert.deepEqual(
+      optionalPeerEntryPointIssues(manifest, configuration.optionalPeerEntryPoints[candidate] ?? {}),
+      [],
+      `${candidate} optionalPeerEntryPoints`,
+    )
   }
+  // msw is an optional peer of @oa-sdk/mock-server: its root entry point, which
+  // `oa-gen mock` loads, imports without it, and only the MSW entry points need it.
+  assert.deepEqual(configuration.optionalPeerEntryPoints, {
+    '@oa-sdk/mock-server': { './adapters/msw': ['msw'], './browser': ['msw'] },
+  })
+}
+
+// The consumer smokes import every public entry point. One that fails because
+// a package is not installed names it, and the entry points declared to need
+// optional peers must need exactly those.
+{
+  const missing = (name: string) =>
+    Object.assign(new Error(`Cannot find package '${name}' imported from /consumer/node_modules/@oa-sdk/example/dist/index.js`), {
+      code: 'ERR_MODULE_NOT_FOUND',
+    })
+  assert.equal(missingPackageName(missing('msw')), 'msw')
+  assert.equal(missingPackageName(missing('@mswjs/interceptors/presets/node')), '@mswjs/interceptors')
+  assert.equal(
+    missingPackageName(Object.assign(new Error("Cannot find module '/consumer/node_modules/@oa-sdk/example/dist/index.js'"), {
+      code: 'ERR_MODULE_NOT_FOUND',
+    })),
+    undefined,
+    'a missing file of an installed package is a broken package, not a missing one',
+  )
+  assert.equal(missingPackageName(new SyntaxError("Cannot find package 'msw'")), undefined)
+
+  const installed = new Set<string>()
+  const surfaces: Record<string, () => Record<string, unknown>> = {
+    '@oa-sdk/example': () => ({ createServer: () => undefined }),
+    '@oa-sdk/example/adapters/msw': () => {
+      if (!installed.has('msw')) throw missing('msw')
+      return { createMswHandlers: () => [] }
+    },
+    '@oa-sdk/example/lazy': () => ({ load: () => undefined }),
+    '@oa-sdk/example/empty': () => ({}),
+    '@oa-sdk/example/broken': () => {
+      throw new TypeError('example is not a function')
+    },
+    '@oa-sdk/example/undeclared': () => {
+      throw missing('graphql')
+    },
+  }
+  const probe = (plan: Parameters<typeof probePublicImports>[0]) => probePublicImports(plan, {
+    importModule: async (specifier: string) => {
+      const surface = surfaces[specifier]
+      if (!surface) throw missing(specifier)
+      return surface()
+    },
+    isInstalled: (name: string) => installed.has(name),
+  })
+
+  assert.deepEqual(await probe({
+    imports: ['@oa-sdk/example'],
+    withoutOptionalPeers: [{ specifier: '@oa-sdk/example/adapters/msw', peers: ['msw'] }],
+  }), [])
+  // An undeclared entry point that needs an optional peer, or a package its
+  // package does not declare, fails as it would for a consumer.
+  assert.deepEqual(await probe({
+    imports: ['@oa-sdk/example/adapters/msw', '@oa-sdk/example/empty', '@oa-sdk/example/broken'],
+  }), [
+    '@oa-sdk/example/adapters/msw cannot be imported without msw, which a consumer does not get with it ' +
+      '(an optional peer, or a package it does not declare): make it a dependency or a required peer, ' +
+      'or import it only from subpaths that docs/internal/release-policy.json declares under optionalPeerEntryPoints',
+    '@oa-sdk/example/empty has no runtime exports',
+    '@oa-sdk/example/broken failed to import: example is not a function',
+  ])
+  // A declaration must stay needed, and must name every optional peer the
+  // entry point needs.
+  assert.deepEqual(await probe({
+    withoutOptionalPeers: [
+      { specifier: '@oa-sdk/example/lazy', peers: ['msw'] },
+      { specifier: '@oa-sdk/example/undeclared', peers: ['msw'] },
+    ],
+  }), [
+    '@oa-sdk/example/lazy imports without msw; remove that peer from its optionalPeerEntryPoints declaration in docs/internal/release-policy.json',
+    "@oa-sdk/example/undeclared failed to import for a reason other than its declared optional peers (msw): Cannot find package 'graphql' imported from /consumer/node_modules/@oa-sdk/example/dist/index.js",
+  ])
+  // With the optional peers installed, the declared entry points import.
+  installed.add('msw')
+  assert.deepEqual(await probe({ imports: ['@oa-sdk/example/adapters/msw'] }), [])
+  assert.deepEqual(await probe({
+    withoutOptionalPeers: [{ specifier: '@oa-sdk/example/adapters/msw', peers: ['msw'] }],
+  }), [])
 }
 
 const policyIssues = validateArtifactReleasePolicy({
@@ -235,6 +375,34 @@ const policyIssues = validateArtifactReleasePolicy({
 })
 assert(policyIssues.includes(`publish.mode must be ${ARTIFACT_ONLY_PUBLISH_MODE}`))
 assert(policyIssues.some(issue => issue.startsWith('publish.repository must be an HTTPS')))
+
+const validArtifactPolicy = {
+  version: POLICY_VERSION,
+  publish: { enabled: false, mode: ARTIFACT_ONLY_PUBLISH_MODE, repository: 'https://github.com/mineclover/oa-sdk-releases.git' },
+  distributionCandidates: ['@oa-sdk/core', '@oa-sdk/mock-server'],
+}
+assert.deepEqual(validateArtifactReleasePolicy(validArtifactPolicy), [])
+assert.deepEqual(validateArtifactReleasePolicy({
+  ...validArtifactPolicy,
+  optionalPeerEntryPoints: { '@oa-sdk/mock-server': { './adapters/msw': ['msw'] } },
+}), [])
+assert.deepEqual(validateArtifactReleasePolicy({ ...validArtifactPolicy, optionalPeerEntryPoints: [] }), [
+  'optionalPeerEntryPoints must map distribution candidates to entry points',
+])
+assert.deepEqual(validateArtifactReleasePolicy({
+  ...validArtifactPolicy,
+  optionalPeerEntryPoints: {
+    '@oa-sdk/personas': { './msw': ['msw'] },
+    '@oa-sdk/core': 'msw',
+    '@oa-sdk/mock-server': { 'adapters/msw': ['msw'], './browser': [], './node': ['msw', 'msw'] },
+  },
+}), [
+  'optionalPeerEntryPoints names @oa-sdk/personas, which is not a distribution candidate',
+  'optionalPeerEntryPoints.@oa-sdk/core must map export subpaths to the optional peers they import',
+  'optionalPeerEntryPoints.@oa-sdk/mock-server: adapters/msw is not an export subpath',
+  'optionalPeerEntryPoints.@oa-sdk/mock-server["./browser"] must be a non-empty array of distinct package names',
+  'optionalPeerEntryPoints.@oa-sdk/mock-server["./node"] must be a non-empty array of distinct package names',
+])
 
 const publicVersions = new Map([
   ['@oa-sdk/core', '1.2.3'],

@@ -10,7 +10,8 @@ import { fileURLToPath } from 'node:url'
 import { embeddedVersionTables } from '../packages/codegen/scripts/embedded-workspace-versions.mjs'
 import { REGISTRY_OA_SDK_PACKAGES } from '../packages/codegen/src/cli/lib/init/oa-sdk-packages.js'
 import { readArtifactReleasePolicy } from './check-release-policy.js'
-import { externalPeerDependencies } from './lib/public-manifest.mjs'
+import { consumerProbeSource } from './lib/public-import-probe.mjs'
+import { consumerPeerDependencies, declaredOptionalPeerImports } from './lib/public-manifest.mjs'
 
 const root = resolve(import.meta.dirname, '..')
 const sourcePolicyPath = join(root, 'docs/internal/release-policy.json')
@@ -60,9 +61,13 @@ export type ReleaseManifest = {
   draft?: DraftReleaseMetadata
 }
 
+/** release-policy.json `optionalPeerEntryPoints`: package name -> export subpath -> optional peers it imports. */
+export type OptionalPeerEntryPoints = Readonly<Record<string, Readonly<Record<string, readonly string[]>>>>
+
 export type ReleaseExportConfiguration = {
   candidates: string[]
   repository: string
+  optionalPeerEntryPoints: OptionalPeerEntryPoints
 }
 
 export function readReleaseExportConfiguration(
@@ -72,6 +77,7 @@ export function readReleaseExportConfiguration(
   return {
     candidates: [...policy.distributionCandidates],
     repository: policy.publish.repository,
+    optionalPeerEntryPoints: policy.optionalPeerEntryPoints ?? {},
   }
 }
 
@@ -194,7 +200,7 @@ function main(): void {
       packages.push(exported)
     }
     assert(packages.length > 0, 'at least one --version <package>=<version> is required')
-    validateSanitizedReleaseConsumption(packages, releaseDirectory)
+    validateSanitizedReleaseConsumption(packages, releaseDirectory, configuration.optionalPeerEntryPoints)
     const draft = args.dryRun ? createDraftReleaseMetadata(sourceProvenance) : undefined
     writeJson(join(releaseDirectory, 'manifest.json'), createReleaseManifest(
       args.releaseId,
@@ -569,9 +575,21 @@ export function publicImportSpecifiers(
     .sort()
 }
 
+/**
+ * Installs the exported tarballs into a scratch consumer and checks that their
+ * public entry points import and type-check, and that the packed `oa-gen` runs.
+ *
+ * The consumer first gets what a consumer's package manager installs with the
+ * packages: their dependencies and required peers, not their optional peers.
+ * Every entry point must import with that alone, and `oa-gen` runs there.
+ * The entry points `optionalPeerEntryPoints` declares are the exception: they
+ * must fail without their optional peers and import once those are installed
+ * too.
+ */
 export function validateSanitizedReleaseConsumption(
   packages: readonly ReleasePackage[],
   releaseDirectory: string,
+  optionalPeerEntryPoints: OptionalPeerEntryPoints = {},
 ): void {
   const consumerDirectory = mkdtempSync(join(tmpdir(), 'oa-sdk-release-consumer-'))
   try {
@@ -584,32 +602,34 @@ export function validateSanitizedReleaseConsumption(
     }))
     const specifiers = manifests.flatMap(({ entry, manifest }) =>
       publicImportSpecifiers(entry.name, manifest))
-
-    writeJson(join(consumerDirectory, 'package.json'), {
-      name: 'oa-sdk-sanitized-release-consumer-smoke',
-      private: true,
-      type: 'module',
-      dependencies: externalPeerDependencies(manifests.map(({ manifest }) => manifest)),
-    })
-    runIsolatedNpm([
-      'install',
+    const packageManifests = manifests.map(({ manifest }) => manifest)
+    const optionalPeerImports = manifests.flatMap(({ entry }) =>
+      declaredOptionalPeerImports(optionalPeerEntryPoints, entry.name))
+    const declaredSpecifiers = new Set(optionalPeerImports.map(({ specifier }) => specifier))
+    for (const specifier of declaredSpecifiers) {
+      assert(specifiers.includes(specifier), `optionalPeerEntryPoints declares ${specifier}, which is not a public entry point`)
+    }
+    const requiredPeers = consumerPeerDependencies(packageManifests)
+    const npmInstallFlags = [
       '--ignore-scripts',
       '--legacy-peer-deps',
       '--omit=optional',
       '--no-audit',
       '--no-fund',
       '--package-lock=false',
-      ...archives,
-    ], consumerDirectory)
+    ]
 
-    const importSmokePath = join(consumerDirectory, 'import-smoke.mjs')
-    writeFileSync(
-      importSmokePath,
-      `const specifiers = ${JSON.stringify(specifiers)}\n` +
-        'for (const specifier of specifiers) await import(specifier)\n',
-      'utf8',
-    )
-    run([process.execPath, importSmokePath], consumerDirectory)
+    writeJson(join(consumerDirectory, 'package.json'), {
+      name: 'oa-sdk-sanitized-release-consumer-smoke',
+      private: true,
+      type: 'module',
+      dependencies: requiredPeers,
+    })
+    runIsolatedNpm(['install', ...npmInstallFlags, ...archives], consumerDirectory)
+    runConsumerImportProbe(consumerDirectory, {
+      imports: specifiers.filter(specifier => !declaredSpecifiers.has(specifier)),
+      withoutOptionalPeers: optionalPeerImports,
+    })
 
     const generatedTypesPath = join(consumerDirectory, 'generated-types.ts')
     const codegen = manifests.find(({ entry }) => entry.name === CODEGEN_PACKAGE)
@@ -663,6 +683,19 @@ export function validateSanitizedReleaseConsumption(
       )
     }
 
+    // The entry points that need optional peers import once those are installed
+    // as well, which the type check below also needs.
+    if (optionalPeerImports.length > 0) {
+      const optionalPeers = consumerPeerDependencies(packageManifests, {
+        optionalPeers: [...new Set(optionalPeerImports.flatMap(({ peers }) => peers))],
+      })
+      const additions = Object.entries(optionalPeers)
+        .filter(([name]) => !Object.hasOwn(requiredPeers, name))
+        .map(([name, range]) => `${name}@${range}`)
+      runIsolatedNpm(['install', ...npmInstallFlags, ...additions], consumerDirectory)
+      runConsumerImportProbe(consumerDirectory, { imports: [...declaredSpecifiers] })
+    }
+
     const typeScriptManifest = readJson(join(root, 'node_modules/typescript/package.json'))
     assert(
       isRecord(typeScriptManifest)
@@ -701,6 +734,16 @@ export function validateSanitizedReleaseConsumption(
   } finally {
     rmSync(consumerDirectory, { recursive: true, force: true })
   }
+}
+
+/** Runs the public import probe (scripts/lib/public-import-probe.mjs) inside `consumerDirectory`. */
+function runConsumerImportProbe(
+  consumerDirectory: string,
+  plan: { imports: readonly string[]; withoutOptionalPeers?: readonly { specifier: string; peers: readonly string[] }[] },
+): void {
+  const probePath = join(consumerDirectory, 'import-probe.mjs')
+  writeFileSync(probePath, consumerProbeSource(plan), 'utf8')
+  console.log(run([process.execPath, probePath], consumerDirectory).trim())
 }
 
 function validateReleaseRepository(path: string, publicRepository: string): void {

@@ -87,6 +87,25 @@ official export의 `--version`은 committed workspace package version과 같아�
 consumer smoke가 동작하는지 확인하고 SHA-512 manifest를 기록한다. 이 단계도 npm publish는
 하지 않는다.
 
+### Consumer smoke와 optional peer
+
+exporter의 consumer smoke와 CI의 Node 22/24/26 public runtime smoke(`scripts/public-runtime-smoke.mjs`)는
+pack된 tarball을 빈 consumer project에 설치하고 모든 public entry point(root와 각 export subpath)를
+import한다. consumer에는 사용자의 package manager가 함께 설치하는 것, 즉 dependency와 required peer
+dependency만 둔다. `peerDependenciesMeta`에서 optional로 표시한 peer는 npm과 pnpm이 설치하지 않으므로
+consumer에도 설치하지 않는다.
+
+- optional peer를 import하는 entry point는 `docs/internal/release-policy.json`의
+  `optionalPeerEntryPoints`에 package → export subpath → optional peer 목록으로 선언한다. 현재 선언은
+  `@oa-sdk/mock-server`의 `./adapters/msw`와 `./browser`(`msw`)뿐이다.
+- 선언하지 않은 entry point가 optional peer나 manifest에 선언하지 않은 package를 import하면 smoke가
+  실패한다. root entry point는 선언할 수 없고, 선언한 subpath와 peer는 그 package의 export와 optional
+  peer여야 한다. `pnpm check:release-policy`가 source manifest에서 이를 먼저 검사한다.
+- 선언한 entry point는 그 peer가 없을 때 바로 그 peer 때문에 실패해야 하고(필요 없어진 선언이나
+  빠진 peer를 찾는다), peer를 설치한 consumer에서는 import되어야 한다.
+- `oa-gen` 명령도 optional peer 없는 consumer에서 실행한다. runtime smoke는 `validate`, `typegen`과
+  함께 `oa-gen init` scaffold의 `mock` script가 실행하는 `oa-gen mock`을 띄워 요청 하나를 보낸다.
+
 ### Internal dependency version gate
 
 public manifest의 `workspace:` runtime/optional/peer dependency는 다음 순서로 version이 정해진다.

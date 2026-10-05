@@ -7,7 +7,11 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { basename, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { manifestTargetsOutsideFiles, publicNodeEngineIssue } from './lib/public-manifest.mjs'
+import {
+  manifestTargetsOutsideFiles,
+  optionalPeerEntryPointIssues,
+  publicNodeEngineIssue,
+} from './lib/public-manifest.mjs'
 
 type TrackPolicy =
   | 'active'
@@ -40,6 +44,12 @@ export type ReleasePolicy = {
     repository: string
   }
   distributionCandidates: string[]
+  /**
+   * Export subpaths of distribution candidates that import optional peers,
+   * with those peers: package name -> subpath -> peer names. Every other
+   * public entry point must import with only dependencies and required peers.
+   */
+  optionalPeerEntryPoints?: Record<string, Record<string, string[]>>
   bulkTaskExcluded: string[]
   tracks: Record<string, WorkspaceTrack>
   releaseTracked: string[]
@@ -60,6 +70,7 @@ type PackageJson = {
   dependencies?: Record<string, string>
   devDependencies?: Record<string, string>
   peerDependencies?: Record<string, string>
+  peerDependenciesMeta?: Record<string, { optional?: boolean }>
   optionalDependencies?: Record<string, string>
   files?: string[]
   publishConfig?: {
@@ -133,6 +144,7 @@ function main(): void {
   validateWorkspaceCoverage(policy, workspacePackages, issues)
   validateTrackDependencyBoundaries(policy, workspacePackages, issues)
   validateWorkspaceManifests(policy, workspacePackages, issues)
+  validateOptionalPeerEntryPoints(policy, workspacePackages, issues)
   validateReleaseDoc(policy, releaseDoc, issues)
 
   if (issues.length > 0) {
@@ -192,6 +204,39 @@ export function validateArtifactReleasePolicy(value: unknown): string[] {
     }
   }
 
+  if (value.optionalPeerEntryPoints !== undefined) {
+    const candidates = new Set(Array.isArray(value.distributionCandidates) ? value.distributionCandidates : [])
+    issues.push(...optionalPeerEntryPointsShapeIssues(value.optionalPeerEntryPoints, candidates))
+  }
+
+  return issues
+}
+
+function optionalPeerEntryPointsShapeIssues(value: unknown, candidates: ReadonlySet<unknown>): string[] {
+  if (!isRecord(value)) return ['optionalPeerEntryPoints must map distribution candidates to entry points']
+  const issues: string[] = []
+  for (const [name, entryPoints] of Object.entries(value)) {
+    if (!candidates.has(name)) {
+      issues.push(`optionalPeerEntryPoints names ${name}, which is not a distribution candidate`)
+    }
+    if (!isRecord(entryPoints)) {
+      issues.push(`optionalPeerEntryPoints.${name} must map export subpaths to the optional peers they import`)
+      continue
+    }
+    for (const [subpath, peers] of Object.entries(entryPoints)) {
+      if (subpath !== '.' && !subpath.startsWith('./')) {
+        issues.push(`optionalPeerEntryPoints.${name}: ${subpath} is not an export subpath`)
+      }
+      if (
+        !Array.isArray(peers)
+        || peers.length === 0
+        || peers.some(peer => typeof peer !== 'string' || peer === '')
+        || new Set(peers).size !== peers.length
+      ) {
+        issues.push(`optionalPeerEntryPoints.${name}["${subpath}"] must be a non-empty array of distinct package names`)
+      }
+    }
+  }
   return issues
 }
 
@@ -662,6 +707,27 @@ export function distributionCandidateManifestIssues(
     }
   }
   return issues
+}
+
+/**
+ * Each optionalPeerEntryPoints declaration must match the manifest of its
+ * package: an export subpath other than the root one, importing optional peers
+ * of that package. The public runtime smoke then checks that every other entry
+ * point imports without optional peers and that the declared ones need them.
+ */
+function validateOptionalPeerEntryPoints(
+  policy: ReleasePolicy,
+  workspacePackages: WorkspacePackage[],
+  issues: string[],
+): void {
+  if (!isRecord(policy.optionalPeerEntryPoints)) return
+  for (const [name, entryPoints] of Object.entries(policy.optionalPeerEntryPoints)) {
+    const workspacePackage = workspacePackages.find(entry => entry.manifest.name === name)
+    if (!workspacePackage || !isRecord(entryPoints)) continue
+    for (const issue of optionalPeerEntryPointIssues(workspacePackage.manifest, entryPoints)) {
+      issues.push(`${relative(root, workspacePackage.packageJsonPath)}: ${issue}`)
+    }
+  }
 }
 
 function getRuntimeDependencySections(manifest: PackageJson): Record<string, Record<string, string>> {

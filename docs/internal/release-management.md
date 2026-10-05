@@ -35,6 +35,10 @@ release candidate의 현재 판단 입력과 source/external 책임 경계는
   source manifest는 `private: false`, public Node floor인 `engines.node: ">=22.0.0"`, 그리고
   `files`에 포함된 entry point를 선언해야 한다. Node 22/24/26 public runtime smoke가 packed artifact에서
   검증하는 이 규칙을 `pnpm check:release-policy`도 source manifest에서 먼저 검사한다.
+  두 smoke의 consumer는 optional peer 없이 설치하므로, root entry point를 포함한 public entry point는
+  dependency와 required peer만으로 import되어야 한다. optional peer가 필요한 export subpath는
+  `release-policy.json`의 `optionalPeerEntryPoints`에 선언한다(`@oa-sdk/mock-server`의 `./adapters/msw`,
+  `./browser`).
 - 다른 release-tracked package는 아직 private이다. `publish.enabled: false`와
   `publish.mode: artifact-only`는 source repository의 registry publish 경로를 닫는다. Distribution
   candidate의 실제 registry 배포는 별도 artifact repository의 승인된 workflow만 수행한다.

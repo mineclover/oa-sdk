@@ -37,6 +37,16 @@
     "@oa-sdk/client",
     "@oa-sdk/mock-server"
   ],
+  "optionalPeerEntryPoints": {
+    "@oa-sdk/mock-server": {
+      "./adapters/msw": [
+        "msw"
+      ],
+      "./browser": [
+        "msw"
+      ]
+    }
+  },
   "bulkTaskExcluded": [
     "@oa-sdk/ttsc-compile-fixture"
   ],

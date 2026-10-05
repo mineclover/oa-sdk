@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
+import { once } from 'node:events'
 import {
   existsSync,
   mkdirSync,
@@ -12,10 +13,17 @@ import {
 import { basename, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { collectManifestTargets, externalPeerDependencies, publicNodeEngineIssue } from './lib/public-manifest.mjs'
+import { consumerProbeSource } from './lib/public-import-probe.mjs'
+import {
+  collectManifestTargets,
+  consumerPeerDependencies,
+  declaredOptionalPeerImports,
+  publicNodeEngineIssue,
+} from './lib/public-manifest.mjs'
 
 const root = fileURLToPath(new URL('../', import.meta.url))
 const supportedRuntimeMajors = [22, 24, 26]
+const OPTIONAL_PEER_CONSUMER = 'optional-peer-consumer'
 
 const [mode, directoryArgument, expectedMajorArgument] = process.argv.slice(2)
 assert(mode === 'prepare' || mode === 'verify', 'usage: public-runtime-smoke.mjs <prepare|verify> <directory> [expected-node-major]')
@@ -23,7 +31,7 @@ assert(directoryArgument, 'runtime smoke directory is required')
 
 const smokeDirectory = resolve(directoryArgument)
 if (mode === 'prepare') prepare(smokeDirectory)
-else verify(smokeDirectory, expectedMajorArgument)
+else await verify(smokeDirectory, expectedMajorArgument)
 
 function prepare(directory) {
   assert(Number(process.versions.node.split('.')[0]) >= 24, 'release artifacts must be prepared with the Node >=24 development toolchain')
@@ -32,7 +40,6 @@ function prepare(directory) {
   const tarballDirectory = join(directory, 'tarballs')
   const consumerDirectory = join(directory, 'consumer')
   mkdirSync(tarballDirectory, { recursive: true })
-  mkdirSync(consumerDirectory, { recursive: true })
 
   const policy = readJson(join(root, 'docs/internal/release-policy.json'))
   const candidates = policy.distributionCandidates
@@ -63,24 +70,24 @@ function prepare(directory) {
     packedPackages.push({ name, archive: basename(archive), manifest: packedManifest })
   }
 
-  // The install below skips peers (--legacy-peer-deps), as the probe imports every public
-  // entry point; a consumer installs the peers those need, such as react, itself.
-  writeJson(join(consumerDirectory, 'package.json'), {
-    name: 'oa-sdk-public-runtime-smoke-consumer',
-    private: true,
-    type: 'module',
-    dependencies: externalPeerDependencies(packedPackages.map(entry => entry.manifest)),
-  })
-  runIsolatedNpm([
-    'install',
-    '--ignore-scripts',
-    '--legacy-peer-deps',
-    '--omit=optional',
-    '--no-audit',
-    '--no-fund',
-    '--package-lock=false',
-    ...packedPackages.map(entry => join(tarballDirectory, entry.archive)),
-  ], consumerDirectory)
+  // `consumer` gets what a consumer's package manager installs with the packed
+  // packages: their dependencies and required peers, not their optional peers.
+  // Every public entry point must import there, except the ones release-policy.json
+  // declares under optionalPeerEntryPoints. Those are imported in
+  // `optional-peer-consumer`, which also has the optional peers they declare.
+  const archives = packedPackages.map(entry => join(tarballDirectory, entry.archive))
+  const manifests = packedPackages.map(entry => entry.manifest)
+  const optionalPeerImports = packedPackages.flatMap(({ name }) =>
+    declaredOptionalPeerImports(policy.optionalPeerEntryPoints, name))
+  installConsumer(consumerDirectory, consumerPeerDependencies(manifests), archives)
+  if (optionalPeerImports.length > 0) {
+    const optionalPeers = [...new Set(optionalPeerImports.flatMap(({ peers }) => peers))]
+    installConsumer(
+      join(directory, OPTIONAL_PEER_CONSUMER),
+      consumerPeerDependencies(manifests, { optionalPeers }),
+      archives,
+    )
+  }
 
   const installed = packedPackages.map(({ name }) => {
     const manifestPath = join(consumerDirectory, 'node_modules', ...name.split('/'), 'package.json')
@@ -90,19 +97,48 @@ function prepare(directory) {
       specifiers: publicImportSpecifiers(name, manifest),
     }
   })
+  const publicSpecifiers = new Set(installed.flatMap(entry => entry.specifiers))
+  for (const { specifier } of optionalPeerImports) {
+    assert(publicSpecifiers.has(specifier), `optionalPeerEntryPoints declares ${specifier}, which is not a public entry point`)
+  }
   writeJson(join(directory, 'runtime-smoke.json'), {
     preparedWithNode: process.versions.node,
     supportedRuntimeMajors,
     packages: installed.map(({ name, specifiers }) => ({ name, specifiers })),
+    optionalPeerImports,
   })
 
   console.log(
     `Public runtime smoke prepared with Node ${process.versions.node}: ` +
-      `${installed.length} packed packages, ${installed.flatMap(entry => entry.specifiers).length} public imports.`,
+      `${installed.length} packed packages, ${publicSpecifiers.size} public imports ` +
+      `(${optionalPeerImports.length} that need optional peers).`,
   )
 }
 
-function verify(directory, expectedMajorValue) {
+/** Installs the packed `archives` into a new consumer at `directory`, with `dependencies` (the peers it adds). */
+function installConsumer(directory, dependencies, archives) {
+  mkdirSync(directory, { recursive: true })
+  writeJson(join(directory, 'package.json'), {
+    name: 'oa-sdk-public-runtime-smoke-consumer',
+    private: true,
+    type: 'module',
+    dependencies,
+  })
+  // With --legacy-peer-deps npm installs no peer itself: `dependencies` names
+  // the ones this consumer gets.
+  runIsolatedNpm([
+    'install',
+    '--ignore-scripts',
+    '--legacy-peer-deps',
+    '--omit=optional',
+    '--no-audit',
+    '--no-fund',
+    '--package-lock=false',
+    ...archives,
+  ], directory)
+}
+
+async function verify(directory, expectedMajorValue) {
   const expectedMajor = Number(expectedMajorValue)
   assert(supportedRuntimeMajors.includes(expectedMajor), `expected Node major must be one of ${supportedRuntimeMajors.join(', ')}`)
   const actualMajor = Number(process.versions.node.split('.')[0])
@@ -117,20 +153,18 @@ function verify(directory, expectedMajorValue) {
   const consumerDirectory = join(directory, 'consumer')
   const specifiers = metadata.packages.flatMap(entry => entry.specifiers)
   assert(specifiers.length > 0, 'runtime smoke metadata has no public imports')
+  assert(Array.isArray(metadata.optionalPeerImports), 'runtime smoke metadata has no optionalPeerImports list')
+  const optionalPeerSpecifiers = new Set(metadata.optionalPeerImports.map(({ specifier }) => specifier))
 
-  const probePath = join(consumerDirectory, 'runtime-probe.mjs')
-  writeFileSync(
-    probePath,
-    `import assert from 'node:assert/strict'\n` +
-      `const specifiers = ${JSON.stringify(specifiers)}\n` +
-      `for (const specifier of specifiers) {\n` +
-      `  const surface = await import(specifier)\n` +
-      `  assert(Object.keys(surface).length > 0, \`\${specifier} has no runtime exports\`)\n` +
-      `}\n` +
-      `console.log(\`Imported \${specifiers.length} public root/subpath surfaces.\`)\n`,
-    'utf8',
-  )
-  run(process.execPath, [probePath], consumerDirectory)
+  // Without optional peers, every entry point imports but the declared ones,
+  // which fail for want of the optional peers they declare.
+  runImportProbe(consumerDirectory, {
+    imports: specifiers.filter(specifier => !optionalPeerSpecifiers.has(specifier)),
+    withoutOptionalPeers: metadata.optionalPeerImports,
+  })
+  if (optionalPeerSpecifiers.size > 0) {
+    runImportProbe(join(directory, OPTIONAL_PEER_CONSUMER), { imports: [...optionalPeerSpecifiers] })
+  }
 
   const codegenDirectory = join(consumerDirectory, 'node_modules', '@oa-sdk', 'codegen')
   const codegenManifest = readJson(join(codegenDirectory, 'package.json'))
@@ -177,11 +211,66 @@ function verify(directory, expectedMajorValue) {
   run(process.execPath, [cliPath, 'validate', '--spec', specPath, '--require-32'], consumerDirectory)
   run(process.execPath, [cliPath, 'typegen', '--spec', specPath, '--output', generatedPath], consumerDirectory)
   assert(readFileSync(generatedPath, 'utf8').includes('export type Health'), 'oa-gen typegen produced no Health type')
+  // The `mock` script of an `oa-gen init` scaffold, served by the @oa-sdk/mock-server companion.
+  await smokeMockServer(cliPath, specPath, consumerDirectory)
 
   console.log(
     `Public runtime compatibility OK on Node ${process.versions.node}: ` +
       `${metadata.packages.length} packages, ${specifiers.length} public imports, oa-gen CLI.`,
   )
+}
+
+/** Runs the public import probe (scripts/lib/public-import-probe.mjs) with `plan` inside `consumerDirectory`. */
+function runImportProbe(consumerDirectory, plan) {
+  const probePath = join(consumerDirectory, 'runtime-probe.mjs')
+  writeFileSync(probePath, consumerProbeSource(plan), 'utf8')
+  run(process.execPath, [probePath], consumerDirectory)
+}
+
+/**
+ * Starts `oa-gen mock` on a free port, requests the spec's `/health` operation
+ * and stops the server.
+ */
+async function smokeMockServer(cliPath, specPath, cwd) {
+  const server = spawn(process.execPath, [cliPath, 'mock', '--spec', specPath, '--port', '0'], {
+    cwd,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  const exited = once(server, 'exit')
+  let output = ''
+  try {
+    const url = await new Promise((resolveUrl, reject) => {
+      const timeout = setTimeout(() => reject(new Error(`oa-gen mock did not start within 30s:\n${output}`)), 30_000)
+      server.stdout.setEncoding('utf8').on('data', chunk => {
+        output += chunk
+        const started = /running at: (http:\/\/\S+)/.exec(output)
+        if (started) {
+          clearTimeout(timeout)
+          resolveUrl(started[1])
+        }
+      })
+      server.stderr.setEncoding('utf8').on('data', chunk => {
+        output += chunk
+      })
+      exited.then(([code, signal]) => {
+        clearTimeout(timeout)
+        reject(new Error(`oa-gen mock exited (${signal ?? code}) before serving:\n${output}`))
+      }, error => {
+        clearTimeout(timeout)
+        reject(error)
+      })
+    })
+    const response = await fetch(new URL('health', `${url.replace(/\/$/, '')}/`))
+    assert.equal(response.status, 200, `oa-gen mock answered GET /health with ${response.status}`)
+    const body = await response.json()
+    assert.equal(typeof body?.ok, 'boolean', `oa-gen mock answered GET /health with ${JSON.stringify(body)}`)
+    console.log(`oa-gen mock served GET /health at ${url}.`)
+  } finally {
+    const forceKill = setTimeout(() => server.kill('SIGKILL'), 10_000)
+    if (server.exitCode === null && server.signalCode === null) server.kill('SIGTERM')
+    // A spawn failure already rejected the start above with its error.
+    await exited.catch(() => undefined).finally(() => clearTimeout(forceKill))
+  }
 }
 
 function readWorkspacePackages() {
