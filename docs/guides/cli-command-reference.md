@@ -263,16 +263,17 @@ artifact 계약의 정본은 codegen이 공개하는 JSON Schema
   `sha256:` hash를 씁니다.
 
 따라서 같은 codegen version이면, spec과 그 `$ref`가 닿는 파일, provenance 파일이 같은 project
-root 기준 경로에 같은 byte로 있을 때 어느 checkout에서든 byte 단위로 같은 출력이 나옵니다. 같은 파일이라도 다른 project root에서 실행하면
-`source`의 경로와 변환한 `sourcePath`가 달라지고 나머지는 같습니다. build-spec provenance 파일은
-checkout의 절대 경로를 담으므로 checkout마다 byte가 달라 `source.provenance.contentHash`도 달라집니다.
+root 기준 경로에 같은 byte로 있을 때 어느 checkout에서든 byte 단위로 같은 출력이 나옵니다.
+같은 파일이라도 다른 project root에서 실행하면 `source`의 경로와 변환한 `sourcePath`가 달라지고
+나머지는 같습니다. build-spec provenance 파일은 checkout의 절대 경로를 담으므로 checkout마다
+byte가 달라 `source.provenance.contentHash`도 달라집니다.
 
 `canonicalId` 매핑은 노드 pointer 자신 또는 가장 가까운 상위 pointer의 provenance entry를
 쓰며, spec-lens graph와 같은 `findNearestJsonPointerEntry()`(`@oa-sdk/parser`)를 공유합니다.
 
 종료 코드는 artifact를 쓰면 `0`이고, `--spec` 누락, 읽을 수 없거나 파싱할 수 없는 spec·provenance,
-형식이 틀린 provenance entry(문자열 필드 누락, 빈 `canonicalId`)이면 `1`입니다(출력 파일을 쓰지 않음). `ref-cycle` 같은 진단은
-artifact 내용이며 종료 코드를 바꾸지 않습니다.
+형식이 틀린 provenance entry(문자열 필드 누락, 빈 `canonicalId`)이면 `1`입니다(출력 파일을 쓰지
+않음). `ref-cycle` 같은 진단은 artifact 내용이며 종료 코드를 바꾸지 않습니다.
 
 ## generate:tanstack 옵션 및 인수 명세
 
