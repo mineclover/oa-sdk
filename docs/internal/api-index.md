@@ -1635,7 +1635,7 @@ peer 저장소, room registry, home MCP 도구 및 HTTP server lifecycle을 제�
 
 | Export | 정의 | 용도 |
 |---|---|---|
-| `PeerServerOptions`, `SignalingPeerSocket`, `SignalingRoomEntry`, `PeerStoreData` | `peer-server/src/types.ts` | 서버·signaling peer·room·영속 저장소 계약 |
+| `PeerServerOptions`, `SignalingToolCallMessage`, `SignalingPeerSocket`, `SignalingRoomEntry`, `PeerStoreData` | `peer-server/src/types.ts` | 서버·signaling peer(provider로 전달되는 tool call 메시지 포함)·room·영속 저장소 계약 |
 | `FilePeerStore`, `isSafeAlias` | `peer-server/src/store.ts` | 파일 기반 peer 저장과 alias 검증 |
 | `PeerRoomManagerOptions`, `PeerRoomManager` | `peer-server/src/room.ts` | peer room·세션 관리 |
 | `createHomeMcpTools` | `peer-server/src/home-mcp.ts` | home MCP 도구 생성 |
