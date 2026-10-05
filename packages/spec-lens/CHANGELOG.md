@@ -4,6 +4,9 @@
 
 ### Patch Changes
 
+- Timeline refresh decodes a path-item pointer such as `#/paths/~1users` to `/users`. Before, it decoded it to `//users`, so no diff entry matched a spec path and every path reported the newest revision as `lastChangedRevisionId`. Pointers below a path item are ignored instead of being decoded into a path such as `/users/parameters`.
+- The graph handler maps `$ref` edges through the parser's ref-preserving `projectRefGraph()`. Path-level edges, which went missing because path keys were not pointer-escaped, are reported, and a dangling `$ref` no longer produces an edge. Self-edges stay hidden.
+- `spec-lens.config` files are validated against what the CLI reads. Only the section of the selected `source` is read, and it must be present for `github` and `gitlab`; a missing or empty `source` means `local-git`, and any value other than `local-git`, `github` or `gitlab` is rejected; a key with an empty value counts as not set; `port` accepts a number or a numeric string and must be an integer from 0 to 65535; `project`, `fragmentsDir` and `targetPath` pass through to project resolution. An empty or comment-only config file makes the CLI auto-detect the project. A config that breaks these rules fails with `Failed to parse config`; before, an unknown `source` fell back to `local-git` and wrongly typed fields were used as they were.
 - Updated dependencies
 - Updated dependencies
 - Updated dependencies [b4f5dd4]
