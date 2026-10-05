@@ -136,6 +136,8 @@ export function companionRange(
 /**
  * Install command for `packages`, in the dialect of the package manager that
  * launched `oa-gen` (read from `npm_config_user_agent`), falling back to npm.
+ * Omitting `userAgent` or passing `undefined` both read the environment at call
+ * time; package managers export that variable to every script they run.
  * Packages are added as dev dependencies, next to `@oa-sdk/codegen` itself,
  * because `oa-gen` loads them at generation time. Each package carries the
  * range this build supports when it is known; the specifier is quoted because
