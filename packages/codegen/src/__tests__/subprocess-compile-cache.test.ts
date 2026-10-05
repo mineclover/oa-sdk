@@ -25,10 +25,13 @@ const HELPER_URL = pathToFileURL(join(HERE, 'helpers/subprocess-compile-cache.ts
  *   정상 종료하지 않도록 타이머로 프로세스를 붙잡아 둔다.
  * 두 번째 인자가 있으면 setup 뒤에 그 디렉터리를 만든다. 중단된 실행의 남은 워커가 이 실행 도중
  * 캐시 디렉터리를 다시 만드는 경우를 흉내 낸다.
+ * 보고에는 setup 직후 os.tmpdir()에 있는 캐시 이름 항목도 담는다. teardown·'exit' 정리가 돌기 전이므로
+ * setup이 무엇을 거뒀는지를 끝내는 방식과 상관없이 따로 확인할 수 있다.
  */
 const SETUP_CHILD_SCRIPT = `
-import { existsSync, mkdirSync, writeSync } from 'node:fs'
-const { default: setup } = await import(${JSON.stringify(HELPER_URL)})
+import { existsSync, mkdirSync, readdirSync, writeSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+const { default: setup, COMPILE_CACHE_DIR_PREFIX } = await import(${JSON.stringify(HELPER_URL)})
 const teardown = setup()
 const cacheDir = process.env.NODE_COMPILE_CACHE ?? null
 writeSync(1, JSON.stringify({
@@ -36,6 +39,7 @@ writeSync(1, JSON.stringify({
   managed: typeof teardown === 'function',
   cacheDir,
   created: cacheDir !== null && existsSync(cacheDir),
+  cacheEntriesAfterSetup: readdirSync(tmpdir()).filter((name) => name.startsWith(COMPILE_CACHE_DIR_PREFIX)).sort(),
 }) + '\\n')
 const appearsDuringRun = process.argv[2]
 if (appearsDuringRun) mkdirSync(appearsDuringRun, { recursive: true })
@@ -60,6 +64,8 @@ interface SetupChildReport {
   managed: boolean
   cacheDir: string | null
   created: boolean
+  /** setup 직후 os.tmpdir()에 있던, 캐시 접두사로 시작하는 항목 이름(정렬됨). */
+  cacheEntriesAfterSetup: string[]
 }
 
 interface SetupChildRun {
@@ -209,7 +215,7 @@ describe('subprocess compile cache (vitest globalSetup)', () => {
       expect(compileCacheEntries(parentDir)).toEqual([])
     })
 
-    it('leaves a killed run\'s cache for the next run to reclaim, sparing live owners and other entries', () => {
+    it('leaves a killed run\'s cache for the next run\'s setup to reclaim, sparing live owners and other entries', () => {
       const killed = runSetupChild(parentDir, 'sigkill')
       expect(killed.signal).toBe('SIGKILL')
       expect(killed.report.created).toBe(true)
@@ -227,11 +233,30 @@ describe('subprocess compile cache (vitest globalSetup)', () => {
       const next = runSetupChild(parentDir, 'teardown')
 
       expect(next.status, next.stderr).toBe(0)
+      // teardown이 돌기 전, setup만으로 버려진 캐시가 사라지고 나머지 항목은 그대로다.
+      expect(next.report.cacheEntriesAfterSetup).toEqual(
+        [liveOwned, withoutPid, fileNamedLikeCache, next.report.cacheDir!].map((path) => basename(path)).sort(),
+      )
       expect(existsSync(abandoned)).toBe(false)
       expect(existsSync(liveOwned)).toBe(true)
       expect(existsSync(withoutPid)).toBe(true)
       expect(existsSync(fileNamedLikeCache)).toBe(true)
       expect(existsSync(next.report.cacheDir!)).toBe(false)
+    })
+
+    it('reclaims a killed run\'s cache at setup even when the next run is itself stopped before teardown', () => {
+      const killed = runSetupChild(parentDir, 'sigkill')
+      expect(killed.signal).toBe('SIGKILL')
+      const abandoned = killed.report.cacheDir!
+      expect(existsSync(abandoned)).toBe(true)
+
+      // teardown 없이 끝나면 'exit' 정리는 이 실행 자신의 캐시만 지우므로, 앞선 실행의 캐시는 setup만 거둘 수 있다.
+      const next = runSetupChild(parentDir, 'exit')
+
+      expect(next.status, next.stderr).toBe(143)
+      expect(next.report.cacheEntriesAfterSetup).toEqual([basename(next.report.cacheDir!)])
+      expect(existsSync(abandoned)).toBe(false)
+      expect(compileCacheEntries(parentDir)).toEqual([])
     })
 
     it('reclaims at teardown a cache that an interrupted run\'s leftover workers recreated during this run', () => {
@@ -244,6 +269,7 @@ describe('subprocess compile cache (vitest globalSetup)', () => {
       const next = runSetupChild(parentDir, 'teardown', { appearsDuringRun: join(abandoned, 'v24-recreated') })
 
       expect(next.status, next.stderr).toBe(0)
+      expect(next.report.cacheEntriesAfterSetup).toEqual([basename(next.report.cacheDir!)])
       expect(existsSync(abandoned)).toBe(false)
       expect(compileCacheEntries(parentDir)).toEqual([])
     })
