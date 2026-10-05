@@ -74,12 +74,40 @@ unescapeJsonPointerToken('~01')                   // '~1' (never '/')
 - URI fragment로 쓸 때는 결과 앞에 `#`를 붙입니다. 헬퍼는 percent-encoding을 하지
   않습니다.
 
+## Output is a shared, read-only graph / 출력은 공유 그래프(DAG)
+
+`parseDocument()`는 같은 `$ref` 대상을 한 번만 전개하고 그 결과 객체를 사용처마다 공유합니다.
+예를 들어 두 operation의 응답이 모두 `#/components/schemas/User`를 가리키면 두 위치의 schema는
+같은 객체입니다. 결과는 순환이 없는 DAG이므로 다음을 지킵니다.
+
+- 반환된 문서와 하위 객체를 수정하지 않습니다. 고치면 같은 객체를 공유하는 다른 위치도 바뀝니다.
+  입력 문서도 수정하지 않으며, 결과의 일부는 입력과 객체를 공유합니다.
+- 재귀 순회의 방문 체크를 전역 `seen` 집합으로 하지 않습니다. 같은 객체가 형제 위치에 다시 나오면
+  두 번째 위치를 건너뛰게 됩니다. 현재 경로의 조상 목록으로 순환만 막습니다.
+- 재귀 스키마의 순환 지점은 기본적으로 `{}`가 되고, `cycleStrategy: 'preserve-ref'`이면 `$ref`로
+  남습니다.
+
+## Route index and matching / 라우트 인덱스와 매칭
+
+- `parseDocument(spec).routes`와 `loadSchema(spec, passes?)`는 같은 route index 빌더를 씁니다.
+  `loadSchema`는 `ParsedDocument`의 나머지(참조 완결성 정보 포함)를 만들지 않으므로, 미해결
+  참조를 확인해야 하면 `parseDocument`를 씁니다. browser entry의 `loadSchema(spec)`는 pass 목록을
+  받지 않고 `parseDocument(spec).routes`를 반환합니다(참조가 완결되지 않으면 예외).
+- Reference Object 위치(parameter, requestBody, response, callback)의 `$ref` 옆 필드: 기본
+  pipeline(deref pass)은 옆에 적은 필드를 모두 해소된 대상에 덮어씁니다. `$ref`를 해소하는 pass가
+  없는 pipeline(예: `loadSchema(spec, [])`)은 OAS 3.2 규칙대로 `summary`·`description`만 적용합니다
+  (parameter·requestBody는 `description`, response는 둘 다). 따라서 `$ref` 옆에 다른 필드를 적은
+  문서는 pipeline에 따라 결과가 다를 수 있습니다.
+- `matchRoute(index, method, path)`는 `found`, `method_not_allowed`, `not_found` 중 하나를
+  반환합니다. 구체적인 경로(`/users/me`)가 템플릿 경로(`/users/{id}`)보다 우선하고, path parameter
+  값은 percent-decoding 없이 받은 그대로 돌려줍니다.
+
 ## Zero-Decorator Route Extraction (@oaOperation)
 
 TypeScript 소스 코드의 JSDoc 주석(`/** @oaOperation <METHOD> <PATH> */`)으로부터 런타임 데코레이터 없이 직접 OpenAPI 3.2 operation 메타데이터를 추출합니다:
 
 ```typescript
-import { extractTsOperationsFromSource } from '@oa-sdk/parser'
+import { extractOperationsFromSource } from '@oa-sdk/parser'
 
 const source = `
 /**
@@ -89,10 +117,31 @@ const source = `
 export function getUser(id: string) {}
 `
 
-const operations = extractTsOperationsFromSource(source)
-console.log(operations[0].method) // 'get'
-console.log(operations[0].path)   // '/users/{id}'
+const { operations, diagnostics } = extractOperationsFromSource(source)
+console.log(operations[0]?.method) // 'get'
+console.log(operations[0]?.path)   // '/users/{id}'
+console.log(diagnostics.length)    // 0
 ```
+
+`extractOperationsFromSource(sourceText, filePath?)`와 `extractOperationsFromFile(filePath)`는
+`{ operations, operationEntries, diagnostics }`를 반환합니다. `operationEntries`는 route index와
+같은 `OperationEntry` 형태입니다.
+
+## API overview / API 목록
+
+| 영역 | export |
+|---|---|
+| 파싱과 IR | `parseDocument`, `isParsedDocument`, `isParsedDocumentComplete`, `assertParsedDocumentComplete`, `IncompleteParsedDocumentError` |
+| 라우팅 | `loadSchema`, `matchRoute`, `HTTP_METHODS` |
+| 조회 | `findOperation`, `findByTag`, `findByPath`, `getSchema`, `getTag`, `groupByTag`, `describeApi`, `resolveServerUrl`, `getQuerystringParameter` |
+| 검증과 린트 | `validateDocument`, `lintDocument` |
+| `$ref` 전개와 그래프 | `DerefFolder`, `derefSpec`, `derefSpecWithDiagnostics`, `runPipeline`, `derefPass`, `createDerefPass`, `DEFAULT_PASSES`, `collectRefs`, `resolveRefGraph`, `projectRefGraph`, `resolvePointer`, `isRelativeRef` |
+| 스키마 순회 | `foldSchema`, `SchemaFolder` |
+| JSON Pointer와 원본 위치 | `appendJsonPointer`, `escapeJsonPointerToken`, `formatJsonPointer`, `parseJsonPointer`, `unescapeJsonPointerToken`, `createSourceLocationIndex`, `createYamlSourceLocationIndex` |
+| `@oaOperation` 추출 | `extractOperationsFromSource`, `extractOperationsFromFile`, `toOperationEntry`, `buildPathPointer`, `SUPPORTED_HTTP_METHODS` |
+| Definition Builder | `parseDefinitionId`, `validateDefinitionId(s)`, `createDefinitionNode`, `createDefinitionRef`, `createDefinitionRegistry`, `collectDefinitionRefs`, `allocateDefinitionOutputNames`, `selectDefinitionTarget`, `emitDefinitionOpenApiDocument`, `toDefinitionOpenApiProjectionResult` 등 |
+
+정확한 목록과 시그니처는 package root와 `./browser` export의 TypeScript declaration을 따릅니다.
 
 지원 symbol의 기준은 package root와 `./browser` export가 제공하는 TypeScript declaration이다.
 공개 artifact에는 private source repository의 문서·테스트·개발 이력이 포함되지 않는다.
