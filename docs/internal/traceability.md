@@ -34,11 +34,11 @@
 
 | 타입 파일 | 사용하는 구현 파일 |
 |----------|------------------|
-| `types/document.ts` | `parser/parse.ts`, `parser/schema-loader.ts`, `parser/lint.ts` |
+| `types/document.ts` | `parser/parse.ts`, `parser/schema-loader.ts`, `parser/route-index.ts`, `parser/lint.ts` |
 | `types/server.ts` | `parser/parse.ts`, `parser/types.ts` (IR) |
 | `types/components.ts` | `parser/parse.ts` |
-| `types/operations.ts` | `parser/parse.ts`, `parser/schema-loader.ts`, `parser/lint.ts` |
-| `types/parameters.ts` | `parser/parse.ts`, `parser/schema-loader.ts`, `mock-server/request-validator.ts`, `parser/lint.ts` |
+| `types/operations.ts` | `parser/parse.ts`, `parser/route-index.ts`, `parser/lint.ts` |
+| `types/parameters.ts` | `parser/parse.ts`, `parser/route-index.ts`, `mock-server/request-validator.ts`, `parser/lint.ts` |
 | `types/request-body.ts` | `parser/parse.ts`, `mock-server/request-validator.ts`, `mock-server/response-picker.ts` |
 | `types/responses.ts` | `parser/parse.ts`, `mock-server/response-picker.ts` |
 | `types/examples.ts` | `parser/parse.ts`, `mock-server/response-picker.ts` |
@@ -56,7 +56,8 @@
 |----------|--------------|
 | **parser** | |
 | `parse.ts` | §4.8.1 (Document), §4.8.7 (Components), §4.8.9 (Operations), §4.8.27 (Security) |
-| `schema-loader.ts` | §4.8.8 (Paths), §4.8.9 (PathItem), §4.8.12 (Parameters) |
+| `schema-loader.ts` | §4.8.8 (Paths — `loadSchema`: pipeline 뒤 `route-index.ts`로 색인) |
+| `route-index.ts` | §4.8.1 (Document — `webhooks`), §4.8.8 (Paths), §4.8.9 (PathItem — `$ref`, `additionalOperations`), §4.8.10 (Operation), §4.8.12 (Parameters), §4.8.23 (operation 위치 Reference Object의 `summary`/`description` override) |
 | `deref.ts` | §4.8.23 (Reference Object, $ref) |
 | `ref-graph.ts` | §4.8.23 (Reference Object, $ref), §4.8.24 (Schema Object 참조 그래프) |
 | `fold.ts` | §4.8.24 (Schema Object) |

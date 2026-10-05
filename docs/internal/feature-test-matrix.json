@@ -41,6 +41,7 @@
         "packages/parser/src/__tests__/parse-document.test.ts",
         "packages/parser/src/__tests__/parse-edge-cases.test.ts",
         "packages/parser/src/__tests__/schema-loader.test.ts",
+        "packages/parser/src/__tests__/route-index-parity.test.ts",
         "packages/parser/src/__tests__/lint*.test.ts",
         "packages/parser/src/__tests__/validate.test.ts",
         "packages/parser/src/__tests__/query.test.ts",
