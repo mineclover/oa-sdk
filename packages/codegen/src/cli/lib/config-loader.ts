@@ -102,18 +102,81 @@ function isTsTranspileRequired(err: unknown, filePath: string): boolean {
   )
 }
 
+/** The TypeScript compiler, or null when it is not installed. */
+async function importTypeScript(): Promise<typeof import('typescript') | null> {
+  try {
+    const tsMod = await import('typescript')
+    return (tsMod as any).default ?? tsMod
+  } catch {
+    return null
+  }
+}
+
+/**
+ * The `type` field of the package.json nearest to `filePath`. Node loads a `.ts`
+ * file as it loads a `.js` file: as CommonJS under `"type": "commonjs"`, as an
+ * ES module under `"type": "module"`, and by its syntax when the field is absent.
+ */
+function packageScopeType(filePath: string): unknown {
+  let directory = path.dirname(filePath)
+  for (;;) {
+    const manifestPath = path.join(directory, 'package.json')
+    if (fs.existsSync(manifestPath)) {
+      try {
+        return (JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as { type?: unknown }).type
+      } catch {
+        return undefined
+      }
+    }
+    const parent = path.dirname(directory)
+    if (parent === directory) return undefined
+    directory = parent
+  }
+}
+
+/** True when `statement` is ES module syntax that remains after Node strips the types. */
+function isRuntimeModuleSyntax(ts: typeof import('typescript'), statement: import('typescript').Statement): boolean {
+  if (ts.isImportDeclaration(statement)) return !statement.importClause?.isTypeOnly
+  if (ts.isExportDeclaration(statement)) return !statement.isTypeOnly
+  if (ts.isExportAssignment(statement)) return !statement.isExportEquals
+  if (ts.isInterfaceDeclaration(statement) || ts.isTypeAliasDeclaration(statement)) return false
+  const modifiers = ts.canHaveModifiers(statement) ? ts.getModifiers(statement) : undefined
+  return modifiers !== undefined
+    && modifiers.some(modifier => modifier.kind === ts.SyntaxKind.ExportKeyword)
+    && !modifiers.some(modifier => modifier.kind === ts.SyntaxKind.DeclareKeyword)
+}
+
+/**
+ * True when Node would load the TypeScript file `filePath` as CommonJS although
+ * it is written as an ES module: a `.ts` file with `import` or `export`
+ * statements under a package.json with `"type": "commonjs"`, which `npm init`
+ * writes since npm 11. Node's type stripping then fails on the first of them
+ * ("Cannot use import statement outside a module"), so such a file is
+ * transpiled to an ES module instead. Type-only imports and exports and the
+ * declarations Node strips are not counted: a configuration written as
+ * CommonJS may use them and still loads natively.
+ */
+export async function isEsModuleTypeScriptInCommonJsScope(filePath: string): Promise<boolean> {
+  if (path.extname(filePath).toLowerCase() !== '.ts') return false
+  if (packageScopeType(filePath) !== 'commonjs') return false
+  const ts = await importTypeScript()
+  if (!ts) return false
+  const source = ts.createSourceFile(
+    filePath,
+    await fs.promises.readFile(filePath, 'utf8'),
+    ts.ScriptTarget.Latest,
+    false,
+    ts.ScriptKind.TS,
+  )
+  return source.statements.some(statement => isRuntimeModuleSyntax(ts, statement))
+}
+
 /**
  * Defensive fallback: Transpiles TypeScript using the TypeScript compiler,
  * writes a temporary .mjs module, imports it, and cleans up.
  */
 async function transpileAndImport<T>(filePath: string, cacheBust: boolean): Promise<T> {
-  let ts: typeof import('typescript') | null = null
-  try {
-    const tsMod = await import('typescript')
-    ts = (tsMod as any).default ?? tsMod
-  } catch {
-    // typescript not installed
-  }
+  const ts = await importTypeScript()
 
   if (!ts) {
     throw new Error(
@@ -174,6 +237,10 @@ export async function loadModule<T = unknown>(
   }
 
   const cacheBust = options?.cacheBust ?? true
+  if (await isEsModuleTypeScriptInCommonJsScope(resolvedPath)) {
+    return await transpileAndImport<T>(resolvedPath, cacheBust)
+  }
+
   const fileUrl = pathToFileURL(resolvedPath).href + (cacheBust ? `?t=${Date.now()}` : '')
 
   try {

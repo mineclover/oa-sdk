@@ -18,6 +18,7 @@ import { tmpdir } from 'node:os'
 import {
   loadOaConfig,
   findConfigFile,
+  isEsModuleTypeScriptInCommonJsScope,
   resolveProfileTarget,
   resolveGuardTarget,
   CANDIDATE_CONFIG_FILES,
@@ -183,6 +184,64 @@ export default {
 
       const result = await loadOaConfig({ cwd: testDir })
       expect(result?.config.specs?.[0]?.profile).toBe('component-bundle')
+    })
+  })
+
+  // Node loads a `.ts` file as CommonJS under "type": "commonjs" (what `npm init` writes since
+  // npm 11), where the `import` that `oa-gen init` puts in oa.config.ts is a syntax error. The
+  // packed-CLI smoke (scripts/package-pack-smoke.mjs) runs the real loader in such a project.
+  describe('TypeScript configuration in a CommonJS package scope', () => {
+    const esModuleConfig = `import { defineConfig } from '@oa-sdk/codegen'
+export default defineConfig({ specs: [] })
+`
+    const scope = (type: string | undefined) => {
+      writeFileSync(join(testDir, 'package.json'), JSON.stringify(type === undefined ? { name: 'app' } : { name: 'app', type }))
+    }
+    const config = (name: string, content: string) => {
+      const configPath = join(testDir, name)
+      writeFileSync(configPath, content)
+      return configPath
+    }
+
+    it('transpiles an ES module oa.config.ts under "type": "commonjs"', async () => {
+      scope('commonjs')
+      expect(await isEsModuleTypeScriptInCommonJsScope(config('oa.config.ts', esModuleConfig))).toBe(true)
+      expect(await isEsModuleTypeScriptInCommonJsScope(config('export-only.ts', 'export default { specs: [] }\n'))).toBe(true)
+      expect(await isEsModuleTypeScriptInCommonJsScope(config('value-import.ts', "import { type A, b } from './b'\nmodule.exports = b\n"))).toBe(true)
+    })
+
+    it('leaves files to Node where it loads them as written', async () => {
+      const configPath = config('oa.config.ts', esModuleConfig)
+      scope('module')
+      expect(await isEsModuleTypeScriptInCommonJsScope(configPath)).toBe(false)
+      // Without a type field, Node detects the module syntax itself.
+      scope(undefined)
+      expect(await isEsModuleTypeScriptInCommonJsScope(configPath)).toBe(false)
+      scope('commonjs')
+      expect(await isEsModuleTypeScriptInCommonJsScope(config('oa.config.mts', esModuleConfig))).toBe(false)
+    })
+
+    it('keeps a CommonJS configuration that uses only syntax Node strips', async () => {
+      scope('commonjs')
+      const commonJs = config('oa.config.ts', `import type { OaConfig } from '@oa-sdk/codegen'
+export type Alias = OaConfig
+export interface Local { id: string }
+declare const marker: string
+export type { OaConfig as Config } from '@oa-sdk/codegen'
+const config: OaConfig = { specs: [] }
+module.exports = config
+`)
+      expect(await isEsModuleTypeScriptInCommonJsScope(commonJs)).toBe(false)
+      expect(await isEsModuleTypeScriptInCommonJsScope(config('export-equals.ts', 'const config = { specs: [] }\nexport = config\n'))).toBe(false)
+    })
+
+    it('reads the nearest package.json, as Node does', async () => {
+      scope('module')
+      const nested = join(testDir, 'packages', 'app')
+      mkdirSync(nested, { recursive: true })
+      writeFileSync(join(nested, 'package.json'), JSON.stringify({ name: 'nested', type: 'commonjs' }))
+      writeFileSync(join(nested, 'oa.config.ts'), esModuleConfig)
+      expect(await isEsModuleTypeScriptInCommonJsScope(join(nested, 'oa.config.ts'))).toBe(true)
     })
   })
 
