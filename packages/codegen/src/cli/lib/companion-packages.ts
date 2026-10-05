@@ -17,6 +17,7 @@
  * packages that the commands of its scaffold load.
  */
 import type { ArtifactKind, OaConfig } from '../../config.js'
+import { BUILT_AGAINST_VERSIONS, builtAgainstRange } from './built-against-versions.js'
 import { CliExitError } from './errors.js'
 import type { CommandContext } from './types.js'
 
@@ -98,40 +99,7 @@ export class CompanionLoader {
 }
 
 // ---------------------------------------------------------------------------
-// Versions
-
-/**
- * JSON text of the versions of the `@oa-sdk` workspace packages this build was
- * built and tested against, embedded by the build (tsup.config.ts) and by the
- * test runner (vitest.config.ts); see scripts/workspace-versions.mjs.
- */
-declare const __OA_SDK_WORKSPACE_VERSIONS__: string | undefined
-
-/**
- * Versions of the `@oa-sdk` packages this build of codegen was built and tested
- * against, keyed by package name. Empty when the source runs without the
- * build-time constant, e.g. through a plain TypeScript loader.
- */
-export const BUILT_AGAINST_VERSIONS: Readonly<Record<string, string>> = Object.freeze(
-  typeof __OA_SDK_WORKSPACE_VERSIONS__ === 'string'
-    ? JSON.parse(__OA_SDK_WORKSPACE_VERSIONS__) as Record<string, string>
-    : {},
-)
-
-/**
- * The versions of `packageName` this build of codegen supports: releases
- * compatible (`^`) with the version it was built and tested against, or
- * `undefined` when that version is unknown. The packages are versioned
- * independently of codegen, so this is the only record of which companion
- * release matches a given codegen release.
- */
-export function companionRange(
-  packageName: string,
-  versions: Readonly<Record<string, string>> = BUILT_AGAINST_VERSIONS,
-): string | undefined {
-  const version = versions[packageName]
-  return version === undefined ? undefined : `^${version}`
-}
+// Install commands
 
 /**
  * Install command for `packages`, in the dialect of the package manager that
@@ -149,7 +117,7 @@ export function companionInstallCommand(
   versions: Readonly<Record<string, string>> = BUILT_AGAINST_VERSIONS,
 ): string {
   const list = [...new Set(packages)].map((name) => {
-    const range = companionRange(name, versions)
+    const range = builtAgainstRange(name, versions)
     return range === undefined ? name : `"${name}@${range}"`
   }).join(' ')
   switch (userAgent?.split('/', 1)[0]) {

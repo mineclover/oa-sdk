@@ -8,13 +8,12 @@ import { generateTanstackCommand } from '../../cli/commands/generate-tanstack.js
 import { generate } from '../../cli/commands/generate.js'
 import { mock, type MockCommandContext } from '../../cli/commands/mock.js'
 import { CliExitError } from '../../cli/lib/errors.js'
+import { builtAgainstRange } from '../../cli/lib/built-against-versions.js'
 import {
-  BUILT_AGAINST_VERSIONS,
   COMMAND_COMPANIONS,
   COMPANION_PACKAGES,
   CompanionLoader,
   commandCompanion,
-  companionRange,
   explicitCompanionOutputs,
   importCompanion,
   isMissingPackageError,
@@ -182,30 +181,10 @@ describe('companionInstallCommand', () => {
   })
 
   it('pins the companions to the versions this build was built against by default', () => {
-    const range = companionRange('@oa-sdk/client')
+    const range = builtAgainstRange('@oa-sdk/client')
     expect(range).toBeDefined()
     expect(companionInstallCommand(['@oa-sdk/client'], 'npm/11.6.2'))
       .toBe(`npm install --save-dev "@oa-sdk/client@${range}"`)
-  })
-})
-
-describe('versions this build was built against', () => {
-  const packageDirectory = path.resolve(__dirname, '../../..')
-  const linkedVersion = (name: string): string =>
-    (JSON.parse(fs.readFileSync(path.join(packageDirectory, 'node_modules', name, 'package.json'), 'utf8')) as {
-      version: string
-    }).version
-
-  it('are the versions of the linked companion packages, which the tests and the build run against', () => {
-    for (const name of COMPANION_PACKAGES) {
-      expect(BUILT_AGAINST_VERSIONS[name], name).toBe(linkedVersion(name))
-      expect(companionRange(name), name).toBe(`^${linkedVersion(name)}`)
-    }
-  })
-
-  it('are unknown for a package the build did not embed', () => {
-    expect(companionRange('@oa-sdk/not-a-companion')).toBeUndefined()
-    expect(companionRange('@oa-sdk/client', {})).toBeUndefined()
   })
 })
 

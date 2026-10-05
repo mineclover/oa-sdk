@@ -4,10 +4,10 @@ import * as path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { generate } from '../../cli/commands/generate.js'
 import { CliExitError } from '../../cli/lib/errors.js'
+import { builtAgainstRange } from '../../cli/lib/built-against-versions.js'
 import {
   importCompanion,
   companionInstallCommand,
-  companionRange,
   type CompanionCommandContext,
   type CompanionImporter,
 } from '../../cli/lib/companion-packages.js'
@@ -110,7 +110,7 @@ describe('oa-gen generate without companion packages', () => {
       const message = errors.join('\n')
       expect(message).toContain('handler contracts (requested by core.contracts.pureHandlers: true) requires @oa-sdk/router')
       expect(message).toContain(companionInstallCommand(['@oa-sdk/router']))
-      expect(message).toContain(`"@oa-sdk/router@${companionRange('@oa-sdk/router')}"`)
+      expect(message).toContain(`"@oa-sdk/router@${builtAgainstRange('@oa-sdk/router')}"`)
       expect(message).toContain('set core.contracts.pureHandlers to false')
       expect(fs.existsSync(path.join(tmpDir, 'generated'))).toBe(false)
       expect(fs.existsSync(path.join(tmpDir, '.oa-manifest.json'))).toBe(false)
@@ -180,7 +180,7 @@ describe('oa-gen generate without companion packages', () => {
       expect(warning).toContain('Skipped outputs whose companion package is not installed')
       expect(warning).toContain('handler contracts: @oa-sdk/router')
       expect(warning).toContain(companionInstallCommand(['@oa-sdk/router']))
-      expect(warning).toContain(`"@oa-sdk/router@${companionRange('@oa-sdk/router')}"`)
+      expect(warning).toContain(`"@oa-sdk/router@${builtAgainstRange('@oa-sdk/router')}"`)
       expect(warning).not.toContain('@oa-sdk/client')
       expect(logs.join('\n')).toContain('Contracts Generated: 0')
     })
