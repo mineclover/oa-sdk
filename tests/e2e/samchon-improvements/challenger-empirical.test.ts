@@ -46,11 +46,11 @@ import {
 } from '../../../packages/parser/src/index.js';
 
 // Production imports from @oa-sdk/codegen CLI
+import { auditShapeCommand } from '../../../packages/codegen/src/cli/commands/audit-shape.js';
 import {
-  auditShapeCommand,
   auditShapeFiles,
   findTypeScriptFiles,
-} from '../../../packages/codegen/src/cli/commands/audit-shape.js';
+} from '../../../packages/codegen/src/cli/lib/audit-shape-files.js';
 
 describe('EMPIRICAL CHALLENGER: Stress-Testing & Adversarial Verification', () => {
 
