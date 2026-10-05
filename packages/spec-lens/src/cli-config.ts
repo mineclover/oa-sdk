@@ -1,84 +1,131 @@
 /**
  * spec-lens CLI configuration contract (spec-lens.config.{yaml,yml,json}).
+ *
+ * The schema checks what the CLI reads and nothing more:
+ * - Only the section of the selected `source` is read and validated; the
+ *   `github`, `gitlab`, and `localGit` sections of other sources are ignored.
+ * - A key the schema reads with an empty value (`key:` in YAML, for example
+ *   when every line under it is commented out) decodes as `null` and counts
+ *   as not set.
+ * - `project`, `fragmentsDir`, and `targetPath` are passed through unchanged
+ *   for resolveSpecProjectConfig, which validates the project selection.
  */
 
-export type CliConfig = {
-  /** Where spec revisions are read from. A config without `source` reads the local git repository. */
-  source: 'github' | 'gitlab' | 'local-git'
-  github?: { owner: string; repo: string; branch?: string; host?: string; repoCache?: string }
-  gitlab?: { host?: string; projectId: string | number }
-  localGit?: { repoPath?: string }
+export type GithubSourceConfig = { owner: string; repo: string; branch?: string; host?: string; repoCache?: string }
+export type GitlabSourceConfig = { host?: string; projectId: string | number }
+export type LocalGitSourceConfig = { repoPath?: string }
+
+/** The source revisions are read from, with the section that configures it. */
+export type CliSourceConfig =
+  | { source: 'local-git'; localGit?: LocalGitSourceConfig }
+  | { source: 'github'; github: GithubSourceConfig }
+  | { source: 'gitlab'; gitlab: GitlabSourceConfig }
+
+export type CliConfig = CliSourceConfig & {
+  /** Project selection inputs, validated by resolveSpecProjectConfig. */
   project?: unknown
-  fragmentsDir?: string
-  targetPath?: string
+  fragmentsDir?: unknown
+  targetPath?: unknown
   port?: number
   dbPath?: string
   branch?: string
 }
 
-function isConfigObject(value: unknown): value is Record<string, unknown> {
+type ConfigRecord = Record<string, unknown>
+
+function isConfigObject(value: unknown): value is ConfigRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function configObject(value: unknown, path: string): Record<string, unknown> {
+function isUnset(value: unknown): value is null | undefined {
+  return value === undefined || value === null
+}
+
+function configObject(value: unknown, path: string): ConfigRecord {
   if (!isConfigObject(value)) throw new Error(`${path} must be a mapping`)
   return value
 }
 
-function optionalConfigString(record: Record<string, unknown>, key: string, path: string): { [key: string]: string } {
+/** A section the selected source cannot run without. */
+function requiredSection(record: ConfigRecord, key: string, path: string, source: string): ConfigRecord {
   const value = record[key]
-  if (value === undefined) return {}
-  if (typeof value !== 'string') throw new Error(`${path}.${key} must be a string`)
-  return { [key]: value }
+  if (isUnset(value)) throw new Error(`${path}.${key} is required when source is ${source}`)
+  return configObject(value, `${path}.${key}`)
 }
 
-function requiredConfigString(record: Record<string, unknown>, key: string, path: string): string {
+/** `{ [key]: value }` for a string value, `{}` when the key is not set. */
+function optionalString<K extends string>(record: ConfigRecord, key: K, path: string): Partial<Record<K, string>> {
+  const value = record[key]
+  const entry: Partial<Record<K, string>> = {}
+  if (isUnset(value)) return entry
+  if (typeof value !== 'string') throw new Error(`${path}.${key} must be a string`)
+  entry[key] = value
+  return entry
+}
+
+function requiredString(record: ConfigRecord, key: string, path: string): string {
   const value = record[key]
   if (typeof value !== 'string') throw new Error(`${path}.${key} must be a string`)
   return value
 }
 
-/** spec-lens.config.{yaml,yml,json}. `project` is validated by resolveSpecProjectConfig. */
+/**
+ * The listening port. A numeric string is accepted as Node's `listen` accepts
+ * it, so a quoted `port: "4891"` keeps working.
+ */
+function optionalPort(record: ConfigRecord, path: string): { port?: number } {
+  const value = record.port
+  if (isUnset(value)) return {}
+  const port = typeof value === 'string' && value.trim() !== '' ? Number(value) : value
+  if (typeof port !== 'number' || !Number.isInteger(port) || port < 0 || port > 65_535) {
+    throw new Error(`${path}.port must be an integer from 0 to 65535`)
+  }
+  return { port }
+}
+
+function parseSource(root: ConfigRecord): CliSourceConfig {
+  const source = isUnset(root.source) ? 'local-git' : root.source
+  if (source === 'local-git') {
+    if (isUnset(root.localGit)) return { source }
+    const localGit = configObject(root.localGit, 'config.localGit')
+    return { source, localGit: optionalString(localGit, 'repoPath', 'config.localGit') }
+  }
+  if (source === 'github') {
+    const github = requiredSection(root, 'github', 'config', source)
+    return {
+      source,
+      github: {
+        owner: requiredString(github, 'owner', 'config.github'),
+        repo: requiredString(github, 'repo', 'config.github'),
+        ...optionalString(github, 'branch', 'config.github'),
+        ...optionalString(github, 'host', 'config.github'),
+        ...optionalString(github, 'repoCache', 'config.github'),
+      },
+    }
+  }
+  if (source === 'gitlab') {
+    const gitlab = requiredSection(root, 'gitlab', 'config', source)
+    const projectId = gitlab.projectId
+    if (typeof projectId !== 'string' && typeof projectId !== 'number') {
+      throw new Error('config.gitlab.projectId must be a string or number')
+    }
+    return { source, gitlab: { projectId, ...optionalString(gitlab, 'host', 'config.gitlab') } }
+  }
+  throw new Error('config.source must be one of local-git, github, gitlab')
+}
+
+/** spec-lens.config.{yaml,yml,json} as a mapping. */
 export const CliConfigSchema = {
   parse(value: unknown): CliConfig {
     const root = configObject(value, 'config')
-    const source = root.source === undefined ? 'local-git' : root.source
-    if (source !== 'github' && source !== 'gitlab' && source !== 'local-git') {
-      throw new Error('config.source must be one of local-git, github, gitlab')
-    }
-    const config: CliConfig = { source }
-    if (root.github !== undefined) {
-      const github = configObject(root.github, 'config.github')
-      config.github = {
-        owner: requiredConfigString(github, 'owner', 'config.github'),
-        repo: requiredConfigString(github, 'repo', 'config.github'),
-        ...optionalConfigString(github, 'branch', 'config.github'),
-        ...optionalConfigString(github, 'host', 'config.github'),
-        ...optionalConfigString(github, 'repoCache', 'config.github'),
-      }
-    }
-    if (root.gitlab !== undefined) {
-      const gitlab = configObject(root.gitlab, 'config.gitlab')
-      const projectId = gitlab.projectId
-      if (typeof projectId !== 'string' && typeof projectId !== 'number') {
-        throw new Error('config.gitlab.projectId must be a string or number')
-      }
-      config.gitlab = { projectId, ...optionalConfigString(gitlab, 'host', 'config.gitlab') }
-    }
-    if (root.localGit !== undefined) {
-      config.localGit = optionalConfigString(configObject(root.localGit, 'config.localGit'), 'repoPath', 'config.localGit')
-    }
-    if (root.project !== undefined) config.project = root.project
-    if (root.port !== undefined) {
-      if (typeof root.port !== 'number' || !Number.isInteger(root.port)) throw new Error('config.port must be an integer')
-      config.port = root.port
-    }
     return {
-      ...config,
-      ...optionalConfigString(root, 'fragmentsDir', 'config'),
-      ...optionalConfigString(root, 'targetPath', 'config'),
-      ...optionalConfigString(root, 'dbPath', 'config'),
-      ...optionalConfigString(root, 'branch', 'config'),
+      ...parseSource(root),
+      ...(root.project === undefined ? {} : { project: root.project }),
+      ...(root.fragmentsDir === undefined ? {} : { fragmentsDir: root.fragmentsDir }),
+      ...(root.targetPath === undefined ? {} : { targetPath: root.targetPath }),
+      ...optionalPort(root, 'config'),
+      ...optionalString(root, 'dbPath', 'config'),
+      ...optionalString(root, 'branch', 'config'),
     }
   },
 }
@@ -90,6 +137,6 @@ export const CliConfigSchema = {
  */
 export const CliConfigDocumentSchema = {
   parse(value: unknown): CliConfig | null {
-    return value === null || value === undefined ? null : CliConfigSchema.parse(value)
+    return isUnset(value) ? null : CliConfigSchema.parse(value)
   },
 }

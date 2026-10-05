@@ -190,7 +190,6 @@ async function main() {
 
 function createSource(cfg: CliConfig): SpecSourcePort {
   if (cfg.source === 'github') {
-    if (!cfg.github) throw new Error('github config required when source=github')
     return new GithubAdapter({
       owner: cfg.github.owner,
       repo: cfg.github.repo,
@@ -201,7 +200,6 @@ function createSource(cfg: CliConfig): SpecSourcePort {
     })
   }
   if (cfg.source === 'gitlab') {
-    if (!cfg.gitlab) throw new Error('gitlab config required when source=gitlab')
     return new GitlabAdapter({
       ...(cfg.gitlab.host !== undefined ? { host: cfg.gitlab.host } : {}),
       projectId: cfg.gitlab.projectId,

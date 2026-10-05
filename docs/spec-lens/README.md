@@ -177,6 +177,11 @@ port: 4891
 dbPath: .spec-lens.db
 ```
 
+값을 비워 둔 키(`branch:`처럼 값이 없거나, 아래 줄을 모두 주석 처리한 `localGit:`)는
+설정하지 않은 것으로 본다. `github` / `gitlab` / `localGit` 섹션은 `source`가 고른
+섹션만 읽고 검증하므로, 다른 source의 섹션은 남겨 두어도 된다. `port`는 숫자 또는
+숫자 문자열(`"4891"`)을 받는다.
+
 기존 top-level `fragmentsDir` / `targetPath`도 호환된다. TypeSpec production
 bundle 식별 설정은 아래와 같다.
 
