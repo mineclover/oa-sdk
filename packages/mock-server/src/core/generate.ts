@@ -23,6 +23,30 @@ function generateString(schema: OasSchema): string {
   return ''.padStart(min, 'x')
 }
 
+// ─── 객체 값 (내부 헬퍼) ─────────────────────────────────────────────────────
+
+/**
+ * 내장 object 값: `properties` 중 `schema.required`에 이름이 있는 항목만
+ * `properties`의 순서대로 담고, 각 값은 `valueOf`로 구한다.
+ *
+ * generateAlgebra.object(이미 fold된 값을 그대로 담는다)와 required 속성만
+ * 순회하는 fold(담을 속성만 그 자리에서 fold한다)가 같은 선택 규칙을 쓰도록 공유한다.
+ */
+function requiredEntries<T>(
+  schema: OasSchema,
+  properties: Record<string, T>,
+  valueOf: (property: T) => unknown,
+): Record<string, unknown> {
+  const required = new Set(schema.required ?? [])
+  const result: Record<string, unknown> = {}
+  for (const [name, property] of Object.entries(properties)) {
+    if (required.has(name)) result[name] = valueOf(property)
+  }
+  return result
+}
+
+const foldedValue = (value: unknown): unknown => value
+
 // ─── generateAlgebra ─────────────────────────────────────────────────────────
 
 /**
@@ -41,14 +65,7 @@ export const generateAlgebra: SchemaAlgebra<unknown> = {
   boolean: () => false,
   null:    () => null,
 
-  object: (schema, properties) => {
-    const required = new Set(schema.required ?? [])
-    const result: Record<string, unknown> = {}
-    for (const [k, v] of Object.entries(properties)) {
-      if (required.has(k)) result[k] = v
-    }
-    return result
-  },
+  object: (schema, properties) => requiredEntries(schema, properties, foldedValue),
 
   array: (schema, items) => {
     const min = schema.minItems ?? 0
@@ -181,11 +198,12 @@ function hasBuiltinHandlers(algebra: SchemaAlgebra<unknown>): boolean {
 
 /**
  * `foldSchema`(@oa-sdk/parser)와 같은 순서·같은 분기로 노드를 해석하되,
- * object 노드에서는 `required`에 포함된 속성만 fold하여 algebra.object에 넘긴다.
+ * object 노드에서는 `required`에 포함된 속성만 fold하여 내장 object 값을 만든다
+ * (`foldRequiredObject`).
  *
  * 속성 순서와 나머지 분기(const → $ref → example → default → allOf/oneOf/anyOf
  * → then/else → type 배열 → type)는 foldSchema를 그대로 따른다. 두 함수의 결과가
- * 같다는 것은 generate.test.ts가 fixture 스키마 전체로 검증한다.
+ * 속성 순서까지 같다는 것은 generate.test.ts가 fixture 스키마 전체로 검증한다.
  */
 function foldRequiredProperties(node: unknown, algebra: SchemaAlgebra<unknown>): unknown {
   if (node === null || typeof node !== 'object' || Array.isArray(node)) {
@@ -230,7 +248,7 @@ function foldRequiredProperties(node: unknown, algebra: SchemaAlgebra<unknown>):
 
   switch (type) {
     case 'object':
-      return algebra.object(schema, foldRequiredPropertyValues(schema, algebra))
+      return foldRequiredObject(schema, algebra)
     case 'array': {
       const items = schema.items ? foldRequiredProperties(schema.items, algebra) : null
       return algebra.array(schema, items)
@@ -243,21 +261,19 @@ function foldRequiredProperties(node: unknown, algebra: SchemaAlgebra<unknown>):
     default:
       // type 미지정이지만 properties 존재 → object로 취급
       if (schema.properties && typeof schema.properties === 'object') {
-        return algebra.object(schema, foldRequiredPropertyValues(schema, algebra))
+        return foldRequiredObject(schema, algebra)
       }
       return algebra.fallback(node)
   }
 }
 
-/** 선언 순서를 유지하며 required 속성의 fold 결과만 담은 레코드. */
-function foldRequiredPropertyValues(
-  schema: OasSchema,
-  algebra: SchemaAlgebra<unknown>,
-): Record<string, unknown> {
-  const required = new Set(schema.required ?? [])
-  const folded = Object.create(null) as Record<string, unknown>
-  for (const [name, property] of Object.entries(schema.properties ?? {})) {
-    if (required.has(name)) folded[name] = foldRequiredProperties(property, algebra)
-  }
-  return folded
+/**
+ * object 노드의 값. 이 fold는 object 핸들러가 내장 핸들러일 때만 쓰이므로
+ * (`hasBuiltinHandlers`), required 속성을 fold해 레코드로 모은 뒤 그 핸들러가
+ * 같은 이름을 다시 고르게 하는 대신, 핸들러와 같은 선택 규칙(`requiredEntries`)으로
+ * 담을 속성만 fold하며 값을 한 번에 만든다. 결과는 `algebra.object`를 거친 값과
+ * 같다: 같은 속성을 같은 순서와 같은 대입으로 담는다.
+ */
+function foldRequiredObject(schema: OasSchema, algebra: SchemaAlgebra<unknown>): unknown {
+  return requiredEntries(schema, schema.properties ?? {}, property => foldRequiredProperties(property, algebra))
 }

@@ -13,8 +13,8 @@
  * HTTP, so client work is excluded; this process for MSW). It also reports how
  * much heap a Node mock server retains after serving many distinct concrete
  * URLs, and the time the response generator (GenerateFolder) takes for the
- * spec's media type schemas and for a synthetic schema whose optional
- * properties share subtrees.
+ * spec's media type schemas, for a synthetic schema whose optional properties
+ * share subtrees and for a synthetic schema whose properties are all required.
  *
  * With --baseline, a second build of the package (e.g. one built from an
  * earlier commit) is measured alongside, alternating with the current build
@@ -295,11 +295,27 @@ function optionalSubtreeSchema(depth) {
   return node
 }
 
+/**
+ * An object schema with `depth` levels of `width` properties, all required:
+ * half of them the level below, half integers. Generation keeps every
+ * property, so skipping optional properties saves nothing here.
+ */
+function allRequiredSchema(depth, width) {
+  let node = { type: 'string' }
+  for (let level = 0; level < depth; level += 1) {
+    const properties = {}
+    for (let index = 0; index < width; index += 1) properties[`p${index}`] = index % 2 === 0 ? node : { type: 'integer' }
+    node = { type: 'object', required: Object.keys(properties), properties }
+  }
+  return node
+}
+
 function printGeneratorTable(builds, spec, rounds) {
   const specSchemas = mediaTypeSchemas(spec)
   const cases = [
     { name: `every media type schema of the spec (${specSchemas.length})`, schemas: specSchemas },
     { name: 'optional subtrees, depth 8 (synthetic)', schemas: [optionalSubtreeSchema(8)] },
+    { name: 'all required, depth 4 × width 4 (synthetic)', schemas: [allRequiredSchema(4, 4)] },
   ]
   const labels = builds.map(build => build.label)
   const header = ['generator: µs per fold of the set'.padEnd(58), ...labels.map(label => label.padStart(10))]
