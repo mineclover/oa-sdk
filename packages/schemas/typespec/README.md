@@ -75,7 +75,7 @@ profiles in `oa-sdk.typespec-projections.json` can be generated with
 `pnpm schema:project-typespec:production`; they are ignored build artifacts, never approved snapshots.
 
 `ContractVersion` is independent from workspace package versions, bundle/extension schema versions,
-and deployment metadata returned by `GET /version`. See the [authoring conventions](../../../docs/guides/typespec-authoring-conventions.md#versioning) for bump rules.
+and deployment metadata returned by `GET /version`. See the [authoring conventions](../../../docs/guides/typespec-authoring-conventions.md#6-버전-채널-versioning) for bump rules.
 
 Rollback G11 gate:
 
