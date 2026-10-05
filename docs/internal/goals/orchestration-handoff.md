@@ -190,7 +190,11 @@
 | `oa-gen generate`가 `outputRouting.pruneOrphans: false`여도 다른 명령(`generate:tanstack`)이 쓴 산출물까지 지우고, 요약의 operation 수가 틀린다 | RC-N quick-start 재검증 |
 | `generate:tanstack --types-import` 출력이 typegen이 만들지 않는 `<Op>ClientError`를 import해 `tsc` TS2305로 실패한다 | RC-N quick-start 재검증 |
 | `oa-gen diff`가 응답 스키마에 선택 필드만 추가해도 breaking(exit 1)으로 분류한다(스키마 fingerprint가 다르면 무조건 breaking) | 핵심 가치 비평에서 직접 실행 |
-| 문서는 CLI가 프레임워크 라우터 바인더(`*.router.ts`)를 만든다고 하지만 어떤 `oa-gen` 명령도 만들지 않는다. 생성할지, 문서를 고칠지 결정 필요 | 가이드 조사 |
+| 문서는 CLI가 프레임워크 라우터 바인더(`*.router.ts`)를 만든다고 하지만 어떤 `oa-gen` 명령도 만들지 않는다. 생성할지, 문서를 고칠지 결정 필요 | 가이드 조사. `@oa-sdk/router`는 빌드 시점 `generateRouter()`(hono, express, fastify, elysia)만 제공한다. 사실표 확정 전까지 문서는 `generateRouter()` 기준으로 쓴다 |
+| init이 쓰는 스크립트 가운데 동작하지 않는 것이 더 있다: enterprise `lint:spec`, `audit:csp`, `audit:shape`, microservice `test:contract`, `audit:wire`. `generate:router`·`generate:client`·`generate:contract`는 `generate`가 무시하는 `--target`을 넘겨 결국 일반 `generate`를 실행한다. pack smoke는 mvp의 `validate`·`mock`만 실행해 이를 잡지 못한다 | 사실표 확정(2026-10-06) |
+| `oa-gen generate` 요약이 3.2.0 파일을 'OpenAPI 3.1'로 표시하고, companion 안의 생성 오류는 경고만 남긴 채 exit 0으로 끝난다. 생성된 contract와 client는 타입이 `unknown`이다 | 사실표 확정 |
+| `generate:tanstack --split`은 `outputRouting` 아래에서 상대 import가 깨진다 | 사실표 확정 |
+| `oa-gen diff`는 OpenAPI 파일 경로만 받고 스키마 fingerprint가 바뀌면 모두 breaking이다. `tsp diff` 방식의 additive 분류로 바꿀지 정책 결정 필요 | 사실표 확정 |
 
 ### WS-G — Goal 68 DPM · 관제 대상 아님
 
