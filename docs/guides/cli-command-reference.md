@@ -57,7 +57,7 @@ node packages/codegen/dist/cli/index.js --help
 | `oa-gen surface` | OpenAPI 또는 TypeSpec artifact를 target-neutral Surface IR과 Forge projection/Overlay로 변환할 때 | `--spec <openapi\|typespec>` | `surface-ir.json`, `forge-projection.json`, command별 Overlay, `surface-manifest.json`; `--target forge`, `--out-dir`, `--mapping`, `--fail-on-warning` 지원 |
 | `oa-gen generate:guards` | OpenAPI 3.1/3.2 또는 TypeSpec(.tsp)으로부터 독립형 무런타임 타입 가드를 생성할 때 | `--input <file>` | 독립형 무런타임 타입 가드(Standalone Type Guards) 산출물; `--input` (`-i`), `--out-dir` (`-o`), `--type-import`, `--module-format`, `--split`, `--schemas` 지원 |
 | `oa-gen generate:drizzle` | Drizzle ORM 스키마 파일로부터 OpenAPI 3.2 스키마 컴포넌트를 생성할 때 | `--drizzle-schema <path>` | Drizzle ORM 스키마 기반 OpenAPI 3.2 컴포넌트 산출물; `--drizzle-schema` (`-d`), `--output` (`-o`), `--merge-into`, `--schemas` 지원 |
-| `oa-gen mock` | TypeSpec, OpenAPI 또는 TypeScript 소스에서 제로 빌드 즉각 목 서버를 구동할 때 | `--tsp <file>` 또는 `--spec <path>` | 인메모리 OpenAPI 3.2 Mock HTTP 서버 구동 (기본 포트 4010); `--tsp` (`-t`), `--spec` (`-s`), `--port <port>` (`-p`), `--host <host>`, `--watch` (`-w`)로 100ms 디바운스, 에러 쉴딩, 원자적 인메모리 라우트 핫스왑 지원 |
+| `oa-gen mock` | TypeSpec, OpenAPI 또는 TypeScript 소스에서 제로 빌드 즉각 목 서버를 구동할 때 | `--tsp <file>` 또는 `--spec <path>`, 둘 다 없으면 `oa.config.ts`의 spec target(하나일 때) | 인메모리 OpenAPI 3.2 Mock HTTP 서버 구동 (기본 포트 4010); `--tsp` (`-t`), `--spec` (`-s`), `--port <port>` (`-p`), `--host <host>`, `--watch` (`-w`)로 100ms 디바운스, 에러 쉴딩, 원자적 인메모리 라우트 핫스왑 지원 |
 | `oa-gen tsp diff` | TypeSpec AST 간 시맨틱 차이점 및 파괴적 변경(breaking change)을 분석할 때 | `--base <ref> --head <ref>` | TypeSpec AST 시맨틱 비교 리포트; `--base`, `--head`, `--fail-on-breaking`으로 파괴적 변경 감지 시 exit code 1, `--format <markdown\|json>` 지원 |
 | `oa-gen generate` | TypeSpec, OpenAPI, config, Drizzle에서 스키마, 계약, 클라이언트, 가드를 일괄 생성할 때 | 없음 (선언적 `oa.config.ts` 자동 로드) 또는 `--spec <openapi\|typespec>`, `--config <file>`, `--drizzle-schema <path>`, `--target standalone-guards --input <file>` | 스펙 아티팩트, 순수 핸들러 계약(`*.contract.ts`), 클라이언트 SDK, TanStack Query, 가드 일괄 산출물; `--spec` (`-s`), `--output` (`-o`), `--out-dir`, `--config` (`-c`), `--split` 지원 |
 | `oa-gen typegen` | OpenAPI 또는 TypeSpec(.tsp)에서 TypeScript 선언을 만들 때 | `--spec <openapi\|typespec>` | type declarations; `--incremental`은 같은 spec·출력 대상의 입력(spec과 외부 `$ref` 파일 내용, TypeSpec 컴파일러가 읽은 모든 파일과 import 해석 중 확인한 경로·symlink 대상, TypeSpec이 불러온 JS decorator의 모듈 그래프: 직접 작성한 모듈은 내용·import 해석으로, 설치 패키지는 그 `package.json`과 그 패키지가 다른 패키지를 찾은 경로로, 실패한 import(선택적 `import()`·`require()`)는 Node가 확인한 후보 경로로), `--style`, generator 버전, 기존 출력이 모두 그대로면 재생성을 건너뛰고(stdout 출력은 기록된 결과를 재출력) stderr에 `incremental:` 상태 한 줄을 남김. 생성 중 바뀌었을 수 있거나 다시 확인할 수 없는 입력은 다음 실행에서 다시 생성(`input not verified: <path> (<reason>)`; Node.js 22.15 미만에서는 직접 작성한 JS decorator가 있으면 매번 다시 생성). decorator 코드가 스스로 읽는 파일은 추적하지 않음. cache 위치는 `--cache-dir <dir>` (기본 `./.oa-cache`) |
@@ -234,11 +234,13 @@ oa-gen generate --tanstack --spec ./openapi.yaml --output ./src/api/generated
 
 ## oa-gen mock 옵션 및 실시간 핫 리로드(--watch) 명세
 
-`oa-gen mock`은 TypeSpec(`.tsp`) 원본 또는 OpenAPI JSON/YAML 명세서로부터 중간 빌드 산출물 디스크 작성 없이 인메모리에서 즉각 구동되는 초고속 Mock HTTP 서버를 제공합니다. 서버는 동반 패키지 `@oa-sdk/mock-server`가 구동하며, 패키지가 없으면 설치 명령을 출력하고 종료 코드 1로 실패합니다.
+`oa-gen mock`은 TypeSpec(`.tsp`) 원본 또는 OpenAPI JSON/YAML 명세서로부터 중간 빌드 산출물 디스크 작성 없이 인메모리에서 즉각 구동되는 초고속 Mock HTTP 서버를 제공합니다. 서버는 동반 패키지 `@oa-sdk/mock-server`의 Node HTTP adapter가 구동하며, 패키지가 없으면 설치 명령을 출력하고 종료 코드 1로 실패합니다. mock-server의 선택적 peer인 `msw`는 필요하지 않습니다.
+
+`--tsp`와 `--spec`을 모두 생략하면 `oa-gen validate`·`oa-gen generate`처럼 프로젝트 설정 파일(`oa.config.ts` 등)을 읽어 spec target의 `schemaEntry`를 서빙합니다. `.tsp` 진입점은 `--tsp`처럼 컴파일하고, 그 밖의 파일은 `--spec`처럼 읽습니다. 그래서 `oa-gen init`이 추가하는 `mock` 스크립트(`oa-gen mock --watch`)는 경로 없이 동작합니다. spec target이 없거나 여러 개면 어느 스펙을 서빙할지 정할 수 없으므로 target id를 출력하고 종료 코드 1로 실패하며, 이때는 `--tsp` 또는 `--spec`으로 지정합니다.
 
 | 옵션 | 단축 | 타입 | 기본값 | 설명 |
 | --- | --- | --- | --- | --- |
-| `--tsp <file>` | `-t` | `string` | `undefined` | TypeSpec 진입점 파일 경로 (`.tsp`). in-memory 컴파일을 거쳐 즉각 서빙 (`--spec`과 one-of) |
+| `--tsp <file>` | `-t` | `string` | `undefined` | TypeSpec 진입점 파일 경로 (`.tsp`). in-memory 컴파일을 거쳐 즉각 서빙 (`--spec`과 one-of, 둘 다 주면 `--tsp`) |
 | `--spec <file>` | `-s` | `string` | `undefined` | OpenAPI JSON/YAML 파일 또는 `@oaOperation` JSDoc이 작성된 TypeScript 소스 파일 |
 | `--port <port>` | `-p` | `number` | `4010` | Mock HTTP 서버가 바인딩될 리스닝 포트 |
 | `--host <host>` | | `string` | `127.0.0.1` | Mock HTTP 서버 바인딩 호스트 |
@@ -257,6 +259,9 @@ oa-gen mock --tsp packages/schemas/typespec/main.tsp --watch --port 4010
 
 # OpenAPI YAML 스펙 기반 Mock 구동
 oa-gen mock --spec ./openapi.yaml --watch
+
+# oa.config.ts의 spec target 서빙 (oa-gen init이 추가하는 mock 스크립트)
+oa-gen mock --watch
 ```
 
 ## oa-gen init 옵션 및 아키타입/라우팅 프리셋 명세

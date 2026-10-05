@@ -126,6 +126,8 @@ yarn oa-gen --help
 }
 ```
 
+`oa-gen validate`와 `oa-gen mock`은 경로 옵션 없이 실행하면 `oa.config.ts`의 spec target을 사용합니다. `validate`는 모든 target을 검증하고, `mock`은 target이 하나일 때 그 스펙을 서빙합니다(여러 개면 `--spec` 또는 `--tsp`로 지정). `oa.config.ts`는 ES module로 작성되며, `package.json`이 `"type": "commonjs"`인 프로젝트(npm 11의 `npm init` 기본값)에서도 `oa-gen`이 ES module로 변환해 불러옵니다.
+
 ---
 
 ## 4. 제로 설치 즉시 실행 (npx / bunx Ephemeral Execution)

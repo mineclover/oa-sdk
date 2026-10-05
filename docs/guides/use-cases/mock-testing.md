@@ -12,6 +12,8 @@ baseline/local verification은
 
 ## Node HTTP 어댑터 (Vitest/Playwright)
 
+`createTestClient`는 패키지 루트(`@oa-sdk/mock-server`)에서만 export됩니다. 루트는 MSW 어댑터도 함께 불러오므로, 이 예제를 실행하려면 mock-server의 선택적 peer인 `msw`를 설치합니다(`npm install --save-dev msw`). `createNodeMockServer`만 쓴다면 `@oa-sdk/mock-server/adapters/node-http`에서 import하여 `msw` 없이 실행할 수 있습니다.
+
 ```typescript
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { createNodeMockServer } from '@oa-sdk/mock-server/adapters/node-http'
