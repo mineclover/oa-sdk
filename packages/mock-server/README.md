@@ -8,10 +8,18 @@ OpenAPI-native mock engine with structured validation errors, streaming support,
 npm install --save-dev @oa-sdk/mock-server
 ```
 
-The MSW adapter (`createMswHandlers`, `createMswMockServer`, `@oa-sdk/mock-server/adapters/msw`)
-needs `msw` 2.x, an optional peer dependency: install `msw` next to this package when you use it.
-The Node HTTP adapter and the `oa-mock` CLI need no peer dependency. `oa-gen mock` from
-`@oa-sdk/codegen` runs this package as a companion package.
+The MSW adapter imports `msw` 2.x, an optional peer dependency that is not installed with this
+package. The package root (`@oa-sdk/mock-server`), `@oa-sdk/mock-server/browser` and
+`@oa-sdk/mock-server/adapters/msw` load that adapter, so install `msw` next to this package
+before you import them:
+
+```bash
+npm install --save-dev msw
+```
+
+`oa-gen mock` from `@oa-sdk/codegen`, which runs this package as a companion package, imports the
+package root too. Without `msw`, import `createNodeMockServer` from
+`@oa-sdk/mock-server/adapters/node-http`; the `oa-mock` CLI needs no peer dependency.
 
 Inside the oa-sdk source repository, declare it with `workspace:*` and build it with
 `pnpm build:downstream` before running these examples.

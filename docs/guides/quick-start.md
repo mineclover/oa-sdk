@@ -16,6 +16,15 @@ productVersions:
 tested:
   environment: "Node.js 22 LTS+, Bun 1.1+, pnpm 10.30.3"
   at: "2026-09-13"
+  # The 2026-09-13 run covered these earlier versions, not the productVersions above.
+  productVersions:
+    - "@oa-sdk/codegen 0.8.1"
+    - "@oa-sdk/ast-sync 0.1.0"
+    - "@oa-sdk/core 0.3.0"
+    - "@oa-sdk/parser 0.3.0"
+    - "@oa-sdk/client 0.2.0"
+    - "@oa-sdk/router 0.2.0"
+  candidateCheck: "2026-10-05, packed codegen 0.9.0 candidate tarballs on npm 11 and Node.js 24: steps 0-5 and 7 ran; step 6 (oa-gen mock) failed because the root entry of @oa-sdk/mock-server 0.1.4 imports the optional msw peer, which the install did not add."
   owner: "OA SDK maintainers"
   reviewDue: "2026-12-10"
   status: active
