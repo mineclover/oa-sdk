@@ -23,7 +23,7 @@ export const REF_PROJECTION_ARTIFACT_SCHEMA_V1 = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
   $id: 'https://oa-sdk.dev/schema/ref-projection/oa-sdk.ref-projection.v1.schema.json',
   title: 'OA SDK ref projection artifact v1',
-  description: 'Ref-preserving graph of an OpenAPI document: one node per reusable declaration or external reference target, one edge per $ref occurrence, and the canonical definition id of each node when build-spec provenance maps it.',
+  description: 'Ref-preserving graph of an OpenAPI document: one node per reusable declaration or external reference target, one edge per resolved $ref occurrence whose occurrence and target both lie inside a node, a diagnostic naming every other occurrence, and the canonical definition id of each node when build-spec provenance maps it.',
   type: 'object',
   additionalProperties: false,
   required: ['schemaVersion', 'generator', 'source', 'nodes', 'edges', 'diagnostics'],
@@ -129,6 +129,7 @@ export const REF_PROJECTION_ARTIFACT_SCHEMA_V1 = {
       },
     },
     diagnostic: {
+      description: 'A diagnostic of the projection. ref-source-outside-nodes and ref-target-outside-nodes name a resolved $ref occurrence that has no edge because no node contains the occurrence or its target; an occurrence with neither end inside a node has one of each. Every other code is a resolver diagnostic.',
       type: 'object',
       additionalProperties: false,
       required: ['code', 'ref', 'message'],

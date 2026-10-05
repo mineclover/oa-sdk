@@ -46,12 +46,15 @@
 | `RouteIndex` | `parser/src/types.ts` | path → method → OperationEntry 인덱스 |
 | `MatchResult` | `parser/src/types.ts` | 경로 매칭 결과 (found / method_not_allowed / not_found) |
 | `HttpMethod` | `parser/src/types.ts` | `'get' \| 'post' \| ... \| 'trace' \| 'query'` |
-| `RefProjection` | `parser/src/ref-projection.ts` | ref 해결 그래프의 모든 edge를 식별하는 projection |
+| `RefProjection` | `parser/src/ref-projection.ts` | ref 해결 그래프의 노드·엣지·진단 projection. 엣지가 없는 `$ref` occurrence는 모두 진단이 가리킨다 |
 | `RefProjectionNode` | `parser/src/ref-projection.ts` | projection 그래프의 노드 표현 |
 | `RefProjectionEdge` | `parser/src/ref-projection.ts` | projection 그래프의 edge 표현 |
 | `RefProjectionNodeKind` | `parser/src/ref-projection.ts` | projection 노드 종류 분류 |
 | `RefProjectionRecursion` | `parser/src/ref-projection.ts` | projection에서 발견된 순환 구조 표현 |
-| `projectRefGraph` | `parser/src/ref-projection.ts` | $ref 해결 과정에서 모든 ref edge를 추출하여 projection 생성 |
+| `RefProjectionDiagnostic` | `parser/src/ref-projection.ts` | projection 진단: resolver의 `RefGraphDiagnostic` 또는 `RefProjectionOutsideNodesDiagnostic` |
+| `RefProjectionDiagnosticCode` | `parser/src/ref-projection.ts` | `RefGraphDiagnosticCode`와 `ref-source-outside-nodes` / `ref-target-outside-nodes` |
+| `RefProjectionOutsideNodesDiagnostic` | `parser/src/ref-projection.ts` | occurrence나 참조 대상이 어떤 노드에도 속하지 않아 엣지가 없는 해결된 `$ref` occurrence. 노드 밖에 있는 끝마다 하나 |
+| `projectRefGraph` | `parser/src/ref-projection.ts` | 선언·외부 참조 대상을 노드로, 양 끝이 노드 안에 있는 해결된 `$ref` occurrence를 엣지로 projection 생성. 나머지 occurrence는 resolver 진단 또는 `ref-*-outside-nodes` 진단으로 보고 |
 
 ---
 
@@ -1073,7 +1076,7 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `RefProjectionArtifact` | `cli/lib/ref-projection-artifact.ts` | `oa-sdk.ref-projection.v1` artifact: schemaVersion, generator, source spec/provenance identity, nodes, edges, diagnostics |
 | `RefProjectionArtifactNode` | `cli/lib/ref-projection-artifact.ts` | 선언 또는 외부 참조 대상 노드 (id, kind, name, pointer, optional filePath, identity) |
 | `RefProjectionArtifactEdge` | `cli/lib/ref-projection-artifact.ts` | `$ref` occurrence 하나의 엣지 (occurrence 위치 id, source/target 노드 id, recursion) |
-| `RefProjectionArtifactDiagnostic` | `cli/lib/ref-projection-artifact.ts` | 진입 문서 기준 상대 파일 경로를 쓰는 ref graph 진단 |
+| `RefProjectionArtifactDiagnostic` | `cli/lib/ref-projection-artifact.ts` | 진입 문서 기준 상대 파일 경로를 쓰는 projection 진단 (resolver 진단과 `ref-source-outside-nodes` / `ref-target-outside-nodes`) |
 | `RefProjectionArtifactRecursion` | `cli/lib/ref-projection-artifact.ts` | 엣지 recursion 분류 `none` / `guarded` / `unguarded` |
 | `RefProjectionArtifactSourceFile` | `cli/lib/ref-projection-artifact.ts` | artifact 입력 파일 identity (path, `sha256:` contentHash) |
 | `RefProjectionArtifactGenerator` | `cli/lib/ref-projection-artifact.ts` | artifact를 만든 package name/version |

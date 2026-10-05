@@ -248,8 +248,8 @@ artifact 계약의 정본은 codegen이 공개하는 JSON Schema
 | `source` | 입력 파일의 project root 기준 경로와 `sha256:` content hash. `spec`은 필수, `provenance`는 넘겼을 때만 |
 | `nodes[]` | 진입 문서의 `components.*`·`paths`·`webhooks` 선언과 외부 파일의 참조 대상. `id`는 진입 문서 선언이면 JSON Pointer fragment(`#/components/schemas/Pet`), 외부 대상이면 파일 + pointer(`./shared.yaml#/components/schemas/Owner`) |
 | `nodes[].identity` | `status: mapped`이면 `canonicalId`와 일치한 provenance pointer, fragment `sourcePath`(project root 기준)/`sourcePointer`/`contentHash`. `status: unmapped`이면 `reason`이 `external-document`(다른 파일의 노드), `provenance-not-supplied`(`--provenance` 없음), `no-enclosing-provenance-entry`(노드 pointer와 그 상위 어디에도 provenance entry 없음) 중 하나 |
-| `edges[]` | `$ref` occurrence 하나당 하나. `source`/`target`은 occurrence와 참조 대상을 포함하는 노드 id, `id`는 occurrence 위치. `recursion`은 순환이 instance로 내려가면 `guarded`, 내려가지 않으면 `unguarded`(`ref-cycle` 진단과 같은 occurrence), 순환이 아니면 `none` |
-| `diagnostics[]` | `ref-cycle`, `ref-not-found`, `external-ref-*`, `unsupported-ref` 진단 |
+| `edges[]` | occurrence와 참조 대상이 모두 노드 안에 있는 해결된 `$ref` occurrence 하나당 하나. `source`/`target`은 occurrence와 참조 대상을 포함하는 노드 id, `id`는 occurrence 위치. `recursion`은 순환이 instance로 내려가면 `guarded`, 내려가지 않으면 `unguarded`(`ref-cycle` 진단과 같은 occurrence), 순환이 아니면 `none` |
+| `diagnostics[]` | resolver 진단 `ref-cycle`, `ref-not-found`, `external-ref-*`, `unsupported-ref`와 projection 진단 `ref-source-outside-nodes`, `ref-target-outside-nodes`. 엣지가 없는 occurrence는 모두 여기 나온다. 해결되지 않은 occurrence는 resolver 진단으로, occurrence나 참조 대상이 어떤 노드에도 속하지 않는 occurrence(`info`·`x-` 확장·비표준 `components` 섹션 아래 등)는 노드 밖에 있는 끝마다 `ref-*-outside-nodes` 진단으로 나온다 |
 
 같은 입력 파일이면 어느 위치에서 실행해도 byte 단위로 같은 출력이 나옵니다. 노드·엣지·
 진단은 code unit 순서로 정렬하고, timestamp를 넣지 않습니다. 그래프의 파일 경로는 진입

@@ -2,6 +2,7 @@ import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:f
 import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { collectRefs } from '@oa-sdk/parser'
 import { afterEach, describe, expect, it } from 'vitest'
 import { parse as parseYaml } from 'yaml'
 import type { BuildSpecProvenanceMap } from '../cli/lib/provenance-report.js'
@@ -62,7 +63,8 @@ describe('oa-sdk.ref-projection.v1 artifact', () => {
   it('matches the reviewed golden artifact of the fixture', () => {
     // The fixture covers guarded recursion (a self-reference and a cycle through
     // shared.yaml), unguarded recursion, external and whole-file external targets,
-    // a dangling ref, a webhook, and a provenance map that covers part of the nodes.
+    // a dangling ref, references whose occurrence or target lies outside every
+    // node, a webhook, and a provenance map that covers part of the nodes.
     const expected = readFileSync(join(fixtureDir, 'expected.ref-projection.json'), 'utf8')
     expect(serializeRefProjectionArtifact(fixtureArtifact())).toBe(expected)
   })
@@ -108,11 +110,64 @@ describe('oa-sdk.ref-projection.v1 artifact', () => {
     expect(summarizeRefProjectionArtifact(artifact)).toEqual({
       nodes: 13,
       edges: 12,
-      diagnostics: 3,
+      diagnostics: 5,
       recursion: { none: 7, guarded: 3, unguarded: 2 },
       mappedNodes: 6,
       unmappedNodes: { 'external-document': 3, 'no-enclosing-provenance-entry': 4 },
     })
+  })
+
+  it('names every $ref occurrence the graph reaches in an edge or a diagnostic', () => {
+    const artifact = fixtureArtifact()
+    const occurrences: string[] = []
+    for (const file of ['api.yaml', './shared.yaml']) {
+      const document = parseYaml(readFileSync(join(fixtureDir, file), 'utf8')) as unknown
+      const prefix = file === 'api.yaml' ? '' : file
+      collectRefs(document, '#', (_ref, sourcePointer) => occurrences.push(`${prefix}${sourcePointer}`))
+    }
+    const named = new Set([
+      ...artifact.edges.map(edge => edge.id),
+      ...artifact.diagnostics.map(diagnostic => `${diagnostic.sourceFilePath ?? ''}${diagnostic.sourcePointer ?? ''}`),
+    ])
+    expect([...named].sort()).toEqual([...occurrences].sort())
+  })
+
+  it('reports a $ref whose occurrence or target lies outside every node instead of dropping it', () => {
+    const dir = tempDir()
+    writeFileSync(join(dir, 'api.yaml'), [
+      'openapi: 3.2.0',
+      'info: { title: Outside, version: 1.0.0 }',
+      'paths: {}',
+      'components:',
+      '  schemas:',
+      '    A:',
+      '      type: object',
+      '      properties:',
+      "        t: { $ref: '#/x-shared/Thing' }",
+      'x-shared:',
+      "  Thing: { $ref: '#/components/schemas/A' }",
+    ].join('\n'))
+
+    const artifact = createRefProjectionArtifactFromFiles({ specPath: 'api.yaml', root: dir, generator })
+    expect(artifact.edges).toEqual([])
+    expect(artifact.diagnostics).toEqual([
+      {
+        code: 'ref-target-outside-nodes',
+        ref: '#/x-shared/Thing',
+        message: expect.stringContaining('#/x-shared/Thing'),
+        sourcePointer: '#/components/schemas/A/properties/t/$ref',
+        pointer: '#/x-shared/Thing',
+      },
+      {
+        code: 'ref-source-outside-nodes',
+        ref: '#/components/schemas/A',
+        message: expect.stringContaining('#/x-shared/Thing/$ref'),
+        sourcePointer: '#/x-shared/Thing/$ref',
+        pointer: '#/components/schemas/A',
+      },
+    ])
+    expect(serializeRefProjectionArtifact(artifact)).not.toContain(dir)
+    expect(validateRefProjectionArtifact(artifact)).toEqual([])
   })
 
   it('is byte-identical for the same files in different directories', () => {

@@ -63,9 +63,12 @@ export { collectRefs, isRelativeRef, resolvePointer, resolveRefGraph } from './r
 export { projectRefGraph } from './ref-projection.js'
 export type {
   RefProjection,
+  RefProjectionDiagnostic,
+  RefProjectionDiagnosticCode,
   RefProjectionEdge,
   RefProjectionNode,
   RefProjectionNodeKind,
+  RefProjectionOutsideNodesDiagnostic,
   RefProjectionRecursion,
 } from './ref-projection.js'
 export type { RefGraph, RefGraphDiagnostic, RefGraphDiagnosticCode, RefGraphNode, RefGraphOptions, RefKind } from './ref-graph.js'

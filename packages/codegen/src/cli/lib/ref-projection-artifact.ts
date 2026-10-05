@@ -2,13 +2,18 @@
  * `oa-sdk.ref-projection.v1` — the ref-preserving graph of an OpenAPI document
  * (`projectRefGraph` in `@oa-sdk/parser`) as a versioned exchange artifact.
  *
+ * Nodes are the reusable declarations of the entry document and the external
+ * targets its `$ref`s reach. Every resolved `$ref` occurrence whose occurrence
+ * and target both lie inside a node is one edge; every other occurrence is
+ * named by a diagnostic. Each node also carries the definition identity behind
+ * it: the build-spec provenance `canonicalId` of its nearest enclosing output
+ * pointer, or the reason it has none.
+ *
  * The artifact is a pure function of its inputs: nodes, edges and diagnostics
  * are sorted by code unit, it carries no timestamps, files of the graph are
  * written relative to the entry document's directory, and the definition
  * fragments that provenance names relative to the project root, so the same
- * files give byte-identical output in any checkout. Each node also carries the
- * definition identity behind it: the build-spec provenance `canonicalId` of its
- * nearest enclosing output pointer, or the reason it has none.
+ * files give byte-identical output in any checkout.
  *
  * The JSON Schema of the artifact is `REF_PROJECTION_ARTIFACT_SCHEMA_V1`.
  */
@@ -19,8 +24,8 @@ import {
   findNearestJsonPointerEntry,
   projectRefGraph,
   type OasDocument,
-  type RefGraphDiagnostic,
-  type RefGraphDiagnosticCode,
+  type RefProjectionDiagnostic,
+  type RefProjectionDiagnosticCode,
   type RefProjectionNode,
   type RefProjectionNodeKind,
 } from '@oa-sdk/parser'
@@ -47,8 +52,10 @@ export const REF_PROJECTION_NODE_KINDS = [
 ] as const satisfies readonly RefProjectionNodeKind[]
 
 /**
- * Diagnostic codes of the v1 artifact: every `RefGraphDiagnosticCode` of the
- * parser.
+ * Diagnostic codes of the v1 artifact: every `RefProjectionDiagnosticCode` of
+ * the parser. `ref-source-outside-nodes` and `ref-target-outside-nodes` name a
+ * resolved `$ref` occurrence that has no edge because no node contains the
+ * occurrence or its target.
  */
 export const REF_PROJECTION_DIAGNOSTIC_CODES = [
   'ref-cycle',
@@ -56,7 +63,9 @@ export const REF_PROJECTION_DIAGNOSTIC_CODES = [
   'external-ref-read-failed',
   'external-ref-pointer-not-found',
   'unsupported-ref',
-] as const satisfies readonly RefGraphDiagnosticCode[]
+  'ref-source-outside-nodes',
+  'ref-target-outside-nodes',
+] as const satisfies readonly RefProjectionDiagnosticCode[]
 
 // A parser value the lists above leave out fails to compile here, so the schema
 // enums cannot fall behind the projection silently.
@@ -65,7 +74,7 @@ type NodeKindsAreListed = AssertAllListed<
   Exclude<RefProjectionNodeKind, typeof REF_PROJECTION_NODE_KINDS[number]>
 >
 type DiagnosticCodesAreListed = AssertAllListed<
-  Exclude<RefGraphDiagnosticCode, typeof REF_PROJECTION_DIAGNOSTIC_CODES[number]>
+  Exclude<RefProjectionDiagnosticCode, typeof REF_PROJECTION_DIAGNOSTIC_CODES[number]>
 >
 
 /**
@@ -154,9 +163,9 @@ export type RefProjectionArtifactEdge = {
   recursion: RefProjectionArtifactRecursion
 }
 
-/** A ref graph diagnostic with file paths relative to the entry document's directory. */
+/** A diagnostic of the projection with file paths relative to the entry document's directory. */
 export type RefProjectionArtifactDiagnostic = {
-  code: RefGraphDiagnosticCode
+  code: RefProjectionDiagnosticCode
   ref: string
   message: string
   sourcePointer?: string
@@ -175,7 +184,13 @@ export type RefProjectionArtifact = {
     provenance?: RefProjectionArtifactSourceFile
   }
   nodes: RefProjectionArtifactNode[]
+  /** One per resolved `$ref` occurrence whose occurrence and target both lie inside a node. */
   edges: RefProjectionArtifactEdge[]
+  /**
+   * Names every occurrence without an edge: an unresolved one by its resolver
+   * diagnostic, any other by `ref-source-outside-nodes` and/or
+   * `ref-target-outside-nodes`.
+   */
   diagnostics: RefProjectionArtifactDiagnostic[]
 }
 
@@ -322,7 +337,7 @@ function nodeIdentity(
 }
 
 function toArtifactDiagnostic(
-  diagnostic: RefGraphDiagnostic,
+  diagnostic: RefProjectionDiagnostic,
   files: EntryRelativeFiles,
 ): RefProjectionArtifactDiagnostic {
   const sourceFilePath = files.reference(diagnostic.sourceFilePath)

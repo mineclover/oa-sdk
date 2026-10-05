@@ -7,7 +7,7 @@
   "source": {
     "spec": {
       "path": "api.yaml",
-      "contentHash": "sha256:e96930c9a33a49c9913ddb2b25ac61d56d5ad2fe39348bd23fe8f0c9ccb1b978"
+      "contentHash": "sha256:86d855f62757b815b211e3362a12e3480aa798bfd561ee0c597c6b65c5eff1f8"
     },
     "provenance": {
       "path": "provenance.json",
@@ -282,6 +282,13 @@
       "pointer": "#/components/schemas/Loop"
     },
     {
+      "code": "ref-target-outside-nodes",
+      "ref": "#/x-shared/Extension",
+      "message": "참조 대상을 포함하는 노드가 없어 엣지로 투영하지 않았습니다: #/x-shared/Extension",
+      "sourcePointer": "#/components/schemas/Broken/properties/extension/$ref",
+      "pointer": "#/x-shared/Extension"
+    },
+    {
       "code": "ref-not-found",
       "ref": "#/components/schemas/DoesNotExist",
       "message": "참조 대상을 찾을 수 없습니다: #/components/schemas/DoesNotExist",
@@ -294,6 +301,13 @@
       "message": "순환 $ref 감지: #/components/schemas/Alias",
       "sourcePointer": "#/components/schemas/Loop/$ref",
       "pointer": "#/components/schemas/Alias"
+    },
+    {
+      "code": "ref-source-outside-nodes",
+      "ref": "#/components/schemas/Tag",
+      "message": "$ref occurrence를 포함하는 노드가 없어 엣지로 투영하지 않았습니다: #/x-shared/Extension/$ref",
+      "sourcePointer": "#/x-shared/Extension/$ref",
+      "pointer": "#/components/schemas/Tag"
     }
   ]
 }

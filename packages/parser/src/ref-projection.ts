@@ -5,8 +5,13 @@
  * - 노드: 진입 문서의 선언(`components.*` 항목, `paths` 항목, `webhooks` 항목)과
  *   외부 파일의 참조 대상. id는 진입 문서 선언이면 정규화된 JSON Pointer,
  *   외부 대상이면 `<filePath>#<pointer>`다.
- * - 엣지: `$ref` occurrence 하나당 하나. occurrence를 포함하는 가장 가까운 선언이
- *   source, 참조 대상을 포함하는 가장 가까운 선언이 target이다. 자기 참조도 유지한다.
+ * - 엣지: occurrence와 참조 대상이 모두 노드 안에 있는 해결된 `$ref` occurrence 하나당
+ *   하나. occurrence를 포함하는 가장 가까운 노드가 source, 참조 대상을 포함하는 가장
+ *   가까운 노드가 target이다. 자기 참조도 유지한다.
+ * - 엣지가 없는 occurrence는 진단이 가리킨다. 해결되지 않은 occurrence는 resolver 진단
+ *   (`ref-not-found` 등)이, occurrence나 참조 대상이 어떤 노드에도 속하지 않는
+ *   occurrence(`info`·`x-` 확장·비표준 `components` 섹션 아래 등)는 그 끝마다
+ *   `ref-source-outside-nodes`/`ref-target-outside-nodes` 진단이 가리킨다.
  * - 순환 위의 엣지는 `recursion`으로 표시한다. instance 하위로 내려가는 유효한 재귀는
  *   `guarded`, 진전이 없는 순환은 `unguarded`(`ref-cycle` 진단과 같은 occurrence)다.
  *
@@ -57,10 +62,44 @@ export type RefProjectionEdge = {
   recursion?: RefProjectionRecursion
 }
 
+/**
+ * A resolved `$ref` occurrence that has no edge because no node contains one of
+ * its ends: the occurrence (`ref-source-outside-nodes`) or its target
+ * (`ref-target-outside-nodes`). An occurrence with neither end inside a node
+ * gets one diagnostic for each end.
+ */
+export type RefProjectionOutsideNodesDiagnostic = {
+  code: 'ref-source-outside-nodes' | 'ref-target-outside-nodes'
+  ref: string
+  message: string
+  /** occurrence의 `.../$ref` pointer (occurrence가 있는 파일 기준) */
+  sourcePointer: string
+  /** occurrence가 있는 파일. 진입 문서는 `basePath`를 넘겼을 때만 있다 (resolver 진단과 같은 규칙). */
+  sourceFilePath?: string
+  /** 참조 대상이 진입 문서 밖에 있을 때 그 파일 */
+  filePath?: string
+  /** 참조 대상의 정규화된 JSON Pointer (대상 파일 기준) */
+  pointer: string
+  /** `lookupSourceLocation`이 찾은 occurrence 위치 */
+  line?: number
+  column?: number
+}
+
+export type RefProjectionDiagnostic = RefGraphDiagnostic | RefProjectionOutsideNodesDiagnostic
+
+export type RefProjectionDiagnosticCode = RefProjectionDiagnostic['code']
+
 export type RefProjection = {
   nodes: RefProjectionNode[]
   edges: RefProjectionEdge[]
-  diagnostics: RefGraphDiagnostic[]
+  /**
+   * Resolver diagnostics of the ref graph, then the occurrences left without an
+   * edge because an end lies outside every node. Every `$ref` occurrence has
+   * exactly one edge unless one of these names it: an unresolved occurrence by
+   * its resolver diagnostic, any other by `ref-source-outside-nodes` and/or
+   * `ref-target-outside-nodes`.
+   */
+  diagnostics: RefProjectionDiagnostic[]
 }
 
 const COMPONENT_KINDS: ReadonlyArray<readonly [section: string, kind: RefProjectionNodeKind]> = [
@@ -111,13 +150,19 @@ export function projectRefGraph(
     filePath === undefined ? entryOwners : externalOwners.get(filePath)
 
   const edges: RefProjectionEdge[] = []
+  const outsideNodes: RefProjectionOutsideNodesDiagnostic[] = []
   for (const occurrence of analysis.occurrences) {
     const target = targetLocation(occurrence, options.basePath)
+    // An unresolved occurrence is named by its resolver diagnostic.
     if (!target) continue
     const sourceFile = fileOf(occurrence.basePath, options.basePath)
     const source = ownersFor(sourceFile)?.ownerOf(occurrence.sourcePointer)
     const targetNode = ownersFor(target.filePath)?.ownerOf(target.pointer)
-    if (!source || !targetNode) continue
+    if (!source || !targetNode) {
+      if (!source) outsideNodes.push(outsideNodesDiagnostic('ref-source-outside-nodes', occurrence, target, options))
+      if (!targetNode) outsideNodes.push(outsideNodesDiagnostic('ref-target-outside-nodes', occurrence, target, options))
+      continue
+    }
 
     const recursion: RefProjectionRecursion | undefined = analysis.unguardedCycles.has(occurrence)
       ? 'unguarded'
@@ -135,7 +180,31 @@ export function projectRefGraph(
   return {
     nodes: [...nodes, ...externalNodes.values()],
     edges,
-    diagnostics: analysis.graph.diagnostics,
+    diagnostics: [...analysis.graph.diagnostics, ...outsideNodes],
+  }
+}
+
+function outsideNodesDiagnostic(
+  code: RefProjectionOutsideNodesDiagnostic['code'],
+  occurrence: RefOccurrence,
+  target: { filePath: string | undefined; pointer: string },
+  options: RefGraphOptions,
+): RefProjectionOutsideNodesDiagnostic {
+  const message = code === 'ref-source-outside-nodes'
+    ? `$ref occurrence를 포함하는 노드가 없어 엣지로 투영하지 않았습니다: ${occurrence.sourcePointer}`
+    : `참조 대상을 포함하는 노드가 없어 엣지로 투영하지 않았습니다: ${occurrence.ref}`
+  const location = occurrence.basePath === undefined
+    ? undefined
+    : options.lookupSourceLocation?.(occurrence.basePath, occurrence.sourcePointer)
+  return {
+    code,
+    ref: occurrence.ref,
+    message,
+    sourcePointer: occurrence.sourcePointer,
+    ...(occurrence.basePath !== undefined ? { sourceFilePath: occurrence.basePath } : {}),
+    ...(target.filePath !== undefined ? { filePath: target.filePath } : {}),
+    pointer: target.pointer,
+    ...(location ? { line: location.line, column: location.column } : {}),
   }
 }
 

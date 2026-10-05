@@ -55,6 +55,9 @@ components:
       properties:
         missing:
           $ref: '#/components/schemas/DoesNotExist'
+        # A target outside every node: no edge, a ref-target-outside-nodes diagnostic.
+        extension:
+          $ref: '#/x-shared/Extension'
   responses:
     OwnerList:
       description: Owners
@@ -64,3 +67,7 @@ components:
             type: array
             items:
               $ref: './shared.yaml#/components/schemas/Owner'
+# An occurrence outside every node: no edge, a ref-source-outside-nodes diagnostic.
+x-shared:
+  Extension:
+    $ref: '#/components/schemas/Tag'

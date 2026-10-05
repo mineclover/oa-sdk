@@ -96,7 +96,7 @@ describe('oa-gen ref-projection', () => {
     expect(first.stdout.trim()).toBe(
       'ref-projection: 13 nodes, 12 edges (recursion: 3 guarded, 2 unguarded), '
       + '6/13 nodes with canonicalId (unmapped: external-document 3, no-enclosing-provenance-entry 4), '
-      + '3 diagnostics -> out/first.json',
+      + '5 diagnostics -> out/first.json',
     )
     const firstText = readFileSync(join(workDir, 'out/first.json'), 'utf8')
     expect(readFileSync(join(workDir, 'out/second.json'), 'utf8')).toBe(firstText)
