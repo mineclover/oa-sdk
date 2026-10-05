@@ -77,7 +77,8 @@ export const typegen: Command = {
       if (target) {
         recordCliGenerationTarget(incremental, target, {
           content: ts,
-          inputFiles: [...loaded.inputFiles, ...indexed.referencedFilePaths],
+          inputFiles: indexed.referencedFilePaths,
+          loadedFiles: loaded.inputFiles,
           messages: warnings,
         })
       }

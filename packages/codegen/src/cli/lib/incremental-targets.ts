@@ -6,16 +6,17 @@
  *   - the generator identity (toolchain package versions, record format),
  *   - the normalized generation options,
  *   - the content hash of every recorded input file (entry spec, external
- *     `$ref` documents, TypeSpec sources, package manifests of dependencies),
- *     where "absent" is a recorded state too, so creating a file that used to
- *     be missing invalidates the target,
+ *     `$ref` documents, TypeSpec sources, package manifests of installed
+ *     libraries the TypeSpec compiler loaded), where "absent" is a recorded
+ *     state too, so creating a file that used to be missing invalidates the
+ *     target,
  *   - the output: a file output must still exist with the recorded hash; a
  *     stdout output is replayed from the stored content.
  * Anything else (no record, unreadable record, unknown generator identity)
  * regenerates.
  */
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { dirname, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type {
@@ -49,8 +50,19 @@ export type CliGenerationPlan =
 export type CliGenerationResult = {
   /** Generated content exactly as written to the output. */
   content: string
-  /** Files read to produce `content`; may contain duplicates and absent files. */
+  /**
+   * Files the generator read itself (the `$ref` documents it reached or tried
+   * to reach), each tracked by its own content wherever it lives. May contain
+   * duplicates and absent files.
+   */
   inputFiles: readonly string[]
+  /**
+   * Files the spec loader read: the spec itself, or every file the TypeSpec
+   * compiler loaded. One whose real path lies inside an installed package
+   * (`node_modules`) is tracked through that package's manifest; any other one
+   * by its own content.
+   */
+  loadedFiles?: readonly string[]
   /** Non-fatal messages emitted while generating, replayed when the target is reused. */
   messages: readonly string[]
 }
@@ -97,7 +109,7 @@ export function recordCliGenerationTarget(
     command: target.command,
     optionsHash: hashJson(target.options),
     generatorHash: hashJson(target.generator),
-    inputs: trackedInputPaths(target.entryPath, result.inputFiles).map(filePath => ({
+    inputs: trackedInputPaths(target.entryPath, result.inputFiles, result.loadedFiles).map(filePath => ({
       filePath,
       contentHash: readWorkspaceFileStamp(filePath, run.stamps)?.contentHash ?? null,
     })),
@@ -126,18 +138,25 @@ export function generationTargetKey(target: Pick<CliGenerationTarget, 'command' 
 
 /**
  * Map the files read during generation to the paths whose content is tracked.
- * The entry spec is always tracked by its own content. Any other file inside an
- * installed package (`node_modules`) is tracked through that package's
- * manifest, so the dependency version is the input rather than every library
+ * The entry spec and every file the generator read itself (`$ref` documents)
+ * are tracked by their own content, wherever they live. A file the spec loader
+ * loaded from an installed package, decided on its real path so a workspace
+ * package linked into `node_modules` stays content-tracked, is tracked through
+ * that package's manifest: the library version is the input rather than every
  * file it ships.
  */
-export function trackedInputPaths(entryPath: string, filePaths: readonly string[]): string[] {
+export function trackedInputPaths(
+  entryPath: string,
+  inputFiles: readonly string[],
+  loadedFiles: readonly string[] = [],
+): string[] {
   const entry = resolve(entryPath)
   const tracked = new Set<string>([entry])
-  for (const filePath of filePaths) {
+  for (const filePath of inputFiles) tracked.add(resolve(filePath))
+  for (const filePath of loadedFiles) {
     const absolutePath = resolve(filePath)
     if (absolutePath === entry) continue
-    tracked.add(installedPackageManifestPath(absolutePath) ?? absolutePath)
+    tracked.add(installedPackageManifestPath(realPath(absolutePath)) ?? absolutePath)
   }
   return [...tracked].sort((a, b) => a.localeCompare(b))
 }
@@ -192,6 +211,14 @@ function describeOutput(output: CliGenerationOutput): string {
 
 function generate(reason: string): CliGenerationPlan {
   return { action: 'generate', reason }
+}
+
+function realPath(filePath: string): string {
+  try {
+    return realpathSync.native(filePath)
+  } catch {
+    return filePath
+  }
 }
 
 function installedPackageManifestPath(filePath: string): string | undefined {

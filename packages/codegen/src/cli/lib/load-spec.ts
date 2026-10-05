@@ -9,7 +9,8 @@ export type LoadedSpec = {
   raw: string
   /**
    * Files read to produce `document`: the spec itself, or every file the
-   * TypeSpec compiler loaded. External `$ref` documents are not included.
+   * TypeSpec compiler loaded (sources and JS library entries, which may live in
+   * installed packages). External `$ref` documents are not included.
    */
   inputFiles: string[]
 }

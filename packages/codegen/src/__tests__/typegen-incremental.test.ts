@@ -13,6 +13,7 @@ import {
   realpathSync,
   rmSync,
   statSync,
+  symlinkSync,
   unlinkSync,
   utimesSync,
   writeFileSync,
@@ -213,6 +214,49 @@ describe('typegen --incremental', () => {
     expect(added.stdout).toContain('export type Later = {')
   })
 
+  it('tracks $ref documents inside node_modules by their own content', async () => {
+    // A workspace package linked into node_modules (pnpm/yarn/npm workspaces, `link:`)...
+    writeJson('packages/schemas/package.json', { name: '@acme/schemas', version: '1.0.0' })
+    writeYaml('packages/schemas/user.yaml', objectSchemaDocument('User', ['id']))
+    mkdirSync(path('apps/api/node_modules/@acme'), { recursive: true })
+    symlinkSync('../../../../packages/schemas', path('apps/api/node_modules/@acme/schemas'), 'dir')
+    // ...and a package installed as a plain directory.
+    writeJson('apps/api/node_modules/shared-schemas/package.json', { name: 'shared-schemas', version: '1.0.0' })
+    writeYaml('apps/api/node_modules/shared-schemas/order.yaml', objectSchemaDocument('Order', ['id']))
+    writeYaml('apps/api/api.yaml', apiSpec({
+      getUser: './node_modules/@acme/schemas/user.yaml#/components/schemas/User',
+      getOrder: './node_modules/shared-schemas/order.yaml#/components/schemas/Order',
+    }))
+    const args = { spec: path('apps/api/api.yaml'), output: path('out/api.ts'), incremental: true, 'cache-dir': cacheDir }
+    const fullOutput = async () => {
+      await runTypegen({ spec: path('apps/api/api.yaml'), output: path('full/api.ts') })
+      return readFileSync(path('full/api.ts'), 'utf8')
+    }
+
+    await runTypegen(args)
+    expect((await runTypegen(args)).status)
+      .toEqual([`incremental: typegen up to date, regeneration skipped (${path('out/api.ts')})`])
+
+    // Editing a linked package's schema leaves its manifest untouched.
+    writeYaml('packages/schemas/user.yaml', objectSchemaDocument('User', ['id', 'email']))
+    const linkedEdit = await runTypegen(args)
+
+    expect(linkedEdit.status).toEqual([
+      `incremental: typegen regenerating (input changed: ${path('apps/api/node_modules/@acme/schemas/user.yaml')})`,
+    ])
+    expect(readFileSync(path('out/api.ts'), 'utf8')).toContain('email')
+    expect(readFileSync(path('out/api.ts'), 'utf8')).toBe(await fullOutput())
+
+    writeYaml('apps/api/node_modules/shared-schemas/order.yaml', objectSchemaDocument('Order', ['id', 'total']))
+    const installedEdit = await runTypegen(args)
+
+    expect(installedEdit.status).toEqual([
+      `incremental: typegen regenerating (input changed: ${path('apps/api/node_modules/shared-schemas/order.yaml')})`,
+    ])
+    expect(readFileSync(path('out/api.ts'), 'utf8')).toContain('total')
+    expect(readFileSync(path('out/api.ts'), 'utf8')).toBe(await fullOutput())
+  })
+
   it('tracks TypeSpec sources imported by the entry file', async () => {
     mkdirSync(packageTmpBase, { recursive: true })
     // The TypeSpec compiler reports real paths.
@@ -277,21 +321,49 @@ describe('incremental generation targets', () => {
     }
   })
 
-  it('tracks installed package files through their manifest and the entry spec by its own content', () => {
+  it('tracks module files inside installed packages through their manifest and every other input by its own content', () => {
     const nodeModules = join(workspace, 'node_modules')
+    const realNodeModules = join(realpathSync(workspace), 'node_modules')
     const entry = join(nodeModules, 'spec-pkg', 'api.tsp')
+    const files = {
+      entry,
+      installedSource: join(nodeModules, '@scope', 'lib', 'lib', 'main.tsp'),
+      installedJs: join(nodeModules, '@scope', 'lib', 'dist', 'index.js'),
+      virtualStoreSource: join(nodeModules, '.pnpm', 'dep@1.0.0', 'node_modules', 'dep', 'main.tsp'),
+      linkedSource: join(nodeModules, '@scope', 'linked', 'lib', 'main.tsp'),
+      authoredSource: join(workspace, 'models.tsp'),
+      installedRefDocument: join(nodeModules, 'shared-schemas', 'user.yaml'),
+      authoredRefDocument: join(workspace, 'models', 'user.yaml'),
+    }
+    for (const filePath of Object.values(files)) {
+      if (filePath === files.linkedSource) continue
+      mkdirSync(dirname(filePath), { recursive: true })
+      writeFileSync(filePath, '', 'utf8')
+    }
+    // A workspace package linked into node_modules lives outside it.
+    mkdirSync(path('packages/lib/lib'), { recursive: true })
+    writeFileSync(path('packages/lib/lib/main.tsp'), '', 'utf8')
+    symlinkSync('../../packages/lib', join(nodeModules, '@scope', 'linked'), 'dir')
 
-    expect(trackedInputPaths(entry, [
+    expect(trackedInputPaths(
       entry,
-      join(nodeModules, '@scope', 'lib', 'lib', 'main.tsp'),
-      join(nodeModules, '@scope', 'lib', 'dist', 'index.js'),
-      join(nodeModules, '.pnpm', 'dep@1.0.0', 'node_modules', 'dep', 'main.tsp'),
-      join(workspace, 'models.tsp'),
-    ])).toEqual([
-      join(nodeModules, '.pnpm', 'dep@1.0.0', 'node_modules', 'dep', 'package.json'),
-      join(nodeModules, '@scope', 'lib', 'package.json'),
-      entry,
-      join(workspace, 'models.tsp'),
+      [files.installedRefDocument, files.authoredRefDocument],
+      [
+        files.entry,
+        files.installedSource,
+        files.installedJs,
+        files.virtualStoreSource,
+        files.linkedSource,
+        files.authoredSource,
+      ],
+    )).toEqual([
+      join(realNodeModules, '.pnpm', 'dep@1.0.0', 'node_modules', 'dep', 'package.json'),
+      join(realNodeModules, '@scope', 'lib', 'package.json'),
+      files.entry,
+      files.linkedSource,
+      files.installedRefDocument,
+      files.authoredSource,
+      files.authoredRefDocument,
     ].sort((a, b) => a.localeCompare(b)))
   })
 })
@@ -332,20 +404,40 @@ function writeTwoTargetWorkspace(): void {
 }
 
 function operationSpec(operationId: string, schemaRef: string): Record<string, unknown> {
+  return apiSpec({ [operationId]: schemaRef })
+}
+
+/** One GET operation per entry, each responding with the referenced schema. */
+function apiSpec(schemaRefsByOperation: Record<string, string>): Record<string, unknown> {
+  const operations = Object.entries(schemaRefsByOperation)
   return {
     openapi: '3.2.0',
-    info: { title: operationId, version: '1.0.0' },
-    paths: {
-      [`/${operationId}`]: {
-        get: {
-          operationId,
-          responses: {
-            '200': { description: 'OK', content: { 'application/json': { schema: { $ref: schemaRef } } } },
-          },
+    info: { title: operations.map(([operationId]) => operationId).join(' '), version: '1.0.0' },
+    paths: Object.fromEntries(operations.map(([operationId, schemaRef]) => [`/${operationId}`, {
+      get: {
+        operationId,
+        responses: {
+          '200': { description: 'OK', content: { 'application/json': { schema: { $ref: schemaRef } } } },
+        },
+      },
+    }])),
+    ...(operations.some(([, schemaRef]) => schemaRef.startsWith('#/'))
+      ? { components: { schemas: { Thing: { type: 'string' } } } }
+      : {}),
+  }
+}
+
+/** A document with one object schema whose properties are all strings. */
+function objectSchemaDocument(name: string, properties: readonly string[]): Record<string, unknown> {
+  return {
+    components: {
+      schemas: {
+        [name]: {
+          type: 'object',
+          properties: Object.fromEntries(properties.map(property => [property, { type: 'string' }])),
         },
       },
     },
-    ...(schemaRef.startsWith('#/') ? { components: { schemas: { Thing: { type: 'string' } } } } : {}),
   }
 }
 
@@ -353,6 +445,12 @@ function writeYaml(relativePath: string, value: unknown): void {
   const filePath = path(relativePath)
   mkdirSync(dirname(filePath), { recursive: true })
   writeFileSync(filePath, stringifyYaml(value), 'utf8')
+}
+
+function writeJson(relativePath: string, value: unknown): void {
+  const filePath = path(relativePath)
+  mkdirSync(dirname(filePath), { recursive: true })
+  writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8')
 }
 
 function backdateOutputs(...relativePaths: string[]): void {
