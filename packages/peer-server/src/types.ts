@@ -22,8 +22,19 @@ export interface PeerServerOptions {
   maxPendingCalls?: number | undefined
 }
 
+/** JSON-RPC tool call the server forwards to a provider socket. */
+export interface SignalingToolCallMessage {
+  type: 'mcp'
+  message: {
+    jsonrpc: '2.0'
+    id: number
+    method: 'tools/call'
+    params: { name: string; arguments: Record<string, unknown> }
+  }
+}
+
 export interface SignalingPeerSocket {
-  send: (message: any) => void
+  send: (message: SignalingToolCallMessage) => void
   close?: () => void
 }
 

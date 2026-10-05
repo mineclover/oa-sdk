@@ -8,7 +8,7 @@ import type { SignalingPeerSocket, SignalingRoomEntry } from './types.js'
 interface PendingCall {
   alias: string
   socket?: SignalingPeerSocket
-  resolve: (result: any) => void
+  resolve: (result: unknown) => void
   reject: (err: Error) => void
   timer: NodeJS.Timeout
 }
@@ -145,7 +145,7 @@ export class PeerRoomManager {
     waitTimeoutMs = DEFAULT_WAIT_TIMEOUT_MS,
     callTimeoutMs = DEFAULT_CALL_TIMEOUT_MS,
     maxPendingCalls = this.maxPendingCalls,
-  ): Promise<any> {
+  ): Promise<unknown> {
     if (this.disposed) throw new Error('ROOM_MANAGER_CLOSED')
     if (typeof alias !== 'string' || alias.length === 0) throw new TypeError('Invalid peer alias')
     if (typeof tool !== 'string' || tool.length === 0 || tool.length > 256) throw new TypeError('Invalid tool name')
@@ -178,7 +178,7 @@ export class PeerRoomManager {
       throw new Error('TOO_MANY_PENDING_CALLS: provider call capacity is exhausted')
     }
     const id = ++this.rpcIdSeq
-    return new Promise((resolve, reject) => {
+    return new Promise<unknown>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pendingCalls.delete(id)
         reject(new Error(`TOOL_CALL_TIMEOUT: Tool "${tool}" on peer "${alias}" timed out after ${callMs}ms`))

@@ -7,28 +7,18 @@ import { FilePeerStore } from './store.js'
 import { isSafeAlias } from './store.js'
 import { PeerRoomManager } from './room.js'
 import { createHomeMcpTools } from './home-mcp.js'
-import type { PeerServerOptions, SignalingRoomEntry } from './types.js'
+import type { WebMcpPeerRecord } from '@oa-sdk/peer-transport'
+import type { PeerServerOptions } from './types.js'
+import {
+  HomeMcpRequestSchema,
+  PeerAnnouncementSchema,
+  RequestError,
+  ToolCallRequestSchema,
+  type RequestSchema,
+} from './request-schemas.js'
 
 const DEFAULT_MAX_BODY_BYTES = 1024 * 1024
 const MAX_CONFIGURED_BODY_BYTES = 16 * 1024 * 1024
-const MAX_TOOL_NAME_LENGTH = 256
-const MAX_SESSION_ID_LENGTH = 256
-
-class RequestError extends Error {
-  constructor(readonly status: number, message: string) {
-    super(message)
-  }
-}
-
-function isSafeToolName(value: unknown): value is string {
-  return typeof value === 'string' && value.length > 0 && value.length <= MAX_TOOL_NAME_LENGTH && !/[\u0000-\u001f\u007f]/.test(value)
-}
-
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
-  const prototype = Object.getPrototypeOf(value)
-  return prototype === Object.prototype || prototype === null
-}
 
 function constantTimeEqual(expected: string, actual: string): boolean {
   const a = Buffer.from(expected)
@@ -58,7 +48,8 @@ function allowedOrigin(req: IncomingMessage, configured: string[] | undefined): 
   }
 }
 
-async function readJsonBody(req: IncomingMessage, maxBodyBytes: number): Promise<unknown> {
+/** Read a bounded JSON body and validate it with `schema`. An empty body is read as `{}`. */
+async function readJsonBody<T>(req: IncomingMessage, maxBodyBytes: number, schema: RequestSchema<T>): Promise<T> {
   const declaredLength = Number(req.headers['content-length'])
   if (Number.isFinite(declaredLength) && declaredLength > maxBodyBytes) {
     throw new RequestError(413, 'Request body too large')
@@ -72,17 +63,24 @@ async function readJsonBody(req: IncomingMessage, maxBodyBytes: number): Promise
     if (total > maxBodyBytes) throw new RequestError(413, 'Request body too large')
     chunks.push(buffer)
   }
-  if (total === 0) return {}
+  if (total === 0) return schema.parse({})
   try {
-    return JSON.parse(Buffer.concat(chunks).toString('utf8'))
-  } catch {
-    throw new RequestError(400, 'Invalid JSON payload')
+    return schema.parse(JSON.parse(Buffer.concat(chunks).toString('utf8')))
+  } catch (error) {
+    // JSON.parse reports malformed text as SyntaxError; schema violations carry their own status.
+    if (error instanceof SyntaxError) throw new RequestError(400, 'Invalid JSON payload')
+    throw error
   }
 }
 
-function sanitizePeerRecord(record: Record<string, unknown>): Record<string, unknown> {
+/** Peer records served over HTTP never include the bridge token or invitation URL. */
+function sanitizePeerRecord(record: WebMcpPeerRecord): Omit<WebMcpPeerRecord, 'token' | 'invitationUrl'> {
   const { token: _token, invitationUrl: _invitationUrl, ...safe } = record
   return safe
+}
+
+function errorMessage(error: unknown): string | undefined {
+  return error instanceof Error ? error.message : undefined
 }
 
 export interface PeerServerInstance {
@@ -201,7 +199,7 @@ export function createPeerServer(options: PeerServerOptions = {}): PeerServerIns
         targetAlias,
         toolsCount: toolsList.length,
         tools: toolsList,
-        peers: Object.fromEntries(Object.entries(data.peers).map(([alias, peer]) => [alias, sanitizePeerRecord(peer as unknown as Record<string, unknown>)])),
+        peers: Object.fromEntries(Object.entries(data.peers).map(([alias, peer]) => [alias, sanitizePeerRecord(peer)])),
       })
       return
     }
@@ -228,21 +226,7 @@ export function createPeerServer(options: PeerServerOptions = {}): PeerServerIns
 
     // 3. POST /call
     if (req.method === 'POST' && pathname === '/call') {
-      const payload = await readJsonBody(req, maxBodyBytes)
-      if (!isPlainRecord(payload)) {
-        jsonResponse(res, 400, { error: 'Request payload must be an object' })
-        return
-      }
-
-      const { tool, args, peer, sessionId } = payload
-      if (!isSafeToolName(tool) || (args !== undefined && !isPlainRecord(args))) {
-        jsonResponse(res, 400, { error: 'Invalid tool call payload' })
-        return
-      }
-      if (sessionId !== undefined && (typeof sessionId !== 'string' || sessionId.length > MAX_SESSION_ID_LENGTH)) {
-        jsonResponse(res, 400, { error: 'Invalid sessionId' })
-        return
-      }
+      const { tool, args, peer } = await readJsonBody(req, maxBodyBytes, ToolCallRequestSchema)
       const targetAlias = peer ?? options.defaultAlias ?? 'wireframe-local'
       if (!isSafeAlias(targetAlias)) {
         jsonResponse(res, 400, { error: 'Invalid peer alias' })
@@ -252,8 +236,8 @@ export function createPeerServer(options: PeerServerOptions = {}): PeerServerIns
       try {
         const result = await roomManager.executeMcpCallOnPeer(targetAlias, tool, args ?? {}, 3500, 30000, maxPendingCalls)
         jsonResponse(res, 200, { result })
-      } catch (err: any) {
-        const message = typeof err?.message === 'string' ? err.message : 'Tool execution failed'
+      } catch (err: unknown) {
+        const message = errorMessage(err) ?? 'Tool execution failed'
         const status = message.startsWith('PEER_UNAVAILABLE') ? 503
           : message.startsWith('TOOL_NOT_ALLOWED') ? 403
             : message.startsWith('TOO_MANY_PENDING_CALLS') ? 429
@@ -270,51 +254,20 @@ export function createPeerServer(options: PeerServerOptions = {}): PeerServerIns
 
     // 4. POST /announce (Provider registration)
     if (req.method === 'POST' && pathname === '/announce') {
-      const peerRecord = await readJsonBody(req, maxBodyBytes)
-      if (!isPlainRecord(peerRecord)) {
-        jsonResponse(res, 400, { error: 'Peer record must be an object' })
-        return
-      }
-
-      if (!isSafeAlias(peerRecord.alias)) {
-        jsonResponse(res, 400, { error: 'Invalid peer alias' })
-        return
-      }
-      const cachedTools = peerRecord.cachedTools ?? []
-      if (!Array.isArray(cachedTools) || cachedTools.length > 1000 || cachedTools.some((entry) => !isPlainRecord(entry) || !isSafeToolName(entry.name))) {
-        jsonResponse(res, 400, { error: 'Invalid cachedTools catalog' })
-        return
-      }
-      if (peerRecord.origin !== undefined) {
-        if (typeof peerRecord.origin !== 'string' || peerRecord.origin.length > 2048) {
-          jsonResponse(res, 400, { error: 'Invalid peer origin' })
-          return
-        }
-        try {
-          const originUrl = new URL(peerRecord.origin)
-          if (!['http:', 'https:'].includes(originUrl.protocol) || originUrl.origin !== peerRecord.origin) throw new Error()
-        } catch {
-          jsonResponse(res, 400, { error: 'Invalid peer origin' })
-          return
-        }
-      }
-
-      const peerAlias = peerRecord.alias
-      const peerId = typeof peerRecord.id === 'string' ? peerRecord.id : peerAlias
-      const peerTitle = typeof peerRecord.title === 'string' ? peerRecord.title : undefined
-      const updated = await store.updatePeer(peerAlias, { ...peerRecord, cachedTools })
+      const announced = await readJsonBody(req, maxBodyBytes, PeerAnnouncementSchema)
+      const updated = await store.updatePeer(announced.alias, announced)
       roomManager.registerRoom({
-        id: peerId,
-        alias: peerAlias,
-        title: peerTitle,
-        origin: peerRecord.origin,
+        id: announced.id ?? announced.alias,
+        alias: announced.alias,
+        title: announced.title,
+        origin: announced.origin,
         status: 'connected',
-        cachedTools: cachedTools as SignalingRoomEntry['cachedTools'],
-        allowedTools: Array.isArray(peerRecord.allowedTools) ? peerRecord.allowedTools.filter(isSafeToolName) : undefined,
+        cachedTools: announced.cachedTools ?? [],
+        allowedTools: announced.allowedTools,
         updatedAt: Date.now(),
       })
 
-      jsonResponse(res, 200, { ok: true, peer: sanitizePeerRecord(updated as unknown as Record<string, unknown>) })
+      jsonResponse(res, 200, { ok: true, peer: sanitizePeerRecord(updated) })
       return
     }
 
@@ -362,16 +315,16 @@ export function createPeerServer(options: PeerServerOptions = {}): PeerServerIns
       }
 
       if (req.method === 'POST') {
-        const body = await readJsonBody(req, maxBodyBytes)
-        if (!isPlainRecord(body)) {
+        const request = await readJsonBody(req, maxBodyBytes, HomeMcpRequestSchema)
+        if (request.kind === 'invalid') {
           jsonResponse(res, 400, { jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Invalid Request' } })
           return
         }
 
-        if (body.method === 'tools/list') {
+        if (request.kind === 'tools/list') {
           jsonResponse(res, 200, {
             jsonrpc: '2.0',
-            id: body.id ?? null,
+            id: request.id,
             result: {
               tools: homeTools.map((t) => ({
                 name: t.name,
@@ -383,27 +336,27 @@ export function createPeerServer(options: PeerServerOptions = {}): PeerServerIns
           return
         }
 
-        if (body.method === 'tools/call') {
-          if (!isPlainRecord(body.params) || !isSafeToolName(body.params.name) || (body.params.arguments !== undefined && !isPlainRecord(body.params.arguments))) {
-            jsonResponse(res, 200, { jsonrpc: '2.0', id: body.id ?? null, error: { code: -32600, message: 'Invalid tools/call params' } })
-            return
-          }
-          const params = body.params as Record<string, unknown>
-          const toolName = params.name as string
+        if (request.kind === 'invalid-call-params') {
+          jsonResponse(res, 200, { jsonrpc: '2.0', id: request.id, error: { code: -32600, message: 'Invalid tools/call params' } })
+          return
+        }
+
+        if (request.kind === 'tools/call') {
+          const toolName = request.name
           const tool = homeTools.find((t) => t.name === toolName)
           if (!tool) {
             jsonResponse(res, 200, {
               jsonrpc: '2.0',
-              id: body.id ?? null,
+              id: request.id,
               error: { code: -32601, message: `Tool "${toolName}" not found` },
             })
             return
           }
 
-          const result = await (tool.execute as (input: Record<string, unknown>) => Promise<unknown>)(params.arguments as Record<string, unknown> ?? {})
+          const result = await (tool.execute as (input: Record<string, unknown>) => Promise<unknown>)(request.arguments)
           jsonResponse(res, 200, {
             jsonrpc: '2.0',
-            id: body.id ?? null,
+            id: request.id,
             result: {
               content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
               isError: false,
