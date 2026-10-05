@@ -7,6 +7,30 @@ contract. The package deliberately does not expose a generic decorator for arbit
 Both live in the `OaSdkTypeSpec` namespace, so one `using OaSdkTypeSpec;` brings them into scope.
 The contracts use `@typespec/http` decorators, which this package depends on.
 
+## Install
+
+```bash
+npm install --save-dev @oa-sdk/typespec-decorators@^0.3.0 \
+  @typespec/compiler@^1.16.0 @typespec/http@^1.16.0 @typespec/openapi@^1.16.0
+```
+
+- The standard contracts below exist from 0.3.0. Version 0.3.0 is on npm from the `@oa-sdk/codegen`
+  0.9.0 release; the [changelog](../../docs/changelog.md) lists the installable versions.
+- Install the TypeSpec libraries that your `.tsp` files import (`@typespec/http`, `@typespec/openapi`,
+  this package) as direct devDependencies. TypeSpec resolves `import "@typespec/http"` from the
+  location of the `.tsp` file, so under pnpm's strict layout the copies that `@oa-sdk/codegen`
+  depends on are not visible and compilation fails with `import-not-found`.
+- `@typespec/compiler` provides the `tsp` CLI and the editor language server. `oa-gen`
+  (`@oa-sdk/codegen`) compiles `.tsp` files in memory with its own TypeSpec compiler, so
+  `oa-gen validate`, `typegen`, `generate` and `mock --tsp` need no `tsp compile` step. Use the
+  same `^1.16.0` range that `@oa-sdk/codegen` uses.
+- `@info(#{ version })` needs `import "@typespec/openapi";` and `using OpenAPI;`.
+- `tsp compile` with `@typespec/openapi3` (install it separately) emits OpenAPI 3.0.0 unless you set
+  `openapi-versions`; `oa-gen` projects `.tsp` files to OpenAPI 3.2.0.
+- The package requires Node.js 22 or later.
+
+Getting started with `oa-gen` itself is covered by the [Quick Start](../../docs/guides/quick-start.md).
+
 ## 1. Platform Standard Contracts (`contracts.tsp`)
 
 `@oa-sdk/typespec-decorators` ships standard HTTP response envelopes and error contracts:
@@ -56,6 +80,9 @@ another namespace that declares `Ok`, `Created`, `NoContent`, `PageResult`, `Err
 `StandardError`, `StandardValidationError` or `StandardHttpErrors`, TypeSpec reports an
 `ambiguous-symbol` error; use the fully qualified name, such as `OaSdkTypeSpec.Ok`.
 
+These contracts are ordinary HTTP responses, so the 4xx responses they declare appear in every
+output, including `oa-gen mock --tsp` and `oa-gen typegen`/`generate` run on a `.tsp` file.
+
 ## 2. Authoring Decorators
 
 ```typespec
@@ -87,13 +114,29 @@ op listMembers(): Member[];
 ```
 
 ### `@oaUseResponseComponent(statusCode, componentName)`
-Emits only the existing `oa-sdk.typespec-extensions.v5` operation-response component-reference shape.
-It accepts a three-digit status code (or `default`) and a simple component name.
+Emits only the existing `oa-sdk.typespec-extensions.v5` operation-response component-reference shape
+(`x-oa-sdk-operation-component-refs`). It accepts a three-digit status code (or `default`) and a
+simple component name; anything else reports `invalid-response-component-reference`. When the same
+status code is declared twice, no diagnostic is reported and only the declaration closest to the
+operation is kept.
+
+The decorator records the reference; it does not create a response. Only the OA SDK bundle restore
+(`oa-gen tsp-bundle-check`, and `pnpm schema:typespec-check` in the OA SDK repository) replaces the
+operation's response for that status with `$ref: '#/components/responses/<componentName>'`, and the
+restore needs three things: the operation's return type must already declare that status, the name
+must be a response component the bundle defines (the OA SDK repository keeps them in the
+`x-oa-sdk-components` catalog), and the response examples must be recorded in
+`x-oa-sdk-operation-examples`. `oa-gen`'s in-memory paths (`oa-gen mock --tsp`, and
+`generate`, `typegen` or `validate` run on a `.tsp` file) keep only the extension, so the response
+does not appear there. To declare 4xx responses in an ordinary project, use `ErrorResponse<Status>` or
+`StandardHttpErrors`. The repository rules are in the
+[TypeSpec authoring conventions](../../docs/guides/typespec-authoring-conventions.md#31-재사용-응답-컴포넌트에-연결하기).
 
 ### `@personaCapability(traits...)`
 Declares formal API persona capabilities on an operation (e.g. `@personaCapability("pagination", "audit-emission")`).
-Each trait must be one of the standard capability traits from `packages/personas/src/traits/skill.yaml`
-(exported as `VALID_PERSONA_TRAITS`); the decorator emits `x-oa-sdk-persona-traits`.
+Each trait must be one of the 24 standard capability traits from `packages/personas/src/traits/skill.yaml`
+(exported as `VALID_PERSONA_TRAITS`); an unknown trait reports `invalid-persona-trait`. The decorator
+emits `x-oa-sdk-persona-traits`.
 
 ### `@pseudonymize(transform, role?, pii?, relationship?)`
 Annotates a model property with a DPM pseudonymization contract and emits `x-oa-sdk-dpm-projection`.
@@ -101,7 +144,8 @@ Annotates a model property with a DPM pseudonymization contract and emits `x-oa-
 `relationship_token`, `polymorphic_relationship_token`) and `role` one of `VALID_DPM_ROLES`
 (`direct_identifier`, `foreign_identifier`, `business_identifier`, `business_metric`,
 `unstructured_text`, `code_lookup`). A `direct_identifier`, or any `pii: true` field, cannot use
-`keep`, and a `pii: true` `foreign_identifier` needs `relationship`.
+`keep`, and a `pii: true` `foreign_identifier` needs `relationship`. A rule that breaks these
+constraints reports `invalid-pseudonymize-rule`.
 
 ### `@crdt(options)` & `@crdtEntity(options)`
 Declare CRDT replication and conflict-resolution policies on model properties (`@crdt`, emitting
@@ -109,7 +153,13 @@ Declare CRDT replication and conflict-resolution policies on model properties (`
 `type` (`VALID_CRDT_TYPES`) and accepts `resolution`, `engine` and `role`; `@crdtEntity` accepts
 `partitionKey`, `timeRange`, `compaction` (`VALID_CRDT_COMPACTIONS`) and `strategy`.
 
----
+When a spec carries these extensions, `oa-gen generate` also writes four CRDT modules per spec target
+(`<id>.crdt.contract.ts`, `<id>.crdt.router.ts`, `<id>.crdt.client.ts`, `<id>.crdt.hooks.ts`). They are
+generated by the companion packages `@oa-sdk/router` and `@oa-sdk/client`; see
+[companion packages](../../docs/guides/cli-setup.md#동반-패키지-companion-packages) for what happens
+when they are not installed.
+
+## Maintainers
 
 Because custom TypeSpec decorators execute JavaScript, this package is included
 in spec-lens's allowlisted runtime and its exact runtime artifact digest is part
