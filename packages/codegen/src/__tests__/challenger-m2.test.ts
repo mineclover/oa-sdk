@@ -35,6 +35,7 @@ import {
   CANDIDATE_CONFIG_FILES,
 } from '../cli/lib/config-loader.js'
 import { spawnSync } from 'node:child_process'
+import { SUBPROCESS_TEST_BUDGET_MS } from './helpers/subprocess-budget.js'
 import { findProjectRoot } from '@oa-sdk/core'
 
 const REPO_ROOT = findProjectRoot(__dirname)
@@ -45,7 +46,7 @@ function runCli(args: string[], cwd: string) {
   const result = spawnSync('node', [TSX_CLI, CLI_SRC, ...args], {
     cwd,
     encoding: 'utf8',
-    timeout: 30_000,
+    timeout: SUBPROCESS_TEST_BUDGET_MS,
   })
   return {
     status: result.status,

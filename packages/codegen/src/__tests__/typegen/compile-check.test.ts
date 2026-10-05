@@ -4,6 +4,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { execFileSync } from 'node:child_process'
+import { SUBPROCESS_TEST_BUDGET_MS } from '../helpers/subprocess-budget.js'
 import { createRequire } from 'node:module'
 import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -232,7 +233,7 @@ function runTypeCompilers(): void {
   execFileSync(process.execPath, [tscBin, '--noEmit'], {
     cwd: tmpDir,
     encoding: 'utf8',
-    timeout: 30_000,
+    timeout: SUBPROCESS_TEST_BUDGET_MS,
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   execFileSync(process.execPath, [ttscBin, '--noEmit', '--project', ttscConfigPath], {
@@ -241,7 +242,7 @@ function runTypeCompilers(): void {
     // generated project's own tsconfig. This exercises ttsc's normal consumer
     // dependency lookup without replacing @oa-sdk/codegen's TypeScript 5 tsc.
     encoding: 'utf8',
-    timeout: 30_000,
+    timeout: SUBPROCESS_TEST_BUDGET_MS,
     stdio: ['ignore', 'pipe', 'pipe'],
   })
 }

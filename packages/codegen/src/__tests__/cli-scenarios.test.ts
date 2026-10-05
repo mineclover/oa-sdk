@@ -8,6 +8,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { mkdirSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { execSync, spawnSync, type ExecSyncOptionsWithStringEncoding } from 'node:child_process'
+import { SUBPROCESS_TEST_BUDGET_MS } from './helpers/subprocess-budget.js'
 import { stringify as yamlStringify } from 'yaml'
 import { createSQLiteWorkspaceIndex } from '../sqlite-workspace-index.js'
 import {
@@ -80,7 +81,7 @@ let nestedExternalSpecPath: string
 let externalSourceLocationSpecPath: string
 let schemaMetaLocationSpecPath: string
 
-const execOpts: ExecSyncOptionsWithStringEncoding = { cwd: pkgDir, encoding: 'utf8', timeout: 15_000 }
+const execOpts: ExecSyncOptionsWithStringEncoding = { cwd: pkgDir, encoding: 'utf8', timeout: SUBPROCESS_TEST_BUDGET_MS }
 
 function cli(args: string): string {
   return execSync(`node ${cliPath} ${args}`, execOpts)
@@ -104,7 +105,7 @@ function cliCaptureArgs(args: string[]): { stdout: string; stderr: string; statu
   const result = spawnSync(process.execPath, [cliPath, ...args], {
     cwd: pkgDir,
     encoding: 'utf8',
-    timeout: 15_000,
+    timeout: SUBPROCESS_TEST_BUDGET_MS,
   })
   return {
     stdout: result.stdout ?? '',

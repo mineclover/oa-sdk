@@ -10,6 +10,7 @@
  */
 import { describe, it, expect, afterAll } from 'vitest'
 import { execSync } from 'node:child_process'
+import { SUBPROCESS_TEST_BUDGET_MS } from '../helpers/subprocess-budget.js'
 import { mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { stringify as yamlStringify } from 'yaml'
@@ -19,14 +20,14 @@ const cliPath = resolve(pkgDir, 'dist/cli/index.js')
 const tmpDir = join(pkgDir, '.tmp-type-semantics')
 
 function cli(args: string): string {
-  return execSync(`node ${cliPath} ${args}`, { cwd: pkgDir, encoding: 'utf8', timeout: 10_000 })
+  return execSync(`node ${cliPath} ${args}`, { cwd: pkgDir, encoding: 'utf8', timeout: SUBPROCESS_TEST_BUDGET_MS })
 }
 
 const tscBin = resolve(pkgDir, 'node_modules/.bin/tsc')
 
 function compileTsc(dir: string): { ok: boolean; output: string } {
   try {
-    execSync(`${tscBin} --noEmit`, { cwd: dir, encoding: 'utf8', timeout: 30_000, stdio: ['pipe', 'pipe', 'pipe'] })
+    execSync(`${tscBin} --noEmit`, { cwd: dir, encoding: 'utf8', timeout: SUBPROCESS_TEST_BUDGET_MS, stdio: ['pipe', 'pipe', 'pipe'] })
     return { ok: true, output: '' }
   } catch (err) {
     const e = err as { stdout?: string; stderr?: string }

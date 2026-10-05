@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
+import { SUBPROCESS_TEST_BUDGET_MS } from './helpers/subprocess-budget.js'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { stringify } from 'yaml'
@@ -48,7 +49,7 @@ describe('typespec roundtrip semantic-loss gate', () => {
     ], {
       cwd: rootDir,
       encoding: 'utf8',
-      timeout: 60_000,
+      timeout: SUBPROCESS_TEST_BUDGET_MS,
     })
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).not.toBe(0)

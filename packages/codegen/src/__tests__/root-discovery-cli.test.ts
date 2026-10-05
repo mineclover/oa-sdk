@@ -16,6 +16,7 @@ import { mkdirSync, rmSync, writeFileSync, existsSync, realpathSync, mkdtempSync
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
+import { SUBPROCESS_TEST_BUDGET_MS } from './helpers/subprocess-budget.js'
 import { stringify as yamlStringify } from 'yaml'
 import { findProjectRoot } from '@oa-sdk/core'
 
@@ -52,7 +53,7 @@ interface CliResult {
 
 function runCli(args: string[], options: { cwd?: string; env?: NodeJS.ProcessEnv; timeout?: number } = {}): CliResult {
   const cwd = options.cwd ?? REPO_ROOT
-  const timeout = options.timeout ?? 30_000
+  const timeout = options.timeout ?? SUBPROCESS_TEST_BUDGET_MS
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     ...(options.env ?? {}),

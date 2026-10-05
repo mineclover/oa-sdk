@@ -8,6 +8,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { mkdirSync, rmSync, writeFileSync, existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { execSync } from 'node:child_process'
+import { SUBPROCESS_TEST_BUDGET_MS } from './helpers/subprocess-budget.js'
 import { stringify as yamlStringify } from 'yaml'
 
 const pkgDir = resolve(__dirname, '../..')
@@ -15,7 +16,7 @@ const cliPath = resolve(pkgDir, 'dist/cli/index.js')
 const tmpDir = resolve(pkgDir, '.tmp-cli-schema')
 
 function cli(args: string): string {
-  return execSync(`node ${cliPath} ${args}`, { cwd: pkgDir, encoding: 'utf8', timeout: 10_000 })
+  return execSync(`node ${cliPath} ${args}`, { cwd: pkgDir, encoding: 'utf8', timeout: SUBPROCESS_TEST_BUDGET_MS })
 }
 
 // ── 전체 스키마 패턴을 커버하는 스펙 ───────────────────────

@@ -13,6 +13,7 @@ import { z } from 'zod'
 import { mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { execSync } from 'node:child_process'
+import { SUBPROCESS_TEST_BUDGET_MS } from './helpers/subprocess-budget.js'
 import { zodToSchema } from '../zod-to-schema.js'
 import { generateTypesFromSpec } from '../typegen/generate-types.js'
 import type { OasDocument } from '@oa-sdk/parser'
@@ -62,7 +63,7 @@ function roundtripCompile(
   }), 'utf8')
 
   try {
-    execSync(`${tscBin} --noEmit`, { cwd: tmpDir, encoding: 'utf8', timeout: 30_000, stdio: ['pipe', 'pipe', 'pipe'] })
+    execSync(`${tscBin} --noEmit`, { cwd: tmpDir, encoding: 'utf8', timeout: SUBPROCESS_TEST_BUDGET_MS, stdio: ['pipe', 'pipe', 'pipe'] })
     return { ok: true, output: '' }
   } catch (err) {
     const e = err as { stdout?: string; stderr?: string }

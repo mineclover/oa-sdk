@@ -2,6 +2,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
+import { SUBPROCESS_TEST_BUDGET_MS } from './helpers/subprocess-budget.js'
 import {
   checkTypeSpecBundle,
   runBoundedProcess,
@@ -27,7 +28,9 @@ describe('runBoundedProcess', () => {
         command: process.execPath,
         args: ['-e', 'process.stdout.write("x".repeat(4_096)); process.stderr.write("y".repeat(4_096)); process.exit(7)'],
         cwd: process.cwd(),
-        timeoutMs: 5_000,
+        // 자식은 스스로 exit 7로 끝나야 하므로 이 값은 정지 감시일 뿐이다. 부하 상태에서 node 기동이 늦어도
+        // 시간 초과로 바뀌지 않도록 하위 프로세스 예산을 쓴다.
+        timeoutMs: SUBPROCESS_TEST_BUDGET_MS,
         maxOutputBytes: 64,
       })
     } catch (error) {
@@ -57,6 +60,9 @@ describe('runBoundedProcess', () => {
         command: process.execPath,
         args: ['-e', parent],
         cwd: process.cwd(),
+        // 정지 감시가 아니라 이 테스트가 검증하는 시간 초과 자체다. 부모는 15초 안전장치 전에는 끝나지 않으므로
+        // 이 값이 그보다 작아야 시간 초과와 자손 정리 경로를 탄다. 부모가 그 안에 자손을 띄우고 pid 파일을 써야 해서
+        // 첫 테스트의 25 ms보다 길게 둔다.
         timeoutMs: 3_000,
         maxOutputBytes: 128,
       })).rejects.toThrow('Command timed out after 3000ms')

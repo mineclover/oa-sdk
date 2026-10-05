@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { execFileSync } from 'node:child_process'
+import { SUBPROCESS_TEST_BUDGET_MS } from './helpers/subprocess-budget.js'
 import { createRequire } from 'node:module'
 import { generateCrdtHandlerContract, generateCrdtRouter } from '@oa-sdk/router'
 import { generateCrdtClient, generateCrdtHooks } from '@oa-sdk/client'
@@ -14,7 +15,7 @@ function runTsc(cwd: string): void {
   try {
     execFileSync(process.execPath, [tscBin, '--noEmit'], {
       cwd,
-      timeout: 30_000,
+      timeout: SUBPROCESS_TEST_BUDGET_MS,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     })

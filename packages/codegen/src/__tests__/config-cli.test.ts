@@ -25,6 +25,7 @@ import {
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
+import { SUBPROCESS_TEST_BUDGET_MS } from './helpers/subprocess-budget.js'
 import { findProjectRoot } from '@oa-sdk/core'
 
 const REPO_ROOT = findProjectRoot(__dirname)
@@ -43,7 +44,7 @@ function runCli(
   options: { cwd?: string | undefined; env?: NodeJS.ProcessEnv | undefined; timeout?: number | undefined } = {},
 ): CliResult {
   const cwd = options.cwd ?? REPO_ROOT
-  const timeout = options.timeout ?? 30_000
+  const timeout = options.timeout ?? SUBPROCESS_TEST_BUDGET_MS
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     ...(options.env ?? {}),

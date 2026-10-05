@@ -7,6 +7,7 @@ import {
 } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
+import { SUBPROCESS_TEST_BUDGET_MS } from './helpers/subprocess-budget.js'
 import { stringify as stringifyYaml } from 'yaml'
 import type { TargetCoverageResult } from '../cli/lib/target-coverage.js'
 
@@ -227,7 +228,7 @@ function runCli(args: string[]): { stdout: string; stderr: string; status: numbe
   const result = spawnSync(process.execPath, [cliPath, ...args], {
     cwd: pkgDir,
     encoding: 'utf8',
-    timeout: 15_000,
+    timeout: SUBPROCESS_TEST_BUDGET_MS,
   })
   return {
     stdout: result.stdout ?? '',

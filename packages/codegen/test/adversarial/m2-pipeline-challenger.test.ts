@@ -41,6 +41,7 @@ import {
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
+import { SUBPROCESS_TEST_BUDGET_MS } from '../../src/__tests__/helpers/subprocess-budget.js'
 import { pathToFileURL } from 'node:url'
 import { findProjectRoot } from '@oa-sdk/core'
 
@@ -61,7 +62,7 @@ function runCliWithTsx(
   options: { cwd?: string | undefined; env?: NodeJS.ProcessEnv | undefined; timeout?: number | undefined } = {},
 ): CliResult {
   const cwd = options.cwd ?? REPO_ROOT
-  const timeout = options.timeout ?? 30_000
+  const timeout = options.timeout ?? SUBPROCESS_TEST_BUDGET_MS
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     ...(options.env ?? {}),
@@ -86,7 +87,7 @@ function runCliWithDist(
   options: { cwd?: string | undefined; env?: NodeJS.ProcessEnv | undefined; timeout?: number | undefined } = {},
 ): CliResult {
   const cwd = options.cwd ?? REPO_ROOT
-  const timeout = options.timeout ?? 30_000
+  const timeout = options.timeout ?? SUBPROCESS_TEST_BUDGET_MS
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     ...(options.env ?? {}),

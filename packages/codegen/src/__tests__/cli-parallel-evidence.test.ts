@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
+import { SUBPROCESS_TEST_BUDGET_MS } from './helpers/subprocess-budget.js'
 
 const pkgDir = resolve(__dirname, '../..')
 const cliPath = resolve(pkgDir, 'dist/cli/index.js')
@@ -120,7 +121,7 @@ function runCli(args: string[]): { stdout: string; stderr: string; status: numbe
   const result = spawnSync(process.execPath, [cliPath, ...args], {
     cwd: pkgDir,
     encoding: 'utf8',
-    timeout: 15_000,
+    timeout: SUBPROCESS_TEST_BUDGET_MS,
   })
   return { stdout: result.stdout ?? '', stderr: result.stderr ?? '', status: result.status }
 }

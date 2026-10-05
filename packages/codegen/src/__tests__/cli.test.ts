@@ -8,13 +8,13 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdirSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { execSync, spawnSync } from 'node:child_process'
+import { SUBPROCESS_TEST_BUDGET_MS } from './helpers/subprocess-budget.js'
 import { parse as parseYaml } from 'yaml'
 
 const pkgDir = resolve(__dirname, '../..')
 const cliPath = resolve(pkgDir, 'dist/cli/index.js')
 // config/output을 패키지 내부 .tmp에 생성 (ESM이 node_modules/zod를 찾을 수 있도록)
 const tmpBase = resolve(pkgDir, '.tmp-cli-test')
-const CLI_TIMEOUT_MS = 30_000
 
 let tmpDir: string
 
@@ -31,13 +31,13 @@ function runCli(args: string): string {
   return execSync(`node ${cliPath} ${args}`, {
     cwd: pkgDir,
     encoding: 'utf8',
-    timeout: CLI_TIMEOUT_MS,
+    timeout: SUBPROCESS_TEST_BUDGET_MS,
   })
 }
 
 function runCliFail(args: string): string {
   try {
-    execSync(`node ${cliPath} ${args}`, { cwd: pkgDir, encoding: 'utf8', timeout: CLI_TIMEOUT_MS })
+    execSync(`node ${cliPath} ${args}`, { cwd: pkgDir, encoding: 'utf8', timeout: SUBPROCESS_TEST_BUDGET_MS })
     throw new Error('expected to fail')
   } catch (err) {
     return (err as { stderr?: string }).stderr ?? ''
@@ -48,7 +48,7 @@ function runCliResult(args: string[]): { status: number | null; stdout: string; 
   const result = spawnSync('node', [cliPath, ...args], {
     cwd: pkgDir,
     encoding: 'utf8',
-    timeout: CLI_TIMEOUT_MS,
+    timeout: SUBPROCESS_TEST_BUDGET_MS,
   })
   return {
     status: result.status,
