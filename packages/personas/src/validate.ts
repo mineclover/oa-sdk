@@ -284,11 +284,21 @@ interface PathRead {
   unsupported?: boolean
 }
 
-/** Read an identity dimension by its registry name. Identity values are strings by contract. */
-function identityValue(identity: Persona['identity'], dimension: string): string | undefined {
+/**
+ * Read an identity dimension by its registry name, as loaded. Identity values
+ * are strings by contract, but persona YAML loads an unquoted scalar such as
+ * `trigger: 404` as a number, so the raw value is returned for the caller to check.
+ */
+function readIdentityDimension(identity: Persona['identity'], dimension: string): unknown {
   if (!Object.prototype.hasOwnProperty.call(identity, dimension)) return undefined
-  const value: unknown = Reflect.get(identity, dimension)
-  return typeof value === 'string' ? value : undefined
+  return Reflect.get(identity, dimension)
+}
+
+/** Name the YAML type of a loaded value for an error message. */
+function loadedTypeName(value: unknown): string {
+  if (value === null) return 'null'
+  if (Array.isArray(value)) return 'array'
+  return typeof value
 }
 
 function readPath(persona: Persona, path: string): PathRead {
@@ -300,8 +310,11 @@ function readPath(persona: Persona, path: string): PathRead {
   if (!bucket || !dim) return { values: [], unsupported: true }
 
   if (bucket === 'identity') {
-    const v = identityValue(persona.identity, dim)
-    return { values: v ? [v] : [] }
+    const v = readIdentityDimension(persona.identity, dim)
+    if (typeof v === 'string') return { values: v ? [v] : [] }
+    // Like the outcome bucket, a numeric (or boolean) scalar matches by its text.
+    if (typeof v === 'number' || typeof v === 'boolean') return { values: v ? [String(v)] : [] }
+    return { values: [] }
   }
   if (bucket === 'reference') {
     const v = persona.reference?.[dim as keyof NonNullable<Persona['reference']>] as string[] | undefined
@@ -358,10 +371,21 @@ function checkVocabularyMatch(
   // identity dimensions with a vocabulary
   for (const [dim, spec] of Object.entries(buckets.identity.dimensions)) {
     if (!spec.vocabulary) continue
-    const value = identityValue(persona.identity, dim)
+    const value = readIdentityDimension(persona.identity, dim)
     if (value === undefined || value === '') continue
     const known = traitValueSets.get(dim)
-    if (known && !known.has(value)) {
+    if (!known) continue
+    if (typeof value !== 'string') {
+      // A vocabulary holds string ids, so a number, boolean, or null never matches one.
+      issues.push({
+        severity: 'error',
+        domain,
+        personaId: persona.id,
+        bucket: 'identity',
+        dimension: dim,
+        message: `value '${String(value)}' must be a string in vocabulary '${spec.vocabulary}' (got ${loadedTypeName(value)})`,
+      })
+    } else if (!known.has(value)) {
       issues.push({
         severity: 'error',
         domain,

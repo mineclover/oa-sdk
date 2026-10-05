@@ -7,6 +7,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
+import { parse as parseYaml } from 'yaml'
 
 import { loadAllDomains, loadAllTraits, loadOperationsFromMergedSpec, loadRegistry } from './load.js'
 import type { DomainMatrix, Persona } from './types.js'
@@ -59,6 +60,31 @@ describe('personas v0.1 validator', () => {
       i.dimension === 'actor' &&
       i.message.includes('not in vocabulary'),
     )).toBe(true)
+  })
+
+  it('reports identity values that YAML loaded as non-strings against their vocabulary', () => {
+    // Unquoted scalars load as a number, and an empty key as null.
+    const identity: Persona['identity'] = parseYaml([
+      'actor: admin',
+      'data: X',
+      'intent: list',
+      'trigger: 404',
+      'proficiency: 3',
+      'consumer:',
+    ].join('\n'))
+    const matrix: DomainMatrix = {
+      domain: 'fake',
+      personas: [{ id: 'numeric-identity', status: 'proposed', identity }],
+    }
+    const report = validate({ registry, traits, domains: [matrix], knownOperations: new Map() })
+    const identityIssues = report.issues
+      .filter(i => i.bucket === 'identity')
+      .map(i => ({ severity: i.severity, dimension: i.dimension, message: i.message }))
+    expect(identityIssues).toEqual([
+      { severity: 'error', dimension: 'trigger', message: "value '404' must be a string in vocabulary 'traits/trigger.yaml' (got number)" },
+      { severity: 'error', dimension: 'proficiency', message: "value '3' must be a string in vocabulary 'traits/proficiency.yaml' (got number)" },
+      { severity: 'error', dimension: 'consumer', message: "value 'null' must be a string in vocabulary 'traits/consumer.yaml' (got null)" },
+    ])
   })
 
   it('detects missing operationId for implemented row', () => {
