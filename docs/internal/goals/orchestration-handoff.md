@@ -180,20 +180,20 @@
 - public release와 breaking removal은 별도 gate로 다룬다.
 - 오케스트레이터는 상태만 추적한다.
 
-## 4.1 통합 현황 (2026-10-05 18:40 기준)
+## 4.1 통합 현황 (2026-10-05 20:00 기준)
 
-main에 통합된 단위: E1, E5, C2, A3, A2, E4, C4, WS-D/E6, D5, WS-H. 함께 들어온 것: 사용자가 시작한 후속 작업 task_6f373905(codegen export를 companion 릴리스로 막는 게이트)의 커밋 3개(`2fa25d57`..`9adb26d6`). 이 세션이 결과를 C4 브랜치에 fast-forward해 두어 C4와 같이 cherry-pick됐다. 오케스트레이터 리뷰를 따로 진행 중이다.
+main에 통합된 단위: E1, E2, E3, E4, E5, C2, A2, A3, C4(+companion release gate), WS-D/E6, D5, WS-H, task_7b355ede(`oa-gen init` 설치 가능 지정자). main은 **codegen 0.9.0 릴리스 후보**다(`f8a9d42b`: codegen 0.9.0, parser 0.4.0, typespec-decorators 0.3.0, core 0.3.1, router 0.2.2, client 0.2.2, mock-server 0.1.4, surface-ir 0.1.1, spec-lens 0.1.6). origin보다 160여 커밋 앞서 있고 push 전이다.
 
-| 단위 | 위치 | 상태 |
-|---|---|---|
-| E2 | `worktree-wf_3aaf01fb-dca-3` | main으로 rebase 후 잔여 medium 1건 수정 중(resolve 모드에서 끊긴 Path Item `$ref` 체인의 중간 sibling 유실) |
-| E3 | `worktree-wf_3aaf01fb-dca-25` | main으로 rebase 후 잔여 medium 2건 수정 중(설치 패키지 의존 모듈 그래프, 실패한 resolve 미기록) |
-| task_7b355ede | `claude/practical-kirch-a23e09` | 사용자가 시작한 별도 세션: `oa-gen init`이 설치 가능한 `@oa-sdk` 지정자를 쓰도록 수정. C4 위에서 작업하므로 끝나면 C4 이후 고유 커밋만 가져온다 |
-| B (B1+B2) | Wave 2b worktree | 구현 중 |
-| C1 | Wave 2b worktree | 구현 중 |
-| D2 | Wave 2b worktree | 구현 중 |
+**RC 진행 순서 (사용자 결정 2026-10-05)**: RC 보강 → type-registry baseline 갱신(승인됨) → 로컬 CI 미러 재확인 → push(별도 승인) → GitHub CI → `release:export`(router·client·mock-server·surface-ir 첫 배포 포함) → `oa-sdk-releases` PR·머지 → publish workflow 승인. Wave 2b는 RC export 이후 다음 릴리스용 changeset과 함께 통합한다.
 
-다음 순서: E2·E3 통합 → E7(E2 이후) → A4(E3·task_7b355ede 이후, CLI command registry를 건드리므로) → `type-registry:write`(사용자 승인).
+| 항목 | 상태 |
+|---|---|
+| RC 보강 (RC-T) | 진행 중: export 게이트가 companion만 검사하고 init이 쓰는 `@oa-sdk/core` 범위를 검사하지 않음, pack smoke의 archetype 범위, personas `workspace:*` 보고, `chunk-stream-ui` `engines.node` 누락(public-release-runtime CI 실패), `schema:rollback-check`가 추적 파일을 덮어씀 |
+| RC 보강 (RC-N) | 진행 중: codegen 0.9.0에 E3 누락, 첫 공개 패키지(router·client·mock-server·surface-ir) changelog, 이미 배포된 tools·chunk-stream의 changeset 누락, typespec-decorators README 네임스페이스 오류, release-readiness 버전 표 |
+| Wave 2b: B(B1+B2), C1, D2 | 구현·리뷰 중. RC export 이후 통합 |
+| codex `typespec-ts-origin` | 그대로 병합 불가(E3 구조 충돌, TS 의존성, 이름 귀속 버그). 시험 포팅본 `.claude/worktrees/merge-trial-typespec-ts-origin`(2a0f98e7) 검증 완료. 포팅 여부·공개 API 범위는 사용자 결정 |
+| E7 | E2 이후 ready |
+| A4 | E3·task_7b355ede 머지 완료로 ready (codex 포팅 뒤 권장) |
 
 ## 5. 결정 기록 (2026-10-05 사용자 확정)
 
