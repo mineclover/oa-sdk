@@ -22,18 +22,21 @@ import { CliExitError } from './errors.js'
 import type { CommandContext } from './types.js'
 
 /**
- * The entry point `oa-gen` loads from each companion package.
+ * The entry point `oa-gen` loads from each companion package: its root.
  *
  * Each must load in an install that has the companion and its dependencies but
  * none of its optional peer dependencies, which package managers leave out
- * unless the project installs them. `oa-gen mock` therefore loads only the
- * Node HTTP adapter of `@oa-sdk/mock-server`: the package root also loads the
- * MSW adapter, which imports the optional peer `msw`.
+ * unless the project installs them, and neither the install commands `oa-gen`
+ * prints nor `oa-gen init` add. The release policy holds every package root to
+ * that: only the export subpaths it declares under `optionalPeerEntryPoints`
+ * may import an optional peer. For `@oa-sdk/mock-server` these are
+ * `./adapters/msw` and `./browser`, which import `msw`; its root, which
+ * `oa-gen mock` loads, does not export the MSW adapter.
  */
 export interface CompanionModules {
   '@oa-sdk/client': typeof import('@oa-sdk/client')
   '@oa-sdk/router': typeof import('@oa-sdk/router')
-  '@oa-sdk/mock-server': typeof import('@oa-sdk/mock-server/adapters/node-http')
+  '@oa-sdk/mock-server': typeof import('@oa-sdk/mock-server')
 }
 
 export type CompanionPackageName = keyof CompanionModules
@@ -50,7 +53,7 @@ export interface CompanionCommandContext extends CommandContext {
 const companionImporters: { readonly [N in CompanionPackageName]: () => Promise<CompanionModules[N]> } = {
   '@oa-sdk/client': () => import('@oa-sdk/client'),
   '@oa-sdk/router': () => import('@oa-sdk/router'),
-  '@oa-sdk/mock-server': () => import('@oa-sdk/mock-server/adapters/node-http'),
+  '@oa-sdk/mock-server': () => import('@oa-sdk/mock-server'),
 }
 
 /** Every companion package `oa-gen` may load. */
@@ -66,7 +69,8 @@ export function companionImporterFrom(context: CommandContext | undefined): Comp
 /**
  * True only when `error` reports that `packageName` itself cannot be resolved,
  * whether it was imported by its bare name or by a subpath export such as
- * `@oa-sdk/mock-server/adapters/node-http`.
+ * `@oa-sdk/mock-server/adapters/node-http`, so that the answer does not depend
+ * on which entry point of the package a companion importer loads.
  *
  * Node reports a missing package as `Cannot find package '<name>'` (ESM, the
  * package name even for a subpath import) or `Cannot find module '<specifier>'`

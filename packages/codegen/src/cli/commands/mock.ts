@@ -1,5 +1,5 @@
 import { extname, relative } from 'node:path'
-import type { NodeMockServer } from '@oa-sdk/mock-server/adapters/node-http'
+import type { NodeMockServer } from '@oa-sdk/mock-server'
 import type { OasDocument } from '@oa-sdk/parser'
 import { resolveConfigWithDefaults } from '../../config.js'
 import type { Command, CommandArgValue, CommandContext } from '../lib/types.js'
