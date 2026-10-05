@@ -28,18 +28,21 @@ describe('schema governance source boundary', () => {
     expect(violations).toEqual([])
   })
 
-  it('tracks the source facade and its implementation as schemas build inputs', () => {
+  it('keys the schemas build on the root scripts and on the codegen build behind the facade', () => {
     const turbo = readJson(join(root, 'packages/schemas/turbo.json')) as {
-      tasks?: { build?: { inputs?: unknown } }
+      tasks?: { build?: { inputs?: unknown, dependsOn?: unknown } }
     }
-    const inputs = turbo.tasks?.build?.inputs
+    const build = turbo.tasks?.build
 
-    expect(inputs).toEqual(expect.arrayContaining([
+    expect(build?.inputs).toEqual(expect.arrayContaining([
       '$TURBO_ROOT$/scripts/schema-typespec-check.ts',
       '$TURBO_ROOT$/scripts/lib/typespec-snapshot-promotion.ts',
-      '$TURBO_ROOT$/packages/codegen/src/schema-governance.ts',
-      '$TURBO_ROOT$/packages/codegen/src/cli/lib/**',
     ]))
+    // The facade's import closure reaches far beyond schema-governance.ts (config, schema-pipeline,
+    // spec-projector, standalone-guards, and the dist of codegen's own dependencies). Depending on
+    // codegen's build task puts that whole closure into the schemas cache key and builds it first;
+    // listing codegen source globs here would miss part of it.
+    expect(build?.dependsOn).toEqual(expect.arrayContaining(['@oa-sdk/codegen#build']))
   })
 
   it('keeps the hidden source dependency out of the workspace package graph', () => {
