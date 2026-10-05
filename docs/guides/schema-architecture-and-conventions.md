@@ -116,15 +116,22 @@ npx oa-gen audit:csp --bundle ./src/generated/guards
 
 ## 오류 응답 형식
 
-oa-sdk가 제공하거나 생성하는 오류 본문은 모두 같은 모양이며, RFC 9457(`application/problem+json`) 형식이 아닙니다.
+oa-sdk의 표준 오류 스키마인 TypeSpec `StandardError`와 이 저장소 production 계약의 `Error`는 같은
+`{ code, message, details?, _meta? }` 모양이며, RFC 9457(`application/problem+json`) 형식이 아닙니다. mock 서버가
+계약에 없는 오류 응답을 스스로 만들 때는 이 모양을 쓰지 않으므로, 프론트엔드 오류 처리를 mock 서버로 확인할 때는
+아래 봉투 차이를 구분합니다.
 
 | 위치 | 형식 |
 |---|---|
 | `@oa-sdk/typespec-decorators`의 `StandardError` (`ErrorResponse<Status>`, `StandardHttpErrors`가 사용) | `{ code, message, details?, _meta? }` |
 | 이 저장소 production 계약의 `Error` (`packages/schemas/typespec/common.tsp`) | `{ code, message, details?, _meta? }` (`code`는 enum) |
-| `oa-gen mock`·`@oa-sdk/mock-server`의 요청 검증 오류 | 422 + `{ "error": { "code", "message", "details", "_meta" } }` |
+| `oa-gen mock`·`@oa-sdk/mock-server`의 요청 검증 오류 (operation에 422 응답이 없을 때) | 422 + `{ "error": { "code": "CONSTRAINT_VIOLATION", "message", "details", "_meta" } }` |
+| 같은 mock 서버의 정의되지 않은 경로 | 404 + `{ "error": { "code": "NOT_FOUND", "message", "details" } }` |
+| 같은 mock 서버의 인증 실패 (security가 있고 operation에 401 응답이 없을 때) | 401 + `{ "code": "UNAUTHORIZED", "message" }` (`error` 봉투 없음) |
 
-RFC 9457 본문이 필요하면 계약에 직접 선언합니다. Browser Studio가 그렇게 한 예가 부록 4.4절입니다.
+operation이 422나 401 응답을 선언하면 mock 서버는 그 응답 스키마로 본문을 만듭니다. 검증 오류 `details`의 항목과
+코드는 [Mock 서버 사용 가이드](./mock-server-usage.md#검증-실패-응답-형식)에 있습니다. RFC 9457 본문이 필요하면 계약에
+직접 선언합니다. Browser Studio가 그렇게 한 예가 부록 4.4절입니다.
 
 ## "surface"의 세 가지 뜻
 
@@ -600,7 +607,7 @@ Domain models that represent shared data interchange structures are projected un
 
 ### 4.4 RFC 9457 Problem Details Error Payload Convention
 
-In Browser Studio, all error responses across HTTP/RPC endpoints and DevLink operation contracts must conform to **RFC 9457: Problem Details for HTTP APIs** (`application/problem+json`). This is a Browser Studio convention, not an oa-sdk default: oa-sdk's `StandardError`, the oa-sdk production `Error` schema, and `@oa-sdk/mock-server` validation errors all use `{ code, message, details, _meta }` (see Part 1, [오류 응답 형식](#오류-응답-형식)). Mock responses in RFC 9457 form therefore come from `override()` (7.3) or from examples declared in the contract.
+In Browser Studio, all error responses across HTTP/RPC endpoints and DevLink operation contracts must conform to **RFC 9457: Problem Details for HTTP APIs** (`application/problem+json`). This is a Browser Studio convention, not an oa-sdk default: oa-sdk's `StandardError` and the oa-sdk production `Error` schema use `{ code, message, details?, _meta? }`, while `@oa-sdk/mock-server` request-validation errors for an operation without a declared 422 response use a different envelope, `{ error: { code, message, details, _meta } }`, and its default 401 is a bare `{ code, message }` (see Part 1, [오류 응답 형식](#오류-응답-형식)). None of these is RFC 9457, so mock responses in RFC 9457 form come from `override()` (7.3) or from the 4xx responses and examples declared in the contract.
 
 #### Standard RFC 9457 Fields:
 1. `type` (`string`, format `uri`): A URI reference that identifies the problem type. When dereferenced, it should provide human-readable documentation. Defaults to `"about:blank"` if unspecified.
