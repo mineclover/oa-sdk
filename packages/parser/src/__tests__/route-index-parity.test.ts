@@ -321,6 +321,52 @@ const fixtures = {
       },
     },
   }),
+  // Path Item `$ref` chains whose last hop cannot be followed: an external
+  // target without a loader, a missing local target, and a cycle. Every Path
+  // Item along the chain declares fields beside its `$ref`.
+  unresolvedPathItemChain: doc({
+    paths: {
+      '/chain/{id}': { $ref: '#/components/pathItems/ExternalAlias' },
+      '/chain-with-outer/{id}': {
+        $ref: '#/components/pathItems/ExternalAlias',
+        summary: 'Outer summary',
+        post: { operationId: 'outerPost', responses: ok },
+      },
+      '/missing-chain': {
+        $ref: '#/components/pathItems/MissingAlias',
+        get: { operationId: 'outerGet', responses: ok },
+      },
+      '/cycle': { $ref: '#/components/pathItems/CycleA' },
+    },
+    webhooks: { chained: { $ref: '#/components/pathItems/MissingAlias' } },
+    components: {
+      parameters: { Id: { name: 'id', in: 'path', required: true, schema: { type: 'string' } } },
+      responses: { Item: { description: 'Item' } },
+      pathItems: {
+        ExternalAlias: {
+          $ref: './paths.yaml#/Item',
+          summary: 'Alias summary',
+          parameters: [{ $ref: '#/components/parameters/Id' }],
+          get: { operationId: 'aliasGet', responses: { '200': { $ref: '#/components/responses/Item' } } },
+          post: { operationId: 'aliasPost', responses: ok },
+        },
+        MissingAlias: {
+          $ref: '#/components/pathItems/Missing',
+          get: { operationId: 'missingAliasGet', responses: ok },
+          delete: { operationId: 'missingAliasDelete', responses: ok },
+        },
+        CycleA: {
+          $ref: '#/components/pathItems/CycleB',
+          get: { operationId: 'cycleAGet', responses: ok },
+        },
+        CycleB: {
+          $ref: '#/components/pathItems/CycleA',
+          get: { operationId: 'cycleBGet', responses: ok },
+          post: { operationId: 'cycleBPost', responses: ok },
+        },
+      },
+    },
+  }),
 }
 
 describe.each(PIPELINES)('loadSchema ↔ parseDocument parity (%s)', (_label, passes) => {
@@ -434,12 +480,45 @@ describe.each(PIPELINES)('loadSchema ↔ parseDocument parity (%s)', (_label, pa
     expect(get.responses).toEqual({ '200': components.responses!.Item })
     expect(get.callbacks).toEqual({ shared: components.callbacks!.Shared })
   })
+
+  it('fields declared along a Path Item $ref chain that cannot be followed still apply', () => {
+    const spec = fixtures.unresolvedPathItemChain
+    const routes = expectParity(spec, passes)
+    const components = spec.components!
+    const operations = (path: string) =>
+      [...routes.get(path)?.values() ?? []].map(op => `${op.method} ${op.operationId}`)
+
+    // Each referencing Path Item overlays the ones it references; the outermost wins.
+    expect(operations('/chain/{id}')).toEqual(['get aliasGet', 'post aliasPost'])
+    expect(operations('/chain-with-outer/{id}')).toEqual(['get aliasGet', 'post outerPost'])
+    expect(operations('/missing-chain')).toEqual(['get outerGet', 'delete missingAliasDelete'])
+    expect(operations('/cycle')).toEqual(['get cycleAGet', 'post cycleBPost'])
+    // Local references inside the overlaid fields resolve as usual.
+    expect(entry(routes, '/chain/{id}', 'get')).toMatchObject({
+      parameters: [components.parameters!.Id],
+      responses: { '200': components.responses!.Item },
+    })
+
+    const parsed = parseDocument(structuredClone(spec), passes)
+    expect(parsed.webhooks.map(op => `${op.openApiPath} ${op.method} ${op.operationId}`)).toEqual([
+      '/webhooks/chained get missingAliasGet',
+      '/webhooks/chained delete missingAliasDelete',
+    ])
+    expect(parsed.resolution?.status).toBe('partial')
+  })
 })
 
 describe('route-index fallback resolution', () => {
   it('matches the deref pipeline when targets carry no nested refs and references add only summary/description', () => {
-    for (const spec of [fixtures.refParameters, fixtures.callbacks, fixtures.pathItemRef]) {
+    for (const spec of [
+      fixtures.refParameters,
+      fixtures.callbacks,
+      fixtures.pathItemRef,
+      fixtures.unresolvedPathItemChain,
+    ]) {
       expect(loadSchema(structuredClone(spec), [])).toEqual(loadSchema(structuredClone(spec)))
+      expect(parseDocument(structuredClone(spec), []).webhooks)
+        .toEqual(parseDocument(structuredClone(spec)).webhooks)
     }
   })
 
@@ -523,10 +602,15 @@ describe('browser loadSchema shares the builder', () => {
   })
 
   it('produces the same routes as the Node loadSchema for partial internal documents', () => {
-    for (const spec of [fixtures.unresolvedExternal, fixtures.unresolvedPathItemSiblings]) {
+    for (const spec of [
+      fixtures.unresolvedExternal,
+      fixtures.unresolvedPathItemSiblings,
+      fixtures.unresolvedPathItemChain,
+    ]) {
       const parsed = parseBrowserDocument(structuredClone(spec))
       expect(parsed.resolution?.status).toBe('partial')
       expect(parsed.routes).toEqual(loadSchema(structuredClone(spec)))
+      expect(parsed.routes).toEqual(loadSchema(structuredClone(spec), []))
     }
   })
 })

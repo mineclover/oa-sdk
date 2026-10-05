@@ -45,8 +45,10 @@
  *       referencing object wins, as in the deref pass.
  *     A reference that cannot be resolved locally (external without a loader,
  *     missing target, cycle) is omitted as well.
- *   In both modes an unresolved Path Item `$ref` still contributes the fields
- *   declared beside it, and completeness is reported by
+ *   In both modes a Path Item `$ref` that cannot be followed, at any hop of its
+ *   chain, still contributes the fields declared beside every `$ref` up to that
+ *   hop (the outermost wins), as the deref pass keeps the fields beside a `$ref`
+ *   it cannot resolve. Completeness is reported by
  *   `ParsedDocument.resolution`. The deref pass still overlays every sibling at
  *   Reference Object positions, so a pipeline with deref can differ from the
  *   `'resolve'` mode for siblings other than `summary`/`description`.
@@ -252,46 +254,66 @@ function resolveReferenceMap<T>(
 }
 
 function resolvePathItem(ctx: IndexContext, value: unknown): OasPathItem | undefined {
-  const resolved = resolveReference<OasPathItem>(ctx, value, 'path-item')
-  if (resolved) return resolved
-  if (!isRecord(value)) return undefined
-  // Unlike a Reference Object, a Path Item may declare operations beside its
-  // `$ref`; those stay defined when the reference itself cannot be followed.
-  const siblings = siblingFields(value)
-  return Object.keys(siblings).length > 0 ? siblings as OasPathItem : undefined
+  return resolveReference<OasPathItem>(ctx, value, 'path-item')
 }
 
 /**
  * Resolve a `$ref` left in place by the pipeline, applying the fields of each
  * referencing object that `siblings` allows. Objects without `$ref` are returned
- * as-is so the result keeps sharing them with the document. In `'omit'` mode a
- * `$ref` is never resolved: the pipeline's resolver already could not.
+ * as-is so the result keeps sharing them with the document.
+ *
+ * When the chain cannot be followed to an object, a Reference Object position
+ * yields nothing. A Path Item `$ref` is a Path Item field instead, so the fields
+ * declared beside each `$ref` along the chain stay defined, as the deref pass
+ * keeps them beside a `$ref` it cannot resolve.
  */
 function resolveReference<T>(ctx: IndexContext, value: unknown, siblings: ReferenceSiblings): T | undefined {
   if (!isRecord(value)) return undefined
   if (!hasOwn(value, '$ref')) return value as T
-  if (ctx.leftoverRefs === 'omit') return undefined
 
+  const { overlays, target } = followReferenceChain(ctx, value, siblings)
+  if (target) return overlayFields(target, overlays) as T
+  if (siblings !== 'path-item') return undefined
+  const declared = overlayFields(createSafeRecord<unknown>(), overlays)
+  return Object.keys(declared).length > 0 ? declared as T : undefined
+}
+
+type ReferenceChain = {
+  /** The fields each referencing object along the chain contributes, outermost first. */
+  overlays: JsonRecord[]
+  /** The object the chain ends at, or `undefined` when it cannot be followed. */
+  target: JsonRecord | undefined
+}
+
+/**
+ * Follow a chain of `$ref`s by local JSON pointer. It stops at a non-string
+ * `$ref`, a pointer without a target (external ref, missing target), a cycle,
+ * or, in `'omit'` mode, the first `$ref`: the pipeline's resolver could not
+ * resolve it, and it may be spelled relative to another document.
+ */
+function followReferenceChain(ctx: IndexContext, value: JsonRecord, siblings: ReferenceSiblings): ReferenceChain {
   const overlays: JsonRecord[] = []
   const visited = new Set<JsonRecord>()
   let current: unknown = value
   while (isRecord(current) && hasOwn(current, '$ref')) {
-    if (visited.has(current)) return undefined
+    if (visited.has(current)) return { overlays, target: undefined }
     visited.add(current)
-    const ref = current.$ref
-    if (typeof ref !== 'string') return undefined
     overlays.push(referencingFields(current, siblings))
+    const ref = current.$ref
+    if (ctx.leftoverRefs === 'omit' || typeof ref !== 'string') return { overlays, target: undefined }
     current = resolveJsonPointer(ctx.doc, ref)
   }
-  if (!isRecord(current)) return undefined
+  return { overlays, target: isRecord(current) ? current : undefined }
+}
 
-  // The outermost referencing object's fields win, as in the deref pass.
-  let merged: JsonRecord = current
+/** Apply `overlays` (outermost first) onto `base`; the outermost field wins, as in the deref pass. */
+function overlayFields(base: JsonRecord, overlays: readonly JsonRecord[]): JsonRecord {
+  let merged = base
   for (let index = overlays.length - 1; index >= 0; index -= 1) {
     const layer = overlays[index]!
     if (Object.keys(layer).length > 0) merged = { ...merged, ...layer }
   }
-  return merged as T
+  return merged
 }
 
 function referencingFields(record: JsonRecord, siblings: ReferenceSiblings): JsonRecord {
