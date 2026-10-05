@@ -134,6 +134,38 @@ describe("@oa-sdk/chunk-stream Core Engine", () => {
     expect(remoteCalls).toBe(1);
   });
 
+  it("TieredStoragePort: validates L2 and L3 chunk descriptors before building envelopes", async () => {
+    const payloads: Record<string, unknown> = {
+      ok: {
+        id: "ok",
+        fromFrame: 0,
+        toFrame: 10,
+        streamId: "s",
+        resources: [{ id: "r1", type: "image", byteLength: 64 }],
+        data: { opaque: [1, 2] },
+      },
+      badStream: { id: "badStream", fromFrame: 0, toFrame: 10, streamId: 7 },
+      badResources: { id: "badResources", fromFrame: 0, toFrame: 10, resources: [{ id: "r1" }] },
+      notObject: ["id", 0, 10],
+      poisoned: JSON.parse('{"__proto__": {"polluted": true}, "id": "poisoned", "fromFrame": 0, "toFrame": 1}'),
+    };
+    const storage = new TieredStoragePort({ fetchRemoteChunk: async (id) => JSON.stringify(payloads[id]) });
+
+    const { chunk } = await storage.getChunk("ok");
+    expect(chunk.sequence).toBe(0);
+    expect(chunk.streamId).toBe("s");
+    expect(chunk.resources).toEqual([{ id: "r1", type: "image", byteLength: 64 }]);
+    expect(chunk.data).toEqual({ opaque: [1, 2] });
+
+    await expect(storage.getChunk("badStream")).rejects.toThrow("E_CHUNK_DESCRIPTOR: streamId must be a string");
+    await expect(storage.getChunk("badResources")).rejects.toThrow("E_CHUNK_DESCRIPTOR: resources must be an array of resource references");
+    await expect(storage.getChunk("notObject")).rejects.toThrow("E_CHUNK_DESCRIPTOR: chunk payload must be a JSON object");
+    await expect(storage.getChunk("poisoned")).rejects.toThrow(/E_PROTOTYPE_POISONING/);
+
+    storage.putL2("stored", JSON.stringify({ id: "stored", fromFrame: 5, toFrame: 2 }));
+    await expect(storage.getChunk("stored")).rejects.toThrow("cannot exceed toFrame");
+  });
+
   it("ReservationForecaster and BudgetLedger manage allocation headroom", () => {
     const forecaster = new ReservationForecaster();
     const peak = forecaster.forecastPeakBytes(1000, "ui-action@v1");

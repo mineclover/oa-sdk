@@ -1,5 +1,56 @@
-import type { StorageTierOptions } from "./types.js";
-import { RuntimeChunkEnvelope } from "./envelope.js";
+import type { RuntimeChunkEnvelopeDescriptor, RuntimeResourceRef, StorageTierOptions } from "./types.js";
+import { RuntimeChunkEnvelope, assertNoPrototypePoisoning } from "./envelope.js";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isResourceRef(value: unknown): value is RuntimeResourceRef {
+  return isRecord(value)
+    && typeof value.id === "string"
+    && typeof value.type === "string"
+    && (value.byteLength === undefined || typeof value.byteLength === "number");
+}
+
+function descriptorError(field: string, expected: string): Error {
+  return new Error(`E_CHUNK_DESCRIPTOR: ${field} must be ${expected}`);
+}
+
+/**
+ * Wire descriptor of a chunk read back from L2 or fetched from L3. The typed
+ * members are validated here; `data` and `state` stay opaque payloads, and the
+ * envelope constructor still enforces id and frame-range invariants.
+ */
+const StoredChunkDescriptorSchema = {
+  parse(value: unknown): RuntimeChunkEnvelopeDescriptor {
+    if (!isRecord(value)) throw descriptorError("chunk payload", "a JSON object");
+    assertNoPrototypePoisoning(value);
+    const { schemaVersion, id, sequence, streamId, fromFrame, toFrame, payloadFormat, resources, residentBytes } = value;
+    if (schemaVersion !== undefined && schemaVersion !== 1) throw descriptorError("schemaVersion", "1");
+    if (typeof id !== "string") throw descriptorError("id", "a string");
+    if (sequence !== undefined && typeof sequence !== "number") throw descriptorError("sequence", "a number");
+    if (typeof fromFrame !== "number" || typeof toFrame !== "number") throw descriptorError("fromFrame/toFrame", "numbers");
+    if (streamId !== undefined && typeof streamId !== "string") throw descriptorError("streamId", "a string");
+    if (payloadFormat !== undefined && typeof payloadFormat !== "string") throw descriptorError("payloadFormat", "a string");
+    if (residentBytes !== undefined && typeof residentBytes !== "number") throw descriptorError("residentBytes", "a number");
+    if (resources !== undefined && (!Array.isArray(resources) || !resources.every(isResourceRef))) {
+      throw descriptorError("resources", "an array of resource references");
+    }
+    return {
+      ...(schemaVersion === undefined ? {} : { schemaVersion: 1 as const }),
+      id,
+      sequence: sequence ?? 0,
+      fromFrame,
+      toFrame,
+      ...(streamId === undefined ? {} : { streamId }),
+      ...(payloadFormat === undefined ? {} : { payloadFormat }),
+      data: value.data,
+      state: value.state,
+      ...(resources === undefined ? {} : { resources }),
+      ...(residentBytes === undefined ? {} : { residentBytes }),
+    };
+  },
+};
 
 /**
  * Multi-Tier Storage Port enforcing L1 Memory -> L2 IndexedDB -> L3 Network hierarchy.
@@ -44,8 +95,7 @@ export class TieredStoragePort {
     // 2. L2 Disk / IndexedDB Lookup
     const l2Serialized = this.l2.get(chunkId);
     if (l2Serialized) {
-      const parsed = JSON.parse(l2Serialized);
-      const envelope = new RuntimeChunkEnvelope(parsed);
+      const envelope = new RuntimeChunkEnvelope(StoredChunkDescriptorSchema.parse(JSON.parse(l2Serialized)));
       this.l1.set(chunkId, envelope); // Back-populate L1
       return { chunk: envelope, tier: "L2" };
     }
@@ -57,8 +107,7 @@ export class TieredStoragePort {
 
     const raw = await this.fetchRemote(chunkId, signal);
     const text = typeof raw === "string" ? raw : new TextDecoder().decode(raw);
-    const parsed = JSON.parse(text);
-    const envelope = new RuntimeChunkEnvelope(parsed);
+    const envelope = new RuntimeChunkEnvelope(StoredChunkDescriptorSchema.parse(JSON.parse(text)));
 
     // Back-populate both L2 and L1 (write-through)
     this.l2.set(chunkId, text);
