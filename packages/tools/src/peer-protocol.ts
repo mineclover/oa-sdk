@@ -33,6 +33,7 @@ export interface WebMcpCallInput {
 }
 
 type CachedTool = NonNullable<WebMcpPeerRecord['cachedTools']>[number]
+type SkillManifest = NonNullable<WebMcpPeerRecord['skillManifest']>
 
 const OPTIONAL_STRING_FIELDS = ['id', 'title', 'origin', 'signalingUrl', 'invitationUrl', 'status'] as const
 
@@ -53,6 +54,16 @@ function parseCachedTool(value: unknown): CachedTool | undefined {
   }
 }
 
+/** A skill manifest needs its four identifying strings; `instructions` is kept when it is a string. */
+function parseSkillManifest(value: unknown): SkillManifest | undefined {
+  if (!isRecord(value)) return undefined
+  const { id, name, version, description, instructions } = value
+  if (typeof id !== 'string' || typeof name !== 'string' || typeof version !== 'string' || typeof description !== 'string') {
+    return undefined
+  }
+  return { id, name, version, description, ...(typeof instructions === 'string' ? { instructions } : {}) }
+}
+
 /** Rebuild a peer record from typed known fields; credentials and unknown fields are not copied. */
 function parsePeerRecord(value: unknown): WebMcpPeerRecord | undefined {
   if (!isRecord(value) || typeof value.alias !== 'string' || value.alias.length === 0) return undefined
@@ -68,6 +79,8 @@ function parsePeerRecord(value: unknown): WebMcpPeerRecord | undefined {
       return tool === undefined ? [] : [tool]
     })
   }
+  const manifest = parseSkillManifest(value.skillManifest)
+  if (manifest !== undefined) record.skillManifest = manifest
   if (typeof value.updatedAt === 'number' && Number.isFinite(value.updatedAt)) record.updatedAt = value.updatedAt
   return record
 }

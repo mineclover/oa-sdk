@@ -39,6 +39,14 @@ export interface WebMcpPeerRecord {
     description?: string | undefined
     inputSchema?: Record<string, unknown> | undefined
   }> | undefined
+  /** Skill manifest a peer announces alongside its tools (served by @oa-sdk/peer-server). */
+  skillManifest?: {
+    id: string
+    name: string
+    version: string
+    description: string
+    instructions?: string | undefined
+  } | undefined
   updatedAt?: number | undefined
 }
 

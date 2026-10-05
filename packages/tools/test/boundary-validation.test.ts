@@ -222,33 +222,62 @@ describe('WebMCP peer bridge fallback client', () => {
   })
 
   it('keeps the form of bridge status peers and serves them unchanged from the status meta-tools', async () => {
+    const skillManifest = { id: 'skill-a', name: 'Skill A', version: '1.0.0', description: 'Drives tab A', instructions: 'Call echo first.' }
     const keyedStatus = {
       ok: true,
       targetAlias: 'tab-a',
-      peers: { 'tab-a': { alias: 'tab-a', token: 'secret' }, 'tab-b': { alias: 'tab-b', origin: 'http://localhost:5173' } },
+      peers: {
+        'tab-a': { alias: 'tab-a', token: 'secret', cachedTools: [{ name: 'echo' }], skillManifest },
+        'tab-b': { alias: 'tab-b', origin: 'http://localhost:5173', skillManifest: { id: 'skill-b', name: 'Skill B' } },
+      },
     }
     vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => jsonResponse(keyedStatus)))
     const client = new WebMcpPeerBridgeClient({ alias: 'wireframe-test', storePath })
     const expected = {
       ok: true,
       targetAlias: 'tab-a',
-      peers: { 'tab-a': { alias: 'tab-a' }, 'tab-b': { alias: 'tab-b', origin: 'http://localhost:5173' } },
+      peers: {
+        'tab-a': { alias: 'tab-a', cachedTools: [{ name: 'echo' }], skillManifest },
+        'tab-b': { alias: 'tab-b', origin: 'http://localhost:5173' },
+      },
     }
     await expect(client.getStatus()).resolves.toEqual(expected)
 
     vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => jsonResponse({ ok: true, peers: [{ alias: 'tab-a', token: 'secret' }, { alias: '' }] })))
     await expect(client.getStatus()).resolves.toEqual({ ok: true, peers: [{ alias: 'tab-a' }] })
 
-    // The meta-tools report the status document as the bridge shaped it.
+    // The meta-tools report the status document as the bridge shaped it, through
+    // the shared @oa-sdk/peer-transport client and through the built-in fallback
+    // client used when that optional package cannot be imported.
     vi.stubGlobal('fetch', vi.fn().mockImplementation(async (url: string) => (
       url.includes('/tools') ? jsonResponse({ tools: [] }) : jsonResponse(keyedStatus)
     )))
-    const app = await createWebMcpPeerApp({ alias: 'wireframe-test', storePath, serverUrl: 'http://127.0.0.1:8787' })
     const ctx = { requestId: 't', logger: console }
-    for (const name of ['webmcp_list_peers', 'webmcp_peer_status']) {
-      const result = await app.getTool(name)!.execute(ctx, {}) as { content: Array<{ text: string }> }
-      expect(JSON.parse(result.content[0]!.text)).toEqual(expected)
+    const readStatusTools = async () => {
+      const app = await createWebMcpPeerApp({ alias: 'wireframe-test', storePath, serverUrl: 'http://127.0.0.1:8787' })
+      return Promise.all(['webmcp_list_peers', 'webmcp_peer_status'].map(async (name) => {
+        const result = await app.getTool(name)!.execute(ctx, {}) as { content: Array<{ text: string }> }
+        return JSON.parse(result.content[0]!.text) as unknown
+      }))
     }
+    expect(await readStatusTools()).toEqual([expected, expected])
+
+    vi.doMock('@oa-sdk/peer-transport', () => {
+      throw new Error('Cannot find package @oa-sdk/peer-transport')
+    })
+    try {
+      await expect(import('@oa-sdk/peer-transport')).rejects.toThrow()
+      expect(await readStatusTools()).toEqual([expected, expected])
+    } finally {
+      vi.doUnmock('@oa-sdk/peer-transport')
+    }
+  })
+
+  it('keeps a valid skill manifest of a registry peer', async () => {
+    const skillManifest = { id: 'skill-a', name: 'Skill A', version: '1.0.0', description: 'Drives tab A' }
+    await writeFile(storePath, JSON.stringify({ peers: { 'tab-a': { alias: 'tab-a', token: 'secret', skillManifest } } }))
+    const client = new WebMcpPeerBridgeClient({ alias: 'tab-a', storePath })
+    await expect(client.resolvePeer()).resolves.toEqual({ alias: 'tab-a', skillManifest })
   })
 
   it('reads a peer registry alias as an own key only', async () => {
