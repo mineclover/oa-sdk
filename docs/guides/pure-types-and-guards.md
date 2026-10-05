@@ -1,39 +1,44 @@
-# 순수 타입 선언 및 제로-런타임 타입 가드 실무 가이드 (Non-HTTP Pure Data Models & Standalone Type Guards)
+# 순수 타입과 독립형 타입 가드 가이드 (Non-HTTP Data Models & Standalone Type Guards)
 
-> **핵심 원칙**: `oa-sdk`는 REST 엔드포인트(`paths`, `GET /users`) 없이도 **순수 데이터 모델, DTO, 이벤트 페이로드 선언 및 타입 생성**에 완벽하게 활용될 수 있습니다.
+> **핵심**: REST 엔드포인트(`paths`) 없이 데이터 모델만 선언해도 `oa-sdk`로 TypeScript 타입과 런타임 타입 가드를 같은 원본에서 만들 수 있습니다.
 
-이 가이드는 HTTP 전송 계층이 존재하지 않는 환경(브라우저 확장프로그램 MV3 메시징, Node Worker IPC, WebSocket 이벤트 패킷, Database DTO, 도메인 엔터티)에서 `oa-sdk`를 활용하여 순수 타입을 선언하고, 런타임 의존성이 전혀 없는 무경량 타입 가드를 생성·소비하는 방법을 다룹니다.
+HTTP 전송 계층이 없는 곳(브라우저 확장 프로그램 MV3 메시징, Node Worker IPC, WebSocket 이벤트, DB DTO, 도메인 엔터티)에서 모델을 선언하고, `oa-gen typegen`으로 타입을, `oa-gen generate:guards`로 외부 의존성 없는 타입 가드를 만드는 방법을 다룹니다. 이 문서는 `@oa-sdk/codegen` 0.9.0 기준입니다. 두 명령은 `@oa-sdk/codegen`만 있으면 동작하고 동반 패키지가 필요 없습니다.
+
+```bash
+npm install --save-dev @oa-sdk/codegen
+```
 
 ---
 
-## 1. 왜 단순 타입 선언에도 `oa-sdk`를 사용하는가?
+## 1. 손으로 쓴 타입과 무엇이 다른가
 
-단순히 TypeScript에서 `interface UserProfile { ... }`을 손으로 작성하는 것과 비교할 때, `oa-sdk` 파이프라인을 거치면 다음과 같은 강력한 엔지니어링 이점을 빌드 타임에 얻을 수 있습니다:
-
-| 과제 / 요구사항 | 일반적인 수작업 TypeScript 인터페이스 | `oa-sdk` 순수 타입 파이프라인 |
+| 과제 | 손으로 쓴 TypeScript 인터페이스 | `oa-sdk` 순수 타입 파이프라인 |
 |---|---|---|
-| **런타임 검증 (Runtime Validation)** | 인터페이스는 컴파일 후 소멸하므로, 별도로 Zod나 Joi 스키마를 이중 작성해야 함. (동기화 누락 위험) | 스펙/스키마 선언으로부터 **순수 타입 + 런타임 타입 가드 함수**가 단일 원천에서 100% 일치하게 자동 파생됨. |
-| **보안 및 CSP (Chrome MV3)** | 런타임 AJV나 일부 검증 라이브러리는 `eval()` 또는 `new Function()`을 사용하여 보안 정책(CSP) 위반. | **`oa-gen standalone-guards`**: `eval()`이 완전히 배제된 순수 정적 JavaScript 함수(`isUser(v)`)를 생성하여 MV3 CSP 완벽 준수. |
-| **번들 크기 및 의존성** | 클라이언트나 익스텐션 번들에 무거운 검증 라이브러리(Zod, AJV 등) 런타임이 포함됨 (수십~수백 KB). | **Zero-Runtime Weight**: 외부 의존성이 0개(`dependencies: {}`)인 순수 함수로 방출되어 번들 용량 오버헤드가 사실상 0. |
-| **검증 처리량 (Throughput)** | 동적 AST 해석으로 초당 수천~수만 건 처리 수준. | 사전 컴파일된 직렬식 IF 검사 코드로 **초당 1,500만~3,500만 op/s** 처리 (마이크로초 미만 지연시간). |
-| **표준 포맷 상호운용성** | TypeScript 내부에서만 갇혀 DB, 타 언어, 문서화 도구로 확장 불가. | JSON Schema Draft 2020-12 및 OpenAPI 3.1 `$defs` 표준 규격으로 자동 투영되어 메타데이터 저장소에 카탈로그화 가능. |
+| 런타임 검증 | 인터페이스는 컴파일 후 사라지므로 Zod 같은 검증 스키마를 따로 작성하고 맞춰야 합니다. | 같은 원본에서 타입(`typegen`)과 타입 가드(`generate:guards`)를 생성합니다. |
+| 보안 정책(Chrome MV3 CSP) | 런타임에 검증 코드를 컴파일하는 라이브러리(`ajv` 런타임 등)는 `eval()`/`new Function()`을 써서 CSP에 걸립니다. | `generate:guards`는 Ajv standalone으로 미리 컴파일한 검증 코드를 씁니다. `eval()`과 `new Function()`을 쓰지 않으며, `oa-gen audit:csp`로 확인할 수 있습니다. |
+| 번들 의존성 | 검증 라이브러리 런타임이 번들에 들어갑니다. | 생성된 가드는 아무 패키지도 import하지 않습니다. 코드 크기는 스키마 수와 복잡도에 비례합니다. |
+| 검증 처리량 | 라이브러리에 따라 다릅니다. | 저장소 벤치마크(Node 24, Apple Silicon)에서 standalone 가드는 데이터 형태에 따라 초당 약 197만~2,515만 회, Zod 4.4 `safeParse`는 약 2.9만~217만 회였습니다([검증 엔진 벤치마크](../benchmarks/validation-engines.md)). |
+| 다른 도구와 공유 | TypeScript 안에서만 쓸 수 있습니다. | 원본이 OpenAPI `components.schemas`(JSON Schema 2020-12)로 투영되므로 다른 언어·문서 도구도 같은 정의를 읽습니다. |
 
 ---
 
-## 2. 순수 데이터 모델 선언하기 (Authoring Track)
+## 2. 모델 선언하기
 
-HTTP 엔드포인트(`@route`, `op`) 없이 데이터 모델만 선언하는 두 가지 표준 경로가 제공됩니다.
+HTTP operation(`@route`, `op`, `paths`) 없이 모델만 선언하는 세 가지 방법이 있습니다.
 
-### 방식 A: TypeSpec 기반 순수 모델 선언 (`.tsp`)
-TypeSpec은 HTTP 데코레이터 없이 순수 데이터 구조체만을 명쾌하게 기술할 수 있습니다.
+### 방식 A: TypeSpec (`.tsp`)
+
+`typegen`과 `generate:guards`는 `.tsp` 파일을 직접 받아 `@oa-sdk/codegen`에 들어 있는 TypeSpec 컴파일러로 메모리에서 컴파일합니다. namespace에 `@service`가 없으면 OpenAPI 문서가 만들어지지 않아 빈 결과가 나오므로(종료 코드는 0), 모델만 담은 파일에도 `@service`를 붙입니다.
 
 ```typespec
 // models/events.tsp
+@service(#{ title: "Studio Messaging" })
 namespace Studio.Messaging;
 
 @doc("사용자 에디터 활동 이벤트 페이로드")
 model EditorActivityEvent {
   @doc("이벤트 고유 식별자 (UUID v4)")
+  @format("uuid")
   eventId: string;
 
   @doc("작업 대상 문서 ID")
@@ -62,168 +67,205 @@ model TextRange {
 }
 ```
 
-> **컴파일 & 프로젝션**: 위 파일은 `oa-gen build-spec` 또는 TypeSpec 컴파일러를 통해 `components.schemas`만 포함된 OpenAPI 3.1/3.2 스펙 또는 JSON Schema로 방출됩니다.
->
-> 💡 **심화 모델링 가이드**: 복합 다형성 모델(`@discriminator`), 모델 수명주기 분기(`@visibility`), 도메인 제약 캡슐화(`scalar`), 파라미터 전개(`...`) 등 실전 패턴은 **[TypeSpec 종합 데코레이터 레퍼런스 및 8대 실전 작성 패턴](./typespec/03-decorators-reference.md)** 및 **[비디오 트랜지션 파라미터 다양화 표준](./schema-architecture-and-conventions.md#61-비디오-트랜지션-파라미터-다양화-및-다형성-스키마-모델링-video-transition-parameter-diversification-standard)**을 참조하세요.
+> 💡 **심화 모델링**: 다형성 모델(`@discriminator`), 수명주기별 필드(`@visibility(Lifecycle.Read)`), 도메인 scalar 등은 [TypeSpec 데코레이터 레퍼런스](./typespec/03-decorators-reference.md)와 [비디오 트랜지션 파라미터 다양화 표준](./schema-architecture-and-conventions.md#61-비디오-트랜지션-파라미터-다양화-및-다형성-스키마-모델링-video-transition-parameter-diversification-standard)을 참고합니다.
 
----
+### 방식 B: Zod 스키마 모듈
 
-### 방식 B: Zod 마스터 스키마 선언 (4-Stage Pipeline)
-TypeScript 내부에서 직접 SSOT를 작성하고 싶다면 Zod 마스터 스키마 방식을 사용합니다.
+`typegen`과 `generate:guards`는 Zod를 직접 읽지 않습니다. Zod 스키마를 export하는 모듈을 `oa.config.ts`의 spec target 원본(`schemaEntry`)으로 지정하고 `oa-gen generate`로 OpenAPI 문서(`<id>.openapi.json`)를 만든 뒤, 그 문서를 입력으로 씁니다.
 
 ```typescript
-// packages/shared-types/src/schemas/editor-events.ts
-import { z } from 'zod';
+// src/schemas/editor-events.ts
+import { z } from 'zod'
 
-export const TextRangeSchema = z.object({
+export const TextRange = z.object({
   start: z.number().int().nonnegative().describe('0-based start offset'),
   end: z.number().int().nonnegative().describe('0-based end offset'),
-});
+})
 
-export const EditorActivityEventSchema = z.object({
+export const EditorActivityEvent = z.object({
   eventId: z.string().uuid().describe('Event UUID'),
   documentId: z.string().min(1).describe('Document ID'),
   action: z.enum(['insert', 'delete', 'format', 'undo', 'redo']),
   timestamp: z.string().datetime().describe('ISO-8601 Timestamp'),
-  range: TextRangeSchema.optional(),
-  metadata: z.record(z.string()).optional(),
-});
+  range: TextRange.optional(),
+  metadata: z.record(z.string(), z.string()).optional(),
+})
 
-// TypeScript 정적 타입 추론
-export type EditorActivityEvent = z.infer<typeof EditorActivityEventSchema>;
-export type TextRange = z.infer<typeof TextRangeSchema>;
+export type EditorActivityEvent = z.infer<typeof EditorActivityEvent>
+export type TextRange = z.infer<typeof TextRange>
 ```
 
----
-
-## 3. 코드 생성 및 산출물 추출 (Generation)
-
-### 3.1 순수 TypeScript 인터페이스 생성 (`oa-gen typegen`)
-스키마 파일로부터 런타임 코드 없는 순수 TypeScript 선언(`.ts` / `.d.ts`)을 추출합니다.
-
-```bash
-# OpenAPI 스펙 또는 스키마 번들로부터 순수 타입 추출
-oa-gen typegen --spec schemas/event-models.json --output src/types/events.ts
-```
-
-**생성 결과 예시 (`src/types/events.ts`)**:
 ```typescript
-/**
- * 사용자 에디터 활동 이벤트 페이로드
- */
-export interface EditorActivityEvent {
-  /** 이벤트 고유 식별자 (UUID v4) */
-  eventId: string;
-  /** 작업 대상 문서 ID */
-  documentId: string;
-  /** 수행된 액션 종류 */
-  action: 'insert' | 'delete' | 'format' | 'undo' | 'redo';
-  /** 작업 발생 시각 (UTC) */
-  timestamp: string;
-  /** 변경된 문자열 범위 */
-  range?: TextRange;
-  /** 확장 메타데이터 */
-  metadata?: Record<string, string>;
-}
+// oa.config.ts
+import { defineConfig } from '@oa-sdk/codegen'
 
-export interface TextRange {
-  start: number;
-  end: number;
-}
+export default defineConfig({
+  specs: [
+    { id: 'editor-events', schemaEntry: 'src/schemas/editor-events.ts', outDir: './src/generated', target: 'generic' },
+  ],
+  core: {
+    // 모델만 다루므로 핸들러 계약과 클라이언트(동반 패키지 산출물)를 끈다
+    contracts: { pureHandlers: false },
+    client: { enabled: false },
+  },
+})
 ```
-
----
-
-### 3.2 제로-런타임 의존성 독립형 타입 가드 생성 (`oa-gen generate:guards`)
-외부 라이브러리 설치가 필요 없고 `eval()`을 쓰지 않는 고속 런타임 타입 가드 함수를 생성합니다.
 
 ```bash
-# 독립형 무런타임 타입 가드 생성 (타입 선언과 연결: --type-import)
-oa-gen generate:guards --input schemas/event-models.json --output src/guards/ --type-import ../types/events.js
+npx oa-gen generate   # src/generated/editor-events.openapi.json, editor-events.schema.json
 ```
 
-**생성 결과 예시 (`src/guards/isEditorActivityEvent.js`)**:
-```javascript
-// Pre-compiled pure ESM guard (0 external dependencies, 100% CSP safe)
-export function isEditorActivityEvent(data) {
-  if (!data || typeof data !== 'object') return false;
-  if (typeof data.eventId !== 'string') return false;
-  if (typeof data.documentId !== 'string') return false;
-  if (!['insert', 'delete', 'format', 'undo', 'redo'].includes(data.action)) return false;
-  if (typeof data.timestamp !== 'string') return false;
-  if (data.range !== undefined) {
-    if (!data.range || typeof data.range !== 'object') return false;
-    if (typeof data.range.start !== 'number' || data.range.start < 0) return false;
-    if (typeof data.range.end !== 'number' || data.range.end < 0) return false;
-  }
-  return true;
-}
-```
+export된 Zod 스키마의 이름이 컴포넌트 이름이 됩니다(`EditorActivityEvent`, `TextRange`). `@oa-sdk/client`가 설치되어 있지 않으면 `generate`는 TanStack Query 코드를 경고와 함께 건너뛰고 종료 코드 0으로 끝납니다. 설정 형식은 [선언적 스펙 설정](./declarative-spec-configuration.md)을 따릅니다.
+
+### 방식 C: OpenAPI 문서
+
+`components.schemas`만 있는 OpenAPI 3.1/3.2 YAML/JSON 문서도 그대로 입력으로 씁니다(`paths: {}`).
 
 ---
 
-## 4. 실무 소비 패턴 (Consumer Track)
+## 3. 생성하기
 
-### 4.1 Chrome 확장프로그램(MV3) 메시징 검증
-Chrome 확장프로그램은 강력한 콘텐츠 보안 정책(CSP) 때문에 `eval()`이나 동적 코드 생성이 차단됩니다. `oa-gen standalone-guards` 산출물은 안전하게 동작합니다.
+### 3.1 TypeScript 타입 (`oa-gen typegen`)
+
+```bash
+npx oa-gen typegen --spec models/events.tsp -o src/types/events.ts
+# Zod 방식: --spec src/generated/editor-events.openapi.json
+```
+
+생성 결과(`src/types/events.ts`):
+
+```typescript
+// Auto-generated from OpenAPI spec. Do not edit.
+// @oa-sdk/codegen typegen
+
+/** 사용자 에디터 활동 이벤트 페이로드 */
+export type EditorActivityEvent = {
+  /** 수행된 액션 종류 */
+  action: 'insert' | 'delete' | 'format' | 'undo' | 'redo'
+  /** 작업 대상 문서 ID */
+  documentId: string
+  /**
+  * 이벤트 고유 식별자 (UUID v4)
+  * @format uuid
+  */
+  eventId: string
+  /** 확장 메타데이터 */
+  metadata?: Record<string, string>
+  /** 변경된 문자열 범위 */
+  range?: TextRange
+  /**
+  * 작업 발생 시각 (UTC)
+  * @format date-time
+  */
+  timestamp: string
+}
+
+/** 텍스트 오프셋 범위 */
+export type TextRange = {
+  /**
+  * @format int32
+  * @minimum 0
+  */
+  end: number
+  /**
+  * @format int32
+  * @minimum 0
+  */
+  start: number
+}
+```
+
+- 기본은 `export type`이고 `--style interface`이면 `interface`로 씁니다.
+- 속성은 이름순으로 정렬하고, `format`·`minimum` 같은 제약은 JSDoc 태그로 남깁니다.
+- `--incremental`은 입력·옵션·출력이 그대로인 대상의 재생성을 건너뜁니다(`--cache-dir`, 기본 `./.oa-cache`).
+
+### 3.2 독립형 타입 가드 (`oa-gen generate:guards`)
+
+```bash
+npx oa-gen generate:guards --input models/events.tsp -o src/guards --type-import ../types/events.js
+```
+
+출력 디렉터리에 다음 파일을 씁니다.
+
+| 파일 | 내용 |
+|---|---|
+| `guards.js` | 컴포넌트마다 `is<TypeName>(data)` 함수. Ajv standalone으로 미리 컴파일한 검증 코드(import 없음, `eval` 없음) |
+| `guards.d.ts` | `export declare function isEditorActivityEvent(data: unknown): data is EditorActivityEvent;` 같은 타입 술어 선언 |
+| `index.js`, `index.d.ts` | `guards.js`를 다시 export |
+| `package.json` | `{ "type": "module" }` (ESM) |
+
+- `--type-import`는 `.d.ts`가 타입을 가져올 경로입니다. 생성된 `.d.ts` 파일 위치 기준으로 쓰므로, 위 예처럼 `src/guards/`에서 `src/types/events.ts`를 가리키면 `../types/events.js`입니다. 생략하면 `.d.ts`가 import 없이 타입 이름을 참조해 `TS2304`(`skipLibCheck`가 꺼진 경우)가 나거나 좁혀진 타입이 `any`가 되므로 항상 지정합니다.
+- `--split`이면 `guards/<TypeName>.js`·`.d.ts`로 나눠 쓰고 `index.js`가 모두 다시 export합니다. 파일이 한 단계 깊어지므로 `--type-import` 경로도 한 단계 더 올라가야 합니다(`../../types/events.js`).
+- `--schemas EditorActivityEvent,TextRange`로 대상 컴포넌트를 고를 수 있습니다.
+- `oa-gen generate --target standalone-guards --input <파일> --out-dir <디렉터리>`도 같은 가드를 만듭니다. `oa.config.ts`의 `guards` 설정으로 `oa-gen generate`에 포함할 수도 있습니다([선언적 스펙 설정](./declarative-spec-configuration.md#63-독립형-정적-타입-가드-guards)).
+
+---
+
+## 4. 소비 패턴
+
+가드는 `index.js`에서 import합니다. 타입 술어이므로 검사를 통과한 값은 해당 타입으로 좁혀집니다.
+
+### 4.1 Chrome 확장 프로그램(MV3) 메시징
+
+MV3의 기본 CSP는 `eval()`과 동적 코드 생성을 막습니다. 생성된 가드는 이 정책 안에서 동작합니다.
 
 ```typescript
 // content-script.ts
-import { isEditorActivityEvent } from './guards/isEditorActivityEvent.js';
+import { isEditorActivityEvent } from './guards/index.js'
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  // 런타임 검증과 TypeScript 타입 단언이 한 번에 완료됨
   if (isEditorActivityEvent(message)) {
-    // message는 이제 EditorActivityEvent 타입으로 100% 안전하게 추론됨
-    console.log(`Document ${message.documentId} action: ${message.action}`);
-    sendResponse({ status: 'ok' });
+    // message는 EditorActivityEvent 타입으로 좁혀짐
+    console.log(`Document ${message.documentId} action: ${message.action}`)
+    sendResponse({ status: 'ok' })
   } else {
-    console.error('Invalid message format received');
-    sendResponse({ status: 'error', reason: 'malformed_payload' });
+    sendResponse({ status: 'error', reason: 'malformed_payload' })
   }
-});
+})
 ```
 
-### 4.2 Node.js Worker Threads / IPC 메시지 검증
-Worker 프로세스 간 주고받는 직렬화된 데이터의 무결성을 마이크로초 단위로 빠르게 검증합니다.
+확장 프로그램을 빌드한 뒤 번들 전체를 감사합니다. `eval`, `new Function`, 문자열을 넘긴 `setTimeout`/`setInterval`, 허용되지 않은 런타임 패키지 import가 있으면 종료 코드 1로 실패합니다.
+
+```bash
+npx oa-gen audit:csp --bundle dist
+```
+
+### 4.2 Node.js Worker Threads / IPC
 
 ```typescript
 // worker-host.ts
-import { parentPort } from 'node:worker_threads';
-import { isEditorActivityEvent } from './guards/isEditorActivityEvent.js';
+import { parentPort } from 'node:worker_threads'
+import { isEditorActivityEvent } from './guards/index.js'
 
-parentPort?.on('message', (raw) => {
+parentPort?.on('message', (raw: unknown) => {
   if (!isEditorActivityEvent(raw)) {
-    throw new Error(`IPC Protocol Violation: malformed event payload`);
+    throw new Error('IPC Protocol Violation: malformed event payload')
   }
-  
-  // 타입 보장된 안전한 처리
-  processEvent(raw);
-});
+  processEvent(raw) // raw: EditorActivityEvent
+})
 ```
 
-### 4.3 WebSocket / Event Bus 메시지 라우터
-수천 건의 이벤트 패킷이 쏟아지는 소켓 게이트웨이에서 부하 없이 안전하게 라우팅합니다.
+### 4.3 WebSocket / 이벤트 버스
 
 ```typescript
 // socket-gateway.ts
-import { isEditorActivityEvent } from './guards/isEditorActivityEvent.js';
+import { isEditorActivityEvent } from './guards/index.js'
 
 socket.on('message', (buffer) => {
-  const json = JSON.parse(buffer.toString('utf-8'));
+  const json: unknown = JSON.parse(buffer.toString('utf-8'))
 
   if (isEditorActivityEvent(json)) {
-    eventBus.emit('editor:action', json);
+    eventBus.emit('editor:action', json)
   } else {
-    metrics.increment('socket.dropped_malformed');
+    metrics.increment('socket.dropped_malformed')
   }
-});
+})
 ```
 
 ---
 
-## 5. 결론 및 선택 가이드
+## 5. 정리
 
-- **HTTP API가 없더라도** 데이터 모델의 단일 진실 공급원(SSOT) 구축, 타입 생성, 런타임 무경량 가드 생성을 위해 `oa-sdk`를 적극 권장합니다.
-- 복잡한 프레임워크나 런타임 검증 라이브러리를 번들에 추가하지 않고도, 최고 수준의 타입 안전성과 처리량을 확보할 수 있습니다.
-- **다형성 파라미터 및 복합 모델링(비디오 트랜지션 등)**: 다형성 유니언(`@discriminator`), 상속 모델, GLSL 유니폼 맵, 정밀한 수치 경계 제약이 필요한 실전 엔터티 선언은 **[스키마 아키텍처 및 작성 규칙 (Section 6.1 비디오 트랜지션 파라미터 다양화 표준)](./schema-architecture-and-conventions.md)**을 참조하세요.
+- HTTP API가 없어도 모델 원본 하나에서 타입과 런타임 가드를 만들 수 있습니다. 원본을 고치면 `typegen`과 `generate:guards`를 다시 실행합니다.
+- 가드는 외부 패키지를 import하지 않고 `eval`을 쓰지 않으므로 MV3 확장 프로그램 같은 제한된 환경에도 넣을 수 있습니다.
+- 다형성 유니언, 상속 모델, 정밀한 수치 제약이 필요한 엔터티는 [스키마 아키텍처 및 작성 규칙](./schema-architecture-and-conventions.md)을 참고합니다.
