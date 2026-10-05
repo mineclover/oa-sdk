@@ -6,12 +6,54 @@
  * the optional properties it discards, and a folder whose generation was
  * customized (subclass, replaced method, changed `generateAlgebra` handler)
  * must fold exactly like `foldSchema`: every property, in the same order.
+ *
+ * Generated values are compared with `expectSameValue`, which also compares
+ * property order: property order decides the serialized response bytes, and
+ * `toEqual` ignores it.
  */
 import { describe, expect, it } from 'vitest'
 import { foldSchema, parseDocument, type OasDocument, type OasMediaType, type OasSchema, type SchemaAlgebra } from '@oa-sdk/parser'
 import { GenerateFolder, generateAlgebra, generator } from '../../core/generate.js'
 import { createResponseBytesSpec, createStatefulBytesSpec } from '../fixtures/response-bytes.js'
 import { createOverrideSpec, createSimpleItemsSpec, createWebhookSpec } from '../fixtures/specs.js'
+
+/**
+ * Asserts that two generated values serialize to the same JSON text and have
+ * the same own keys, in the same order, and the same prototypes at every depth.
+ */
+function expectSameValue(actual: unknown, expected: unknown): void {
+  expect(JSON.stringify(actual)).toBe(JSON.stringify(expected))
+  expect(orderedForm(actual)).toStrictEqual(orderedForm(expected))
+}
+
+/**
+ * `value` with every object replaced by its prototype and its own entries as
+ * an ordered list, so a deep comparison of two forms compares key order too.
+ */
+function orderedForm(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(orderedForm)
+  if (value === null || typeof value !== 'object') return value
+  const prototype = Object.getPrototypeOf(value) as object | null
+  return {
+    prototype: prototype === Object.prototype ? 'Object.prototype' : prototype === null ? null : orderedForm(prototype),
+    entries: Reflect.ownKeys(value).map(key => [key, orderedForm(Reflect.get(value, key))]),
+  }
+}
+
+describe('expectSameValue', () => {
+  it('tells values apart that differ only in property order', () => {
+    expect({ a: 1, b: { c: 2, d: 3 } }).toEqual({ b: { d: 3, c: 2 }, a: 1 })
+    expect(() => expectSameValue({ a: 1, b: 2 }, { b: 2, a: 1 })).toThrow()
+    expect(() => expectSameValue({ x: { c: 2, d: 3 } }, { x: { d: 3, c: 2 } })).toThrow()
+    expect(() => expectSameValue([{ c: 2, d: 3 }], [{ d: 3, c: 2 }])).toThrow()
+    expectSameValue({ a: 1, b: [{ c: 2 }] }, { a: 1, b: [{ c: 2 }] })
+  })
+
+  it('tells values apart that serialize alike but differ in keys or prototype', () => {
+    expect(() => expectSameValue({ a: undefined }, {})).toThrow()
+    expect(() => expectSameValue(Object.create({ inherited: 1 }), {})).toThrow()
+  })
+})
 
 /** Every request and response media type schema of a parsed spec. */
 function mediaTypeSchemas(spec: OasDocument): OasSchema[] {
@@ -97,6 +139,29 @@ const SYNTHETIC_SCHEMAS: Record<string, OasSchema> = {
     required: ['constructor', 'toString'],
     properties: { constructor: { type: 'string', minLength: 1 }, toString: { type: 'integer' }, valueOf: { type: 'boolean' } },
   },
+  // Integer-like names come first in property order whatever their declaration
+  // order, and JSON.parse keeps `__proto__` as an own property, as a parsed spec does.
+  'integer-like and __proto__ property names': JSON.parse(`{
+    "type": "object",
+    "required": ["b", "__proto__", "10", "2", "missing"],
+    "properties": {
+      "b": { "type": "string" },
+      "__proto__": { "type": "object", "required": ["x"], "properties": { "x": { "type": "integer" } } },
+      "10": { "type": "integer", "minimum": 10 },
+      "a": { "type": "string" },
+      "2": { "type": "boolean" }
+    }
+  }`) as OasSchema,
+  'required names in another order than the properties': {
+    type: 'object',
+    required: ['z', 'm', 'a'],
+    properties: {
+      a: { type: 'string' },
+      skipped: { type: 'string' },
+      m: { type: 'object', required: ['y', 'x'], properties: { x: { type: 'integer' }, y: { type: 'boolean' } } },
+      z: { type: 'number', minimum: 1.5 },
+    },
+  },
 }
 
 describe('GenerateFolder — output equals the generateAlgebra fold', () => {
@@ -111,12 +176,12 @@ describe('GenerateFolder — output equals the generateAlgebra fold', () => {
   it('for every media type schema of the fixture specs', () => {
     expect(fixtureSchemas.length).toBeGreaterThan(20)
     for (const schema of fixtureSchemas) {
-      expect(generator.fold(schema)).toEqual(foldSchema(schema, generateAlgebra))
+      expectSameValue(generator.fold(schema), foldSchema(schema, generateAlgebra))
     }
   })
 
   it.each(Object.entries(SYNTHETIC_SCHEMAS))('for %s', (_name, schema) => {
-    expect(generator.fold(schema)).toEqual(foldSchema(schema, generateAlgebra))
+    expectSameValue(generator.fold(schema), foldSchema(schema, generateAlgebra))
   })
 })
 
@@ -176,10 +241,10 @@ describe('GenerateFolder — built-in generation skips optional properties', () 
     const value = folder.fold(schema)
 
     expect(reads).toEqual([])
-    expect(value).toEqual({ a: '', nested: { c: [{ id: 3 }, { id: 3 }] } })
+    expectSameValue(value, { a: '', nested: { c: [{ id: 3 }, { id: 3 }] } })
 
     // The watch does see a fold that visits them, and that fold produces the same value.
-    expect(foldSchema(schema, generateAlgebra)).toEqual(value)
+    expectSameValue(foldSchema(schema, generateAlgebra), value)
     expect(watchedLabels(reads)).toEqual(new Set(['b', 'd', 'label']))
   })
 
@@ -191,7 +256,7 @@ describe('GenerateFolder — built-in generation skips optional properties', () 
     }
 
     expect(() => foldSchema(schema, generateAlgebra)).toThrow(RangeError)
-    expect(generator.fold(schema)).toEqual({ id: '' })
+    expectSameValue(generator.fold(schema), { id: '' })
   })
 })
 
@@ -233,7 +298,7 @@ describe('GenerateFolder — a replaced generateAlgebra handler ends the skip', 
   it.each(HANDLER_NAMES.filter(name => name !== 'string'))('%s', (name) => {
     const { value, reads } = foldWithEquivalentHandler(name)
 
-    expect(value).toEqual({ a: '', nested: { c: [{ id: 3 }, { id: 3 }] } })
+    expectSameValue(value, { a: '', nested: { c: [{ id: 3 }, { id: 3 }] } })
     expect(watchedLabels(reads)).toEqual(new Set(['b', 'd', 'label']))
     expect({ ...generateAlgebra }).toStrictEqual(builtinAlgebra)
   })
@@ -241,7 +306,7 @@ describe('GenerateFolder — a replaced generateAlgebra handler ends the skip', 
   it('except string, which GenerateFolder always replaces with generateString', () => {
     const { value, reads } = foldWithEquivalentHandler('string')
 
-    expect(value).toEqual({ a: '', nested: { c: [{ id: 3 }, { id: 3 }] } })
+    expectSameValue(value, { a: '', nested: { c: [{ id: 3 }, { id: 3 }] } })
     expect(reads).toEqual([])
     expect({ ...generateAlgebra }).toStrictEqual(builtinAlgebra)
   })
@@ -350,10 +415,11 @@ describe('GenerateFolder — customized generation folds like foldSchema', () =>
     const folded = foldCustomized(customize, folder => folder.fold(NUMBERED))
     const reference = foldCustomized(customize, folder => foldSchema(NUMBERED, folder['algebra']()))
 
-    expect(folded.value).toEqual(expectedValue)
-    expect(folded).toEqual(reference)
+    expectSameValue(folded.value, expectedValue)
+    expectSameValue(folded.value, reference.value)
+    expect(folded.calls).toEqual(reference.calls)
     // Every customization was undone: the built-in output is back.
-    expect(generator.fold(NUMBERED)).toEqual({ name: '', count: 0, child: { id: 0 } })
+    expectSameValue(generator.fold(NUMBERED), { name: '', count: 0, child: { id: 0 } })
   })
 
   it('lets an overridden handler throw on an optional property, as foldSchema does', () => {
@@ -381,7 +447,7 @@ describe('GenerateFolder — algebra extension contract', () => {
       }
     }
 
-    expect(new EveryPropertyFolder().fold(SYNTHETIC_SCHEMAS['optional properties at every depth'])).toEqual({
+    expectSameValue(new EveryPropertyFolder().fold(SYNTHETIC_SCHEMAS['optional properties at every depth']), {
       a: '',
       b: 'example@example.com',
       nested: { c: [{ id: 3, label: 'xxxx' }, { id: 3, label: 'xxxx' }], d: { e: '' } },
@@ -395,7 +461,7 @@ describe('GenerateFolder — algebra extension contract', () => {
       }
     }
 
-    expect(new PrefixFolder().fold(SYNTHETIC_SCHEMAS['optional properties at every depth'])).toEqual({
+    expectSameValue(new PrefixFolder().fold(SYNTHETIC_SCHEMAS['optional properties at every depth']), {
       a: 'PREFIX_',
       nested: { c: [{ id: 3 }, { id: 3 }] },
     })
