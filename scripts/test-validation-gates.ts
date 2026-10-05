@@ -142,6 +142,13 @@ function assertWorktreesAreExcludedFromMarkdownDiscovery(): void {
   writeFileSync(join(root, 'README.md'), '# root\n', 'utf8')
   writeFileSync(join(root, 'docs', 'guide.md'), '# guide\n', 'utf8')
   writeFileSync(join(root, '.worktrees', 'nested', 'README.md'), '# ignored\n', 'utf8')
+  // A linked worktree elsewhere in the tree (e.g. .claude/worktrees/<name>) has a `.git` file.
+  mkdirSync(join(root, '.claude', 'worktrees', 'agent', 'docs'), { recursive: true })
+  writeFileSync(join(root, '.claude', 'worktrees', 'agent', '.git'), 'gitdir: /elsewhere\n', 'utf8')
+  writeFileSync(join(root, '.claude', 'worktrees', 'agent', 'docs', 'guide.md'), '# ignored\n', 'utf8')
+  // A nested repository has a `.git` directory.
+  mkdirSync(join(root, 'vendor-repo', '.git'), { recursive: true })
+  writeFileSync(join(root, 'vendor-repo', 'README.md'), '# ignored\n', 'utf8')
 
   assert.deepEqual(listMarkdownFiles(root), [
     join(root, 'README.md'),

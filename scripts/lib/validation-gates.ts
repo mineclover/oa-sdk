@@ -107,7 +107,13 @@ export function runValidationGates(gates: readonly ValidationGate[]): Validation
   return gates.flatMap(gate => gate.validate())
 }
 
-/** List repository Markdown files while excluding generated and vendored trees. */
+/**
+ * List repository Markdown files while excluding generated and vendored trees.
+ *
+ * A nested directory that has its own `.git` entry is another checkout (a linked
+ * git worktree such as an agent's `.claude/worktrees/<name>`, or a nested
+ * repository), so its documents belong to that checkout and are skipped.
+ */
 export function listMarkdownFiles(root: string): string[] {
   const files: string[] = []
   visit(root, files)
@@ -119,6 +125,7 @@ export function listMarkdownFiles(root: string): string[] {
       const path = resolve(directory, entry)
       const stat = statSync(path)
       if (stat.isDirectory()) {
+        if (existsSync(join(path, '.git'))) continue
         visit(path, output)
       } else if (entry.endsWith('.md')) {
         output.push(path)
