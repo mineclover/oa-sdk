@@ -1,5 +1,15 @@
 # @oa-sdk/client
 
+## 0.2.2
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies
+- Updated dependencies [b4f5dd4]
+  - @oa-sdk/core@0.3.1
+  - @oa-sdk/parser@0.4.0
+
 ## 0.2.1
 
 ### Patch Changes

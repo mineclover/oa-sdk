@@ -1,6 +1,6 @@
 {
   "name": "@oa-sdk/router",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "OAS 3.2 spec → typed server router stubs",
   "private": false,
   "type": "module",

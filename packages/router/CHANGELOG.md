@@ -5,6 +5,11 @@
 ### Patch Changes
 
 - Support first-class streaming response contracts (`StreamingBody`, `StreamingResponse`) and HTTP 206 Partial Content in `HandlerResponse` across Fastify, Hono (`c.body(...)`), Express (pipe/chunk iteration), and Elysia adapters.
+- Updated dependencies
+- Updated dependencies
+- Updated dependencies [b4f5dd4]
+  - @oa-sdk/core@0.3.1
+  - @oa-sdk/parser@0.4.0
 
 ## 0.2.1
 

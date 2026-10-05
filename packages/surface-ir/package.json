@@ -1,6 +1,6 @@
 {
   "name": "@oa-sdk/surface-ir",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Target-neutral API surface IR and Forge projection adapter",
   "private": false,
   "type": "module",

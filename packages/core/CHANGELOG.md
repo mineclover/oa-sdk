@@ -1,5 +1,11 @@
 # @oa-sdk/core
 
+## 0.3.1
+
+### Patch Changes
+
+- Wire-format types use `unknown` and `WeakKey` instead of `any`, and project root discovery reads `package.json` workspaces through a validated schema.
+
 ## 0.3.0
 
 ### Minor Changes
