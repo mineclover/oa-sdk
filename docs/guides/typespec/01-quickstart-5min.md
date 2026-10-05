@@ -14,7 +14,12 @@ tested:
   # `compatibilitySidecar, provenance`로 실패했고, 정리 후에는 승인(--write),
   # schema:typespec-check, schema:downstream-check가 모두 통과했다. 4단계 mock은
   # 인증 헤더 없이 401, 헤더가 있으면 GET /articles 200 {"items":[],"total":0}였다.
-  # 확인 후 변경은 되돌렸다.
+  # 6단계 재확인: 승인 뒤 schema:typespec-check와 schema:downstream-check만 실행하면
+  # .merged.3.1.yaml이 그대로라 CI freshness 검사에서 실패한다. schema:validate를
+  # 넣으면 바뀐 파일은 articles.tsp, main.tsp, approved.openapi.yaml,
+  # .merged.3.1.yaml이었고(meta.json은 그대로), 이어서 CI처럼 @oa-sdk/schemas
+  # bundle을 돌려도 CI가 비교하는 세 생성물이 바뀌지 않았으며 check-artifact는
+  # fresh였다. 확인 후 변경은 되돌렸다.
   owner: "OA SDK maintainers"
   reviewDue: "2026-12-10"
   status: active
@@ -164,11 +169,13 @@ diff가 의도한 변경이면 승인 스냅샷(`packages/schemas/typespec/appro
 
 ```bash
 pnpm schema:approve-typespec-reference -- --write
-pnpm schema:typespec-check
+pnpm schema:validate
 pnpm schema:downstream-check
 ```
 
-`articles.tsp`, `main.tsp`, `approved.openapi.yaml`을 같은 PR에 넣습니다. `ContractVersion`을 올릴지는 [버전 채널](../typespec-authoring-conventions.md#6-버전-채널-versioning) 규칙을 따릅니다. 승인 명령이 실패할 때는 [트러블슈팅](./05-troubleshooting.md)을 봅니다.
+`pnpm schema:validate`는 `pnpm schema:typespec-check`와 같은 검사를 실행하고, 커밋하는 생성물 `packages/schemas/src/.merged.3.1.yaml`을 다시 씁니다. 이 파일을 빠뜨리면 CI가 `@oa-sdk/schemas`를 다시 빌드한 결과와 달라 `Schema freshness check` 단계가 `Schema generated files are stale`로 실패합니다.
+
+PR에는 `articles.tsp`, `main.tsp`, `approved.openapi.yaml`, `.merged.3.1.yaml`을 넣습니다. 이 예제에서는 바뀌지 않지만 `.merged.3.1.meta.json`이 바뀌었으면 함께 넣습니다([계약 변경 절차](../typespec-authoring-conventions.md#7-계약-변경-절차-contract-change-workflow) 8단계). `ContractVersion`을 올릴지는 [버전 채널](../typespec-authoring-conventions.md#6-버전-채널-versioning) 규칙을 따릅니다. 승인 명령이 실패할 때는 [트러블슈팅](./05-troubleshooting.md)을 봅니다.
 
 ---
 

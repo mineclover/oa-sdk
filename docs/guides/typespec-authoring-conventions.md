@@ -34,7 +34,7 @@ status: active
 | 도메인 모델, DTO, operation | 해당 도메인 모듈(`users.tsp`, `auth.tsp` 등) | TypeSpec 기본 문법을 우선한다. |
 | 열거형과 값 어휘 | 가장 작은 소유 도메인 모듈. 계약 리뷰가 여러 도메인 공용으로 정한 경우에만 `common.tsp` | literal union이나 alias로 쓴다. 리소스 전용 필터는 그 operation에 둔다. `metadata/common-components.tsp`는 전역 enum 저장소가 아니다. |
 | emitter가 보존하지 못하는 OpenAPI 사실 | OA SDK TypeSpec 확장 | 버전이 있고 문서화된 확장만 쓴다. 의미를 주석에 넣지 않는다. |
-| 생성된 OpenAPI | `src/.merged*.yaml`, `dist/openapi.*` | 직접 고치지 않는다. |
+| 생성된 OpenAPI | `src/.merged*.yaml`, `dist/openapi.*` | 직접 고치지 않는다. 이 중 `src/.merged.3.1.yaml`과 `.merged.3.1.meta.json`은 커밋하는 생성물이므로 [계약 변경 절차](#7-계약-변경-절차-contract-change-workflow)대로 다시 만들어 커밋한다. |
 | 승인 스냅샷 | `approved.openapi.yaml` | 직접 고치지 않는다. 승인 명령으로만 갱신한다. |
 
 확장을 추가하기 전에 [ownership guide](../internal/typespec-roundtrip/authoring-ownership-guide.md)를 확인합니다. 현재 sidecar 없이 받는 확장 어휘는 [`oa-sdk.typespec-extensions.v5`](../internal/typespec-roundtrip/oa-sdk-typespec-extensions.v5.md) 하나입니다. 복원에 쓰이는 확장을 바꾸려면 새 버전, 명시적 migration, bundle-check 테스트가 필요합니다.
@@ -167,7 +167,7 @@ TypeSpec 기본 문법으로 표현할 수 있는 enum이나 값 어휘를 위�
 | 승인 스냅샷 | Git commit과 내용 hash | 자체 semantic version이 없다. 리뷰한 계약 변경 뒤 승인 명령으로만 다시 만든다. |
 | 실행 빌드 정보 | 배포 환경, `GET /version` 응답 | 배포 식별자. 그 예제 값이 `ContractVersion`을 정하지 않는다. |
 
-계약 버전을 바꾸면 소유 `.tsp` 변경, 리뷰한 승인 스냅샷, API diff 요약을 같은 PR에 넣습니다. 소비자가 볼 수 있는 계약 변경이 없는 스냅샷 변경은 버전을 올리지 않아도 됩니다.
+계약 버전을 바꾸면 소유 `.tsp` 변경, 리뷰한 승인 스냅샷, 다시 생성한 `src/.merged.3.1.yaml`([계약 변경 절차](#7-계약-변경-절차-contract-change-workflow) 7·8단계), API diff 요약을 같은 PR에 넣습니다. 소비자가 볼 수 있는 계약 변경이 없는 스냅샷 변경은 버전을 올리지 않아도 됩니다.
 
 PR CI는 base와 head의 승인 스냅샷도 비교합니다. breaking API diff가 있는데 `ContractVersion`이 필요한 만큼 올라가지 않았으면(1.0 이후 major, 1.0 미만 minor) CI가 실패합니다. 이 gate는 `pnpm schema:check-contract-version -- --base-ref <git-ref>`입니다.
 
@@ -184,7 +184,8 @@ PR CI는 base와 head의 승인 스냅샷도 비교합니다. breaking API diff�
 4. `pnpm schema:approve-typespec-reference`를 실행합니다. gitignore된 `.oa-sdk/typespec-candidates/`에 candidate를 컴파일·복원하고 정규화된 OpenAPI diff를 출력합니다. 커밋 대상 파일은 바꾸지 않습니다.
 5. `.tsp` 변경과 candidate diff를 함께 리뷰합니다. operation, 재사용 컴포넌트, 예제, 보안 규칙이 바뀌면 계약 변경입니다.
 6. 승인되면 `pnpm schema:approve-typespec-reference -- --write`를 실행합니다. `approved.openapi.yaml`을 갱신하는 유일한 명령입니다.
-7. `pnpm schema:validate`를 실행합니다. 다운스트림 소비자에 영향을 주는 변경이면 `pnpm schema:downstream-check`도 실행합니다.
+7. `pnpm schema:validate`를 실행합니다. `pnpm schema:typespec-check`와 같은 검사, Spectral·Redocly lint, `--require-32` 검증을 실행하고, 커밋하는 생성물 `packages/schemas/src/.merged.3.1.yaml`과 `.merged.3.1.meta.json`을 다시 씁니다. 다운스트림 소비자에 영향을 주는 변경이면 `pnpm schema:downstream-check`도 실행합니다.
+8. 소유 `.tsp` 변경, `approved.openapi.yaml`, 7단계가 다시 쓴 `.merged.3.1.yaml`을 같은 PR에 커밋합니다. `.merged.3.1.meta.json`은 OpenAPI 3.2 전용 필드(예제의 `dataValue` 등)가 바뀔 때만 달라지며, 바뀌었으면 함께 커밋합니다. CI는 `@oa-sdk/schemas`를 다시 빌드해 이 파일들이 커밋된 내용과 다르면 `Schema freshness check` 단계에서 `Schema generated files are stale`로 실패합니다.
 
 wire 값 집합을 바꾸는 것은 계약 변경입니다. 이름 있는 alias는 TypeSpec 선언 중복을 줄이지만 이름 있는 OpenAPI schema 컴포넌트를 만들지 않을 수 있습니다. 반대로 공개 컴포넌트나 `$ref` 식별자가 필요하면 이름 있는 기본 `enum`이나 `union`이 필요하고, 이는 출력 계약의 구조를 바꾸므로 candidate diff에서 리뷰해야 합니다. 어느 쪽도 단순 포맷 변경으로 분류하지 않습니다.
 
@@ -200,7 +201,7 @@ wire 값 집합을 바꾸는 것은 계약 변경입니다. 이름 있는 alias�
 - `accepted-restored-drift.json`이 비어 있거나, 모든 항목이 리뷰되고 복원값·참조값에 hash로 고정되어 있다.
 - accepted restored drift를 대체하는 승격은 `--clear-accepted-restored-drift`를 써서 승인 스냅샷과 drift 상태를 함께 리뷰한다.
 - 복원 뒤에도 재사용 응답·파라미터 참조가 유효하다.
-- `pnpm schema:validate`가 통과하고, 다운스트림 변경은 다운스트림 gate도 통과한다.
+- `pnpm schema:validate`가 통과하고, 그 명령이 다시 쓴 `src/.merged.3.1.yaml`이 PR에 들어 있다. 다운스트림 변경은 다운스트림 gate도 통과한다.
 
 rollback 경로는 두 번째 작성 경로가 아닙니다. `:openapi` 명령은 되돌릴 수 있음을 증명하거나 실패한 TypeSpec migration을 복구할 때만 쓰고, 생성된 production artifact를 커밋하기 전에 `pnpm schema:validate`를 다시 실행합니다.
 
