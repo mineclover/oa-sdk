@@ -118,6 +118,24 @@ describe('GenerateFolder — output equals the generateAlgebra fold', () => {
   })
 })
 
+describe('GenerateFolder — optional properties', () => {
+  it('does not fold the optional properties the built-in object handler discards', () => {
+    const schema = SYNTHETIC_SCHEMAS['optional properties at every depth']!
+    const visited: OasSchema[] = []
+    class RecordingFolder extends GenerateFolder {
+      protected override generateString(node: OasSchema): string {
+        visited.push(node)
+        return super.generateString(node)
+      }
+    }
+
+    new RecordingFolder().fold(schema)
+
+    // `a` is the only required string: `b`, `nested.d.e` and the items' `label` are optional.
+    expect(visited).toEqual([schema.properties!.a])
+  })
+})
+
 describe('GenerateFolder — algebra extension contract', () => {
   it('passes every folded property to a subclass object handler', () => {
     class EveryPropertyFolder extends GenerateFolder {
