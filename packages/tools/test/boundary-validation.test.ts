@@ -44,6 +44,29 @@ describe('MCP JSON-RPC envelope validation', () => {
     expect(result.response.error?.code).toBe(-32600)
   })
 
+  it('reads null params as absent params', async () => {
+    const list = await mcp.dispatcher.dispatch({ jsonrpc: '2.0', id: 'req-2', method: 'tools/list', params: null })
+    expect(list.status).toBe(200)
+    expect(list.response).toEqual({
+      jsonrpc: '2.0',
+      id: 'req-2',
+      result: { tools: [expect.objectContaining({ name: 'echo' })] },
+    })
+
+    const response = await mcp.handleFetch(new Request('http://localhost/mcp', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'tools/list', params: null }),
+    }))
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({ id: 3, result: { tools: [{ name: 'echo' }] } })
+
+    // tools/call answers null params exactly as it answers missing params.
+    const call = await mcp.dispatcher.dispatch({ jsonrpc: '2.0', id: 4, method: 'tools/call', params: null })
+    const callWithoutParams = await mcp.dispatcher.dispatch({ jsonrpc: '2.0', id: 4, method: 'tools/call' })
+    expect(call).toEqual(callWithoutParams)
+  })
+
   it('answers tools/call without a string name with invalid params', async () => {
     const result = await mcp.dispatcher.dispatch({ jsonrpc: '2.0', id: 7, method: 'tools/call', params: { name: 42 } })
     expect(result.status).toBe(200)

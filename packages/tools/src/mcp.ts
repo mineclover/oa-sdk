@@ -159,7 +159,9 @@ const McpRequestEnvelopeSchema: ToolJsonBodySchema<McpRequestEnvelope> = {
     if (rawId !== undefined && !isJsonRpcId(rawId)) return { valid: false, id: null }
     const id = rawId ?? null
     if (value.jsonrpc !== '2.0' || typeof value.method !== 'string') return { valid: false, id }
-    const params = value.params
+    // `params: null` reads as an absent member, as it always did here
+    // (`params ?? {}`) and as peer-server's home MCP endpoint reads it.
+    const params = value.params ?? undefined
     if (params !== undefined && !isPlainObject(params)) return { valid: false, id }
     return {
       valid: true,
