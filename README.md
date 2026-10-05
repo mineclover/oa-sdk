@@ -127,8 +127,14 @@ npx oa-gen --help
 다음 source release candidate는 `@oa-sdk/core`·`@oa-sdk/parser` `0.2.0`,
 `@oa-sdk/codegen` `0.6.0`이며, artifact review와 external promotion 전에는 `latest`로
 간주하지 않는다.
-`@oa-sdk/schemas`, router, client, mock-server는 아직 별도 distribution decision 전의 private
-workspace이므로 npm 설치 대상으로 안내하지 않는다.
+`@oa-sdk/schemas`는 아직 별도 distribution decision 전의 private workspace이므로 npm 설치
+대상으로 안내하지 않는다. `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`는 `oa-gen`이
+handler contract, client SDK, mock server 같은 출력을 만들 때 불러오는 companion package이며,
+`oa-gen`은 이들이 없으면 codegen이 build된 version으로 고정한 설치 명령을 안내한다. 그래서
+`@oa-sdk/codegen` export는 각 companion이 같은 export에 포함되거나 이미 npm에 있어야 통과하고,
+companion은 codegen과 함께 또는 그보다 먼저 배포된다. 어떤 `oa-gen` 명령과 출력에 어떤
+companion이 필요한지는 [CLI 설정 가이드](docs/guides/cli-setup.md#동반-패키지-companion-packages)를
+따른다.
 
 ### 비공개 소스 기여·검증
 

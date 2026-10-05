@@ -1,6 +1,6 @@
 # Artifact Release Preparation
 
-Status: active operating guide. Last reviewed 2026-08-30.
+Status: active operating guide. Last reviewed 2026-10-05.
 
 이 가이드는 oa-sdk의 **public package artifact**를 준비하는 maintainer를 위한 것이다.
 이 source repository에서 npm publish를 실행하지 않는다. 실제 registry promotion은
@@ -17,7 +17,8 @@ Status: active operating guide. Last reviewed 2026-08-30.
 | private/downstream/maintenance workspace | release policy가 허용하는 lifecycle | scope policy와 해당 track 검증 |
 
 API contract version을 올렸다고 npm package를 자동으로 올리거나, 반대로 package patch를 API
-contract change로 해석하지 않는다. 공개 배포 후보는 release policy에 있는 다섯 package뿐이다.
+contract change로 해석하지 않는다. 공개 배포 후보는 release policy의 `distributionCandidates`에 있는
+package뿐이다.
 
 ## 1. Release intent를 고정한다
 
@@ -73,7 +74,10 @@ pnpm release:export -- \
   --version @oa-sdk/openapi-projection-contract=0.1.2 \
   --version @oa-sdk/typespec-decorators=0.1.2 \
   --version @oa-sdk/parser=0.2.0 \
-  --version @oa-sdk/codegen=0.6.0
+  --version @oa-sdk/codegen=0.6.0 \
+  --version @oa-sdk/router=0.2.1 \
+  --version @oa-sdk/client=0.2.1 \
+  --version @oa-sdk/mock-server=0.1.3
 ```
 
 exporter는 선택한 package를 clean build하고 source map/test file을 제거한 tarball을 만든다.
@@ -82,6 +86,32 @@ official export의 `--version`은 committed workspace package version과 같아�
 또한 workspace dependency가 public version으로 해소되는지, 모든 public import와 `oa-gen`
 consumer smoke가 동작하는지 확인하고 SHA-512 manifest를 기록한다. 이 단계도 npm publish는
 하지 않는다.
+
+### `@oa-sdk/codegen` companion package gate
+
+`oa-gen`은 `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`를 companion package로
+dynamic import한다. companion이 설치되어 있지 않으면 codegen이 build될 때 사용한 version으로
+고정한 설치 명령(예: `npm install --save-dev "@oa-sdk/router@^0.2.1"`)을 출력하며, 그 version은
+codegen build에 embed된다. release policy상 Core Platform package인 codegen은 이 Downstream
+package를 devDependencies로만 참조할 수 있고 public manifest에서는 devDependencies가 제거되므로,
+runtime workspace dependency처럼 manifest 단계에서 "같은 export에 있거나 이미 npm에 있는가"를
+검사받지 않는다.
+
+그래서 export에 `@oa-sdk/codegen`이 포함되면 exporter는 pack된 codegen tarball에서 embed된
+companion version을 읽고, 각 companion이 다음 중 하나를 만족하지 않으면 export를 실패시킨다.
+
+- 같은 export의 `--version <companion>=<version>`에 정확히 그 version으로 포함되어 있다.
+- 그 version이 이미 public npm에 publish되어 있다.
+
+즉 codegen export는 companion을 같은 export에 함께 넣거나 그보다 먼저 release한 뒤에만 만들 수
+있다. 실패 메시지는 해당 companion과 version을 나열하므로, 그 export에
+`--version <companion>=<version>`을 추가하거나 companion을 먼저 release한다. official export의
+`--version`은 committed source version과 같아야 하고 codegen은 workspace의 companion source
+version으로 build되므로, 추가할 version은 해당 companion의 `package.json` version이다.
+
+이 gate는 `--dry-run`과 `--skip-registry-preflight`에서도 생략되지 않는다. export에 없는
+companion은 public npm registry에서 조회하며, E404 이외의 registry 오류는 미배포로 간주하지 않고
+그대로 export 실패로 드러낸다.
 
 ### Draft export inspection
 
@@ -117,6 +147,7 @@ source repository의 `pnpm release` 또는 `pnpm release:export`는 이 최종 p
 
 - [ ] 선택한 package와 version intent가 Changeset/release note에 기록됐다.
 - [ ] clean-worktree `pnpm release:preflight`가 통과했다.
+- [ ] codegen을 export했다면 companion package가 같은 export에 포함됐거나 이미 npm에 있다.
 - [ ] 같은 release candidate commit의 required CI가 통과했다.
 - [ ] contract change라면 TypeSpec snapshot 및 semver evidence를 검토했다.
 - [ ] external artifact repository의 manifest와 SHA-512를 검토했다.
