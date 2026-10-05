@@ -106,7 +106,6 @@ type ServerRoutingState = {
   index: RouteIndex
   /** One entry per operation in `index`: bounded by the route count, replaced on hot swap. */
   routes: Map<OperationEntry, CompiledRoute>
-  allowedHeadersCache: Map<string, string>
 }
 
 // ─── Pre-allocated Constants for Common Static Error Frames ─────────────────
@@ -205,7 +204,6 @@ export function createNodeMockServer(
       basePath: nextBasePath,
       index: nextIndex,
       routes,
-      allowedHeadersCache: new Map<string, string>(),
     }
   }
 
@@ -292,11 +290,9 @@ export function createNodeMockServer(
     }
 
     if (matched.type === 'method_not_allowed') {
-      let allow = currentState.allowedHeadersCache.get(urlPath)
-      if (allow === undefined) {
-        allow = matched.allowed.map((m: string) => m.toUpperCase()).join(', ')
-        currentState.allowedHeadersCache.set(urlPath, allow)
-      }
+      // Derived from the matched route's methods on every request: caching it by
+      // concrete URL would retain one entry per distinct URL ever requested.
+      const allow = matched.allowed.map((m: string) => m.toUpperCase()).join(', ')
       res.writeHead(405, { Allow: allow, 'Content-Length': '0' })
       res.end()
       return
