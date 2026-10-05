@@ -1,151 +1,135 @@
-# 기본 스펙 사용 기준 (Repository Spec Governance & Artifact Ownership SSOT)
+---
+docType: guide
+sourceLocale: ko
+canonical: true
+audience:
+  competence: competent
+productVersions:
+  - "@oa-sdk/codegen 0.9.0"
+  - "OA SDK API contract 0.5.0"
+owner: "OA SDK maintainers"
+status: active
+lastReviewed: "2026-10-06"
+sourceOfTruth:
+  - package.json
+  - packages/schemas/package.json
+  - packages/schemas/typespec/oa-sdk.typespec-bundle.json
+---
 
-Status: active operating guide. Last reviewed 2026-09-13.
+# 기본 스펙 사용 기준 (저장소 계약의 원본과 생성물)
 
-> 🧭 **스펙 문서 체계 안내 (Schema Triad SSOT)**:
-> - **[가이드 종합 색인 및 아키텍처 지도](./README.md)**: 선언자(Author)와 소비자(Consumer) 트랙별 전체 가이드 맵과 추천 읽기 경로를 제공합니다.
-> - **[기본 스펙 사용 기준 (현재 문서)](./basic-spec-usage.md)**: 저장소 스펙 거버넌스 및 산출물 소유권 SSOT. 어떤 파일이 정본(SSOT)이고 어떤 파일이 생성물(Generated Artifact)인지, 다운스트림 패키지가 어떤 산출물을 소비하는지 정의합니다.
-> - **[순수 타입 선언 및 가드 실무 가이드](./pure-types-and-guards.md)**: HTTP 엔드포인트 없는 순수 데이터 모델/DTO 선언, 타입 생성 및 제로-eval 독립형 가드 실무를 다룹니다.
-> - **[스키마 아키텍처 및 작성 규칙](./schema-architecture-and-conventions.md)**: 4단계 TypeSpec-First 파이프라인 SSOT (TypeSpec SSOT $\rightarrow$ JSON Schema 2020-12 $\rightarrow$ OAS 3.1/3.2 $\rightarrow$ Standalone AJV Type Guards with zero eval for Chrome MV3 CSP), 비디오 트랜지션 파라미터 다양화 표준, MCP/CLI 도구 브릿지를 다룹니다.
-> - **[TypeSpec 종합 데코레이터 레퍼런스 및 8대 실전 작성 패턴](./typespec/03-decorators-reference.md)**: 코어 메타데이터, HTTP, OpenAPI, 유효성 검증, 다형성, 라이프사이클 프로젝션 및 8대 실전 .tsp 작성 패턴 총정리.
-> - **[패스 프래그먼트 컨벤션](./path-fragment-conventions.md)**: Definition Builder 롤백/참조 경로용 YAML 프래그먼트 작성 규칙 및 폴더 계층 표준을 다룹니다.
-> - **[선언적 스펙 설정 가이드](./declarative-spec-configuration.md)**: `oa.config.ts`의 이중 레이어 구조(`core` vs `product`), 라이프사이클 아키타입(`mvp`, `microservice`, `enterprise`), 출력 경로 라우팅(`outputRouting`) 설정 표준을 다룹니다.
+> 이 문서는 oa-sdk 저장소 기여자용입니다. 다른 프로젝트는 [Quick Start](./quick-start.md)를 따릅니다.
 
-이 문서에서 말하는 “기본 스펙”은 사람이 직접 수정하는 원천(SSOT)과 각 소비자가
-읽는 계약 artifact(Generated Artifacts)를 엄격히 분리한 저장소 거버넌스 단위다.
-현재 oa-sdk 모노레포의 production 기준은 TypeSpec-first이며, OpenAPI 3.2는 내부 소비자가 공유하는 canonical contract artifact다.
+이 저장소의 production API 계약(`packages/schemas`)에서 사람이 고치는 원본과 도구가 만드는 생성물을
+나누고, 계약을 바꿀 때의 작업 순서와 검증 명령을 정합니다. 이 저장소의 스키마 가이드는 계약 변경
+순서를 다시 쓰지 않고 3절을 링크합니다.
 
-## 1. 기준 결정
+- oa-sdk가 해결하는 문제와 가치: [가이드 색인](./README.md#oa-sdk가-해결하는-문제와-핵심-가치)
+- 패키지 안의 파일 배치와 스크립트: [`@oa-sdk/schemas` README](../../packages/schemas/README.md)
+- TypeSpec·OpenAPI 작성 규칙: [스키마 작성 가이드](./schema-authoring.md)
+- 모듈 소유권, `ContractVersion` 규칙, 리뷰 증거: [TypeSpec Authoring Conventions](./typespec-authoring-conventions.md)
+- 원본에서 생성물까지 `oa-gen`이 하는 일: [스키마 파이프라인](./schema-architecture-and-conventions.md)
 
-| 구분 | 현재 기준 | 직접 수정 여부 |
-|---|---|---:|
-| Production authoring source | `packages/schemas/typespec/main.tsp` composition root, `metadata/`·`version.tsp`·`common/auth/health/me/users/world-model.tsp` 모듈, bundle manifest | 수정 |
-| Production bundle identity | `packages/schemas/typespec/oa-sdk.typespec-bundle.json` | 의미 변경 시 수정 |
-| Approved snapshot | `packages/schemas/typespec/approved.openapi.yaml` | 생성·검토 후 승인 명령으로만 갱신 |
-| Canonical OpenAPI artifact | `packages/schemas/src/.merged.yaml` (OpenAPI 3.2) | 금지, 생성물 |
-| Compatibility artifact | `packages/schemas/src/.merged.3.1.yaml`, `.meta.json` | 금지, 생성물 |
-| Package bundle | `packages/schemas/dist/openapi.{yaml,json}` (현재 3.1 호환 출력) | 금지, 생성물 |
-| Deployment projection | `packages/schemas/typespec/oa-sdk.typespec-projections.json` | 서버 전용 profile만 수정 |
-| Rollback/reference source | `packages/schemas/src/fragments` + `src/targets` | rollback 기간에만 수정 |
-| External service intake | `raw → normalized → upgraded` artifact | 서비스별 source에서 생성 |
-| Projection exchange | `@oa-sdk/openapi-projection-contract` envelope | source loader가 아닌 교환 경계 |
+## 1. 원본과 생성물
 
-핵심 규칙은 다음과 같다.
+| 구분 | 위치 | 직접 수정 |
+|---|---|---|
+| 원본 | `packages/schemas/typespec/main.tsp`(import만 하는 진입점), `metadata/`, `version.tsp`, `{common,auth,health,me,users,world-model}.tsp` | 수정 |
+| 번들 manifest | `packages/schemas/typespec/oa-sdk.typespec-bundle.json` | 의미가 바뀔 때만 |
+| 승인 snapshot | `packages/schemas/typespec/approved.openapi.yaml` | 금지. 검토 후 승인 명령으로만 갱신 |
+| 정본 생성물 | `packages/schemas/src/.merged.yaml`(OpenAPI 3.2, git 무시) | 금지 |
+| 3.1 호환 생성물 | `packages/schemas/src/.merged.3.1.yaml`, `.merged.3.1.meta.json`(git 추적, CI가 최신 여부 확인) | 금지 |
+| 패키지 번들 | `packages/schemas/dist/openapi.{yaml,json}`(3.1 호환, git 무시) | 금지 |
+| 배포 환경 projection | `packages/schemas/typespec/oa-sdk.typespec-projections.json` | server URL만 |
+| rollback·참조 원본 | `packages/schemas/src/fragments`, `src/targets` | rollback 경로를 고칠 때만 |
+| 외부 서비스 계약 | 서비스별 `raw → normalized → upgraded` 문서 | 서비스 원본에서 생성 |
+| projection 교환 형식 | `@oa-sdk/openapi-projection-contract` envelope | 원본이 아니라 교환 경계 |
 
-- `.tsp`와 manifest를 먼저 수정한다. `.merged*`, `dist/openapi*`, sidecar report를 직접 고치지 않는다.
-- `approved.openapi.yaml`은 사람이 작성하지 않는다. TypeSpec restored OpenAPI를 검토한 뒤 `pnpm schema:approve-typespec-reference -- --write`로만 갱신한다.
-- 배포 환경의 server URL은 TypeSpec restored contract에서 파생한 server-only projection으로만 바꾼다. profile artifact는 승인 snapshot이나 새 계약 source가 아니다.
-- 내부 parser, codegen, router, client, mock-server는 `.merged.yaml`을 기본 입력으로 사용한다.
-- Swagger UI나 OpenAPI 3.1 전용 도구가 필요하면 `.merged.3.1.yaml` 또는 `dist/openapi.*`를 사용한다.
-- fragments/targets와 `build-spec`는 현재 production authoring 경로가 아니라 Definition Builder rollback/reference 경로다.
-- NestJS/FastAPI처럼 외부 runtime이 산출한 문서는 TypeSpec production source와 섞지 않고 governance intake 경로로 처리한다.
+규칙은 다음과 같습니다.
 
-## 2. 사용처별 계약
+- `.tsp`와 manifest를 먼저 고칩니다. `.merged*`, `dist/openapi*`, sidecar 리포트는 직접 고치지 않습니다.
+- `approved.openapi.yaml`은 사람이 쓰지 않습니다. TypeSpec에서 만든 후보를 검토한 뒤 `pnpm schema:approve-typespec-reference -- --write`로만 갱신합니다.
+- 배포 환경의 server URL은 복원한 계약에서 server 값만 바꾼 projection으로 다룹니다. projection 결과는 승인 snapshot도, 새 원본도 아닙니다.
+- 저장소 안의 parser, codegen, mock 서버, downstream gate는 `.merged.yaml`을 입력으로 씁니다. Swagger UI 같은 3.1 전용 도구에는 `.merged.3.1.yaml`이나 `dist/openapi.*`를 넘깁니다.
+- `src/fragments`, `src/targets`와 `build-spec`은 Definition Builder rollback·참조 경로입니다. 새 API는 TypeSpec에 씁니다.
+- NestJS·FastAPI처럼 외부 런타임이 내보낸 문서는 TypeSpec 원본과 섞지 않고 [OpenAPI Governance Service Template](./openapi-governance-service-template.md)의 수집 경로로 다룹니다.
 
-| 사용처 | 입력 | 출력/검증 | 권장 실행 명령 또는 API |
+새로 clone한 저장소에는 `.merged.yaml`이 없습니다(git 무시). `corepack pnpm build:core`나 `pnpm schema:validate`를
+한 번 실행해야 이 파일을 읽는 명령이 동작합니다.
+
+## 2. 사용처별 명령
+
+저장소 루트에서는 `oa-gen`이 PATH에 없습니다. `pnpm --filter @oa-sdk/codegen build` 후
+`node packages/codegen/dist/cli/index.js <명령>`으로 실행합니다. `mock`처럼 동반 패키지가 필요한 명령은
+`corepack pnpm build:downstream`으로 해당 패키지도 빌드해 둡니다.
+
+| 사용처 | 입력 | 출력·검증 | 명령 |
 |---|---|---|---|
-| 계약 작성 | `packages/schemas/typespec/main.tsp` + `metadata/` + domain `.tsp` 모듈 | bundle-check, approved snapshot diff | `pnpm schema:validate` |
-| 승인 snapshot 갱신 | TypeSpec restored OpenAPI | normalized diff를 검토한 생성 snapshot | `pnpm schema:approve-typespec-reference -- --write` |
-| 계약 strict 검증 | `.merged.yaml` | OpenAPI 3.2 validation, Spectral, Redocly | `pnpm schema:validate` |
-| 타입/라우터/클라이언트 생성 | `.merged.yaml` (또는 `oa.config.ts`) | TypeScript 타입, 핸들러 계약, 프레임워크 라우터, TanStack Query 옵션 | `pnpm exec oa-gen generate --help`<br>`pnpm exec oa-gen typegen --help`<br>`pnpm exec oa-gen generate:tanstack --help` |
-| Mock 및 통합 테스트 | `.merged.yaml` 또는 live `.tsp` | in-memory mock server, hot-reload, request/response validation | `pnpm exec oa-gen mock --spec packages/schemas/src/.merged.yaml --watch` |
-| 변경 검토 및 Breaking Diff | base/head OpenAPI 또는 TypeSpec AST | semantic diff, breaking change detection, review bundle | `pnpm exec oa-gen diff --help`<br>`pnpm exec oa-gen tsp diff --help` |
-| target별 surface 생성 | fragments + target config | target OpenAPI 3.2 | `pnpm exec oa-gen build-spec --help`<br>`pnpm schema:validate:openapi` |
-| Swagger/3.1 호환 | `.merged.3.1.yaml` 또는 `dist/openapi.*` | OpenAPI 3.1 bundle | `pnpm schema:bundle` |
-| 배포 환경 server projection | restored TypeSpec contract + projection profile | local/staging/production OpenAPI artifact | `pnpm schema:project-typespec:local`<br>`pnpm schema:project-typespec:staging`<br>`pnpm schema:project-typespec:production` |
-| 외부 서비스 governance | raw runtime artifact | normalized/3.2 upgraded artifact | `pnpm exec oa-gen scaffold-governance --help`<br>`pnpm exec oa-gen collect --help` |
-| 변경 이력/관측 | TypeSpec bundle 또는 Definition Builder project | snapshot, diff, provenance, symbol index | `pnpm --dir packages/spec-lens exec tsx src/cli.ts` |
+| 계약 작성·검증 | TypeSpec 모듈 | 번들 검사, 승인 snapshot diff, OpenAPI 3.2 검증, Spectral, Redocly | `pnpm schema:validate` |
+| 승인 snapshot 갱신 | TypeSpec에서 복원한 OpenAPI | 검토한 normalized diff | `pnpm schema:approve-typespec-reference -- --write` |
+| breaking change 분류 | 커밋된 TypeSpec과 작업 트리 | 의미 단위 diff | `node packages/codegen/dist/cli/index.js tsp diff --base HEAD:packages/schemas/typespec/main.tsp --head packages/schemas/typespec/main.tsp --fail-on-breaking` |
+| 생성 코드 확인 | `.merged.yaml` | typegen, 핸들러 계약, 클라이언트, mock 핸들러 생성과 컴파일 | `pnpm schema:downstream-check` |
+| 타입만 생성 | `.merged.yaml` | TypeScript 타입 | `node packages/codegen/dist/cli/index.js typegen --spec packages/schemas/src/.merged.yaml -o <파일>` |
+| mock 서버 | `.merged.yaml` | 요청 검증 mock 서버 | `node packages/codegen/dist/cli/index.js mock --spec packages/schemas/src/.merged.yaml --watch` |
+| rollback 경로 검증 | fragments + target | target OpenAPI 3.2 | `pnpm schema:rollback-check` |
+| Swagger·3.1 호환 | TypeSpec 번들 | `dist/openapi.{yaml,json}` | `pnpm schema:bundle` |
+| 배포 환경 projection | 복원한 계약 + profile | `src/.projected/` | `pnpm schema:project-typespec:local`, `:staging`, `:production` |
+| 변경 이력 관측 | TypeSpec 번들 | snapshot, diff, provenance | `pnpm --dir packages/spec-lens exec tsx src/cli.ts` ([spec-lens README](../../packages/spec-lens/README.md)) |
 
-표의 명령은 공개 package 환경에서는 `npx oa-gen <command>` 또는 `bun x oa-gen <command>`로 실행할 수 있으며,
-상세 옵션 및 실행 예시는 [CLI 명령 레퍼런스](./cli-command-reference.md)를 따른다.
+`tsp diff`에 git ref만 주면(`--head HEAD`) 커밋된 내용끼리 비교하므로 작업 트리의 수정은 보이지 않습니다.
+위처럼 head에는 파일 경로를 줍니다. 명령별 옵션은 [CLI 명령 레퍼런스](./cli-command-reference.md)에 있습니다.
 
-### 다운스트림 패키지 산출물 매핑 (Downstream Package Consumption SSOT)
+### 저장소 패키지가 쓰는 생성물
 
-`packages/schemas`가 산출하는 각 아티팩트를 소비하는 다운스트림 패키지와 보장 경계는 다음과 같이 엄격히 고정된다:
-
-| 패키지 | 소비 아티팩트 | 산출물의 역할 | 패키지 책임 및 생성물 |
+| 패키지 | 공개 상태 | 읽는 생성물 | 하는 일 |
 |---|---|---|---|
-| `@oa-sdk/parser` | `.merged.yaml` (OpenAPI 3.2) | 정본 스펙 IR 파싱 | 스펙 검증(`validateDocument`), Abstract Semantic Graph(IR) 변환, `$ref` 그래프 순환 탐지 |
-| `@oa-sdk/codegen` | `.merged.yaml` 또는 `oa.config.ts` | 코드 생성 및 검증 | TypeScript 타입 선언(`typegen`), Zod 4 스키마(`generate:zod`), TanStack Query 3티어(`generate:tanstack`), 독립형 가드(`standalone-guards`) |
-| `@oa-sdk/router` | `.merged.yaml` (또는 인메모리 스펙) | 프레임워크 비종속 라우팅 | 순수 핸들러 계약(`*.contract.ts`), 프레임워크 어댑터(Fastify JIT, Bun Elysia Zero-Copy, Hono, Express), `HandlerResponse` 에러 유니온 |
-| `@oa-sdk/client` | `.merged.yaml` | 타입 안전 클라이언트 | `JsonPrimitive<T>` 와이어 타입 보장, `AbortSignal` 취소 연동 fetch 클라이언트 SDK, TanStack Query v5 옵션 팩토리 |
-| `@oa-sdk/mock-server` | `.merged.yaml` 또는 live `.tsp` | 모의 서버 구동 | MSW / Node HTTP 어댑터, 요청/응답 스키마 실시간 유효성 검사, `oa-gen mock --watch` 무중단 핫리로드 |
-| `@oa-sdk/spec-lens` | `typespec/main.tsp` 또는 `.merged.yaml` | 스펙 관측 및 심볼 인덱싱 | SQLite WAL CQRS 심볼 캐시, 양방향 AST 추적, 리비전 간 프로비넌스 그래프 추출 |
-| 외부 도구 / Swagger UI | `dist/openapi.{yaml,json}` 또는 `.merged.3.1.yaml` | 3.1 하위 호환 소비 | Swagger UI 인터랙티브 문서 뷰어, OpenAPI 3.1 전용 외부 SDK 생성기 |
+| `@oa-sdk/parser` | 공개 | `.merged.yaml` | 파싱, `$ref` 해석, 린트, 검증(`validateDocument`) |
+| `@oa-sdk/codegen` (`oa-gen`) | 공개 | `.merged.yaml` 또는 `oa.config.ts` | `typegen`, `generate:zod`, `generate:guards`, `generate`, `validate`, `diff`, `check-artifact` 등 |
+| `@oa-sdk/router` | 동반 패키지 | parser 결과 | `oa-gen generate`가 부르는 `generateHandlerContract()`로 핸들러 계약(`<id>.contract.ts`) 생성. 프레임워크 라우터 코드는 `generateRouter()` API를 직접 호출해야 하며, `oa-gen` 명령은 라우터 파일을 만들지 않는다 |
+| `@oa-sdk/client` | 동반 패키지 | parser 결과 | `generateClient()`(fetch 클라이언트), `generateTanstackQuery()`(TanStack Query 키·옵션·훅) |
+| `@oa-sdk/mock-server` | 동반 패키지 | `.merged.yaml` 또는 `.tsp` | `oa-gen mock`, `createNodeMockServer()`. `msw`는 MSW 어댑터를 쓸 때만 필요 |
+| `@oa-sdk/spec-lens` | 비공개(저장소 전용) | TypeSpec 번들 또는 `.merged.yaml` | revision별 snapshot, diff, provenance, 심볼 색인 |
+| 외부 도구, Swagger UI | - | `dist/openapi.*`, `.merged.3.1.yaml` | OpenAPI 3.1만 읽는 도구용 |
 
-## 3. 기본 작업 흐름
+`@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`는 `oa-gen`이 실행 중 불러오는
+동반 패키지(companion package)입니다. 어떤 명령에 무엇이 필요한지는 [CLI 설치 가이드](./cli-setup.md#동반-패키지-companion-packages)에 있습니다.
+`@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`, `@oa-sdk/surface-ir`는 `@oa-sdk/codegen` 0.9.0
+릴리스에서 처음 npm에 배포됩니다. 이 릴리스 전에는 npm에서 설치할 수 없습니다. 설치할 수 있는 버전은
+[변경 이력](../changelog.md)에서 확인합니다.
+
+## 3. 계약 변경 작업 순서
 
 ```text
-TypeSpec source
-  → bundle-check / approved snapshot diff
-  → .merged.yaml (OpenAPI 3.2)
-  → validate / diff / typegen / private router·client API / mock / spec-lens snapshot
-  → .merged.3.1.yaml 또는 dist/openapi.* (호환 출력)
-  → server-only local/staging/production projection (배포 artifact)
+TypeSpec 모듈 수정
+  → 승인 후보 diff 검토 → approved.openapi.yaml 갱신(--write)
+  → pnpm schema:validate (.merged.yaml 생성, 3.2 검증)
+  → pnpm schema:downstream-check (생성 코드에 영향이 있을 때)
+  → pnpm schema:typespec-check (커밋 전)
 ```
 
-유지보수자는 다음 순서로 작업한다.
+1. 변경 대상에 맞는 모듈을 고칩니다: 도메인은 `packages/schemas/typespec/{common,auth,health,me,users,world-model}.tsp`, service·security·재사용 component는 `metadata/{service,security,common-components}.tsp`. 새 모듈을 만들면 `main.tsp`에 import를 추가합니다.
+2. OpenAPI의 의미를 TypeSpec 문법으로 표현할 수 없으면 [authoring ownership guide](../internal/typespec-roundtrip/authoring-ownership-guide.md)에 따라 TypeSpec 문법, OA SDK extension, compatibility sidecar 중 하나를 고릅니다.
+3. `pnpm schema:approve-typespec-reference`를 실행해 `.oa-sdk/typespec-candidates/`에 생긴 후보와 normalized diff를 검토합니다. 검토가 끝났을 때만 `pnpm schema:approve-typespec-reference -- --write`로 `approved.openapi.yaml`을 갱신합니다. enum 값 추가·삭제처럼 선언이 짧은 변경도 같은 절차를 거칩니다.
+4. `pnpm schema:validate`를 실행합니다.
+5. parser, codegen, router, client, mock 서버에 영향이 있으면 `pnpm schema:downstream-check`를 실행합니다.
+6. 커밋 전에 `pnpm schema:typespec-check`로 승인 snapshot과 원본이 일치하는지 확인합니다.
 
-1. 변경 대상에 따라 `packages/schemas/typespec/{common,auth,health,me,users,world-model}.tsp` 또는 `metadata/{service,security,common-components}.tsp`를 수정한다. `main.tsp`는 import만 소유하는 composition root다.
-2. OpenAPI native 의미를 TypeSpec으로 표현할 수 없으면 [authoring ownership guide](../internal/typespec-roundtrip/authoring-ownership-guide.md)에 따라 native syntax, OA SDK extension, compatibility sidecar 중 하나를 선택한다.
-3. 계약 변경이면 먼저 `pnpm schema:approve-typespec-reference`로 생성될 normalized diff를 확인한다. 검토가 끝난 경우에만 `--write`로 `approved.openapi.yaml`을 갱신한다.
-4. `pnpm schema:validate`를 실행한다.
-5. downstream 사용이 필요한 변경이면 `pnpm schema:downstream-check`를 실행한다.
-6. 검증된 `.merged.yaml`을 codegen, mock, review, spec-lens의 입력으로 사용한다.
+API `ContractVersion`, 워크스페이스 패키지 버전, 번들·extension `schemaVersion`은 서로 다른 버전입니다.
+언제 무엇을 올리는지는 [TypeSpec Authoring Conventions](./typespec-authoring-conventions.md#versioning)를 따릅니다.
+PR CI는 `pnpm schema:check-contract-version -- --base-ref <ref>`로 breaking diff에 맞는 버전 증가가 있는지 확인합니다.
+PR에 남길 리뷰 증거는 [Required Review Evidence](./typespec-authoring-conventions.md#required-review-evidence)에,
+문서·스펙 변경의 완료 조건은 [문서 유형과 품질 기준](../spec-governance/document-policy.md)에 있습니다.
 
-## 4. 현재 디렉터리 구조
+## 4. 오류 응답과 업무 판정
 
-```text
-packages/schemas/
-├── typespec/
-│   ├── main.tsp                         # bundle composition root
-│   ├── metadata/
-│   │   ├── service.tsp                  # service/info/server/tag metadata
-│   │   ├── security.tsp                 # security-scheme metadata
-│   │   └── common-components.tsp        # reusable component registry
-│   ├── common.tsp                       # shared auth/error models and explicitly owned wire vocabularies
-│   ├── version.tsp                      # contract version
-│   ├── auth.tsp                         # authentication domain
-│   ├── health.tsp                       # health/version domain
-│   ├── me.tsp                           # self-service domain
-│   ├── users.tsp                         # users/admin/moderation domain
-│   ├── world-model.tsp                   # World Model domain
-│   ├── oa-sdk.typespec-bundle.json     # bundle identity + extension version
-│   ├── oa-sdk.typespec-projections.json # server-only deployment profiles
-│   ├── approved.openapi.yaml            # TypeSpec에서 생성한 reviewed snapshot
-│   └── accepted-restored-drift.json     # reviewed exception set
-├── src/
-│   ├── .merged.yaml                     # generated OpenAPI 3.2 input
-│   ├── .merged.3.1.yaml                 # generated compatibility input
-│   ├── fragments/                        # Definition Builder rollback/reference
-│   └── targets/                          # target selection for rollback/reference
-└── dist/openapi.{yaml,json}             # generated 3.1 bundle output
-```
-
-`@oa-sdk/parser`는 OpenAPI 3.2 document를 IR로 변환하고, `@oa-sdk/codegen`은
-검증·diff·생성·governance CLI를 제공한다. `@oa-sdk/router`, `@oa-sdk/client`,
-`@oa-sdk/mock-server`, `@oa-sdk/spec-lens`는 이 canonical artifact의 downstream consumer다.
-
-공개 `oa-gen` CLI는 `typegen`, `generate:zod`, `generate:tanstack`, `mock` 및 선언적 통합 생성 파이프라인 `generate`를 제공한다.
-`@oa-sdk/router`의 순수 핸들러 계약 분리(`generateHandlerContract`) 및 프레임워크 바인더(`generateRouter`),
-그리고 `@oa-sdk/client`의 타입 안전 fetch 클라이언트(`generateClientRenderer`)는
-`oa.config.ts`의 선언적 설정(`oa-gen generate`)을 통해 일괄 자동 생성하거나 패키지 API로 사용할 수 있다.
-실행 가능한 통합 예시는 [코드젠 워크플로](./use-cases/codegen-workflow.md) 및 [온보딩 플레이북](./onboarding-playbook.md)을 따른다.
-
-### HTTP 오류와 업무 판정
-
-권한 거부처럼 HTTP 오류 상태이면서 호출자가 읽어야 하는 업무 결과가 있는 경우에는
-상태 코드를 200으로 바꾸지 않고 typed error contract를 사용한다. 예를 들어 `403`
-응답 body가 `AuthorizationDecision`이면 TypeSpec에서 해당 body를 명시하고, client는
-`ClientError`의 `status`, `body`, `response`를 보존한다. typegen은 4xx/5xx/default의
-JSON body와 status map을 생성하고, client error alias와 operation-specific guard를
-status별 union으로 만들므로 호출자는 `status`와 `body`를 함께 좁혀 `reasonCode`나
-`trace`를 처리할 수 있다. 동일 status에 여러 업무 오류 body가 있으면 body의
-discriminant도 추가로 확인해야 한다.
+권한 거부처럼 HTTP 오류이면서 호출자가 읽어야 할 업무 결과가 있으면 상태 코드를 200으로 바꾸지 않고
+오류 응답 body를 계약에 선언합니다. 예를 들어 `403` 응답 body가 `AuthorizationDecision`이면 TypeSpec에
+그 body를 명시합니다. typegen은 4xx·5xx·default의 JSON body와 status map을 만들고, 생성 클라이언트는
+operation별 `is<Operation>ClientError(error, status)` guard를 제공하므로 호출자는 `status`와 `body`를 함께
+좁힐 수 있습니다. 같은 status에 업무 오류 body가 여러 개면 body의 discriminant도 확인합니다.
 
 다음 예시는 production API가 아니라 [OpenFGA resource-registry fixture](../internal/typespec-roundtrip/fixtures/openfga-resource-registry-consumer/README.md)의
-synthetic contract를 기준으로 한다. 예를 들어 fixture의 `checkAuthorization` 403은 denied decision과 정책 오류가 함께 올 수
-있으므로, 생성된 operation-specific guard와 body discriminant를 같이 사용한다.
+synthetic 계약을 기준으로 합니다. fixture의 `checkAuthorization` 403에는 거부 판정과 정책 오류가 함께 올 수 있습니다.
 
 ```ts
 import { isCheckAuthorizationClientError } from './generated/client'
@@ -155,11 +139,11 @@ try {
 } catch (error) {
   if (isCheckAuthorizationClientError(error, 403)) {
     if ('allowed' in error.body) {
-    // AuthorizationDeniedDecision: 권한 판정 결과를 업무 흐름에서 처리
-    console.log(error.body.reasonCode, error.body.trace)
+      // AuthorizationDeniedDecision: 권한 판정 결과를 업무 흐름에서 처리
+      console.log(error.body.reasonCode, error.body.trace)
     } else if ('error' in error.body) {
-    // actor mismatch / tenant scope 등 접근 정책 오류
-    console.log(error.body.error, error.body.message)
+      // actor mismatch, tenant scope 등 접근 정책 오류
+      console.log(error.body.error, error.body.message)
     }
     return
   }
@@ -167,55 +151,21 @@ try {
 }
 ```
 
-`ClientError`는 `status`, 파싱된 `body`, 원본 `response`를 보존한다. 공통 네트워크
-오류나 문서에 선언되지 않은 오류는 operation-specific guard를 통과하지 않으므로,
-호출자 공통 오류 처리기로 넘겨야 한다. `is...ClientError(error, status)`를 사용하면
-status별 body 타입과 runtime schema를 함께 좁힐 수 있다.
+`ClientError`는 `status`, 파싱한 `body`, 원본 `response`를 보존합니다. 네트워크 오류나 계약에 없는 오류는
+operation별 guard를 통과하지 않으므로 공통 오류 처리기로 넘깁니다.
 
-생성 client의 `config.validate: true`는 required field와 JSON Schema의 기본 제약을
-fetch 전에 검사한다. retry는 GET/HEAD/OPTIONS/DELETE에만 기본 적용되며, POST/PUT/PATCH는
-operation에 `x-oa-sdk-retryable: true`를 선언한 경우에만 재시도한다. 관계 쓰기처럼
-중복 실행 위험이 있는 operation은 명시하지 않는다.
+생성 클라이언트의 `config.validate: true`는 required 필드와 JSON Schema 기본 제약을 fetch 전에 검사합니다.
+재시도는 GET·HEAD·OPTIONS·DELETE에만 기본으로 적용되고, POST·PUT·PATCH는 operation에
+`x-oa-sdk-retryable: true`를 선언한 경우에만 재시도합니다. 관계 쓰기처럼 중복 실행이 위험한 operation에는 선언하지 않습니다.
 
-## 5. 이전 혼선과 현재 결정
+## 5. 현재 경계와 남은 제한
 
-다음 혼선은 현재 정본과 게이트를 기준으로 정리되었다.
+1. **metadata와 도메인의 책임을 나눕니다.** `main.tsp`는 import만, `metadata/`는 문서 수준 service·security·component만, 도메인 모듈은 model·response·operation만 소유합니다.
+2. **배포 환경 projection은 server 값만 바꿉니다.** path, schema, security, response를 환경별로 바꾸려면 별도 계약·검증 설계가 필요합니다.
+3. **typed helper는 `@oa-sdk/typespec-decorators`가 제공하는 것만 씁니다.** 이 패키지는 decorator 5개(`@oaUseResponseComponent`, `@personaCapability`, `@pseudonymize`, `@crdt`, `@crdtEntity`)와 표준 계약(`Ok`, `Created`, `NoContent`, `PageResult`, `ErrorResponse`, `StandardError`, `StandardHttpErrors`)을 제공합니다([패키지 README](../../packages/typespec-decorators/README.md)). 임의 JSON을 받는 일반 extension helper는 만들지 않으며, 새 extension family는 ownership guide와 restore 테스트를 갖춘 뒤에 추가합니다. production 모듈의 `@oaUseResponseComponent`와 `x-oa-sdk-operation-*` extension은 번들 restore(`pnpm schema:typespec-check`) 경로에서만 실제 응답·예제로 바뀝니다.
+4. **spec-lens 외부 입력은 `observation`으로 분류합니다.** 기본값은 루트 패키지와 lockfile을 `evidence`, 신뢰하는 decorator 패키지를 `candidates`로 둡니다. evidence는 revision별 hash와 존재 여부를 snapshot provenance에 기록하고, candidates는 재검증 후보만 만듭니다. 어느 쪽도 과거 workspace에서 외부 설정을 실행하거나 외부 파일 내용을 compiler 입력으로 넣지 않습니다. evidence는 파일만 허용하며 최대 4개, 파일당 2 MiB입니다. `observationInputs`는 고급 typed 설정이고, 기존 `watchPaths`는 `candidate-only` 호환 별칭입니다.
+5. **OAuth metadata는 아직 operation 인증 계약이 아닙니다.** 현재 production operation은 `bearerAuth`만 씁니다. issuer, scope, role 정책이 승인되기 전에는 placeholder OAuth component를 실제 호출 요구사항으로 해석하거나 새 operation에 연결하지 않습니다.
 
-- Production authoring source는 `packages/schemas/typespec/`로 고정하고, fragments/targets는
-  명시적인 rollback/reference 경로로 구분했다.
-- `.merged.yaml`은 TypeSpec에서 생성하는 3.2 입력이고, `.merged.3.1.yaml`과 `dist/openapi.*`는
-  호환 출력이라는 역할을 표와 검증 명령에 명시했다.
-- `oa://...` source identity와 OpenAPI `#/components/...` output ref는 각각 source/출력
-  좌표로 분리해 설명한다.
-- spec-lens는 TypeSpec bundle source를 관측할 수 있으며, 관련 테스트와 feature matrix에
-  그 표면을 기록했다.
-
+새 사용처는 2절 표에 먼저 추가하고, 입력 생성물과 성공 gate가 정해진 뒤에 패키지나 adapter를 확장합니다.
 문서·스펙 기준의 소유권과 변경 기록은 [문서·스펙 거버넌스](../spec-governance/README.md)와
-[`decision-log.md`](../spec-governance/decision-log.md)에 둔다.
-
-## 6. 현재 경계와 남은 제한
-
-1. **metadata와 domain의 책임을 분리한다.** `main.tsp`는 composition만, `metadata/`는 root-level
-   service/security/component metadata만, domain module은 model/response/operation만 소유한다.
-2. **환경 projection은 server 전용이다.** `oa-sdk.typespec-projections.json`은 local/staging/production
-   server URL만 바꾼다. path, schema, security, response를 profile별로 바꾸려면 별도 계약·검증 설계가 필요하다.
-3. **typed helper는 좁은 pilot이다.** `@oa-sdk/typespec-decorators`는 현재 v5 response component reference만
-   감싼다. 다른 extension family는 ownership guide와 focused restore test 없이 일반화하지 않는다.
-4. **spec-lens 외부 입력은 `observation`으로 간단히 분류한다.** 기본값은 root package와 lockfile을
-   `evidence`, trusted decorator package를 `candidates`로 둔다. 내부에서는 typed input으로 정규화하며, 전자는 revision별
-   hash/availability를 snapshot provenance에 기록하고 후자는 재검증 후보만 만든다. 어느 쪽도 historical workspace에 임의
-   외부 설정을 실행하거나 외부 파일 내용을 compiler input으로 주입하지 않는다. evidence는 파일만 허용하며 최대
-   4개·파일당 2 MiB다. `observationInputs`는 고급 typed 설정이고, 기존 `watchPaths`는 `candidate-only` 호환 별칭이다.
-5. **OAuth metadata는 아직 operation auth contract가 아니다.** 현재 production operation은
-   `bearerAuth`만 사용한다. OAuth issuer, scope와 role policy가 승인되기 전에는 placeholder OAuth
-   component를 실제 호출 요구사항으로 해석하거나 새 operation에 연결하지 않는다.
-
-| 상태 | 결정/후속 작업 | 완료 기준 |
-|---|---|---|
-| 유지 | TypeSpec composition·metadata·domain 구조 | 신규 도메인은 module + `main.tsp` import + normalized diff/downstream gate를 함께 갱신 |
-| 제한 | server-only environment projection | 계약 의미가 profile에 따라 달라질 때 별도 source/validation 설계 필요 |
-| 개선 후보 | typed extension helper family | extension별 input schema·restore test를 갖춘 좁은 helper만 추가 |
-| 제한 | spec-lens external observation evidence | observation input의 historical content를 compiler input으로 만들지 않는 fail-closed 경계 유지 |
-
-새 사용처는 이 문서의 사용처 표에 먼저 추가하고, 해당 입력 artifact와 성공 gate가 정해진
-뒤에 패키지나 adapter를 확장한다.
+[`decision-log.md`](../spec-governance/decision-log.md)에 둡니다.
