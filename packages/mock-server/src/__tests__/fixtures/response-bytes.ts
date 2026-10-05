@@ -10,9 +10,13 @@
  */
 import type { OasDocument, OasSchema } from '@oa-sdk/parser'
 
+/**
+ * `required` lists the names in reverse declaration order: a generated widget
+ * lists its properties in `properties` order, whatever the `required` order.
+ */
 const widgetSchema: OasSchema = {
   type: 'object',
-  required: ['id', 'name', 'kind', 'createdAt', 'tags', 'owner', 'size', 'status', 'flags', 'variant', 'level'],
+  required: ['level', 'variant', 'flags', 'status', 'size', 'owner', 'tags', 'createdAt', 'kind', 'name', 'id'],
   properties: {
     id: { type: 'string', format: 'uuid' },
     name: { type: 'string', minLength: 3 },

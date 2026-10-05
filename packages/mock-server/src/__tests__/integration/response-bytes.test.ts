@@ -100,6 +100,7 @@ function asMswTranscript(
   }))
 }
 
+/** The required widget properties in `properties` order (the fixture lists `required` in reverse). */
 const GENERATED_WIDGET = {
   id: '00000000-0000-0000-0000-000000000000',
   name: 'xxx',

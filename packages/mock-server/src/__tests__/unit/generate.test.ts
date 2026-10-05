@@ -10,6 +10,11 @@
  * Generated values are compared with `expectSameValue`, which also compares
  * property order: property order decides the serialized response bytes, and
  * `toEqual` ignores it.
+ *
+ * `generateAlgebra.object` and the required-only fold share one helper, so a
+ * change to it changes both sides of that comparison alike. The built-in object
+ * values are therefore also pinned independently of it: against the object
+ * handler as released before the helper, and as literal text.
  */
 import { describe, expect, it } from 'vitest'
 import { foldSchema, parseDocument, type OasDocument, type OasMediaType, type OasSchema, type SchemaAlgebra } from '@oa-sdk/parser'
@@ -164,7 +169,31 @@ const SYNTHETIC_SCHEMAS: Record<string, OasSchema> = {
   },
 }
 
-describe('GenerateFolder — output equals the generateAlgebra fold', () => {
+/**
+ * The built-in object handler as released before it and the required-only fold
+ * began to share `requiredEntries` (9adb26d6), copied verbatim, so it does not
+ * change with that helper.
+ */
+const releasedObjectHandler: SchemaAlgebra<unknown>['object'] = (schema, properties) => {
+  const required = new Set(schema.required ?? [])
+  const result: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(properties)) {
+    if (required.has(k)) result[k] = v
+  }
+  return result
+}
+
+/** `generateAlgebra` with the released object handler, copied before any test customizes it. */
+const releasedAlgebra: SchemaAlgebra<unknown> = Object.freeze({ ...generateAlgebra, object: releasedObjectHandler })
+
+/** Asserts that the built-in generator and `generateAlgebra` both produce the released fold's value. */
+function expectReleasedValue(schema: OasSchema): void {
+  const released = foldSchema(schema, releasedAlgebra)
+  expectSameValue(generator.fold(schema), released)
+  expectSameValue(foldSchema(schema, generateAlgebra), released)
+}
+
+describe('GenerateFolder — output equals the fold with the released object handler', () => {
   const fixtureSchemas = [
     createResponseBytesSpec(),
     createStatefulBytesSpec(),
@@ -175,13 +204,28 @@ describe('GenerateFolder — output equals the generateAlgebra fold', () => {
 
   it('for every media type schema of the fixture specs', () => {
     expect(fixtureSchemas.length).toBeGreaterThan(20)
-    for (const schema of fixtureSchemas) {
-      expectSameValue(generator.fold(schema), foldSchema(schema, generateAlgebra))
-    }
+    for (const schema of fixtureSchemas) expectReleasedValue(schema)
   })
 
   it.each(Object.entries(SYNTHETIC_SCHEMAS))('for %s', (_name, schema) => {
-    expectSameValue(generator.fold(schema), foldSchema(schema, generateAlgebra))
+    expectReleasedValue(schema)
+  })
+})
+
+describe('GenerateFolder — built-in output as literal text', () => {
+  it('lists properties in `properties` order, not `required` order, at every depth', () => {
+    const schema = SYNTHETIC_SCHEMAS['required names in another order than the properties']!
+    for (const value of [generator.fold(schema), foldSchema(schema, generateAlgebra)]) {
+      expect(JSON.stringify(value)).toBe('{"a":"","m":{"x":0,"y":false},"z":1.5}')
+      expect(orderedForm(value)).toStrictEqual(orderedForm({ a: '', m: { x: 0, y: false }, z: 1.5 }))
+    }
+  })
+
+  it('lists integer-like names first and leaves out a property named __proto__', () => {
+    const schema = SYNTHETIC_SCHEMAS['integer-like and __proto__ property names']!
+    for (const value of [generator.fold(schema), foldSchema(schema, generateAlgebra)]) {
+      expect(JSON.stringify(value)).toBe('{"2":false,"10":10,"b":""}')
+    }
   })
 })
 
