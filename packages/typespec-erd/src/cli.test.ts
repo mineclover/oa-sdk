@@ -50,6 +50,33 @@ describe('oa-erd CLI', () => {
     expect(compared.status).toBe(1)
     expect(compared.stderr).toContain('Invalid logical ERD artifact')
   })
+
+  it('rejects malformed catalog evidence with a clear error before building a review', () => {
+    const directory = fixture()
+    const artifact = join(directory, 'logical-erd.json')
+    expect(spawnSync(process.execPath, [cliPath, 'emit', '--project', directory, '--output', artifact], { cwd: directory, encoding: 'utf8' }).status).toBe(0)
+    const artifactId = (JSON.parse(readFileSync(artifact, 'utf8')) as { artifactId: string }).artifactId
+
+    const review = (evidence: unknown) => {
+      const path = join(directory, 'evidence.json')
+      writeFileSync(path, JSON.stringify(evidence))
+      return spawnSync(process.execPath, [cliPath, 'review', '--artifact', artifact, '--catalog-evidence', path, '--format', 'json'], { cwd: directory, encoding: 'utf8' })
+    }
+
+    const notList = review({ artifactId, fields: 'commerce.customer.id' })
+    expect(notList.status).toBe(1)
+    expect(notList.stderr).toContain('Catalog evidence must be an object with a string artifactId and a fields array')
+
+    const badEntry = review({ artifactId, fields: [{ logicalFieldId: 'commerce.customer.id', status: 'confirmed' }] })
+    expect(badEntry.stderr).toContain('Catalog evidence fields[0] must have string logicalFieldId, status, and reason')
+
+    const badStatus = review({ artifactId, fields: [{ logicalFieldId: 'commerce.customer.id', status: 'maybe', reason: 'r' }] })
+    expect(badStatus.stderr).toContain('Unsupported catalog evidence status maybe.')
+
+    const valid = review({ artifactId, fields: [{ logicalFieldId: 'commerce.customer.id', status: 'confirmed', reason: 'catalog match' }] })
+    expect(valid.status).toBe(0)
+    expect(JSON.parse(valid.stdout)).toMatchObject({ summary: { catalogEvidence: { confirmed: 1 } } })
+  })
 })
 
 function fixture(): string {

@@ -58,7 +58,8 @@ function emit(argv: string[]): void {
 function check(argv: string[]): void {
   const { values } = parseArgs({ args: argv, options: { artifact: { type: 'string', short: 'a' } } })
   const path = required(values.artifact, '--artifact')
-  const diagnostics = artifactDiagnostics(readArtifact(path))
+  const read = readArtifact(path)
+  const diagnostics = read.ok ? semanticDiagnostics(read.artifact) : read.diagnostics
   if (diagnostics.length > 0) {
     for (const diagnostic of diagnostics) console.error(diagnostic)
     process.exitCode = 1
@@ -115,26 +116,71 @@ function review(argv: string[]): void {
   }
 }
 
-function readArtifact(path: string): LogicalErdArtifact {
-  return JSON.parse(readFileSync(path, 'utf8')) as LogicalErdArtifact
+type ArtifactRead =
+  | { ok: true; artifact: LogicalErdArtifact }
+  | { ok: false; diagnostics: string[] }
+
+/** An artifact document checked against the portable v1 wire schema; violations become ERD-SCHEMA diagnostics. */
+const LogicalErdArtifactDocument = {
+  parse(value: unknown): ArtifactRead {
+    const wireIssues = validateLogicalErdArtifactSchema(value)
+    if (wireIssues.length > 0) {
+      return {
+        ok: false,
+        diagnostics: wireIssues.map(issue => `ERD-SCHEMA ${issue.instancePath || '/'} ${issue.keyword}: ${issue.message}`),
+      }
+    }
+    // The v1 wire schema is the JSON Schema form of LogicalErdArtifact.
+    return { ok: true, artifact: value as LogicalErdArtifact }
+  },
+}
+
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+type CatalogEvidenceStatus = LogicalErdCatalogEvidence['fields'][number]['status']
+
+function isCatalogEvidenceStatus(value: unknown): value is CatalogEvidenceStatus {
+  return value === 'confirmed' || value === 'mismatch' || value === 'unbound' || value === 'unknown'
+}
+
+/**
+ * Catalog evidence document. Entry shapes and status values are checked here;
+ * field references are checked against the artifact by createLogicalErdReview.
+ */
+const CatalogEvidenceDocument = {
+  parse(value: unknown): LogicalErdCatalogEvidence {
+    if (!isJsonObject(value) || typeof value.artifactId !== 'string' || !Array.isArray(value.fields)) {
+      throw new Error('Catalog evidence must be an object with a string artifactId and a fields array')
+    }
+    const fields = value.fields.map((entry: unknown, index) => {
+      if (!isJsonObject(entry) || typeof entry.logicalFieldId !== 'string' || typeof entry.status !== 'string' || typeof entry.reason !== 'string') {
+        throw new Error(`Catalog evidence fields[${index}] must have string logicalFieldId, status, and reason`)
+      }
+      if (!isCatalogEvidenceStatus(entry.status)) throw new Error(`Unsupported catalog evidence status ${entry.status}.`)
+      return { logicalFieldId: entry.logicalFieldId, status: entry.status, reason: entry.reason }
+    })
+    return { artifactId: value.artifactId, fields }
+  },
+}
+
+function readArtifact(path: string): ArtifactRead {
+  return LogicalErdArtifactDocument.parse(JSON.parse(readFileSync(path, 'utf8')))
 }
 
 function readCatalogEvidence(path: string): LogicalErdCatalogEvidence {
-  return JSON.parse(readFileSync(path, 'utf8')) as LogicalErdCatalogEvidence
+  return CatalogEvidenceDocument.parse(JSON.parse(readFileSync(path, 'utf8')))
 }
 
 function readValidatedArtifact(path: string): LogicalErdArtifact {
-  const artifact = readArtifact(path)
-  const diagnostics = artifactDiagnostics(artifact)
-  if (diagnostics.length > 0) throw new Error(`Invalid logical ERD artifact ${path}:\n${diagnostics.join('\n')}`)
-  return artifact
+  const read = readArtifact(path)
+  const diagnostics = read.ok ? semanticDiagnostics(read.artifact) : read.diagnostics
+  if (!read.ok || diagnostics.length > 0) throw new Error(`Invalid logical ERD artifact ${path}:\n${diagnostics.join('\n')}`)
+  return read.artifact
 }
 
-function artifactDiagnostics(artifact: LogicalErdArtifact): string[] {
-  const wireIssues = validateLogicalErdArtifactSchema(artifact)
-  if (wireIssues.length > 0) {
-    return wireIssues.map(issue => `ERD-SCHEMA ${issue.instancePath || '/'} ${issue.keyword}: ${issue.message}`)
-  }
+function semanticDiagnostics(artifact: LogicalErdArtifact): string[] {
   return validateLogicalErdArtifact(artifact).map(diagnostic => `${diagnostic.code}: ${diagnostic.message}`)
 }
 
