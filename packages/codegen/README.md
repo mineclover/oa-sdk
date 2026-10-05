@@ -24,7 +24,7 @@ validation, type generation, provenance/evidence, and governance scaffolding.
 Router, client, and mock outputs come from companion packages that `oa-gen` loads on demand. They
 are not dependencies of `@oa-sdk/codegen` (the release policy keeps Downstream Integration packages
 out of a Core Platform package's published manifest), so installing codegen does not install them.
-Add the ones you use, at the versions released with your `@oa-sdk/codegen`:
+Add the ones you use:
 
 | Package | Needed for |
 | --- | --- |
@@ -36,14 +36,24 @@ Add the ones you use, at the versions released with your `@oa-sdk/codegen`:
 pnpm add -D @oa-sdk/router @oa-sdk/client @oa-sdk/mock-server
 ```
 
+The companions are versioned independently of codegen. Each codegen release supports the companion
+releases compatible (`^`) with the versions it was built and tested against, and every install
+command `oa-gen` prints pins the packages to that range, for example
+`pnpm add -D "@oa-sdk/router@^<version>"`. The unpinned command above installs the latest releases
+instead.
+
+`oa-gen init` lists the companions its scaffold uses in `devDependencies`: the generated
+`oa.config.ts` turns handler contracts and the client SDK on (`core.contracts.pureHandlers: true`,
+`core.client.enabled: true`), and the generated `mock` script runs `oa-gen mock`.
+
 When one of them is not installed, `oa-gen` never drops the output silently:
 
 - `mock`, `generate:client`, `pack:client`, and `generate:tanstack` exist to produce that output, so
   they exit with status 1 and print the install command.
-- `oa-gen generate` exits with status 1, before writing any file, when the configuration turns the
-  output on explicitly: `core.contracts.pureHandlers: true` needs `@oa-sdk/router` and
-  `core.client.enabled: true` needs `@oa-sdk/client`. Set the switch to `false` to stop generating
-  that output instead.
+- `oa-gen generate` exits with status 1, before writing any file, when the configuration file turns
+  the output on explicitly, whether you or `oa-gen init` wrote the switch:
+  `core.contracts.pureHandlers: true` needs `@oa-sdk/router` and `core.client.enabled: true` needs
+  `@oa-sdk/client`. Set the switch to `false` to stop generating that output instead.
 - Outputs that are only implied are skipped with a warning that names the package and the install
   command: switches left unset (archetype presets included), TanStack Query options, CRDT modules,
   and every companion output of a direct `oa-gen generate --spec <file>` run. Files an earlier run

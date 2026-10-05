@@ -48,7 +48,7 @@ bun add -d @oa-sdk/codegen
 
 ### 동반 패키지 (Companion Packages)
 
-라우터·클라이언트·목 서버 산출물은 `oa-gen`이 필요할 때 불러오는 **동반 패키지**가 생성합니다. 릴리스 정책상 Core Platform 패키지(`@oa-sdk/codegen`)는 Downstream Integration 패키지를 배포 manifest에 의존성으로 선언하지 않으므로, `@oa-sdk/codegen`을 설치해도 이들은 설치되지 않습니다. 사용하는 산출물에 맞춰, 사용 중인 `@oa-sdk/codegen`과 함께 릴리스된 버전을 직접 추가합니다.
+라우터·클라이언트·목 서버 산출물은 `oa-gen`이 필요할 때 불러오는 **동반 패키지**가 생성합니다. 릴리스 정책상 Core Platform 패키지(`@oa-sdk/codegen`)는 Downstream Integration 패키지를 배포 manifest에 의존성으로 선언하지 않으므로, `@oa-sdk/codegen`을 설치해도 이들은 설치되지 않습니다. 사용하는 산출물에 맞춰 직접 추가합니다.
 
 | 패키지 | 필요한 산출물 |
 |---|---|
@@ -60,10 +60,14 @@ bun add -d @oa-sdk/codegen
 pnpm add -D @oa-sdk/router @oa-sdk/client @oa-sdk/mock-server
 ```
 
+동반 패키지의 버전은 `@oa-sdk/codegen`과 독립적으로 매겨집니다. 각 codegen 릴리스는 빌드·테스트에 사용한 동반 패키지 버전과 호환되는(`^`) 릴리스를 지원하며, `oa-gen`이 출력하는 설치 명령은 모두 그 범위로 버전을 고정합니다(예: `pnpm add -D "@oa-sdk/router@^<버전>"`). 위의 버전 없는 명령은 대신 최신 릴리스를 설치합니다.
+
+`oa-gen init`은 스캐폴드가 사용하는 동반 패키지를 `devDependencies`에 추가합니다. 생성되는 `oa.config.ts`가 핸들러 계약과 클라이언트 SDK를 켜고(`core.contracts.pureHandlers: true`, `core.client.enabled: true`), 생성되는 `mock` 스크립트가 `oa-gen mock`을 실행하기 때문입니다.
+
 패키지가 설치되어 있지 않으면 `oa-gen`은 해당 산출물을 조용히 건너뛰지 않습니다.
 
 - `mock`, `generate:client`, `pack:client`, `generate:tanstack`은 그 산출물만을 위한 명령이므로 설치 명령을 출력하고 종료 코드 1로 실패합니다.
-- `oa-gen generate`는 설정이 산출물을 **명시적으로** 켠 경우(`core.contracts.pureHandlers: true` → `@oa-sdk/router`, `core.client.enabled: true` → `@oa-sdk/client`) 어떤 파일도 쓰기 전에 종료 코드 1로 실패합니다. 해당 산출물이 필요 없다면 스위치를 `false`로 설정합니다.
+- `oa-gen generate`는 설정 파일이 산출물을 **명시적으로** 켠 경우(`core.contracts.pureHandlers: true` → `@oa-sdk/router`, `core.client.enabled: true` → `@oa-sdk/client`) 어떤 파일도 쓰기 전에 종료 코드 1로 실패합니다. 스위치를 사용자가 썼는지 `oa-gen init`이 썼는지는 구분하지 않습니다. 해당 산출물이 필요 없다면 스위치를 `false`로 설정합니다.
 - 기본값으로만 **암시된** 산출물(값을 지정하지 않은 스위치와 아키타입 프리셋, TanStack Query 옵션, CRDT 모듈, `--spec` 직접 실행의 모든 동반 패키지 산출물)은 패키지 이름과 설치 명령을 담은 경고와 함께 건너뜁니다. 이전 실행이 생성한 해당 산출물 파일은 고아 파일로 정리되지 않고 유지됩니다.
 
 자세한 설정 규칙은 [선언적 사양 설정 가이드](./declarative-spec-configuration.md#명시적-요청과-암시적-기본값-동반-패키지)를 참고하세요.
