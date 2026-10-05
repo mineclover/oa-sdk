@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import ts from 'typescript'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { generateClientCommand, packClientCommand } from '../../cli/commands/generate-client.js'
 import { generateTanstackCommand } from '../../cli/commands/generate-tanstack.js'
@@ -27,6 +28,107 @@ import { importerWithout, packageNotFoundError } from '../helpers/companion-pack
 
 type ResolutionFailure = { code: unknown; message: string }
 
+const PACKAGE_DIRECTORY = path.resolve(__dirname, '../../..')
+const COMPANION_LOADER_SOURCE = path.join(PACKAGE_DIRECTORY, 'src/cli/lib/companion-packages.ts')
+
+/** Package name of a bare specifier: `@scope/name/sub/path` → `@scope/name`. */
+const packageNameOf = (specifier: string): string =>
+  specifier.split('/').slice(0, specifier.startsWith('@') ? 2 : 1).join('/')
+
+/**
+ * The specifiers the companion loader imports, read from its source. Each
+ * importer is a literal `import()`, which the build keeps as an external import
+ * of the bundle, so these are the specifiers a published `oa-gen` resolves.
+ */
+function companionLoaderSpecifiers(): Map<string, string> {
+  const source = ts.createSourceFile(
+    COMPANION_LOADER_SOURCE,
+    fs.readFileSync(COMPANION_LOADER_SOURCE, 'utf8'),
+    ts.ScriptTarget.Latest,
+    false,
+    ts.ScriptKind.TS,
+  )
+  const specifiers = new Map<string, string>()
+  const visit = (node: ts.Node): void => {
+    if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+      const [specifier] = node.arguments
+      if (specifier && ts.isStringLiteralLike(specifier)) specifiers.set(packageNameOf(specifier.text), specifier.text)
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(source)
+  return specifiers
+}
+
+/**
+ * Imports `specifiers` with a real Node process run in `directory`, and returns
+ * the failure of each one that did not load.
+ */
+function importInNode(directory: string, specifiers: readonly string[]): Record<string, ResolutionFailure> {
+  const script = `
+    const failures = {}
+    for (const specifier of ${JSON.stringify(specifiers)}) {
+      try { await import(specifier) } catch (error) { failures[specifier] = { code: error.code, message: error.message } }
+    }
+    process.stdout.write(JSON.stringify(failures))
+  `
+  // NODE_PATH (set by package-manager runners) would let resolution escape the throwaway install.
+  const { NODE_PATH: _nodePath, NODE_OPTIONS: _nodeOptions, ...env } = process.env
+  const output = execFileSync(process.execPath, ['--input-type=module', '-e', script], {
+    cwd: directory,
+    encoding: 'utf8',
+    env,
+    timeout: 30_000,
+  })
+  return JSON.parse(output) as Record<string, ResolutionFailure>
+}
+
+/**
+ * Lays out a published install of `packageNames` in `installDirectory`: each
+ * package holds only the files it publishes, next to its dependencies and its
+ * required peer dependencies. Optional peer dependencies are left out, as
+ * package managers leave them out unless the project installs them. Returns
+ * the optional peers that were left out.
+ */
+function installWithoutOptionalPeers(installDirectory: string, packageNames: readonly string[]): string[] {
+  const modules = path.join(installDirectory, 'node_modules')
+  const sources = packageNames.map((name) => {
+    const source = fs.realpathSync(path.join(PACKAGE_DIRECTORY, 'node_modules', name))
+    const manifest = JSON.parse(fs.readFileSync(path.join(source, 'package.json'), 'utf8')) as {
+      files?: string[]
+      dependencies?: Record<string, string>
+      peerDependencies?: Record<string, string>
+      peerDependenciesMeta?: Record<string, { optional?: boolean }>
+    }
+    const target = path.join(modules, name)
+    fs.mkdirSync(target, { recursive: true })
+    fs.copyFileSync(path.join(source, 'package.json'), path.join(target, 'package.json'))
+    for (const entry of manifest.files ?? []) {
+      fs.cpSync(path.join(source, entry), path.join(target, entry), { recursive: true })
+    }
+    return { source, manifest }
+  })
+
+  const leftOut = new Set<string>()
+  for (const { source, manifest } of sources) {
+    const optionalPeers = Object.keys(manifest.peerDependencies ?? {})
+      .filter(peer => manifest.peerDependenciesMeta?.[peer]?.optional === true)
+    const required = [
+      ...Object.keys(manifest.dependencies ?? {}),
+      ...Object.keys(manifest.peerDependencies ?? {}).filter(peer => !optionalPeers.includes(peer)),
+    ]
+    for (const dependency of required) {
+      const link = path.join(modules, dependency)
+      if (fs.existsSync(link)) continue
+      fs.mkdirSync(path.dirname(link), { recursive: true })
+      // The workspace links every declared dependency of a package next to it.
+      fs.symlinkSync(fs.realpathSync(path.join(source, 'node_modules', dependency)), link, 'dir')
+    }
+    for (const peer of optionalPeers) leftOut.add(peer)
+  }
+  return [...leftOut].filter(peer => !fs.existsSync(path.join(modules, peer)))
+}
+
 /**
  * Resolves specifiers with a real Node process inside a throwaway install that
  * has an absent package, a package without build output, and a package whose
@@ -48,14 +150,18 @@ function captureNodeResolutionFailures(): Record<string, ResolutionFailure> {
     }))
     fs.writeFileSync(path.join(brokenDependency, 'dist/index.js'), "export * from '@oa-sdk/parser'\n")
 
+    // The absent package is also imported through the entry point the companion loader uses.
+    const absent = [...new Set(['@oa-sdk/mock-server', companionLoaderSpecifiers().get('@oa-sdk/mock-server')!])]
     const script = `
       import { createRequire } from 'node:module'
       const failures = {}
-      for (const specifier of ['@oa-sdk/mock-server', '@oa-sdk/client', '@oa-sdk/router']) {
+      for (const specifier of [...${JSON.stringify(absent)}, '@oa-sdk/client', '@oa-sdk/router']) {
         try { await import(specifier) } catch (error) { failures[specifier] = { code: error.code, message: error.message } }
       }
-      try { createRequire(process.cwd() + '/')('@oa-sdk/mock-server') } catch (error) {
-        failures['require:@oa-sdk/mock-server'] = { code: error.code, message: error.message }
+      for (const specifier of ${JSON.stringify(absent)}) {
+        try { createRequire(process.cwd() + '/')(specifier) } catch (error) {
+          failures['require:' + specifier] = { code: error.code, message: error.message }
+        }
       }
       process.stdout.write(JSON.stringify(failures))
     `
@@ -90,6 +196,12 @@ describe('isMissingPackageError against real Node resolution failures', () => {
     expect(isMissingPackageError(asError(failures['require:@oa-sdk/mock-server']), '@oa-sdk/mock-server')).toBe(true)
   })
 
+  it('recognises an absent package imported through the entry point the companion loader uses', () => {
+    const entry = companionLoaderSpecifiers().get('@oa-sdk/mock-server')!
+    expect(isMissingPackageError(asError(failures[entry]), '@oa-sdk/mock-server')).toBe(true)
+    expect(isMissingPackageError(asError(failures[`require:${entry}`]), '@oa-sdk/mock-server')).toBe(true)
+  })
+
   it('does not treat an installed package without build output as absent', () => {
     const error = asError(failures['@oa-sdk/client'])
     expect(error.message).toContain('@oa-sdk/client')
@@ -117,10 +229,43 @@ describe('isMissingPackageError', () => {
     expect(isMissingPackageError(packageNotFoundError('@oa-sdk/client'), '@oa-sdk/client')).toBe(true)
   })
 
+  // Bun reports an absent package imported by a subpath with the whole specifier:
+  // Cannot find module '@oa-sdk/mock-server/adapters/node-http' from '/consumer/cli.js'
+  it('accepts a subpath of the package and no other package', () => {
+    const notFound = (specifier: string) => Object.assign(
+      new Error(`Cannot find module '${specifier}' from '/consumer/node_modules/@oa-sdk/codegen/dist/cli/index.js'`),
+      { code: 'ERR_MODULE_NOT_FOUND' },
+    )
+    expect(isMissingPackageError(notFound('@oa-sdk/mock-server/adapters/node-http'), '@oa-sdk/mock-server')).toBe(true)
+    expect(isMissingPackageError(notFound('@oa-sdk/mock-server-extra/adapters/node-http'), '@oa-sdk/mock-server')).toBe(false)
+    expect(isMissingPackageError(notFound('/consumer/node_modules/@oa-sdk/mock-server/dist/adapters/node-http.js'), '@oa-sdk/mock-server')).toBe(false)
+  })
+
   it('ignores errors that are not resolution failures', () => {
     expect(isMissingPackageError(new SyntaxError("Cannot find package '@oa-sdk/client'"), '@oa-sdk/client')).toBe(false)
     expect(isMissingPackageError(undefined, '@oa-sdk/client')).toBe(false)
     expect(isMissingPackageError('ERR_MODULE_NOT_FOUND', '@oa-sdk/client')).toBe(false)
+  })
+})
+
+describe('companion entry points in a published install', () => {
+  it('cover every companion package with one entry point', () => {
+    expect([...companionLoaderSpecifiers().keys()].sort()).toEqual([...COMPANION_PACKAGES].sort())
+  })
+
+  // npm, pnpm and Yarn install an optional peer dependency only when the project asks for it, and
+  // neither the install commands oa-gen prints nor `oa-gen init` add one, so every entry point
+  // oa-gen loads must load without them.
+  it('load without the optional peer dependencies of their package', () => {
+    const installDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'oa-companion-optional-peers-'))
+    try {
+      const leftOut = installWithoutOptionalPeers(installDirectory, COMPANION_PACKAGES)
+      // The layout is faithful only if the optional peers left out cannot be resolved from it.
+      expect(Object.keys(importInNode(installDirectory, leftOut)).sort()).toEqual([...leftOut].sort())
+      expect(importInNode(installDirectory, [...companionLoaderSpecifiers().values()])).toEqual({})
+    } finally {
+      fs.rmSync(installDirectory, { recursive: true, force: true })
+    }
   })
 })
 

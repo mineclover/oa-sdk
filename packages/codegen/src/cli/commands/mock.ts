@@ -1,4 +1,4 @@
-import type { NodeMockServer } from '@oa-sdk/mock-server'
+import type { NodeMockServer } from '@oa-sdk/mock-server/adapters/node-http'
 import type { OasDocument } from '@oa-sdk/parser'
 import type { Command, CommandArgValue, CommandContext } from '../lib/types.js'
 import { optStr, bool, resolveArgPath } from '../lib/args.js'

@@ -21,10 +21,19 @@ import { BUILT_AGAINST_VERSIONS, builtAgainstRange } from './built-against-versi
 import { CliExitError } from './errors.js'
 import type { CommandContext } from './types.js'
 
+/**
+ * The entry point `oa-gen` loads from each companion package.
+ *
+ * Each must load in an install that has the companion and its dependencies but
+ * none of its optional peer dependencies, which package managers leave out
+ * unless the project installs them. `oa-gen mock` therefore loads only the
+ * Node HTTP adapter of `@oa-sdk/mock-server`: the package root also loads the
+ * MSW adapter, which imports the optional peer `msw`.
+ */
 export interface CompanionModules {
   '@oa-sdk/client': typeof import('@oa-sdk/client')
   '@oa-sdk/router': typeof import('@oa-sdk/router')
-  '@oa-sdk/mock-server': typeof import('@oa-sdk/mock-server')
+  '@oa-sdk/mock-server': typeof import('@oa-sdk/mock-server/adapters/node-http')
 }
 
 export type CompanionPackageName = keyof CompanionModules
@@ -41,7 +50,7 @@ export interface CompanionCommandContext extends CommandContext {
 const companionImporters: { readonly [N in CompanionPackageName]: () => Promise<CompanionModules[N]> } = {
   '@oa-sdk/client': () => import('@oa-sdk/client'),
   '@oa-sdk/router': () => import('@oa-sdk/router'),
-  '@oa-sdk/mock-server': () => import('@oa-sdk/mock-server'),
+  '@oa-sdk/mock-server': () => import('@oa-sdk/mock-server/adapters/node-http'),
 }
 
 /** Every companion package `oa-gen` may load. */
@@ -55,15 +64,18 @@ export function companionImporterFrom(context: CommandContext | undefined): Comp
 }
 
 /**
- * True only when `error` reports that `packageName` itself cannot be resolved.
+ * True only when `error` reports that `packageName` itself cannot be resolved,
+ * whether it was imported by its bare name or by a subpath export such as
+ * `@oa-sdk/mock-server/adapters/node-http`.
  *
- * Node reports a missing package as `Cannot find package '<name>'` (ESM) or
- * `Cannot find module '<name>'` (CommonJS); Bun uses the latter form for ESM.
- * Matching the quoted bare name keeps other resolution failures out: Node
- * names the missing file path when the package is installed without its build
- * output, and names the other package when one of the package's own
- * dependencies is missing. Those are broken installs, not absent packages, and
- * must surface unchanged.
+ * Node reports a missing package as `Cannot find package '<name>'` (ESM, the
+ * package name even for a subpath import) or `Cannot find module '<specifier>'`
+ * (CommonJS); Bun uses the latter form for ESM. Matching the quoted bare name,
+ * or a quoted specifier that starts with it and a slash, keeps other resolution
+ * failures out: Node names the missing file path when the package is installed
+ * without its build output, and names the other package when one of the
+ * package's own dependencies is missing. Those are broken installs, not absent
+ * packages, and must surface unchanged.
  */
 export function isMissingPackageError(error: unknown, packageName: string): boolean {
   if (typeof error !== 'object' || error === null) return false
@@ -72,6 +84,7 @@ export function isMissingPackageError(error: unknown, packageName: string): bool
   if (typeof message !== 'string') return false
   return message.includes(`Cannot find package '${packageName}'`)
     || message.includes(`Cannot find module '${packageName}'`)
+    || message.includes(`Cannot find module '${packageName}/`)
 }
 
 /**
