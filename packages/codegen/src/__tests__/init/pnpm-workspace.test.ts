@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { findPnpmWorkspace } from '../../cli/lib/init/common/pnpm-workspace.js'
+import { extractTypeRegistryFile } from '../../type-registry-extractor.js'
 
 /**
  * `findPnpmWorkspace` decides where `oa-gen init` may write `workspace:*`, so
@@ -140,6 +141,28 @@ describe('findPnpmWorkspace', () => {
 
     expect(await memberNames('packages/yaml')).toEqual(['yaml-package'])
     expect(await memberNames('packages/json5')).toEqual(['yaml-package'])
+  })
+
+  it('counts a member whose manifest declares no usable name without naming it', async () => {
+    await workspace(['packages/*'])
+    await writePackage('packages/app', 'app')
+    await write('packages/numeric/package.json', '{"name": 42}')
+    await write('packages/null/package.json', 'null')
+    await write('packages/list/package.yaml', '- name: not-a-manifest\n')
+    await write('packages/broken/package.json', '{"name": ')
+
+    // Each is a member, so the project inside it finds the workspace; none adds a name.
+    for (const member of ['packages/numeric', 'packages/null', 'packages/list', 'packages/broken']) {
+      expect(await memberNames(member), member).toEqual(['app'])
+    }
+  })
+
+  it('validates every manifest it deserializes, as Type Registry governance requires', async () => {
+    const filePath = path.resolve(__dirname, '../../cli/lib/init/common/pnpm-workspace.ts')
+    const { boundaries = [] } = extractTypeRegistryFile({ filePath, sourceText: await fs.readFile(filePath, 'utf8') })
+    const deserialized = boundaries.filter(boundary => boundary.kind === 'deserialize')
+    expect(deserialized.length).toBeGreaterThan(0)
+    expect(deserialized.filter(boundary => boundary.validatorSymbol === undefined)).toEqual([])
   })
 
   it('finds nothing rather than guessing when the workspace file is unusable', async () => {

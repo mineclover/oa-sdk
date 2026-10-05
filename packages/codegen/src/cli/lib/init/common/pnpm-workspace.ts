@@ -2,6 +2,7 @@ import type { Dirent } from 'node:fs'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { parse as parseYaml } from 'yaml'
+import { z } from 'zod'
 
 /**
  * The pnpm workspace a project is a member of, found the way pnpm finds it.
@@ -41,6 +42,8 @@ const DEFAULT_PATTERNS = ['.']
 const IGNORED_DIRECTORIES = new Set(['node_modules', 'bower_components'])
 /** Manifest files pnpm reads a project from, in its order of precedence. */
 const PROJECT_MANIFESTS = ['package.json', 'package.json5', 'package.yaml']
+/** A project manifest that declares a name; its other fields are not read. */
+const NamedProjectManifest = z.object({ name: z.string() })
 
 /** Returns the pnpm workspace that has `projectDir` as a member, or `undefined`. */
 export async function findPnpmWorkspace(projectDir: string): Promise<PnpmWorkspace | undefined> {
@@ -293,8 +296,10 @@ async function readProjectName(directory: string): Promise<string | undefined | 
     }
     if (file === 'package.json5') return undefined
     try {
-      const manifest = (file === 'package.json' ? JSON.parse(content) : parseYaml(content)) as { name?: unknown } | null
-      return typeof manifest?.name === 'string' ? manifest.name : undefined
+      const manifest = file === 'package.json'
+        ? NamedProjectManifest.safeParse(JSON.parse(content))
+        : NamedProjectManifest.safeParse(parseYaml(content))
+      return manifest.success ? manifest.data.name : undefined
     } catch {
       return undefined
     }
