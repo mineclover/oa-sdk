@@ -148,7 +148,7 @@ describe('CompanionLoader', () => {
 })
 
 describe('companionInstallCommand', () => {
-  it('follows the package manager that launched oa-gen and falls back to npm', () => {
+  it('follows the package manager that launched oa-gen', () => {
     const packages = ['@oa-sdk/router', '@oa-sdk/client', '@oa-sdk/router']
     const unknownVersions = {}
     expect(companionInstallCommand(packages, 'pnpm/10.30.3 npm/? node/v24.19.0 darwin arm64', unknownVersions))
@@ -159,8 +159,20 @@ describe('companionInstallCommand', () => {
       .toBe('bun add -d @oa-sdk/router @oa-sdk/client')
     expect(companionInstallCommand(packages, 'npm/11.6.2 node/v24.19.0 darwin arm64 workspaces/false', unknownVersions))
       .toBe('npm install --save-dev @oa-sdk/router @oa-sdk/client')
-    expect(companionInstallCommand(packages, undefined, unknownVersions))
-      .toBe('npm install --save-dev @oa-sdk/router @oa-sdk/client')
+  })
+
+  // An omitted user agent is read from the environment, which the package manager running
+  // these tests sets too, so each case sets it explicitly.
+  it('reads the launching package manager from the environment and falls back to npm without one', () => {
+    const packages = ['@oa-sdk/router']
+    try {
+      vi.stubEnv('npm_config_user_agent', 'yarn/4.9.1 npm/? node/v24.19.0 linux x64')
+      expect(companionInstallCommand(packages, undefined, {})).toBe('yarn add -D @oa-sdk/router')
+      vi.stubEnv('npm_config_user_agent', undefined)
+      expect(companionInstallCommand(packages, undefined, {})).toBe('npm install --save-dev @oa-sdk/router')
+    } finally {
+      vi.unstubAllEnvs()
+    }
   })
 
   it('pins each package with a known version to the range compatible with it', () => {
