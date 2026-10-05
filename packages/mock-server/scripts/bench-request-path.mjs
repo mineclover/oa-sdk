@@ -12,7 +12,9 @@
  * per request of the process that runs the mock (the server child for Node
  * HTTP, so client work is excluded; this process for MSW). It also reports how
  * much heap a Node mock server retains after serving many distinct concrete
- * URLs.
+ * URLs, and the time the response generator (GenerateFolder) takes for the
+ * spec's media type schemas and for a synthetic schema whose optional
+ * properties share subtrees.
  *
  * With --baseline, a second build of the package (e.g. one built from an
  * earlier commit) is measured alongside, alternating with the current build
@@ -124,6 +126,8 @@ async function main(options) {
     }
     printTable(adapter, samples, options.rounds)
   }
+
+  printGeneratorTable(builds, spec, options.rounds)
 
   console.log(`retained heap after ${options.urls} distinct concrete URLs (node-http server, after GC)`)
   for (const build of builds) {
@@ -272,6 +276,79 @@ async function settledHeap() {
   return process.memoryUsage().heapUsed
 }
 
+// ─── generator ──────────────────────────────────────────────────────────────
+
+/**
+ * An object schema with `depth` levels, each holding one required string and
+ * three optional references to the level below. Generation keeps only the
+ * required strings; folding the optional references visits 3^depth nodes.
+ */
+function optionalSubtreeSchema(depth) {
+  let node = { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } }
+  for (let level = 0; level < depth; level += 1) {
+    node = {
+      type: 'object',
+      required: ['id'],
+      properties: { id: { type: 'string', format: 'uuid' }, left: node, right: node, items: { type: 'array', items: node } },
+    }
+  }
+  return node
+}
+
+function printGeneratorTable(builds, spec, rounds) {
+  const specSchemas = mediaTypeSchemas(spec)
+  const cases = [
+    { name: `every media type schema of the spec (${specSchemas.length})`, schemas: specSchemas },
+    { name: 'optional subtrees, depth 8 (synthetic)', schemas: [optionalSubtreeSchema(8)] },
+  ]
+  const labels = builds.map(build => build.label)
+  const header = ['generator: µs per fold of the set'.padEnd(58), ...labels.map(label => label.padStart(10))]
+  if (builds.length === 2) header.push('change'.padStart(9))
+  console.log(`  ${header.join(' ')}`)
+  for (const { name, schemas } of cases) {
+    const outputs = builds.map(build => JSON.stringify(schemas.map(schema => build.module.generator.fold(schema))))
+    if (outputs.some(output => output !== outputs[0])) throw new Error(`generator output differs between builds for ${name}`)
+    const perFold = builds.map(() => [])
+    for (let round = 0; round < rounds; round += 1) {
+      builds.forEach((build, index) => perFold[index].push(timeFolds(build.module.generator, schemas)))
+    }
+    const values = perFold.map(median)
+    const row = [`  ${name}`.padEnd(58), ...values.map(value => value.toFixed(1).padStart(10))]
+    if (builds.length === 2) row.push(`${(((values[1] - values[0]) / values[0]) * 100).toFixed(1)}%`.padStart(9))
+    console.log(`  ${row.join(' ')}`)
+  }
+  console.log('')
+}
+
+/** µs to fold every schema once, averaged over enough repetitions to last about 50 ms. */
+function timeFolds(generator, schemas) {
+  let repetitions = 0
+  const started = performance.now()
+  do {
+    for (const schema of schemas) generator.fold(schema)
+    repetitions += 1
+  } while (performance.now() - started < 50)
+  return ((performance.now() - started) * 1000) / repetitions
+}
+
+/** Every request and response media type schema of the spec, with local $refs inlined. */
+function mediaTypeSchemas(document) {
+  const schemas = []
+  for (const pathItem of Object.values(document.paths ?? {})) {
+    for (const operation of Object.values(inlineRefs(document, pathItem))) {
+      if (!operation || typeof operation !== 'object' || !operation.responses) continue
+      const contents = [operation.requestBody?.content, ...Object.values(operation.responses).map(response => response.content)]
+      for (const content of contents) {
+        for (const mediaType of Object.values(content ?? {})) {
+          if (mediaType.schema) schemas.push(mediaType.schema)
+          if (mediaType.itemSchema) schemas.push(mediaType.itemSchema)
+        }
+      }
+    }
+  }
+  return schemas
+}
+
 // ─── spec ───────────────────────────────────────────────────────────────────
 
 async function loadSpec(file) {
@@ -296,15 +373,26 @@ function basePathOf(document) {
 
 /** The POST /worlds request body schema with its local $refs inlined. */
 function worldRequestSchema(document) {
-  const inline = node => {
-    if (Array.isArray(node)) return node.map(inline)
-    if (!node || typeof node !== 'object') return node
-    if (typeof node.$ref === 'string') {
-      return inline(node.$ref.slice(2).split('/').reduce((value, key) => value[key], document))
-    }
-    return Object.fromEntries(Object.entries(node).map(([key, value]) => [key, inline(value)]))
+  return inlineRefs(document, document.paths['/worlds'].post.requestBody).content['application/json'].schema
+}
+
+/**
+ * `node` with every local `$ref` replaced by its target. A `$ref` back to a
+ * target that is already being inlined on the current path stays a `$ref`, so
+ * recursive schemas end there.
+ */
+function inlineRefs(document, node, ancestors = new Set()) {
+  if (Array.isArray(node)) return node.map(item => inlineRefs(document, item, ancestors))
+  if (!node || typeof node !== 'object') return node
+  const ref = node.$ref
+  if (typeof ref === 'string' && ref.startsWith('#/')) {
+    if (ancestors.has(ref)) return node
+    const target = ref.slice(2).split('/')
+      .map(token => token.replaceAll('~1', '/').replaceAll('~0', '~'))
+      .reduce((value, key) => value?.[key], document)
+    return inlineRefs(document, target, new Set(ancestors).add(ref))
   }
-  return inline(document.paths['/worlds'].post.requestBody).content['application/json'].schema
+  return Object.fromEntries(Object.entries(node).map(([key, value]) => [key, inlineRefs(document, value, ancestors)]))
 }
 
 // ─── reporting ──────────────────────────────────────────────────────────────
