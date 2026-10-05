@@ -10,6 +10,7 @@ import path from 'node:path'
 import { tmpdir } from 'node:os'
 import { pathToFileURL } from 'node:url'
 import { findProjectRootDetail, DEFAULT_CONFIG_FILES } from '@oa-sdk/core'
+import { z } from 'zod'
 import { assertOaConfig, type OaConfig, type ProfileTargetConfig, type GuardTargetConfig } from '../../config.js'
 
 export const CANDIDATE_CONFIG_FILES: readonly string[] = [
@@ -112,10 +113,14 @@ async function importTypeScript(): Promise<typeof import('typescript') | null> {
   }
 }
 
+/** The field of a package.json that sets the module type of its package scope; others are not read. */
+const PackageScopeManifest = z.object({ type: z.unknown() })
+
 /**
  * The `type` field of the package.json nearest to `filePath`. Node loads a `.ts`
  * file as it loads a `.js` file: as CommonJS under `"type": "commonjs"`, as an
  * ES module under `"type": "module"`, and by its syntax when the field is absent.
+ * A package.json that is not a JSON object has no `type`.
  */
 function packageScopeType(filePath: string): unknown {
   let directory = path.dirname(filePath)
@@ -123,7 +128,8 @@ function packageScopeType(filePath: string): unknown {
     const manifestPath = path.join(directory, 'package.json')
     if (fs.existsSync(manifestPath)) {
       try {
-        return (JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as { type?: unknown }).type
+        const manifest = PackageScopeManifest.safeParse(JSON.parse(fs.readFileSync(manifestPath, 'utf8')))
+        return manifest.success ? manifest.data.type : undefined
       } catch {
         return undefined
       }

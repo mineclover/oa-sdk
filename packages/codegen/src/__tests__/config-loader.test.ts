@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdirSync, rmSync, writeFileSync, realpathSync, mkdtempSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync, realpathSync, mkdtempSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import {
@@ -23,6 +23,7 @@ import {
   resolveGuardTarget,
   CANDIDATE_CONFIG_FILES,
 } from '../cli/lib/config-loader.js'
+import { extractTypeRegistryFile } from '../type-registry-extractor.js'
 
 describe('loadOaConfig', () => {
   let testDir: string
@@ -242,6 +243,21 @@ module.exports = config
       writeFileSync(join(nested, 'package.json'), JSON.stringify({ name: 'nested', type: 'commonjs' }))
       writeFileSync(join(nested, 'oa.config.ts'), esModuleConfig)
       expect(await isEsModuleTypeScriptInCommonJsScope(join(nested, 'oa.config.ts'))).toBe(true)
+    })
+
+    it('finds no type in a nearest package.json that is not a JSON object', async () => {
+      const configPath = config('oa.config.ts', esModuleConfig)
+      for (const manifest of ['null', '["commonjs"]', '"commonjs"', '{"type": ']) {
+        writeFileSync(join(testDir, 'package.json'), manifest)
+        expect(await isEsModuleTypeScriptInCommonJsScope(configPath), manifest).toBe(false)
+      }
+    })
+
+    it('validates the package.json it reads for the type, as Type Registry governance requires', async () => {
+      const filePath = resolve(__dirname, '../cli/lib/config-loader.ts')
+      const { boundaries = [] } = extractTypeRegistryFile({ filePath, sourceText: readFileSync(filePath, 'utf8') })
+      expect(boundaries.filter(boundary =>
+        boundary.kind === 'deserialize' && boundary.validatorSymbol === 'PackageScopeManifest.safeParse')).toHaveLength(1)
     })
   })
 
