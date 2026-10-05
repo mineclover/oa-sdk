@@ -7,10 +7,10 @@ OpenAPI 3.1 and 3.2 multi-framework router generator and framework-independent p
 `@oa-sdk/router` translates normalized OpenAPI 3.1 and 3.2 operations into typed route handlers and decoupled handler contracts for **Hono**, **Express**, **Fastify**, and **Bun Elysia** applications.
 
 It operates in two complementary paradigms:
-1. **Framework Router Binding (`generateRouter`, `generateRouterSync`)**: Renders framework-specific router definitions (Hono, Express, Fastify plugin, Bun Elysia instance) bound to typed handlers.
+1. **Framework Router Binding (`generateRouter`)**: Renders framework-specific router definitions (Hono, Express, Fastify plugin, Bun Elysia instance) bound to typed handlers.
 2. **Pure Handler Contract Generation (`generateHandlerContract`)**: Emits framework-independent pure TypeScript handler signatures (`*.contract.ts`), completely decoupling business logic from routing plumbing.
 
-`@oa-sdk/router` has **zero runtime dependencies** (`dependencies: {}`). All emitted router binders and handler contracts are pure TypeScript without framework lock-in.
+The generators run at build time and depend only on `@oa-sdk/core` and `@oa-sdk/parser`. Generated handler contracts import no framework; a generated router imports the framework it targets.
 
 ## Features
 
@@ -35,11 +35,11 @@ It operates in two complementary paradigms:
 
 ## Installation
 
-Within the `oa-sdk` monorepo:
-
 ```bash
-pnpm --filter @oa-sdk/router build
+npm install --save-dev @oa-sdk/router
 ```
+
+`oa-gen generate` from `@oa-sdk/codegen` loads this package as a companion package to emit handler contracts and routers. Within the `oa-sdk` monorepo, build it with `pnpm --filter @oa-sdk/router build`.
 
 ## Quick Start
 

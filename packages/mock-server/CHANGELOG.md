@@ -2,8 +2,23 @@
 
 ## 0.1.4
 
+First version published to npm. The earlier versions below were workspace-only and never published.
+
+`@oa-sdk/mock-server` serves an OpenAPI 3.x document, or a `ParsedDocument` of `@oa-sdk/parser`, as a mock API. Both adapters and the CLI reject a document whose `$ref`s do not resolve completely.
+
+- `createMswHandlers()` and `createMswMockServer()` build MSW 2 request handlers (`msw` is an optional peer dependency), and `createNodeMockServer()` and the `oa-mock` CLI start a Node HTTP server. `oa-gen mock` of `@oa-sdk/codegen` runs this package as a companion package.
+- A request is validated against the operation's parameters, request body and security requirements: an invalid one gets a 422 `MockErrorResponse` whose details never echo the received values, and one without the required credentials a 401. A response comes from the documented examples (`dataValue` first) or is generated from its schema and validated against it, and SSE and NDJSON responses are streamed.
+- The servers support route filtering (`include`), per-operation overrides, simulated callbacks, plugins with an in-memory CRUD store, network chaos (Node server and CLI), and replacing the document of a running Node server (`updateSpec()`).
+- The package also exports the schema folding and generation building blocks (`foldSchema`, `generateAlgebra`, `GenerateFolder`, `StreamFolder`), the request validator and response picker, re-exports of the `@oa-sdk/parser` loading pipeline, and test helpers (`createTestClient()`, `createCoverageTracker()`, `createCallbackTracker()`). `@oa-sdk/mock-server/browser` is the browser-safe entry point.
+
 ### Patch Changes
 
+Changes since 0.1.3:
+
+- Network chaos. `createNodeMockServer({ chaos })` and the CLI flags `--ttfb`, `--jitter`, `--packet-loss`, `--loss-mode` and `--throttle` add latency with jitter, drop a share of requests (closing the socket, or answering 503 with `--loss-mode status`), and throttle response bandwidth, streamed responses included. The CLI rejects a negative or non-integer delay, a loss rate outside 0-100%, and a non-positive throttle rate.
+- Plugins and stateful CRUD. Both adapters accept `plugins: MockPlugin[]`: after a request passes validation, the first `onMatch()` that returns a response replaces the generated one, and every `onResponse()` can transform the chosen response. A plugin response without a `schema` is not validated against the documented response schema. `stateful: true | InMemoryStoreOptions` (CLI: `--stateful`) adds `inMemoryStorePlugin()`, which lists, creates, reads, replaces, merges and deletes items of a collection path in memory, with optional `seed` data and `generateId`. `reset()` on the servers calls every plugin's `reset()`; the store restores its seed. `handleRequest()` takes `{ plugins }` as an optional last argument.
+- The adapters accept a `ParsedDocument` and use it without parsing again.
+- The MSW adapter parses the document itself instead of dereferencing it first, like the Node adapter. A document with an alias-only `$ref` cycle (`A` → `B` → `A`) is now rejected when the handlers are created; recursive object schemas are still accepted.
 - b4f5dd4: @oa-sdk/parser: `loadSchema()` now builds its `RouteIndex` with the same route indexer as `parseDocument()`, so both return the same routes.
 
   These changes apply to every document, including fully dereferenced ones on the default pipeline:

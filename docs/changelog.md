@@ -15,7 +15,7 @@
 - **공유 노드 처리 (`@oa-sdk/codegen`)**: YAML alias처럼 입력의 여러 위치가 공유하는 노드를 정규화(`oa-gen normalize`/`collect`)와 3.2 upgrade 보고가 모든 위치에서 처리한다. `zodToSchema()`는 변환 root만 펼치고 그 아래의 등록된 schema는 모두 `$ref`로 내보내므로, `generateComponents()`의 결과가 component 순서에 따라 달라지거나 self-reference(`Id: { $ref: '#/components/schemas/Id' }`)를 만들지 않는다.
 - **표준 TypeSpec 계약 (`@oa-sdk/typespec-decorators`)**: `lib/contracts.tsp`의 `Ok<T>`, `Created<T>`, `NoContent`, `PageResult<T>`, `ErrorResponse<Status>`, `StandardError`, `StandardValidationError`, `StandardHttpErrors`를 `import "@oa-sdk/typespec-decorators"`가 함께 불러온다. 데코레이터와 같은 `OaSdkTypeSpec` namespace에 있으므로 `using OaSdkTypeSpec;`으로 쓴다(README와 가이드가 안내하던 `OaSdkContracts` namespace는 없다).
 - **성능 (`@oa-sdk/codegen`)**: TypeSpec 컴파일러와 TypeScript는 그것을 쓰는 명령에서만 불러오고, `oa-gen generate`는 projection된 spec을 한 번만 파싱하며, `audit:csp`는 규칙을 위반할 수 없는 파일의 AST 파싱을 건너뛴다.
-- **버전**: npm의 codegen 0.8.1, parser 0.3.0, core 0.3.0, typespec-decorators 0.2.0은 현재 소스와 내용이 달라 함께 올렸다. 새 codegen은 parser 0.3.0에 없는 `appendJsonPointer`를 import한다. router·client·mock-server·surface-ir는 이 릴리스에서 처음 npm에 배포된다.
+- **버전**: npm의 codegen 0.8.1, parser 0.3.0, core 0.3.0, typespec-decorators 0.2.0은 현재 소스와 내용이 달라 함께 올렸다. 새 codegen은 parser 0.3.0에 없는 `appendJsonPointer`를 import한다. router·client·mock-server·surface-ir는 이 릴리스에서 처음 npm에 배포된다. 각 패키지가 배포하는 surface는 패키지 CHANGELOG의 첫 배포 항목에 정리했다.
 
 ## 2026-09-13 — Platform deficiency remediation: router response envelope defense, typed handler error unions, AbortSignal pass-through, infinite queries, monorepo import resolver, unified codegen pipeline, and Linux file watching (`@oa-sdk/codegen` 0.8.1, `@oa-sdk/client` 0.2.1, `@oa-sdk/router` 0.2.1, `@oa-sdk/spec-lens` 0.1.5)
 

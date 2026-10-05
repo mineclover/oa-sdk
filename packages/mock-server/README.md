@@ -2,23 +2,19 @@
 
 OpenAPI-native mock engine with structured validation errors, streaming support, and pluggable adapters for MSW and Node HTTP.
 
-## Workspace availability
-
-`@oa-sdk/mock-server` is currently a private oa-sdk workspace package, not a public npm
-distribution candidate. Do not install it from an unrelated project with `pnpm add
-@oa-sdk/mock-server`.
-
-From an oa-sdk source checkout, install dependencies and build the private downstream
-packages before using these examples:
+## Installation
 
 ```bash
-pnpm install
-pnpm build:downstream
+npm install --save-dev @oa-sdk/mock-server
 ```
 
-An internal workspace that uses the MSW adapter must declare `@oa-sdk/mock-server` with a
-`workspace:*` dependency and provide `msw >= 2.0`. A public installation guide will be added
-only if this package becomes an approved distribution candidate.
+The MSW adapter (`createMswHandlers`, `createMswMockServer`, `@oa-sdk/mock-server/adapters/msw`)
+needs `msw` 2.x, an optional peer dependency: install `msw` next to this package when you use it.
+The Node HTTP adapter and the `oa-mock` CLI need no peer dependency. `oa-gen mock` from
+`@oa-sdk/codegen` runs this package as a companion package.
+
+Inside the oa-sdk source repository, declare it with `workspace:*` and build it with
+`pnpm build:downstream` before running these examples.
 
 ## Quick Start — MSW adapter (browser / Vitest)
 
@@ -120,18 +116,17 @@ export default defineConfig({
 
 ## CLI
 
-From the oa-sdk source checkout, start a mock server from a validated OpenAPI JSON or YAML
-file through the built workspace entry point:
+The package installs the `oa-mock` binary, which starts a mock server from a validated OpenAPI
+JSON or YAML file:
+
+```bash
+npx oa-mock --spec path/to/openapi.yaml --port 4010
+```
+
+From the oa-sdk source checkout, run the built workspace entry point instead:
 
 ```bash
 pnpm --filter @oa-sdk/mock-server build
-node packages/mock-server/dist/cli/index.js --spec path/to/openapi.yaml --port 4010
-```
-
-`oa-mock` is the package binary name for a workspace that explicitly exposes it; it is not a
-publicly installable CLI today. The direct source-checkout equivalent is:
-
-```bash
 node packages/mock-server/dist/cli/index.js --spec path/to/openapi.json --port 4010
 ```
 
@@ -141,6 +136,7 @@ The CLI parses JSON and YAML, validates the document before binding a port, and 
 |------|-------------|---------|-------------|
 | `--spec`, `-s` | Required JSON/YAML path | None | OpenAPI specification file |
 | `--port`, `-p` | Integer from `0` through `65535` | `4010` | Server listen port |
+| `--stateful` | Optional | Off | Serve collection CRUD from the in-memory store (see [Plugins and stateful CRUD](#plugins-and-stateful-crud)) |
 | `--throttle` | Optional rate (e.g. `500kbps`, `1mbps`, `50000`) | None | Transfer bandwidth throttle in bytes/sec |
 | `--ttfb` | Integer milliseconds (>= 0) | `0` | Time to first byte latency delay |
 | `--jitter` | Integer milliseconds (>= 0) | `0` | Random jitter (+/- ms) added to TTFB |
@@ -176,7 +172,7 @@ await server.start()
 ### CLI Usage
 
 ```bash
-node packages/mock-server/dist/cli/index.js \
+npx oa-mock \
   --spec openapi.yaml \
   --port 4010 \
   --throttle 500kbps \
@@ -187,6 +183,39 @@ node packages/mock-server/dist/cli/index.js \
 ```
 
 When bandwidth throttling is enabled, responses are divided into small chunks and paced over time, applying equally to static precomputed bodies, error responses, and live Server-Sent Events / NDJSON streams.
+
+## Plugins and stateful CRUD
+
+`createMswHandlers`, `createMswMockServer`, and `createNodeMockServer` accept `plugins: MockPlugin[]`.
+A plugin runs only for a request that passed validation:
+
+- `onMatch(context)` may return a response (`{ status, contentType?, body?, headers? }`). The first
+  plugin that returns one replaces the spec-generated response.
+- `onResponse(response, context)` transforms the chosen response; every plugin's hook runs in order.
+- `reset()` clears plugin state; `server.reset()` calls it on every plugin.
+
+A response returned by `onMatch` without a `schema` is not validated against the documented
+response schema.
+
+`stateful: true` (or `--stateful` on the CLI) adds the built-in `inMemoryStorePlugin()`, which
+serves collection CRUD from memory. `stateful: { seed, generateId }` passes its options.
+
+```ts
+const server = createNodeMockServer(spec, {
+  port: 0,
+  stateful: { seed: { '/users': [{ id: 'u1', name: 'Ada' }] } },
+})
+```
+
+- A collection path (`/users`): `GET` lists the items, paged when the query has `limit`,
+  `pageSize` or `per_page` (with `offset` or `page`) and wrapped as `{ items, total, page?, limit }`
+  or `{ data, total }` when the documented 200 schema has `items` or `data`. `POST` appends the
+  request body, gives an object without `id` one from `generateId` (default `crypto.randomUUID()`),
+  and answers 201 unless only 200 is documented.
+- A member path (`/users/{id}`): `GET`, `PUT` (replace), `PATCH` (merge) and `DELETE` find the item
+  by `id` or by the path parameter's name and answer 404 with `NOT_FOUND` when it is missing.
+  `DELETE` answers 204 unless only 200 is documented. A member path whose collection the store
+  has never held falls back to the spec-generated response.
 
 ## Core concepts
 
@@ -387,12 +416,15 @@ which need `msw`; the root entry point does not export them.
 
 | Export | Description |
 |--------|-------------|
-| `createMswHandlers(spec, options?)` | Build MSW `RequestHandler[]` from an OpenAPI spec |
-| `MswHandlerOptions` | `{ onRequest? }` — hook called on every intercepted request |
-| `createNodeMockServer(spec, options?)` | Create a Node HTTP mock server |
-| `NodeMockServer` | `{ start(), stop(), url }` — server lifecycle interface |
-| `NodeMockServerOptions` | `{ port?, host?, chaos? }` — defaults to `4010` / `127.0.0.1` |
+| `createMswHandlers(spec, options?)` | Build MSW `RequestHandler[]` from an OpenAPI document or a `ParsedDocument` |
+| `createMswMockServer(spec, options?)` | MSW handlers plus `override()`, `clearOverride()`, `clearOverrides()` and `reset()` |
+| `MswHandlerOptions` | `{ onRequest?, include?, validateRequestSchemas?, onCallback?, plugins?, stateful? }` |
+| `createNodeMockServer(spec, options?)` | Create a Node HTTP mock server from an OpenAPI document or a `ParsedDocument` |
+| `NodeMockServer` | `{ start(), stop(), url, override(), clearOverride(), clearOverrides(), updateSpec(), reset() }` |
+| `NodeMockServerOptions` | `{ port?, host?, serverIndex?, serverVariables?, include?, validateRequestSchemas?, onCallback?, chaos?, plugins?, stateful? }` — defaults to `4010` / `127.0.0.1` |
 | `NetworkChaosOptions` | `{ ttfbMs?, jitterMs?, packetLoss?, lossMode?, throttleBytesPerSec? }` |
+| `MockPlugin` | `{ name, onMatch?, onResponse?, reset? }` — see [Plugins and stateful CRUD](#plugins-and-stateful-crud) |
+| `inMemoryStorePlugin(options?)` | Built-in collection CRUD store (`InMemoryStoreOptions`: `seed?`, `generateId?`) |
 | `RouteFilter` | 라우트 필터 조건 (paths/operations/tags/custom predicate) |
 | `HandlerResult` | `handleRequest` 반환 타입 (`success` \| `validation-error` \| `no-response`) |
 
