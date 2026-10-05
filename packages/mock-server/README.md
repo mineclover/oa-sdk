@@ -365,6 +365,37 @@ If the response has an `examples` entry (with `dataValue`), a single fixed event
       dataValue: { id: fixed-id, type: ping }
 ```
 
+### Response reuse per route
+
+The built-in generator is stateless, so an operation's response is the same
+for every request: its status, media type, header values and body (example or
+generated) depend only on the spec. Both adapters therefore pick, validate
+against the response schema, serialize and (for streams) generate that
+response once per route and reuse it; the same holds for the documented `401`
+served to requests without credentials and the documented `422` as written.
+`updateSpec()` on the Node adapter, or building new MSW handlers, starts from
+scratch with the new spec.
+
+Everything that depends on the request is still computed per request: request
+validation and the validation details in a `422`, callback URLs, stateful-store
+responses and other plugin responses. A plugin `onResponse` hook receives a
+freshly picked response on every request, so it may change it in place; plugins
+that only implement `onMatch` and return nothing let the shared response
+through. `handleRequest()` also returns a fresh response on every call.
+
+The Node adapter's per-route state is bounded by the number of operations in
+the spec; nothing is retained per concrete request URL.
+
+`GenerateFolder` (and therefore the built-in generator) folds only the
+`required` properties of an object while the algebra keeps the built-in
+`object` handler, because that handler drops the optional ones. An algebra that
+replaces `object` still receives every property.
+
+To measure the request path, build this package and `@oa-sdk/schemas`, then run
+`pnpm bench:request-path`. Add `--baseline <dist directory of another build>` to
+compare two builds under the same machine load; the other options are described
+at the top of `scripts/bench-request-path.mjs`.
+
 ## Customization
 
 ### Custom algebra (spread override)
