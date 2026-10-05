@@ -64,7 +64,7 @@ npx oa-gen init --yes
 `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`는 `oa-gen`이 필요할 때 불러오는 **동반 패키지**입니다. `@oa-sdk/codegen`을 설치해도 함께 설치되지 않으므로 위처럼 같이 설치합니다.
 
 - `init`이 생성하는 `oa.config.ts`는 핸들러 계약과 클라이언트 SDK를 켭니다(`core.contracts.pureHandlers: true`, `core.client.enabled: true`). 그래서 5단계의 `oa-gen generate`에는 `@oa-sdk/router`와 `@oa-sdk/client`가 필요합니다.
-- 4단계의 `generate:client`·`generate:tanstack`에는 `@oa-sdk/client`가, 6단계의 `mock`과 `init`이 추가하는 `mock` 스크립트에는 `@oa-sdk/mock-server`가 필요합니다. `oa-gen mock`은 mock-server의 Node HTTP 어댑터만 쓰므로 MSW(`msw`)는 설치하지 않아도 됩니다.
+- 4단계의 `generate:client`·`generate:tanstack`에는 `@oa-sdk/client`가, 6단계의 `mock`과 `init`이 추가하는 `mock` 스크립트에는 `@oa-sdk/mock-server`가 필요합니다. mock-server는 MSW 어댑터를 `@oa-sdk/mock-server/adapters/msw`·`/browser`에만 두고 `oa-gen mock`은 Node HTTP 어댑터만 쓰므로, MSW(`msw`)는 설치하지 않아도 됩니다.
 - `init`도 이 패키지들을 `devDependencies`에 기록하지만, `package.json`에 이미 있는 버전은 바꾸지 않습니다(`--force` 제외). 기록하는 버전은 이 codegen이 빌드된 릴리스와 호환되는 범위(`^<버전>`)이고, 해당 패키지를 멤버로 가진 pnpm 워크스페이스 안에서만 `workspace:*`입니다.
 - 동반 패키지 없이 이 명령들을 실행하면, 출력을 건너뛰지 않고 설치 명령을 출력한 뒤 종료 코드 1로 실패합니다.
 - `init`이 쓰는 `oa.config.ts`는 ES module입니다. `npm init -y`가 만드는 `"type": "commonjs"` 프로젝트에서도 `oa-gen`이 ES module로 변환해 불러오므로 `package.json`을 바꿀 필요가 없습니다.

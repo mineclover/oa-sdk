@@ -12,7 +12,7 @@ baseline/local verification은
 
 ## Node HTTP 어댑터 (Vitest/Playwright)
 
-`createTestClient`는 패키지 루트(`@oa-sdk/mock-server`)에서만 export됩니다. 루트는 MSW 어댑터도 함께 불러오므로, 이 예제를 실행하려면 mock-server의 선택적 peer인 `msw`를 설치합니다(`npm install --save-dev msw`). `createNodeMockServer`만 쓴다면 `@oa-sdk/mock-server/adapters/node-http`에서 import하여 `msw` 없이 실행할 수 있습니다.
+`createTestClient`는 패키지 루트(`@oa-sdk/mock-server`)에서, `createNodeMockServer`는 루트와 `@oa-sdk/mock-server/adapters/node-http`에서 export됩니다. 두 entry point 모두 MSW 어댑터를 불러오지 않으므로 이 예제는 mock-server의 선택적 peer인 `msw` 없이 실행됩니다.
 
 ```typescript
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
@@ -50,6 +50,8 @@ it('필수 필드 누락 → 422 + 에러 상세', async () => {
 
 ## MSW 어댑터 (브라우저 테스트)
 
+MSW 어댑터는 `@oa-sdk/mock-server/adapters/msw`(Node, Vitest)와 `@oa-sdk/mock-server/browser`(browser bundle)에서만 export됩니다. 이 두 entry point만 선택적 peer인 `msw`를 import하므로 `msw`를 함께 설치합니다(`npm install --save-dev msw`).
+
 ```typescript
 import { createMswHandlers } from '@oa-sdk/mock-server/adapters/msw'
 import { setupServer } from 'msw/node'
@@ -63,7 +65,7 @@ afterAll(() => mockServer.close())
 
 ## 검증 계층
 
-Mock ���버는 요청을 순서대로 검증합니다:
+Mock 서버는 요청을 순서대로 검증합니다:
 
 ```
 Security → Content-Type → Parameters → Body → 응답 선택

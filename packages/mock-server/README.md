@@ -9,18 +9,18 @@ npm install --save-dev @oa-sdk/mock-server
 ```
 
 The MSW adapter imports `msw` 2.x, an optional peer dependency that is not installed with this
-package. The package root (`@oa-sdk/mock-server`), `@oa-sdk/mock-server/browser` and
-`@oa-sdk/mock-server/adapters/msw` load that adapter, so install `msw` next to this package
-before you import them:
+package. Only the two entry points that export the adapter need it:
+`@oa-sdk/mock-server/adapters/msw` (Node and Vitest) and `@oa-sdk/mock-server/browser` (browser
+bundles). Install `msw` next to this package before you import them:
 
 ```bash
 npm install --save-dev msw
 ```
 
-Without `msw`, import `createNodeMockServer` from `@oa-sdk/mock-server/adapters/node-http`. The
-`oa-mock` CLI needs no peer dependency, and neither does `oa-gen mock` from `@oa-sdk/codegen`
-0.9.0 or later, which runs this package as a companion package and loads only
-`@oa-sdk/mock-server/adapters/node-http`.
+The package root (`@oa-sdk/mock-server`), which does not export the MSW adapter, and
+`@oa-sdk/mock-server/adapters/node-http` load without `msw`. The `oa-mock` CLI needs no peer
+dependency either, and neither does `oa-gen mock` from `@oa-sdk/codegen`, which runs this package
+as a companion package.
 
 Inside the oa-sdk source repository, declare it with `workspace:*` and build it with
 `pnpm build:downstream` before running these examples.
