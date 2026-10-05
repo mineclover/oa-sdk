@@ -8,6 +8,7 @@ const NODE_HTTP_TESTS = [
   'src/__tests__/integration/framework.test.ts',
   'src/__tests__/integration/node-http.test.ts',
   'src/__tests__/integration/override.test.ts',
+  'src/__tests__/integration/response-bytes.test.ts',
   'src/__tests__/integration/route-filter.test.ts',
   'src/__tests__/integration/streaming-e2e.test.ts',
   'src/__tests__/integration/stress.test.ts',
