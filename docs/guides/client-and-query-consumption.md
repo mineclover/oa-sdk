@@ -1,233 +1,382 @@
-# 프론트엔드 SDK 및 TanStack Query v5 소비 가이드 (Frontend Client SDK & TanStack Query v5 Consumption)
+# 생성 클라이언트와 TanStack Query 사용 가이드
 
-`@oa-sdk/client`는 OpenAPI 3.1/3.2 스펙으로부터 파생된 **타입 안전한 Fetch 기반 HTTP 클라이언트 SDK** 및 **TanStack Query v5 통합 코드**를 제공합니다.
+`oa-gen generate:client`가 만드는 fetch 클라이언트와 `oa-gen generate:tanstack`이 만드는 TanStack Query v5 코드를 앱에서 쓰는 방법을 설명합니다. 생성 명령, `createClient` 설정, 메서드 호출 규칙, 오류 처리, 스트리밍, TanStack Query의 키·옵션·훅 이름과 알려진 한계를 다룹니다. 이 문서는 `@oa-sdk/codegen` 0.9.0과 `@oa-sdk/client` 0.2.2 기준입니다.
 
-이 가이드는 프론트엔드 및 풀스택 애플리케이션 개발자가 생성된 클라이언트를 초기화하고, 듀얼 호출 컨벤션, AbortSignal 취소, 에러 핸들링, 스트리밍 및 TanStack Query v5 훅을 실무에서 효율적으로 소비하는 방법을 설명합니다.
+- 클라이언트를 별도 npm 패키지로 만들어 배포하는 방법은 [클라이언트 SDK 배포 가이드](./client-sdk-distribution.md)를 따릅니다.
+- 백엔드 없이 예제를 실행할 mock 서버는 [Mock 서버 사용 가이드](./mock-server-usage.md)를 따릅니다.
 
----
+예제는 다음 operation을 가진 OpenAPI 문서를 기준으로 합니다. 모든 operation은 `bearerAuth`(HTTP bearer) 보안 스킴을 요구합니다.
 
-## 1. 클라이언트 SDK 생성 및 공급 모델 선택
-
-소비 환경에 따라 두 가지 방식으로 클라이언트를 프로젝트에 공급할 수 있습니다 (상세 내용은 [클라이언트 SDK 배포 가이드](./client-sdk-distribution.md) 참조):
-
-- **Model A (로컬 온디맨드 생성)**: 앱 프로젝트의 `devDependencies`에 `@oa-sdk/codegen`과 동반 패키지 `@oa-sdk/client`를 두고 소스코드(`src/api/client.ts`)를 직접 생성. `oa-gen generate:client`와 `generate:tanstack`은 생성기를 `@oa-sdk/client`에서 불러오므로, 이 패키지가 없으면 설치 명령을 출력하고 종료 코드 1로 실패합니다([동반 패키지 안내](./cli-setup.md#동반-패키지-companion-packages)).
-  ```bash
-  oa-gen generate:client --spec ./openapi.json --output src/api/client.ts
-  ```
-- **Model B (사전 빌드 패키지 배포)**: `dist/index.js`와 `dist/index.d.ts`로 빌드된 독립 패키지로 생성하여 사내 npm 레지스트리에 배포 (런타임 의존성 0개). 패키지를 만드는 환경에는 Model A와 같은 두 패키지가 필요합니다.
-  ```bash
-  oa-gen generate:client --spec ./openapi.json --pack --output ./packages/api-client --name @myorg/api-client
-  ```
+| operationId | 요청 | 특징 |
+|---|---|---|
+| `listUsers` | `GET /users` | 쿼리 `limit`, `cursor`, `role`. 응답 `{ items, nextCursor? }`, 응답 헤더 `X-Total-Count` |
+| `createUser` | `POST /users` | 본문 `{ name }`. 201 `User`, 409 `Error` |
+| `getUserById` | `GET /users/{userId}` | 200 `User`, 404 `Error` |
+| `updateUser` | `PATCH /users/{userId}` | 본문 `{ name?, status? }`, 쿼리 `notify`, 헤더 `X-Audit-Reason` |
+| `streamAuditEvents` | `GET /audit/events` | `text/event-stream` 응답, `itemSchema`는 `AuditEvent` |
 
 ---
 
-## 2. 클라이언트 초기화 및 인증 미들웨어
+## 1. 설치와 생성
 
-`createClient` 팩토리 함수를 사용하여 기본 URL, 요청 타임아웃, 지수 백오프 재시도 및 인증 미들웨어를 구성합니다.
+### 1.1 설치
+
+```bash
+npm install --save-dev @oa-sdk/codegen @oa-sdk/client
+```
+
+`@oa-sdk/client`는 `oa-gen`이 실행 중에 불러오는 동반 패키지(companion package)입니다. `generate:client`와 `generate:tanstack`은 생성기를 이 패키지에서 불러오므로, 패키지가 없으면 설치 명령을 출력하고 종료 코드 1로 실패합니다([동반 패키지](./cli-setup.md#동반-패키지-companion-packages)). `@oa-sdk/client`는 `@oa-sdk/codegen` 0.9.0 릴리스에서 처음 npm에 배포됩니다. 이 릴리스 전에는 npm에서 설치할 수 없습니다. 설치할 수 있는 버전은 [변경 이력](../changelog.md)에서 확인합니다.
+
+### 1.2 타입 없는 클라이언트와 타입 있는 클라이언트
+
+`generate:client`는 `--types-import`를 주었는지에 따라 두 가지 클라이언트를 만듭니다.
+
+| | 타입 없는 클라이언트 | 타입 있는 클라이언트 |
+|---|---|---|
+| 생성 | `generate:client`만 실행 | `typegen`으로 타입 파일을 만든 뒤 `generate:client --types-import` |
+| 메서드 인자 | `Record<string, string>`, `Record<string, unknown>`, `unknown` | `GetUserByIdPathParams`, `ListUsersQueryParams` 등 typegen 타입 |
+| 반환 타입 | `JsonPrimitive<unknown>`(`unknown`과 같음) | `JsonPrimitive<GetUserByIdResponse>` 등 |
+| operation별 오류 타입과 가드 | 없음 | 오류 응답을 선언한 operation마다 `<Operation>ClientError`, `is<Operation>ClientError()`, `is<Operation>ErrorBody()` |
+
+```bash
+# 타입 있는 클라이언트: 타입 파일과 클라이언트를 같은 디렉터리에 생성
+npx oa-gen typegen --spec ./openapi.yaml -o src/api/types.ts
+npx oa-gen generate:client --spec ./openapi.yaml --types-import ./types.js -o src/api/client.ts
+```
+
+- `--types-import`는 생성된 `client.ts` 파일에서 본 import 경로입니다. 위처럼 같은 디렉터리에 두면 `./types.js`입니다.
+- `-o`를 생략하면 코드를 stdout으로 출력합니다. `--spec`에는 OpenAPI 3.1/3.2 문서나 TypeSpec(`.tsp`) 파일을 줄 수 있습니다.
+- 생성된 클라이언트는 `--types-import` 모듈 외에는 아무것도 import하지 않습니다. 앱이 런타임에 `@oa-sdk/client`를 import할 필요는 없고, 7절의 TanStack Query 코드만 이 패키지에서 타입을 가져옵니다.
+
+`oa.config.ts`를 쓰는 프로젝트에서 `oa-gen generate`가 만드는 `<spec target id>.client.ts`도 같은 생성기로 만듭니다. `core.client.typesImport`를 설정하지 않으면 타입 없는 클라이언트이고, `oa-gen generate`는 typegen을 실행하지 않으므로 타입 파일은 `oa-gen typegen`으로 따로 만듭니다.
+
+---
+
+## 2. `createClient` 설정
 
 ```typescript
-import { createClient, bearerAuth, apiKeyAuth } from '@myorg/api-client';
+import { createClient, bearerAuth } from './api/client.js'
+
+const accessToken = sessionStorage.getItem('access_token') ?? ''
 
 export const apiClient = createClient({
   baseUrl: 'https://api.example.com/v1',
-  timeout: 10000, // 10초 타임아웃
-  retry: 3,       // 네트워크 실패 및 5xx 응답 시 최대 3회 지수 백오프 재시도
+  timeout: 10_000,
+  retry: { maxRetries: 3, baseDelay: 500 },
+  validate: true,
   middleware: [
-    // Bearer JWT 토큰 주입 미들웨어
-    bearerAuth(() => localStorage.getItem('access_token') ?? ''),
-    
-    // 커스텀 로깅/관측 미들웨어
+    bearerAuth(accessToken), // 스펙의 bearerAuth 보안 스킴에서 생성된 함수
     {
-      onRequest: async ({ url, init }) => {
-        console.log(`[HTTP Request] ${init.method ?? 'GET'} ${url}`);
+      onRequest: (url, init) => {
+        console.log(`[HTTP] ${init.method ?? 'GET'} ${url}`)
+        return init // onRequest는 RequestInit을 반환해야 합니다
       },
-      onError: async ({ error, url }) => {
-        console.error(`[HTTP Failure] ${url}:`, error);
-      }
-    }
-  ]
-});
+      onError: (error) => console.error('[HTTP failure]', error),
+    },
+  ],
+})
+```
+
+| 설정 | 동작 |
+|---|---|
+| `baseUrl` | 요청 URL의 기준. 생략하면 스펙의 `servers[0]` URL을 씁니다. |
+| `headers` | 모든 요청에 넣는 기본 헤더. |
+| `timeout` | 시도 한 번에 적용하는 제한 시간(ms). 넘으면 요청을 중단합니다. |
+| `retry` | `{ maxRetries, baseDelay }`. 기본값은 `maxRetries: 0`(재시도 안 함), `baseDelay: 1000`. 재시도 대상 operation에서 네트워크 오류와 5xx 응답만 다시 보내고, `baseDelay * 2^n`ms를 기다립니다. 5xx 응답에 `Retry-After` 헤더가 있으면 그 값을 따릅니다. |
+| `validate` | `true`이면 요청을 보내기 전에 path·query·header 파라미터와 본문을 스펙 스키마로 검사하고, 맞지 않으면 `TypeError`(`Invalid body` 등)를 던집니다. |
+| `middleware` | `{ onRequest?, onResponse?, onError? }` 배열. `onRequest(url, init)`는 `RequestInit`을, `onResponse(response)`는 `Response`를 반환합니다. `onError(error)`는 요청이 실패로 끝날 때 호출됩니다. |
+
+- 재시도 대상은 GET·HEAD·OPTIONS·DELETE operation과 `x-oa-sdk-retryable: true`를 표시한 operation입니다. `x-oa-sdk-retryable: false`는 GET이라도 재시도하지 않습니다. 스트리밍 메서드는 재시도하지 않습니다.
+- `onRequest`는 재시도 전에 한 번만 실행됩니다. 재시도마다 헤더를 다시 계산하지 않습니다.
+
+### 2.1 인증 헬퍼
+
+생성된 클라이언트는 스펙의 `components.securitySchemes`에 선언된 스킴마다 미들웨어 함수를 export합니다. 함수 이름은 스킴 키이고, 키가 `auth`로 끝나지 않으면 `Auth`를 붙입니다(`api_key` → `api_keyAuth`).
+
+| 스킴 | 생성되는 함수 |
+|---|---|
+| `http` + `bearer`, `oauth2`, `openIdConnect` | `(token: string)` → `Authorization: Bearer <token>` |
+| `http` + `basic` | `(username: string, password: string)` |
+| `apiKey` (`in: header` 또는 `cookie`) | `(key: string)` |
+| `apiKey` (`in: query`) | 함수 없음. 쿼리 파라미터로 직접 전달합니다. |
+
+스펙에 보안 스킴이 없으면 인증 함수도 생성되지 않습니다. 같은 동작의 `bearerAuth(token)`, `basicAuth(username, password)`, `apiKeyAuth(...)`는 `@oa-sdk/client` 패키지도 export하므로 어떤 생성 클라이언트에도 넘길 수 있습니다. 다만 이렇게 쓰면 앱이 런타임에 `@oa-sdk/client`를 의존합니다.
+
+헬퍼는 만들 때 받은 토큰 문자열을 고정합니다. 토큰이 바뀌는 앱은 요청할 때마다 토큰을 읽는 미들웨어를 직접 씁니다.
+
+```typescript
+const currentTokenAuth = {
+  onRequest: (_url: string, init: RequestInit) => {
+    const headers = new Headers(init.headers)
+    headers.set('Authorization', `Bearer ${localStorage.getItem('access_token') ?? ''}`)
+    return { ...init, headers }
+  },
+}
 ```
 
 ---
 
-## 3. 듀얼 호출 컨벤션 (Dual Calling Conventions)
+## 3. 메서드 호출 규칙
 
-`oa-sdk` 클라이언트는 개발자의 취향과 상황에 맞게 **위치 인자 스타일**과 **단일 객체 스타일**을 모두 완벽하게 지원합니다.
+operation마다 operationId와 같은 이름의 메서드가 하나 생성됩니다. 인자는 다음 순서이고, operation에 없는 항목은 빠집니다.
 
-### 3.1 위치 인자 스타일 (Positional Style)
-단순한 파라미터 전달 시 직관적입니다.
+1. path 파라미터 객체 (`{ userId: 'usr_123' }`, 문자열 하나가 아니라 항상 객체)
+2. 요청 본문
+3. 쿼리 파라미터 객체
+4. 헤더 파라미터 객체
+5. 옵션 `{ signal?, headers? }`
+
+예제 스펙에서 생성되는 시그니처는 `listUsers(query?, options?)`, `createUser(body, options?)`, `getUserById(params, options?)`, `updateUser(params, body, query?, headers?, options?)`, `streamAuditEvents(query?, options?)`입니다.
+
 ```typescript
-// 1. 단순 파라미터
-const user = await apiClient.getUserById('usr_123');
+const controller = new AbortController()
 
-// 2. 파라미터 + 쿼리 필터 + AbortSignal
-const users = await apiClient.listUsers(
-  { role: 'admin', page: 1 }, // query
-  { signal: abortController.signal } // options
-);
+const user = await apiClient.getUserById({ userId: 'usr_123' })
+const page = await apiClient.listUsers({ role: 'admin', limit: 20 }, { signal: controller.signal })
+const updated = await apiClient.updateUser(
+  { userId: 'usr_123' },
+  { name: 'Alice' },
+  { notify: true },
+  { 'X-Audit-Reason': 'profile_update' },
+  { signal: controller.signal },
+)
 ```
 
-### 3.2 단일 객체 스타일 (Unified Object Style)
-복합 파라미터나 옵션이 많은 경우 매개변수 순서를 외울 필요 없이 안전하게 호출할 수 있습니다.
-```typescript
-const updatedUser = await apiClient.updateUser({
-  params: { userId: 'usr_123' },
-  body: { displayName: 'Alice In Wonderland' },
-  query: { notify: true },
-  headers: { 'X-Audit-Reason': 'profile_update' },
-  signal: abortController.signal
-});
-```
+선택 인자를 건너뛸 때는 그 자리에 `undefined`를 넘깁니다(`apiClient.listUsers(undefined, { signal })`).
 
-### 3.3 쿼리 파라미터 오염 방지 (Query Option Disambiguation)
-`options.signal`이나 `options.headers`가 URL 쿼리 스트링으로 잘못 직렬화되는 문제(`?signal=[object+AbortSignal]`)를 코드 생성기 수준에서 완전히 방지합니다. 쿼리 객체 안에 `signal`을 혼용해 넣더라도 안전하게 옵션 슬롯으로 분리 추출됩니다.
+생성된 런타임 코드는 다음 호출도 받아들입니다. 하지만 타입 있는 클라이언트의 TypeScript 시그니처에는 이 형태가 없어 컴파일 오류가 나므로(알려진 한계), TypeScript 코드에서는 위의 위치 인자 형태를 씁니다.
+
+- 선택 인자 자리에 `{ signal, headers }`만 가진 객체를 넘기면 옵션으로 해석합니다(`apiClient.listUsers({ signal })`).
+- 쿼리 객체 안의 `signal`은 쿼리 문자열로 보내지 않고 요청의 `signal`로 씁니다.
+- path 파라미터가 있는 operation은 `{ params, body, query, querystring, headers, signal }` 객체 하나로 호출할 수 있습니다.
 
 ---
 
-## 4. 메타데이터 접근 (`withResponse`)
+## 4. 응답 헤더 읽기 (`withResponse`)
 
-기본 메서드는 언래핑된 응답 데이터(`body`)만을 반환합니다. 페이지네이션 헤더(`X-Total-Count`), 캐시 헤더(`ETag`), 또는 원본 `Response` 객체가 필요한 경우 `withResponse` 프로퍼티를 사용합니다.
+기본 메서드는 응답 본문만 반환합니다. 스펙이 응답 헤더를 선언한 operation(스트리밍 operation 제외)에는 `apiClient.withResponse.<operationId>`가 함께 생성되고, 본문·헤더·원본 `Response`를 반환합니다. 응답 헤더를 선언하지 않은 operation에는 `withResponse` 메서드가 없습니다.
 
 ```typescript
-const { body, headers, response } = await apiClient.withResponse.listUsers({ limit: 20 });
+const { body, headers, response } = await apiClient.withResponse.listUsers({ limit: 20 })
 
-console.log(`HTTP Status: ${response.status}`);
-console.log(`Total Count: ${headers['x-total-count']}`);
-console.log(`Returned Users: ${body.items.length}`);
+console.log(response.status)
+console.log(headers['X-Total-Count']) // 스펙에 적은 이름 그대로, 선언한 타입(integer → number)으로 변환
+console.log(body.items.length)
 ```
+
+`headers`의 키는 스펙에 선언한 대소문자를 그대로 씁니다(`headers['x-total-count']`는 없음). 응답에서 헤더를 찾을 때는 대소문자를 구분하지 않습니다.
 
 ---
 
-## 5. 다중 영역(Multi-Realm) 에러 핸들링
+## 5. 오류 처리
 
-`ClientError`와 타입 가드 `isClientError`를 통해 4xx/5xx HTTP 에러를 안전하게 처리합니다. iframe, 웹 워커, 마이크로 프론트엔드 환경에서도 구조적 덕 타이핑(Duck-Typing)으로 에러를 식별합니다.
+2xx가 아닌 응답은 `ClientError`로 던집니다. `ClientError`는 `status`, `statusText`, `body`(`data`도 같은 값), `response`, `operationId`를 가집니다. `isClientError(error)`는 `instanceof`가 실패하는 환경(iframe, 다른 번들)에서도 `name`, `status`, `body`/`data`, `response` 속성으로 `ClientError`를 알아봅니다.
+
+타입 있는 클라이언트는 오류 응답을 선언한 operation마다 오류 타입과 가드를 함께 export합니다. 상태 코드를 넘기면 그 상태의 본문 타입으로 좁혀집니다.
 
 ```typescript
-import { isClientError } from '@myorg/api-client';
+import { isClientError, isGetUserByIdClientError } from './api/client.js'
 
 try {
-  await apiClient.getUserById('non_existent_id');
+  await apiClient.getUserById({ userId: 'missing' })
 } catch (error) {
-  if (isClientError(error)) {
-    console.error(`API Error HTTP ${error.status} (${error.statusText})`);
-    console.error(`Error Payload:`, error.data); // error.body와 동일
-    console.error(`Failed Operation:`, error.operationId);
+  if (isGetUserByIdClientError(error, 404)) {
+    console.error(error.body.code, error.body.message) // 404 응답의 Error 스키마
+  } else if (isClientError(error)) {
+    console.error(`HTTP ${error.status} ${error.statusText}`, error.data, error.operationId)
   } else {
-    console.error(`Network or Unknown Error:`, error);
+    throw error // 네트워크 오류, 타임아웃, validate 실패(TypeError) 등
   }
 }
 ```
 
+`is<Operation>ErrorBody(body, status?)`는 본문만 검사합니다. 두 가드 모두 스펙의 오류 응답 스키마로 본문을 실제 검사합니다.
+
 ---
 
-## 6. 실시간 스트리밍 및 자동 취소 (AsyncGenerators)
+## 6. 스트리밍 (SSE, NDJSON)
 
-SSE(`text/event-stream`) 및 NDJSON 스트리밍 엔드포인트는 표준 `AsyncGenerator<T>`로 방출되어 `for await ... of` 구문으로 간결하게 소비할 수 있습니다.
+`text/event-stream`이나 NDJSON 응답을 선언한 operation은 `AsyncGenerator`를 반환하는 메서드로 생성되어 `for await ... of`로 읽습니다. 항목 타입은 `--types-import`를 주어도 `unknown`이므로, 쓰기 전에 좁힙니다. 타입 가드는 [순수 타입과 타입 가드 가이드](./pure-types-and-guards.md)의 `oa-gen generate:guards`로 만들 수 있습니다.
 
 ```typescript
-const controller = new AbortController();
+const controller = new AbortController()
 
 try {
-  const eventStream = apiClient.streamAuditEvents({
-    query: { channel: 'security' },
-    signal: controller.signal
-  });
-
-  for await (const event of eventStream) {
-    console.log(`New Audit Event: [${event.level}] ${event.message}`);
-    
-    // 특정 조건 만족 시 조기 탈출
+  for await (const event of apiClient.streamAuditEvents({ channel: 'security' }, { signal: controller.signal })) {
+    if (!isAuditEvent(event)) continue // 직접 작성하거나 generate:guards로 만든 가드
+    console.log(`[${event.level}] ${event.message}`)
     if (event.level === 'critical') {
-      controller.abort(); // 스트림 리더가 소켓을 즉시 취소하고 메모리를 해제함
-      break;
+      controller.abort() // 응답 스트림 읽기를 취소
+      break
     }
   }
 } catch (error) {
-  if (error.name === 'AbortError') {
-    console.log('Stream cancelled cleanly.');
+  if (error instanceof Error && error.name === 'AbortError') {
+    console.log('Stream cancelled')
+  } else {
+    throw error
   }
 }
 ```
 
+SSE에서는 `data:` 줄만 읽습니다. JSON으로 파싱되지 않는 `data` 프레임과 `[DONE]` 프레임은 오류 없이 건너뜁니다. `timeout`은 응답 헤더를 받을 때까지만 적용됩니다.
+
 ---
 
-## 7. TanStack Query v5 3계층 통합 (React / Vue / Svelte)
+## 7. TanStack Query v5
 
-`oa-gen generate:tanstack`을 사용하면 쿼리 키(Keys), 쿼리 옵션(Options), 훅 래퍼(Hooks)가 계층별로 자동 생성됩니다.
+`oa-gen generate:tanstack`은 TanStack Query v5용 코드를 3계층으로 만듭니다. Tier 1은 쿼리 키 팩토리, Tier 2는 `queryOptions()`·`mutationOptions()` 팩토리, Tier 3은 React 훅입니다.
 
-### 7.1 코드 생성 옵션
+### 7.1 생성
+
 ```bash
-# React Query 전체 계층 생성
-oa-gen generate:tanstack --spec openapi.json --output src/api/queries.ts --framework react
+# fetch 클라이언트를 같은 디렉터리에 먼저 생성 (TanStack 코드가 ./client.js에서 ApiClient 타입을 가져옵니다)
+npx oa-gen generate:client --spec ./openapi.yaml -o src/api/client.ts
+npx oa-gen generate:tanstack --spec ./openapi.yaml -o src/api
 
-# 파일 분할 (--split) 및 프레임워크 독립 쿼리 옵션만 생성 (--tier options)
-oa-gen generate:tanstack --spec openapi.json --output src/api/ --tier options --split
+# 생성된 코드가 import하는 TanStack Query (React 기준)
+npm install @tanstack/react-query
 ```
 
-| 옵션 | 선택지 | 용도 |
+생성된 파일은 `@tanstack/react-query`(또는 `--framework`로 고른 패키지)와 `@oa-sdk/client`의 타입(`JsonPrimitive`, `Resolved`)을 import합니다. 따라서 1.1절처럼 앱 프로젝트에 `@oa-sdk/client`가 설치되어 있어야 합니다(타입만 쓰므로 `devDependencies`로 충분합니다).
+
+| 옵션 | 동작 |
+|---|---|
+| `-o, --output` | `.ts`로 끝나면 그 파일, 디렉터리면 `<디렉터리>/tanstack-query.ts`에 씁니다. 생략하면 `oa.config.ts`의 `outputRouting` 경로, 그것도 없으면 `src/api/generated/tanstack-query.ts`입니다. |
+| `--tier` | `all`(기본), `keys`, `options`, `hooks`. `keys`·`options`이면 훅을 만들지 않습니다. |
+| `--framework` | `react`(기본), `vue`, `svelte`. `vue`·`svelte`는 `@tanstack/vue-query`·`@tanstack/svelte-query`를 import하고 키와 옵션 팩토리만 만듭니다(훅 없음). 옵션을 각 프레임워크의 `useQuery`에 넘깁니다. |
+| `--client-import` | `ApiClient` 타입을 가져올 모듈. 기본값은 `./client.js`입니다. 배포된 클라이언트 패키지를 쓸 때 지정합니다. |
+| `--types-import` | typegen 타입을 가져올 모듈. 7.4절의 한계를 먼저 확인합니다. |
+| `--split` | 출력 디렉터리에 `keys.ts`, `queries.ts`, `hooks.ts`를 따로 씁니다. `oa.config.ts`에 `outputRouting`이 있는 프로젝트(`oa-gen init`이 만든 설정)에서는 생성 파일의 상대 import가 깨지므로(`TS2307`) 쓰지 않습니다. |
+
+`generate:tanstack`이 쓴 파일은 `.oa-manifest.json`에 기록됩니다. 같은 프로젝트에서 `oa-gen generate`를 실행하면 이 파일이 지워지므로, `oa-gen generate`를 쓰는 프로젝트는 7.5절처럼 `generate`가 만드는 파일을 씁니다.
+
+### 7.2 생성되는 이름
+
+이름은 operationId와 OpenAPI tag에서 만듭니다(tag가 `users`, operationId가 `getUserById`인 경우).
+
+| 계층 | 이름 | 예 |
 |---|---|---|
-| `--tier` | `all` (기본값), `keys`, `options`, `hooks` | 필요한 계층만 선택 방출 (SSR prefetch나 Nuxt/SvelteKit에서는 `options` 권장) |
-| `--framework` | `react`, `vue`, `svelte` | 대상 프레임워크 패키지 바인딩 지정 |
-| `--split` | boolean 플래그 | `<resource>.keys.ts`, `<resource>.options.ts`, `<resource>.queries.ts` 분할 방출 |
+| Tier 1 키 | `<camelCase tag>Keys`와 단수·복수 별칭, 모든 키를 묶은 `queryKeys`, `QueryKeys` 타입. tag가 없으면 경로의 첫 세그먼트를 씁니다. | `usersKeys`(별칭 `userKeys`), `usersKeys.detail(id)`, `usersKeys.getUserById(params)` |
+| Tier 2 옵션 | `<operationId>QueryOptions`, `<operationId>MutationOptions`, 페이지네이션 operation의 `<operationId>InfiniteQueryOptions`, 뮤테이션 변수 타입 `<OperationId>Variables` | `getUserByIdQueryOptions`, `updateUserMutationOptions`, `listUsersInfiniteQueryOptions`, `UpdateUserVariables` |
+| Tier 3 훅 | `use<OperationId>Query`, `use<OperationId>Mutation`, `use<OperationId>InfiniteQuery`, `createApiHooks` | `useGetUserByIdQuery`, `useUpdateUserMutation` |
 
----
+- 옵션 팩토리와 훅의 첫 인자는 `createClient()`가 만든 클라이언트입니다. 그 뒤 인자는 클라이언트 메서드와 같은 순서(path 파라미터, 본문, 쿼리, 헤더)이고 마지막이 TanStack 옵션입니다.
+- 뮤테이션 변수는 `{ params, body, query?, headers? }` 형태입니다(operation에 있는 항목만).
+- `createApiHooks(useClient)`는 클라이언트를 돌려주는 훅(예: React Context에서 클라이언트를 읽는 `useApiClient`)을 받아, 클라이언트 인자가 없는 훅 묶음(`useGetUserById`, `useUpdateUser` 등)을 반환합니다.
+- 키는 tag별 `all → lists/list(filters) → details/detail(id) → subresource` 계층이라 `queryClient.invalidateQueries({ queryKey: usersKeys.all })`처럼 계층 단위로 무효화할 수 있습니다.
 
-### 7.2 React 실무 활용 예시
+### 7.3 React 예제
+
+`--types-import` 없이 생성한 코드는 응답 데이터 타입이 `unknown`입니다. 화면에 그대로 출력하거나, 쓰기 전에 좁힙니다.
 
 ```tsx
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from './api/client';
-import { 
-  userKeys, 
-  getUserQueryOptions, 
-  useUpdateUserMutation 
-} from './api/queries';
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { createClient } from './api/client.js'
+import { getUserByIdQueryOptions, useUpdateUserMutation, usersKeys } from './api/tanstack-query.js'
 
-export function UserProfileView({ userId }: { userId: string }) {
-  const queryClient = useQueryClient();
+const apiClient = createClient({ baseUrl: 'http://localhost:4010' })
 
-  // 1. 쿼리 옵션 소비 (AbortSignal이 자동으로 클라이언트에 전파되어 컴포넌트 언마운트 시 자동 취소)
-  const { data: user, isLoading, error } = useQuery(
-    getUserQueryOptions(apiClient, { userId })
-  );
+export function UserProfile({ userId }: { userId: string }) {
+  const queryClient = useQueryClient()
 
-  // 2. 뮤테이션 소비 및 쿼리 무효화 (Invalidation)
+  // queryFn이 TanStack의 AbortSignal을 클라이언트에 넘기므로 언마운트 시 요청이 취소됩니다
+  const { data: user, isLoading, error } = useQuery(getUserByIdQueryOptions(apiClient, { userId }))
+
   const mutation = useUpdateUserMutation(apiClient, {
-    onSuccess: () => {
-      // 구조화된 쿼리 키를 사용한 안전한 캐시 갱신
-      queryClient.invalidateQueries({ queryKey: userKeys.detail(userId) });
-    }
-  });
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: usersKeys.detail(userId) }),
+  })
 
-  if (isLoading) return <div>로딩 중...</div>;
-  if (error) return <div>에러 발생: {error.message}</div>;
+  if (isLoading) return <div>로딩 중...</div>
+  if (error) return <div>오류: {error.message}</div>
 
   return (
     <div>
-      <h1>{user.name}</h1>
-      <button onClick={() => mutation.mutate({ userId, body: { status: 'active' } })}>
-        활성화
-      </button>
+      <pre>{JSON.stringify(user, null, 2)}</pre>
+      <button onClick={() => mutation.mutate({ params: { userId }, body: { status: 'active' } })}>활성화</button>
     </div>
-  );
+  )
 }
 ```
 
+같은 옵션 팩토리를 SSR의 `queryClient.prefetchQuery()`나 Vue·Svelte의 `useQuery`에도 넘길 수 있습니다.
+
+### 7.4 응답 타입을 붙이기 (`--types-import`)
+
+`generate:tanstack --types-import`에 `oa-gen typegen` 출력만 넘기면 `<Operation>ClientError` 타입이 없어 `tsc`가 실패합니다(`TS2305`/`TS2724`, 알려진 결함). 생성 코드는 모든 operation의 `<Operation>ClientError`와 스트리밍 operation의 `<Operation>Response`를 이 모듈에서 import하는데, typegen은 이 이름들을 만들지 않기 때문입니다. 타입 있는 클라이언트와 `--types-import` 없는 TanStack 코드를 섞어도 `TS2345`로 실패합니다.
+
+타입 없이 쓰려면 클라이언트와 TanStack 코드를 모두 `--types-import` 없이 생성합니다(7.1~7.3절). 타입이 필요하면 typegen 출력을 다시 export하고 빠진 이름을 더한 모듈을 만들어 `--types-import`로 지정합니다. 클라이언트는 typegen 출력(`./types.js`)을 그대로 씁니다.
+
+```typescript
+// src/api/wire-types.ts
+export * from './types.js'
+// 오류 응답을 선언한 operation: 타입 있는 클라이언트가 export하는 오류 타입
+export type { CreateUserClientError, GetUserByIdClientError } from './client.js'
+// 오류 응답이 없는 operation: 공통 ClientError로 별칭
+import type { ClientError } from './client.js'
+export type ListUsersClientError = ClientError
+export type UpdateUserClientError = ClientError
+export type StreamAuditEventsClientError = ClientError
+// 스트리밍 operation의 응답 타입은 typegen이 만들지 않음
+export type StreamAuditEventsResponse = unknown
+```
+
+```bash
+npx oa-gen typegen --spec ./openapi.yaml -o src/api/types.ts
+npx oa-gen generate:client --spec ./openapi.yaml --types-import ./types.js -o src/api/client.ts
+npx oa-gen generate:tanstack --spec ./openapi.yaml -o src/api --types-import ./wire-types.js
+```
+
+`wire-types.ts`에 넣을 이름은 생성된 `tanstack-query.ts`의 `import type { ... } from './wire-types.js'` 줄에서 확인합니다. operation이 바뀌면 이 모듈도 함께 고칩니다. 이렇게 생성하면 `getUserByIdQueryOptions(client, params: GetUserByIdPathParams, ...)`의 데이터 타입이 `JsonPrimitive<GetUserByIdResponse>`가 됩니다.
+
+### 7.5 `oa-gen generate`가 만드는 TanStack 코드
+
+`oa.config.ts`를 쓰는 프로젝트에서는 `oa-gen generate`가 spec target마다 TanStack 코드를 함께 씁니다(항상 `@tanstack/react-query` 대상).
+
+- `outputRouting`이 있으면(`oa-gen init` 기본 설정) `<id>.keys.ts`(키)와 `<id>.queries.ts`(옵션 팩토리)만 쓰고 훅은 쓰지 않습니다. 옵션 팩토리를 `useQuery`에 넘겨 씁니다.
+- `outputRouting`이 없으면 `<id>.queries.ts` 한 파일에 키·옵션·훅을 모두 씁니다.
+
+이 코드도 `--types-import` 없이 생성하므로 데이터 타입은 `unknown`입니다.
+
 ---
 
-## 8. 무한 스크롤 (Infinite Query) 지원
+## 8. 무한 스크롤 (Infinite Query)
 
-OpenAPI 스펙에 `cursor`, `page`, `offset` 파라미터가 정의되어 있다면, 생성기가 이를 자동으로 감지하여 `getInfiniteUsersQueryOptions`를 함께 생성합니다.
+조회 operation에 다음 이름의 쿼리 파라미터가 있으면 `<operationId>InfiniteQueryOptions`와 `use<OperationId>InfiniteQuery`를 함께 생성합니다(대소문자 무시).
+
+| 방식 | 파라미터 이름 | 첫 페이지 값 |
+|---|---|---|
+| 커서 | `cursor`, `starting_after`, `after`, `next_cursor`, `page_token`, `pageToken` | `null` |
+| 페이지 번호 | `page`, `page_number`, `pageNumber`, `page_index`, `pageIndex`, `page_no`, `pageNo` | `1` |
+| 오프셋 | `offset`, `skip` | `0` |
+
+기본 `getNextPageParam`은 마지막 응답에서 다음 값을 추측합니다. 커서 방식은 `next_cursor`, `nextCursor`, `next_page_token`, `nextPageToken`, `cursor`, `starting_after`를 읽고, 없으면 `hasMore: false` 등에서 멈추며, 그것도 없으면 `items`·`data`·`results` 배열의 마지막 항목 `id`를 다음 커서로 씁니다. 페이지 번호 방식은 `nextPage`·`totalPages` 등을, 오프셋 방식은 `total`과 항목 수를 봅니다.
 
 ```tsx
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { getListUsersInfiniteQueryOptions } from './api/queries';
+import { useInfiniteQuery } from '@tanstack/react-query'
+import { listUsersInfiniteQueryOptions } from './api/tanstack-query.js'
 
 const { data, fetchNextPage, hasNextPage } = useInfiniteQuery(
-  getListUsersInfiniteQueryOptions(apiClient, {
-    query: { limit: 10 },
-    getNextPageParam: (lastPage) => lastPage.nextCursor
-  })
-);
+  listUsersInfiniteQueryOptions(apiClient, { limit: 10 }),
+)
 ```
+
+알려진 한계가 두 가지 있습니다.
+
+- 커서 방식의 첫 요청은 `cursor=null`을 쿼리 문자열로 보냅니다. 서버가 이 값을 거부하면 `initialPageParam`을 `undefined`로 바꿉니다(아래 예).
+- 세 번째 인자(TanStack 옵션)를 넘길 때는 타입상 `initialPageParam`과 `getNextPageParam`을 함께 넘겨야 합니다.
+
+```tsx
+import type { InfiniteData } from '@tanstack/react-query'
+import type { JsonPrimitive } from '@oa-sdk/client'
+import type { ListUsersResponse } from './api/types.js'
+
+// 7.4절처럼 타입을 붙여 생성한 코드 기준
+const options = listUsersInfiniteQueryOptions<InfiniteData<JsonPrimitive<ListUsersResponse>>, string | undefined>(
+  apiClient,
+  { limit: 10 },
+  { initialPageParam: undefined, getNextPageParam: (lastPage) => lastPage.nextCursor },
+)
+```
+
+스트리밍 operation에도 `<operationId>QueryOptions`와 훅이 생성되지만, `queryFn`이 `AsyncGenerator`를 데이터로 반환하므로 TanStack Query로 스트림을 읽을 수 없습니다(알려진 결함). 스트리밍 operation은 6절처럼 클라이언트 메서드를 직접 씁니다.
