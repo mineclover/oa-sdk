@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { matchRoute as indexedMatchRoute } from '../route-match.js'
+import { getCachedRouteMatcher, matchRoute as indexedMatchRoute } from '../route-match.js'
 import type { HttpMethod, MatchResult, RouteIndex } from '../types.js'
 import { linearMatchRoute } from './support/linear-route-match.js'
 import { createOperationEntry, createRouteIndex } from './support/route-corpus.js'
@@ -260,5 +260,117 @@ describe.each(MATCHERS)('%s', (_, matchRoute) => {
       index.set('/users/{id}', new Map([['put', createOperationEntry('/users/{id}', 'put')]]))
       expect(matchRoute(index, 'post', '/users/1')).toEqual({ type: 'method_not_allowed', allowed: ['put'] })
     })
+  })
+})
+
+// The indexed matcher's speed rests on compiling a RouteIndex once and reusing
+// the result. Matching results cannot show whether that happens (a matcher
+// compiled on every call answers the same) and timing is too noisy to, so these
+// tests drive matchRoute alone and check which compiled matcher it left cached.
+describe('indexed matchRoute compiled matcher cache', () => {
+  const ROUTES: readonly RouteSpec[] = [
+    ['/health', ['get']],
+    ['/users/me', ['get']],
+    ['/users/{id}', ['get', 'delete']],
+    ['/users/{id}/posts', ['get', 'post']],
+    ['/files/{name}.{ext}', ['get']],
+  ]
+  /** Requests covering exact, templated and composite hits, misses and wrong methods. */
+  const REQUESTS: ReadonlyArray<readonly [HttpMethod, string, MatchResult['type']]> = [
+    ['get', '/health', 'found'],
+    ['get', '/users/me', 'found'],
+    ['delete', '/users/42', 'found'],
+    ['post', '/users/42/posts', 'found'],
+    ['get', '/files/report.pdf', 'found'],
+    ['get', '/missing', 'not_found'],
+    ['get', '/users/42/comments', 'not_found'],
+    ['put', '/users/42', 'method_not_allowed'],
+    ['post', '/health', 'method_not_allowed'],
+  ]
+
+  function runRequests(index: RouteIndex): void {
+    for (const [method, urlPath, type] of REQUESTS) {
+      expect(indexedMatchRoute(index, method, urlPath).type, `${method} ${urlPath}`).toBe(type)
+    }
+  }
+
+  it('compiles an index on its first match and reuses that matcher afterwards', () => {
+    const index = createRouteIndex(ROUTES)
+    expect(getCachedRouteMatcher(index)).toBeUndefined()
+    indexedMatchRoute(index, 'get', '/users/42')
+    const matcher = getCachedRouteMatcher(index)
+    expect(matcher).toBeDefined()
+    for (let round = 0; round < 3; round += 1) runRequests(index)
+    expect(getCachedRouteMatcher(index)).toBe(matcher)
+  })
+
+  it('keeps the compiled matcher when only method maps change', () => {
+    const index = createRouteIndex(ROUTES)
+    runRequests(index)
+    const matcher = getCachedRouteMatcher(index)
+    expect(matcher).toBeDefined()
+
+    index.get('/users/{id}')!.set('put', createOperationEntry('/users/{id}', 'put'))
+    expect(indexedMatchRoute(index, 'put', '/users/42').type).toBe('found')
+    // Setting an existing key keeps its position, so the paths stay in order.
+    index.set('/health', new Map([['post', createOperationEntry('/health', 'post')]]))
+    expect(indexedMatchRoute(index, 'post', '/health').type).toBe('found')
+    expect(indexedMatchRoute(index, 'get', '/health')).toEqual({ type: 'method_not_allowed', allowed: ['post'] })
+
+    expect(getCachedRouteMatcher(index)).toBe(matcher)
+  })
+
+  const addPath = (index: RouteIndex, pattern: string): void => {
+    index.set(pattern, new Map([['get', createOperationEntry(pattern, 'get')]]))
+  }
+  const KEY_CHANGES: ReadonlyArray<readonly [string, (index: RouteIndex) => void]> = [
+    ['a path is added', index => addPath(index, '/teams/{id}')],
+    ['a path is removed', index => index.delete('/users/me')],
+    ['a path is replaced at the same size', index => {
+      index.delete('/health')
+      addPath(index, '/status')
+    }],
+    ['a path is deleted and re-added', index => {
+      const methodMap = index.get('/users/me')!
+      index.delete('/users/me')
+      index.set('/users/me', methodMap)
+    }],
+    ['the index is cleared and refilled to the same size', index => {
+      const size = index.size
+      index.clear()
+      for (let position = 0; position < size; position += 1) addPath(index, `/refilled/${position}/{id}`)
+    }],
+  ]
+
+  it.each(KEY_CHANGES)('compiles a new matcher once when %s, then reuses it', (_, change) => {
+    const index = createRouteIndex(ROUTES)
+    runRequests(index)
+    const before = getCachedRouteMatcher(index)
+
+    change(index)
+    // The first request after the change compiles and caches the new matcher.
+    indexedMatchRoute(index, 'get', '/users/42')
+    const after = getCachedRouteMatcher(index)
+    expect(after).toBeDefined()
+    expect(after).not.toBe(before)
+    for (const urlPath of ['/users/42', '/missing', '/teams/1', '/status', '/refilled/0/1']) {
+      indexedMatchRoute(index, 'get', urlPath)
+    }
+    expect(getCachedRouteMatcher(index)).toBe(after)
+  })
+
+  it('keeps a separate compiled matcher per RouteIndex object', () => {
+    const first = createRouteIndex(ROUTES)
+    const second = createRouteIndex(ROUTES)
+    runRequests(first)
+    const firstMatcher = getCachedRouteMatcher(first)
+    expect(getCachedRouteMatcher(second)).toBeUndefined()
+    runRequests(second)
+    const secondMatcher = getCachedRouteMatcher(second)
+    expect(secondMatcher).toBeDefined()
+    expect(secondMatcher).not.toBe(firstMatcher)
+    runRequests(first)
+    expect(getCachedRouteMatcher(first)).toBe(firstMatcher)
+    expect(getCachedRouteMatcher(second)).toBe(secondMatcher)
   })
 })

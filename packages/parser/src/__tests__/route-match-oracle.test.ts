@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { HTTP_METHODS, matchRoute } from '../route-match.js'
+import { getCachedRouteMatcher, HTTP_METHODS, matchRoute } from '../route-match.js'
 import type { HttpMethod, MatchResult, RouteIndex } from '../types.js'
 import { linearMatchRoute, listMatchingPatterns } from './support/linear-route-match.js'
 import {
@@ -135,7 +135,11 @@ describe('matchRoute oracle equivalence with the linear regex matcher', () => {
   it('agrees while the route index is changed in place between requests', () => {
     const random = createRandom(0x2c2_ca5e)
     const mismatches: Mismatch[] = []
-    const coverage = { requests: 0, found: 0, sameSizeKeyChanges: 0 }
+    const coverage = { requests: 0, found: 0, sameSizeKeyChanges: 0, matcherReused: 0, matcherRebuilt: 0 }
+    // The compiled matcher must be reused exactly when the paths and their order
+    // are unchanged: a rebuild on an unchanged index loses the speedup, and
+    // reuse after a key change would serve stale matches.
+    const cacheMismatches: Array<{ kind: string; step: number; keysUnchanged: boolean }> = []
     const changeKinds = new Map<string, number>()
     const staleSensitiveByKind = new Map<string, number>()
     const increment = (counts: Map<string, number>, kind: string): void => {
@@ -163,9 +167,15 @@ describe('matchRoute oracle equivalence with the linear regex matcher', () => {
     for (let run = 0; run < 150; run += 1) {
       const index = generateAdversarialRouteIndex(random)
       const sparePatterns = [...generateAdversarialRouteIndex(random).keys()]
+      let matcherAfterRequests: object | undefined
       for (let step = 0; step < 25; step += 1) {
         // Warm the matcher's cache on the current key set before every change.
         for (const urlPath of generateRequestPaths(random, index, 2)) request(index, urlPath)
+        // Nothing changed the keys since the previous step's requests.
+        const matcherBeforeChange = getCachedRouteMatcher(index)
+        if (matcherAfterRequests && matcherBeforeChange !== matcherAfterRequests) {
+          cacheMismatches.push({ kind: 'no change', step, keysUnchanged: true })
+        }
 
         const previous = new Map(index)
         const change = changeRouteIndexInPlace(random, index, sparePatterns)
@@ -178,12 +188,25 @@ describe('matchRoute oracle equivalence with the linear regex matcher', () => {
         for (const urlPath of [...targeted, ...generateRequestPaths(random, index, 2)]) {
           request(index, urlPath, sameSizeKeyChange ? { index: previous, kind: change.kind } : undefined)
         }
+
+        // Every step makes at least two requests after the change, so the cache
+        // holds whatever matcher matchRoute settled on for the current keys.
+        matcherAfterRequests = getCachedRouteMatcher(index)
+        const keysUnchanged = haveSameKeyOrder(previous, index)
+        if (keysUnchanged) coverage.matcherReused += 1
+        else coverage.matcherRebuilt += 1
+        if ((matcherAfterRequests === matcherBeforeChange) !== keysUnchanged) {
+          cacheMismatches.push({ kind: change.kind, step, keysUnchanged })
+        }
       }
     }
 
     expect(mismatches.slice(0, 5)).toEqual([])
+    expect(cacheMismatches.slice(0, 5)).toEqual([])
     expect(coverage.found).toBeGreaterThan(5_000)
     expect(coverage.sameSizeKeyChanges).toBeGreaterThan(1_500)
+    expect(coverage.matcherReused).toBeGreaterThan(300)
+    expect(coverage.matcherRebuilt).toBeGreaterThan(2_500)
     for (const kind of ['add', 'remove', 'replace', 're-add', 'methods', 'refill']) {
       expect(changeKinds.get(kind) ?? 0, kind).toBeGreaterThan(100)
     }

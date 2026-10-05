@@ -141,6 +141,23 @@ export function matchRoute(
   return { type: 'method_not_allowed', allowed: [...methodMap.keys()] }
 }
 
+/**
+ * The compiled matcher `matchRoute` last cached for `index`, read without
+ * validating it against the index or building one.
+ *
+ * @internal Exported so tests can check, through `matchRoute` alone, that the
+ * matcher is compiled once and reused; the package entry points do not
+ * re-export it.
+ */
+export function getCachedRouteMatcher(index: RouteIndex): object | undefined {
+  return matcherCache.get(index)
+}
+
+/**
+ * The compiled matcher for `index`: the cached one while the index holds the
+ * paths it was built from in the same order, otherwise a new one that replaces
+ * it in the cache.
+ */
 function getRouteMatcher(index: RouteIndex): RouteMatcher {
   const cached = matcherCache.get(index)
   if (cached && hasSamePatterns(index, cached.patterns)) return cached
