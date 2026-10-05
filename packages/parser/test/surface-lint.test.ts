@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { parse as parseYaml } from 'yaml'
 import { lintDocument } from '../src/lint.js'
 
 function baseDoc(overrides: Record<string, unknown> = {}) {
@@ -382,5 +383,61 @@ describe('surface lint — nested schemas and categories integration', () => {
     const quoteResult = results.find(r => r.rule === 'surface/valid-quote-style')
     expect(quoteResult).toBeDefined()
     expect(quoteResult?.severity).toBe('warning')
+  })
+})
+
+// Lint input is the source document. YAML aliases parse to shared objects
+// (a recursive alias to a cycle), so the document can be a DAG or cyclic.
+describe('surface lint — DAG-shaped input', () => {
+  const surfacePaths = (doc: unknown) =>
+    lintDocument(doc, { categories: ['surface'] }).map(r => `${r.rule} ${r.path}`)
+
+  it('reports every location of a node shared through YAML aliases', () => {
+    const doc = parseYaml(`
+openapi: 3.2.0
+info: { title: Shared, version: '1' }
+paths:
+  /a:
+    get:
+      parameters:
+        - &limit
+          name: limit
+          in: query
+          schema: { type: integer }
+          x-surface-fingerprint: not-a-hash
+      responses: { '200': { description: ok } }
+  /b:
+    get:
+      parameters: [*limit]
+      responses: { '200': { description: ok } }
+`)
+
+    expect(surfacePaths(doc)).toEqual([
+      'surface/valid-fingerprint /paths/~1a/get/parameters/0/x-surface-fingerprint',
+      'surface/valid-fingerprint /paths/~1b/get/parameters/0/x-surface-fingerprint',
+    ])
+    expect(surfacePaths(doc)).toEqual(surfacePaths(JSON.parse(JSON.stringify(doc))))
+  })
+
+  it('terminates on recursive YAML aliases and reports each location up to the cycle', () => {
+    const doc = parseYaml(`
+openapi: 3.2.0
+info: { title: Cycle, version: '1' }
+paths: {}
+components:
+  schemas:
+    Node: &node
+      type: object
+      x-surface-quote-style: curly
+      properties:
+        next: *node
+    Alias: *node
+`)
+
+    // A location whose node is its own ancestor is cut; every other location is reported.
+    expect(surfacePaths(doc)).toEqual([
+      'surface/valid-quote-style /components/schemas/Node/x-surface-quote-style',
+      'surface/valid-quote-style /components/schemas/Alias/x-surface-quote-style',
+    ])
   })
 })

@@ -599,29 +599,38 @@ function lintSurface(spec: OasDocument, results: LintResult[]): void {
   })
 }
 
+/**
+ * Calls `visitor` for the record at every location of the document.
+ *
+ * The source document is a DAG when YAML aliases share a node, and lint
+ * reports per location, so a shared node is visited at each of its locations.
+ * Only a node that is its own ancestor (a recursive alias) is cut, which keeps
+ * cyclic input finite.
+ */
 function traverseDocumentNodes(
   node: unknown,
   path: string,
   visitor: (node: Record<string, unknown>, path: string) => void,
-  visited = new Set<unknown>(),
+  ancestors = new Set<unknown>(),
 ): void {
   if (!node || typeof node !== 'object') return
-  if (visited.has(node)) return
-  visited.add(node)
+  if (ancestors.has(node)) return
+  ancestors.add(node)
 
   if (Array.isArray(node)) {
     for (let i = 0; i < node.length; i++) {
-      traverseDocumentNodes(node[i], `${path}/${i}`, visitor, visited)
+      traverseDocumentNodes(node[i], `${path}/${i}`, visitor, ancestors)
     }
-    return
+  } else {
+    const obj = node as Record<string, unknown>
+    visitor(obj, path)
+
+    for (const [key, value] of Object.entries(obj)) {
+      traverseDocumentNodes(value, `${path}/${escapeJsonPointerToken(key)}`, visitor, ancestors)
+    }
   }
 
-  const obj = node as Record<string, unknown>
-  visitor(obj, path)
-
-  for (const [key, value] of Object.entries(obj)) {
-    traverseDocumentNodes(value, `${path}/${escapeJsonPointerToken(key)}`, visitor, visited)
-  }
+  ancestors.delete(node)
 }
 
 function lintSurfaceAnchor(value: unknown, parentPath: string, results: LintResult[]): void {
