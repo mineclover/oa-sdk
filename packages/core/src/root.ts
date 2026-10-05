@@ -68,6 +68,24 @@ export interface ProjectRootDetail {
   matchedMarker?: string
 }
 
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/**
+ * The workspace declaration of a package.json manifest: npm/yarn/bun use a
+ * `workspaces` array, Yarn classic also accepts `{ packages: [...] }`.
+ */
+const PackageWorkspacesSchema = {
+  parse(value: unknown): { declaresWorkspaces: boolean } {
+    if (!isJsonObject(value)) return { declaresWorkspaces: false }
+    const workspaces = value.workspaces
+    return {
+      declaresWorkspaces: Array.isArray(workspaces) || (isJsonObject(workspaces) && Array.isArray(workspaces.packages)),
+    }
+  },
+}
+
 /**
  * Checks whether a package.json file defines a monorepo workspace.
  */
@@ -77,21 +95,7 @@ function isWorkspacePackageJson(filePath: string): boolean {
       return false
     }
     const content = fs.readFileSync(filePath, 'utf-8')
-    const json = JSON.parse(content)
-    if (!json || typeof json !== 'object') {
-      return false
-    }
-    if (Array.isArray(json.workspaces)) {
-      return true
-    }
-    if (
-      json.workspaces &&
-      typeof json.workspaces === 'object' &&
-      Array.isArray(json.workspaces.packages)
-    ) {
-      return true
-    }
-    return false
+    return PackageWorkspacesSchema.parse(JSON.parse(content)).declaresWorkspaces
   } catch {
     return false
   }
