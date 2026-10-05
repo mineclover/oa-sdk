@@ -4,7 +4,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { parse as parseYaml } from 'yaml'
 import { parseDocument, type OasDocument, type ParsedDocument } from '@oa-sdk/parser'
 import type { Command, CommandArgValue } from '../lib/types.js'
-import type { CodegenConfig, OaConfig } from '../../config.js'
+import type { ArtifactKind, CodegenConfig, OaConfig } from '../../config.js'
 import { resolveConfigWithDefaults } from '../../config.js'
 import type { OutputOptions } from '../../types.js'
 import { generateComponents } from '../../generator.js'
@@ -12,11 +12,23 @@ import { bool, optStr } from '../lib/args.js'
 import { CliExitError } from '../lib/errors.js'
 import type { StandaloneGuardGeneratorOptions } from '../../standalone-guards/types.js'
 import { loadOaConfig, resolveProfileTarget } from '../lib/config-loader.js'
+import {
+  CompanionLoader,
+  formatMissingCompanionError,
+  missingCompanionPackages,
+  companionImporterFrom,
+  companionInstallCommand,
+  type MissingCompanionOutput,
+  type CompanionImporter,
+  type CompanionModules,
+  type CompanionPackageName,
+} from '../lib/companion-packages.js'
 import { projectTargetSpec, projectTargetGuards, type TargetSpecProjectionResult } from '../../spec-projector.js'
 import {
   createPathDispatcher,
   OaManifestManager,
   DEFAULT_BANNER_MARKERS,
+  type ManifestArtifact,
   type WriteArtifactInput,
 } from '../../routing/index.js'
 
@@ -89,7 +101,7 @@ export const generate: Command = {
         ],
       }
       const rootDir = context?.projectRoot ?? (context as any)?.rootDir ?? context?.cwd ?? process.cwd()
-      await runConfigDrivenPipeline(syntheticConfig, rootDir)
+      await runConfigDrivenPipeline(syntheticConfig, rootDir, companionImporterFrom(context))
       return
     }
 
@@ -103,7 +115,7 @@ export const generate: Command = {
     if (loaded) {
       // Check if loaded config is extended OaConfig with specs, guards, core, or product
       if (loaded.config.specs || loaded.config.guards || loaded.config.core || loaded.config.product) {
-        await runConfigDrivenPipeline(loaded.config, loaded.rootDir)
+        await runConfigDrivenPipeline(loaded.config, loaded.rootDir, companionImporterFrom(context))
         return
       }
       // Legacy config with schemas
@@ -127,13 +139,137 @@ export const generate: Command = {
 
 type Args = Record<string, CommandArgValue>
 
+/** A pipeline output produced by a companion package, with the artifact kinds it writes. */
+interface CompanionOutput {
+  label: string
+  kinds: readonly ArtifactKind[]
+}
+
+const COMPANION_OUTPUTS = {
+  contracts: { label: 'handler contracts', kinds: ['contract'] },
+  client: { label: 'client SDK', kinds: ['client'] },
+  tanstack: { label: 'TanStack Query options', kinds: ['keys', 'queries'] },
+  crdt: { label: 'CRDT modules', kinds: ['crdt-contract', 'crdt-router', 'crdt-client', 'crdt-hooks'] },
+} as const satisfies Record<string, CompanionOutput>
+
+/** An output the user's own config turns on, together with the switch that does so. */
+interface ExplicitCompanionOutput extends MissingCompanionOutput {
+  configSwitch: string
+}
+
+/**
+ * Outputs that the configuration requests explicitly.
+ *
+ * A config switch set to `true` by the user is an explicit request; it is read
+ * from the raw config, before archetype defaults are merged in. Everything else
+ * the pipeline produces through a companion package is only implied: switches left
+ * at their default, TanStack Query options (no switch), and CRDT modules (driven
+ * by spec extensions).
+ */
+function explicitCompanionOutputs(config: OaConfig): ExplicitCompanionOutput[] {
+  const requested: ExplicitCompanionOutput[] = []
+  if (config.core?.contracts?.pureHandlers === true) {
+    requested.push({
+      output: COMPANION_OUTPUTS.contracts.label,
+      packageName: '@oa-sdk/router',
+      configSwitch: 'core.contracts.pureHandlers',
+      requestedBy: 'core.contracts.pureHandlers: true',
+    })
+  }
+  if (config.core?.client?.enabled === true) {
+    requested.push({
+      output: COMPANION_OUTPUTS.client.label,
+      packageName: '@oa-sdk/client',
+      configSwitch: 'core.client.enabled',
+      requestedBy: 'core.client.enabled: true',
+    })
+  }
+  return requested
+}
+
+/**
+ * Fails, before any artifact is written, when an explicitly requested output
+ * needs a companion package that is not installed.
+ */
+async function assertExplicitCompanionOutputsAvailable(config: OaConfig, companions: CompanionLoader): Promise<void> {
+  const unavailable: ExplicitCompanionOutput[] = []
+  for (const request of explicitCompanionOutputs(config)) {
+    if (await companions.load(request.packageName) === undefined) unavailable.push(request)
+  }
+  if (unavailable.length === 0) return
+
+  const switches = [...new Set(unavailable.map(request => request.configSwitch))]
+  console.error(formatMissingCompanionError('generate', unavailable))
+  console.error(`To generate without ${unavailable.length === 1 ? 'this output' : 'these outputs'}, set ${switches.join(' and ')} to false instead.`)
+  throw new CliExitError(1)
+}
+
+/**
+ * Implied outputs skipped because their companion package is not installed.
+ *
+ * A skipped output keeps what an earlier run generated for it: the spec still
+ * asks for it and it only could not be regenerated here, so those files are not
+ * orphans and must survive pruning.
+ */
+class SkippedCompanionOutputs {
+  readonly entries: MissingCompanionOutput[] = []
+  private readonly retainedKindsByTag = new Set<string>()
+
+  record(output: CompanionOutput, packageName: CompanionPackageName, tags: readonly string[]): void {
+    if (!this.entries.some(entry => entry.output === output.label && entry.packageName === packageName)) {
+      this.entries.push({ output: output.label, packageName })
+    }
+    for (const tag of tags) {
+      for (const kind of output.kinds) this.retainedKindsByTag.add(JSON.stringify([kind, tag]))
+    }
+  }
+
+  /** Recorded artifacts that belong to a skipped output of a spec this run still processed. */
+  retainedPaths(artifacts: readonly ManifestArtifact[]): string[] {
+    return artifacts
+      .filter(artifact => artifact.tag !== undefined
+        && this.retainedKindsByTag.has(JSON.stringify([artifact.kind, artifact.tag])))
+      .map(artifact => artifact.path)
+  }
+
+  /** Warning that names every skipped output, its package, and the install command. */
+  format(): string {
+    const lines = ['⚠️  [oa-gen generate] Skipped outputs whose companion package is not installed:']
+    for (const entry of this.entries) lines.push(`   - ${entry.output}: ${entry.packageName}`)
+    lines.push('   Install the packages to generate these outputs (files from earlier runs are kept):')
+    lines.push(`     ${companionInstallCommand(missingCompanionPackages(this.entries))}`)
+    lines.push('   Outputs turned on explicitly (core.contracts.pureHandlers: true, core.client.enabled: true) fail generation instead of being skipped.')
+    return lines.join('\n')
+  }
+}
+
 /**
  * Executes declarative multi-target generation driven by oa.config.ts.
  */
-async function runConfigDrivenPipeline(config: OaConfig, rootDir: string): Promise<void> {
+async function runConfigDrivenPipeline(
+  config: OaConfig,
+  rootDir: string,
+  importCompanion: CompanionImporter,
+): Promise<void> {
   const resolvedConfig = resolveConfigWithDefaults(config)
   const specs = resolvedConfig.specs ?? []
   const specResults: TargetSpecProjectionResult[] = []
+
+  // Companion-backed outputs only exist for projected specs; without specs nothing needs a companion.
+  const companions = new CompanionLoader(importCompanion)
+  if (specs.length > 0) {
+    await assertExplicitCompanionOutputsAvailable(config, companions)
+  }
+  const skippedCompanionOutputs = new SkippedCompanionOutputs()
+  const loadCompanionFor = async <N extends CompanionPackageName>(
+    output: CompanionOutput,
+    packageName: N,
+    tags: readonly string[],
+  ): Promise<CompanionModules[N] | undefined> => {
+    const loaded = await companions.load(packageName)
+    if (loaded === undefined) skippedCompanionOutputs.record(output, packageName, tags)
+    return loaded
+  }
 
   const outputRouting = resolvedConfig.product?.outputRouting ?? resolvedConfig.outputRouting
   const dispatcher = createPathDispatcher(outputRouting, rootDir)
@@ -207,38 +343,42 @@ async function runConfigDrivenPipeline(config: OaConfig, rootDir: string): Promi
     }
   }
 
+  const specTags = specResults.map(res => res.target.id)
+
   // Step 3: Handler Contracts (@oa-sdk/router)
   const contractsConfig = resolvedConfig.core?.contracts
   let contractsGeneratedCount = 0
   if (contractsConfig?.pureHandlers !== false && specResults.length > 0) {
     try {
-      const { generateHandlerContract } = await import('@oa-sdk/router')
-      for (const res of specResults) {
-        const contractCode = generateHandlerContract(parsedSpec(res), {
-          contractName: contractsConfig?.contractName ?? 'ApiHandlers',
-          banner: contractsConfig?.banner ?? true,
-          contextImport: resolvedConfig.product?.contextInjection?.importPath,
-          contextTypeName: resolvedConfig.product?.contextInjection?.typeName,
-        })
+      const router = await loadCompanionFor(COMPANION_OUTPUTS.contracts, '@oa-sdk/router', specTags)
+      if (router) {
+        for (const res of specResults) {
+          const contractCode = router.generateHandlerContract(parsedSpec(res), {
+            contractName: contractsConfig?.contractName ?? 'ApiHandlers',
+            banner: contractsConfig?.banner ?? true,
+            contextImport: resolvedConfig.product?.contextInjection?.importPath,
+            contextTypeName: resolvedConfig.product?.contextInjection?.typeName,
+          })
 
-        let contractPath: string
-        if (outputRouting) {
-          contractPath = dispatcher.dispatch({ kind: 'contract', tag: res.target.id }).absolutePath
-        } else if (contractsConfig?.outDir) {
-          contractPath = resolve(rootDir, contractsConfig.outDir, `${res.target.id}.contract.ts`)
-        } else {
-          const targetResolved = resolveProfileTarget(res.target, rootDir)
-          contractPath = resolve(targetResolved.resolvedOutDir, `${res.target.id}.contract.ts`)
+          let contractPath: string
+          if (outputRouting) {
+            contractPath = dispatcher.dispatch({ kind: 'contract', tag: res.target.id }).absolutePath
+          } else if (contractsConfig?.outDir) {
+            contractPath = resolve(rootDir, contractsConfig.outDir, `${res.target.id}.contract.ts`)
+          } else {
+            const targetResolved = resolveProfileTarget(res.target, rootDir)
+            contractPath = resolve(targetResolved.resolvedOutDir, `${res.target.id}.contract.ts`)
+          }
+
+          artifactsToWrite.push({
+            path: contractPath,
+            kind: 'contract',
+            tag: res.target.id,
+            content: contractCode,
+            sourceSpec: res.openApiPath,
+          })
+          contractsGeneratedCount++
         }
-
-        artifactsToWrite.push({
-          path: contractPath,
-          kind: 'contract',
-          tag: res.target.id,
-          content: contractCode,
-          sourceSpec: res.openApiPath,
-        })
-        contractsGeneratedCount++
       }
     } catch (err) {
       console.warn('⚠️  Failed to generate handler contracts via @oa-sdk/router:', err instanceof Error ? err.message : String(err))
@@ -250,32 +390,34 @@ async function runConfigDrivenPipeline(config: OaConfig, rootDir: string): Promi
   let clientGeneratedCount = 0
   if (clientConfig?.enabled !== false && specResults.length > 0) {
     try {
-      const { generateClient } = await import('@oa-sdk/client')
-      for (const res of specResults) {
-        const typesImport = clientConfig?.typesImport ?? (res.target as any).typesImport
-        const clientCode = generateClient(parsedSpec(res), {
-          banner: true,
-          ...(typesImport ? { typesImport } : {}),
-        })
+      const client = await loadCompanionFor(COMPANION_OUTPUTS.client, '@oa-sdk/client', specTags)
+      if (client) {
+        for (const res of specResults) {
+          const typesImport = clientConfig?.typesImport ?? (res.target as any).typesImport
+          const clientCode = client.generateClient(parsedSpec(res), {
+            banner: true,
+            ...(typesImport ? { typesImport } : {}),
+          })
 
-        let clientPath: string
-        if (outputRouting) {
-          clientPath = dispatcher.dispatch({ kind: 'client', tag: res.target.id }).absolutePath
-        } else if (clientConfig?.outDir) {
-          clientPath = resolve(rootDir, clientConfig.outDir, `${res.target.id}.client.ts`)
-        } else {
-          const targetResolved = resolveProfileTarget(res.target, rootDir)
-          clientPath = resolve(targetResolved.resolvedOutDir, `${res.target.id}.client.ts`)
+          let clientPath: string
+          if (outputRouting) {
+            clientPath = dispatcher.dispatch({ kind: 'client', tag: res.target.id }).absolutePath
+          } else if (clientConfig?.outDir) {
+            clientPath = resolve(rootDir, clientConfig.outDir, `${res.target.id}.client.ts`)
+          } else {
+            const targetResolved = resolveProfileTarget(res.target, rootDir)
+            clientPath = resolve(targetResolved.resolvedOutDir, `${res.target.id}.client.ts`)
+          }
+
+          artifactsToWrite.push({
+            path: clientPath,
+            kind: 'client',
+            tag: res.target.id,
+            content: clientCode,
+            sourceSpec: res.openApiPath,
+          })
+          clientGeneratedCount++
         }
-
-        artifactsToWrite.push({
-          path: clientPath,
-          kind: 'client',
-          tag: res.target.id,
-          content: clientCode,
-          sourceSpec: res.openApiPath,
-        })
-        clientGeneratedCount++
       }
     } catch (err) {
       console.warn('⚠️  Failed to generate client SDK via @oa-sdk/client:', err instanceof Error ? err.message : String(err))
@@ -286,69 +428,72 @@ async function runConfigDrivenPipeline(config: OaConfig, rootDir: string): Promi
   let tanstackGeneratedCount = 0
   if (specResults.length > 0) {
     try {
-      const { generateTanstackQuery } = await import('@oa-sdk/client')
-      for (const res of specResults) {
-        let clientImport: string | undefined
-        let keysPath: string
-        let queriesPath: string
-
-        if (outputRouting) {
-          keysPath = dispatcher.dispatch({ kind: 'keys', tag: res.target.id }).absolutePath
-          queriesPath = dispatcher.dispatch({ kind: 'queries', tag: res.target.id }).absolutePath
-          clientImport = dispatcher.resolveImport(
-            { kind: 'queries', tag: res.target.id },
-            { kind: 'client', tag: res.target.id },
-          )
-        } else {
-          const targetResolved = resolveProfileTarget(res.target, rootDir)
-          keysPath = resolve(targetResolved.resolvedOutDir, `${res.target.id}.keys.ts`)
-          queriesPath = resolve(targetResolved.resolvedOutDir, `${res.target.id}.queries.ts`)
-          clientImport = `./${res.target.id}.client.js`
+      const client = await loadCompanionFor(COMPANION_OUTPUTS.tanstack, '@oa-sdk/client', specTags)
+      if (client) {
+        const { generateTanstackQuery } = client
+        for (const res of specResults) {
+          let clientImport: string | undefined
+          let keysPath: string
+          let queriesPath: string
+  
+          if (outputRouting) {
+            keysPath = dispatcher.dispatch({ kind: 'keys', tag: res.target.id }).absolutePath
+            queriesPath = dispatcher.dispatch({ kind: 'queries', tag: res.target.id }).absolutePath
+            clientImport = dispatcher.resolveImport(
+              { kind: 'queries', tag: res.target.id },
+              { kind: 'client', tag: res.target.id },
+            )
+          } else {
+            const targetResolved = resolveProfileTarget(res.target, rootDir)
+            keysPath = resolve(targetResolved.resolvedOutDir, `${res.target.id}.keys.ts`)
+            queriesPath = resolve(targetResolved.resolvedOutDir, `${res.target.id}.queries.ts`)
+            clientImport = `./${res.target.id}.client.js`
+          }
+  
+          if (outputRouting && keysPath !== queriesPath) {
+            const keysImport = dispatcher.resolveImport(
+              { kind: 'queries', tag: res.target.id },
+              { kind: 'keys', tag: res.target.id },
+            )
+            const tanstackResult = generateTanstackQuery(parsedSpec(res), {
+              queryPackage: '@tanstack/react-query',
+              includeHooks: true,
+              clientImport,
+              keysImport,
+              tier: 'all',
+            })
+  
+            artifactsToWrite.push({
+              path: keysPath,
+              kind: 'keys',
+              tag: res.target.id,
+              content: tanstackResult.keysCode,
+              sourceSpec: res.openApiPath,
+            })
+            artifactsToWrite.push({
+              path: queriesPath,
+              kind: 'queries',
+              tag: res.target.id,
+              content: tanstackResult.queriesCode,
+              sourceSpec: res.openApiPath,
+            })
+          } else {
+            const tanstackResult = generateTanstackQuery(parsedSpec(res), {
+              queryPackage: '@tanstack/react-query',
+              includeHooks: true,
+              clientImport,
+            })
+  
+            artifactsToWrite.push({
+              path: queriesPath,
+              kind: 'queries',
+              tag: res.target.id,
+              content: tanstackResult.combinedCode,
+              sourceSpec: res.openApiPath,
+            })
+          }
+          tanstackGeneratedCount++
         }
-
-        if (outputRouting && keysPath !== queriesPath) {
-          const keysImport = dispatcher.resolveImport(
-            { kind: 'queries', tag: res.target.id },
-            { kind: 'keys', tag: res.target.id },
-          )
-          const tanstackResult = generateTanstackQuery(parsedSpec(res), {
-            queryPackage: '@tanstack/react-query',
-            includeHooks: true,
-            clientImport,
-            keysImport,
-            tier: 'all',
-          })
-
-          artifactsToWrite.push({
-            path: keysPath,
-            kind: 'keys',
-            tag: res.target.id,
-            content: tanstackResult.keysCode,
-            sourceSpec: res.openApiPath,
-          })
-          artifactsToWrite.push({
-            path: queriesPath,
-            kind: 'queries',
-            tag: res.target.id,
-            content: tanstackResult.queriesCode,
-            sourceSpec: res.openApiPath,
-          })
-        } else {
-          const tanstackResult = generateTanstackQuery(parsedSpec(res), {
-            queryPackage: '@tanstack/react-query',
-            includeHooks: true,
-            clientImport,
-          })
-
-          artifactsToWrite.push({
-            path: queriesPath,
-            kind: 'queries',
-            tag: res.target.id,
-            content: tanstackResult.combinedCode,
-            sourceSpec: res.openApiPath,
-          })
-        }
-        tanstackGeneratedCount++
       }
     } catch (err) {
       console.warn('⚠️  Failed to generate TanStack Query options via @oa-sdk/client:', err instanceof Error ? err.message : String(err))
@@ -365,8 +510,12 @@ async function runConfigDrivenPipeline(config: OaConfig, rootDir: string): Promi
 
     if (hasCrdtEntity) {
       try {
-        const { generateCrdtHandlerContract, generateCrdtRouter } = await import('@oa-sdk/router')
-        const { generateCrdtClient, generateCrdtHooks } = await import('@oa-sdk/client')
+        // The four CRDT modules reference each other, so they are produced together or not at all.
+        const router = await loadCompanionFor(COMPANION_OUTPUTS.crdt, '@oa-sdk/router', [res.target.id])
+        const client = await loadCompanionFor(COMPANION_OUTPUTS.crdt, '@oa-sdk/client', [res.target.id])
+        if (!router || !client) continue
+        const { generateCrdtHandlerContract, generateCrdtRouter } = router
+        const { generateCrdtClient, generateCrdtHooks } = client
 
         const targetResolved = resolveProfileTarget(res.target, rootDir)
         const targetDir = targetResolved.resolvedOutDir
@@ -452,6 +601,7 @@ async function runConfigDrivenPipeline(config: OaConfig, rootDir: string): Promi
   const activePaths = artifactsToWrite.map((a) =>
     relative(rootDir, resolve(rootDir, a.path)),
   )
+  activePaths.push(...skippedCompanionOutputs.retainedPaths(writeResult.manifest.artifacts))
   await manifestManager.pruneOrphans(activePaths)
 
   // Step 7: Formatted Summary
@@ -483,6 +633,9 @@ async function runConfigDrivenPipeline(config: OaConfig, rootDir: string): Promi
     console.log(` ✅ ${guardSummary}`)
   }
   console.log('================================================================================\n')
+  if (skippedCompanionOutputs.entries.length > 0) {
+    console.warn(skippedCompanionOutputs.format() + '\n')
+  }
 }
 
 async function runConfigWithObject(config: OaConfig, args: Args): Promise<void> {

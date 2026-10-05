@@ -4,9 +4,10 @@ import type { Command, CommandArgValue, CommandContext } from '../lib/types.js'
 import { optStr, bool, resolveArgPath } from '../lib/args.js'
 import { CliExitError } from '../lib/errors.js'
 import type { TypeSpecCompilationResult, TypeSpecWatcher } from '../lib/typespec-mock-compiler.js'
+import { companionImporterFrom, requireCompanion, type CompanionCommandContext } from '../lib/companion-packages.js'
 import { parseSpecDocument, watchSpec, type SpecWatcher } from '../lib/spec-watcher.js'
 
-export interface MockCommandContext extends CommandContext {
+export interface MockCommandContext extends CompanionCommandContext {
   signal?: AbortSignal
   onServerReady?: (server: NodeMockServer) => void | Promise<void>
 }
@@ -59,6 +60,12 @@ export const mock: Command = {
       throw new CliExitError(1)
     }
 
+    const { createNodeMockServer } = await requireCompanion('@oa-sdk/mock-server', {
+      command: 'mock',
+      output: 'the mock server',
+      importer: companionImporterFrom(context),
+    })
+
     if (tspPath) {
       const resolvedTsp = resolveArgPath(args, 'tsp', context?.projectRoot)
       console.log(`[oa-gen mock] Compiling TypeSpec in-memory: ${resolvedTsp}...`)
@@ -73,7 +80,6 @@ export const mock: Command = {
       }
 
       console.log(`[oa-gen mock] Compiled successfully (${initial.routesCount} operations detected). Starting mock server...`)
-      const { createNodeMockServer } = await import('@oa-sdk/mock-server')
       const server = createNodeMockServer(initial.document, { port, host, stateful: isStateful })
       await server.start()
       console.log(`🚀 Zero-Build Instant Mock Server running at: ${server.url}`)
@@ -152,7 +158,6 @@ export const mock: Command = {
         throw new CliExitError(1)
       }
 
-      const { createNodeMockServer } = await import('@oa-sdk/mock-server')
       const server = createNodeMockServer(doc, { port, host, stateful: isStateful })
       await server.start()
       console.log(`🚀 Zero-Build Mock Server running at: ${server.url}`)

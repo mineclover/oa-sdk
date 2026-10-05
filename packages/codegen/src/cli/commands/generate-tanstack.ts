@@ -4,6 +4,7 @@ import { optStr, bool } from '../lib/args.js'
 import { CliExitError } from '../lib/errors.js'
 import { loadSpecDocumentAsync } from '../lib/load-spec.js'
 import { loadOaConfig } from '../lib/config-loader.js'
+import { companionImporterFrom, requireCompanion } from '../lib/companion-packages.js'
 import { createPathDispatcher } from '../../routing/index.js'
 import { OaManifestManager, type WriteArtifactInput } from '../../routing/manifest-manager.js'
 
@@ -55,6 +56,12 @@ export const generateTanstackCommand: Command = {
       throw new CliExitError(1)
     }
 
+    const { generateTanstackQuery } = await requireCompanion('@oa-sdk/client', {
+      command: 'generate:tanstack',
+      output: 'TanStack Query options',
+      importer: companionImporterFrom(context),
+    })
+
     const rootDir = (context as any)?.rootDir ?? context?.projectRoot ?? (context as any)?.cwd ?? process.cwd()
 
     let loadedSpec: Awaited<ReturnType<typeof loadSpecDocumentAsync>>
@@ -101,9 +108,6 @@ export const generateTanstackCommand: Command = {
     // Output routing resolution
     const outputRouting = loadedConfig?.config?.product?.outputRouting ?? loadedConfig?.config?.outputRouting
     const dispatcher = createPathDispatcher(outputRouting, loadedConfig?.rootDir ?? rootDir)
-
-    // Dynamic import of @oa-sdk/client
-    const { generateTanstackQuery } = await import('@oa-sdk/client')
 
     const manifestManager = new OaManifestManager(loadedConfig?.rootDir ?? rootDir)
     const artifactsToWrite: WriteArtifactInput[] = []

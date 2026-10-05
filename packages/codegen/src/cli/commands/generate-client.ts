@@ -4,6 +4,7 @@ import type { Command, CommandContext } from '../lib/types.js'
 import { optStr, bool, str } from '../lib/args.js'
 import { CliExitError } from '../lib/errors.js'
 import { loadSpecDocumentAsync } from '../lib/load-spec.js'
+import { companionImporterFrom, requireCompanion } from '../lib/companion-packages.js'
 import { writeOutput } from '../lib/output.js'
 
 export const generateClientCommand: Command = {
@@ -53,6 +54,13 @@ export const generateClientCommand: Command = {
       throw new CliExitError(1)
     }
 
+    const isPack = bool(args, 'pack')
+    const { generateClient } = await requireCompanion('@oa-sdk/client', {
+      command: isPack ? 'pack:client' : 'generate:client',
+      output: isPack ? 'the client SDK package' : 'the client SDK',
+      importer: companionImporterFrom(context),
+    })
+
     let loadedSpec: Awaited<ReturnType<typeof loadSpecDocumentAsync>>
     try {
       loadedSpec = await loadSpecDocumentAsync(specArg)
@@ -61,7 +69,6 @@ export const generateClientCommand: Command = {
       throw new CliExitError(1)
     }
 
-    const isPack = bool(args, 'pack')
     const outputPath = optStr(args, 'output')
 
     if (isPack) {
@@ -78,7 +85,6 @@ export const generateClientCommand: Command = {
       const { generateTypesFromSpec } = await import('../../typegen/index.js')
       const typesCode = generateTypesFromSpec(loadedSpec.document as any, { basePath: loadedSpec.path })
 
-      const { generateClient } = await import('@oa-sdk/client')
       const clientCode = generateClient(loadedSpec.document as any, {
         banner: true,
         typesImport: './types.js',
@@ -150,7 +156,6 @@ export const generateClientCommand: Command = {
       return
     }
 
-    const { generateClient } = await import('@oa-sdk/client')
     const typesImport = optStr(args, 'types-import')
     const banner = bool(args, 'banner') !== false
 
