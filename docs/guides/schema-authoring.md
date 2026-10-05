@@ -201,18 +201,24 @@ parameters:
 
 ### discriminator `defaultMapping`
 
-OpenAPI 3.2의 `discriminator.defaultMapping`은 `mapping`에 없는 discriminant 값에 쓸 기본 스키마를 선언합니다.
-`oa-gen generate:zod`는 `defaultMapping`이 있으면 `z.discriminatedUnion(...)`과 기본 스키마를 `z.union([...])`으로 묶습니다.
+OpenAPI 3.2의 `discriminator.defaultMapping`은 discriminant 속성이 없거나 그 값이 `mapping`에 없을 때 쓸 기본
+스키마를 선언합니다. `oa-gen generate:zod`는 `oneOf`와 `discriminator`가 함께 있는 스키마에서만 discriminator를
+씁니다. `oneOf` 없이 `discriminator`만 둔 object는 `z.object({...})`로만 생성되므로 변형 스키마를 모두 `oneOf`에
+나열합니다.
 
 ```yaml
 components:
   schemas:
+    # UserCreatedEvent, UserUpdatedEvent, GenericEvent는 eventType 속성을 가진 object로 따로 정의합니다.
     Event:
       type: object
-      required: [eventType]
       properties:
         eventType:
           type: string
+      oneOf:
+        - $ref: "#/components/schemas/UserCreatedEvent"
+        - $ref: "#/components/schemas/UserUpdatedEvent"
+        - $ref: "#/components/schemas/GenericEvent"
       discriminator:
         propertyName: eventType
         mapping:
@@ -220,6 +226,16 @@ components:
           user_updated: "#/components/schemas/UserUpdatedEvent"
         defaultMapping: "#/components/schemas/GenericEvent" # OAS 3.2 전용 기본 스키마
 ```
+
+생성되는 `EventSchema`는 `properties`로 만든 `z.object({...})`에 `.and(...)`로 다음 union을 합친 형태입니다.
+
+- `mapping`의 각 값은 해당 변형에 `eventType: z.literal("<값>")`을 붙인 분기가 되어
+  `z.discriminatedUnion("eventType", [...], { unionFallback: true })`로 묶입니다.
+- `defaultMapping`이 있으면 이 union과 기본 스키마(`eventType`은 `z.string().optional()`)를 `z.union([...])`으로
+  묶습니다. 그래서 `mapping`에 있는 값이라도 해당 변형에 맞지 않는 본문이 기본 스키마에 맞으면 통과합니다(알려진 제한,
+  예: `UserCreatedEvent`의 필수 속성이 빠진 `{"eventType":"user_created"}`도 `GenericEvent`로 통과).
+- discriminant를 `Event`의 `required`에 넣으면 속성이 없는 본문은 기본 스키마로 가지 않고 `z.object` 부분에서
+  거부됩니다. 위 예제는 속성이 없는 본문도 `GenericEvent`로 받도록 `required`에 넣지 않았습니다.
 
 ## 5. 공통 컴포넌트 (저장소 production 계약)
 
