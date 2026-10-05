@@ -243,8 +243,10 @@ op getInvoiceById(@path id: string): Ok<Invoice>;
 ### 컨벤션 3: 표준 제네릭 응답 엔벨롭 필수 사용 (No Ad-hoc Responses)
 개별 엔드포인트마다 일회성 `200Response` 모델을 만들지 않고, `@oa-sdk/typespec-decorators`의 표준 템플릿을 사용합니다:
 ```typespec
+import "@typespec/http";
 import "@oa-sdk/typespec-decorators";
-using OaSdkContracts; // 전역 표준 템플릿 사용
+using TypeSpec.Http;
+using OaSdkTypeSpec; // 표준 템플릿 (데코레이터와 같은 namespace)
 
 op getInvoice(@path id: string): Ok<Invoice>;                         // 200 OK
 op createInvoice(@body req: CreateInvoiceRequest): Created<Invoice>;  // 201 Created
@@ -343,7 +345,7 @@ model Customer {
 - 파일마다 `Ok<T>`, `Created<T>`, `NoContent`, `PageResult<T>`를 직접 반복 정의하는 대신, 사내 플랫폼 표준인 `@oa-sdk/typespec-decorators`를 임포트하면 수십 줄의 중복을 제거할 수 있습니다:
   ```typespec
   import "@oa-sdk/typespec-decorators";
-  using OaSdkContracts;
+  using OaSdkTypeSpec;
   ```
 
 ---

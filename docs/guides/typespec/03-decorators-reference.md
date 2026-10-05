@@ -294,13 +294,17 @@ model Article {
 - **`@foreignKey(targetField)`**: 논리 외래 키 참조 관계 선언.
 - **`@relationship(id, from, to, cardinality)`**: 두 필드 간 카디널리티(`one-to-one`, `one-to-many`, `many-to-one`) 선언.
 
-#### 3) 플랫폼 공통 계약 모듈 (`OaSdkContracts`)
-- `Ok<T>`: 200 OK 단건 응답 (`{ @statusCode: 200, @body body: T }`)
+#### 3) 플랫폼 공통 계약 (`lib/contracts.tsp`, namespace `OaSdkTypeSpec`)
+`import "@oa-sdk/typespec-decorators";`가 데코레이터와 함께 불러오며, 데코레이터와 같은 `OaSdkTypeSpec` namespace에 있으므로 `using OaSdkTypeSpec;` 하나로 둘 다 사용합니다.
+
+- `Ok<T>`: 200 OK 단건 응답 (`{ @statusCode statusCode: 200, @body body: T }`)
 - `Created<T>`: 201 Created 리소스 생성 완료 응답
 - `NoContent<T = void>`: 204 No Content 바디 없는 응답
-- `PageResult<T>`: 표준 페이징 응답 객체 (`items`, `total`, `page`, `limit`)
-- `StandardError`: RFC 7807/RFC 9457 호환 에러 DTO (`code`, `message`, `details?`)
-- `StandardHttpErrors.*`: 400 ~ 500대 정형 에러 (`BadRequest`, `Unauthorized`, `Forbidden`, `NotFound`, `Conflict`, `InternalServerError`)
+- `PageResult<T>`: 표준 페이징 body 모델 (`items`, `total`, `page`, `limit`). 응답으로 쓰려면 `Ok<PageResult<T>>`처럼 감쌉니다.
+- `ErrorResponse<Status>`: 지정한 상태 코드와 `StandardError` body를 가진 에러 응답
+- `StandardError`: 에러 body (`code`, `message`, `details?: StandardValidationError[]`, `_meta?`). RFC 9457 Problem Details 형식은 아닙니다.
+- `StandardValidationError`: 필드 수준 검증 에러 (`path`, `message`, `received?`, `expected?`)
+- `StandardHttpErrors`: `ErrorResponse<400> | ErrorResponse<401> | ErrorResponse<403> | ErrorResponse<404> | ErrorResponse<500>` 유니온 alias. 그 밖의 상태(409 등)는 `ErrorResponse<409>`처럼 직접 씁니다.
 
 ---
 
@@ -318,7 +322,7 @@ import "@oa-sdk/typespec-decorators";
 
 using TypeSpec.Http;
 using TypeSpec.OpenAPI;
-using OaSdkContracts;
+using OaSdkTypeSpec;
 
 @route("/api/v1/projects")
 @tag("projects")
@@ -516,23 +520,26 @@ model CanvasLayer {
 
 ---
 
-### 패턴 6: 멀티 스테이터스 에러 유니온 합성 패턴 (`RFC 9457`)
-성공 응답과 도메인별 세부 에러 응답(RFC 9457 `ProblemDetails`)을 오퍼레이션 반환 타입에 유니온(`|`)으로 명시하여, 클라이언트 SDK 및 백엔드 핸들러 계약(`*.contract.ts`)에 강력한 다중 상태 분기 타입을 주입합니다.
+### 패턴 6: 멀티 스테이터스 에러 유니온 합성 패턴 (`ErrorResponse<Status>`)
+성공 응답과 상태 코드별 에러 응답(`StandardError` body)을 오퍼레이션 반환 타입에 유니온(`|`)으로 명시하여, 클라이언트 SDK 및 백엔드 핸들러 계약(`*.contract.ts`)에 강력한 다중 상태 분기 타입을 주입합니다. `StandardHttpErrors`는 400·401·403·404·500을 한 번에 더하는 alias이고, 그 밖의 상태는 `ErrorResponse<Status>`로 하나씩 더합니다.
 
 ```typespec
+import "@typespec/http";
 import "@oa-sdk/typespec-decorators";
-using OaSdkContracts;
+
+using TypeSpec.Http;
+using OaSdkTypeSpec;
 
 @doc("결제 승인 처리")
 @route("/payments/charge")
 @post
 op chargePayment(
   @body req: ChargeRequest
-): Ok<ChargeResult> 
- | StandardHttpErrors.BadRequest           // 400 잘못된 카드 정보
- | ErrorResponse<402>                      // 402 한도 초과/잔액 부족
- | StandardHttpErrors.Conflict             // 409 중복 결제 멱등성 충돌
- | StandardHttpErrors.InternalServerError; // 500 PG사 통신 실패
+): Ok<ChargeResult>
+ | ErrorResponse<400>   // 400 잘못된 카드 정보
+ | ErrorResponse<402>   // 402 한도 초과/잔액 부족
+ | ErrorResponse<409>   // 409 중복 결제 멱등성 충돌
+ | ErrorResponse<500>;  // 500 PG사 통신 실패
 ```
 
 ---
@@ -618,7 +625,7 @@ TypeSpec 데코레이터 및 `.tsp` 모델 작성 시 반드시 확인해야 하
 - [ ] **단일 모델 가시성 활용**: 동일 리소스의 Create/Update/Read 필드 차이를 위해 DTO를 난립시키지 않고 **`@visibility`** 패턴 도입을 우선 검토했는가?
 - [ ] **엄격한 수치 제약**: 부동소수점 및 정수 경계에 `@minValue` 및 `@maxValue`를 명시하여 OpenAPI `exclusiveMinimum` / `minimum` 키워드가 정상 방출되도록 했는가?
 - [ ] **다형성 식별자 태그**: 다형성 상속 모델에서 베이스 모델에 `@discriminator("type")`을 붙이고 파생 모델에서 리터럴 타입(`type: "fade";`)을 명확히 고정했는가?
-- [ ] **제네릭 에러 계약**: 일회성 에러 모델 대신 `OaSdkContracts`의 `StandardError` 및 RFC 9457 호환 응답 템플릿을 활용했는가?
+- [ ] **제네릭 에러 계약**: 일회성 에러 모델 대신 `@oa-sdk/typespec-decorators`(`using OaSdkTypeSpec;`)의 `StandardError`, `ErrorResponse<Status>`, `StandardHttpErrors` 템플릿을 활용했는가?
 
 ---
 

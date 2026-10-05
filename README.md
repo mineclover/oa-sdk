@@ -46,7 +46,7 @@ OpenAPI 3.2 contract를 중심으로 한 API governance 인프라 모노레포.
 | `@oa-sdk/codegen` | `oa-gen` CLI, Definition Builder target artifact, OpenAPI 수집/정규화/업그레이드/diff/review, typegen 생성, Zod/Drizzle projection bridge. router/client는 private downstream package API가 소유 |
 | `@oa-sdk/spec-lens` | OpenAPI spec change history observation과 review surface 관리 |
 | `@oa-sdk/spec-lens-contract` | spec-lens HTTP wire contract와 browser-safe response types |
-| `@oa-sdk/typespec-decorators` | production TypeSpec source에서 검증된 OA SDK extension decorator와 플랫폼 공통 표준 계약(`contracts.tsp` / `OaSdkContracts`)을 제공 |
+| `@oa-sdk/typespec-decorators` | production TypeSpec source에서 검증된 OA SDK extension decorator와 플랫폼 공통 표준 계약(`contracts.tsp`, 데코레이터와 같은 namespace `OaSdkTypeSpec`)을 제공 |
 | `@oa-sdk/ast-sync` | TypeScript AST 양방향 동기화, type adapter, 독립형 guard 생성 |
 | `@oa-sdk/tools` | JSON Schema 기반 MCP·HTTP·CLI 도구 계약과 실행 adapter |
 

@@ -56,10 +56,10 @@
 
 ---
 
-## 3. 표준 제네릭 응답 템플릿 활용 (`common.tsp` 및 `OaSdkContracts`)
+## 3. 표준 제네릭 응답 템플릿 활용 (`common.tsp` 및 `@oa-sdk/typespec-decorators`)
 
 각 엔드포인트마다 `*200Response`, `*401Response` 등의 반복적인 일회성 모델을 직접 정의하지 않고 표준 제네릭 템플릿을 사용합니다.
-이 템플릿들은 `packages/schemas/typespec/common.tsp`에 정의되어 있을 뿐만 아니라, `@oa-sdk/typespec-decorators`에 패키징되어 있어 외부 패키지나 타 프로젝트에서도 `import "@oa-sdk/typespec-decorators"; using OaSdkContracts;` 구문으로 동일하게 재사용할 수 있습니다:
+이 템플릿들은 `packages/schemas/typespec/common.tsp`(namespace `OaSdkApi`)에 정의되어 있을 뿐만 아니라, `@oa-sdk/typespec-decorators`의 `lib/contracts.tsp`(namespace `OaSdkTypeSpec`, 데코레이터와 같은 namespace)에도 패키징되어 있어 외부 패키지나 타 프로젝트에서도 `import "@oa-sdk/typespec-decorators"; using OaSdkTypeSpec;` 구문으로 동일하게 재사용할 수 있습니다. 두 곳 모두 `StandardHttpErrors`(400·401·403·404·500 `ErrorResponse` 유니온 alias)를 제공하며, 패키지판 `ErrorResponse<Status>`의 body는 아래 `Error` 대신 `StandardError`(`details`는 `StandardValidationError[]`)입니다:
 
 ### 3.1 제공되는 표준 템플릿
 ```typespec
