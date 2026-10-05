@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { validateRawArgs, validateParsedArgs } from '../../core/validator.js'
 import { generateFromSchema } from '../../core/generate.js'
 import { createMockApplication, createMinimalFunction } from '../fixtures/mock-application.js'
-import type { ILlmApplication } from '../../types.js'
+import type { ILlmApplication, ILlmFunction } from '../../types.js'
 
 const app = createMockApplication()
 
@@ -141,6 +141,21 @@ describe('minimal function (no pipeline methods)', () => {
     if (!result.success) {
       expect(result.stage).toBe('parse')
     }
+  })
+
+  it('JSON.parse 폴백: validate의 SyntaxError는 parse 실패가 아니라 호출자에게 전달', () => {
+    const save: ILlmFunction = {
+      name: 'save',
+      parameters: { type: 'object', properties: { payload: { type: 'string' } } },
+      // A validator that parses a nested JSON string throws its own SyntaxError.
+      validate: (input) => ({ success: true, data: JSON.parse(String((input as { payload: unknown }).payload)) }),
+    }
+    const saveApp: ILlmApplication = { functions: [save] }
+
+    expect(() => validateRawArgs(saveApp, 'save', '{"payload":"{not json"}')).toThrow(SyntaxError)
+    // Malformed JSON arguments are still a parse-stage failure.
+    expect(validateRawArgs(saveApp, 'save', '{"payload":')).toMatchObject({ success: false, stage: 'parse' })
+    expect(validateRawArgs(saveApp, 'save', '{"payload":"{\\"ok\\":true}"}')).toMatchObject({ success: true, data: { ok: true } })
   })
 
   it('validate 없이 parsed data → 통과', () => {
