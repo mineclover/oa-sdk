@@ -698,6 +698,6 @@ export function $cachePolicy(
 - [`@oa-sdk/typespec-decorators` README](../../../packages/typespec-decorators/README.md)
 - [TypeSpec 5분 퀵스타트 (저장소 기여자용)](./01-quickstart-5min.md)
 - [스캐폴딩 및 Semantic Diff 도구 활용법](./04-scaffolding-and-diff.md)
-- [TypeSpec 아티팩트 생성 토폴로지 및 아키텍처 규칙](./06-generation-topologies-and-rules.md)
+- [TypeSpec 생성물 배치 토폴로지와 아키텍처 규칙](./06-generation-topologies-and-rules.md)
 - [스키마 아키텍처 및 작성 규칙](../schema-architecture-and-conventions.md)
 - [선언적 스펙 설정 가이드 (oa.config.ts)](../declarative-spec-configuration.md)

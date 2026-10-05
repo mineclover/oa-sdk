@@ -149,4 +149,4 @@ TypeSpec(`.tsp`)을 작성하고 검증할 때 만나는 컴파일 오류, decor
 - [TypeSpec 작성 규칙](../typespec-authoring-conventions.md)
 - [TypeSpec 데코레이터 레퍼런스](./03-decorators-reference.md)
 - [스캐폴딩 및 Semantic Diff 도구 활용법](./04-scaffolding-and-diff.md)
-- [아티팩트 생성 토폴로지 및 아키텍처 규칙](./06-generation-topologies-and-rules.md)
+- [생성물 배치 토폴로지와 아키텍처 규칙](./06-generation-topologies-and-rules.md)

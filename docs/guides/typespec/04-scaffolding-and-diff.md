@@ -149,7 +149,7 @@ npx oa-gen mock --tsp ./main.tsp --watch
 | **경로 3** | 생성물별 명령 | `oa-gen <subcommand> --spec <path.tsp>` | 클라이언트, Zod, 타입 등 하나만 갱신할 때 |
 | **경로 4** | 저장소 계약 승인 | `pnpm schema:approve-typespec-reference -- --write` 등 | oa-sdk 저장소의 `packages/schemas/typespec/`를 고쳤을 때 |
 
-핸들러 계약(`<id>.contract.ts`)은 `@oa-sdk/router`, 클라이언트·TanStack Query 코드는 `@oa-sdk/client`가 만듭니다. 이 동반 패키지가 없을 때 경로 1·2는 설정에서 명시적으로 켠 산출물(`core.contracts.pureHandlers: true`, `core.client.enabled: true`)이면 종료 코드 1로 실패하고, 기본값으로만 켜진 산출물은 경고와 설치 명령을 남기고 건너뜁니다. `generate:client`, `generate:tanstack`은 `@oa-sdk/client`가 없으면 실패합니다. 자세한 동작은 [동반 패키지](../cli-setup.md#동반-패키지-companion-packages)를 봅니다.
+핸들러 계약(`<id>.contract.ts`)은 `@oa-sdk/router`, 클라이언트·TanStack Query 코드는 `@oa-sdk/client`가 만듭니다. 이 동반 패키지가 없을 때 경로 1·2는 설정에서 명시적으로 켠 생성물(`core.contracts.pureHandlers: true`, `core.client.enabled: true`)이면 종료 코드 1로 실패하고, 기본값으로만 켜진 생성물은 경고와 설치 명령을 남기고 건너뜁니다. `generate:client`, `generate:tanstack`은 `@oa-sdk/client`가 없으면 실패합니다. 자세한 동작은 [동반 패키지](../cli-setup.md#동반-패키지-companion-packages)를 봅니다.
 
 ---
 
@@ -294,4 +294,4 @@ pnpm schema:downstream-check
 - [TypeSpec 작성 규칙](../typespec-authoring-conventions.md)
 - [TypeSpec 데코레이터 레퍼런스](./03-decorators-reference.md)
 - [트러블슈팅 및 자주 묻는 질문(FAQ)](./05-troubleshooting.md)
-- [아티팩트 생성 토폴로지 및 아키텍처 규칙](./06-generation-topologies-and-rules.md)
+- [생성물 배치 토폴로지와 아키텍처 규칙](./06-generation-topologies-and-rules.md)
