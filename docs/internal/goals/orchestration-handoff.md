@@ -174,6 +174,24 @@
 - **동작 변화(잘못된 입력만)**: 잘못된 `allowedTools`는 빈 허용 목록으로 처리한다(fail closed). spec-lens 설정은 CLI가 읽는 키만 검증하고, 알 수 없는 `source`는 거부한다. preview는 잘못된 헤더를 조용히 버리지 않고 오류를 표시한다. preview 앱이 `test:internal`·`typecheck:internal`에 들어갔다.
 - **남은 일**: 설계상 baseline drift만으로도 check가 실패한다(added 약 444, removed 44 등, 모두 커밋된 작업의 의도된 결과). parser·codegen 병렬 단위가 모두 머지된 뒤 drift를 검토하고 `corepack pnpm type-registry:write`로 baseline을 갱신해 커밋한다. **baseline 쓰기는 사용자 승인 후에만 한다.** 예산 상한을 낮출지는 정책 결정이므로 사용자에게 남긴다.
 
+### WS-I — 사용 가이드 정비와 핵심 가치 · 조사 `done`, 작성은 RC 통합 이후 (2026-10-06 사용자 요청)
+
+- **조사 결과**: 사용자 대상 문서 약 50개에서 238건의 어긋남(틀림·낡음·누락·깨진 예제·중복)을 찾았다. major-update/rewrite 판정이 20여 개다(README, 가이드 색인, onboarding-playbook, codegen README, client·router·mock-server·surface-ir·tools README, client/backend/pure-types 가이드, typespec/01~06, schema-authoring, schema-architecture, basic-spec-usage, declarative-spec-configuration, typespec-decorators·schemas README).
+- **공통 문제**: 핵심 가치 설명 부재, 외부 사용자와 모노레포 기여자 흐름이 섞임, CLI가 만들지 않는 프레임워크 라우터 바인더를 생성한다고 설명, 패키지 공개 상태·Node 버전 표기 불일치, TanStack 예제의 export 이름 오류, TypeSpec 예제가 compiler 1.16에서 컴파일 실패, 비공개 `@oa-sdk/schemas`를 설치 가능한 것처럼 import.
+- **핵심 가치 초안**(반박 리뷰 반영): 사람이 고치는 원본 하나와 다시 만들 수 있는 생성물, 기존 OpenAPI·외부 스키마의 점진 수용, 같은 parser 해석을 쓰는 생성·mock, 계약에서 소비자 코드까지, 계약을 지키는 mock, 변경 분류와 CI gate. 비목표(비즈니스 로직·호스팅·DB 물리 스키마·이 저장소에서의 npm publish)도 함께 적는다.
+- **진행 방식**: RC 통합이 main에 들어간 뒤, 공통 사실표(Node 버전, 공개 패키지, companion 동작, msw, 바인더 현실)를 먼저 고정하고 문서 묶음별로 작성·정확성 리뷰를 한다. RC 이후 기능(ref-projection, mock-server 응답 재사용)은 아직 쓸 수 있는 기능으로 쓰지 않는다.
+
+### WS-J — 조사에서 드러난 코드 결함 · `ready`
+
+| 결함 | 근거 |
+|---|---|
+| `oa-gen init --archetype enterprise`가 쓰는 스크립트 3개가 동작하지 않는다: `oa-gen diff --base origin/main --head HEAD`(diff는 파일 경로만 받음, ENOENT), `ci:gate`에 필수 `--head` 없음, 없는 명령 `oa-gen personas:check` | 가이드 조사 중 직접 실행 |
+| `oa-gen generate`가 companion 패키지 안의 생성 오류를 경고만 남기고 넘어간다 | 가이드 조사 |
+| `oa-gen generate`가 `outputRouting.pruneOrphans: false`여도 다른 명령(`generate:tanstack`)이 쓴 산출물까지 지우고, 요약의 operation 수가 틀린다 | RC-N quick-start 재검증 |
+| `generate:tanstack --types-import` 출력이 typegen이 만들지 않는 `<Op>ClientError`를 import해 `tsc` TS2305로 실패한다 | RC-N quick-start 재검증 |
+| `oa-gen diff`가 응답 스키마에 선택 필드만 추가해도 breaking(exit 1)으로 분류한다(스키마 fingerprint가 다르면 무조건 breaking) | 핵심 가치 비평에서 직접 실행 |
+| 문서는 CLI가 프레임워크 라우터 바인더(`*.router.ts`)를 만든다고 하지만 어떤 `oa-gen` 명령도 만들지 않는다. 생성할지, 문서를 고칠지 결정 필요 | 가이드 조사 |
+
 ### WS-G — Goal 68 DPM · 관제 대상 아님
 
 - external owner(`mineclover/data-governance`)가 extraction contract의 정본이다.
