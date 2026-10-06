@@ -249,7 +249,7 @@ npm install @tanstack/react-query
 | `--types-import` | typegen 타입을 가져올 모듈. 7.4절의 한계를 먼저 확인합니다. |
 | `--split` | 출력 디렉터리에 `keys.ts`, `queries.ts`, `hooks.ts`를 따로 씁니다. `oa.config.ts`에 `outputRouting`이 있는 프로젝트(`oa-gen init`이 만든 설정)에서는 생성 파일의 상대 import가 깨지므로(`TS2307`) 쓰지 않습니다. |
 
-`generate:tanstack`이 쓴 파일은 `.oa-manifest.json`에 기록됩니다. `oa-gen generate`는 이 manifest에 기록된 생성 파일 중 이번 실행이 만들지 않고 내용도 바뀌지 않은 파일을 지우므로, 같은 프로젝트에서 `oa-gen generate`를 실행하면 `generate:tanstack` 출력이 사라집니다. `outputRouting.pruneOrphans: false`는 현재 이 삭제를 막지 못합니다(알려진 결함). `oa-gen generate`를 쓰는 프로젝트는 7.5절처럼 `generate`가 만드는 파일을 씁니다.
+`generate:tanstack`이 쓴 파일은 `.oa-manifest.json`에 `producer: "generate:tanstack"`으로 기록됩니다. `oa-gen generate`는 자신이 기록한 생성 파일만 정리하므로, 같은 프로젝트에서 `oa-gen generate`를 실행해도 `generate:tanstack` 출력은 지워지지 않습니다([생성 파일 정리](./declarative-spec-configuration.md#45-생성-파일-정리)). `oa-gen generate`가 함께 만드는 TanStack 코드는 7.5절을 봅니다.
 
 ### 7.2 생성되는 이름
 

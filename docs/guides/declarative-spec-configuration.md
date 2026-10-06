@@ -77,10 +77,13 @@ import합니다(알려진 결함). HTTP operation이 없는 모델 전용 프로
 `@oa-sdk/codegen` 옆에 따로 설치하는 동반 패키지(companion package)입니다([설치 안내](./cli-setup.md#동반-패키지-companion-packages)).
 `oa-gen generate`는 패키지가 없을 때 그 생성물이 어떻게 요청되었는지에 따라 다르게 동작합니다.
 
-| 요청 방식 | 판단 기준 | 패키지가 없을 때 |
-|---|---|---|
-| 명시적 요청 | 설정 파일이 `core.contracts.pureHandlers: true` 또는 `core.client.enabled: true`를 직접 지정(`oa-gen init`이 만든 설정 포함) | 파일을 쓰기 전에 패키지 이름과 설치 명령을 출력하고 종료 코드 1로 실패 |
-| 암시적 기본값 | 스위치를 지정하지 않음(아키타입 기본값 포함), TanStack Query 코드, 스펙 확장으로 켜지는 CRDT 모듈, `--spec` 직접 실행 | 패키지 이름과 설치 명령을 담은 경고를 남기고 건너뜀. 이전 실행이 만든 해당 파일은 유지 |
+| 요청 방식 | 판단 기준 | 패키지가 없을 때 | 생성 중 오류가 날 때 |
+|---|---|---|---|
+| 명시적 요청 | 설정 파일이 `core.contracts.pureHandlers: true` 또는 `core.client.enabled: true`를 직접 지정(`oa-gen init`이 만든 설정 포함) | 파일을 쓰기 전에 패키지 이름과 설치 명령을 출력하고 종료 코드 1로 실패 | 오류 메시지와 그 산출물을 켠 스위치를 출력하고 종료 코드 1로 실패. 어떤 파일도 쓰지 않고 `.oa-manifest.json`도 바꾸지 않음 |
+| 암시적 기본값 | 스위치를 지정하지 않음(아키타입 기본값 포함), TanStack Query 코드, 스펙 확장으로 켜지는 CRDT 모듈, `--spec` 직접 실행 | 패키지 이름과 설치 명령을 담은 경고를 남기고 건너뜀. 이전 실행이 만든 해당 파일은 유지 | 오류 메시지를 담은 경고(`Skipped outputs that failed to generate`)를 남기고 그 산출물만 건너뜀(종료 코드 0). 이전 실행이 만든 해당 파일은 유지 |
+
+산출물은 spec target마다 전부 쓰거나 하나도 쓰지 않습니다. 예를 들어 CRDT 모듈 4개 중 하나를 만들다 오류가 나면
+4개 모두 쓰지 않습니다. 건너뛴 산출물은 요약의 `Contracts Generated` 등 개수에 들어가지 않습니다.
 
 스위치를 `false`로 지정하면 해당 생성물을 만들지 않으며 패키지도 필요하지 않습니다. `oa-gen init`은 두 스위치를
 `true`로 쓰고, 자신이 쓰는 스크립트에 필요한 동반 패키지(`mock` 스크립트용 `@oa-sdk/mock-server` 포함)를
@@ -183,7 +186,7 @@ export interface OutputRoutingConfig {
   tsconfigPath?: string | undefined
   /** 선언만 있고 현재 읽지 않음. manifest는 항상 rootDir의 .oa-manifest.json */
   manifestPath?: string | undefined
-  /** 선언만 있고 현재 읽지 않음. 4.5절 */
+  /** 생성 파일 정리 여부 (기본값: true). false면 아무 파일도 지우지 않음. 4.5절 */
   pruneOrphans?: boolean | undefined
   /** 토큰 치환 케이싱 ("kebab" | "camel" | "pascal" | "preserve", 기본값: "kebab") */
   casing?: "kebab" | "camel" | "pascal" | "preserve" | undefined
@@ -247,13 +250,41 @@ POSIX 슬래시와 `.js` 확장자를 쓰고, `importStyle: "alias"`이면 `tsco
 
 ### 4.5 생성 파일 정리
 
-`oa-gen generate`는 `.oa-manifest.json`에 기록된 생성 파일 중 이번 실행이 만들지 않고 내용도 바뀌지 않은 파일을
-지웁니다. 지우는 조건은 manifest에 기록되어 있을 것, 디스크 내용의 hash가 기록과 같을 것(손으로 고친 파일은 지우지 않음),
-생성 배너가 있을 것입니다. 이 조건은 `outputRouting` 유무와 관계없이 적용됩니다.
+`oa-gen generate`와 `oa-gen generate:tanstack`은 쓴 파일을 프로젝트 루트(`rootDir`)의 `.oa-manifest.json`에 기록합니다.
+기록에는 내용 hash와 함께 그 파일의 소유자가 들어갑니다.
 
-`oa-gen generate:tanstack` 등 다른 명령이 같은 프로젝트에 쓴 파일도 지워지므로, `oa-gen generate`를 쓰는 프로젝트에서는
-TanStack 코드도 `generate`가 만드는 `<id>.queries.ts`(훅이 필요하면 `outputRouting` 없이)에서 가져옵니다.
-`outputRouting.pruneOrphans: false`는 현재 이 삭제를 막지 못합니다(알려진 결함).
+| 필드 | 값 |
+|---|---|
+| `producer` | 파일을 쓴 명령: `"generate"` 또는 `"generate:tanstack"` |
+| `configFile` | `oa-gen generate`가 읽은 설정 파일의 `rootDir` 기준 경로(예: `"oa.config.ts"`). `--spec` 실행은 설정 파일을 읽지 않으므로 없음 |
+| `target` | 파일을 만든 spec target `id`. 모든 spec target을 합쳐 만드는 타입 가드는 없음 |
+
+`oa-gen generate`는 실행을 마칠 때 다음 조건을 **모두** 만족하는 기록의 파일을 지우고 기록에서도 뺍니다. 이 규칙은
+`outputRouting` 유무와 관계없이 적용됩니다.
+
+1. `outputRouting.pruneOrphans`가 `false`가 아닙니다(기본값 `true`). `false`면 어떤 파일도 지우지 않고 기록도 그대로
+   두므로, 나중에 다시 켜면 그때 남아 있는 기록이 이 규칙으로 판정됩니다.
+2. 이번 실행이 소유한 기록입니다.
+   - 설정 파일로 실행했으면: `producer`가 `"generate"`이고 `configFile`이 이번 설정 파일과 같은 기록. spec target을
+     설정에서 빼거나 `id`를 바꾸면 이전 target의 파일도 여기에 들어가 정리됩니다.
+   - `--spec <파일>`로 실행했으면: `producer`가 `"generate"`이고 `configFile`이 없으며 `target`이 이번 spec target
+     `id`(파일 이름)와 같은 기록. 같은 스펙을 `--out-dir`만 바꿔 다시 실행하면 이전 출력이 정리됩니다.
+3. 이번 실행이 쓰지 않은 파일입니다. 동반 패키지가 없거나 생성 중 오류가 나서 건너뛴 산출물의 이전 파일은 이번 실행이
+   쓴 것으로 봅니다(지우지 않음).
+4. 디스크 내용의 hash가 기록과 같습니다. 손으로 고친 파일은 지우지 않습니다.
+5. 생성 배너가 있습니다.
+
+따라서 `oa-gen generate:tanstack` 등 다른 명령이 쓴 파일, 다른 설정 파일로 실행한 `oa-gen generate`가 쓴 파일,
+`--spec` 실행과 설정 파일 실행이 서로 쓴 파일, manifest에 없는 파일은 지우지 않습니다. 설정 파일 이름을 바꾸면 이전
+이름으로 기록된 파일도 새 설정의 것이 아니므로 남습니다. 필요 없으면 직접 지웁니다.
+
+codegen 0.9.0보다 먼저 기록된 항목에는 `producer`가 없습니다. 그 가운데 `tag`가 있는 항목은 이전 `oa-gen generate`가
+`tag`에 spec target `id`를 적어 기록한 것이므로, 그 `id`의 spec target을 생성하는 실행이 2번의 설정 파일 조건 없이
+소유합니다. `kind`가 `"guards"`인 항목은 `guards`를 설정한 실행이 소유합니다. 그 밖의 항목(이전 `generate:tanstack`
+출력 등)은 지우지 않습니다. 이전 항목은 같은 파일을 다시 쓸 때 새 필드로 바뀝니다.
+
+요약 출력의 `Artifacts Pruned`에 지운 파일 수와 경로가 나옵니다. `pruneOrphans: false`면
+`Artifacts Pruned:    0 (outputRouting.pruneOrphans: false)`로 표시합니다.
 
 ---
 
@@ -287,8 +318,9 @@ named export(`OrderSchema` → component `Order`), `schemas` 객체, default 객
 함께 export할 수 있습니다. `buildProjection()`이나 `{ openApiDoc, jsonSchemaDoc }`를 반환하는 default 함수를 export하면
 그 결과를 그대로 씁니다.
 
-`oa-gen generate` 요약 출력은 형식과 관계없이 `OpenAPI 3.1: <파일>`로 표시하고, `N ops`에는 operation 수가 아니라 path 수를
-표시합니다(알려진 결함). 실제 버전은 파일의 `openapi` 필드를 봅니다. TypeSpec 원본에 필요한 패키지 설치는
+`oa-gen generate` 요약 출력은 `<id>.openapi.json` 줄에 파일의 `openapi` 필드 버전을 표시하고(`OpenAPI 3.2.0: <파일>`),
+`N ops`에 operation 수를 표시합니다. operation 수는 `paths` 아래 모든 HTTP 메서드(OAS 3.2 `query` 포함)와
+`additionalOperations` 항목을 세고, webhook은 세지 않습니다. TypeSpec 원본에 필요한 패키지 설치는
 [Quick Start](./quick-start.md)를 따릅니다.
 
 ### 6.2 프로젝션 프로파일

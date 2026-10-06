@@ -205,7 +205,7 @@ npx oa-gen generate
 
 `{tag}`는 OpenAPI tag가 아니라 **spec target id**로 바뀝니다. spec target 하나에서 도메인별 폴더가 나오지 않으므로, 폴더를 나누려면 spec target을 나눕니다([토폴로지 가이드](./06-generation-topologies-and-rules.md)).
 
-`oa-gen generate`는 `.oa-manifest.json`에 기록된 생성 파일 중 이번 실행이 만들지 않고 내용도 바뀌지 않은 파일을 지웁니다. `oa-gen generate:tanstack` 등 다른 명령이 같은 프로젝트에 쓴 파일도 지워지므로, `oa-gen generate`를 쓰는 프로젝트에서는 TanStack 코드도 `generate`가 만드는 `<id>.queries.ts`(훅이 필요하면 `outputRouting` 없이)에서 가져옵니다. `outputRouting.pruneOrphans: false`는 현재 이 삭제를 막지 못합니다(알려진 결함).
+`oa-gen generate`는 `.oa-manifest.json`에 기록된 생성 파일 중 같은 설정 파일로 실행한 `oa-gen generate`가 만들었던 파일 가운데 이번 실행이 만들지 않고 내용도 바뀌지 않은 파일을 지웁니다. `oa-gen generate:tanstack` 등 다른 명령이 쓴 파일은 지우지 않고, `outputRouting.pruneOrphans: false`면 아무 파일도 지우지 않습니다([생성 파일 정리](../declarative-spec-configuration.md#45-생성-파일-정리)).
 
 ---
 
@@ -215,7 +215,7 @@ npx oa-gen generate
 npx oa-gen generate --spec ./main.tsp --out-dir ./dist
 ```
 
-spec target id는 파일 이름(`main`)이 되고, `./dist`에 다음이 생깁니다. `.oa-manifest.json`은 프로젝트 루트에 쓰이며 4.1의 정리 규칙이 그대로 적용됩니다.
+spec target id는 파일 이름(`main`)이 되고, `./dist`에 다음이 생깁니다. `.oa-manifest.json`은 프로젝트 루트에 쓰입니다. 이 경로의 실행은 설정 파일이 없으므로 이전 `--spec` 실행이 같은 spec target id(`main`)로 기록한 파일만 정리하고, 4.1의 설정 파일 실행이 쓴 파일은 지우지 않습니다.
 
 - `main.openapi.json` (OpenAPI 3.2)
 - `main.schema.json` (JSON Schema 2020-12)

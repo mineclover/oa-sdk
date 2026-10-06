@@ -373,7 +373,7 @@ export default defineConfig({
 
 `outputRouting`에 의해 방출된 JSON 스키마 및 가드 파일은 `.oa-manifest.json`에 SHA-256 해시와 함께 기록됩니다. 스키마 프래그먼트가 삭제되거나 도메인이 개편될 때:
 
-1. **Gate 1 (출처 게이트)**: 매니페스트에 등록된 파일만 삭제 후보로 지정됩니다.
+1. **Gate 1 (출처 게이트)**: 매니페스트에 등록되어 있고 이번 `oa-gen generate` 실행이 소유한 파일(같은 설정 파일로 기록, `--spec` 실행은 같은 spec target)만 삭제 후보로 지정됩니다. 다른 명령이 기록한 파일은 지우지 않으며, `pruneOrphans: false`면 정리하지 않습니다.
 2. **Gate 2 (해시 무결성 게이트)**: 디스크 상의 SHA-256 해시가 빌드 당시 해시와 일치해야 합니다. 개발자가 수정한 파일은 `'content-modified'`로 보존됩니다.
 3. **Gate 3 (배너 보호 게이트)**: `@generated` 또는 `DO NOT EDIT` 배너가 포함된 파일만 삭제됩니다. 수기로 작성된 스키마 프래그먼트(`src/fragments/**/*.yaml`)는 실수로 삭제되지 않습니다.
 

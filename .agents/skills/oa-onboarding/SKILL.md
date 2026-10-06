@@ -465,7 +465,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
 ### Step 8: Safe Orphan Pruning via `.oa-manifest.json` (3-Gate Safety)
 When endpoints are removed or renamed in the OpenAPI specification, invoke the orphan pruning engine to delete only obsolete generated artifacts while 100% protecting developer code:
-- **Gate 1 (Provenance Check)**: Verifies the file path was originally registered in `.oa-manifest.json`. Unregistered files are strictly untouched.
+- **Gate 1 (Provenance Check)**: Verifies the file path was registered in `.oa-manifest.json` by a run that this `oa-gen generate` run owns: `producer: "generate"` from the same configuration file (for `--spec` runs, the same spec target). Unregistered files and files written by other commands such as `oa-gen generate:tanstack` are strictly untouched, and `outputRouting.pruneOrphans: false` turns pruning off.
 - **Gate 2 (Hash Integrity Check)**: Compares the SHA-256 hash of the disk file with the recorded `contentHash`. If a developer modified the file, pruning is safely aborted.
 - **Gate 3 (Banner Guard)**: Inspects the first 10 lines of the file for `@generated` / `@oa-sdk/codegen` banner markers. If absent, pruning is aborted.
 
@@ -543,7 +543,7 @@ Every agent adopting `oa-sdk` MUST maintain these 9 invariants without exception
 
 ### Invariant 8: 3-Gate Safe Orphan Pruning
 - Automatic file deletion during spec updates is strictly gated by `.oa-manifest.json`:
-  1. **Provenance Gate**: Unrecorded files are never touched.
+  1. **Provenance Gate**: Unrecorded files, and files recorded by another command or another configuration file, are never touched.
   2. **Hash Integrity Gate**: Modified files with mismatching SHA-256 hashes abort deletion.
   3. **Banner Gate**: Files missing `@generated` banner markers abort deletion.
 - Hand-written developer files must **NEVER** be deleted or overwritten.

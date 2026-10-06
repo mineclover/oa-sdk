@@ -57,7 +57,7 @@ const client = createClient({ baseUrl: 'https://api.example.com' })
 const page = await client.listUsers({ limit: 20 })
 ```
 
-TanStack Query 코드도 같은 앱에서 생성합니다([TanStack Query v5](./client-and-query-consumption.md#7-tanstack-query-v5)). 위 스크립트는 타입 있는 클라이언트를 만들므로, TanStack 코드도 [7.4절](./client-and-query-consumption.md#74-응답-타입을-붙이기---types-import)처럼 빠진 이름을 더한 모듈을 `--types-import`로 지정해 생성합니다. `--types-import` 없이 생성한 TanStack 코드는 타입 있는 클라이언트와 함께 컴파일되지 않습니다(`TS2345`). 같은 프로젝트에서 `oa-gen generate`도 실행한다면, `generate`가 다른 명령이 쓴 생성 파일(`generate:tanstack` 출력 등)을 `.oa-manifest.json` 기준으로 지운다는 점에 주의합니다([`oa-gen generate`가 만드는 TanStack 코드](./client-and-query-consumption.md#75-oa-gen-generate가-만드는-tanstack-코드)).
+TanStack Query 코드도 같은 앱에서 생성합니다([TanStack Query v5](./client-and-query-consumption.md#7-tanstack-query-v5)). 위 스크립트는 타입 있는 클라이언트를 만들므로, TanStack 코드도 [7.4절](./client-and-query-consumption.md#74-응답-타입을-붙이기---types-import)처럼 빠진 이름을 더한 모듈을 `--types-import`로 지정해 생성합니다. `--types-import` 없이 생성한 TanStack 코드는 타입 있는 클라이언트와 함께 컴파일되지 않습니다(`TS2345`). 같은 프로젝트에서 `oa-gen generate`를 실행해도 `generate:tanstack` 출력은 지워지지 않습니다. `oa-gen generate`는 `.oa-manifest.json`에서 자신이 기록한 생성 파일만 정리합니다([생성 파일 정리](./declarative-spec-configuration.md#45-생성-파일-정리), [`oa-gen generate`가 만드는 TanStack 코드](./client-and-query-consumption.md#75-oa-gen-generate가-만드는-tanstack-코드)).
 
 ---
 

@@ -617,7 +617,7 @@ export interface OutputRoutingConfig {
   tsconfigPath?: string;
   /** Manifest file path for tracking generated files (default: ".oa-manifest.json") */
   manifestPath?: string;
-  /** Whether to safely prune orphan generated files when the spec changes (default: true) */
+  /** Whether oa-gen generate prunes the orphaned files it owns (default: true; false prunes nothing) */
   pruneOrphans?: boolean;
   /** Casing strategy: "kebab" (default), "camel", "pascal", or "preserve" */
   casing?: 'kebab' | 'camel' | 'pascal' | 'preserve';
@@ -648,7 +648,7 @@ export interface OutputRoutingConfig {
 
 ### 10.4 `.oa-manifest.json` 기반 3-Gate 안전 고아 파일 정리 (`routing/manifest-manager.ts`)
 OpenAPI 스펙에서 태그나 엔드포인트가 삭제/이름 변경되었을 때, `OaManifestManager`는 3단계 안전 게이트를 통과한 파일만 선별 삭제합니다:
-1. **Gate 1 (Provenance Check)**: `.oa-manifest.json`에 공식 생성물로 기록된 파일만 삭제 후보로 고려 (수작업 파일 100% 보존).
+1. **Gate 1 (Provenance Check)**: `.oa-manifest.json`에 기록되어 있고 `pruneOrphans({ scope })`의 범위에 드는 파일만 삭제 후보로 고려 (수작업 파일 100% 보존). `oa-gen generate`의 범위는 자신이 소유한 기록뿐입니다: 같은 설정 파일로 `producer: "generate"`가 기록한 파일(`--spec` 실행이면 같은 spec target `target`으로 기록한 파일). `oa-gen generate:tanstack` 등 다른 명령이나 다른 설정 파일의 기록은 지우지 않고, `outputRouting.pruneOrphans: false`면 정리 자체를 하지 않습니다. 기록 필드와 0.9.0 이전 기록의 처리는 `docs/guides/declarative-spec-configuration.md` 4.5절.
 2. **Gate 2 (Hash Integrity Check)**: 디스크 파일의 현재 SHA-256 해시가 매니페스트에 기록된 `contentHash`(`sha256:<hex>`)와 불일치하면 개발자가 수정한 파일로 판단하여 삭제 즉시 중단 (`prune-skipped: content-modified`).
 3. **Gate 3 (Banner Guard Check)**: 파일 상위 10행에 `@generated`, `@oa-sdk/codegen` 등 공식 생성 배너가 없으면 삭제 중단 (`prune-skipped: banner-missing`).
 - **원자적 매니페스트 커밋**: 임시 파일(`.oa-manifest.json.tmp`) 작성 후 원자적 이름 변경(`rename`)으로 쓰기 크래시 방어.

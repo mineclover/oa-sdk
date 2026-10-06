@@ -118,9 +118,9 @@ oa-gen behavior-query \
 
 `oa-gen generate`는 프로젝트의 선언적 설정(`oa.config.ts`)을 기반으로 OpenAPI 문서와 JSON Schema 2020-12(`<id>.openapi.json`, `<id>.schema.json`), 핸들러 계약(`*.contract.ts`), fetch 클라이언트 SDK, TanStack Query 키·옵션, 설정의 `guards`에 선언한 독립형 타입 가드를 일괄 생성합니다. `--spec <path>`를 주면 설정 파일 없이 그 스펙 하나로 같은 파이프라인을 실행하고 결과를 `--out-dir`/`--output`(기본 `./dist`)에 씁니다.
 
-핸들러 계약은 동반 패키지 `@oa-sdk/router`, 클라이언트 SDK와 TanStack Query 옵션은 `@oa-sdk/client`가 생성합니다. 설정 파일이 `core.contracts.pureHandlers: true` 또는 `core.client.enabled: true`로 명시적으로 켠 산출물의 패키지가 없으면 파일을 쓰기 전에 설치 명령을 출력하고 종료 코드 1로 실패합니다. 기본값으로만 암시된 산출물은 경고와 함께 건너뜁니다.
+핸들러 계약은 동반 패키지 `@oa-sdk/router`, 클라이언트 SDK와 TanStack Query 옵션은 `@oa-sdk/client`가 생성합니다. 설정 파일이 `core.contracts.pureHandlers: true` 또는 `core.client.enabled: true`로 명시적으로 켠 산출물의 패키지가 없으면 파일을 쓰기 전에 설치 명령을 출력하고 종료 코드 1로 실패합니다. 패키지가 있어도 명시적으로 켠 산출물을 만드는 중 오류가 나면 그 오류를 출력하고, 어떤 파일도 쓰지 않은 채(`.oa-manifest.json` 포함) 종료 코드 1로 실패합니다. 기본값으로만 암시된 산출물은 패키지가 없거나 생성 중 오류가 나면 경고와 함께 그 산출물만 건너뛰고, 이전 실행이 만든 해당 파일은 유지합니다([판정 기준](./declarative-spec-configuration.md#명시적-요청과-암시적-기본값-동반-패키지)).
 
-`oa-gen generate`가 서버 쪽에 만드는 것은 핸들러 계약뿐이며 프레임워크 라우터 파일은 만들지 않습니다. 생성된 계약과 클라이언트의 요청·응답 타입은 `unknown`입니다. 실행이 끝나면 `.oa-manifest.json`에 기록된 생성 파일 중 이번 실행이 만들지 않고 내용도 바뀌지 않은 파일을 지우며, 이때 `oa-gen generate:tanstack` 등 다른 명령이 기록한 파일도 지웁니다. `outputRouting.pruneOrphans: false`는 현재 이 삭제를 막지 못합니다(알려진 결함). 요약 출력의 `ops` 값은 현재 path 수를 표시하고, `<id>.openapi.json` 줄의 `OpenAPI 3.1` 표기와 달리 파일 버전은 설정의 `core.dialect.oasVersion`(init 기본 3.2.0)을 따릅니다(알려진 결함).
+`oa-gen generate`가 서버 쪽에 만드는 것은 핸들러 계약뿐이며 프레임워크 라우터 파일은 만들지 않습니다. 생성된 계약과 클라이언트의 요청·응답 타입은 `unknown`입니다. 실행이 끝나면 `.oa-manifest.json`에 기록된 생성 파일 가운데 이번 실행이 소유한 파일(같은 설정 파일로 실행한 `oa-gen generate`가 기록한 파일, `--spec` 실행이면 이전 `--spec` 실행이 같은 spec target으로 기록한 파일) 중 이번 실행이 만들지 않고 내용도 바뀌지 않은 파일을 지웁니다. `oa-gen generate:tanstack` 등 다른 명령이 기록한 파일과 다른 설정 파일의 실행이 기록한 파일은 지우지 않으며, `outputRouting.pruneOrphans: false`면 아무 파일도 지우지 않습니다([판정 규칙](./declarative-spec-configuration.md#45-생성-파일-정리)). 요약 출력의 `N ops`는 spec target의 operation 수(`query`와 `additionalOperations` 포함, webhook 제외), `<id>.openapi.json` 줄은 파일의 `openapi` 필드 버전(예: `OpenAPI 3.2.0`), `Artifacts Pruned`는 지운 파일입니다.
 
 | 옵션 | 단축 | 타입 | 기본값 | 설명 |
 | --- | --- | --- | --- | --- |

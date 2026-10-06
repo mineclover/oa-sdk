@@ -86,6 +86,7 @@ pnpm add -D @oa-sdk/router @oa-sdk/client @oa-sdk/mock-server
 - `mock`, `generate:client`, `pack:client`, `generate:tanstack`은 그 산출물만을 위한 명령이므로 설치 명령을 출력하고 종료 코드 1로 실패합니다.
 - `oa-gen generate`는 설정 파일이 산출물을 **명시적으로** 켠 경우(`core.contracts.pureHandlers: true` → `@oa-sdk/router`, `core.client.enabled: true` → `@oa-sdk/client`) 어떤 파일도 쓰기 전에 종료 코드 1로 실패합니다. 스위치를 사용자가 썼는지 `oa-gen init`이 썼는지는 구분하지 않습니다. 해당 산출물이 필요 없다면 스위치를 `false`로 설정합니다.
 - 기본값으로만 **암시된** 산출물(값을 지정하지 않은 스위치와 아키타입 프리셋, TanStack Query 옵션, CRDT 모듈, `--spec` 직접 실행의 모든 동반 패키지 산출물)은 패키지 이름과 설치 명령을 담은 경고와 함께 건너뜁니다. 이전 실행이 생성한 해당 산출물 파일은 고아 파일로 정리되지 않고 유지됩니다.
+- 패키지가 설치되어 있어도 산출물을 만드는 중 동반 패키지에서 오류가 나면 같은 구분을 따릅니다. 명시적으로 켠 산출물이면 오류를 출력하고 어떤 파일도 쓰지 않은 채 종료 코드 1로 실패하고, 암시된 산출물이면 오류를 담은 경고와 함께 그 산출물만 건너뜁니다(이전 파일 유지).
 
 자세한 설정 규칙은 [선언적 사양 설정 가이드](./declarative-spec-configuration.md#명시적-요청과-암시적-기본값-동반-패키지)를 참고하세요.
 

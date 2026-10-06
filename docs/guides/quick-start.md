@@ -275,7 +275,7 @@ export function UserProfile({ userId }: { userId: string }) {
 
 ## 5단계: 핸들러 계약·클라이언트 일괄 생성 (`oa-gen generate`)
 
-선언적 `oa.config.ts` 설정에 따라 OpenAPI 문서, 핸들러 계약, 클라이언트 SDK, TanStack Query 키·옵션을 한 번에 생성합니다. 핸들러 계약은 `@oa-sdk/router`, 클라이언트 SDK는 `@oa-sdk/client`가 생성합니다. `init`이 만든 설정은 두 산출물을 명시적으로 켜므로, 둘 중 하나라도 설치되어 있지 않으면 `oa-gen generate`는 파일을 쓰기 전에 설치 명령을 출력하고 종료 코드 1로 실패합니다.
+선언적 `oa.config.ts` 설정에 따라 OpenAPI 문서, 핸들러 계약, 클라이언트 SDK, TanStack Query 키·옵션을 한 번에 생성합니다. 핸들러 계약은 `@oa-sdk/router`, 클라이언트 SDK는 `@oa-sdk/client`가 생성합니다. `init`이 만든 설정은 두 산출물을 명시적으로 켜므로, 둘 중 하나라도 설치되어 있지 않으면 `oa-gen generate`는 파일을 쓰기 전에 설치 명령을 출력하고 종료 코드 1로 실패합니다. 패키지가 있어도 두 산출물을 만드는 중 오류가 나면 그 오류를 출력하고 아무 파일도 쓰지 않은 채 종료 코드 1로 실패합니다.
 
 ```bash
 npx oa-gen generate
@@ -292,7 +292,7 @@ npx oa-gen generate
 
 `oa-gen generate`가 만든 핸들러 계약과 클라이언트의 요청·응답 타입은 `unknown`입니다. 타입이 있는 핸들러 계약이 필요하면 위 레시피처럼 `oa-gen typegen` 출력과 `generateHandlerContract(spec, { typesImport })`를 함께 씁니다.
 
-`oa-gen generate`는 `.oa-manifest.json`에 기록된 생성 파일 중 이번 실행이 만들지 않고 내용도 바뀌지 않은 파일을 지웁니다. `oa-gen generate:tanstack` 등 다른 명령이 같은 프로젝트에 쓴 파일도 지워지므로, `oa-gen generate`를 쓰는 프로젝트에서는 TanStack 코드도 `generate`가 만드는 `<id>.queries.ts`에서 가져옵니다. `outputRouting.pruneOrphans: false`는 현재 이 삭제를 막지 못합니다(알려진 결함). 그래서 4단계의 `src/api/tanstack-query.ts`가 지워지며, 4단계 예제는 같은 팩토리를 담은 `./api/generic-api/generic-api.queries.js`와 `./api/generic-api/generic-api.client.js`에서 `getUserQueryOptions`와 `createClient`를 import하도록 바꿉니다. outputRouting을 쓰는 `init` 설정의 `<id>.queries.ts`에는 `use*` 훅이 없으므로, 훅이 필요하면 4단계처럼 `useQuery(getUserQueryOptions(client, { userId }))`로 씁니다.
+`oa-gen generate`는 `.oa-manifest.json`에 기록된 생성 파일 가운데 같은 설정 파일로 실행한 `oa-gen generate`가 만들었던 파일 중 이번 실행이 만들지 않고 내용도 바뀌지 않은 파일을 지웁니다. 4단계의 `src/api/tanstack-query.ts`처럼 다른 명령이 쓴 파일은 지우지 않고, `outputRouting.pruneOrphans: false`면 아무 파일도 지우지 않습니다([판정 규칙](./declarative-spec-configuration.md#45-생성-파일-정리)). 그래서 4단계 예제는 그대로 동작하며, `generate`가 만든 같은 팩토리(`./api/generic-api/generic-api.queries.js`, 클라이언트는 `./api/generic-api/generic-api.client.js`)를 대신 import해도 됩니다. outputRouting을 쓰는 `init` 설정의 `<id>.queries.ts`에는 `use*` 훅이 없으므로, 그 파일을 쓸 때 훅이 필요하면 4단계처럼 `useQuery(getUserQueryOptions(client, { userId }))`로 씁니다.
 
 ---
 

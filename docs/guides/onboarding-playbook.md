@@ -428,7 +428,7 @@ if (
 
 `fsd` 프리셋이 함께 기록하는 `rules`의 tag(`common`, `shared`, `auth`, `system`)는 OpenAPI tag가 아니라 spec target id와 비교되고, `kind: 'schemas'` 규칙과 `monorepo` 프리셋의 `guards`·`schemas` 항목은 현재 출력 위치를 바꾸지 않습니다. 프레임워크 라우터 코드는 outputRouting 대상이 아니므로 §4.1의 빌드 스크립트에서 경로를 정합니다.
 
-`oa-gen generate`는 `.oa-manifest.json`에 기록된 생성 파일 중 이번 실행이 만들지 않고 내용도 바뀌지 않은 파일을 지웁니다. 지우는 파일은 manifest에 기록되어 있고(출처), 디스크의 내용 hash가 기록과 같으며(손으로 고치지 않음), 생성 배너가 남아 있는 파일뿐입니다. 손으로 고친 파일과 manifest에 없는 파일은 지우지 않습니다. 다만 `oa-gen generate:tanstack` 등 다른 명령이 같은 프로젝트에 쓴 파일도 지워지므로, `oa-gen generate`를 쓰는 프로젝트에서는 TanStack 코드도 `generate`가 만드는 `<id>.queries.ts`에서 가져옵니다. `outputRouting.pruneOrphans: false`는 현재 이 삭제를 막지 못합니다(알려진 결함).
+`oa-gen generate`는 `.oa-manifest.json`에 기록된 생성 파일 중 이번 실행이 소유했고 이번에 만들지 않았으며 내용도 바뀌지 않은 파일을 지웁니다. 지우는 파일은 같은 설정 파일로 실행한 `oa-gen generate`가 기록했고(`--spec` 실행이면 같은 spec target으로 기록했고), 디스크의 내용 hash가 기록과 같으며(손으로 고치지 않음), 생성 배너가 남아 있는 파일뿐입니다. 손으로 고친 파일, manifest에 없는 파일, `oa-gen generate:tanstack` 등 다른 명령이 쓴 파일은 지우지 않습니다. `outputRouting.pruneOrphans: false`면 아무 파일도 지우지 않습니다. 판정 규칙은 [생성 파일 정리](./declarative-spec-configuration.md#45-생성-파일-정리)를 봅니다.
 
 ### 4.9 TanStack Query (React Query) v5 3계층 구조
 
@@ -681,7 +681,8 @@ jobs:
 | `[oa-gen generate] Skipped outputs whose companion package is not installed` (경고) | 기본값으로만 암시된 산출물(지정하지 않은 스위치와 아키타입 프리셋, TanStack Query 옵션, CRDT 모듈, `--spec` 직접 실행)의 동반 패키지가 없음 | 산출물이 필요하면 경고에 출력된 설치 명령을 실행하십시오. 이전 실행이 생성한 해당 파일은 삭제되지 않고 유지됩니다. |
 | `import-not-found: Couldn't resolve import "@typespec/http"` | `.tsp`가 import하는 TypeSpec 라이브러리를 `.tsp` 파일 위치에서 찾지 못함(pnpm 등 끌어올리지 않는 레이아웃) | `@typespec/http`, `@typespec/openapi`, `@oa-sdk/typespec-decorators`를 프로젝트의 직접 개발 의존성으로 설치하십시오([TypeSpec 작성 의존성](./cli-setup.md#typespec-작성-의존성)). |
 | `Cannot find package 'msw'` | MSW 어댑터(`@oa-sdk/mock-server/adapters/msw`, `@oa-sdk/mock-server/browser`)를 `msw` 없이 import함 | MSW 어댑터를 쓸 때만 `msw`를 설치하십시오. `oa-gen mock`과 패키지 루트, Node HTTP 어댑터는 `msw` 없이 동작합니다. |
-| `oa-gen generate:tanstack` 출력이 사라짐 | 다음 `oa-gen generate` 실행이 `.oa-manifest.json`에 기록된 다른 명령의 생성물을 지움(알려진 결함) | `oa-gen generate`를 쓰는 프로젝트에서는 `generate`가 만드는 `<id>.queries.ts`를 쓰십시오(§4.8). |
+| `[oa-gen generate] Generation failed; no files were written` | `oa.config.ts`가 명시적으로 켠 산출물(`core.contracts.pureHandlers: true`, `core.client.enabled: true`)을 동반 패키지가 만들다 오류가 남. 아무 파일도 쓰지 않았고 `.oa-manifest.json`도 그대로입니다. | 출력된 오류(`Failed to generate <산출물> via <패키지>: <메시지>`)를 고치십시오. 해당 산출물이 필요 없다면 스위치를 `false`로 설정합니다. |
+| `[oa-gen generate] Skipped outputs that failed to generate` (경고) | 기본값으로만 암시된 산출물(지정하지 않은 스위치, TanStack Query 옵션, CRDT 모듈, `--spec` 직접 실행)을 만들다 오류가 남 | 경고의 오류를 고치십시오. 그 산출물만 건너뛰었고 이전 실행이 생성한 해당 파일은 유지됩니다. 계약·클라이언트 생성 오류를 실패로 다루려면 해당 스위치를 `true`로 명시합니다. |
 | 스펙 수정 중 구문 오류 | 스키마 편집 중 일시적인 YAML·TypeSpec 문법 오류 | `oa-gen mock --watch`는 구문 오류가 나면 직전 유효 route를 유지하고 서버를 계속 실행합니다. 올바른 문법으로 저장하면 다시 교체합니다. |
 
 ---

@@ -99,8 +99,7 @@ npx oa-gen audit:csp --bundle ./src/generated/guards
 | OpenAPI YAML·JSON | 원본에 적힌 버전 | 3.2를 강제하려면 `oa-gen validate --spec <파일> --require-32`를 씁니다. |
 | TypeScript 모듈(Zod) | 3.1.0 | export한 Zod 스키마가 component가 됩니다(`OrderSchema` → `Order`). |
 
-`oa-gen generate` 요약 출력은 형식과 관계없이 `OpenAPI 3.1`로 표시하고 `N ops`에 path 수를 표시합니다(알려진 결함).
-실제 버전은 파일의 `openapi` 필드를 봅니다.
+`oa-gen generate` 요약 출력은 파일의 `openapi` 필드 버전(`OpenAPI 3.2.0` 등)과 operation 수(`N ops`)를 표시합니다.
 
 ## 검증 엔진 고르기
 
