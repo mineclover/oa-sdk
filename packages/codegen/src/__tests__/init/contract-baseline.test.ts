@@ -11,8 +11,10 @@ import {
   runInit,
   writeContractBaseline,
 } from '../../cli/lib/init/index.js'
+import { diff } from '../../cli/commands/diff.js'
 import { init } from '../../cli/commands/init.js'
 import { normalize } from '../../cli/commands/normalize.js'
+import { CliExitError } from '../../cli/lib/errors.js'
 
 /** codegen's node_modules, which has the TypeSpec libraries a `.tsp` spec imports. */
 const CODEGEN_NODE_MODULES = fileURLToPath(new URL('../../../node_modules', import.meta.url))
@@ -104,6 +106,58 @@ describe('contract baseline of the enterprise archetype', () => {
     expect(result.status).toBe('not-created')
     expect(result.status === 'not-created' && result.reason).toMatch(/^the spec openapi\.yaml did not load: /)
     await expect(fs.access(path.join(projectDir, CONTRACT_BASELINE_PATH))).rejects.toThrow()
+  })
+
+  it('copies in the files the spec refers to, so a change made in them breaks the gate', async () => {
+    // A spec in a subdirectory whose response schema lives in another file: the baseline, written
+    // at the project root, must hold that schema rather than a ref that now points elsewhere.
+    await fs.mkdir(path.join(projectDir, 'api'))
+    await fs.writeFile(path.join(projectDir, 'package.json'), JSON.stringify({ name: 'gated' }))
+    await fs.writeFile(path.join(projectDir, 'api', 'openapi.yaml'), [
+      'openapi: 3.2.0',
+      'info: { version: 1.0.0, title: Users }',
+      'paths:',
+      '  /users/{id}:',
+      '    get:',
+      '      operationId: getUser',
+      '      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]',
+      "      responses: { '200': { description: OK, content: { application/json: { schema: { $ref: './schemas.yaml#/User' } } } } }",
+      '',
+    ].join('\n'))
+    const schemas = [
+      'User:',
+      '  type: object',
+      '  required: [id, name]',
+      '  properties: { id: { type: string }, name: { type: string } }',
+      '',
+    ].join('\n')
+    await fs.writeFile(path.join(projectDir, 'api', 'schemas.yaml'), schemas)
+
+    const result = await runInit({ cwd: projectDir, archetype: 'enterprise', yes: true })
+    expect(result.contractBaseline).toEqual({ path: CONTRACT_BASELINE_PATH, specPath: path.join('api', 'openapi.yaml'), status: 'created' })
+    const baseline = parseYaml(await read(CONTRACT_BASELINE_PATH))
+    expect(baseline.paths['/users/{id}'].get.responses['200'].content['application/json'].schema).toEqual(parseYaml(schemas).User)
+    expect(JSON.stringify(baseline)).not.toContain('schemas.yaml')
+
+    // The scripts as init wrote them: diff passes on the unchanged spec ...
+    const gate = {
+      base: path.join(projectDir, CONTRACT_BASELINE_PATH),
+      head: path.join(projectDir, 'api', 'openapi.yaml'),
+      'fail-on-breaking': true,
+    }
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    await diff.run(gate)
+
+    // ... fails once the referenced file drops a required response field and retypes it ...
+    await fs.writeFile(
+      path.join(projectDir, 'api', 'schemas.yaml'),
+      schemas.replace('required: [id, name]', 'required: [id]').replace('name: { type: string }', 'name: { type: integer }'),
+    )
+    await expect(diff.run(gate)).rejects.toBeInstanceOf(CliExitError)
+
+    // ... and passes again once baseline:update accepts the change.
+    await normalize.run({ spec: gate.head, output: gate.base })
+    await diff.run(gate)
   })
 
   it('is never detected as the spec of the project', async () => {

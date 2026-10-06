@@ -1,5 +1,6 @@
 import type { Command, CommandContext } from '../lib/types.js'
 import { loadSpecDocumentAsync } from '../lib/load-spec.js'
+import { bundleExternalRefs } from '../lib/bundle-external-refs.js'
 import { bool, optStr, str } from '../lib/args.js'
 import {
   diffEndpoints,
@@ -35,7 +36,11 @@ export const diff: Command = {
     const rootDir = context?.projectRoot ?? optStr(args, 'project-root') ?? optStr(args, 'root')
     const base = await loadSpecDocumentAsync(str(args, 'base'), rootDir)
     const head = await loadSpecDocumentAsync(str(args, 'head'), rootDir)
-    const result = diffEndpoints(base.document, head.document)
+    // A spec that spans several files is compared with what its refs name, not with the refs.
+    const result = diffEndpoints(
+      bundleExternalRefs(base.document, base.path),
+      bundleExternalRefs(head.document, head.path),
+    )
     console.log(formatMarkdown(result))
     if (bool(args, 'fail-on-breaking') && hasBreakingChanges(result)) throw new CliExitError(1)
   },
