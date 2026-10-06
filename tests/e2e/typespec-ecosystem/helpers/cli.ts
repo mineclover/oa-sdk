@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import { constants } from 'node:os'
 import * as path from 'node:path'
 
 export interface CliRunResult {
@@ -43,16 +44,21 @@ export async function runOaGen(
       stderr += data.toString('utf8')
     })
 
+    const timeoutMs = options.timeoutMs ?? 30_000
+    let timedOut = false
     const timeout = setTimeout(() => {
+      timedOut = true
       child.kill('SIGTERM')
-    }, options.timeoutMs ?? 30_000)
+    }, timeoutMs)
 
-    child.on('close', (code) => {
+    child.on('close', (code, signal) => {
       clearTimeout(timeout)
       resolve({
         stdout,
-        stderr,
-        exitCode: code ?? 0,
+        stderr: timedOut ? `${stderr}\nKilled after the ${timeoutMs} ms timeout` : stderr,
+        // A child that a signal ended (including the timeout above) has no exit code;
+        // report it the way a shell does (128 + signal number) so it never reads as success.
+        exitCode: code ?? 128 + (signal ? constants.signals[signal] : 0),
       })
     })
 
