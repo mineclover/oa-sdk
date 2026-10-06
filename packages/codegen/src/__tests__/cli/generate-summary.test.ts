@@ -76,6 +76,37 @@ const malformedDocument = {
   },
 }
 
+/**
+ * An API in three files (written by `writeMultiFileDocument`): `/users/{id}`
+ * is a Path Item `$ref` to `user-path.json`, which holds its two operations and
+ * refers to a schema in `schemas.json`. Three operations in all.
+ */
+const multiFileDocuments = {
+  'contract.json': {
+    openapi: '3.2.0',
+    info: { title: 'Multi-file API', version: '1.0.0' },
+    paths: {
+      '/health': { get: { operationId: 'getHealth', responses: response } },
+      '/users/{id}': {
+        $ref: './user-path.json',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+      },
+    },
+  },
+  'user-path.json': {
+    get: {
+      operationId: 'getUser',
+      responses: {
+        '200': { description: 'ok', content: { 'application/json': { schema: { $ref: './schemas.json#/User' } } } },
+      },
+    },
+    delete: { operationId: 'deleteUser', responses: { '204': { description: 'deleted' } } },
+  },
+  'schemas.json': {
+    User: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } },
+  },
+}
+
 describe('oa-gen generate summary', () => {
   let tmpDir: string
   let logs: string[]
@@ -131,10 +162,35 @@ describe('oa-gen generate summary', () => {
     expect(result.operationCount).toBe(5)
   })
 
+  describe('a spec that spans several files', () => {
+    const writeMultiFileDocument = () => {
+      for (const [name, document] of Object.entries(multiFileDocuments)) writeDocument(name, document)
+      return path.join(tmpDir, 'contract.json')
+    }
+
+    it('counts the operations of a Path Item in another file in the summary', async () => {
+      await runGenerate(writeMultiFileDocument())
+
+      expect(logs.join('\n')).toMatch(/contract\s+\[full-api-document\s*\] -> 3 ops, 0 schemas/)
+    })
+
+    it('is projected as written, its operation count leaving out the Path Item in another file', async () => {
+      const specPath = writeMultiFileDocument()
+
+      const result = await projectTargetSpec({ id: 'contract', profile: 'full-api-document', schemaEntry: specPath, outDir: 'generated' }, tmpDir)
+
+      expect(result.operationCount).toBe(1)
+      expect((result.openApiDoc['paths'] as Record<string, unknown>)['/users/{id}']).toMatchObject({ $ref: './user-path.json' })
+    })
+  })
+
   describe('a document the parseDocument IR cannot index', () => {
     it('is the document this suite means', () => {
-      // Precondition: the full IR fails on the `null` tag, so counting through it would fail projection.
+      // Precondition: the full IR fails on the `null` tag, so counting through it would fail
+      // projection, and the parse the generate summary counts in fails too.
       expect(() => parseDocument(malformedDocument as unknown as OasDocument, [])).toThrow(TypeError)
+      const specPath = writeDocument('malformed.json', malformedDocument)
+      expect(() => parseDocument(malformedDocument as unknown as OasDocument, { basePath: specPath })).toThrow(TypeError)
     })
 
     it('is still projected, with the operations its paths hold counted', async () => {

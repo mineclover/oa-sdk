@@ -25,7 +25,12 @@ import {
   type CompanionModules,
   type CompanionPackageName,
 } from '../lib/companion-packages.js'
-import { projectTargetSpec, projectTargetGuards, type TargetSpecProjectionResult } from '../../spec-projector.js'
+import {
+  countRouteOperations,
+  projectTargetSpec,
+  projectTargetGuards,
+  type TargetSpecProjectionResult,
+} from '../../spec-projector.js'
 import {
   createPathDispatcher,
   OaManifestManager,
@@ -452,6 +457,21 @@ async function runConfigDrivenPipeline(
     )
   }
 
+  /**
+   * The operations of a target the summary reports. They are counted in the
+   * parsed spec the generators read, so the operations of a path item in
+   * another file count. A document the parser cannot index (a `null` entry in
+   * `tags`, say) is counted as projection counted it, as written: a summary
+   * figure must not decide whether the run succeeds.
+   */
+  const operationCountOf = (res: TargetSpecProjectionResult): number => {
+    try {
+      return countRouteOperations(parsedSpec(res).routes)
+    } catch {
+      return res.operationCount
+    }
+  }
+
   // Step 1: Schema Projection (OpenAPI 3.1/3.2 and JSON Schema 2020-12)
   for (const target of specs) {
     const result = await projectTargetSpec(target, rootDir)
@@ -722,7 +742,8 @@ async function runConfigDrivenPipeline(
   for (const res of specResults) {
     const relOpenApi = relative(rootDir, res.openApiPath)
     const relSchema = relative(rootDir, res.jsonSchemaPath)
-    const opInfo = res.operationCount > 0 ? `${res.operationCount} ops, ` : ''
+    const operationCount = operationCountOf(res)
+    const opInfo = operationCount > 0 ? `${operationCount} ops, ` : ''
     const titleInfo = res.target.title ? `(${res.target.title}) ` : ''
     console.log(` ✅ ${res.target.id.padEnd(20)} [${(res.target.profile ?? 'full-api-document').padEnd(18)}] ${titleInfo}-> ${opInfo}${res.schemaCount} schemas`)
     console.log(`    - ${openApiLabel(res.openApiDoc)}: ${relOpenApi}`)

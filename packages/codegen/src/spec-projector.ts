@@ -21,7 +21,7 @@ import {
   type SchemaRefEdge,
   type SchemaSourceCoordinate,
 } from '@oa-sdk/openapi-projection-contract'
-import { appendJsonPointer, loadSchema } from '@oa-sdk/parser'
+import { appendJsonPointer, loadSchema, type RouteIndex } from '@oa-sdk/parser'
 import type { ProfileTargetConfig, GuardTargetConfig } from './config.js'
 import { loadModule, profileTargetArtifactPaths, resolveProfileTarget } from './cli/lib/config-loader.js'
 import { zodToSchema } from './zod-to-schema.js'
@@ -36,7 +36,11 @@ export interface TargetSpecProjectionResult {
   versionHash: string
   openApiPath: string
   jsonSchemaPath: string
-  /** Operations under `paths` (see `countPathOperations`), not the number of paths. */
+  /**
+   * Operations under `paths` of `openApiDoc` as written (see
+   * `countPathOperations`), not the number of paths. Those of a Path Item in
+   * another file are not counted.
+   */
   operationCount: number
   schemaCount: number
 }
@@ -203,11 +207,25 @@ export function extractRefsFromDocument(doc: unknown, defaultSourcePath = ''): S
  * Item or an Operation, so the count never fails, and a document whose other
  * parts the IR cannot index (a `null` entry in `tags`, say) is still
  * projected: a summary figure must not decide whether projection succeeds.
+ *
+ * The document is counted as written. A Path Item `$ref` into another file
+ * (`./paths/user.yaml`) resolves only from the schema entry, so the operations
+ * of that file are not counted here; `oa-gen generate` counts them in the spec
+ * it parses with the schema entry as base path (`countRouteOperations`).
  */
 function countPathOperations(doc: Record<string, unknown>): number {
   // No passes: the document is indexed as it is, following local `$ref`s by JSON pointer.
+  return countRouteOperations(loadSchema(doc, []))
+}
+
+/**
+ * Number of operations a route index holds, one per path and method, as
+ * `countPathOperations` counts them: for a route index already built, such as
+ * the `routes` of a `parseDocument` IR.
+ */
+export function countRouteOperations(routes: RouteIndex): number {
   let count = 0
-  for (const methods of loadSchema(doc, []).values()) count += methods.size
+  for (const methods of routes.values()) count += methods.size
   return count
 }
 
