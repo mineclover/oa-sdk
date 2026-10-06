@@ -60,8 +60,9 @@ export function extractEndpoints(spec: Record<string, unknown>): Map<string, End
   const map = new Map<string, Endpoint>()
   const paths = readRecord(spec.paths)
 
-  for (const [path, item] of Object.entries(paths)) {
-    if (!isRecord(item)) continue
+  for (const [path, value] of Object.entries(paths)) {
+    const item = resolvePathItem(value, spec)
+    if (item === undefined) continue
     for (const method of HTTP_METHODS) {
       const op = item[method]
       if (!isRecord(op)) continue
@@ -813,6 +814,24 @@ function resolveMappingRef(value: unknown, document: Record<string, unknown>): u
   const ref = value.$ref
   if (typeof ref !== 'string') return value
   return resolveRef(ref, document) ?? value
+}
+
+/**
+ * The Path Item `value` stands for. One that is a `$ref` into the document (to an entry of
+ * `components.pathItems`, say) is the item it names, with the fields next to the `$ref`, which are
+ * fields of the path item, set over its own, as the parser's dereference does. A `$ref` the document
+ * does not hold leaves the fields next to it.
+ */
+function resolvePathItem(
+  value: unknown,
+  document: Record<string, unknown>,
+  seenRefs: ReadonlySet<string> = new Set(),
+): Record<string, unknown> | undefined {
+  if (!isRecord(value)) return undefined
+  const { $ref: ref, ...fields } = value
+  if (typeof ref !== 'string' || seenRefs.has(ref)) return value
+  const target = resolvePathItem(resolveRef(ref, document), document, new Set([...seenRefs, ref]))
+  return target === undefined ? value : { ...target, ...fields }
 }
 
 function resolveRef(ref: string, document: Record<string, unknown>): unknown {
