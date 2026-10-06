@@ -38,7 +38,7 @@ import {
   sendHttpRequest,
   type ActiveMockInstance,
 } from './helpers/mock-harness.js'
-import { runScript } from './helpers/cli.js'
+import { runRootPackageScript, runScript } from './helpers/cli.js'
 
 describe('Tier 1: Feature Coverage (Features 1–20)', () => {
   // =========================================================================
@@ -893,25 +893,21 @@ describe('Tier 1: Feature Coverage (Features 1–20)', () => {
 
   describe('Feature 19: Monorepo Governance Gates Compliance', () => {
     it('T1-F19-1: check-docs gate passes cleanly (exit code 0)', async () => {
-      const res = await runScript('node', ['--import', 'tsx', 'scripts/check-docs.ts'])
+      const res = await runRootPackageScript('check:docs')
       expect(res.exitCode).toBe(0)
       expect(res.stdout).toContain('Documentation OK')
     })
 
     it('T1-F19-2: check-cli-spec gate passes cleanly (exit code 0)', async () => {
-      const res = await runScript('node', ['--import', 'tsx', 'scripts/check-cli-spec.ts'])
+      const res = await runRootPackageScript('check:cli-spec')
       expect(res.exitCode).toBe(0)
       expect(res.stdout).toContain('CLI spec OK')
     })
 
-    it('T1-F19-3: check-api-index gate verifies exported symbols', async () => {
-      const res = await runScript('node', ['scripts/dist/check-api-index.js'])
-      expect([0, 1]).toContain(res.exitCode)
-      if (res.exitCode === 0) {
-        expect(res.stdout).toContain('API index is in sync')
-      } else {
-        expect(res.stdout).toContain('API Index Drift Report')
-      }
+    it('T1-F19-3: check-api-index gate finds the documented API index in sync with package exports (exit code 0)', async () => {
+      const res = await runRootPackageScript('check:api-index')
+      expect(res.exitCode, `${res.stdout}\n${res.stderr}`).toBe(0)
+      expect(res.stdout).toMatch(/^API index is in sync with \d+ packages/m)
     })
 
     it('T1-F19-4: check-release-policy gate passes cleanly (exit code 0)', async () => {
