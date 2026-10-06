@@ -1179,7 +1179,7 @@
         "column": 16,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "deserialize",
-        "line": 103,
+        "line": 105,
         "sourceType": "JSON.parse"
       },
       {
@@ -1484,7 +1484,7 @@
         "column": 30,
         "filePath": "packages/codegen/src/schema-pipeline/pipeline.ts",
         "kind": "any",
-        "line": 85
+        "line": 86
       },
       {
         "boundaryId": "type-boundary:261eb3cc7851eb3faff88e9b15e52c81",
@@ -1498,14 +1498,14 @@
         "column": 32,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "any",
-        "line": 250
+        "line": 272
       },
       {
         "boundaryId": "type-boundary:27041dcd5ef6edd59d4ab4ac2d7d22a9",
-        "column": 40,
+        "column": 42,
         "filePath": "packages/codegen/src/cli/commands/generate.ts",
         "kind": "any",
-        "line": 463
+        "line": 578
       },
       {
         "boundaryId": "type-boundary:27ed3c8355e13ef91fbcb0294444d9b6",
@@ -1560,7 +1560,7 @@
         "column": 26,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "any",
-        "line": 199
+        "line": 221
       },
       {
         "boundaryId": "type-boundary:2e7f0d30790364b33ed397a499040bb0",
@@ -1694,10 +1694,10 @@
       },
       {
         "boundaryId": "type-boundary:3eae387d2f32b8d36ec9ba174d7b13b9",
-        "column": 75,
+        "column": 73,
         "filePath": "packages/codegen/src/cli/commands/generate.ts",
         "kind": "any",
-        "line": 353
+        "line": 494
       },
       {
         "boundaryId": "type-boundary:3f3470afa11c9ef23eaa1cce7c8ac96e",
@@ -1726,7 +1726,7 @@
         "column": 25,
         "filePath": "packages/codegen/src/routing/manifest-manager.ts",
         "kind": "deserialize",
-        "line": 145,
+        "line": 266,
         "sourceType": "JSON.parse"
       },
       {
@@ -1956,7 +1956,7 @@
         "column": 54,
         "filePath": "packages/codegen/src/cli/commands/drift.ts",
         "kind": "deserialize",
-        "line": 390,
+        "line": 394,
         "sourceType": "JSON.parse"
       },
       {
@@ -2023,17 +2023,17 @@
       },
       {
         "boundaryId": "type-boundary:6aa728159191a967e40445f44dbb62ab",
-        "column": 11,
+        "column": 13,
         "filePath": "packages/codegen/src/cli/commands/generate.ts",
         "kind": "any",
-        "line": 465
+        "line": 580
       },
       {
         "boundaryId": "type-boundary:6ab290b49824de61ed51eaef1a6c9809",
         "column": 44,
         "filePath": "packages/codegen/src/schema-pipeline/pipeline.ts",
         "kind": "any",
-        "line": 89
+        "line": 90
       },
       {
         "boundaryId": "type-boundary:6b4c95f430526f8a2502fc7ce2adbd2a",
@@ -2055,7 +2055,7 @@
         "column": 27,
         "filePath": "packages/codegen/src/routing/manifest-manager.ts",
         "kind": "deserialize",
-        "line": 170,
+        "line": 291,
         "sourceType": "JSON.parse"
       },
       {
@@ -2194,7 +2194,7 @@
         "column": 60,
         "filePath": "packages/codegen/src/cli/commands/generate.ts",
         "kind": "any",
-        "line": 495
+        "line": 604
       },
       {
         "boundaryId": "type-boundary:7fb8d8161338cd8555c229be3e3d8bbb",
@@ -2247,6 +2247,14 @@
         "filePath": "packages/mock-server/src/plugins/in-memory-store.ts",
         "kind": "any",
         "line": 65
+      },
+      {
+        "boundaryId": "type-boundary:85ee9967a86064fe7fdf171a6252d1a5",
+        "column": 52,
+        "filePath": "packages/codegen/src/cli/lib/bundle-external-refs.ts",
+        "kind": "deserialize",
+        "line": 374,
+        "sourceType": "JSON.parse"
       },
       {
         "boundaryId": "type-boundary:8805685dd5ae6322d5d4e1ed89ac454b",
@@ -2458,7 +2466,7 @@
         "column": 24,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "double-assertion",
-        "line": 234,
+        "line": 256,
         "sourceType": "159:\"unknown\"",
         "targetType": "80:\"Record\"|30:\"<\"|154:\"string\"|28:\",\"|159:\"unknown\"|32:\">\""
       },
@@ -2506,7 +2514,7 @@
         "column": 24,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "double-assertion",
-        "line": 215,
+        "line": 237,
         "sourceType": "159:\"unknown\"",
         "targetType": "80:\"Record\"|30:\"<\"|154:\"string\"|28:\",\"|159:\"unknown\"|32:\">\""
       },
@@ -2523,7 +2531,7 @@
         "column": 51,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "any",
-        "line": 216
+        "line": 238
       },
       {
         "boundaryId": "type-boundary:a832b8aa846cc6f18ceaa187dba96a8a",
@@ -2586,7 +2594,7 @@
         "column": 53,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "any",
-        "line": 455
+        "line": 478
       },
       {
         "boundaryId": "type-boundary:acd27b5af3244e06e88e47e58f3be50e",
@@ -2622,7 +2630,7 @@
         "column": 59,
         "filePath": "packages/codegen/src/cli/commands/generate.ts",
         "kind": "any",
-        "line": 107
+        "line": 109
       },
       {
         "boundaryId": "type-boundary:b0adb3a2de2ec3c2feca3f168320d706",
@@ -2837,7 +2845,7 @@
         "column": 44,
         "filePath": "packages/codegen/src/cli/commands/generate.ts",
         "kind": "any",
-        "line": 495
+        "line": 604
       },
       {
         "boundaryId": "type-boundary:c767246f7b24f7f8c2cad1bb44044649",
@@ -3030,7 +3038,7 @@
         "column": 34,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "double-assertion",
-        "line": 139,
+        "line": 141,
         "sourceType": "159:\"unknown\"",
         "targetType": "80:\"T\""
       },
@@ -3039,7 +3047,7 @@
         "column": 51,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "any",
-        "line": 199
+        "line": 221
       },
       {
         "boundaryId": "type-boundary:def0771650fd4f3013938cc8d094c967",
@@ -3199,7 +3207,7 @@
         "column": 34,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "double-assertion",
-        "line": 120,
+        "line": 122,
         "sourceType": "159:\"unknown\"",
         "targetType": "80:\"T\""
       },
@@ -3230,7 +3238,7 @@
         "column": 51,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "any",
-        "line": 235
+        "line": 257
       },
       {
         "boundaryId": "type-boundary:f769b457a1a7e17d9fd72c4e1dbbccbc",
@@ -8830,9 +8838,9 @@
         "kind": "function",
         "qualifiedName": "@oa-sdk/codegen:src/cli/commands/drift.ts#loadRuntimeOpenApi",
         "runtime": "neutral",
-        "semanticHash": "c69c6ec081e60fab1fb25ee883269d140909e450289f4484e7cfb2f6cd23e88e",
-        "shapeHash": "223c57d1fe1f2e447c01fbe762d001002066ae0829b8e1e7d0ea47832154f7cb",
-        "syntaxHash": "9d1cd8ff14593bafd5d8791d952c54f4d69a5b6e77e0d8e21ecd777891d78ff7"
+        "semanticHash": "2369e43d32c30385277758f4a5e67465b44f1513fbba703f355bf1fb59645193",
+        "shapeHash": "721ed138a20cfc9cffe4ce300767fd1577cf66a03a1edd7ac800b30fbd6bce32",
+        "syntaxHash": "c7b9d1d41920d041dc457e0928cc4e05ba48916a1aba9202179e88df2dfe507d"
       },
       {
         "filePath": "packages/codegen/src/cli/commands/drift.ts",
@@ -8876,6 +8884,16 @@
       },
       {
         "filePath": "packages/codegen/src/cli/commands/drift.ts",
+        "identity": "packages/codegen/src/cli/commands/drift.ts#src/cli/commands/drift.ts#neutral#@oa-sdk/codegen:src/cli/commands/drift.ts#readRuntimeSource#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/commands/drift.ts#readRuntimeSource",
+        "runtime": "neutral",
+        "semanticHash": "4dd6287ede408423dc9a8222b8d17fe33abb09fca15c501c9de1e47f353d5076",
+        "shapeHash": "53766ca5530749167e6d0d5b70cc58bb172f82071a92217a22c999ff771e4755",
+        "syntaxHash": "4e9ebd1b3f9b6f697a305daed6a99b2b9b16ef743397464a85f9772873efe8c8"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/commands/drift.ts",
         "identity": "packages/codegen/src/cli/commands/drift.ts#src/cli/commands/drift.ts#neutral#@oa-sdk/codegen:src/cli/commands/drift.ts#RuntimeFetchInfo#type-alias",
         "kind": "type-alias",
         "qualifiedName": "@oa-sdk/codegen:src/cli/commands/drift.ts#RuntimeFetchInfo",
@@ -8903,6 +8921,16 @@
         "semanticHash": "944bb2add57d82fa5a336600a355643ef43d81600743a434cef5a3386ae8a6b0",
         "shapeHash": "af934f36ce9ce8358ec0bf44b53aac045c1156b926fb851c779320a361cf16b1",
         "syntaxHash": "7a90e3ccce6b8ac0294152e2059c785f1633ce4640510170f1132a2bf5c6e46e"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/commands/drift.ts",
+        "identity": "packages/codegen/src/cli/commands/drift.ts#src/cli/commands/drift.ts#neutral#@oa-sdk/codegen:src/cli/commands/drift.ts#RuntimeSource#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/commands/drift.ts#RuntimeSource",
+        "runtime": "neutral",
+        "semanticHash": "55fa1bbc5614db06d8970f0f1e7c34c093587c24c821ccead81508de41745b27",
+        "shapeHash": "15a2d50404ec27d9e21302da4e37e7ece842b46795e201b9dab45243ca90d299",
+        "syntaxHash": "d84e9372bc333fae1f16aa078626a8231d37090f0831f516431bb3d779049f87"
       },
       {
         "filePath": "packages/codegen/src/cli/commands/drift.ts",
@@ -9026,6 +9054,76 @@
       },
       {
         "filePath": "packages/codegen/src/cli/commands/generate.ts",
+        "identity": "packages/codegen/src/cli/commands/generate.ts#src/cli/commands/generate.ts#neutral#@oa-sdk/codegen:src/cli/commands/generate.ts#CompanionOutputOutcomes#class",
+        "kind": "class",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/commands/generate.ts#CompanionOutputOutcomes",
+        "runtime": "neutral",
+        "semanticHash": "0fc2f23fb621a462a21ac251d9cb23c9dcaf03ce79296813d32b15ee04cb6760",
+        "shapeHash": "edbb0b78aaad23a3dde712e4a775015a8bcf1db216f8eb42a433b28f2e5b41a9",
+        "syntaxHash": "80c5ba7397c7f5f56d3d715ebb230a7754e9c9e479a9c274f6c68e511b371eb2"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/commands/generate.ts",
+        "identity": "packages/codegen/src/cli/commands/generate.ts#src/cli/commands/generate.ts#neutral#@oa-sdk/codegen:src/cli/commands/generate.ts#describeFailures#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/commands/generate.ts#describeFailures",
+        "runtime": "neutral",
+        "semanticHash": "c457d3774f4e15abbb0aec07e09945139f02e19049213664f3de7835e7aaa341",
+        "shapeHash": "7d107983c9930aaa813ef2cb26f5aff29673225bb8971e5c67f926be309613cc",
+        "syntaxHash": "81ca20c6bc1d0957e843e978d698ae460caca97b9c5ab96c1a99f9d2c10bdcad"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/commands/generate.ts",
+        "identity": "packages/codegen/src/cli/commands/generate.ts#src/cli/commands/generate.ts#neutral#@oa-sdk/codegen:src/cli/commands/generate.ts#FailedCompanionOutput#interface",
+        "kind": "interface",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/commands/generate.ts#FailedCompanionOutput",
+        "runtime": "neutral",
+        "semanticHash": "900268dac026b69efe65922b98a99884bcb2f5ea0f38c18727f88261874afb55",
+        "shapeHash": "cbb9c9b52b35f768238068937fddcfeae122c7aa6acf515e6cb25477e208d357",
+        "syntaxHash": "ad92c4ae3857bd52c14ec49c71d9812178bb237d3dbdd41319573dbc594972fb"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/commands/generate.ts",
+        "identity": "packages/codegen/src/cli/commands/generate.ts#src/cli/commands/generate.ts#neutral#@oa-sdk/codegen:src/cli/commands/generate.ts#GenerateRunScope#interface",
+        "kind": "interface",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/commands/generate.ts#GenerateRunScope",
+        "runtime": "neutral",
+        "semanticHash": "51bdeb37256058e8f7ba8ff0a9fbd15151902dbe02ca89d0e78e59fa353ec955",
+        "shapeHash": "9f44be2ebd5fec5a67ae8302c05e15497b1e4d46eca6c1658c3bfc16a86eafc6",
+        "syntaxHash": "2a709e54cdec694052e7a1a9faecb2dbcac44338cf9838953f603345829737bf"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/commands/generate.ts",
+        "identity": "packages/codegen/src/cli/commands/generate.ts#src/cli/commands/generate.ts#neutral#@oa-sdk/codegen:src/cli/commands/generate.ts#GenerateRunSource#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/commands/generate.ts#GenerateRunSource",
+        "runtime": "neutral",
+        "semanticHash": "f62fd30d33f555527e9198882b106527db4dc3995c7f9a976e2f4a1e34fcf6a8",
+        "shapeHash": "4a12c3eefecc8d3dc75d19dec39b8d5b1ba2eeff143dcc9397ca790d7bd44a82",
+        "syntaxHash": "5597abdc020e0f63728498a774eb5142e27250794596735d8ccf324c8e6836ed"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/commands/generate.ts",
+        "identity": "packages/codegen/src/cli/commands/generate.ts#src/cli/commands/generate.ts#neutral#@oa-sdk/codegen:src/cli/commands/generate.ts#openApiLabel#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/commands/generate.ts#openApiLabel",
+        "runtime": "neutral",
+        "semanticHash": "6ec7b80ecc089fba94c826541674523e565b53dbfffd142998f48846abdea3d0",
+        "shapeHash": "6f8eecb9965baf36b9c7517cf77e61156bcea625a73ea16e009b3d4aa8b19104",
+        "syntaxHash": "22c308a80fe81867c7f209261ab39cebbe9f52da7dc99f7854916f292e0927f5"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/commands/generate.ts",
+        "identity": "packages/codegen/src/cli/commands/generate.ts#src/cli/commands/generate.ts#neutral#@oa-sdk/codegen:src/cli/commands/generate.ts#ownedByGenerateRun#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/commands/generate.ts#ownedByGenerateRun",
+        "runtime": "neutral",
+        "semanticHash": "7f7313c405fb47eb17c8bd0e9e36f993c4d4fdf33c7ca6e05e16ce3cf92cf8d7",
+        "shapeHash": "d6ca8a5a8d19d4e2d0739e2b69de4da24242acfa6582250daf0c3623971e6855",
+        "syntaxHash": "92f2d967fe3231d0e83d1178a788e21605fb5e0718538ebbb911693bc4e38ef8"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/commands/generate.ts",
         "identity": "packages/codegen/src/cli/commands/generate.ts#src/cli/commands/generate.ts#neutral#@oa-sdk/codegen:src/cli/commands/generate.ts#printWarnings#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/codegen:src/cli/commands/generate.ts#printWarnings",
@@ -9050,9 +9148,9 @@
         "kind": "function",
         "qualifiedName": "@oa-sdk/codegen:src/cli/commands/generate.ts#runConfigDrivenPipeline",
         "runtime": "neutral",
-        "semanticHash": "a86535e9988be7d9d25f909ed43e941b4b1ab4100a5e2ab938830b61441cf93b",
-        "shapeHash": "630e8da3266393e88254e1014c080a14577ce3c39672ebbceb4e3e199998038a",
-        "syntaxHash": "b0c8791c81132214b99721acf9fb0f4c7321884b5cac72b555e0a72a74df759d"
+        "semanticHash": "c53ac158b270202f508db2649ea76ce67a0358c80769fe812917fe415bb2c783",
+        "shapeHash": "633f77afce59f723d7c61eb3b1e67f5c69c37cfb9b39c0acbda192b11c7ca38d",
+        "syntaxHash": "d8ffc6be56725b9f157a1010e081e3af0de46f354da2b6d85391aa570d80e1ae"
       },
       {
         "filePath": "packages/codegen/src/cli/commands/generate.ts",
@@ -9065,14 +9163,34 @@
         "syntaxHash": "f6d037552f0a205b9b8466b76b32d45d4c29dbb4e83cf2b1bc5020aec85926a2"
       },
       {
-        "filePath": "packages/codegen/src/cli/commands/generate.ts",
-        "identity": "packages/codegen/src/cli/commands/generate.ts#src/cli/commands/generate.ts#neutral#@oa-sdk/codegen:src/cli/commands/generate.ts#SkippedCompanionOutputs#class",
-        "kind": "class",
-        "qualifiedName": "@oa-sdk/codegen:src/cli/commands/generate.ts#SkippedCompanionOutputs",
+        "filePath": "packages/codegen/src/cli/commands/init.ts",
+        "identity": "packages/codegen/src/cli/commands/init.ts#src/cli/commands/init.ts#neutral#@oa-sdk/codegen:src/cli/commands/init.ts#baselineScriptsNote#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/commands/init.ts#baselineScriptsNote",
         "runtime": "neutral",
-        "semanticHash": "c5fbc12ac4417edea1d3b50ad56a466d13b5b43162170608a2524b120d22dffe",
-        "shapeHash": "03fbdb76b6034d1a50598c8507c66a36bed359dac25468441741a402e263f572",
-        "syntaxHash": "99c29439f8fad35fbd8aab6089def6ebaf60e98c713ad360dddde9851b75fdee"
+        "semanticHash": "b00f1c68ceb1fb58ab1b001a3e592efd9cd1c8e27e2f75699e2e4182deefd1b7",
+        "shapeHash": "2c8a053b69a7ec69541c118d3586ed9d899ff419c7c3ab08994b8d7bf5209f38",
+        "syntaxHash": "8dd6f1de5fc2828d7fc171a3ae8a093b88edf2a5ecf76acae545fe5d40a21655"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/commands/init.ts",
+        "identity": "packages/codegen/src/cli/commands/init.ts#src/cli/commands/init.ts#neutral#@oa-sdk/codegen:src/cli/commands/init.ts#describeContractBaseline#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/commands/init.ts#describeContractBaseline",
+        "runtime": "neutral",
+        "semanticHash": "51bb4eed525075d381fed87a590874244565b068c2376d2e5f1ed43da8b818f4",
+        "shapeHash": "34d9aceba1fc427a6e34d7e91f748851c0d033ca2b909d3f28641147e3e96f1d",
+        "syntaxHash": "666d2f2af631c75b6b9062da6c98be497c08b3ea09cc1a93d1f882b8c1340f82"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/commands/init.ts",
+        "identity": "packages/codegen/src/cli/commands/init.ts#src/cli/commands/init.ts#neutral#@oa-sdk/codegen:src/cli/commands/init.ts#describeRetiredScript#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/commands/init.ts#describeRetiredScript",
+        "runtime": "neutral",
+        "semanticHash": "6bdc426ffb289ace2026b5452e5b4d7042a5aa4f2cbc86ddf7e12afe43952047",
+        "shapeHash": "a68720cf61556d63ab4d0c3656bdece5b48e0d5136453c345c987851735c32ae",
+        "syntaxHash": "9e5603580bdc9478732f28b7d1b895f1a7779fc9b18dea821d11cc7859049fcb"
       },
       {
         "filePath": "packages/codegen/src/cli/commands/init.ts",
@@ -9083,6 +9201,16 @@
         "semanticHash": "8b7b49be802978a7f99c3ab9c5450752d5a0ace4d589659f6d8fda7bdd232017",
         "shapeHash": "7d2253f7b8c93b0fa25fa15f40706ef49cebc1dad297b68ea481520c97914f72",
         "syntaxHash": "e221036333b672e474b31559d9ba00b37369db4e759d575c0873ac5e664a9fe3"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/commands/init.ts",
+        "identity": "packages/codegen/src/cli/commands/init.ts#src/cli/commands/init.ts#neutral#@oa-sdk/codegen:src/cli/commands/init.ts#quotedList#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/commands/init.ts#quotedList",
+        "runtime": "neutral",
+        "semanticHash": "37a50c6dcb3d013e12bf39a399ac91727da7c403573d7bf5efb3bffa32651b0b",
+        "shapeHash": "e2040523e09a1bbb8100923de6ac67957971b94b0c7e5a8642fc478be60074f6",
+        "syntaxHash": "e59e1e20f475f97a06e449d350ce1a773aedc17a642f2d45bef683e2c37524e9"
       },
       {
         "filePath": "packages/codegen/src/cli/commands/inventory.ts",
@@ -10755,6 +10883,126 @@
         "syntaxHash": "4c614041e750030d6b74cc0dc65f68d912874fe469b98853cb14f0a6853ba695"
       },
       {
+        "filePath": "packages/codegen/src/cli/lib/bundle-external-refs.ts",
+        "identity": "packages/codegen/src/cli/lib/bundle-external-refs.ts#src/cli/lib/bundle-external-refs.ts#neutral#@oa-sdk/codegen:src/cli/lib/bundle-external-refs.ts#bundleExternalRefs#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/bundle-external-refs.ts#bundleExternalRefs",
+        "runtime": "neutral",
+        "semanticHash": "97e0a5e1955d45db6e3fdefb6d0cdc3f5468bb7c4e8812a18619f1866d156293",
+        "shapeHash": "3661600c7773e7371ced0c4ae1635b94ee3c0c2b10f640a9995363d7c4a6b267",
+        "syntaxHash": "e2b6e072b91f0127fe630e8dbcfc7ed188eb656ccd88d223fd444c5060f4f96e"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/bundle-external-refs.ts",
+        "identity": "packages/codegen/src/cli/lib/bundle-external-refs.ts#src/cli/lib/bundle-external-refs.ts#neutral#@oa-sdk/codegen:src/cli/lib/bundle-external-refs.ts#errorMessage#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/bundle-external-refs.ts#errorMessage",
+        "runtime": "neutral",
+        "semanticHash": "605747dab4cb6584b0e869b3a710e020ff9d33135369e3c4ae2a0ab928d51c88",
+        "shapeHash": "af5678f1534b1ddf4160a9a264fbd7eae037bf36d2a90bc91a63f575cad3b5b9",
+        "syntaxHash": "0260042be5e77b50725d32877380dd42eb4870a3d5461d7e3f5d85dbd42af0d6"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/bundle-external-refs.ts",
+        "identity": "packages/codegen/src/cli/lib/bundle-external-refs.ts#src/cli/lib/bundle-external-refs.ts#neutral#@oa-sdk/codegen:src/cli/lib/bundle-external-refs.ts#ExternalRefBundler#class",
+        "kind": "class",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/bundle-external-refs.ts#ExternalRefBundler",
+        "runtime": "neutral",
+        "semanticHash": "bd3136db2b2802540023a4b316685346acf9c954d432daaed9f0cd6007d8ec7e",
+        "shapeHash": "56c1268ce04298cba674e11779769d635e93500e5edc1366361f72bc35259e86",
+        "syntaxHash": "f33267e7b47ffecc8429ab558341cc031f83653e2d9f3e47c7af7bbd43fae07d"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/bundle-external-refs.ts",
+        "identity": "packages/codegen/src/cli/lib/bundle-external-refs.ts#src/cli/lib/bundle-external-refs.ts#neutral#@oa-sdk/codegen:src/cli/lib/bundle-external-refs.ts#fieldShape#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/bundle-external-refs.ts#fieldShape",
+        "runtime": "neutral",
+        "semanticHash": "5e74736626ba5375e9b2e546097a86aab780aef93a8946902de5d710ac9966fe",
+        "shapeHash": "040935cd4be9a49cba090a2e23468810a633f7fe4b2bc5d89880b8eead2aa84a",
+        "syntaxHash": "4b5d26e809a3a43dfad52e05d76fd6d4aa3e11a71264d885eeb09498b3593e19"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/bundle-external-refs.ts",
+        "identity": "packages/codegen/src/cli/lib/bundle-external-refs.ts#src/cli/lib/bundle-external-refs.ts#neutral#@oa-sdk/codegen:src/cli/lib/bundle-external-refs.ts#isRecord#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/bundle-external-refs.ts#isRecord",
+        "runtime": "neutral",
+        "semanticHash": "817aaa54f5db297323f930f2f365a5f08e4d402aa0beeeb893f52cb744c77d5a",
+        "shapeHash": "c91435eb4555d6c825407db05a6f1c9d47975c263b297896e25bbd7ddaf682c0",
+        "syntaxHash": "c1c446446d16c8219d34be0b8456202f08bd1e73851cd4d03ed42e1345a93984"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/bundle-external-refs.ts",
+        "identity": "packages/codegen/src/cli/lib/bundle-external-refs.ts#src/cli/lib/bundle-external-refs.ts#neutral#@oa-sdk/codegen:src/cli/lib/bundle-external-refs.ts#isSchemaOverrideField#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/bundle-external-refs.ts#isSchemaOverrideField",
+        "runtime": "neutral",
+        "semanticHash": "f86fe2c5ff8b28a6a18fdc50e767e766a2f65ae370463da795ed55da6d948256",
+        "shapeHash": "02169437a9ea38945b33198c68fdbf8e0b48eaf9790b282a5b5c700dde3e1eea",
+        "syntaxHash": "0c4fb7ecac2ab61b7b388f76ba086e1e051573a04b6b7dfdaedf729225eba527"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/bundle-external-refs.ts",
+        "identity": "packages/codegen/src/cli/lib/bundle-external-refs.ts#src/cli/lib/bundle-external-refs.ts#neutral#@oa-sdk/codegen:src/cli/lib/bundle-external-refs.ts#ObjectKind#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/bundle-external-refs.ts#ObjectKind",
+        "runtime": "neutral",
+        "semanticHash": "74fef16ab58e8991e51879b014134e810092948bd8f726c036d40b5b3e999238",
+        "shapeHash": "094421d2262d982dac6e3c0fada3c20cff7e67c470e2178f41c344edbfc72a84",
+        "syntaxHash": "de754bbc2acc3cc04cb24ba9d7524d74fd56e466fe3ab6a80ca52804fd75e033"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/bundle-external-refs.ts",
+        "identity": "packages/codegen/src/cli/lib/bundle-external-refs.ts#src/cli/lib/bundle-external-refs.ts#neutral#@oa-sdk/codegen:src/cli/lib/bundle-external-refs.ts#openApiMinorVersion#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/bundle-external-refs.ts#openApiMinorVersion",
+        "runtime": "neutral",
+        "semanticHash": "47ac7ba423bbd0038be404fd4d3ef283f41b7cbaf3f9b90ff74d45fe8de775df",
+        "shapeHash": "f225832347a5948d2df0400cdc173734d016db9b968f2efbe44ff092b29eb4ba",
+        "syntaxHash": "1f2b321a81eba70ac25b7617411b342e0ef119681aad236f4c6f8ea08a3b8e7b"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/bundle-external-refs.ts",
+        "identity": "packages/codegen/src/cli/lib/bundle-external-refs.ts#src/cli/lib/bundle-external-refs.ts#neutral#@oa-sdk/codegen:src/cli/lib/bundle-external-refs.ts#RefSite#interface",
+        "kind": "interface",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/bundle-external-refs.ts#RefSite",
+        "runtime": "neutral",
+        "semanticHash": "a532292516f598ae489844f4120cf1bb7b31792ebaf358272fc158835c7fe629",
+        "shapeHash": "d0a90f98b79bef9957396e5e0eb77a1398e3b3fe4e0333bb3b59ec85fe081e82",
+        "syntaxHash": "eb05480b2a66e18fc16a901c3ffb17a6225af766e8f16dd774a02f61ee9dcaa9"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/bundle-external-refs.ts",
+        "identity": "packages/codegen/src/cli/lib/bundle-external-refs.ts#src/cli/lib/bundle-external-refs.ts#neutral#@oa-sdk/codegen:src/cli/lib/bundle-external-refs.ts#RefTarget#interface",
+        "kind": "interface",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/bundle-external-refs.ts#RefTarget",
+        "runtime": "neutral",
+        "semanticHash": "ac393ab55d3a0ce5657e72b34d3bae6d310a80d5574b698956c7282bfafaba98",
+        "shapeHash": "29d93103ca58ccae7fd1306f8518701af539d1c75c03855b0b6f299ebe57e5e1",
+        "syntaxHash": "74a1a598fc6314b67fd866fa75bdde01c90aee7357a70b04b31a967706d8dadb"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/bundle-external-refs.ts",
+        "identity": "packages/codegen/src/cli/lib/bundle-external-refs.ts#src/cli/lib/bundle-external-refs.ts#neutral#@oa-sdk/codegen:src/cli/lib/bundle-external-refs.ts#Shape#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/bundle-external-refs.ts#Shape",
+        "runtime": "neutral",
+        "semanticHash": "7f6a51e176ffa436b8d924d1923171761bd564619c298fe05f9143754d3e1ab3",
+        "shapeHash": "93f78a0a4fc57c74634839d9cc9b2223ab36cf477c3f434303885b7d56f6c91c",
+        "syntaxHash": "0fda5628c5d8195e1f9d1cf9c1b46d300fba92f3780560f5dfa380c39deb58e4"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/bundle-external-refs.ts",
+        "identity": "packages/codegen/src/cli/lib/bundle-external-refs.ts#src/cli/lib/bundle-external-refs.ts#neutral#@oa-sdk/codegen:src/cli/lib/bundle-external-refs.ts#targetKey#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/bundle-external-refs.ts#targetKey",
+        "runtime": "neutral",
+        "semanticHash": "63f8d62cabd369505aa1a14263baa2d4d6c38c854a5022779ee769798976935d",
+        "shapeHash": "eac421f6391aefd1710bb5ebfa68e47c033c7621edd53db27387d63b440251ca",
+        "syntaxHash": "3ff3c9bdb0dc1bc8e72009a75c2ca6d10cde1a851c8ef88f68724ec092e8c2bd"
+      },
+      {
         "filePath": "packages/codegen/src/cli/lib/companion-packages.ts",
         "identity": "packages/codegen/src/cli/lib/companion-packages.ts#src/cli/lib/companion-packages.ts#neutral#@oa-sdk/codegen:src/cli/lib/companion-packages.ts#commandCompanion#function",
         "kind": "function",
@@ -11173,6 +11421,16 @@
         "semanticHash": "861130d500cd818423f088d62b979abffa0b123d077c4c895e5f033e78385584",
         "shapeHash": "0afaf2ad123ae97921bec470642734fd0be8ffebeed8abbddd50f68049ca5114",
         "syntaxHash": "a2426e16dc7a32f00b883bd3a04e3c336629ad0ee64b072a7a1fec1508bbeda0"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/config-loader.ts",
+        "identity": "packages/codegen/src/cli/lib/config-loader.ts#src/cli/lib/config-loader.ts#neutral#@oa-sdk/codegen:src/cli/lib/config-loader.ts#profileTargetArtifactPaths#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/config-loader.ts#profileTargetArtifactPaths",
+        "runtime": "neutral",
+        "semanticHash": "f368060cd9a8c269969d4b2e071da017316f998c7a5b105bb637f59dba8304d2",
+        "shapeHash": "6c8c5c9c48a39cb538c855f68abaf14ac94abf10986e783c428dd03eef37a194",
+        "syntaxHash": "ff6c19394bac4d545c42d09d6e60f07748527358fde637a958a02d61cc2a3058"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/config-loader.ts",
@@ -12800,9 +13058,9 @@
         "kind": "class",
         "qualifiedName": "@oa-sdk/codegen:src/cli/lib/init/archetypes/enterprise.ts#EnterpriseArchetypeProfile",
         "runtime": "neutral",
-        "semanticHash": "5c7dce440a5e59a4479856505239d4823e37c188814b9482c4f5a1df1e5a34bb",
-        "shapeHash": "59d0e11b92272a3264caa1f49907f5efa8dcbb4912cee58dd1f2bff638996f8d",
-        "syntaxHash": "49332ce55ee63eee614da3d74f6a441b81015b787ecebace5cb177e221803f5d"
+        "semanticHash": "87214dfe0d7fe2d6ecdaac3e5e83c1854759389e22fe53d6e59ada4682ba2bb5",
+        "shapeHash": "823ff809909c5e098c1cef97958c4f933ce52347486f674042f516b325402549",
+        "syntaxHash": "19354225cccd6cbf20d9fc00c537c6653ce026f57e8e6c7033db3da666e88315"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/init/archetypes/index.ts",
@@ -12832,7 +13090,7 @@
         "runtime": "neutral",
         "semanticHash": "753e2f7cfd9a7d766818236f247085ec40aad12fd401b15ecc20f94ee904e582",
         "shapeHash": "59d0e11b92272a3264caa1f49907f5efa8dcbb4912cee58dd1f2bff638996f8d",
-        "syntaxHash": "eae1b59833ca4846ed598df3ebe9c60b8b8dbdea052cb1b5e8de6fe216118119"
+        "syntaxHash": "d7b66002fee1d196b1dfebcb8d88bb60ef0ce9130fee99fea0eb275e3bd6dadf"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/init/archetypes/mvp.ts",
@@ -12842,7 +13100,7 @@
         "runtime": "neutral",
         "semanticHash": "fe3dca215e20ab29b3e197c79444aabc5842da90dc6c526984ec6aadcfb7383a",
         "shapeHash": "59d0e11b92272a3264caa1f49907f5efa8dcbb4912cee58dd1f2bff638996f8d",
-        "syntaxHash": "b9079c4c237f666fd72fa1204599fa1e6692a2ddf057c5be5f6e1c2f76d367e4"
+        "syntaxHash": "4fbb830ed4d3b414c04f873d1e12dfdfd5abbe271f99d96edffac7e994db0f53"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/init/archetypes/types.ts",
@@ -12870,9 +13128,9 @@
         "kind": "interface",
         "qualifiedName": "@oa-sdk/codegen:src/cli/lib/init/archetypes/types.ts#ArchetypeGenerateOptions",
         "runtime": "neutral",
-        "semanticHash": "510da2a450af4c2255664ee86b75d93c7cff3bab3d23213ee078845e4b4fc0f2",
-        "shapeHash": "f4d38268523bd2c59fe6dea2103b1be7d0191f25cda3eef7c5a0ccfe43b9d8f1",
-        "syntaxHash": "ace93b43cec5e333c3869026ea1da1d07192abcf793d071bf6afc32c15d61255"
+        "semanticHash": "4a9c44faddbe31772e3dfd40a0aab2b3abf9ec2e24e146022eab90a4a43b73e4",
+        "shapeHash": "69a5ec3b6566c591a47c1cdcf8d85b4e963b148692f8392163d439007f6e62a0",
+        "syntaxHash": "109f915a71c5f79c51dd16f68150b2196d22d63629c511bf733c00790040ca7a"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/init/archetypes/types.ts",
@@ -12880,9 +13138,149 @@
         "kind": "interface",
         "qualifiedName": "@oa-sdk/codegen:src/cli/lib/init/archetypes/types.ts#ArchetypeProfile",
         "runtime": "neutral",
-        "semanticHash": "9ad0a3c2cf2180ab34cbbcdb9356a27d5a9315ca5c9d1319054e16c6e157bbac",
-        "shapeHash": "898bed15a896ea0725ae068157c980d93b5041d97e820497d93cf81944a2cb0a",
-        "syntaxHash": "6cdaa39818efb2fccd2fac155c3ae7f8a4a786418546f0dd90c8b0abac19bc47"
+        "semanticHash": "0618eef484c099f13231fef4b34d708804b7efb9c80bb35964a158c18f8db9d3",
+        "shapeHash": "f43a492f162d99475007d550c761cd3b01fa72be6ebb5f4cc3aea2407a0c36ba",
+        "syntaxHash": "8cdfb3617b18edf8e691e22474fa50d970ea59aeba8b6728578b7526457d3bc4"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/init/common/contract-baseline.ts",
+        "identity": "packages/codegen/src/cli/lib/init/common/contract-baseline.ts#src/cli/lib/init/common/contract-baseline.ts#neutral#@oa-sdk/codegen:src/cli/lib/init/common/contract-baseline.ts#ContractBaselinePlan#interface",
+        "kind": "interface",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/init/common/contract-baseline.ts#ContractBaselinePlan",
+        "runtime": "neutral",
+        "semanticHash": "c0319f14a27a1646c3d642317be35ca181294b30ea568b85c78d8424c3e3d4c2",
+        "shapeHash": "5634b7d7f06c41f833cb61c29c322d19c84cacce89514ec47c6e5e9043003a4b",
+        "syntaxHash": "3336b7280cbde1d98ed7f955f83414ca2f358d138ab2a72007858e44a9fe09ed"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/init/common/contract-baseline.ts",
+        "identity": "packages/codegen/src/cli/lib/init/common/contract-baseline.ts#src/cli/lib/init/common/contract-baseline.ts#neutral#@oa-sdk/codegen:src/cli/lib/init/common/contract-baseline.ts#ContractBaselineResult#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/init/common/contract-baseline.ts#ContractBaselineResult",
+        "runtime": "neutral",
+        "semanticHash": "470446cf5b3d5c8e0dbab1c0c4f45834d8906aa192be6ab5dc849bb394c4e23d",
+        "shapeHash": "004672e5ebcdf8affa0c22f161da06f398df15a214583a9d4673ccadda15205a",
+        "syntaxHash": "d6467402a3946a98279edb8a1155192fda0866534769cb25b7424100ac1e9174"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/init/common/contract-baseline.ts",
+        "identity": "packages/codegen/src/cli/lib/init/common/contract-baseline.ts#src/cli/lib/init/common/contract-baseline.ts#neutral#@oa-sdk/codegen:src/cli/lib/init/common/contract-baseline.ts#ContractBaselineSkip#interface",
+        "kind": "interface",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/init/common/contract-baseline.ts#ContractBaselineSkip",
+        "runtime": "neutral",
+        "semanticHash": "5289612343d62208f4c653b198b2e4f0ef0434b72b6ff5a65b5b7771b151948c",
+        "shapeHash": "b86e55ec718ec3d243f594ea9337cecb67a730134f9eeaba48b2813358656b94",
+        "syntaxHash": "f1e2335932bb5529cd5d7d3fecfd9c3989c90e6bbe245fd708cf14aabbf51c07"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/init/common/contract-baseline.ts",
+        "identity": "packages/codegen/src/cli/lib/init/common/contract-baseline.ts#src/cli/lib/init/common/contract-baseline.ts#neutral#@oa-sdk/codegen:src/cli/lib/init/common/contract-baseline.ts#exists#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/init/common/contract-baseline.ts#exists",
+        "runtime": "neutral",
+        "semanticHash": "08013c0a3d0be7744be3cd747f218f1c80c6a648fa3db69670b6889e96590bd2",
+        "shapeHash": "cadd762018aab08a9060886a16feca5e60610982987be8cfa5d791fe0a87738e",
+        "syntaxHash": "2b231cb65781ca870c9384e22fc16f00612a6e096cadb0e3c3cc4d5e9759d4a1"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/init/common/contract-baseline.ts",
+        "identity": "packages/codegen/src/cli/lib/init/common/contract-baseline.ts#src/cli/lib/init/common/contract-baseline.ts#neutral#@oa-sdk/codegen:src/cli/lib/init/common/contract-baseline.ts#isContractBaselineSkip#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/init/common/contract-baseline.ts#isContractBaselineSkip",
+        "runtime": "neutral",
+        "semanticHash": "d53339fae677b1ea03d2c8ad53029fb18f1f9c02e5f68bb903a6986907b5bdf6",
+        "shapeHash": "2543681c909ce9f9e875fa37a8a876d5b663e064c4f674c8286a58ba86d1ceea",
+        "syntaxHash": "6566d41ca91753558300b2a10f2a982d181d66d67129f15f92f0b995ea2eb5e7"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/init/common/contract-baseline.ts",
+        "identity": "packages/codegen/src/cli/lib/init/common/contract-baseline.ts#src/cli/lib/init/common/contract-baseline.ts#neutral#@oa-sdk/codegen:src/cli/lib/init/common/contract-baseline.ts#isSpecDocumentPath#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/init/common/contract-baseline.ts#isSpecDocumentPath",
+        "runtime": "neutral",
+        "semanticHash": "bc02f22613a165d578536707976015b8162d901be6291ac8203e43fb7e696e6f",
+        "shapeHash": "02169437a9ea38945b33198c68fdbf8e0b48eaf9790b282a5b5c700dde3e1eea",
+        "syntaxHash": "dd2784c050ce42abaeba06183e188295cef752c465dea25dbc04ce8e1f7661e3"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/init/common/contract-baseline.ts",
+        "identity": "packages/codegen/src/cli/lib/init/common/contract-baseline.ts#src/cli/lib/init/common/contract-baseline.ts#neutral#@oa-sdk/codegen:src/cli/lib/init/common/contract-baseline.ts#writeContractBaseline#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/init/common/contract-baseline.ts#writeContractBaseline",
+        "runtime": "neutral",
+        "semanticHash": "94f29f9ee3c9794e4ff9e4f496cbafafcd96813c9a836fafb30d190cf147b9a4",
+        "shapeHash": "e97407bbfb8117341b5b3e40fda29e00ce229c6c44fd8fda6aa09ca31d8f73d4",
+        "syntaxHash": "db4e5d29a6794c0a3be3cd617b1648134ce8f5bb9fe131411c9ea2b155b7d786"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/init/common/existing-config.ts",
+        "identity": "packages/codegen/src/cli/lib/init/common/existing-config.ts#src/cli/lib/init/common/existing-config.ts#neutral#@oa-sdk/codegen:src/cli/lib/init/common/existing-config.ts#ExistingConfig#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/init/common/existing-config.ts#ExistingConfig",
+        "runtime": "neutral",
+        "semanticHash": "1ad198212e289504409301226210938956be873a795a0bcc5de3e8133ede0fe6",
+        "shapeHash": "fa5c1088a1bbae2316a0926e872706a084a1f9930c158308acb9d3e66cac579f",
+        "syntaxHash": "36dc31da2082f68498cd374436510603617e02eef9915f2407dc7abaf5e52f44"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/init/common/existing-config.ts",
+        "identity": "packages/codegen/src/cli/lib/init/common/existing-config.ts#src/cli/lib/init/common/existing-config.ts#neutral#@oa-sdk/codegen:src/cli/lib/init/common/existing-config.ts#ExistingSpecTarget#interface",
+        "kind": "interface",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/init/common/existing-config.ts#ExistingSpecTarget",
+        "runtime": "neutral",
+        "semanticHash": "df34b7e000c84db52e921adb4015e2be52c38a3e5addc5b13e8902bf3c9c0691",
+        "shapeHash": "ef67c3c978ac1239cbca7240559dec13738a431a3789541f733c85d44020bd2d",
+        "syntaxHash": "586376d5aedf8dd45e2bf6dee28b52c73f60c9a3be935f4e22c218afdf8acd0b"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/init/common/existing-config.ts",
+        "identity": "packages/codegen/src/cli/lib/init/common/existing-config.ts#src/cli/lib/init/common/existing-config.ts#neutral#@oa-sdk/codegen:src/cli/lib/init/common/existing-config.ts#generatedArtifactPaths#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/init/common/existing-config.ts#generatedArtifactPaths",
+        "runtime": "neutral",
+        "semanticHash": "496ea335ed2dda5228f5abf3cb63c70488bf7ca646d2c2eed5b3fa8991996c06",
+        "shapeHash": "50ed2a35a4ee08fa27fba1f77c2657a4c9ed50f5f9cef4a8a6f45c3dacaa7d0f",
+        "syntaxHash": "fbb1c2280f05bee11f223971f20f0a7d92533b7bcedccdd2712c01b0b93a7794"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/init/common/existing-config.ts",
+        "identity": "packages/codegen/src/cli/lib/init/common/existing-config.ts#src/cli/lib/init/common/existing-config.ts#neutral#@oa-sdk/codegen:src/cli/lib/init/common/existing-config.ts#readExistingConfig#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/init/common/existing-config.ts#readExistingConfig",
+        "runtime": "neutral",
+        "semanticHash": "d07953cb98b229419760f08da94a323972f4bb5786731effbbb18fe8cacbbf74",
+        "shapeHash": "085ca7d720bbbddfa3dd0d79c5f7418066d051692b1e7ddb1c907e4c3853feb6",
+        "syntaxHash": "c210b916eb6634a021ca8373d7b2cdb6e5143ab54bd90bd36cb9f9d86a740974"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/init/common/existing-config.ts",
+        "identity": "packages/codegen/src/cli/lib/init/common/existing-config.ts#src/cli/lib/init/common/existing-config.ts#neutral#@oa-sdk/codegen:src/cli/lib/init/common/existing-config.ts#retainedSpecEntry#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/init/common/existing-config.ts#retainedSpecEntry",
+        "runtime": "neutral",
+        "semanticHash": "ebb5cc5f30cbea3e429190befd0f190d68c864c811fa8f1b951949baaa58f6df",
+        "shapeHash": "eb85d06d14764d169bc042efacebb4798f34ebe0c0526404d6432cd4292218b7",
+        "syntaxHash": "3c3073573fc7dd17c9575a19bba218383763397c550a729d76e368fbbd7f910f"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/init/common/existing-config.ts",
+        "identity": "packages/codegen/src/cli/lib/init/common/existing-config.ts#src/cli/lib/init/common/existing-config.ts#neutral#@oa-sdk/codegen:src/cli/lib/init/common/existing-config.ts#schemaItem#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/init/common/existing-config.ts#schemaItem",
+        "runtime": "neutral",
+        "semanticHash": "a459fa380ab99c83343a7de78c58818c7714b7cdd138ff62d796853df10b4ac9",
+        "shapeHash": "52a1c5ba5bbdf222665f5ae74a7852f7db228959b4a6aa5eaac5e0cd636342f7",
+        "syntaxHash": "fead66b2cd68d7f2ff78147cc6ee5ed167038bfddff7dd34625d1633046bc1d4"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/init/common/existing-config.ts",
+        "identity": "packages/codegen/src/cli/lib/init/common/existing-config.ts#src/cli/lib/init/common/existing-config.ts#neutral#@oa-sdk/codegen:src/cli/lib/init/common/existing-config.ts#ScriptSpecEntry#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/init/common/existing-config.ts#ScriptSpecEntry",
+        "runtime": "neutral",
+        "semanticHash": "84b42168b788610facd2c7eba4920ff736d077891388d784443cfc3c950619b2",
+        "shapeHash": "8ac67d7b0e0bd7fe133cf0f55e98aac6648a4f85e7ccef6655139118cc010fc9",
+        "syntaxHash": "c0f537d3a17549d008b134215f2da78c5a056c8bcf0e994fb0e02aa11d680ef1"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/init/common/package-patcher.ts",
@@ -13095,6 +13493,36 @@
         "syntaxHash": "c79f0c3d03e9f718c5094222238eee3c670d88534d0aae016653f1642167a377"
       },
       {
+        "filePath": "packages/codegen/src/cli/lib/init/common/retired-scripts.ts",
+        "identity": "packages/codegen/src/cli/lib/init/common/retired-scripts.ts#src/cli/lib/init/common/retired-scripts.ts#neutral#@oa-sdk/codegen:src/cli/lib/init/common/retired-scripts.ts#findRetiredInitScripts#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/init/common/retired-scripts.ts#findRetiredInitScripts",
+        "runtime": "neutral",
+        "semanticHash": "d27baf2d5c819598d6b43df7129c75a7092a5e477c3d838bfaa32e8aaf071410",
+        "shapeHash": "a84c1a6857e78eedae2392aaf3517970abf1d45f5af15a799bb47485168b0d3c",
+        "syntaxHash": "a3492e578935ceb502214d7173ea83909c173910acae858a485254fd33e45b38"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/init/common/retired-scripts.ts",
+        "identity": "packages/codegen/src/cli/lib/init/common/retired-scripts.ts#src/cli/lib/init/common/retired-scripts.ts#neutral#@oa-sdk/codegen:src/cli/lib/init/common/retired-scripts.ts#RetiredInitScript#interface",
+        "kind": "interface",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/init/common/retired-scripts.ts#RetiredInitScript",
+        "runtime": "neutral",
+        "semanticHash": "ceb46960637fc6c413f344803aa53b389a7cff34a89a81a2720375c1c7464419",
+        "shapeHash": "543fdbc9f6ba5fcce527942fd5e01aa4721a9e11e4a590201a0760310b3fee0b",
+        "syntaxHash": "39397d23a23caebecbc2850913fb9eb98ad706c918d383b2e3f6f881dd1f2e98"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/init/common/retired-scripts.ts",
+        "identity": "packages/codegen/src/cli/lib/init/common/retired-scripts.ts#src/cli/lib/init/common/retired-scripts.ts#neutral#@oa-sdk/codegen:src/cli/lib/init/common/retired-scripts.ts#RetiredInitScriptEntry#interface",
+        "kind": "interface",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/init/common/retired-scripts.ts#RetiredInitScriptEntry",
+        "runtime": "neutral",
+        "semanticHash": "6aef62b7a0efe990a534868514a316ead6dcbc211ac3b5f77538c299b1185603",
+        "shapeHash": "66341d114b6ab5d484056debd3c06233c3c677f288503430c8b60a0c71ae4b39",
+        "syntaxHash": "9b29d21c916ac46bac363702ddb4011ffebfb2af686bc294811119fd3d080de1"
+      },
+      {
         "filePath": "packages/codegen/src/cli/lib/init/common/schema-detector.ts",
         "identity": "packages/codegen/src/cli/lib/init/common/schema-detector.ts#src/cli/lib/init/common/schema-detector.ts#neutral#@oa-sdk/codegen:src/cli/lib/init/common/schema-detector.ts#detectSchemas#function",
         "kind": "function",
@@ -13102,7 +13530,7 @@
         "runtime": "neutral",
         "semanticHash": "11dc5bd1b8029bd8ee1d15c2d8d6df35e5eb6782cdb1568f0b509302cf303483",
         "shapeHash": "71d34c250e6a8dbb11e8b40c378a62ea34ec1fbe642e281e64931dcb97534a22",
-        "syntaxHash": "0409982b8f7f2708460e3def6104f0474b5acb04fec9732d0c1375b9e4799acd"
+        "syntaxHash": "67c056ef891d43bf1f69d398fc6d8c4074a349267f5e9107748b26eb34c3902b"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/init/common/schema-detector.ts",
@@ -13110,9 +13538,49 @@
         "kind": "interface",
         "qualifiedName": "@oa-sdk/codegen:src/cli/lib/init/common/schema-detector.ts#SchemaDetectorOptions",
         "runtime": "neutral",
-        "semanticHash": "19bfa3822cc71152936acec7e0e95d58a611f522c1f94a14580bf3d837c04df6",
-        "shapeHash": "9a63a48639a7c3a7b2713cdc5e255a9b7e840fac16be19cd5e593bb45dd47abf",
-        "syntaxHash": "ba71992ee286893f51162bc6533d6b69e6a45310537ab7ce478f540c659f28a0"
+        "semanticHash": "7c02bf3274d9a0b21b83abcdc45607d038394951ab1f544af1b38ac806d59544",
+        "shapeHash": "998ca0919fbe1fef46d1a062dedd258cd392d567a165592f8d7355c2e2987ebb",
+        "syntaxHash": "197fcb005829c0bca2c36d9fd0e7afbf2cc7f06280ce1f3ed746de6c49e25823"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/init/common/scripts.ts",
+        "identity": "packages/codegen/src/cli/lib/init/common/scripts.ts#src/cli/lib/init/common/scripts.ts#neutral#@oa-sdk/codegen:src/cli/lib/init/common/scripts.ts#oaGenScript#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/init/common/scripts.ts#oaGenScript",
+        "runtime": "neutral",
+        "semanticHash": "98c0d3a1f6486d98ff5da2dd007f65c473458b5e401eb60457706298a6f3004a",
+        "shapeHash": "677222ae98ba3db644e840e402ac4150dbe9d9e1735d72dfc707e6a8a5f4b179",
+        "syntaxHash": "bf3c4a27e7e226da37b41909966a5353f364cc0f7a524e0876e43e999fbe1fbf"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/init/common/scripts.ts",
+        "identity": "packages/codegen/src/cli/lib/init/common/scripts.ts#src/cli/lib/init/common/scripts.ts#neutral#@oa-sdk/codegen:src/cli/lib/init/common/scripts.ts#schemaEntryOf#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/init/common/scripts.ts#schemaEntryOf",
+        "runtime": "neutral",
+        "semanticHash": "d62f6344bbbd731bd13380dab5de68491076ca23c7a348450e06a5cb38768e17",
+        "shapeHash": "383bfc9e8c82500a871ddfaabb442b55e5cf99c1d2e81a7efed2923425cf6828",
+        "syntaxHash": "f3b5a736bf000beae87a9090f207381272cd4da2e99d11bb6bbad9323eb93fed"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/init/common/scripts.ts",
+        "identity": "packages/codegen/src/cli/lib/init/common/scripts.ts#src/cli/lib/init/common/scripts.ts#neutral#@oa-sdk/codegen:src/cli/lib/init/common/scripts.ts#scriptArgument#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/init/common/scripts.ts#scriptArgument",
+        "runtime": "neutral",
+        "semanticHash": "93700776065d859d469cd9825bbed4d3f7a36832a815143a4398d51e8a613c81",
+        "shapeHash": "5159f79092a0c2e729e743884d19d0914c67f773c0a905f630336893aa3ec84a",
+        "syntaxHash": "c7b9f758527a328ff0d209512b2cb0b189fbaf41aba7d6ecb4fc350a455c1a3a"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/init/common/scripts.ts",
+        "identity": "packages/codegen/src/cli/lib/init/common/scripts.ts#src/cli/lib/init/common/scripts.ts#neutral#@oa-sdk/codegen:src/cli/lib/init/common/scripts.ts#scriptPath#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/init/common/scripts.ts#scriptPath",
+        "runtime": "neutral",
+        "semanticHash": "b99bc1c2c77adb89f5bfe10b482e4184e14d07dbf7e7208ac1d8c325f3edd7ed",
+        "shapeHash": "5159f79092a0c2e729e743884d19d0914c67f773c0a905f630336893aa3ec84a",
+        "syntaxHash": "db53b730cf3791bbeca96172e483271796c4789e8a619cc715d884ceb1f59486"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/init/composer.ts",
@@ -13142,7 +13610,7 @@
         "runtime": "neutral",
         "semanticHash": "1e931167510f925f394f952312e1e069734b3c4a93e855c2bdcda68d3bd637be",
         "shapeHash": "1d1993aee9b89521d44bb3c4a44db1f1e6d9d7a62e25ca36e4fad5cac1c35282",
-        "syntaxHash": "f34e402631334e9e10459a2bb186d2a97f7e17b8ef5442c34348e44f1a25e462"
+        "syntaxHash": "9df7bcb81d06d44e198f73f854ca9b6a29d25134e97216fb553c9af525c2d38a"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/init/composer.ts",
@@ -13222,7 +13690,7 @@
         "runtime": "neutral",
         "semanticHash": "b350adf90ad8ed008002109c0bc8cb7a27ec1339d4037286ff399f24033ce132",
         "shapeHash": "1105f35e9b5be760f18f88d01a378e2c908dd9c8470c412344f60962b430db37",
-        "syntaxHash": "59eb3a954917f6a833350af38ddb8c272b5b25a78d555ab22d66e7b8edc1fdf4"
+        "syntaxHash": "cee3f218065eb2b7bbaa203a593d1aa26c213ba6c2beecabe7a5a8faf09791ca"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/init/interactive.ts",
@@ -13372,7 +13840,7 @@
         "runtime": "neutral",
         "semanticHash": "d5e8e210b77a1c4dbfab8e833faf7d047bd85ba063ed4774e4c741f9f720324f",
         "shapeHash": "c73aebd790540bdea82ba63c4ba5031f05e0fec2661e73b78f55e57b67242c40",
-        "syntaxHash": "da97bb5b98e608917102b7b57cd5a74c7f51c03517fc4807075d5fc85d8dff82"
+        "syntaxHash": "9adf1ed5b3aa32db42923c08ee34cc76dbdf0dcdd1d05f353991699206810f71"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/init/targets/express.ts",
@@ -13382,7 +13850,7 @@
         "runtime": "neutral",
         "semanticHash": "0505140e9c968d4f8ece03c7bc3df49bbd06fa25705098823c212252ea141c43",
         "shapeHash": "c73aebd790540bdea82ba63c4ba5031f05e0fec2661e73b78f55e57b67242c40",
-        "syntaxHash": "4848c0383be3590ccd4d6ce08fd147ef6080135a49797ed8a6c1f4e05b9a0e81"
+        "syntaxHash": "ac626927e1f1eb4a559b536b444cbd792743adab749d6e1244947499713a9404"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/init/targets/fastify.ts",
@@ -13392,7 +13860,7 @@
         "runtime": "neutral",
         "semanticHash": "165ae009d5f20c5e1d9dfc26d10ac822c79e3184a227515ad60b101535f9f04d",
         "shapeHash": "c73aebd790540bdea82ba63c4ba5031f05e0fec2661e73b78f55e57b67242c40",
-        "syntaxHash": "b66daeb85db84cda0b264d5941984453507bf0a4d5ed5c5a78bc12a20bc3406d"
+        "syntaxHash": "a890468dc3c1c4e64f8faa0e31bea7a6dec577fdd48794f5312b24a241a7b221"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/init/targets/generic.ts",
@@ -13412,7 +13880,7 @@
         "runtime": "neutral",
         "semanticHash": "eaba0a60514c7ce0603605aed9047505bc5987f485a6396db82a11721bf053de",
         "shapeHash": "c73aebd790540bdea82ba63c4ba5031f05e0fec2661e73b78f55e57b67242c40",
-        "syntaxHash": "7f54dead4f7a82b402e9892eb0061d9a9602cbcbfee5a0b37760dbc288689754"
+        "syntaxHash": "06a987d7152129ba86354d291234d4acc16a51aa8073d22735b90d2ecee7115a"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/init/targets/index.ts",
@@ -13442,7 +13910,7 @@
         "runtime": "neutral",
         "semanticHash": "b7246f48967ce6a4bbf852caa43dbdeb4c9da6caf853fdebffd908dc59a382c1",
         "shapeHash": "c73aebd790540bdea82ba63c4ba5031f05e0fec2661e73b78f55e57b67242c40",
-        "syntaxHash": "df74a27564435ee46e454e30b056d8057b0528df2bd859ca5309a1ae5b22274c"
+        "syntaxHash": "57eccae6db60635c742f4e3abe95cf8c62f98af270ec4dc332abfe48ddd0c7ce"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/init/types.ts",
@@ -13470,9 +13938,9 @@
         "kind": "interface",
         "qualifiedName": "@oa-sdk/codegen:src/cli/lib/init/types.ts#InitResult",
         "runtime": "neutral",
-        "semanticHash": "a1f0877e61de521751630a33e3e471a8896c1a2820637ab3a742aa098e4f4adc",
-        "shapeHash": "3d5fb667770ddd4a5451ac916a0d4d3149ca8a0dfae8052d7e81d9d2cd2e87b7",
-        "syntaxHash": "ecd2523f508d96f846d1ceb7557465d43982906f17dd7692a2cdcd47276a348e"
+        "semanticHash": "83fa9668323168aaf27a99c4efae5ff155ddbe3fac72659c9de0c40d594257af",
+        "shapeHash": "0620c3076be8b76cb650c34784984ae785c7a5550a32c5e39e945bb996592cda",
+        "syntaxHash": "d44030b2c9348f610379662e5bd61e1cd0c6fdc2f64005285af8fa3fd7058c71"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/init/types.ts",
@@ -13560,9 +14028,9 @@
         "kind": "interface",
         "qualifiedName": "@oa-sdk/codegen:src/cli/lib/init/types.ts#TargetGenerateOptions",
         "runtime": "neutral",
-        "semanticHash": "cb2fbefdee0ff07cf3b3ba1304321bae6dde829073bcb788f42d9bc5a067e2b5",
-        "shapeHash": "3b42a69b544bdabf08e7280af713846b08d106ae44392c8ff148de62183aa647",
-        "syntaxHash": "80de854802278d986d2f0960ef5262fa437bdc2beec080d9ecc33781ad9cf1bc"
+        "semanticHash": "dde893262e6a4baa92938f656d364961f440b6d4a47258f106753a62953cb871",
+        "shapeHash": "ffff823b1ce31b262d7ce50b79dec1994fffa756aa073dcd781803ab7073c733",
+        "syntaxHash": "332eb78735b1d1bd4c3ac041131c5e3977e0de3ab0d9f6e010ba44c7762e05c7"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/init/types.ts",
@@ -14645,6 +15113,16 @@
         "syntaxHash": "222d78749c82ce64fb8fe0a6054c6bb9e74fb377a2bf3550c2d0bf9e1a7d62d5"
       },
       {
+        "filePath": "packages/codegen/src/cli/lib/normalized-openapi.ts",
+        "identity": "packages/codegen/src/cli/lib/normalized-openapi.ts#src/cli/lib/normalized-openapi.ts#neutral#@oa-sdk/codegen:src/cli/lib/normalized-openapi.ts#loadNormalizedOpenApi#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/normalized-openapi.ts#loadNormalizedOpenApi",
+        "runtime": "neutral",
+        "semanticHash": "e3ec324b6d597811942af2b4f34067abfdf2a364590b0f56a9f4a57572fba4e3",
+        "shapeHash": "9c0ac768f58b9b406fdcd80a543026dc05c8f1e511bd4c2382534d107970f533",
+        "syntaxHash": "a178260deb38293047192ec24ed8105a0c825150b65aa2ba5c05e6d3a0d30466"
+      },
+      {
         "filePath": "packages/codegen/src/cli/lib/openapi-breaking-diff.ts",
         "identity": "packages/codegen/src/cli/lib/openapi-breaking-diff.ts#src/cli/lib/openapi-breaking-diff.ts#neutral#@oa-sdk/codegen:src/cli/lib/openapi-breaking-diff.ts#breaking#function",
         "kind": "function",
@@ -14832,7 +15310,7 @@
         "runtime": "neutral",
         "semanticHash": "d8accfae4a3b19c45fb05654d218a9c4e041490dbc7879c98785e2d29bd3fb40",
         "shapeHash": "446a9f0810851b682f15ab0cdf40b51cfde27a9462c51d6b948a7d75f9d8f88d",
-        "syntaxHash": "f5fda4b210af21189919961cdcef364c629cc94574ae5cd2222f54792f8b7e30"
+        "syntaxHash": "93af51b47ca73ea2c6fbd901317c2d1a805c4db5a940f17e1af0b1ea1bace273"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/openapi-breaking-diff.ts",
@@ -15023,6 +15501,16 @@
         "semanticHash": "8873c9fdb668ac9429596ae2954648309be7f20d70f5421e24ad3fe58e8b3ad9",
         "shapeHash": "6ae3d3e048bfa8f6a0f6cb675213a84780ff0047379a332ba7e3db7d8cb787a4",
         "syntaxHash": "1caabc30e86cb31736103001f67abe55978e4553851fa8ace08f7c69b0a0a4d1"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/openapi-breaking-diff.ts",
+        "identity": "packages/codegen/src/cli/lib/openapi-breaking-diff.ts#src/cli/lib/openapi-breaking-diff.ts#neutral#@oa-sdk/codegen:src/cli/lib/openapi-breaking-diff.ts#resolvePathItem#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/openapi-breaking-diff.ts#resolvePathItem",
+        "runtime": "neutral",
+        "semanticHash": "e07f96884cd63b4264977351bb24e8fdbd6227327d6898cc4269094059cc0cdc",
+        "shapeHash": "6d3a08d7fc9e1339e3acbedb74f4691de096101a690bf7d4569a2529b8b8dc07",
+        "syntaxHash": "a189f78ab3ec76424eec13a6639f699da1d43d5d0a4ba74913e9728a0bd7a533"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/openapi-breaking-diff.ts",
@@ -20716,6 +21204,76 @@
       },
       {
         "filePath": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts",
+        "identity": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts#src/cli/lib/typespec-ref-resolver.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#containedRelativePath#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#containedRelativePath",
+        "runtime": "neutral",
+        "semanticHash": "e37618c2ce09784caf1f9906dfe2e7b5463a690f738f1e93148d28d8525b7d79",
+        "shapeHash": "bf54d2f7fa2fc3fe089fed51179ef9e73d78a20ade0afbe877107358ad768b47",
+        "syntaxHash": "6823b9154dbb671de97a93957de5a894a275e978204fe4b5f66d45af5d42e9c4"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts",
+        "identity": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts#src/cli/lib/typespec-ref-resolver.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#describeSameSource#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#describeSameSource",
+        "runtime": "neutral",
+        "semanticHash": "dd559b5fd01f84d32bf8295b81d46e97174f4431504afe279f8fa46db0c03be0",
+        "shapeHash": "91ed67f6b2f0353b829b9a472726aa7db9117f9bb9efd8cff2b1164f49532a9c",
+        "syntaxHash": "8453aefb0b26f8161ddf9f117415206d1e717ea5c510807abc37dcb2b564a9cf"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts",
+        "identity": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts#src/cli/lib/typespec-ref-resolver.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#directoryEntrypoint#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#directoryEntrypoint",
+        "runtime": "neutral",
+        "semanticHash": "88e6911b09ef301cd33c2885304769775e4378d8185b3e03d8658f1bf8ee3aa4",
+        "shapeHash": "5159f79092a0c2e729e743884d19d0914c67f773c0a905f630336893aa3ec84a",
+        "syntaxHash": "8f7646705332bd85589a5f4b14409ae32c093e15141ac730a82e14f08f082fda"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts",
+        "identity": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts#src/cli/lib/typespec-ref-resolver.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#discoverGitEntry#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#discoverGitEntry",
+        "runtime": "neutral",
+        "semanticHash": "2fd12a1c39635e9d1ad656a734f6fbe7c2b20497229422908345a9b77086dfb1",
+        "shapeHash": "d0b3965a948e15364fb3134c82864b0691c9259f3275437d7a84b3119f1278aa",
+        "syntaxHash": "c700d400b28790e24542f57af93895ae4dfb36b245cd0ede2ee2a28da745bbe7"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts",
+        "identity": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts#src/cli/lib/typespec-ref-resolver.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#explicitRepoEntry#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#explicitRepoEntry",
+        "runtime": "neutral",
+        "semanticHash": "a1cdad8f1b636e536891d16952326317358ed4afe5f374e921fbd08f202fddc5",
+        "shapeHash": "e47de70bba91fa7321ff5698e540b0dc9f9833e37d68ce65dd10194a20ef3983",
+        "syntaxHash": "5fa80dd5d71e4fdeb6a8fd44c65cfd11b9ee94aeec26ebd274fdd0ce394f9606"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts",
+        "identity": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts#src/cli/lib/typespec-ref-resolver.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#extractCommit#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#extractCommit",
+        "runtime": "neutral",
+        "semanticHash": "95279319d5c813dcf1696dc5db851238508ad081bddf5060959fd5fc953a8b9f",
+        "shapeHash": "23a9bd8ef8f2cc10e3b7a5c728ff8d12c8adff08892ae5776c83995c484fdf62",
+        "syntaxHash": "1848247f7ae8e2b9083553404db389419c73961f4af7191107c59f15c05ba084"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts",
+        "identity": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts#src/cli/lib/typespec-ref-resolver.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#findMainTspFiles#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#findMainTspFiles",
+        "runtime": "neutral",
+        "semanticHash": "51a02d82f05d62cd0715ab5b67a7c982e72bfeeddf3091817458e73dc76eff47",
+        "shapeHash": "3f69a8886866ff1f97d50a0c916c29dd1d76d038c3d959943d97bc8ed2982295",
+        "syntaxHash": "e454369853dafb93d72bec0993f71d60c6d5b3b332fd5f4fffc0958e3732cd73"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts",
         "identity": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts#src/cli/lib/typespec-ref-resolver.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#findRepoRoot#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#findRepoRoot",
@@ -20726,13 +21284,93 @@
       },
       {
         "filePath": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts",
-        "identity": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts#src/cli/lib/typespec-ref-resolver.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#isGitRef#function",
+        "identity": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts#src/cli/lib/typespec-ref-resolver.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#linkNodeModules#function",
         "kind": "function",
-        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#isGitRef",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#linkNodeModules",
         "runtime": "neutral",
-        "semanticHash": "026cdd95cc69e89fb5f79880e7b79b6818c15da27729e8201d9db17bda01a769",
-        "shapeHash": "ac7405c4ff46fe04b00493f3c706f81adc81bd214314de6c20270be7a142d4e7",
-        "syntaxHash": "ac8bf08e3595e958c5044e88769875b61c31611cef667b27e5b7da7c58b2e766"
+        "semanticHash": "001b88223fb4359e93115d962de622f6c9eec217b0c8c6d9bfaeab22517999f6",
+        "shapeHash": "49ccf248475177285e42bb553722fe5cf6c1484134bb28fc3a089fea20cf3a02",
+        "syntaxHash": "db97780a15d3ba5acdae94d88b054a89f302b323dd79cb793193734fe67d4c9b"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts",
+        "identity": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts#src/cli/lib/typespec-ref-resolver.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#materializeTypeSpecRef#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#materializeTypeSpecRef",
+        "runtime": "neutral",
+        "semanticHash": "fbaf4976c56412845234d69a83da6ff82a5e7c99131c8e9dd95d42660a06ec8c",
+        "shapeHash": "b2e5acd2afea949d4f362d72e1ca782a729a2ce33bac2ae9cfb81d11bf85e457",
+        "syntaxHash": "39ab1ed11213208cede42543c1e6a3372e971d1051ed2fcabf3ae1b113ada162"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts",
+        "identity": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts#src/cli/lib/typespec-ref-resolver.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#normalizeRepoPath#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#normalizeRepoPath",
+        "runtime": "neutral",
+        "semanticHash": "955bef2017a479133808c04cd72fc61e492ddf3078f98de4064c492418d6b681",
+        "shapeHash": "c5af65aeef2001b698a700fbe8b065db13a92c9ac03d94e27f7e491b390bb48f",
+        "syntaxHash": "e8306d82b54ebfc6e7af78939ed9a8941877d5638904a6019fb3c74659c45797"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts",
+        "identity": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts#src/cli/lib/typespec-ref-resolver.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#ParsedTypeSpecRef#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#ParsedTypeSpecRef",
+        "runtime": "neutral",
+        "semanticHash": "5b1e67d4f76ed0d4fb4479edf317cfdabd1458d85c8ff0767698577aaa0df4ff",
+        "shapeHash": "60d667def1938d72eb4cde69c5e9e1e557e586569f431b474196cfb1f33d2832",
+        "syntaxHash": "768de589c86f8d41bdaa7d46abba8e70efc41270a867a8d2aa8fd4ecb050a18b"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts",
+        "identity": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts#src/cli/lib/typespec-ref-resolver.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#parseTypeSpecRef#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#parseTypeSpecRef",
+        "runtime": "neutral",
+        "semanticHash": "43fab0a9a9acf16039468c477fbf589bfe8ccc520eec59248779b9985b0f74de",
+        "shapeHash": "2c5a93053b2051f8698813571678450a0ceb6848366d1f9645c4cac2dd24b5c0",
+        "syntaxHash": "c7a68fa336245ebbe0b903e1d84f5260f4b17c5c4152b5d493d9262c0bb4e528"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts",
+        "identity": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts#src/cli/lib/typespec-ref-resolver.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#realChildPath#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#realChildPath",
+        "runtime": "neutral",
+        "semanticHash": "6fdc1c5b203ea0766d834062602cbb1ed1ebaca4d597e3d81edae09619563de9",
+        "shapeHash": "26f360dbb35b5e992af7e007b5f126a1f35988f9a42d1ef42373105b09d176ac",
+        "syntaxHash": "21a9c4a7925308f6eedef50a4eca146662d3a06c9931dcc96d59d247841922f6"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts",
+        "identity": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts#src/cli/lib/typespec-ref-resolver.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#realpathOrSelf#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#realpathOrSelf",
+        "runtime": "neutral",
+        "semanticHash": "a9bfa0b13cd1b19c4f75750de01d03b0125bbf66b3d233fd0cdfd1d79737cac8",
+        "shapeHash": "5159f79092a0c2e729e743884d19d0914c67f773c0a905f630336893aa3ec84a",
+        "syntaxHash": "3847b5c84d0c5d5987b2726bcfcc261ae427b06078250abe0db24b1e5564fa6a"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts",
+        "identity": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts#src/cli/lib/typespec-ref-resolver.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#relativeInside#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#relativeInside",
+        "runtime": "neutral",
+        "semanticHash": "32e968a59f3d7757b92c414b66d64fb5f231505313175d0eff1b73f41e7b5a56",
+        "shapeHash": "bf54d2f7fa2fc3fe089fed51179ef9e73d78a20ade0afbe877107358ad768b47",
+        "syntaxHash": "2e82b3fceb38c7695d6b971aa0cfc7443ffd514dad22a68b862cdce10d921fa2"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts",
+        "identity": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts#src/cli/lib/typespec-ref-resolver.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#ResolvedTypeSpecDiffSources#interface",
+        "kind": "interface",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#ResolvedTypeSpecDiffSources",
+        "runtime": "neutral",
+        "semanticHash": "dfc94176ea28eb3a6f1ead5e325bc205965fabbf9ddfbb392f3e4af8551afbf7",
+        "shapeHash": "2dcf4f45b507b88ca2dcbae71b59f254df5b034ae988afcecbb4523e9f6143b9",
+        "syntaxHash": "def1e836a0beb77b1c83642c61a385e5368a8982c3e93a7f2c03cb61d40d1b51"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts",
@@ -20740,9 +21378,39 @@
         "kind": "interface",
         "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#ResolvedTypeSpecProgram",
         "runtime": "neutral",
-        "semanticHash": "19ec163eb0273e6d9b50236495e79254bdc0f875900e44690dffee0c6b72b718",
-        "shapeHash": "4a9fe9714e61ac04c77d28c2c8efabc7afbf02d29422fe220087a19d4af94c77",
-        "syntaxHash": "7b6d13cef731b2cccaa51a9e2edc854bcec979c55671de855e29708c1fa5ecc3"
+        "semanticHash": "77f434e679cce03cfd2d21f1c86c5bdbdad6ae86425af2448d4299d0b43d30b2",
+        "shapeHash": "f42722056fb6b6f5cd199daa5b444a338e74d60cd866170f8a2b1311fad12318",
+        "syntaxHash": "ac107e7623e079adf416d89134a7a549cbe8184b222814f406d2883ec35a3a5c"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts",
+        "identity": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts#src/cli/lib/typespec-ref-resolver.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#ResolvedTypeSpecSource#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#ResolvedTypeSpecSource",
+        "runtime": "neutral",
+        "semanticHash": "599e4bdd3322b265fd392d590961dad906f05daa0226d91ce5204d423312f6b0",
+        "shapeHash": "57ed0ab5660bb4ad15823b3bec43604f96bb92d18a4c3dd7b55c43566265ea3a",
+        "syntaxHash": "4ac2be4898170cae406493f04273b9734330e9e8bfa78ecc9f7708447f72aec1"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts",
+        "identity": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts#src/cli/lib/typespec-ref-resolver.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#resolveGitCommit#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#resolveGitCommit",
+        "runtime": "neutral",
+        "semanticHash": "f4528d72c42f0f2e9f2a3775fd2febe0688f6326040282790e0159ca6b9edfde",
+        "shapeHash": "e28c76a326ffbf86e4bdb2461075d4a7c20bac8dadbd82c87aa98b6fbf0f8b3d",
+        "syntaxHash": "c4dc603ef4911cce2c6a6fbabedf9c80d42b5850b28ae22019e1eecd4828b4dd"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts",
+        "identity": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts#src/cli/lib/typespec-ref-resolver.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#resolveTypeSpecDiffSources#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#resolveTypeSpecDiffSources",
+        "runtime": "neutral",
+        "semanticHash": "91d8aad5dcba69fa2700a845d89f571d44c55d3a96a1fe8659b6d1e3afe166fa",
+        "shapeHash": "8a46e1ea6dc9804333fe05b33f1f3aed85c25aa34144728ef4a9c91e35f12045",
+        "syntaxHash": "1bc07ff6666ef3b4745811e1c70c148d58f1c6bd9b598b7d46484e6a85fa0ba9"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts",
@@ -20752,7 +21420,37 @@
         "runtime": "neutral",
         "semanticHash": "5306b492efb643c0a56cb6a8b1cc39adde92baf0da81526d567fa92059dd6916",
         "shapeHash": "9462bafc212d2e886b0884099f472b40df0b8549f0a074fdbc5d66a52484f5a8",
-        "syntaxHash": "a2be61ee8d0e8220f4f78e9e65436ea2d9a64c3151fbcc80836d3686273e686a"
+        "syntaxHash": "5eea5cd1af11ab6ae3fd418216892f2c9940b6c4b587032e4b14c8359cc5077e"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts",
+        "identity": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts#src/cli/lib/typespec-ref-resolver.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#toPosix#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#toPosix",
+        "runtime": "neutral",
+        "semanticHash": "5538ea92bf00e22f08e3856036dcac377bad96ea5120f96c7841db315266ac3b",
+        "shapeHash": "5159f79092a0c2e729e743884d19d0914c67f773c0a905f630336893aa3ec84a",
+        "syntaxHash": "b02d4a60d6badc2f7240d0bf082a176f515bfcaa6065c03f41b8bf9ac6585dcf"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts",
+        "identity": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts#src/cli/lib/typespec-ref-resolver.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#TypeSpecEntryHint#interface",
+        "kind": "interface",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#TypeSpecEntryHint",
+        "runtime": "neutral",
+        "semanticHash": "8b9a30f821632635b2034dfd83f4c4630c6a58dea24a619e652a2c4706a843b0",
+        "shapeHash": "300e4f29d37d4f2a501bfbd02dce271b2bf835c747537658f5fa9ce277b8ab53",
+        "syntaxHash": "3b4c69a9b094c53b2bc9738371004ba4ac7c6a28b7f725f23d4e44929dd25354"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts",
+        "identity": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts#src/cli/lib/typespec-ref-resolver.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#TypeSpecRefLocation#interface",
+        "kind": "interface",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-ref-resolver.ts#TypeSpecRefLocation",
+        "runtime": "neutral",
+        "semanticHash": "22d8c2ef378d7121a5821e39797f7cc0510fff2f248878aa3446b4c1eb764b19",
+        "shapeHash": "277f927749c9227fe328308615682eee2173047d1ebcb2b25834715ed033ebc7",
+        "syntaxHash": "db0383ab7a172947e8d0080fec529d11e1764ea02f91c56969a31789722a219b"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/typespec-roundtrip-report.ts",
@@ -23290,9 +23988,29 @@
         "kind": "interface",
         "qualifiedName": "@oa-sdk/codegen:src/routing/manifest-manager.ts#ManifestArtifact",
         "runtime": "neutral",
-        "semanticHash": "3e43ace11d394b67fc40fd15e63df8f508616773faf7cc31348f513f25d9b303",
-        "shapeHash": "306d531fe457bbed3e382a2282ec86225ccbd516cddfea5b26d39e2b65983d65",
-        "syntaxHash": "53907369fd96f6eef60b980ad3364dd72c6453fd2f49d77fee8c16b726f9d4f1"
+        "semanticHash": "e8095088d4c891e048dede581f41586759db24bcf1aa5db37525d3ff387f204d",
+        "shapeHash": "2eafac96cb85fd9f5473392310db48b5f56a7de2e0916d4742d5e0d7a02b1e12",
+        "syntaxHash": "7738a1e30d1930078eeab808a170987d7c57b979e3e4d61b879c83a3021f707f"
+      },
+      {
+        "filePath": "packages/codegen/src/routing/manifest-manager.ts",
+        "identity": "packages/codegen/src/routing/manifest-manager.ts#src/routing/manifest-manager.ts#neutral#@oa-sdk/codegen:src/routing/manifest-manager.ts#manifestArtifactOwner#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/routing/manifest-manager.ts#manifestArtifactOwner",
+        "runtime": "neutral",
+        "semanticHash": "e13a31b5cc9053261fe997151cb3b295ee75e9b251b64f2c7581698d4bfc9190",
+        "shapeHash": "5c969422b74bd67019d739397451d3af67ad0f47a4f3e117cd4025f5b127cd4b",
+        "syntaxHash": "dedd0af9f58472e2097d18bb880d14bb59ff224ccf39e423a7e05ca0516d623e"
+      },
+      {
+        "filePath": "packages/codegen/src/routing/manifest-manager.ts",
+        "identity": "packages/codegen/src/routing/manifest-manager.ts#src/routing/manifest-manager.ts#neutral#@oa-sdk/codegen:src/routing/manifest-manager.ts#ManifestArtifactOwner#interface",
+        "kind": "interface",
+        "qualifiedName": "@oa-sdk/codegen:src/routing/manifest-manager.ts#ManifestArtifactOwner",
+        "runtime": "neutral",
+        "semanticHash": "105502f4c740bf0ffecbdf746abd2d98714e3d8ceae33469efa38eeecc4827ba",
+        "shapeHash": "99c3e9f010321fb3e586a8736fd32e5d23a7ace3287bf1c63332d179c7207a6c",
+        "syntaxHash": "a50f98b0b12585c54265ac0e629fdd2f470506870011d6f8b45dfb48073c11bd"
       },
       {
         "filePath": "packages/codegen/src/routing/manifest-manager.ts",
@@ -23310,9 +24028,19 @@
         "kind": "class",
         "qualifiedName": "@oa-sdk/codegen:src/routing/manifest-manager.ts#OaManifestManager",
         "runtime": "neutral",
-        "semanticHash": "172a71593c5fa36c6cf3638d3f1535367ae10f6ab3a5e85677d882df1e9fb513",
-        "shapeHash": "9d8c1fdd0a19f5e384f15b0589d4c4d03750d85fed0d217b3c2453678299aec3",
-        "syntaxHash": "840f2de709d0f250c3f3b741d7ce8e8307cda019eca617189db5cc5c197c06a1"
+        "semanticHash": "249e97165716c57fafea773076b271bdbb60b26cba27fd62cd28c42c3d8ecafb",
+        "shapeHash": "71e3a6a421060b812b125579b21aed764dccd734eb04256a8aa32294b852560d",
+        "syntaxHash": "a1592558c00415777fee92863ec1214e8d5ebfe3b86bf63d6aa8f66c1b1394dc"
+      },
+      {
+        "filePath": "packages/codegen/src/routing/manifest-manager.ts",
+        "identity": "packages/codegen/src/routing/manifest-manager.ts#src/routing/manifest-manager.ts#neutral#@oa-sdk/codegen:src/routing/manifest-manager.ts#PruneOrphansOptions#interface",
+        "kind": "interface",
+        "qualifiedName": "@oa-sdk/codegen:src/routing/manifest-manager.ts#PruneOrphansOptions",
+        "runtime": "neutral",
+        "semanticHash": "e73da551abeaea81fed815314d88dce0b285dcd57802e2ba2904d35d9860aa04",
+        "shapeHash": "d890a5c14d2a84344a0f06908752ef32108edf98230f90db33e669a9f9a3fd8d",
+        "syntaxHash": "e8caefa85f6a6913798595b6315e93185d75885be2cdf035180449cc6e698b7e"
       },
       {
         "filePath": "packages/codegen/src/routing/manifest-manager.ts",
@@ -23350,9 +24078,9 @@
         "kind": "interface",
         "qualifiedName": "@oa-sdk/codegen:src/routing/manifest-manager.ts#WriteArtifactInput",
         "runtime": "neutral",
-        "semanticHash": "37fabebe738c92189d21bf9f3bd5a310db774cea704b3f9f18a414ccbce398a1",
-        "shapeHash": "4c5a43e24520f273145a248068769a85eb289f6380df99376a952d8cf35ccf3e",
-        "syntaxHash": "74772139ad6bc0681edd44e1608191467c0a3f0bf9fa3303b56e2ff8836fd4bf"
+        "semanticHash": "0a8749edc6e4cb0e8b0553b75168e25b93ca37ff4ab7e9acaf59240e50aa66ef",
+        "shapeHash": "6bf33fc2445dd0af6ba6460a5131672491f19a1b744b1053445caa86cf5d4981",
+        "syntaxHash": "a8a7b2fa76bfc98860731dfeed4b19651dda9f034b76d245f51b0f7fa15e7bdf"
       },
       {
         "filePath": "packages/codegen/src/routing/manifest-manager.ts",
@@ -23536,13 +24264,23 @@
       },
       {
         "filePath": "packages/codegen/src/schema-pipeline/pipeline.ts",
+        "identity": "packages/codegen/src/schema-pipeline/pipeline.ts#src/schema-pipeline/pipeline.ts#neutral#@oa-sdk/codegen:src/schema-pipeline/pipeline.ts#distinctSpecVersions#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/schema-pipeline/pipeline.ts#distinctSpecVersions",
+        "runtime": "neutral",
+        "semanticHash": "f116771593ef5eb28c6d785f1e079600cda4f084ed0c715d965dd1f03ff19b41",
+        "shapeHash": "64b87ab5f34869e884c5101166ce3a71b0e5075343448223ca6ca30f139b312a",
+        "syntaxHash": "136d05d85d2e673a5948701dcd1c3dfc417fa395064ce894eff42cc69940aafb"
+      },
+      {
+        "filePath": "packages/codegen/src/schema-pipeline/pipeline.ts",
         "identity": "packages/codegen/src/schema-pipeline/pipeline.ts#src/schema-pipeline/pipeline.ts#neutral#@oa-sdk/codegen:src/schema-pipeline/pipeline.ts#executeSchemaPipeline#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/codegen:src/schema-pipeline/pipeline.ts#executeSchemaPipeline",
         "runtime": "neutral",
         "semanticHash": "9e524038ca03b0d90309ae46b09ee411f6b31e448c033ff7a2d8bbc992510df5",
         "shapeHash": "e4775e4e168f6f66cb9dd20a3a56526dcd439ff763494163751193df67d553ef",
-        "syntaxHash": "565dc2909215a182ee1196e63622b20a1f9d27ea9b161e7e324fc44faa75ac1f"
+        "syntaxHash": "99b9976ce28730a904730de0d01a39f7811dead752d3049cfea6a5048aa7cd51"
       },
       {
         "filePath": "packages/codegen/src/schema-pipeline/pipeline.ts",
@@ -23552,7 +24290,7 @@
         "runtime": "neutral",
         "semanticHash": "6054713c7496e2977731af1acc5265198a34f9b2bbc8249d1a139954191cb8dc",
         "shapeHash": "e7b6902b487082c61f158efbf05fb783b66d4f96073778142c3a29effc3cc19c",
-        "syntaxHash": "18da6a7af7d9650aeb111c8c62ec8440d0d57d6a3ac1326691a6620df94568dd"
+        "syntaxHash": "73b955b62bc990bbf659a9c2aa8699638108a1cd0a62f060495fb54a8746f4a9"
       },
       {
         "filePath": "packages/codegen/src/schema-pipeline/types.ts",
@@ -23570,9 +24308,9 @@
         "kind": "interface",
         "qualifiedName": "@oa-sdk/codegen:src/schema-pipeline/types.ts#SchemaPipelineTransparencyManifest",
         "runtime": "neutral",
-        "semanticHash": "8e9f8218b06465f61fc5257cc514e6602b91fac902a915049666630c5fb57a5d",
-        "shapeHash": "7a4450f597d4723379e6ef54993f5352580c5b3e9651a37c954859bbc8e4ade6",
-        "syntaxHash": "316469b68e3ecd1c6c3fc638f2a171daa06cd7fcb181907bf22bd279a1d4dd23"
+        "semanticHash": "5fced3d119c8f3d576850c674032689faf459a19456b1f8dee51ba5d6f993b78",
+        "shapeHash": "f38720cb5f4a2c3b81cef6a83fbad142f5598df49eb0ca3ef29316d5d053fa71",
+        "syntaxHash": "f773e584ddb25143b4386910f0c7fb57f071e10238fc9310eefccf1cff892e54"
       },
       {
         "filePath": "packages/codegen/src/schema-pipeline/types.ts",
@@ -23646,6 +24384,16 @@
       },
       {
         "filePath": "packages/codegen/src/spec-projector.ts",
+        "identity": "packages/codegen/src/spec-projector.ts#src/spec-projector.ts#neutral#@oa-sdk/codegen:src/spec-projector.ts#countPathOperations#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/spec-projector.ts#countPathOperations",
+        "runtime": "neutral",
+        "semanticHash": "944d69db978af57a5a1d6034b09007cc20db1047e417e844c9d75dbf565cf1ad",
+        "shapeHash": "f225832347a5948d2df0400cdc173734d016db9b968f2efbe44ff092b29eb4ba",
+        "syntaxHash": "cac2077dae7ad57a3c60757345af83f9b4911d5e69512c4361c1f04a8e9efae6"
+      },
+      {
+        "filePath": "packages/codegen/src/spec-projector.ts",
         "identity": "packages/codegen/src/spec-projector.ts#src/spec-projector.ts#neutral#@oa-sdk/codegen:src/spec-projector.ts#extractRefsFromDocument#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/codegen:src/spec-projector.ts#extractRefsFromDocument",
@@ -23692,7 +24440,7 @@
         "runtime": "neutral",
         "semanticHash": "5ce51b2ca810ac8ff866a777f2ef5442b6ea8eada199030539ab4a0700620fd1",
         "shapeHash": "83e72c2af6dfc318be2b76a228cae14c32d9388b64253f931627daf00606e115",
-        "syntaxHash": "84c788286686db62a6d449481f179a62890dd57e4c82169919864ee1904a16d6"
+        "syntaxHash": "24ec16f95718e8b74a25c7d2c37650687411f5d7d2d26c1085f5ac1cff636bc5"
       },
       {
         "filePath": "packages/codegen/src/spec-projector.ts",
@@ -56585,7 +57333,7 @@
         "syntaxHash": "d64bef6795e9fd5c1c7aa8401da256f67b5160fdcd8de71546cd89e230584cbe"
       }
     ],
-    "digest": "d4193103e3dce4512460eaf57b2ba94699060e55167063df6e16f7ad318506b2",
+    "digest": "7f14f4d74c514c63790fd28c6623f42cec5a0979ef1508f6e0d69f1d6cfd4cf2",
     "publicSurfaces": [
       {
         "exportKey": "./guards",
@@ -57208,6 +57956,7 @@
           "PathDispatcher:mixed",
           "ProfileTargetConfig:type",
           "PropertyConstraint:type",
+          "PruneOrphansOptions:type",
           "PruneResult:type",
           "PruneSkippedEntry:type",
           "PythonContractSpecSnapshotAdapterOptions:type",
@@ -57390,7 +58139,7 @@
           "zodToSchema:mixed"
         ],
         "filePath": "packages/codegen/src/index.ts",
-        "hash": "a012d3d118b9475d81b197ee01b9fdbfe5507253d4b5f617abfb9da86f161848",
+        "hash": "bac1a29c56a5cc7cc2568cb3e90f00cbf54e619ff318be44e8a464a7b84cbd64",
         "packageName": "@oa-sdk/codegen",
         "runtime": "neutral"
       },
@@ -60623,14 +61372,14 @@
       "role": "authority"
     },
     {
-      "contentHash": "6f28dfe377ce755a5d653c4ef03498b1c194d9cb09de9e88f0bcc3d8f3b14b2d",
+      "contentHash": "3a136cb1bc057f7b4ad92b3945fa1c6f1acb10564580086872b4d003f1cf7628",
       "filePath": "packages/codegen/src/cli/commands/diff.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
     },
     {
-      "contentHash": "4aa3dafe619c150962f4fc6ed83cf44b5e1d13add586e8b503d289246b400281",
+      "contentHash": "59d783494e4a4851d180c11b31b6f1ddad198083cde9aec12c784308464eab76",
       "filePath": "packages/codegen/src/cli/commands/drift.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -60665,7 +61414,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "4ae2c1b6550720600e86533bb2d9398a2a579c5a73eb7a7a9e3f2551cfe21726",
+      "contentHash": "c52ad927d9229f9f6e98d2358187edb21f2b99ea45cccd5c20028ee4a4bec218",
       "filePath": "packages/codegen/src/cli/commands/generate-tanstack.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -60679,14 +61428,14 @@
       "role": "authority"
     },
     {
-      "contentHash": "55e396ee1ae46181487e4c44950f8a1de97431ad93ec1ed6df06a27cce67e044",
+      "contentHash": "7a62c1f5dd2bbe44cbec612de46923efb146a9458d30936c62ed19de780069e0",
       "filePath": "packages/codegen/src/cli/commands/generate.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
     },
     {
-      "contentHash": "4de9fd43e4eede3e07c644c23be044190019a9c8e1ff7b0984b4aee64ca91cef",
+      "contentHash": "172173be4e2bea49c291ea0ff52eb8b97231f973b89c50b5a12dd9ee86a5317b",
       "filePath": "packages/codegen/src/cli/commands/init.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -60714,7 +61463,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "1eb906fac55bd62dd3a6e9a352bafbd470d604785b6a57eb7c5401243ec67e68",
+      "contentHash": "7ae679dbde8be8f77b626392a0ea04baa3a915adba1324fbea1d100c65dcaec5",
       "filePath": "packages/codegen/src/cli/commands/normalize.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -60742,7 +61491,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "763ebfbfe7cef69675d26c8c082597896b58814304f9448a19ce330f991969bb",
+      "contentHash": "d3559956e61b02025717597c456078cb78556ce438fe3ecee7eb04e01a90fdb1",
       "filePath": "packages/codegen/src/cli/commands/review.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -60777,7 +61526,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "1a838ba641d5204378bd20b75ce68ac4bd047449cb3444a3ec1925c6e89f95a8",
+      "contentHash": "d84e9d2fcc9e4c4e50a095fa8255d9d9b9ccb319f98eb8482965f78a4472248c",
       "filePath": "packages/codegen/src/cli/commands/tsp-diff.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -60924,6 +61673,13 @@
       "role": "authority"
     },
     {
+      "contentHash": "914fd0ee42ffc62fc1aef0e1207c892ecec8c2f3a0dff86544a885f7253349e8",
+      "filePath": "packages/codegen/src/cli/lib/bundle-external-refs.ts",
+      "origin": "handwritten",
+      "packageName": "@oa-sdk/codegen",
+      "role": "authority"
+    },
+    {
       "contentHash": "8e749a23262e908e0dd2fe4618dff786ddf59ed595bf551d4e4167ae0489a8be",
       "filePath": "packages/codegen/src/cli/lib/companion-packages.ts",
       "origin": "handwritten",
@@ -60938,7 +61694,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "b2356fc68b32b6b307f310a98d6e2ebf1953085f602c2cedf6ce9a032b0c4816",
+      "contentHash": "f34e5c536ad5e5315ada355f7fe4c25762f3d012762596f50701ae20142bd2a6",
       "filePath": "packages/codegen/src/cli/lib/config-loader.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -61001,7 +61757,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "76d80e33d69a58aaf4f5a21034d22bfc0f9bdb9b1fef256628dcb7d214c12f4a",
+      "contentHash": "c301509ebf1174c8617f9bcd0f2606e6af6db71ad12392626d85fcaf1ae908bb",
       "filePath": "packages/codegen/src/cli/lib/init/archetypes/enterprise.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -61015,22 +61771,36 @@
       "role": "authority"
     },
     {
-      "contentHash": "252bb9ef68fd885b7d200956d571978443b2f2813c096725868d93e8e0e19913",
+      "contentHash": "7d8e87ca49ca5ef86b846e0d21f95c3832df7ab6e3c91bd180fec1bd774e49c6",
       "filePath": "packages/codegen/src/cli/lib/init/archetypes/microservice.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
     },
     {
-      "contentHash": "60890a44e5a61cb9670b4a01ccd4aa8afac192f47feafe55cab67e5739d207b4",
+      "contentHash": "2995263c688d5d778365ca58776078d819fa046d43def050a2928d35f86e2fe3",
       "filePath": "packages/codegen/src/cli/lib/init/archetypes/mvp.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
     },
     {
-      "contentHash": "1531464492ea346f19b6c14d0ec921af5292ecf1c662e9a87f1a634d111a1b60",
+      "contentHash": "eb5aa1a527da11d88df106c08abde1912cba48097d775ad1bbeef7719c874016",
       "filePath": "packages/codegen/src/cli/lib/init/archetypes/types.ts",
+      "origin": "handwritten",
+      "packageName": "@oa-sdk/codegen",
+      "role": "authority"
+    },
+    {
+      "contentHash": "f6110ca77464e24fa30c5f6864b6ba601f650b36d8204ead63bd535fd7f052f4",
+      "filePath": "packages/codegen/src/cli/lib/init/common/contract-baseline.ts",
+      "origin": "handwritten",
+      "packageName": "@oa-sdk/codegen",
+      "role": "authority"
+    },
+    {
+      "contentHash": "2104dffaee8a11217f937587bb0b72377454d8c1e3be62f87f5633e935648017",
+      "filePath": "packages/codegen/src/cli/lib/init/common/existing-config.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
@@ -61050,21 +61820,35 @@
       "role": "authority"
     },
     {
-      "contentHash": "33d5fe232b98466b668253f19af9a684611d9b109b7ddeb4fc51f3fbb7d9cda3",
+      "contentHash": "5af90a2c8ec5b2926d65d426d616d211eafec2d90c0e2c41371036d9702afba4",
+      "filePath": "packages/codegen/src/cli/lib/init/common/retired-scripts.ts",
+      "origin": "handwritten",
+      "packageName": "@oa-sdk/codegen",
+      "role": "authority"
+    },
+    {
+      "contentHash": "8ae563d0f69e0aeb379f1242be9449ff5bd5413be393a62cf818bbd700c8d887",
       "filePath": "packages/codegen/src/cli/lib/init/common/schema-detector.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
     },
     {
-      "contentHash": "469ea09a75c21fac3baba9309f9f6741590a370566ebc7aafb944d490a2b1625",
+      "contentHash": "98c94a10f9969721c7502742bde72ab371ded5d5b3e58551cc02084d21f8f440",
+      "filePath": "packages/codegen/src/cli/lib/init/common/scripts.ts",
+      "origin": "handwritten",
+      "packageName": "@oa-sdk/codegen",
+      "role": "authority"
+    },
+    {
+      "contentHash": "31ab9bddb22787af3b862ba60d97f6cd6e6d73df5a3abdd48b14801010d6c3c6",
       "filePath": "packages/codegen/src/cli/lib/init/composer.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
     },
     {
-      "contentHash": "90da4e74792fa861a96b02c388d3207caa1be60f003207b62fa6dd2081e86da9",
+      "contentHash": "d4b2932a494a08691e2ae5a663ca78f17e6bc0b0a01ff1b639197d1e34dd88ac",
       "filePath": "packages/codegen/src/cli/lib/init/index.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -61085,21 +61869,21 @@
       "role": "authority"
     },
     {
-      "contentHash": "2f0a5c5ac2a885c1ba1c507a3c5565e5c4d442c34e27e4b29fa6f64911840d1b",
+      "contentHash": "8a9f62e2c87d8f24715ede736719c62db66b45b37270519467c94f57c01d3874",
       "filePath": "packages/codegen/src/cli/lib/init/targets/elysia.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
     },
     {
-      "contentHash": "5e29620fcfddeed620e2c90401a8bfdf6ff9b9453d5039659cf6f7e635daec23",
+      "contentHash": "85e2e506f2c3875c44b56ff8a262cac0bd459e3e304b2560835b2dbcef4689c2",
       "filePath": "packages/codegen/src/cli/lib/init/targets/express.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
     },
     {
-      "contentHash": "a8354d2a22a296166e733f2510fa3d4d25657049f10362d9535c66ef0aa56309",
+      "contentHash": "a15f1963550e34477bf8ddf734c6d67d05021ee655615c6c3f3c2deb5bc8e5ee",
       "filePath": "packages/codegen/src/cli/lib/init/targets/fastify.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -61113,7 +61897,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "a03c63a8f11db61350006003135c1261bfc0def22dc5928caa20b8e83f6e046c",
+      "contentHash": "2e216b8da5826362ded8e06018c0dbcd3e88f67ce3958a2bd9533e731a12185e",
       "filePath": "packages/codegen/src/cli/lib/init/targets/hono.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -61127,14 +61911,14 @@
       "role": "authority"
     },
     {
-      "contentHash": "787cdee4d9fd3e81f21fdc74030422df8cc850cdca9cd0ee9968cc0b5f80a8c2",
+      "contentHash": "882d2cf5eeaf1e018ecc89028c0b57943b9a56fe160c578bade8f5bb0104ce90",
       "filePath": "packages/codegen/src/cli/lib/init/targets/nestjs.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
     },
     {
-      "contentHash": "ae0ca012d913e45e154dccaba97403831bdd284708768192b56dacb4f7751ade",
+      "contentHash": "06b94e9ade01b77b7be254c5e5f7b150226224a65172e633c5ce129da8da0717",
       "filePath": "packages/codegen/src/cli/lib/init/types.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -61176,7 +61960,14 @@
       "role": "authority"
     },
     {
-      "contentHash": "19a15e0435f17a792490fc046978b97bd2c10bbb187927dcdd0e8bdeadf50ce0",
+      "contentHash": "963f0242563b6aa044044efbf807ee79d8ff1651d6a47bc6aa85eda078b2d696",
+      "filePath": "packages/codegen/src/cli/lib/normalized-openapi.ts",
+      "origin": "handwritten",
+      "packageName": "@oa-sdk/codegen",
+      "role": "authority"
+    },
+    {
+      "contentHash": "a751ca6afde4b2d4373ae290d290dc773c27b0dab2338e9ea02495d27d4be32d",
       "filePath": "packages/codegen/src/cli/lib/openapi-breaking-diff.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -61407,7 +62198,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "75eaad11da6356a114ef70eb100e1cd3482b40b58ef314aaec059d5ef663055f",
+      "contentHash": "736404734af53a773ec7b2bd71f332a01b9fffd684f26c86c942afb25c3a81e8",
       "filePath": "packages/codegen/src/cli/lib/typespec-ref-resolver.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -61449,7 +62240,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "a7c8e4cf3775f116cc8fa3ec299b4d0650149efb77182d3d8e4e634f6db3a4f0",
+      "contentHash": "92bc9036ca5f9feb1b117f3365dcb18516c0597c8fdb81447b98ca325f29b5d7",
       "filePath": "packages/codegen/src/cli/spec/oa-gen-governance.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -61512,7 +62303,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "8bae92c9cb8bb0b7af5a43fa71c1987ca4c5c9b345c11939526412bff1bd702c",
+      "contentHash": "32df1e4f275119ce79cf1cc26ddade1815949404e2067840c77163c2e3346d13",
       "filePath": "packages/codegen/src/index.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -61526,14 +62317,14 @@
       "role": "authority"
     },
     {
-      "contentHash": "20937665af3ddce7b7df8548358b479788b9ae3382869ded267e236344595392",
+      "contentHash": "82382597142f10c54c34d532598bace8366db460c83380c0003c20f50f39659a",
       "filePath": "packages/codegen/src/routing/index.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
     },
     {
-      "contentHash": "6a74e158f1c026acf7447061b1fd28783fb5bbc0814934f2ff4e179a570f6441",
+      "contentHash": "6847e406c4cfd86e0f48b0f85b40d1c77127290b1a7e71427c567cb13c4565a0",
       "filePath": "packages/codegen/src/routing/manifest-manager.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -61568,14 +62359,14 @@
       "role": "authority"
     },
     {
-      "contentHash": "bda3aa872e114231f2d2e9d36c2b16d5fd367c37a06f64efd4eced302da4648f",
+      "contentHash": "51ee5c65f6a4ca9f5399cdc50e0d2ef6dbd090b6e68923af2d37d850c4c70c3e",
       "filePath": "packages/codegen/src/schema-pipeline/pipeline.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
     },
     {
-      "contentHash": "fed1576ffd049881731f4db4b802b003c21c63e30d62e48feba3199170195fb5",
+      "contentHash": "a8a7e9268ffe03f6393a72c153a5272b1b03c94cf9175e45153db86fec9de885",
       "filePath": "packages/codegen/src/schema-pipeline/types.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -61596,7 +62387,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "63630b73f3c2938596a2c818a51c004b1cfd4222b9082fedbb4f3d2e1436a0e9",
+      "contentHash": "23a07308654f221fa7ba6c00e3fbcd51ef3412b37352e7c610246dcc0915624b",
       "filePath": "packages/codegen/src/spec-projector.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
