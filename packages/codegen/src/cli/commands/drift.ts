@@ -1,3 +1,4 @@
+import { resolve } from 'node:path'
 import type { Command } from '../lib/types.js'
 import { loadSpecWithPath } from '../lib/load-spec.js'
 import { optStr, optStrArray, str } from '../lib/args.js'
@@ -77,14 +78,24 @@ export const drift: Command = {
     },
   },
   async run(args) {
-    const managedPath = str(args, 'managed-openapi')
+    // File arguments are resolved once, against the same directory loadSpecWithPath reads from,
+    // and every behavior record and report uses these values. A relative argument and the
+    // absolute path of the same file therefore produce the same input, target and identity.
+    const managedPath = resolve(str(args, 'managed-openapi'))
     const managed = loadSpecWithPath(managedPath)
     const runtimeInput: { runtimePath?: string; runtimeUrl?: string } = {}
-    const runtimePath = optStr(args, 'runtime-openapi')
+    const runtimePathArg = optStr(args, 'runtime-openapi')
+    const runtimePath = runtimePathArg === undefined ? undefined : resolve(runtimePathArg)
     const runtimeUrl = optStr(args, 'runtime-openapi-url')
     if (runtimePath !== undefined) runtimeInput.runtimePath = runtimePath
     if (runtimeUrl !== undefined) runtimeInput.runtimeUrl = runtimeUrl
     const runtimeHeaders = parseRuntimeHeaders(optStrArray(args, 'runtime-header'))
+    const behaviorInput = {
+      ...(runtimePath !== undefined ? { runtimePath } : {}),
+      ...(runtimeUrl !== undefined ? { runtimeUrl } : {}),
+      managedPath,
+      ...(runtimeHeaders.length > 0 ? { runtimeHeaders: runtimeHeaders.map(header => header.name) } : {}),
+    }
     const format = readFormat(optStr(args, 'format'))
     const behaviorLogPath = optStr(args, 'behavior-log')
     const behaviorDbPath = optStr(args, 'behavior-db')
@@ -100,12 +111,12 @@ export const drift: Command = {
       })
 
       if ('failure' in runtime) {
-        const targetKey = `${managed.path}|${runtime.source}`
+        const targetKey = `${managedPath}|${runtime.source}`
         const payload = {
           drift: true,
           status: 'drift-check-failed',
           runtime: runtime.source,
-          managed: managed.path,
+          managed: managedPath,
           issues: [],
           failure: runtime.failure,
           ...(runtime.fetch ? { runtimeFetch: runtime.fetch } : {}),
@@ -121,15 +132,10 @@ export const drift: Command = {
             target: {
               targetType: 'runtime-openapi',
               targetKey,
-              managedPath: managed.path,
+              managedPath,
               runtimeSource: runtime.source,
             },
-            input: {
-              ...(runtimePath ? { runtimePath } : {}),
-              ...(runtimeUrl ? { runtimeUrl } : {}),
-              managedPath,
-              ...(runtimeHeaders.length > 0 ? { runtimeHeaders: runtimeHeaders.map(header => header.name) } : {}),
-            },
+            input: behaviorInput,
             context: {
               command: 'drift',
               source: 'cli',
@@ -163,11 +169,11 @@ export const drift: Command = {
         drift: issues.length > 0,
         status: 'ok',
         runtime: runtime.path,
-        managed: managed.path,
+        managed: managedPath,
         issues,
         ...(runtime.fetch ? { runtimeFetch: runtime.fetch } : {}),
       }
-      const targetKey = `${managed.path}|${runtime.path}`
+      const targetKey = `${managedPath}|${runtime.path}`
 
       await behaviorRecorder.record(createBehaviorRecord({
         behaviorType: 'sync_runtime_openapi',
@@ -180,15 +186,10 @@ export const drift: Command = {
           target: {
             targetType: 'runtime-openapi',
             targetKey,
-            managedPath: managed.path,
+            managedPath,
             runtimePath: runtime.path,
           },
-          input: {
-            ...(runtimePath ? { runtimePath } : {}),
-            ...(runtimeUrl ? { runtimeUrl } : {}),
-            managedPath,
-            ...(runtimeHeaders.length > 0 ? { runtimeHeaders: runtimeHeaders.map(header => header.name) } : {}),
-          },
+          input: behaviorInput,
           context: {
             command: 'drift',
             source: 'cli',
@@ -244,14 +245,10 @@ export const drift: Command = {
             targetType: 'runtime-openapi',
             targetKey,
             managedPath,
-            ...(runtimePath ? { runtimePath } : {}),
-            ...(runtimeUrl ? { runtimeSource: runtimeUrl } : {}),
+            ...(runtimePath !== undefined ? { runtimePath } : {}),
+            ...(runtimeUrl !== undefined ? { runtimeSource: runtimeUrl } : {}),
           },
-          input: {
-            ...(runtimePath ? { runtimePath } : {}),
-            ...(runtimeUrl ? { runtimeUrl } : {}),
-            managedPath,
-          },
+          input: behaviorInput,
           context: {
             command: 'drift',
             source: 'cli',
