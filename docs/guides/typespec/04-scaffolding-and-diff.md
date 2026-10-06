@@ -103,11 +103,11 @@ model bearerAuth is BearerAuth;
 | `--fail-on-breaking` | N | breaking change가 있으면 종료 코드 1 |
 | `--format <type>` | N | `markdown`(기본값) 또는 `json` |
 
-값이 실제 경로이면 경로로 읽고(상대 경로는 명령을 실행한 디렉터리부터 찾음), 아니면 git ref로 보고 `git archive`로 그 커밋을 임시 디렉터리에 꺼냅니다. 그래서 git ref는 작업 트리가 아니라 **커밋된 내용**입니다. `ref:path`의 `path`는 저장소 루트 기준입니다.
+값이 실제 경로이면 경로로 읽고(상대 경로는 명령을 실행한 디렉터리부터 찾음), 아니면 git ref로 보고 `git archive`로 그 커밋을 임시 디렉터리에 꺼냅니다. 그래서 git ref는 작업 트리가 아니라 **커밋된 내용**입니다. `ref:path`의 `path`는 저장소 루트 기준입니다. 커밋 안의 진입점이 그 커밋에 들어 있는 심볼릭 링크(절대 경로 링크 등)를 따라 커밋 밖으로 나가면, 커밋에 없는 파일을 읽지 않고 `<ref>:<path>`를 달라는 오류로 끝납니다.
 
 경로 없이 git ref만 주면(`--base origin/main`, `--head HEAD`) 진입점을 다음 순서로 정합니다.
 
-1. 상대편의 진입점이 저장소 안에 있으면(파일·디렉터리 경로, `ref:path`, 먼저 정해진 base 진입점) 같은 저장소 루트 기준 경로를 이 ref의 커밋에서 읽습니다. `--base origin/main --head HEAD`이면 head는 base가 찾은 진입점과 같은 경로를 `HEAD` 커밋에서 꺼냅니다. 그 경로가 이 커밋에 없으면(파일을 옮긴 경우 등) 다른 파일을 추측하지 않고 `<ref>:<path>`를 달라는 오류(종료 코드 1)로 끝납니다.
+1. 상대편의 진입점이 저장소 안에 있으면(파일·디렉터리 경로, `ref:path`, 먼저 정해진 base 진입점) 같은 저장소 루트 기준 경로를 이 ref의 커밋에서 읽습니다. `--base origin/main --head HEAD`이면 head는 base가 찾은 진입점과 같은 경로를 `HEAD` 커밋에서 꺼냅니다. 그 경로가 이 커밋에 없으면(파일을 옮긴 경우 등) 다른 파일을 추측하지 않고 `<ref>:<path>`를 달라는 오류(종료 코드 1)로 끝납니다. 작업 트리 경로가 저장소 안의 심볼릭 링크를 지나면 링크 이름을 그대로 씁니다. `current -> v1` 링크가 있을 때 `--head ./current/main.tsp`는 `current/main.tsp`가 되므로, 이 ref의 커밋에서 `current`가 가리키던 대상을 읽습니다. 저장소 밖으로 나가는 링크를 지나 저장소 밖 파일에 닿는 경로는 저장소 밖 경로로 봅니다.
 2. 그렇지 않으면 `packages/schemas/typespec/main.tsp`, `packages/schemas/typespec`, `main.tsp` 순서로 찾고, 셋 다 없으면 커밋 안에 `main.tsp`가 하나뿐일 때만 그것을 씁니다. `main.tsp`가 여러 개면 후보 목록과 함께 `<ref>:<path>`를 달라는 오류로 끝납니다.
 
 `--base`와 `--head`가 같은 커밋의 같은 진입점이 되면(`--base HEAD --head HEAD`) 같은 내용끼리 비교하므로 결과는 늘 `No semantic changes detected`입니다. 이때는 stderr에 그 사실과 작업 트리 경로를 `--head`에 주라는 안내를 출력합니다(`--format json`의 stdout은 그대로 JSON). 커밋하지 않은 수정까지 보려면 `--head`에 파일 경로를 줍니다.
