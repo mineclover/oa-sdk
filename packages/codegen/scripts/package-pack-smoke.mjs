@@ -1,5 +1,5 @@
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
-import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { builtinModules } from 'node:module'
 import { tmpdir } from 'node:os'
 import { delimiter, join, relative } from 'node:path'
@@ -151,10 +151,7 @@ try {
           `received ${JSON.stringify(scripts)}`,
       )
     }
-    mkdirSync(join(consumer, 'node_modules', '@oa-sdk'), { recursive: true })
-    mkdirSync(join(consumer, 'node_modules', '.bin'), { recursive: true })
-    symlinkSync(join(temporaryDirectory, 'package'), join(consumer, 'node_modules', manifest.name), 'dir')
-    symlinkSync(oaGen, join(consumer, 'node_modules', '.bin', 'oa-gen'))
+    installPackedCodegen(consumer, oaGen)
 
     const baseline = archetype.baseline === undefined ? undefined : readFileSync(join(consumer, archetype.baseline), 'utf8')
     for (const [script, run] of Object.entries(archetype.scripts)) {
@@ -187,6 +184,51 @@ try {
     }
   }
 
+  // The move to the enterprise archetype the onboarding runbook describes: init runs again,
+  // without --force, in a project scaffolded with the default archetype, after generate wrote its
+  // documents. The spec spans two files and has a name init does not detect. Init keeps
+  // oa.config.ts, so the gate must check the spec it records rather than a generated document,
+  // and the baseline must hold the file the spec refers to, so that breaking it fails the gate.
+  const upgrade = { id: 'mvp, then enterprise' }
+  const upgraded = join(temporaryDirectory, 'consumer-upgrade')
+  mkdirSync(join(upgraded, 'api'), { recursive: true })
+  writeFileSync(join(upgraded, 'package.json'), `${JSON.stringify({ name: 'consumer', private: true, type: 'commonjs' }, null, 2)}\n`)
+  writeFileSync(join(upgraded, 'api', 'contract.yaml'), [
+    'openapi: 3.2.0',
+    'info: { title: Pack smoke upgrade, version: 1.0.0 }',
+    'paths:',
+    '  /health:',
+    '    get:',
+    '      operationId: getHealth',
+    '      summary: Health',
+    "      responses: { '200': { description: OK, content: { application/json: { schema: { $ref: './schemas.yaml#/Health' } } } } }",
+    '',
+  ].join('\n'))
+  const healthSchema = ['Health:', '  type: object', '  required: [ok]', '  properties: { ok: { type: boolean } }', ''].join('\n')
+  writeFileSync(join(upgraded, 'api', 'schemas.yaml'), healthSchema)
+  execFileSync(process.execPath, [oaGen, 'init', '--yes', '--spec', 'api/contract.yaml', '--cwd', upgraded], { stdio: ['ignore', 'ignore', 'inherit'] })
+  installPackedCodegen(upgraded, oaGen)
+  runScript(upgrade, 'generate', readScripts(upgraded).generate, upgraded)
+  if (!existsSync(join(upgraded, 'src', 'generated', 'generic-api.openapi.json'))) {
+    throw new Error('the generate script of packed oa-gen init (mvp) wrote no src/generated/generic-api.openapi.json for the upgrade to ignore')
+  }
+  execFileSync(process.execPath, [oaGen, 'init', '--yes', '--archetype', 'enterprise', '--cwd', upgraded], { stdio: ['ignore', 'ignore', 'inherit'] })
+  const upgradedScripts = readScripts(upgraded)
+  const gatedDiff = 'oa-gen diff --base openapi.baseline.yaml --head api/contract.yaml --fail-on-breaking'
+  if (upgradedScripts.diff !== gatedDiff) {
+    throw new Error(`packed oa-gen init (${upgrade.id}) must gate the schemaEntry of the oa.config.ts it keeps (${gatedDiff}), received ${JSON.stringify(upgradedScripts)}`)
+  }
+  if (readFileSync(join(upgraded, 'openapi.baseline.yaml'), 'utf8').includes('schemas.yaml')) {
+    throw new Error(`the contract baseline packed oa-gen init (${upgrade.id}) created refers to api/schemas.yaml instead of holding it`)
+  }
+  runScript(upgrade, 'ci:gate', upgradedScripts['ci:gate'], upgraded)
+  writeFileSync(join(upgraded, 'api', 'schemas.yaml'), healthSchema.replace('required: [ok]', 'required: []').replace('type: boolean', 'type: string'))
+  for (const script of ['diff', 'ci:gate']) {
+    if (scriptExitCode(upgradedScripts[script], upgraded) === 0) {
+      throw new Error(`the ${script} script of packed oa-gen init (${upgrade.id}) passed a breaking change made in api/schemas.yaml, which the spec refers to`)
+    }
+  }
+
   // Install hints for a missing companion, and the specifiers `oa-gen init` writes, name the
   // range this codegen supports, from the versions the build embeds (tsup.config.ts); they must
   // be the versions it was built against of the companions, of codegen itself, and of every
@@ -214,10 +256,28 @@ try {
           `${omitted.length > 0 ? `; leaves out ${omitted.join(', ')}` : ''}`).join(' | ')}), ` +
       `and every script it writes runs in a "type": "commonjs" project (${INIT_ARCHETYPES
         .map(({ id, scripts }) => `${id}: ${Object.keys(scripts).join(', ')}`).join(' | ')}), ` +
-      `the enterprise gate failing once the spec breaks its contract baseline`,
+      `the enterprise gate failing once the spec breaks its contract baseline, ` +
+      `also after an upgrade from mvp on a spec that spans two files`,
   )
 } finally {
   rmSync(temporaryDirectory, { recursive: true, force: true })
+}
+
+/**
+ * Installs the packed codegen in the consumer project at `consumer` as a registry install places
+ * it: the package under node_modules, which the scaffolded oa.config.ts imports, and its oa-gen
+ * bin `oaGen` in node_modules/.bin, which the scripts run.
+ */
+function installPackedCodegen(consumer, oaGen) {
+  mkdirSync(join(consumer, 'node_modules', '@oa-sdk'), { recursive: true })
+  mkdirSync(join(consumer, 'node_modules', '.bin'), { recursive: true })
+  symlinkSync(join(temporaryDirectory, 'package'), join(consumer, 'node_modules', manifest.name), 'dir')
+  symlinkSync(oaGen, join(consumer, 'node_modules', '.bin', 'oa-gen'))
+}
+
+/** The package.json scripts of the project at `consumer`. */
+function readScripts(consumer) {
+  return JSON.parse(readFileSync(join(consumer, 'package.json'), 'utf8')).scripts ?? {}
 }
 
 /**
