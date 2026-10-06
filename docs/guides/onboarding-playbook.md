@@ -428,7 +428,7 @@ if (
 
 `fsd` 프리셋이 함께 기록하는 `rules`의 tag(`common`, `shared`, `auth`, `system`)는 OpenAPI tag가 아니라 spec target id와 비교되고, `kind: 'schemas'` 규칙과 `monorepo` 프리셋의 `guards`·`schemas` 항목은 현재 출력 위치를 바꾸지 않습니다. 프레임워크 라우터 코드는 outputRouting 대상이 아니므로 §4.1의 빌드 스크립트에서 경로를 정합니다.
 
-`oa-gen generate`는 `.oa-manifest.json`에 기록된 생성 파일 중 이번 실행이 소유했고 이번에 만들지 않았으며 내용도 바뀌지 않은 파일을 지웁니다. 지우는 파일은 같은 설정 파일로 실행한 `oa-gen generate`가 기록했고(`--spec` 실행이면 같은 spec target으로 기록했고), 디스크의 내용 hash가 기록과 같으며(손으로 고치지 않음), 생성 배너가 남아 있는 파일뿐입니다. 손으로 고친 파일, manifest에 없는 파일, `oa-gen generate:tanstack` 등 다른 명령이 쓴 파일은 지우지 않습니다. `outputRouting.pruneOrphans: false`면 아무 파일도 지우지 않습니다. 판정 규칙은 [생성 파일 정리](./declarative-spec-configuration.md#45-생성-파일-정리)를 봅니다.
+`oa-gen generate`는 `.oa-manifest.json`에 기록된 생성 파일 중 이번 실행이 소유했고 이번에 만들지 않았으며 내용도 바뀌지 않은 파일을 지웁니다. 지우는 파일은 같은 설정 파일로 실행한 `oa-gen generate`가 기록했고(`--spec` 실행이면 같은 스펙 파일로 기록했고), 디스크의 내용 hash가 기록과 같으며(손으로 고치지 않음), 생성 배너가 남아 있는 파일뿐입니다. 손으로 고친 파일, manifest에 없는 파일, `oa-gen generate:tanstack` 등 다른 명령이 쓴 파일은 지우지 않습니다. `outputRouting.pruneOrphans: false`면 아무 파일도 지우지 않습니다. 판정 규칙은 [생성 파일 정리](./declarative-spec-configuration.md#45-생성-파일-정리)를 봅니다.
 
 ### 4.9 TanStack Query (React Query) v5 3계층 구조
 

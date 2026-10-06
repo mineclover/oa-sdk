@@ -215,7 +215,7 @@ npx oa-gen generate
 npx oa-gen generate --spec ./main.tsp --out-dir ./dist
 ```
 
-spec target id는 파일 이름(`main`)이 되고, `./dist`에 다음이 생깁니다. `.oa-manifest.json`은 프로젝트 루트에 쓰입니다. 이 경로의 실행은 설정 파일이 없으므로 이전 `--spec` 실행이 같은 spec target id(`main`)로 기록한 파일만 정리하고, 4.1의 설정 파일 실행이 쓴 파일은 지우지 않습니다.
+spec target id는 파일 이름(`main`)이 되고, `./dist`에 다음이 생깁니다. `.oa-manifest.json`은 프로젝트 루트에 쓰입니다. 이 경로의 실행은 설정 파일이 없으므로 이전 `--spec` 실행이 같은 스펙 파일(`main.tsp`)로 기록한 파일만 정리하고, 4.1의 설정 파일 실행이 쓴 파일은 지우지 않습니다.
 
 - `main.openapi.json` (OpenAPI 3.2)
 - `main.schema.json` (JSON Schema 2020-12)

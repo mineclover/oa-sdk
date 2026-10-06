@@ -465,7 +465,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
 ### Step 8: Safe Orphan Pruning via `.oa-manifest.json` (3-Gate Safety)
 When endpoints are removed or renamed in the OpenAPI specification, invoke the orphan pruning engine to delete only obsolete generated artifacts while 100% protecting developer code:
-- **Gate 1 (Provenance Check)**: Verifies the file path was registered in `.oa-manifest.json` by a run that this `oa-gen generate` run owns: `producer: "generate"` from the same configuration file (for `--spec` runs, the same spec target). Unregistered files and files written by other commands such as `oa-gen generate:tanstack` are strictly untouched, and `outputRouting.pruneOrphans: false` turns pruning off.
+- **Gate 1 (Provenance Check)**: Verifies the file path was registered in `.oa-manifest.json` by a run that this `oa-gen generate` run owns: `producer: "generate"` from the same configuration file (for `--spec` runs, the same spec file, recorded as `specFile`). Unregistered files and files written by other commands such as `oa-gen generate:tanstack` are strictly untouched, and `outputRouting.pruneOrphans: false` turns pruning off.
 - **Gate 2 (Hash Integrity Check)**: Compares the SHA-256 hash of the disk file with the recorded `contentHash`. If a developer modified the file, pruning is safely aborted.
 - **Gate 3 (Banner Guard)**: Inspects the first 10 lines of the file for `@generated` / `@oa-sdk/codegen` banner markers. If absent, pruning is aborted.
 

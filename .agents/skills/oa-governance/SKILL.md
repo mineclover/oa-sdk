@@ -423,7 +423,7 @@ flowchart TD
 ### 5.4 출력 매니페스트 및 3단계 고아 프루닝 거버넌스 (.oa-manifest.json 3-Gate Invariants)
 
 코드 생성 시 자동 방출된 파일이 프로젝트를 오염시키지 않도록 `.oa-manifest.json` 기반의 3단계 안전성 검증을 거쳐서만 고아 파일이 제거됩니다:
-1. **Gate 1 (Provenance Gate)**: `.oa-manifest.json`에 기록되어 있고 이번 `oa-gen generate` 실행이 소유한 파일(같은 설정 파일로 `producer: "generate"`가 기록, `--spec` 실행은 같은 spec target)만 삭제 후보로 등록. `oa-gen generate:tanstack` 등 다른 명령의 기록은 제외하고, `outputRouting.pruneOrphans: false`면 정리하지 않음.
+1. **Gate 1 (Provenance Gate)**: `.oa-manifest.json`에 기록되어 있고 이번 `oa-gen generate` 실행이 소유한 파일(같은 설정 파일로 `producer: "generate"`가 기록, `--spec` 실행은 같은 스펙 파일 `specFile`로 기록)만 삭제 후보로 등록. `oa-gen generate:tanstack` 등 다른 명령의 기록은 제외하고, `outputRouting.pruneOrphans: false`면 정리하지 않음.
 2. **Gate 2 (Hash Integrity Gate)**: 디스크 파일의 SHA-256 해시가 생성 당시 해시와 정확히 일치해야 함 (`'content-modified'` 보호).
 3. **Gate 3 (Banner Guard)**: `@generated` 또는 `DO NOT EDIT` 배너 주석이 존재해야 함 (`'banner-missing'` 보호).
 
