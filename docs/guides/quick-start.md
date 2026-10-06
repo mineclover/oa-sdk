@@ -261,13 +261,15 @@ import { getUserQueryOptions } from './api/tanstack-query.js'
 const client = createClient({ baseUrl: 'http://localhost:4010' })
 
 export function UserProfile({ userId }: { userId: string }) {
-  // Tier 2 순수 옵션 팩토리를 그대로 useQuery에 전달 (SSR의 queryClient.prefetchQuery에도 같은 팩토리 사용)
+  // Tier 2 순수 옵션 팩토리를 그대로 useQuery에 전달
   const { data: user, isLoading } = useQuery(getUserQueryOptions(client, { userId }))
 
   if (isLoading) return <div>로딩 중...</div>
   return <pre>{JSON.stringify(user, null, 2)}</pre>
 }
 ```
+
+`tanstack-query.ts`는 훅을 담고 있어 첫머리에 `'use client'` 지시문이 있으므로 Next.js Server Component에서는 이 파일의 옵션 팩토리를 호출할 수 없습니다. Server Component의 `queryClient.prefetchQuery`에는 `'use client'`가 없는 옵션 파일을 씁니다([온보딩 플레이북의 Next.js App Router SSR 프리페칭](./onboarding-playbook.md#410-nextjs-app-router-ssr-프리페칭--하이드레이션)).
 
 ---
 
