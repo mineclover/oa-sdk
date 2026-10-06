@@ -443,8 +443,10 @@ oa-gen typegen --spec packages/schemas/typespec/main.tsp --output packages/model
 oa-gen tsp-scaffold --route /orders --crud --envelope --file packages/schemas/typespec/orders.tsp
 
 # 10. TypeSpec AST 시맨틱 차이점 및 파괴적 변경사항 비교 (0.5초 초고속 분석)
-# --head에는 파일 경로나 <ref>:<path>를 준다. 경로 없는 git ref(--head HEAD)는 base를 자기 자신과 비교하는 알려진 결함이 있다.
+# --head에 파일 경로를 주면 커밋 전 작업 트리까지 비교한다. git ref는 커밋된 내용만 읽는다.
 oa-gen tsp diff --base origin/main:packages/schemas/typespec/main.tsp --head packages/schemas/typespec/main.tsp --fail-on-breaking
+# 두 커밋 비교: 경로 없는 ref는 상대편과 같은 진입점을 자기 커밋에서 읽는다(정할 수 없으면 <ref>:<path>를 요구하는 오류).
+oa-gen tsp diff --base origin/main --head HEAD --fail-on-breaking
 
 # 11. 스펙 차이점 및 파괴적 변경사항 비교
 oa-gen diff --base spec-v1.yaml --head spec-v2.yaml --fail-on-breaking

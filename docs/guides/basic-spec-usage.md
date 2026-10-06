@@ -77,7 +77,10 @@ sourceOfTruth:
 | 변경 이력 관측 | TypeSpec 번들 | snapshot, diff, provenance | `pnpm --dir packages/spec-lens exec tsx src/cli.ts` ([spec-lens README](../../packages/spec-lens/README.md)) |
 
 `tsp diff`에 git ref만 주면(`--head HEAD`) 커밋된 내용끼리 비교하므로 작업 트리의 수정은 보이지 않습니다.
-위처럼 head에는 파일 경로를 줍니다. 명령별 옵션은 [CLI 명령 레퍼런스](./cli-command-reference.md)에 있습니다.
+작업 트리를 검사할 때는 위처럼 head에 파일 경로를 줍니다. 두 커밋을 비교할 때는
+`--base HEAD~1 --head HEAD`처럼 경로 없는 ref를 줘도 head가 base와 같은 진입점
+(`packages/schemas/typespec/main.tsp`)을 자기 커밋에서 읽습니다. `--base HEAD --head HEAD`처럼 같은 커밋을
+주면 stderr에 자기 자신과 비교한다는 안내가 나옵니다. 명령별 옵션은 [CLI 명령 레퍼런스](./cli-command-reference.md)에 있습니다.
 
 ### 저장소 패키지가 쓰는 생성물
 

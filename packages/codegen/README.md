@@ -268,5 +268,13 @@ pnpm exec oa-gen tsp-scaffold --route /orders --crud --envelope --auth none --fi
 
 # TypeSpec AST semantic diff against the committed version, including uncommitted edits
 pnpm exec oa-gen tsp diff --base origin/main:api.tsp --head api.tsp --fail-on-breaking
+
+# Committed content only: a git ref without a path reads the other side's entry point (api.tsp) from its own commit
+pnpm exec oa-gen tsp diff --base origin/main:api.tsp --head HEAD --fail-on-breaking
 ```
+
+`tsp diff` takes a `.tsp` file, a directory, a git ref or `<ref>:<path>` on either side. A git ref is read with
+`git archive`, so it never sees uncommitted edits. When a path-less ref's entry point cannot be determined (the other
+side's path is missing from that commit, or the commit has several `main.tsp` files), the command fails and asks for
+`<ref>:<path>`; when both sides resolve to the same commit and entry point, it says so on stderr.
 

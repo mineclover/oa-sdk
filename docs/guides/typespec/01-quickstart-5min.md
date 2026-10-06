@@ -153,7 +153,7 @@ node packages/codegen/dist/cli/index.js tsp diff --base origin/main --head packa
 
 - 이 예제처럼 operation과 모델을 추가하면 `operation-added`, `model-added`로 보고되고 종료 코드는 0입니다.
 - 필수 속성 추가(`required-property-added`)나 operation 삭제 같은 breaking change가 있으면 종료 코드 1로 끝납니다.
-- `--head HEAD`처럼 경로 없는 git ref를 head에 주지 않습니다. 현재는 head가 base에서 꺼낸 파일을 다시 읽어 base를 자기 자신과 비교하므로, 커밋했든 안 했든 변경이 있어도 `No semantic changes detected`로 끝납니다([알려진 결함](./04-scaffolding-and-diff.md#21-옵션)). 커밋된 내용을 비교하려면 `--head HEAD:packages/schemas/typespec/main.tsp`처럼 `ref:path` 형식을 씁니다.
+- 커밋된 내용끼리 비교하려면 `--head HEAD`처럼 git ref를 줍니다. 경로 없는 ref는 base와 같은 진입점(`packages/schemas/typespec/main.tsp`)을 그 커밋에서 읽고, 명시하려면 `--head HEAD:packages/schemas/typespec/main.tsp`처럼 `ref:path` 형식을 씁니다([진입점 결정 규칙](./04-scaffolding-and-diff.md#21-옵션)). git ref는 커밋하지 않은 수정을 보지 않으므로 작업 트리를 검사할 때는 위처럼 파일 경로를 줍니다.
 
 ---
 
