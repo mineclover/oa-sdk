@@ -30,6 +30,7 @@ import {
   validateOaConfig,
   createPathDispatcher,
 } from '@oa-sdk/codegen'
+import { readBuiltAgainstVersions } from '../../packages/codegen/scripts/workspace-versions.mjs'
 
 // ── Environment & Binary Discovery ──────────────────────────────────────────
 
@@ -79,6 +80,43 @@ export function runCli(args: string[], cwd: string = repoRoot): CliResult {
       exitCode: error.status ?? error.exitCode ?? 1,
     }
   }
+}
+
+/**
+ * Versions of the `@oa-sdk` packages the built CLI (`distCliBin`) embeds: its build reads them
+ * from the workspace with this function (workspaceVersionsDefine, packages/codegen/tsup.config.ts).
+ */
+const builtAgainstVersions: Record<string, string> = readBuiltAgainstVersions(resolve(repoRoot, 'packages/codegen'))
+
+/**
+ * The specifier `oa-gen init` writes for a published `@oa-sdk` package in a project outside a pnpm
+ * workspace that has it, as every fixture under the OS temp directory is: the releases compatible
+ * with the version the CLI was built against (docs/guides/cli-command-reference.md).
+ */
+export function registryRange(packageName: string): string {
+  const version = builtAgainstVersions[packageName]
+  if (version === undefined) throw new Error(`the codegen build embeds no version of ${packageName}`)
+  return `^${version}`
+}
+
+/**
+ * Scripts earlier releases of `oa-gen init` wrote, which failed as written or only repeated
+ * `oa-gen generate`, and which init no longer writes (docs/guides/cli-command-reference.md).
+ */
+const RETIRED_INIT_SCRIPTS = [
+  'generate:router',
+  'generate:client',
+  'generate:contract',
+  'test:contract',
+  'audit:wire',
+  'audit:csp',
+  'audit:shape',
+  'personas:check',
+]
+
+/** Asserts that `scripts` (package.json after init) has none of the scripts init no longer writes. */
+export function expectNoRetiredInitScripts(scripts: Record<string, string>): void {
+  for (const name of RETIRED_INIT_SCRIPTS) expect(scripts[name], name).toBeUndefined()
 }
 
 /**
@@ -465,12 +503,16 @@ describe('Suite 3: Onboarding Framework Targets & Runtime Isolation', () => {
     // 2. Verify package.json scripts & dependencies
     const pkg = JSON.parse(readFileSync(join(fixtureDir, 'package.json'), 'utf8'))
     expect(pkg.scripts['dev']).toBe('tsx watch src/server.ts')
-    expect(pkg.scripts['generate:router']).toBe('oa-gen generate --target fastify')
+    expect(pkg.scripts['build']).toBe('tsc')
+    expect(pkg.scripts['generate']).toBe('oa-gen generate')
     expect(pkg.scripts['mock']).toBe('oa-gen mock --watch')
+    expect(pkg.scripts['validate']).toBe('oa-gen validate')
+    expectNoRetiredInitScripts(pkg.scripts)
     expect(pkg.devDependencies['tsx']).toBeDefined()
     expect(pkg.devDependencies['@types/node']).toBeDefined()
-    expect(pkg.devDependencies['@oa-sdk/codegen']).toBe('workspace:*')
-    expect(pkg.devDependencies['@oa-sdk/router']).toBe('workspace:*')
+    // Outside a pnpm workspace that has them, @oa-sdk packages come from the registry.
+    expect(pkg.devDependencies['@oa-sdk/codegen']).toBe(registryRange('@oa-sdk/codegen'))
+    expect(pkg.devDependencies['@oa-sdk/router']).toBe(registryRange('@oa-sdk/router'))
 
     // 3. Verify Fastify router binder generation with FastifyPluginAsync and JIT schema inlining
     const fastifyCode = generateRouter(sampleOas32Spec, { target: 'fastify' })
@@ -512,8 +554,9 @@ describe('Suite 3: Onboarding Framework Targets & Runtime Isolation', () => {
     // 2. Verify Bun native scripts & strict runtime isolation (ZERO tsx / Node tools)
     const pkg = JSON.parse(readFileSync(join(fixtureDir, 'package.json'), 'utf8'))
     expect(pkg.scripts['dev']).toBe('bun --watch src/index.ts')
-    expect(pkg.scripts['generate:router']).toBe('bun x oa-gen generate --target elysia')
+    expect(pkg.scripts['generate']).toBe('bun x oa-gen generate')
     expect(pkg.scripts['mock']).toBe('bun x oa-gen mock --watch')
+    expectNoRetiredInitScripts(pkg.scripts)
     expect(pkg.devDependencies['tsx']).toBeUndefined()
     expect(pkg.devDependencies['nodemon']).toBeUndefined()
     expect(pkg.devDependencies['@types/node']).toBeUndefined()
@@ -563,8 +606,9 @@ describe('Suite 3: Onboarding Framework Targets & Runtime Isolation', () => {
     // 2. Verify package.json scripts
     const pkg = JSON.parse(readFileSync(join(fixtureDir, 'package.json'), 'utf8'))
     expect(pkg.scripts['dev']).toBe('tsx watch src/app.ts')
-    expect(pkg.scripts['generate:router']).toBe('oa-gen generate --target express')
+    expect(pkg.scripts['generate']).toBe('oa-gen generate')
     expect(pkg.scripts['mock']).toBe('oa-gen mock --watch')
+    expectNoRetiredInitScripts(pkg.scripts)
     expect(pkg.devDependencies['@types/express']).toBeDefined()
     expect(pkg.devDependencies['tsx']).toBeDefined()
 
@@ -620,10 +664,11 @@ describe('Suite 3: Onboarding Framework Targets & Runtime Isolation', () => {
     expect(pkg.scripts['start:dev']).toBe('nest start --watch')
     expect(pkg.scripts['build']).toBe('nest build')
     expect(pkg.scripts['test']).toBe('jest')
-    expect(pkg.scripts['generate:contract']).toBe('oa-gen generate --target generic')
+    expect(pkg.scripts['generate']).toBe('oa-gen generate')
     expect(pkg.scripts['mock']).toBe('oa-gen mock --watch')
-    expect(pkg.devDependencies['@oa-sdk/codegen']).toBe('workspace:*')
-    expect(pkg.devDependencies['@oa-sdk/router']).toBe('workspace:*')
+    expectNoRetiredInitScripts(pkg.scripts)
+    expect(pkg.devDependencies['@oa-sdk/codegen']).toBe(registryRange('@oa-sdk/codegen'))
+    expect(pkg.devDependencies['@oa-sdk/router']).toBe(registryRange('@oa-sdk/router'))
   })
 
   it('Suite 3.5: Dry-Run Mode (--dry-run) — performs discovery and previews config with zero disk mutations', () => {
@@ -683,7 +728,8 @@ describe('Suite 3: Onboarding Framework Targets & Runtime Isolation', () => {
     // 3. Custom scripts preserved
     const pkg = JSON.parse(readFileSync(join(fixtureDir, 'package.json'), 'utf8'))
     expect(pkg.scripts['custom']).toBe('node run-custom.js')
-    expect(pkg.scripts['generate:router']).toBe('oa-gen generate --target express')
+    expect(pkg.scripts['generate']).toBe('oa-gen generate')
+    expectNoRetiredInitScripts(pkg.scripts)
   })
 })
 
@@ -724,10 +770,12 @@ describe('Suite 4: Lifecycle Archetype Presets & Safety Gates', () => {
     expect(configContent).toContain("outDir: './src/client'")
 
     const pkg = JSON.parse(readFileSync(join(fixtureDir, 'package.json'), 'utf8'))
+    expect(pkg.scripts['generate']).toBe('oa-gen generate')
     expect(pkg.scripts['mock']).toBe('oa-gen mock --watch')
-    expect(pkg.scripts['generate:client']).toBe('oa-gen generate --target client')
     expect(pkg.scripts['validate']).toBe('oa-gen validate')
-    expect(pkg.scripts['test:contract']).toBeUndefined()
+    expectNoRetiredInitScripts(pkg.scripts)
+    expect(pkg.devDependencies['@oa-sdk/client']).toBe(registryRange('@oa-sdk/client'))
+    expect(pkg.devDependencies['@oa-sdk/mock-server']).toBe(registryRange('@oa-sdk/mock-server'))
   })
 
   it('Suite 4.2: Microservice Archetype — configures JIT schema acceleration, strict wire typing, and contract tests', () => {
@@ -753,12 +801,15 @@ describe('Suite 4: Lifecycle Archetype Presets & Safety Gates', () => {
     expect(configContent).toContain("outDir: './src/contracts'")
     expect(configContent).toContain('resolveSymbolCycles: true')
 
+    // The handler contracts come from the generate script; init writes no contract tests, so no
+    // script or test runner to run them.
     const pkg = JSON.parse(readFileSync(join(fixtureDir, 'package.json'), 'utf8'))
-    expect(pkg.scripts['test:contract']).toBe('vitest run src/__tests__/contracts')
-    expect(pkg.scripts['audit:wire']).toBe('oa-gen audit:shape --strict')
-    expect(pkg.scripts['generate:contract']).toBe('oa-gen generate --target generic')
-    expect(pkg.devDependencies['vitest']).toBeDefined()
-    expect(pkg.devDependencies['@oa-sdk/core']).toBe('workspace:*')
+    expect(pkg.scripts['generate']).toBe('oa-gen generate')
+    expect(pkg.scripts['mock']).toBe('oa-gen mock --watch')
+    expectNoRetiredInitScripts(pkg.scripts)
+    expect(pkg.devDependencies['vitest']).toBeUndefined()
+    expect(pkg.devDependencies['@oa-sdk/core']).toBe(registryRange('@oa-sdk/core'))
+    expect(pkg.devDependencies['@oa-sdk/router']).toBe(registryRange('@oa-sdk/router'))
   })
 
   it('Suite 4.3: Enterprise Archetype — configures strict CI drift defense, breaking diff gates, and persona coverage', () => {
@@ -769,6 +820,7 @@ describe('Suite 4: Lifecycle Archetype Presets & Safety Gates', () => {
       JSON.stringify({ name: 'my-enterprise-app' }, null, 2),
       'utf8',
     )
+    writeFileSync(join(fixtureDir, 'openapi.yaml'), QUICK_START_OPENAPI_32, 'utf8')
 
     const res = runCli(['init', '--target', 'fastify', '--archetype', 'enterprise', '--yes'], fixtureDir)
     expect(res.exitCode).toBe(0)
@@ -785,13 +837,31 @@ describe('Suite 4: Lifecycle Archetype Presets & Safety Gates', () => {
     expect(configContent).toContain('enforceCoverage: true')
     expect(configContent).toContain('minCoverageRatio: 0.8')
 
+    // The breaking change gate compares the spec with the contract baseline init creates from it.
     const pkg = JSON.parse(readFileSync(join(fixtureDir, 'package.json'), 'utf8'))
-    expect(pkg.scripts['diff']).toBe('oa-gen diff --base origin/main --head HEAD --fail-on-breaking')
-    expect(pkg.scripts['ci:gate']).toBe('oa-gen diff --base origin/main --fail-on-breaking && oa-gen validate --require-32')
-    expect(pkg.scripts['personas:check']).toBe('oa-gen personas:check')
-    expect(pkg.scripts['audit:csp']).toBe('oa-gen audit:csp --bundle ./dist')
-    expect(pkg.scripts['audit:shape']).toBe('oa-gen audit:shape --fail-on-unsupported')
-    expect(pkg.devDependencies['@oa-sdk/personas']).toBe('workspace:*')
+    expect(pkg.scripts['lint:spec']).toBe('oa-gen lint --spec openapi.yaml')
+    expect(pkg.scripts['diff']).toBe('oa-gen diff --base openapi.baseline.yaml --head openapi.yaml --fail-on-breaking')
+    expect(pkg.scripts['baseline:update']).toBe('oa-gen normalize --spec openapi.yaml --output openapi.baseline.yaml')
+    expect(pkg.scripts['ci:gate']).toBe(
+      'oa-gen validate --spec openapi.yaml --require-32 && oa-gen lint --spec openapi.yaml && ' +
+        'oa-gen diff --base openapi.baseline.yaml --head openapi.yaml --fail-on-breaking',
+    )
+    expectNoRetiredInitScripts(pkg.scripts)
+    expect(existsSync(join(fixtureDir, 'openapi.baseline.yaml'))).toBe(true)
+    expect(res.stdout).toContain('📌 Contract baseline: created openapi.baseline.yaml from openapi.yaml; commit it.')
+
+    // Each command of the gate runs as written on the unchanged spec.
+    for (const command of pkg.scripts['ci:gate'].split(' && ')) {
+      const [executable, ...args] = command.split(' ')
+      expect(executable).toBe('oa-gen')
+      const gate = runCli(args, fixtureDir)
+      expect(gate.exitCode, `${command}\n${gate.stdout}${gate.stderr}`).toBe(0)
+    }
+
+    // @oa-sdk/personas is private: outside a pnpm workspace that has it, init leaves it out and says so.
+    expect(pkg.devDependencies['@oa-sdk/core']).toBe(registryRange('@oa-sdk/core'))
+    expect(pkg.devDependencies['@oa-sdk/personas']).toBeUndefined()
+    expect(res.stdout).toContain('devDependency "@oa-sdk/personas": not added (private package')
   })
 
   it('Suite 4.4: Archetype Lifecycle Evolution & Validation Gates — verifies rejection of invalid archetypes and seamless promotion', () => {
@@ -825,8 +895,13 @@ describe('Suite 4: Lifecycle Archetype Presets & Safety Gates', () => {
     expect(config).toContain("archetype: 'enterprise'")
     expect(config).toContain('failOnBreaking: true')
     const pkg = JSON.parse(readFileSync(join(fixtureDir, 'package.json'), 'utf8'))
-    expect(pkg.scripts['ci:gate']).toBeDefined()
-    expect(pkg.devDependencies['@oa-sdk/personas']).toBe('workspace:*')
+    expect(pkg.scripts['validate']).toBe('oa-gen validate')
+    expect(pkg.scripts['ci:gate']).toBe(
+      'oa-gen validate --spec openapi.yaml --require-32 && oa-gen lint --spec openapi.yaml && ' +
+        'oa-gen diff --base openapi.baseline.yaml --head openapi.yaml --fail-on-breaking',
+    )
+    expectNoRetiredInitScripts(pkg.scripts)
+    expect(pkg.devDependencies['@oa-sdk/personas']).toBeUndefined()
   })
 })
 

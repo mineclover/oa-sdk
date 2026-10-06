@@ -475,7 +475,11 @@ describe('Tier 1: Feature Coverage (Features 1–20)', () => {
         runtime: 'bun',
       })
       expect(scripts['dev']).toContain('bun --watch')
-      expect(scripts['generate:router']).toContain('bun x')
+      expect(scripts['generate']).toBe('bun x oa-gen generate')
+      expect(scripts['mock']).toBe('bun x oa-gen mock --watch')
+      // generate writes every output oa.config.ts declares; no generate:router alias, whose
+      // --target oa-gen generate ignores.
+      expect(scripts['generate:router']).toBeUndefined()
     })
 
     it('T1-F11-2: Bun/Elysia recommended scripts contain zero instances of tsx or nodemon', () => {
@@ -645,7 +649,9 @@ describe('Tier 1: Feature Coverage (Features 1–20)', () => {
     it('T1-F14-4: patches recommended dev scripts into package.json', async () => {
       const pkg = JSON.parse(await fs.readFile(path.join(tmpDir, 'package.json'), 'utf-8'))
       expect(pkg.scripts['dev']).toContain('tsx watch')
-      expect(pkg.scripts['generate:router']).toContain('fastify')
+      // The fastify target is recorded in oa.config.ts (T1-F14-3), which oa-gen generate reads.
+      expect(pkg.scripts['generate']).toBe('oa-gen generate')
+      expect(pkg.scripts['generate:router']).toBeUndefined()
     })
 
     it('T1-F14-5: respects dryRun option without modifying disk files', async () => {
