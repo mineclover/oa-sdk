@@ -504,6 +504,8 @@ git show origin/main:artifacts/specs/main-api.openapi.json > /tmp/main-api.base.
 npx oa-gen diff --base /tmp/main-api.base.json --head artifacts/specs/main-api.openapi.json --fail-on-breaking
 ```
 
+`oa-gen diff`는 `$ref`가 가리키는 다른 파일의 내용까지 비교하며, 그 파일을 읽지 못하면 실패합니다. 위 예의 `generate` 산출물은 한 파일이지만, 여러 파일로 나뉜 스펙을 git에서 꺼낼 때는 `$ref`가 가리키는 파일도 같은 상대 위치에 함께 꺼내거나, 꺼낸 위치에서 `oa-gen normalize --spec <spec> --output <file>`로 그 파일들을 복사해 넣은 한 문서를 만들어 base로 씁니다.
+
 `oa-gen diff`는 요청·응답·파라미터 스키마가 조금이라도 바뀌면 선택 필드 추가도 breaking으로 판정하는 보수적 규칙입니다.
 TypeSpec 원본은 `oa-gen tsp diff`가 선택 속성 추가 같은 호환 변경을 non-breaking으로 구분합니다. git ref를 주면 커밋된
 내용을 비교하므로, 커밋 전 변경은 head에 파일 경로를 줍니다.

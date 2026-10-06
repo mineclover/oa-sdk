@@ -75,11 +75,16 @@ Every script `oa-gen init` adds to `package.json` runs as written in the scaffol
 
 The `enterprise` scripts gate the spec entry point against a contract baseline,
 `openapi.baseline.yaml`, which `init` creates from the spec: the document `oa-gen normalize` writes
-for it (TypeSpec is compiled to OpenAPI 3.2). Commit it. `diff` runs
-`oa-gen diff --base openapi.baseline.yaml --head <spec> --fail-on-breaking`, `ci:gate` runs
+for it (TypeSpec is compiled to OpenAPI 3.2, and the files the spec's `$ref`s name are copied in).
+Commit it. `diff` runs
+`oa-gen diff --base openapi.baseline.yaml --head <spec> --fail-on-breaking`, which also compares
+what those files hold, `ci:gate` runs
 `oa-gen validate --spec <spec> --require-32`, `oa-gen lint --spec <spec>` and that diff, and
 `baseline:update` makes the current spec the baseline when you release. `init` never overwrites an
-existing baseline. Scripts that earlier versions of `init` added and that failed or only ran
+existing baseline. The spec is the `schemaEntry` of the `oa.config.ts` the project keeps: rerunning
+`init --archetype enterprise` without `--force` loads that file (install the project's
+dependencies first) and gates its spec target, or the one of several that `--spec` names; when it
+cannot tell which spec to gate, it adds neither the baseline nor these scripts and prints why. Scripts that earlier versions of `init` added and that failed or only ran
 `oa-gen generate` (`generate:router`, `generate:client`, `generate:contract`, `test:contract`,
 `audit:wire`, `audit:csp`, `audit:shape`, `personas:check`) are no longer added; remove them from
 `package.json`.

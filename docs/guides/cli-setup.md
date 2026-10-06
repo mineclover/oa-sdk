@@ -136,7 +136,7 @@ yarn oa-gen --help
 | `generate` | 모든 대상 | `oa-gen generate` | `oa.config.ts`에 선언한 산출물(OpenAPI 문서, 핸들러 계약, 클라이언트 SDK, TanStack Query 키·옵션) 일괄 생성. 라우터 파일은 만들지 않습니다. |
 | `mock` | 모든 대상 | `oa-gen mock --watch` | `oa.config.ts`의 spec target(하나일 때)을 mock 서버로 서빙 |
 | `validate` | `mvp` 아키타입 | `oa-gen validate` | `oa.config.ts`의 모든 spec target 검증 |
-| `lint:spec`, `diff`, `baseline:update`, `ci:gate` | `enterprise` 아키타입 | `oa-gen lint`, `oa-gen diff`, `oa-gen normalize`, `oa-gen validate`(스펙 진입점과 계약 기준선 `openapi.baseline.yaml` 대상) | 스펙 린트와 기준선 대비 breaking change gate. [CLI 명령 레퍼런스](./cli-command-reference.md#enterprise의-breaking-change-gate) |
+| `lint:spec`, `diff`, `baseline:update`, `ci:gate` | `enterprise` 아키타입 | `oa-gen lint`, `oa-gen diff`, `oa-gen normalize`, `oa-gen validate`(`oa.config.ts`의 `schemaEntry`와 계약 기준선 `openapi.baseline.yaml` 대상) | 스펙 린트와 기준선 대비 breaking change gate. [CLI 명령 레퍼런스](./cli-command-reference.md#enterprise의-breaking-change-gate) |
 
 Bun 런타임 대상(elysia)에서는 `oa-gen` 대신 `bun x oa-gen`을 씁니다. 프레임워크 대상은 개발 서버 스크립트(fastify `dev: tsx watch src/server.ts`와 `build: tsc`, express `tsx watch src/app.ts`, hono `tsx watch src/index.ts`, elysia `bun --watch src/index.ts`, nestjs `start:dev: nest start --watch`)와 프레임워크 의존성도 추가하지만, 서버 진입 파일과 `tsconfig.json`은 만들지 않으므로 이 스크립트는 직접 작성한 서버 코드가 있어야 실행됩니다. Fastify·Express·Hono·Elysia 라우터 코드는 빌드 스크립트에서 `@oa-sdk/router`의 `generateRouter()`로 씁니다.
 

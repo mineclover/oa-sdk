@@ -563,7 +563,7 @@ export function UserDetailView({ userId }: { userId: string }) {
 
 1. **MVP 단계**: `npx oa-gen init --target fastify --archetype mvp --yes`로 시작합니다. 프론트엔드는 `oa-gen mock --watch`로, 백엔드는 §4의 핸들러 계약으로 개발합니다.
 2. **Microservice 단계**: 요청별 테넌트·추적 정보가 필요해지면 라우터 코드를 `contextInjection: true`로 생성하고 서버 진입점에서 `getContext`를 등록합니다(런북 2). `oa.config.ts`의 `archetype`을 `'microservice'`로 바꾸는 것만으로는 생성 결과가 달라지지 않습니다.
-3. **Enterprise 단계**: 여러 팀이 같은 계약을 쓰면 `npx oa-gen init --target fastify --archetype enterprise --yes`를 다시 실행합니다. 지금 스펙으로 계약 기준선 `openapi.baseline.yaml`을 만들고 `lint:spec`·`diff`·`baseline:update`·`ci:gate` 스크립트를 추가합니다(이미 있는 스크립트와 `oa.config.ts`는 `--force`를 줄 때만 바꿉니다). 기준선을 커밋하고 CI에서 `npm run ci:gate`와 `oa-gen check-artifact`를 실행하며, 릴리스할 때 `npm run baseline:update`로 기준선을 옮깁니다. TypeSpec 원본을 의미 단위로 비교하려면 §6.2의 `oa-gen tsp diff`를 함께 등록합니다.
+3. **Enterprise 단계**: 여러 팀이 같은 계약을 쓰면 의존성을 설치한 프로젝트에서 `npx oa-gen init --target fastify --archetype enterprise --yes`를 다시 실행합니다. 지금 스펙으로 계약 기준선 `openapi.baseline.yaml`을 만들고 `lint:spec`·`diff`·`baseline:update`·`ci:gate` 스크립트를 추가합니다(이미 있는 스크립트와 `oa.config.ts`는 `--force`를 줄 때만 바꿉니다). 이 스크립트와 기준선은 그대로 둔 `oa.config.ts`의 `schemaEntry`를 대상으로 하며, `$ref`로 가리키는 다른 파일의 내용도 기준선에 담습니다. spec target이 여럿이고 `schemaEntry`가 서로 다르면 `--spec`으로 검사할 스펙을 고르고, 어느 스펙인지 정할 수 없으면 `init`은 게이트를 추가하지 않고 이유를 출력합니다. 기준선을 커밋하고 CI에서 `npm run ci:gate`와 `oa-gen check-artifact`를 실행하며, 릴리스할 때 `npm run baseline:update`로 기준선을 옮깁니다. TypeSpec 원본을 의미 단위로 비교하려면 §6.2의 `oa-gen tsp diff`를 함께 등록합니다.
 
 #### 런북 2: 기존 서비스의 인증·멀티테넌시 컨텍스트 연결
 

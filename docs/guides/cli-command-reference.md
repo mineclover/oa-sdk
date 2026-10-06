@@ -69,7 +69,7 @@ node packages/codegen/dist/cli/index.js --help
 | `oa-gen audit:csp` | Manifest V3 브라우저 익스텐션 번들의 CSP 위반(eval, new Function, 런타임 ajv/zod/oa-sdk)을 정적 검사할 때 | `--bundle <dir>` | 0 eval, 0 runtime dependency 검증 리포트 및 non-zero exit code gate |
 | `oa-gen audit:shape` | TypeScript AST 소스 또는 번들의 타입 구문 및 TypeSpec/OpenAPI 투영 적합성을 감사할 때 | `--bundle <dir>` 또는 `--source <file>` | 24개 syntax feature 분류 및 tripartite projection (direct/policy-required/unsupported) 진단 리포트; `--fail-on-unsupported`, `--json` 지원 |
 | `oa-gen build-spec` | fragments와 target으로 reference OpenAPI를 만들 때 | `--target <target.yaml>` | OpenAPI와 diagnostics/provenance/metadata sidecars |
-| `oa-gen normalize` | 외부 OpenAPI나 TypeSpec 스펙을 stable governance artifact로 정규화할 때 | `--spec <openapi\|tsp>` | normalized artifact(OpenAPI YAML, 키 정렬). TypeSpec(`.tsp`)은 메모리에서 OpenAPI 3.2로 컴파일한 문서 |
+| `oa-gen normalize` | 외부 OpenAPI나 TypeSpec 스펙을 stable governance artifact로 정규화할 때 | `--spec <openapi\|tsp>` | normalized artifact(OpenAPI YAML, 키 정렬). 다른 파일을 가리키는 `$ref`는 그 내용을 복사해 넣어 어디에 써도 홀로 뜻이 같은 한 문서로 만든다(URL `$ref`는 그대로 둠). TypeSpec(`.tsp`)은 메모리에서 OpenAPI 3.2로 컴파일한 문서 |
 | `oa-gen upgrade` | 외부 OpenAPI 3.0/3.1을 3.2 analysis artifact로 볼 때 | `--spec <openapi>` | upgraded artifact와 optional report |
 | `oa-gen collect` | raw 보존·normalize·upgrade를 한 번에 수행할 때 | `--spec`, `--normalized`, `--upgraded` | external intake artifact set; `--raw`는 원본 복사본이 필요할 때만 추가 |
 | `oa-gen tsp-export` | OpenAPI를 TypeSpec spike/bundle로 변환해 볼 때 | `--spec <openapi>` | `.tsp`, report, optional sidecar/manifest; bundle manifest는 `--output`과 `--sidecar`가 함께 필요 |
@@ -82,7 +82,7 @@ node packages/codegen/dist/cli/index.js --help
 | `oa-gen behavior-query` | behavior SQLite projection을 검색·집계할 때 | `--behavior-db <sqlite> --mode <mode>` | query report; mode에 따라 `--behavior-type`, identity/target/decision/recommendation selector가 필요하며 `recent` 계열은 `--status`, `--limit`을 지원한다 |
 | `oa-gen duplicate-review` | Definition fragment의 duplicate identity/collision을 검토할 때 | `--fragments <dir>` | report/review/ci policy report |
 | `oa-gen target-check` | target 또는 artifact가 필요한/금지 path를 만족하는지 확인할 때 | `--target <target>` 또는 `--artifact <openapi>` | assertion report; 두 source는 one-of |
-| `oa-gen diff` | base/head OpenAPI의 consumer-visible 변경을 분류할 때 | `--base <openapi> --head <openapi>` | change report; 엔드포인트 및 컴포넌트 스키마 변경 분류, `--fail-on-breaking`으로 파괴적 변경 시 exit code 1. 입력은 OpenAPI YAML/JSON 또는 TypeSpec(`.tsp`, 메모리에서 OpenAPI 3.2로 컴파일) 파일 경로이며 git ref는 받지 않는다. 요청·응답·파라미터 스키마가 바뀌면 선택 필드 추가도 breaking으로 판정하는 보수적 규칙이므로 `--fail-on-breaking`을 CI에 걸면 호환 변경에서도 실패할 수 있다 |
+| `oa-gen diff` | base/head OpenAPI의 consumer-visible 변경을 분류할 때 | `--base <openapi> --head <openapi>` | change report; 엔드포인트 및 컴포넌트 스키마 변경 분류, `--fail-on-breaking`으로 파괴적 변경 시 exit code 1. 입력은 OpenAPI YAML/JSON 또는 TypeSpec(`.tsp`, 메모리에서 OpenAPI 3.2로 컴파일) 파일 경로이며 git ref는 받지 않는다. 여러 파일로 나뉜 스펙은 `$ref`가 가리키는 파일의 내용까지 비교하므로 그 파일의 변경도 판정한다(읽을 수 없는 `$ref` 파일이 있으면 실패). 요청·응답·파라미터 스키마가 바뀌면 선택 필드 추가도 breaking으로 판정하는 보수적 규칙이므로 `--fail-on-breaking`을 CI에 걸면 호환 변경에서도 실패할 수 있다 |
 | `oa-gen check-artifact` | 원본에서 다시 만든 OpenAPI 문서와 저장된 생성물이 같은지 확인할 때 | 없음 (`oa.config.ts` 타겟의 `<id>.openapi.json` 일괄 대조) 또는 `--head <openapi> --artifact <openapi>` | 결정론적 SHA-256 (`x-schema-engine-version-hash`) 기반 freshness decision 리포트, 어긋나면 exit code 1. 생성된 TypeScript 파일은 비교하지 않는다 |
 | `oa-gen drift:check` | `oa-gen check-artifact`의 전용 별칭(alias)으로 CI/CD 스펙 드리프트 게이트를 실행할 때 | 없음 (`oa.config.ts` 타겟 일괄 대조) 또는 `--head <openapi> --artifact <openapi>` | 드리프트 발생 시 non-zero (code 1) 종료하는 CI 차단 게이트 리포트 |
 | `oa-gen drift:live` | 라이브 런타임 HTTP 엔드포인트 OpenAPI와 관리 스펙 간 드리프트를 검사할 때 | `--managed-openapi <spec> --runtime-openapi-url <url>` | 라이브 런타임 HTTP 엔드포인트 드리프트 리포트; `--managed-openapi`, `--runtime-openapi-url`, `--runtime-header` 지원. `oa-gen drift`와 같은 명령이다 |
@@ -341,7 +341,9 @@ oa-gen mock --watch
 
 #### `enterprise`의 breaking change gate
 
-`enterprise`는 스펙 진입점(`schemaEntry`)을 검사하는 스크립트를 추가하고, 비교 기준인 **계약 기준선**(contract baseline) `openapi.baseline.yaml`을 프로젝트 루트에 만듭니다. 기준선은 스펙을 `oa-gen normalize`로 정규화한 OpenAPI 문서(키 정렬, TypeSpec은 OpenAPI 3.2로 컴파일)이며, 커밋해 두고 릴리스할 때 옮깁니다. 저장소 기록이나 원격 브랜치를 읽지 않으므로 로컬과 CI에서 같은 결과가 나옵니다.
+`enterprise`는 스펙 진입점(`schemaEntry`)을 검사하는 스크립트를 추가하고, 비교 기준인 **계약 기준선**(contract baseline) `openapi.baseline.yaml`을 프로젝트 루트에 만듭니다. 기준선은 스펙을 `oa-gen normalize`로 정규화한 OpenAPI 문서(키 정렬, TypeSpec은 OpenAPI 3.2로 컴파일)이며, 커밋해 두고 릴리스할 때 옮깁니다. 스펙이 `$ref`로 다른 파일(`./schemas.yaml#/User` 등)을 가리키면 기준선은 그 내용을 복사해 담고, `diff`도 스펙이 가리키는 파일까지 읽어 비교하므로 그 파일에서 생긴 breaking change에서도 실패합니다. 저장소 기록이나 원격 브랜치를 읽지 않으므로 로컬과 CI에서 같은 결과가 나옵니다.
+
+스크립트가 검사하는 스펙은 프로젝트에 남는 `oa.config.ts`의 `schemaEntry`, 즉 `oa-gen generate`가 읽는 스펙입니다. `oa.config.ts`가 없거나 `--force`로 다시 쓰면 `--spec`으로 준 스펙, 없으면 감지한 스펙(`oa-gen generate`가 쓴 `src/generated/`와 기존 spec target의 `<id>.openapi.json`·`<id>.schema.json`은 감지하지 않음), 그것도 없으면 `openapi.yaml`을 새 `oa.config.ts`에 기록하고 그 스펙을 검사합니다. `--force` 없이 다시 실행해 `oa.config.ts`를 그대로 두면 그 파일을 불러와 spec target의 `schemaEntry`를 씁니다. spec target마다 `schemaEntry`가 다르면 `--spec`으로 그중 하나를 고릅니다. 그 밖에 어느 스펙인지 정할 수 없으면(`oa.config.ts`를 불러오지 못함, spec target이 없음, spec target이 여럿인데 `--spec`이 없음, `--spec`이 어느 spec target의 `schemaEntry`도 아님) 기준선과 아래 스크립트를 추가하지 않고 이유를 출력합니다. `oa.config.ts`는 `@oa-sdk/codegen`을 import하므로 프로젝트 의존성을 설치한 뒤 실행합니다.
 
 | 스크립트 | 명령(스펙이 `openapi.yaml`일 때) | 동작 |
 | --- | --- | --- |
@@ -354,7 +356,8 @@ oa-gen mock --watch
 - 스펙 파일이 아직 없거나 불러오지 못하면 `init`은 기준선을 만들지 않고 이유를 출력합니다. 그동안 `diff`·`ci:gate`는 기준선이 없어 실패하므로, 스펙을 만든 뒤 `baseline:update`를 한 번 실행합니다.
 - `oa-gen diff`는 요청·응답·파라미터 스키마가 바뀌면 선택 필드 추가도 breaking으로 판정하는 보수적 규칙입니다. TypeSpec 원본을 의미 단위로 판정하려면 CI에 `oa-gen tsp diff --base origin/main:<path> --head <path> --fail-on-breaking`을 따로 등록합니다.
 - `ci:gate`의 `--require-32`는 스펙이 OpenAPI 3.2.x여야 통과합니다. TypeSpec 스펙은 3.2로 컴파일되므로 통과합니다.
-- 스펙 진입점이 OpenAPI YAML/JSON이나 TypeSpec(`.tsp`)이 아니면(TypeScript 스키마 모듈 등) 이 스크립트와 기준선을 추가하지 않습니다.
+- 스펙 진입점이 OpenAPI YAML/JSON이나 TypeSpec(`.tsp`)이 아니면(TypeScript 스키마 모듈 등) 이 스크립트와 기준선을 추가하지 않고 이유를 출력합니다.
+- 기준선은 스펙이 가리키는 파일의 내용을 담으므로 그 파일을 고친 변경도 `baseline:update`로만 기준선에 들어갑니다. URL(`https://...`)을 가리키는 `$ref`는 읽지 않고 그대로 비교합니다.
 
 이전 버전의 `init`이 추가한 다음 스크립트는 동작하지 않거나 `oa-gen generate`와 같은 일만 하므로 지금의 `init`은 추가하지 않습니다: `generate:router`(프레임워크 대상), `generate:client`(`mvp`), `generate:contract`(`microservice`, nestjs 대상), `test:contract`·`audit:wire`(`microservice`), `audit:csp`·`audit:shape`·`personas:check`(`enterprise`). `init --force`는 같은 이름의 스크립트(`diff`, `ci:gate`, `lint:spec`)만 새 명령으로 바꾸므로, 나머지는 `package.json`에서 직접 지우고 `generate` 스크립트를 씁니다.
 
