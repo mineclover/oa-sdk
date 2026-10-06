@@ -225,7 +225,7 @@ export interface ApiHandlers<TContext = unknown> {
 
 ### 규칙 4: TanStack Query 코드는 키 → 옵션 → 훅 3계층이다
 1. **키(Tier 1)**: 캐시 무효화와 쿼리 식별용 키 팩토리(`<camelTag>Keys`, `queryKeys`).
-2. **옵션(Tier 2)**: `<operationId>QueryOptions`, `<operationId>MutationOptions`. 첫 인자는 생성된 클라이언트입니다. 서버 컴포넌트의 `prefetchQuery`처럼 훅 밖에서도 씁니다.
+2. **옵션(Tier 2)**: `<operationId>QueryOptions`, `<operationId>MutationOptions`. 첫 인자는 생성된 클라이언트입니다. `queryClient.prefetchQuery()`처럼 훅 밖에서도 씁니다. 훅까지 담은 한 파일 출력은 맨 앞에 `'use client'`가 있으므로, React Server Component에서는 `outputRouting`을 둔 `oa-gen generate`의 `<id>.queries.ts`(훅 없음, 지시문 없음)를 import합니다.
 3. **훅(Tier 3)**: `use<OperationId>Query`, `use<OperationId>Mutation`, `createApiHooks`.
 
 어느 파일에 들어가는지는 명령에 따라 다릅니다.
@@ -234,9 +234,9 @@ export interface ApiHandlers<TContext = unknown> {
 |---|---|
 | `oa-gen generate` (`outputRouting` 있음) | `<id>.keys.ts`(키), `<id>.queries.ts`(옵션). 훅 없음 |
 | `oa-gen generate` (`outputRouting` 없음) | `<id>.queries.ts` 한 파일에 3계층 |
-| `oa-gen generate:tanstack --output <dir>` | `<dir>/tanstack-query.ts` 한 파일에 3계층. `--tier`(`keys`, `options`, `hooks`)로 한 계층만 |
+| `oa-gen generate:tanstack --output <dir>` | `<dir>/tanstack-query.ts` 한 파일에 3계층. `--tier keys`면 키만 |
 
-`oa-gen generate`의 TanStack 코드는 항상 `@tanstack/react-query`를 import합니다. Vue·Svelte용은 `oa-gen generate:tanstack --framework vue|svelte`로 만듭니다.
+생성된 옵션과 훅은 `@tanstack/react-query`에서만 동작합니다(키는 프레임워크를 import하지 않음). `oa-gen generate`는 항상 `@tanstack/react-query`를 import하고, `generate:tanstack --framework vue|svelte`는 React용 타입 이름을 그대로 import해 `tsc`가 실패합니다. `generate:tanstack --tier options|hooks`도 쓰지 않은 `./keys.js`를 import해 컴파일되지 않습니다(둘 다 알려진 결함). Vue·Svelte 프로젝트는 키만 생성물에서 가져오고(`generate:tanstack --tier keys`, 또는 `outputRouting`을 둔 `oa-gen generate`의 `<id>.keys.ts`) 쿼리 옵션은 직접 작성합니다([생성물별 명령](./04-scaffolding-and-diff.md#43-경로-3-생성물별-명령)).
 
 ### 규칙 5: 오래된 생성물 정리
 `oa-gen generate`는 `.oa-manifest.json`에 기록된 생성 파일 중 이번 실행이 만들지 않고 내용도 바뀌지 않은 파일을 지웁니다. 손으로 고친 파일과 생성 배너가 없는 파일은 지우지 않습니다. `oa-gen generate:tanstack` 등 다른 명령이 같은 프로젝트에 쓴 파일도 지워지므로, `oa-gen generate`를 쓰는 프로젝트에서는 TanStack 코드도 `generate`가 만드는 `<id>.queries.ts`(훅이 필요하면 `outputRouting` 없이)에서 가져옵니다. `outputRouting.pruneOrphans: false`는 현재 이 삭제를 막지 못합니다(알려진 결함). 판정 조건은 [안전 고아 파일 정리](../declarative-spec-configuration.md#46-3단계-안전-고아-파일-정리-3-gate-safe-orphan-pruning)를 봅니다.

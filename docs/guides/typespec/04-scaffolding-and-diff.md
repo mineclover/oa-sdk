@@ -246,12 +246,19 @@ npx oa-gen generate:zod --spec ./main.tsp --output src/api/api.zod.ts
 #### (4) TanStack Query v5 (`generate:tanstack`)
 `--output`은 디렉터리이고, 그 안에 `tanstack-query.ts`를 씁니다. 이 파일은 같은 디렉터리의 `./client.js`를 import하므로 (1)의 클라이언트를 같은 디렉터리에 둡니다.
 ```bash
-# 키·옵션·훅 3계층을 src/api/tanstack-query.ts 한 파일에 생성
+# 키·옵션·훅 3계층을 src/api/tanstack-query.ts 한 파일에 생성 (@tanstack/react-query)
 npx oa-gen generate:tanstack --spec ./main.tsp --output src/api
 
-# 옵션만 생성
-npx oa-gen generate:tanstack --spec ./main.tsp --output src/api --tier options --framework react
+# 키 팩토리만 생성 (프레임워크 import 없음)
+npx oa-gen generate:tanstack --spec ./main.tsp --output src/api --tier keys
 ```
+`tsc`를 통과하는 출력은 기본값(3계층, React)과 `--tier keys`뿐입니다. 나머지 옵션 조합에는 알려진 결함이 있습니다.
+
+- `--tier options`, `--tier hooks`: 한 파일만 쓰면서 이 명령이 쓰지 않는 `./keys.js`(`hooks`는 `./queries.js`도)를 import하므로 `tsc`가 TS2307로 실패합니다. 훅 없는 옵션 파일이 필요하면 `outputRouting`을 둔 `oa-gen generate`가 쓰는 `<id>.keys.ts`와 `<id>.queries.ts`를 씁니다([4.1](#41-경로-1-oaconfigts-기반-일괄-생성)).
+- `--framework vue`, `--framework svelte`: import 경로만 `@tanstack/vue-query`·`@tanstack/svelte-query`로 바꾸고 React용 이름(`UndefinedInitialDataOptions`, `UseMutationOptions`, `mutationOptions` 등)을 그대로 import합니다. 그 패키지에 없는 이름이라 `tsc`가 TS2724로 실패합니다. Vue·Svelte 프로젝트는 `--tier keys`로 키만 생성하고 쿼리 옵션은 직접 작성합니다. `oa-gen generate`를 쓰는 프로젝트라면 4.1의 정리 규칙 때문에 `generate:tanstack` 출력 대신 `outputRouting`을 둔 `oa-gen generate`의 `<id>.keys.ts`를 씁니다.
+
+훅까지 담은 한 파일 출력(`tanstack-query.ts`, `outputRouting` 없는 `oa-gen generate`의 `<id>.queries.ts`)은 맨 앞에 `'use client'` 지시문이 있습니다. React Server Component에서 옵션 팩토리를 호출하려면 지시문이 없는 파일, 즉 `outputRouting`을 둔 `oa-gen generate`의 `<id>.queries.ts`를 import합니다.
+
 `generate:tanstack --types-import`에 `oa-gen typegen` 출력만 넘기면 `<Operation>ClientError` 타입이 없어 `tsc`가 실패합니다(TS2305, 알려진 결함). 타입 없이 쓰려면 클라이언트와 TanStack 모두 `--types-import` 없이 생성합니다. 타입이 필요하면 typegen 출력을 다시 export하고 `<Operation>ClientError` 별칭을 더한 모듈을 `--types-import`로 지정합니다.
 
 #### (5) 런타임 의존성 없는 타입 가드 (`generate:guards`)
