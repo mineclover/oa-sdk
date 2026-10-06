@@ -9,12 +9,15 @@ export const tspDiff: Command = {
     base: {
       type: 'string',
       required: true,
-      description: 'Base TypeSpec source file, directory, or git ref (e.g. main, HEAD~1, path/to/main.tsp)',
+      description: 'Base TypeSpec source: .tsp file, directory, git ref, or <ref>:<path> '
+        + '(e.g. origin/main, HEAD~1:main.tsp, path/to/main.tsp)',
     },
     head: {
       type: 'string',
       required: true,
-      description: 'Head TypeSpec source file, directory, or git ref (e.g. HEAD, path/to/main.tsp)',
+      description: 'Head TypeSpec source, same forms as --base (e.g. path/to/main.tsp for the working tree, '
+        + 'HEAD, HEAD:main.tsp). A git ref without a path, on either side, reads the other side\'s '
+        + 'repository-relative entry point from its own commit',
     },
     'fail-on-breaking': {
       type: 'boolean',
@@ -34,7 +37,7 @@ export const tspDiff: Command = {
 
     // TypeSpec 컴파일러(@typespec/*)는 이 커맨드에서만 쓰므로 실행할 때 불러온다.
     // 정적 import로 두면 oa-gen의 모든 커맨드 기동에 그 모듈 그래프 로드 비용이 붙는다.
-    const [{ resolveTypeSpecProgramRef }, {
+    const [{ resolveTypeSpecDiffSources }, {
       diffTypeSpecPrograms,
       formatTypeSpecDiffMarkdown,
       formatTypeSpecDiffJson,
@@ -44,18 +47,21 @@ export const tspDiff: Command = {
       import('../lib/typespec-ast-diff.js'),
     ])
 
-    // If headRef is a local path, pass it as fallbackPath to baseRef resolution (and vice versa)
-    const baseProgram = await resolveTypeSpecProgramRef(baseRef, rootDir, headRef)
-    let headProgram
-    try {
-      headProgram = await resolveTypeSpecProgramRef(headRef, rootDir, baseProgram.entrypoint)
-    } catch (err) {
-      await baseProgram.cleanup()
-      throw err
-    }
+    // 경로 없는 git ref(`--head HEAD`)는 반대쪽 진입점의 저장소 기준 경로를 자기 커밋에서 읽는다.
+    // runCommand가 projectRoot로 chdir하므로, 상대 경로는 호출 디렉터리(context.cwd)부터 찾는다.
+    const sources = await resolveTypeSpecDiffSources(baseRef, headRef, {
+      projectRoot: rootDir,
+      cwd: context?.cwd ?? process.cwd(),
+    })
 
     try {
-      const result = diffTypeSpecPrograms(baseProgram.program, headProgram.program, {
+      // 같은 원본끼리 비교하면 결과는 항상 "변경 없음"이므로 조용히 통과시키지 않고 알린다.
+      // stdout은 리포트(JSON 포함)만 담도록 stderr에 쓴다.
+      if (sources.sameSourceNotice) {
+        console.error(sources.sameSourceNotice)
+      }
+
+      const result = diffTypeSpecPrograms(sources.base.program, sources.head.program, {
         baseRef,
         headRef,
       })
@@ -70,8 +76,7 @@ export const tspDiff: Command = {
         throw new CliExitError(1)
       }
     } finally {
-      await baseProgram.cleanup()
-      await headProgram.cleanup()
+      await sources.cleanup()
     }
   },
 }
