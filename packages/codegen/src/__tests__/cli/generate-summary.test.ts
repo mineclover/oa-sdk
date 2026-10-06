@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { parseDocument, type OasDocument } from '@oa-sdk/parser'
 import { generate } from '../../cli/commands/generate.js'
 import type { CompanionCommandContext } from '../../cli/lib/companion-packages.js'
 import { projectTargetSpec } from '../../spec-projector.js'
@@ -43,6 +44,35 @@ const oas32Document = {
     schemas: {
       Book: { type: 'object', properties: { id: { type: 'string' } } },
     },
+  },
+}
+
+/**
+ * A document whose `tags` hold a `null` entry, which the `parseDocument` IR
+ * cannot index, and whose `paths` hold values that are not Path Items or
+ * Operations. Only `GET /books` and the `COPY` additional operation of
+ * `/books` are operations.
+ */
+const malformedDocument = {
+  openapi: '3.1.0',
+  info: { title: 'Malformed API', version: '1.0.0' },
+  tags: [null],
+  paths: {
+    '/books': {
+      parameters: [null, 'id'],
+      get: { operationId: 'listBooks', responses: response },
+      post: null,
+      additionalOperations: {
+        COPY: { operationId: 'copyBooks', responses: response },
+        LINK: 'not an operation',
+      },
+    },
+    '/null': null,
+    '/array': [{ get: { operationId: 'inArray', responses: response } }],
+    '/non-string-ref': { $ref: 42 },
+    '/missing-ref': { $ref: '#/components/pathItems/Missing' },
+    '/cyclic-ref': { $ref: '#/paths/~1cyclic-ref' },
+    '/invalid-pointer': { $ref: '#/paths/%E0%A4%A' },
   },
 }
 
@@ -99,6 +129,29 @@ describe('oa-gen generate summary', () => {
     const result = await projectTargetSpec({ id: 'library', profile: 'full-api-document', schemaEntry: specPath, outDir: 'generated' }, tmpDir)
 
     expect(result.operationCount).toBe(5)
+  })
+
+  describe('a document the parseDocument IR cannot index', () => {
+    it('is the document this suite means', () => {
+      // Precondition: the full IR fails on the `null` tag, so counting through it would fail projection.
+      expect(() => parseDocument(malformedDocument as unknown as OasDocument, [])).toThrow(TypeError)
+    })
+
+    it('is still projected, with the operations its paths hold counted', async () => {
+      const specPath = writeDocument('malformed.json', malformedDocument)
+
+      const result = await projectTargetSpec({ id: 'malformed', profile: 'full-api-document', schemaEntry: specPath, outDir: 'generated' }, tmpDir)
+
+      expect(result.operationCount).toBe(2)
+      expect(result.openApiDoc['tags']).toEqual([null])
+    })
+
+    it('is still generated, with the operation count in the summary', async () => {
+      await runGenerate(writeDocument('malformed.json', malformedDocument))
+
+      expect(logs.join('\n')).toMatch(/malformed\s+\[full-api-document\s*\] -> 2 ops, 0 schemas/)
+      expect(fs.existsSync(path.join(tmpDir, 'generated', 'malformed.openapi.json'))).toBe(true)
+    })
   })
 
   it('reports operations and the document version in the schema pipeline report', async () => {

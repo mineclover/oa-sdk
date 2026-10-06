@@ -20,7 +20,7 @@ import {
   type SchemaRefEdge,
   type SchemaSourceCoordinate,
 } from '@oa-sdk/openapi-projection-contract'
-import { appendJsonPointer, parseDocument, type OasDocument } from '@oa-sdk/parser'
+import { appendJsonPointer, loadSchema } from '@oa-sdk/parser'
 import type { ProfileTargetConfig, GuardTargetConfig } from './config.js'
 import { loadModule } from './cli/lib/config-loader.js'
 import { zodToSchema } from './zod-to-schema.js'
@@ -196,10 +196,18 @@ export function extractRefsFromDocument(doc: unknown, defaultSourcePath = ''): S
  * `additionalOperations` entry of each Path Item, following Path Item `$ref`s
  * within the document. Webhooks are not operations of the described server and
  * are not counted.
+ *
+ * Only the parser's route index is built (`loadSchema`), not the rest of the
+ * `parseDocument` IR. The route index skips any value it cannot read as a Path
+ * Item or an Operation, so the count never fails, and a document whose other
+ * parts the IR cannot index (a `null` entry in `tags`, say) is still
+ * projected: a summary figure must not decide whether projection succeeds.
  */
 function countPathOperations(doc: Record<string, unknown>): number {
-  // No passes: the document is indexed as it is, without dereferencing schemas.
-  return parseDocument(doc as unknown as OasDocument, []).operations.length
+  // No passes: the document is indexed as it is, following local `$ref`s by JSON pointer.
+  let count = 0
+  for (const methods of loadSchema(doc, []).values()) count += methods.size
+  return count
 }
 
 /**
