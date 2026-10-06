@@ -183,11 +183,13 @@
 
 - **결과**: 공통 사실표(Node ≥22, 공개 패키지와 0.9.0 첫 배포, companion 동작, mock-server entry point, `generateRouter()` 기준 라우터 코드, TanStack 이름과 한계, init 스크립트, TypeSpec 1.16·`OaSdkTypeSpec`, 저장소 안/밖 사용법)를 실행 결과로 확정한 뒤, 문서 4개 묶음(시작·CLI, 소비자, TypeSpec, 스키마)을 고쳤다. 핵심 가치는 가이드 색인 상단(자세한 판)과 루트 README(짧은 판)에 넣었다. 묶음마다 정확성 리뷰 승인. 동작하지 않는 명령·스크립트는 동작하는 것처럼 쓰지 않고 한계와 우회 방법을 적었다(WS-J 결함과 연결).
 
-### WS-J — 조사에서 드러난 코드 결함 · P0 진행 중
+### WS-J — 조사에서 드러난 코드 결함 · P0(J1–J5b) `done`, 나머지는 0.9.0 이후
 
 **사용자 결정 (2026-10-06)**: RC export 전에 핵심 결함만 고친다(J1 `tsp diff` 자기 비교, J2 `drift` 상대 경로, J3 `generate`의 `pruneOrphans` 무시·op 수·3.1 표기·companion 오류 exit 0, J4 동작하지 않는 init 스크립트와 `generate:router`류 스크립트 정리). 라우터는 문서의 `generateRouter()` 기준을 유지하고 CLI 바인더 생성은 하지 않는다. 나머지(router 스트리밍, TanStack 타입 import·Vue/Svelte, tsp-scaffold, zod union, `core.router.target`, `oa-gen diff` 분류 정책)는 0.9.0 이후로 미룬다.
 
 **진행 (2026-10-06)**: J1–J4를 main에 통합했다(리뷰 승인, 0.9.0 changelog·type-registry baseline 반영). 통합 후 로컬 CI 미러에서 `codegen smoke:pack`이 실패해 J5를 열었다: `oa-gen generate`가 외부 파일 `$ref`를 풀지 않은 문서를 router·client 생성기에 넘겨, 여러 파일로 나눈 spec에서 핸들러 계약·client·TanStack 생성이 실패한다. 이전에는 경고로만 남아 산출물이 조용히 빠졌고, J3가 명시 산출물 실패를 exit 1로 바꾸면서 드러났다. 루트 e2e(CI 밖) T2-B6-4(재귀 모델), T1-F19-3(없어진 `scripts/dist/check-api-index.js` 실행)도 함께 정리 중이다.
+
+**P0 완료 (2026-10-06)**: J1(`tsp diff` 경로 없는 git ref), J2(`drift`·`review` 상대 경로), J3(`generate` 정리 범위·실패 처리·요약), J4(init 스크립트), J5·J5b(여러 파일 spec의 외부 `$ref`를 `generate`·`generate:tanstack`·`mock`·`surface`·`oa-mock`이 해석)를 main에 통합했다. 모두 리뷰 승인, 0.9.0 changelog와 type-registry baseline 반영. 루트 e2e(CI 밖)의 낡은 기대값(T2-B6-4, T1-F19-3)도 고쳤고 `test:e2e`가 루트 e2e 전체를 돈다. main `4370fe8a`에서 로컬 CI 미러 32단계와 루트 e2e 8개 스위트가 통과했다(첫 실행의 `test:core:ci` 실패는 실행 중 호스트 sleep 때문이었고 재실행에서 통과).
 
 **push (2026-10-06)**: main을 origin에 push했다(`43b41a21..2b78616d`). GitHub Actions는 계정 결제 문제로 job을 시작하지 않았다("recent account payments have failed or your spending limit needs to be increased"). 결제 해결 후 `gh run rerun 37411463030`. RC export는 이 CI가 통과한 커밋에서만 한다.
 
