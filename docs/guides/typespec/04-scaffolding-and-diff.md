@@ -99,11 +99,13 @@ model bearerAuth is BearerAuth;
 | 옵션 | 필수 | 설명 |
 |---|---|---|
 | `--base <ref>` | **Y** | 기준 쪽. `.tsp` 파일, 디렉터리(`main.tsp` 또는 `tspconfig.yaml`이 있는), git ref(`main`, `origin/main`, `HEAD~1`), `ref:path` |
-| `--head <ref>` | **Y** | 비교 대상. `--base`와 같은 형식 |
+| `--head <ref>` | **Y** | 비교 대상. 파일 경로, 디렉터리, `ref:path`. 경로 없는 git ref는 아래 결함 때문에 쓰지 않습니다 |
 | `--fail-on-breaking` | N | breaking change가 있으면 종료 코드 1 |
 | `--format <type>` | N | `markdown`(기본값) 또는 `json` |
 
-값이 실제 경로이면 경로로 읽고, 아니면 git ref로 보고 `git archive`로 그 커밋을 임시 디렉터리에 꺼냅니다. 그래서 `HEAD`는 작업 트리가 아니라 **마지막 커밋**입니다. git ref만 주면 진입점은 상대편에 준 경로, `packages/schemas/typespec/main.tsp`, `packages/schemas/typespec`, `main.tsp`, 처음 찾은 `main.tsp` 순서로 찾습니다.
+값이 실제 경로이면 경로로 읽고, 아니면 git ref로 보고 `git archive`로 그 커밋을 임시 디렉터리에 꺼냅니다. 그래서 git ref는 작업 트리가 아니라 **커밋된 내용**입니다. `ref:path`의 `path`는 저장소 루트 기준입니다. 경로 없이 git ref만 주면 진입점은 상대편에 준 경로, `packages/schemas/typespec/main.tsp`, `packages/schemas/typespec`, `main.tsp`, 처음 찾은 `main.tsp` 순서로 찾습니다.
+
+> ⚠️ 알려진 결함: `--base`가 git ref(`origin/main`, `origin/main:main.tsp`)일 때 `--head`에 경로 없는 git ref(`HEAD`, 커밋 해시)를 주면, head가 base에서 꺼낸 `main.tsp`를 다시 읽어 base를 자기 자신과 비교합니다. 저장소 경로가 OS 임시 디렉터리보다 깊은 일반적인 환경(`/tmp`를 쓰는 Linux CI 등)에서 이렇게 동작합니다. 두 ref가 달라도, breaking change가 있어도 `No semantic changes detected`와 종료 코드 0으로 끝나므로 `--fail-on-breaking` gate가 늘 통과합니다. `--head`에는 파일 경로(`./main.tsp`)나 `ref:path`(`HEAD:main.tsp`)를 줍니다.
 
 판정 기준은 의미 단위입니다. 선택 속성 추가(`property-added`)와 operation 추가(`operation-added`)는 non-breaking, 필수 속성 추가(`required-property-added`)는 breaking입니다. 두 OpenAPI 파일을 비교하는 `oa-gen diff`는 요청·응답·파라미터 스키마가 바뀌면 선택 필드 추가도 breaking으로 보는 보수적 규칙이고 git ref를 받지 않습니다.
 
@@ -113,11 +115,14 @@ model bearerAuth is BearerAuth;
 # 커밋 전 작업 트리를 base 브랜치와 비교 (head에 파일 경로)
 npx oa-gen tsp diff --base origin/main:main.tsp --head ./main.tsp --fail-on-breaking
 
-# CI: PR head가 커밋된 상태이므로 git ref끼리 비교하고 JSON 리포트 저장
-npx oa-gen tsp diff --base origin/main --head HEAD --format json > diff-report.json
+# 두 커밋 비교 (양쪽 모두 ref:path)
+npx oa-gen tsp diff --base HEAD~1:main.tsp --head HEAD:main.tsp
+
+# CI: checkout한 작업 트리가 PR head이므로 head에 파일 경로를 주고 JSON 리포트 저장
+npx oa-gen tsp diff --base origin/main:main.tsp --head ./main.tsp --format json > diff-report.json
 ```
 
-`--base HEAD --head HEAD`는 커밋하지 않은 수정을 보지 못하고 `No semantic changes detected`로 끝납니다.
+CI에서는 base 브랜치 ref가 있어야 합니다. GitHub Actions라면 `actions/checkout`에 `fetch-depth: 0`을 주어 `origin/main`까지 받아 둡니다.
 
 ---
 

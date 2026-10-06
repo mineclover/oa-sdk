@@ -174,7 +174,7 @@ PR CI는 base와 head의 승인 스냅샷도 비교합니다. breaking API diff�
 ## 7. 계약 변경 절차 (Contract Change Workflow)
 
 1. 가장 작은 소유 `.tsp` 모듈을 고칩니다. emitter가 보존하는 모델과 HTTP 의미는 TypeSpec 기본 문법으로 둡니다. 새 엔드포인트의 뼈대는 `oa-gen tsp-scaffold`로 만들 수 있습니다([스캐폴딩 가이드](./typespec/04-scaffolding-and-diff.md#1-typespec-코드-스캐폴딩-oa-gen-tsp-scaffold)).
-2. TypeSpec 원본을 의미 단위로 비교해 breaking change를 미리 봅니다. head에 파일 경로를 주면 커밋하지 않은 작업 트리를 비교합니다. `--head HEAD`처럼 git ref를 주면 커밋된 내용끼리 비교하므로 방금 고친 내용이 보이지 않습니다.
+2. TypeSpec 원본을 의미 단위로 비교해 breaking change를 미리 봅니다. head에 파일 경로를 주면 커밋하지 않은 작업 트리를 비교합니다. `--head HEAD`처럼 경로 없는 git ref는 현재 base를 자기 자신과 비교해 변경이 있어도 `No semantic changes detected`로 끝나므로 쓰지 않습니다([알려진 결함](./typespec/04-scaffolding-and-diff.md#21-옵션)).
 
    ```bash
    node packages/codegen/dist/cli/index.js tsp diff --base origin/main --head packages/schemas/typespec/main.tsp --fail-on-breaking
