@@ -1179,7 +1179,7 @@
         "column": 16,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "deserialize",
-        "line": 105,
+        "line": 109,
         "sourceType": "JSON.parse"
       },
       {
@@ -1498,14 +1498,14 @@
         "column": 32,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "any",
-        "line": 272
+        "line": 290
       },
       {
         "boundaryId": "type-boundary:27041dcd5ef6edd59d4ab4ac2d7d22a9",
-        "column": 42,
+        "column": 11,
         "filePath": "packages/codegen/src/cli/commands/generate.ts",
         "kind": "any",
-        "line": 578
+        "line": 456
       },
       {
         "boundaryId": "type-boundary:27ed3c8355e13ef91fbcb0294444d9b6",
@@ -1560,7 +1560,7 @@
         "column": 26,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "any",
-        "line": 221
+        "line": 239
       },
       {
         "boundaryId": "type-boundary:2e7f0d30790364b33ed397a499040bb0",
@@ -1681,7 +1681,7 @@
         "column": 12,
         "filePath": "packages/mock-server/src/cli/main.ts",
         "kind": "deserialize",
-        "line": 297,
+        "line": 308,
         "sourceType": "JSON.parse"
       },
       {
@@ -1694,10 +1694,10 @@
       },
       {
         "boundaryId": "type-boundary:3eae387d2f32b8d36ec9ba174d7b13b9",
-        "column": 73,
+        "column": 36,
         "filePath": "packages/codegen/src/cli/commands/generate.ts",
         "kind": "any",
-        "line": 494
+        "line": 453
       },
       {
         "boundaryId": "type-boundary:3f3470afa11c9ef23eaa1cce7c8ac96e",
@@ -2023,10 +2023,10 @@
       },
       {
         "boundaryId": "type-boundary:6aa728159191a967e40445f44dbb62ab",
-        "column": 13,
+        "column": 73,
         "filePath": "packages/codegen/src/cli/commands/generate.ts",
         "kind": "any",
-        "line": 580
+        "line": 538
       },
       {
         "boundaryId": "type-boundary:6ab290b49824de61ed51eaef1a6c9809",
@@ -2194,7 +2194,7 @@
         "column": 60,
         "filePath": "packages/codegen/src/cli/commands/generate.ts",
         "kind": "any",
-        "line": 604
+        "line": 644
       },
       {
         "boundaryId": "type-boundary:7fb8d8161338cd8555c229be3e3d8bbb",
@@ -2466,7 +2466,7 @@
         "column": 24,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "double-assertion",
-        "line": 256,
+        "line": 274,
         "sourceType": "159:\"unknown\"",
         "targetType": "80:\"Record\"|30:\"<\"|154:\"string\"|28:\",\"|159:\"unknown\"|32:\">\""
       },
@@ -2514,7 +2514,7 @@
         "column": 24,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "double-assertion",
-        "line": 237,
+        "line": 255,
         "sourceType": "159:\"unknown\"",
         "targetType": "80:\"Record\"|30:\"<\"|154:\"string\"|28:\",\"|159:\"unknown\"|32:\">\""
       },
@@ -2531,7 +2531,7 @@
         "column": 51,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "any",
-        "line": 238
+        "line": 256
       },
       {
         "boundaryId": "type-boundary:a832b8aa846cc6f18ceaa187dba96a8a",
@@ -2594,7 +2594,7 @@
         "column": 53,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "any",
-        "line": 478
+        "line": 495
       },
       {
         "boundaryId": "type-boundary:acd27b5af3244e06e88e47e58f3be50e",
@@ -2630,7 +2630,7 @@
         "column": 59,
         "filePath": "packages/codegen/src/cli/commands/generate.ts",
         "kind": "any",
-        "line": 109
+        "line": 114
       },
       {
         "boundaryId": "type-boundary:b0adb3a2de2ec3c2feca3f168320d706",
@@ -2781,7 +2781,7 @@
         "column": 38,
         "filePath": "packages/codegen/src/cli/commands/surface.ts",
         "kind": "deserialize",
-        "line": 148,
+        "line": 152,
         "sourceType": "JSON.parse"
       },
       {
@@ -2845,7 +2845,7 @@
         "column": 44,
         "filePath": "packages/codegen/src/cli/commands/generate.ts",
         "kind": "any",
-        "line": 604
+        "line": 644
       },
       {
         "boundaryId": "type-boundary:c767246f7b24f7f8c2cad1bb44044649",
@@ -2902,7 +2902,7 @@
         "column": 37,
         "filePath": "packages/mock-server/src/cli/main.ts",
         "kind": "deserialize",
-        "line": 294,
+        "line": 305,
         "sourceType": "JSON.parse"
       },
       {
@@ -3038,7 +3038,7 @@
         "column": 34,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "double-assertion",
-        "line": 141,
+        "line": 145,
         "sourceType": "159:\"unknown\"",
         "targetType": "80:\"T\""
       },
@@ -3047,7 +3047,7 @@
         "column": 51,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "any",
-        "line": 221
+        "line": 239
       },
       {
         "boundaryId": "type-boundary:def0771650fd4f3013938cc8d094c967",
@@ -3207,7 +3207,7 @@
         "column": 34,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "double-assertion",
-        "line": 122,
+        "line": 126,
         "sourceType": "159:\"unknown\"",
         "targetType": "80:\"T\""
       },
@@ -3238,7 +3238,7 @@
         "column": 51,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "any",
-        "line": 257
+        "line": 275
       },
       {
         "boundaryId": "type-boundary:f769b457a1a7e17d9fd72c4e1dbbccbc",
@@ -9150,7 +9150,7 @@
         "runtime": "neutral",
         "semanticHash": "c53ac158b270202f508db2649ea76ce67a0358c80769fe812917fe415bb2c783",
         "shapeHash": "633f77afce59f723d7c61eb3b1e67f5c69c37cfb9b39c0acbda192b11c7ca38d",
-        "syntaxHash": "d8ffc6be56725b9f157a1010e081e3af0de46f354da2b6d85391aa570d80e1ae"
+        "syntaxHash": "f0a4d780716345ca51e1bb425d4760fab264ef96be908c76569c4d09191d55a4"
       },
       {
         "filePath": "packages/codegen/src/cli/commands/generate.ts",
@@ -9271,6 +9271,16 @@
         "semanticHash": "b972a156c4f7c8cbfb4964cff1155b7aae3f52ddea223576a094b75b102c5aa8",
         "shapeHash": "796eaa00cdccefddbf01f08964ac78efb2b82533f870a736ff903e7e7892b4cf",
         "syntaxHash": "430d03915377e809f1c500b90df4f8e44eeb768c48952bdc8a1a6aaf8ac4d159"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/commands/mock.ts",
+        "identity": "packages/codegen/src/cli/commands/mock.ts#src/cli/commands/mock.ts#neutral#@oa-sdk/codegen:src/cli/commands/mock.ts#parseSpecFile#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/commands/mock.ts#parseSpecFile",
+        "runtime": "neutral",
+        "semanticHash": "48db87391248791ec33815efb0592ab70b85425253a736ce559f031c522017b6",
+        "shapeHash": "0f509a3b6262088f3d89ada3a2343b4c0b6bf03b819655217ddf4760a021754f",
+        "syntaxHash": "58ef85d09155a04bf7176a6fca5b96cf29162d3f59eb827859bd5d7f530d9c31"
       },
       {
         "filePath": "packages/codegen/src/cli/commands/mock.ts",
@@ -24390,7 +24400,17 @@
         "runtime": "neutral",
         "semanticHash": "944d69db978af57a5a1d6034b09007cc20db1047e417e844c9d75dbf565cf1ad",
         "shapeHash": "f225832347a5948d2df0400cdc173734d016db9b968f2efbe44ff092b29eb4ba",
-        "syntaxHash": "cac2077dae7ad57a3c60757345af83f9b4911d5e69512c4361c1f04a8e9efae6"
+        "syntaxHash": "9fb2838d4c282a082bcc8714a5943e786bb3ec8cffcd08b3f0377dec3ccca660"
+      },
+      {
+        "filePath": "packages/codegen/src/spec-projector.ts",
+        "identity": "packages/codegen/src/spec-projector.ts#src/spec-projector.ts#neutral#@oa-sdk/codegen:src/spec-projector.ts#countRouteOperations#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/spec-projector.ts#countRouteOperations",
+        "runtime": "neutral",
+        "semanticHash": "10128fbdcd67057c3bbda7ccdcd566a25ee0fd715bba669f895dd4fba768b90a",
+        "shapeHash": "ce1372a3d00aac6d9b2e1575ef612f7671dbe727595d83a1021c001b9d34e054",
+        "syntaxHash": "35bb8d7a7740370ea90b01e90988bd5bd02a5a6ca3de70367ed8b24148dc7edc"
       },
       {
         "filePath": "packages/codegen/src/spec-projector.ts",
@@ -24440,7 +24460,7 @@
         "runtime": "neutral",
         "semanticHash": "5ce51b2ca810ac8ff866a777f2ef5442b6ea8eada199030539ab4a0700620fd1",
         "shapeHash": "83e72c2af6dfc318be2b76a228cae14c32d9388b64253f931627daf00606e115",
-        "syntaxHash": "24ec16f95718e8b74a25c7d2c37650687411f5d7d2d26c1085f5ac1cff636bc5"
+        "syntaxHash": "2e02d1fde7320179ad3ffdd6a0095e82cfccea87fe60cc4a1d9beb15479fa79a"
       },
       {
         "filePath": "packages/codegen/src/spec-projector.ts",
@@ -41008,9 +41028,9 @@
         "kind": "type-alias",
         "qualifiedName": "@oa-sdk/mock-server:src/cli/main.ts#CliDependencies",
         "runtime": "neutral",
-        "semanticHash": "c63a8491fb8354c200e9fe3a28ef71de296db4756a042ed59fcf41f9b11dfcef",
-        "shapeHash": "58af5bff2c28693527e7133d4d00f37d019af5c7b7ae205e978e2f44ee9a4e54",
-        "syntaxHash": "5ec2d3be2b1888512dccc4aaf0f46c95e78909df9828901a7fc6df905e75df38"
+        "semanticHash": "ec904e7bf6ebfbd3a98be18b7a671e0b9fd23e8378fa61c09a83e2b8000f508c",
+        "shapeHash": "ecf65b3e49d189e2b429bf1e6fb33a4542694df03376da7ae7a06413fdcf6d5a",
+        "syntaxHash": "f0790ca8ae013f59b21526a3a0c07e49ad7ce8f3e199db265eddb6d4d786926f"
       },
       {
         "filePath": "packages/mock-server/src/cli/main.ts",
@@ -41070,7 +41090,7 @@
         "runtime": "neutral",
         "semanticHash": "dacceffb7574c35da61e89957304098e36b7a85d767c3f4ac3ca9b48f76eea23",
         "shapeHash": "c61a422dd5abc2e662b3331d4164d3995baa218a52b5a07df5efebf155b82243",
-        "syntaxHash": "4baa6193439d41f8ee1c9e87ace07f57723ad9e5ca40622ba02acecbc9f9dc09"
+        "syntaxHash": "c581fd5696764241c422dcb3df91c5bd47ae9d37077abc5f9cddb98ecdd59bd3"
       },
       {
         "filePath": "packages/mock-server/src/cli/main.ts",
@@ -41101,6 +41121,16 @@
         "semanticHash": "a48da16f469e7961385ee3d538b3cd66a55b8824d04d5ae13d7201d8509d36a1",
         "shapeHash": "b046d4cad16a7ca23ab3bc27d3ca1041c6920f5a4169e22a9e9b7c2522ace32b",
         "syntaxHash": "c23d062485054ad1080947fd002fe1eea5b8f4d1f03c45638aa47d30f44a495d"
+      },
+      {
+        "filePath": "packages/mock-server/src/cli/main.ts",
+        "identity": "packages/mock-server/src/cli/main.ts#src/cli/main.ts#neutral#@oa-sdk/mock-server:src/cli/main.ts#parseLoadedSpec#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/cli/main.ts#parseLoadedSpec",
+        "runtime": "neutral",
+        "semanticHash": "6c19f4c8dfc8340f1c9f69e17bbf613c65eca673c1c15b5a9abbddacd363de30",
+        "shapeHash": "2d98da5ce91d27ceac14ea4b63145ed4d59d0725e4bee172dad0bfc59ee91570",
+        "syntaxHash": "a8d0e7d1fffb321ae9449a28e75d86d256deb5d4201a97842b8c613e6675e589"
       },
       {
         "filePath": "packages/mock-server/src/cli/main.ts",
@@ -57333,7 +57363,7 @@
         "syntaxHash": "d64bef6795e9fd5c1c7aa8401da256f67b5160fdcd8de71546cd89e230584cbe"
       }
     ],
-    "digest": "7f14f4d74c514c63790fd28c6623f42cec5a0979ef1508f6e0d69f1d6cfd4cf2",
+    "digest": "2fcf9fed09ff42e6c7696d1dae0997b2c79ed084378ebdb00d92d4ac82f27805",
     "publicSurfaces": [
       {
         "exportKey": "./guards",
@@ -61414,7 +61444,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "c52ad927d9229f9f6e98d2358187edb21f2b99ea45cccd5c20028ee4a4bec218",
+      "contentHash": "5a8f373248df2e56b921c70e67bb55765d2b1390cf5bc51fb0278f8e22c502af",
       "filePath": "packages/codegen/src/cli/commands/generate-tanstack.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -61428,7 +61458,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "7a62c1f5dd2bbe44cbec612de46923efb146a9458d30936c62ed19de780069e0",
+      "contentHash": "4b9256bf69c595cdce73ddb17a420b1c744ef629693d03c21ce7c25ad73d4f1e",
       "filePath": "packages/codegen/src/cli/commands/generate.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -61456,7 +61486,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "fba707ac00b6be4699605be9e3b22c0474c89a1afb11400ecd77150c26c2f279",
+      "contentHash": "bc4b03f15b0a8644c70f8655e9f94701eacb3d0099344f81be823890e4872747",
       "filePath": "packages/codegen/src/cli/commands/mock.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -61505,7 +61535,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "d21e0f43c58792c2b7d02c3f1760751258bbe2868eae91490daa3ccf422d5dee",
+      "contentHash": "b05110015852b453644a9a3c839a0577d09926b41dbfb77a9e07518d8347f6f0",
       "filePath": "packages/codegen/src/cli/commands/surface.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -62387,7 +62417,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "23a07308654f221fa7ba6c00e3fbcd51ef3412b37352e7c610246dcc0915624b",
+      "contentHash": "5129ea8c0da39c261b0164fbadf58f3b5ea863762f4c83356ace7ea7e7e50cc6",
       "filePath": "packages/codegen/src/spec-projector.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -66832,7 +66862,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "363af7d20e95e28816d6e3792e2d8de695896513695a6fa8ebc57c15a5d272c3",
+      "contentHash": "00a50827b734a90f78ed1e62e33e8bc9d4bd1b37128ccdc582ffcb32c5579864",
       "filePath": "packages/mock-server/src/cli/main.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/mock-server",
