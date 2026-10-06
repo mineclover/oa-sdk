@@ -312,7 +312,7 @@ decorator별 인자, 허용 값, 진단 코드는 [패키지 README](../../../pa
 
 `@oaUseResponseComponent`는 참조만 기록합니다. 재사용 응답(`#/components/responses/<name>`)으로 바뀌는 곳은 bundle restore(`oa-gen tsp-bundle-check`, 저장소의 `pnpm schema:typespec-check`)뿐이고, `oa-gen mock --tsp`나 `.tsp`를 넣은 `generate`·`typegen`에는 응답이 생기지 않습니다. 일반 프로젝트에서 4xx 응답을 선언할 때는 `ErrorResponse<Status>`나 `StandardHttpErrors`를 씁니다.
 
-`@crdt`·`@crdtEntity` 확장이 있는 스펙에서는 `oa-gen generate`가 CRDT 모듈 4개(`<id>.crdt.contract.ts`, `<id>.crdt.router.ts`, `<id>.crdt.client.ts`, `<id>.crdt.hooks.ts`)도 만듭니다.
+`@crdtEntity`를 붙인 모델이 있으면 `oa-gen generate`가 CRDT 모듈 4개(`<id>.crdt.contract.ts`, `<id>.crdt.router.ts`, `<id>.crdt.client.ts`, `<id>.crdt.hooks.ts`)도 만듭니다. 속성에 `@crdt`만 붙이면 만들지 않습니다. 생성되는 `<id>.crdt.router.ts`는 설정과 관계없이 항상 Hono용입니다(알려진 제한). Fastify·Express·Elysia용 CRDT 라우터가 필요하면 빌드 스크립트에서 `@oa-sdk/router`의 `generateCrdtRouter(spec, { target, contractImport })`를 호출해 다른 파일에 씁니다([패키지 README](../../../packages/typespec-decorators/README.md#crdtoptions--crdtentityoptions)).
 
 #### 2) `@oa-sdk/typespec-erd` (비공개 prototype)
 
