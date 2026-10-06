@@ -128,6 +128,8 @@ app.route('/v1', createRouter(handlers))
 
 `createRouter()` and the Fastify `handlers` option take a complete `ApiHandlers`; combine partial
 service objects into one (`{ ...userHandlers, ...auditHandlers } satisfies ApiHandlers`).
+On Node.js, Elysia's default adapter has no `.listen()`; create the app with
+`new Elysia({ adapter: node() })` from `@elysiajs/node` to serve it.
 
 ## Handler responses
 

@@ -211,15 +211,22 @@ app.listen(3000)
 
 ### Elysia
 
-`createRouter(handlers)`가 `Elysia` 인스턴스를 반환하므로 `.use()`로 합성합니다.
+`createRouter(handlers)`가 `Elysia` 인스턴스를 반환하므로 `.use()`로 합성합니다. Node.js에서는 Elysia 기본 어댑터가 `.listen()`을 지원하지 않아 `WebStandard does not support listen` 오류가 납니다. Elysia의 Node 어댑터(`@elysiajs/node`)를 함께 설치하고 `adapter: node()`로 앱을 만듭니다.
+
+```bash
+npm install elysia @elysiajs/node
+```
 
 ```typescript
+import { node } from '@elysiajs/node'
 import { Elysia } from 'elysia'
 import { createRouter } from './api.elysia.js'
 import { handlers } from './handlers.js'
 
-const app = new Elysia().use(createRouter(handlers)).listen(3000)
+new Elysia({ adapter: node() }).use(createRouter(handlers)).listen(3000)
 ```
+
+Bun에서는 어댑터 없이 `new Elysia().use(createRouter(handlers)).listen(3000)`으로 실행됩니다. 다만 Bun은 CI에서 검증하지 않으며 지원 환경으로 약속하지 않습니다.
 
 ### 생성된 라우터가 하지 않는 일
 
