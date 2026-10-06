@@ -3,10 +3,13 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import ts from 'typescript'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { parse as parseYaml } from 'yaml'
 import { parseDocument, type OasDocument } from '@oa-sdk/parser'
+import { buildSurfaceIr, toForgeProjection, type SurfaceIr } from '@oa-sdk/surface-ir'
 import { generate } from '../../cli/commands/generate.js'
 import { generateTanstackCommand } from '../../cli/commands/generate-tanstack.js'
 import { mock, type MockCommandContext } from '../../cli/commands/mock.js'
+import { surface } from '../../cli/commands/surface.js'
 import { importCompanion } from '../../cli/lib/companion-packages.js'
 import { CliExitError } from '../../cli/lib/errors.js'
 
@@ -14,8 +17,9 @@ import { CliExitError } from '../../cli/lib/errors.js'
  * A spec that spans several files reaches the companion generators (router,
  * client, mock-server) with the `$ref`s to the other files resolved from the
  * spec file, in `oa-gen generate`, `oa-gen generate:tanstack` and
- * `oa-gen mock`. A `$ref` that still cannot be resolved fails an output the
- * configuration turns on explicitly, naming the reference.
+ * `oa-gen mock`, and so does the Surface IR builder of `oa-gen surface`. A
+ * `$ref` that still cannot be resolved fails an output the configuration turns
+ * on explicitly, naming the reference, and fails `oa-gen surface`.
  */
 
 /** The API of the specs below, in three files: a response schema and a path item, which refers back to the schemas, live in other files. */
@@ -100,6 +104,31 @@ paths:
         '204': { description: Deleted }
     parameters:
       - { name: id, in: path, required: true, schema: { type: string } }
+`,
+}
+
+/** A spec in one file whose `$ref`s, one of them recursive, all point into itself. */
+const INTERNAL_REFS_SPEC: Record<string, string> = {
+  'api/contract.yaml': `openapi: 3.1.0
+info: { title: Single-file API, version: 1.0.0 }
+paths:
+  /nodes/{id}:
+    parameters:
+      - $ref: '#/components/parameters/NodeId'
+    get:
+      operationId: getNode
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Node' } } } }
+components:
+  parameters:
+    NodeId: { name: id, in: path, required: true, schema: { type: string } }
+  schemas:
+    Node:
+      type: object
+      required: [id]
+      properties:
+        id: { type: string }
+        children: { type: array, items: { $ref: '#/components/schemas/Node' } }
 `,
 }
 
@@ -272,30 +301,7 @@ paths:
     it('generates the outputs of a spec in one file from the document parsed without a base path', async () => {
       // The outputs before external $refs were resolved: the companions given the projected
       // document as parsed then. A spec in one file has nothing a base path changes.
-      const root = project('single-file', {
-        'api/contract.yaml': `openapi: 3.1.0
-info: { title: Single-file API, version: 1.0.0 }
-paths:
-  /nodes/{id}:
-    parameters:
-      - $ref: '#/components/parameters/NodeId'
-    get:
-      operationId: getNode
-      responses:
-        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Node' } } } }
-components:
-  parameters:
-    NodeId: { name: id, in: path, required: true, schema: { type: string } }
-  schemas:
-    Node:
-      type: object
-      required: [id]
-      properties:
-        id: { type: string }
-        children: { type: array, items: { $ref: '#/components/schemas/Node' } }
-`,
-        'oa.config.json': EXPLICIT_CONFIG,
-      })
+      const root = project('single-file', { ...INTERNAL_REFS_SPEC, 'oa.config.json': EXPLICIT_CONFIG })
 
       await runGenerate(root)
 
@@ -391,6 +397,69 @@ components:
         '@oa-sdk/mock-server createNodeMockServer requires complete $ref resolution; received a partial ParsedDocument: external-ref-read-failed (./missing.yaml#/Health).',
       )
       expect(onServerReady).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('oa-gen surface', () => {
+    /** Runs `oa-gen surface` on the project's `api/contract.yaml`, writing to `<root>/surface`. */
+    const runSurface = (root: string) => surface.run(
+      { spec: 'api/contract.yaml', 'out-dir': path.join(root, 'surface') },
+      { cwd: root, projectRoot: root },
+    )
+
+    const surfaceOutput = (root: string, file: string) => fs.readFileSync(path.join(root, 'surface', file), 'utf8')
+
+    const surfaceIrOf = (root: string) => JSON.parse(surfaceOutput(root, 'surface-ir.json')) as SurfaceIr
+
+    const diagnosticCodesOf = (root: string) =>
+      (JSON.parse(surfaceOutput(root, 'forge-projection.json')) as { diagnostics: Array<{ code: string }> })
+        .diagnostics.map(diagnostic => diagnostic.code)
+
+    it('projects the operations the spec refers to in other files as for the same spec written in one file', async () => {
+      const multiFile = project('multi-file', MULTI_FILE_SPEC)
+      const singleFile = project('single-file', SINGLE_FILE_SPEC)
+
+      await runSurface(multiFile)
+      await runSurface(singleFile)
+
+      expect(Object.keys(surfaceIrOf(multiFile).operations)).toEqual(['getHealth', 'getUser', 'deleteUser'])
+      expect(diagnosticCodesOf(multiFile)).toEqual([])
+      // The manifest differs only in the spec path it records.
+      const outputs = ['forge-projection.json', 'forge.api.overlay.yaml', 'surface-ir.json']
+      for (const root of [multiFile, singleFile]) {
+        expect(fs.readdirSync(path.join(root, 'surface')).sort()).toEqual([...outputs, 'surface-manifest.json'])
+      }
+      for (const output of outputs) {
+        expect(surfaceOutput(multiFile, output), output).toBe(surfaceOutput(singleFile, output))
+      }
+    })
+
+    it('fails on a $ref to a file that does not exist, reporting the document incomplete', async () => {
+      const root = project('missing-file', {
+        ...MULTI_FILE_SPEC,
+        'api/contract.yaml': MULTI_FILE_SPEC['api/contract.yaml']!.replace('./schemas.yaml#/Health', './missing.yaml#/Health'),
+      })
+
+      const failure = await failureOf(runSurface(root))
+
+      expect(failure).toBeInstanceOf(CliExitError)
+      expect((failure as CliExitError).exitCode).toBe(1)
+      expect(diagnosticCodesOf(root)).toEqual(['surface-ir/incomplete-document'])
+    })
+
+    it('projects a spec in one file as from the document parsed without a base path', async () => {
+      // The projection before external $refs were resolved: the Surface IR built from the
+      // spec as parsed then. A spec in one file has nothing a base path changes.
+      const root = project('single-file', INTERNAL_REFS_SPEC)
+
+      await runSurface(root)
+
+      const unresolved = parseDocument(parseYaml(INTERNAL_REFS_SPEC['api/contract.yaml']!) as OasDocument)
+      expect(unresolved.resolution?.status).toBe('complete')
+      const ir = buildSurfaceIr(unresolved, { target: 'forge' })
+      expect(surfaceOutput(root, 'surface-ir.json')).toBe(`${JSON.stringify(ir, null, 2)}\n`)
+      expect(surfaceOutput(root, 'forge-projection.json'))
+        .toBe(`${JSON.stringify(toForgeProjection(ir, unresolved), null, 2)}\n`)
     })
   })
 })

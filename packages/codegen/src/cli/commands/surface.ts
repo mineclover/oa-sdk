@@ -78,7 +78,11 @@ export const surface: Command = {
     const mappingPath = optResolveArgPath(args, 'mapping', context?.projectRoot)
     const mapping = mappingPath ? readMapping(mappingPath) : {}
     const loaded = await loadSpecDocumentAsync(specArg, context?.projectRoot)
-    const parsed = parseDocument(loaded.document)
+    // The Surface IR needs every `$ref` resolved. A spec that spans several
+    // files refers to the others relative to itself, so its `$ref`s are
+    // resolved from the spec file; one that still cannot be resolved leaves the
+    // parse partial, which buildSurfaceIr reports as an error.
+    const parsed = parseDocument(loaded.document, { basePath: loaded.path })
 
     const surfaceOptions: SurfaceIrOptions = {
       target,
