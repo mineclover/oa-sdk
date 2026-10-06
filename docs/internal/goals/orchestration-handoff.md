@@ -107,12 +107,10 @@
 | A3 | **사전 검사와 규칙의 이중 관리 제거.** 사전 검사의 단어 목록(`eval`/`Function`/`setTimeout`/`setInterval`, `ajv`/`zod`/`@oa-sdk`)과 AST 규칙의 대상(`target === 'eval'`, `DISALLOWED_IMPORT_PATTERN`)이 따로 적혀 있어, 규칙을 추가하면서 사전 검사를 빠뜨리면 위반이 조용히 누락된다. 규칙 표 하나에서 AST 검사와 사전 검사를 함께 도출하고, 모든 `CspRuleId`에 사전 검사 회귀 사례가 있는지 타입 수준에서 강제한다. | ready |
 | A4 | A2 측정 결과, 부하 40 이상·swap 고갈 상태에서는 tsx CLI를 5번 이상 순차 실행하는 테스트(T1-F02-3, T3-06, T4-03, challenger-m3 "non-object valid JSON" 등)가 60초 예산을 넘는다. 원인은 실행마다 CLI 모듈 약 950개를 즉시 로드하는 것이다. `src/cli/commands.ts`를 지연 command registry로 바꿔 실행한 명령만 로드한다. CLI 사용자 체감 속도도 함께 개선된다. C4·E3와 같은 파일을 만지므로 Wave 1 통합 뒤에 한다. | ready (Wave 1 이후) |
 
-### WS-B — Goal 70 Sirius Web 통합 · `decision`
+### WS-B — Goal 70 Sirius Web 통합 · Phase A (B1, B2) `done`
 
-- **필요한 결정**: Goal 70을 진행할지에 대한 scope decision과 Sirius 저장소 소유자.
-  - Sirius 쪽은 Java로 작성하며 이 모노레포 밖에 둔다.
-  - oa-sdk 쪽 변경은 Core 패키지(parser, codegen, spec-lens-contract, ast-sync, tools) 안에 머문다.
-- **결정 기록 형식**: `platform-scope.md`의 Scope Reactivation Decision 형식(사용자 문제 / Core 관계 / 소유자·CI / 위치 / 종료 조건)을 Goal 70 문서에 남긴다.
+- **Phase A 완료 (2026-10-06)**: B1(`oa-gen ref-projection` 명령, `oa-sdk.ref-projection.v1` JSON Schema 계약), B2(`canonicalId` 매핑, nearest-ancestor pointer 공유) main 통합 완료.
+
 - **승인 후 Phase A 분해안**:
 
 | 단위 | 내용 | 위치 |
@@ -128,16 +126,16 @@
   - 결과는 git 브랜치로 남기고 `schema:typespec-check`, provenance 검사, `tsp diff`로 다시 검증한다.
   - B4 이후에 분해한다.
 
-### WS-C — Downstream 성능·정확성 · `decision` (C4만 `ready`)
+### WS-C — Downstream 성능·정확성 · C1·C2·C4 `done`, C3 `decision`
 
 | 단위 | 문제 (근거) | 범위 | 상태 |
 |---|---|---|---|
-| C1 | mock-server가 요청마다 응답 본문을 다시 생성하고 Ajv로 다시 검증한다(`core/media-body.ts:46`, `handler.ts:151,183`). 그래서 `node-http.ts`의 사전 계산 fast path가 사실상 쓰이지 않는다. `allowedHeadersCache` 키가 구체 URL이라 끝없이 커진다(`node-http.ts:283`). 생성기가 선택 속성까지 모두 접은 뒤 버린다(`core/generate.ts:44`). | mock-server | decision. `node-http.ts`가 미커밋 변경과 충돌 |
-| C2 | `route-match.ts:62-86`이 요청마다 모든 라우트 정규식을 검사한다. 정적 경로 Map과 세그먼트 trie가 필요하다. | parser(Core) 파일이지만 mock-server 런타임 성능 문제 | **ready**로 볼 수 있음. 파일이 Core에 있으므로 사용자 확인 권장 |
+| C1 | mock-server가 요청마다 응답 본문을 다시 생성하고 Ajv로 다시 검증한다(`core/media-body.ts:46`, `handler.ts:151,183`). 그래서 `node-http.ts`의 사전 계산 fast path가 사실상 쓰이지 않는다. `allowedHeadersCache` 키가 구체 URL이라 끝없이 커진다(`node-http.ts:283`). 생성기가 선택 속성까지 모두 접은 뒤 버린다(`core/generate.ts:44`). | mock-server | **done** (2026-10-06): 요청-독립적 응답 재사용, 단일 패스 생성, 405 캐시 누수 수정, 벤치마크 추가, main 통합 |
+| C2 | `route-match.ts:62-86`이 요청마다 모든 라우트 정규식을 검사한다. 정적 경로 Map과 세그먼트 trie가 필요하다. | parser(Core) | **done** (`c01d4a0f`..`12c62c94`) |
 | C3 | 생성된 client가 호출마다 `JSON.parse("…")`로 스키마를 다시 만들고(`generate-client-renderer.ts:126`), 검사마다 `new RegExp`를 만든다(`runtime-schema.ts:82`). 스키마를 모듈 상수로 빼고 정규식을 캐시해야 한다. | client | decision |
-| C4 | codegen이 `@oa-sdk/client`, `router`, `mock-server`를 devDependencies로 두고(`codegen/package.json:86-88`) `oa-gen generate`에서 동적 import한다. 그래서 배포된 패키지에서는 경고만 남기고 산출물을 건너뛴다. optional peer dependency 또는 플러그인 인터페이스로 바꿔야 한다. | codegen(Core) 배포 버그 | **ready**. `codegen/package.json`이 미커밋 변경과 충돌 |
+| C4 | codegen이 `@oa-sdk/client`, `router`, `mock-server`를 devDependencies로 두고(`codegen/package.json:86-88`) `oa-gen generate`에서 동적 import한다. 그래서 배포된 패키지에서는 경고만 남기고 산출물을 건너뛴다. optional peer dependency 또는 플러그인 인터페이스로 바꿔야 한다. | codegen(Core) | **done** (`3e23c21a`..`e1c7d7ec`) |
 
-### WS-D — CI·빌드 파이프라인 · D1 `done`, D2 `ready`
+### WS-D — CI·빌드 파이프라인 · D1, D2 `done`
 
 결정 D4 범위(로컬 캐시 + artifact 공유 + inputs + `bench:parser` 게이트)만 다룬다. 원격 캐시와 테스트 병렬화는 하지 않는다.
 
@@ -230,7 +228,7 @@ main에 통합된 단위: E1, E2, E3, E4, E5, C2, A2, A3, C4(+companion release 
 |---|---|
 | RC 보강 (RC-T) | 진행 중: export 게이트가 companion만 검사하고 init이 쓰는 `@oa-sdk/core` 범위를 검사하지 않음, pack smoke의 archetype 범위, personas `workspace:*` 보고, `chunk-stream-ui` `engines.node` 누락(public-release-runtime CI 실패), `schema:rollback-check`가 추적 파일을 덮어씀 |
 | RC 보강 (RC-N) | 진행 중: codegen 0.9.0에 E3 누락, 첫 공개 패키지(router·client·mock-server·surface-ir) changelog, 이미 배포된 tools·chunk-stream의 changeset 누락, typespec-decorators README 네임스페이스 오류, release-readiness 버전 표 |
-| Wave 2b: B(B1+B2), C1, D2 | 구현·리뷰 중. RC export 이후 통합 |
+| Wave 2b: B(B1+B2), C1, D2 | **done** (2026-10-06): main 통합 완료, 34개 커밋, changeset 포함, type-registry drift 수용 |
 | codex `typespec-ts-origin` | 그대로 병합 불가(E3 구조 충돌, TS 의존성, 이름 귀속 버그). 시험 포팅본 `.claude/worktrees/merge-trial-typespec-ts-origin`(2a0f98e7) 검증 완료. 포팅 여부·공개 API 범위는 사용자 결정 |
 | E7 | E2 이후 ready |
 | A4 | E3·task_7b355ede 머지 완료로 ready (codex 포팅 뒤 권장) |

@@ -1,6 +1,6 @@
 # Goal Progress Index
 
-Last updated: 2026-10-05
+Last updated: 2026-10-06
 
 이 파일은 goal 진행 현황만 관리한다. 설계, 범위, 수용 기준은 각 goal 문서를 따르며,
 DPM phase 순서와 gap 정렬은 [DPM Master Roadmap](./dpm-master-roadmap.md)을 따른다.
@@ -9,7 +9,7 @@ DPM phase 순서와 gap 정렬은 [DPM Master Roadmap](./dpm-master-roadmap.md)�
 
 - Goal 68 is active with private owner acceptance recorded. DPM-86 through DPM-90 are complete; DPM-90 is backed by the private `mineclover/data-governance` repository, owner workflow `29427810791`, external runtime/declaration/rollback/workflow/pack rehearsal, owner `check:docs`, T1 release-gate verification, and [Goal 68.4 Issue #1](https://github.com/mineclover/data-governance/issues/1). The external owner is canonical for the extraction contract; public registry publication and breaking removal remain separately gated.
 - Goal 69 is active: 69.1-69.4 and 69.6 are done (shared `$ref` expansion memo, linear completeness scan, DAG-safe client serializer, `bench:parser` gate, single parse per target in `oa-gen generate`). 69.5a is done: recursive schemas whose cycle descends into the instance are allowed, with one rule shared by parse and lint. 69.5b (`resolveRefGraph` one node per occurrence, SCC-based cycle diagnostics) and 69.7 (`projectRefGraph`, adopted by spec-lens) are done. Goal 70 Phase A consumes `projectRefGraph`.
-- Goal 70 (Sirius Web studio integration): Phase A B1·B2 (versioned ref-projection export, shared `canonicalId` mapping) approved on 2026-10-05; B3 (Sirius importer) waits for the B4 comparison with `apps/spec-lens`.
+- Goal 70 (Sirius Web studio integration): Phase A B1·B2 (versioned ref-projection export, shared `canonicalId` mapping) complete and integrated on 2026-10-06; B3 (Sirius importer) waits for the B4 comparison with `apps/spec-lens`.
 - Remaining workstreams, pending decisions, and conflicts with uncommitted changes are tracked in [Orchestration Handoff](./orchestration-handoff.md).
 
 ## Recently Completed
