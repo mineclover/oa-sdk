@@ -721,6 +721,28 @@ describe('Output Path Routing Customization Engine', () => {
       expect(raw.artifacts[2]).not.toHaveProperty('target')
     })
 
+    it('records "unspecified" as the producer of an artifact written without one', async () => {
+      const manager = new OaManifestManager(tmpDir)
+
+      await manager.writeArtifacts([
+        { path: 'src/api/orders/orders.router.ts', kind: 'contract', tag: 'orders', content: '/** @generated */\nexport const r = 1' },
+        { path: 'src/guards/index.js', kind: 'guards', producer: '', content: '/** @generated */\nexport const g = 1' },
+      ])
+
+      const records = (await manager.loadManifest()).artifacts
+      expect(records.map(record => record.producer)).toEqual(['unspecified', 'unspecified'])
+      // Such a record is not taken for one written before producers were recorded.
+      for (const record of records) {
+        expect(manifestArtifactOwner(record)).toEqual({
+          producer: MANIFEST_PRODUCERS.unspecified,
+          configFile: undefined,
+          specFile: undefined,
+          target: undefined,
+          legacy: false,
+        })
+      }
+    })
+
     it('prunes only records within the scope, leaving the others and their files untouched', async () => {
       const manager = new OaManifestManager(tmpDir)
       const owned = 'src/api/orders/orders.contract.ts'

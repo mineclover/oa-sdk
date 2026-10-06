@@ -255,7 +255,7 @@ POSIX 슬래시와 `.js` 확장자를 쓰고, `importStyle: "alias"`이면 `tsco
 
 | 필드 | 값 |
 |---|---|
-| `producer` | 파일을 쓴 명령: `"generate"` 또는 `"generate:tanstack"` |
+| `producer` | 파일을 쓴 명령: `"generate"` 또는 `"generate:tanstack"`. 빌드 스크립트 등이 `OaManifestManager.writeArtifacts`로 직접 기록하면 넘긴 `producer` 값이고, 넘기지 않으면 `"unspecified"` |
 | `configFile` | `oa-gen generate`가 읽은 설정 파일의 `rootDir` 기준 POSIX 경로(예: `"oa.config.ts"`). `--spec` 실행은 설정 파일을 읽지 않으므로 없음 |
 | `specFile` | `--spec <파일>` 실행의 스펙 파일 경로. `rootDir` 기준 POSIX 경로(예: `"services/orders/openapi.json"`)로, 절대 경로로 넘겨도 같은 값이 됨. 설정 파일 실행에는 없음 |
 | `target` | 파일을 만든 spec target `id`. 모든 spec target을 합쳐 만드는 타입 가드는 없음 |
@@ -277,19 +277,22 @@ POSIX 슬래시와 `.js` 확장자를 쓰고, `importStyle: "alias"`이면 `tsco
 4. 디스크 내용의 hash가 기록과 같습니다. 손으로 고친 파일은 지우지 않습니다.
 5. 생성 배너가 있습니다.
 
-따라서 `oa-gen generate:tanstack` 등 다른 명령이 쓴 파일, 다른 설정 파일이나 다른 스펙 파일로 실행한
-`oa-gen generate`가 쓴 파일, `--spec` 실행과 설정 파일 실행이 서로 쓴 파일, manifest에 없는 파일은 지우지 않습니다.
+따라서 `oa-gen generate:tanstack` 등 다른 명령이 쓴 파일, `OaManifestManager`로 직접 기록한 파일(`producer`를
+`"generate"`로 넘기지 않은 경우), 다른 설정 파일이나 다른 스펙 파일로 실행한 `oa-gen generate`가 쓴 파일,
+`--spec` 실행과 설정 파일 실행이 서로 쓴 파일, manifest에 없는 파일은 지우지 않습니다.
 설정 파일이나 스펙 파일의 이름 또는 위치를 바꾸면 이전 경로로 기록된 파일은 새 실행의 것이 아니므로 남습니다. 필요
 없으면 직접 지웁니다.
 
-codegen 0.9.0보다 먼저 기록된 항목에는 `producer`가 없고, 어느 설정 파일이나 스펙 파일로 실행해 썼는지도 남아 있지
-않습니다. 그 가운데 `tag`가 있는 항목은 이전 `oa-gen generate`가 `tag`에 spec target `id`를 적어 기록한 것이므로,
-설정 파일로 실행해 그 `id`의 spec target을 생성하는 실행이 2번의 설정 파일 조건 없이 소유합니다(이전 `--spec`
-실행이 같은 `id`로 쓴 항목도 포함). `kind`가 `"guards"`인 항목은 설정 파일로 실행하면서 `guards`를 설정한 실행이
+codegen 0.9.0부터는 모든 기록에 `producer`가 들어가므로, `producer`가 없는 항목은 0.9.0보다 먼저 기록된 것입니다.
+이런 항목에는 어느 설정 파일이나 스펙 파일로 실행해 썼는지도 남아 있지 않습니다. 그 가운데 `tag`가 있는 항목은
+이전 `oa-gen generate`가 `tag`에 spec target `id`를 적어 기록한 것이므로, 설정 파일로 실행해 그 `id`의 spec target을
+생성하는 실행이 2번의 설정 파일 조건 없이 소유합니다(이전 `--spec` 실행이 같은 `id`로 쓴 항목도 포함). `kind`가 `"guards"`인 항목은 설정 파일로 실행하면서 `guards`를 설정한 실행이
 소유합니다. `--spec` 실행은 이전 항목을 소유하지 않습니다. `--spec` 실행의 spec target `id`는 스펙 파일 이름일 뿐이라
 어느 스펙 파일이나 설정의 출력인지 가릴 수 없기 때문입니다. 그래서 업그레이드 전 `--spec` 실행이 쓴 파일 가운데 업그레이드
 뒤 다시 쓰지 않는 파일(예: 다른 `--out-dir`로 실행했을 때의 이전 출력)은 남으므로, 필요 없으면 직접 지웁니다. 그 밖의
-항목(이전 `generate:tanstack` 출력 등)은 지우지 않습니다. 이전 항목은 같은 파일을 다시 쓸 때 새 필드로 바뀝니다.
+항목(이전 `generate:tanstack` 출력 등)은 지우지 않습니다. 0.9.0 이전에 `OaManifestManager`로 직접 `tag`를 붙이거나
+`kind: "guards"`로 기록한 항목은 이전 `oa-gen generate`의 기록과 구별할 수 없어 같은 규칙을 따릅니다. 이전 항목은 같은
+파일을 다시 쓸 때 새 필드로 바뀝니다.
 
 요약 출력의 `Artifacts Pruned`에 지운 파일 수와 경로가 나옵니다. `pruneOrphans: false`면
 `Artifacts Pruned:    0 (outputRouting.pruneOrphans: false)`로 표시합니다.

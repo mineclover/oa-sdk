@@ -16,12 +16,14 @@ export const DEFAULT_BANNER_MARKERS: readonly string[] = [
 ]
 
 /**
- * `producer` values that `oa-gen` commands record in `.oa-manifest.json`: the
- * name of the command that wrote the artifact.
+ * `producer` values recorded in `.oa-manifest.json`: the `oa-gen` command that
+ * wrote the artifact, or `unspecified` for an artifact whose
+ * `writeArtifacts` caller named no producer.
  */
 export const MANIFEST_PRODUCERS = {
   generate: 'generate',
   generateTanstack: 'generate:tanstack',
+  unspecified: 'unspecified',
 } as const
 
 /**
@@ -35,8 +37,19 @@ export interface ManifestArtifact {
   /** Routing tag the path was dispatched with. `oa-gen generate` sets it to the spec target id. */
   tag?: string | undefined
   /**
-   * Command that wrote the artifact (see `MANIFEST_PRODUCERS`). Records written
-   * before codegen 0.9.0 have none; `manifestArtifactOwner` infers it for them.
+   * Who wrote the artifact: `"generate"` for `oa-gen generate`,
+   * `"generate:tanstack"` for `oa-gen generate:tanstack`, otherwise the
+   * `producer` the `writeArtifacts` caller passed, or `"unspecified"` when it
+   * passed none. `oa-gen generate` prunes only records whose producer is
+   * `"generate"` and whose `configFile` or `specFile` is the file its run
+   * started from.
+   *
+   * Absent only in records written before codegen 0.9.0. `oa-gen generate`
+   * treats such a record as its own when it has a `tag` (which `oa-gen generate`
+   * set to the spec target id) or its `kind` is `"guards"`, and may prune it in
+   * a run from a configuration file that generates that spec target, or for
+   * guards one that configures `guards`. It never prunes any other record
+   * without a producer.
    */
   producer?: string | undefined
   /**
@@ -81,12 +94,16 @@ export interface ManifestArtifactOwner {
 /**
  * Owner of a manifest record.
  *
- * Records written before codegen 0.9.0 carry no `producer`. Their writers are
- * known: only `oa-gen generate` set `tag` (always to the spec target id) and
- * only it wrote `guards` records, while `oa-gen generate:tanstack` set neither.
- * A legacy record with a `tag` is therefore owned by `oa-gen generate` for that
+ * From codegen 0.9.0 on `writeArtifacts` records a `producer` on every artifact
+ * (`MANIFEST_PRODUCERS.unspecified` when its caller names none), so a record
+ * without one was written before 0.9.0. Among the `oa-gen` commands of that
+ * time only `oa-gen generate` set `tag` (always to the spec target id) and only
+ * it wrote `guards` records, while `oa-gen generate:tanstack` set neither. A
+ * legacy record with a `tag` is therefore owned by `oa-gen generate` for that
  * target, a legacy `guards` record by `oa-gen generate` for no single target,
- * and any other legacy record by an unknown producer.
+ * and any other legacy record by an unknown producer. A pre-0.9.0 record that
+ * another `writeArtifacts` caller wrote with a `tag` or as `guards` cannot be
+ * told apart from one of `oa-gen generate`.
  */
 export function manifestArtifactOwner(artifact: ManifestArtifact): ManifestArtifactOwner {
   if (artifact.producer !== undefined) {
@@ -132,7 +149,12 @@ export interface WriteArtifactInput {
   content: string
   /** Routing tag the path was dispatched with */
   tag?: string | undefined
-  /** Command that writes the artifact (see `MANIFEST_PRODUCERS`) */
+  /**
+   * Who writes the artifact, recorded as `ManifestArtifact.producer`. Defaults
+   * to `"unspecified"`. `oa-gen generate` may prune a record only when its
+   * producer is `"generate"`, so leave this out or pass a name of your own to
+   * keep `oa-gen` commands from deleting the files you record.
+   */
   producer?: string | undefined
   /** Configuration file of the run, relative to rootDir (POSIX) */
   configFile?: string | undefined
@@ -302,6 +324,7 @@ export class OaManifestManager {
    * Writes a collection of generated artifacts to disk safely.
    * If a file already exists on disk with identical SHA-256 hash, writing is skipped
    * to preserve filesystem timestamps for incremental build tools.
+   * Each artifact is recorded with its `producer`, or `"unspecified"` when it names none.
    */
   public async writeArtifacts(
     artifacts: WriteArtifactInput[],
@@ -353,7 +376,7 @@ export class OaManifestManager {
         path: relPath,
         kind: art.kind,
         ...(art.tag ? { tag: art.tag } : {}),
-        ...(art.producer ? { producer: art.producer } : {}),
+        producer: art.producer || MANIFEST_PRODUCERS.unspecified,
         ...(art.configFile ? { configFile: art.configFile } : {}),
         ...(art.specFile ? { specFile: art.specFile } : {}),
         ...(art.target ? { target: art.target } : {}),
