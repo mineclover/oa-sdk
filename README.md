@@ -6,7 +6,7 @@ oa-sdk는 API 계약을 관리하는 도구 모음입니다. 사람이 고치는
 - **이미 있는 스키마에서 시작**: 기존 OpenAPI 문서로 바로 검증과 타입 생성을 시작합니다. NestJS·FastAPI가 내보낸 OpenAPI는 `oa-gen collect`로 정규화해 그 서비스의 계약으로 관리합니다.
 - **같은 parser로 해석**: 코드 생성과 mock 서버가 `@oa-sdk/parser` 하나로 route와 `$ref`를 해석합니다.
 - **계약에서 소비자 코드까지**: `oa-gen`이 타입, Zod 스키마, 타입 가드, 클라이언트, TanStack Query 옵션, 핸들러 계약을 만들고, `oa-gen mock`이 같은 계약으로 요청을 검증하는 mock 서버를 띄웁니다.
-- **변경은 기계가 먼저 분류**: `oa-gen diff`와 `oa-gen tsp diff`(`--fail-on-breaking`), `check-artifact`, `drift`가 breaking change, 원본과 어긋난 생성물, runtime drift를 종료 코드로 알립니다. `drift`는 현재 상대 경로 입력에서 drift가 없어도 실패하는 결함이 있어 입력 파일을 절대 경로로 넘깁니다.
+- **변경은 기계가 먼저 분류**: `oa-gen diff`와 `oa-gen tsp diff`(`--fail-on-breaking`), `check-artifact`, `drift`가 breaking change, 원본과 어긋난 생성물, runtime drift를 종료 코드로 알립니다.
 
 oa-sdk는 비즈니스 로직을 대신 쓰거나 API를 호스팅하지 않습니다. 공개 패키지는 Node.js 22 이상에서 동작하며, 설치와 첫 실행은 [Quick Start](./docs/guides/quick-start.md)를 따릅니다. 가치별 동작 방식과 근거, oa-sdk가 하지 않는 일은 [가이드 색인](./docs/guides/README.md#oa-sdk가-해결하는-문제와-핵심-가치)에 정리했습니다. 패키지 범위와 신규 작업 승인 기준은 [Platform Scope](./docs/internal/platform-scope.md)를 따릅니다.
 
@@ -200,7 +200,7 @@ node packages/codegen/dist/cli/index.js upgrade --spec contracts/openapi.normali
 node packages/codegen/dist/cli/index.js diff --base old.yaml --head packages/schemas/src/.merged.yaml --fail-on-breaking
 node packages/codegen/dist/cli/index.js check-artifact --head packages/schemas/src/.merged.3.1.yaml --artifact packages/schemas/dist/openapi.yaml
 node packages/codegen/dist/cli/index.js check-artifact --head packages/schemas/src/.merged.yaml --target packages/schemas/src/targets/local-parity-api.yaml --artifact packages/schemas/src/.builder/local-parity-api.yaml
-node packages/codegen/dist/cli/index.js drift --runtime-openapi "$PWD/runtime.yaml" --managed-openapi "$PWD/packages/schemas/src/.merged.yaml" # 상대 경로는 drift가 없어도 실패하는 결함이 있어 절대 경로로 넘김
+node packages/codegen/dist/cli/index.js drift --runtime-openapi runtime.yaml --managed-openapi packages/schemas/src/.merged.yaml
 node packages/codegen/dist/cli/index.js inventory --spec packages/schemas/src/.merged.yaml --format markdown
 node packages/codegen/dist/cli/index.js behavior-query --behavior-db ./.oa-cache/behavior.sqlite --mode summary-by-behavior-decision-signal --format json
 node packages/codegen/dist/cli/index.js duplicate-review --fragments packages/schemas/src/fragments --policy report --format markdown

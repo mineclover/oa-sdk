@@ -277,7 +277,7 @@ URL mode:
 ```bash
 oa-gen drift \
   --runtime-openapi-url http://localhost:{port}/openapi.json \
-  --managed-openapi "$PWD/{path-to-managed-openapi.yaml}" \
+  --managed-openapi {path-to-managed-openapi.yaml} \
   --format json \
   > "$OUT/$SERVICE.runtime-drift.json"
 ```
@@ -288,7 +288,7 @@ Authenticated URL mode:
 oa-gen drift \
   --runtime-openapi-url https://api.example.test/openapi.json \
   --runtime-header "Authorization: Bearer $OPENAPI_TOKEN" \
-  --managed-openapi "$PWD/{path-to-managed-openapi.yaml}" \
+  --managed-openapi {path-to-managed-openapi.yaml} \
   --format json \
   > "$OUT/$SERVICE.runtime-drift.json"
 ```
@@ -299,8 +299,8 @@ File mode:
 
 ```bash
 oa-gen drift \
-  --runtime-openapi "$PWD/{path-to-runtime-openapi.yaml}" \
-  --managed-openapi "$PWD/{path-to-managed-openapi.yaml}" \
+  --runtime-openapi {path-to-runtime-openapi.yaml} \
+  --managed-openapi {path-to-managed-openapi.yaml} \
   --format json \
   > "$OUT/$SERVICE.runtime-drift.json"
 ```

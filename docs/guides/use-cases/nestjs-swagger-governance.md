@@ -225,12 +225,12 @@ oa-gen typegen \
 
 ## Step 7: 런타임 Drift 확인
 
-서버를 실행 중인 상태에서 실제 응답하는 OpenAPI와 baseline을 비교한다. `--managed-openapi`와 파일 입력의 `--runtime-openapi`에는 절대 경로를 준다. 상대 경로를 주면 drift가 없어도 `Invalid behavior record: ... must match between input and target`로 종료 코드 1이 나는 알려진 결함이 있다([CLI 명령 레퍼런스](../cli-command-reference.md#전체-명령-색인)).
+서버를 실행 중인 상태에서 실제 응답하는 OpenAPI와 baseline을 비교한다.
 
 ```bash
 oa-gen drift \
   --runtime-openapi-url http://localhost:3000/openapi.json \
-  --managed-openapi "$PWD/contracts/v1.openapi.yaml" \
+  --managed-openapi contracts/v1.openapi.yaml \
   --format markdown
 ```
 
@@ -244,7 +244,7 @@ Drift 발생 시나리오:
 oa-gen drift \
   --runtime-openapi-url https://api.staging.example.com/openapi.json \
   --runtime-header "Authorization: Bearer $STAGING_TOKEN" \
-  --managed-openapi "$PWD/contracts/v1.openapi.yaml"
+  --managed-openapi contracts/v1.openapi.yaml
 ```
 
 ---

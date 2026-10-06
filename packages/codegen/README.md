@@ -48,16 +48,13 @@ Common commands:
 | `oa-gen generate` | Everything `oa.config.ts` declares, including handler contracts (`*.contract.ts`) |
 | `oa-gen mock` | Mock server that validates requests against the contract |
 | `oa-gen diff`, `oa-gen tsp diff` | Breaking-change classification for OpenAPI files and TypeSpec sources |
-| `oa-gen check-artifact`, `oa-gen drift` | Generated OpenAPI freshness and runtime drift checks (`drift` needs absolute paths, see below) |
+| `oa-gen check-artifact`, `oa-gen drift` | Generated OpenAPI freshness and runtime drift checks |
 | `oa-gen collect`, `oa-gen scaffold-governance` | External OpenAPI intake and governance scaffolding |
 | `oa-gen surface` | Surface IR, Forge projection and per-command OpenAPI Overlays |
 
-Known defect: `oa-gen drift` and `oa-gen drift:live` currently exit with code 1 whenever
-`--managed-openapi` or `--runtime-openapi` is a relative path, even when there is no drift. They
-print `Invalid behavior record: ... must match between input and target`. Pass absolute paths
-instead, for example `--managed-openapi "$PWD/openapi.yaml"`. With absolute paths the command exits
-with code 0 when the documents match and code 1 when it reports drift. The scripts that
-`oa-gen scaffold-governance` writes already pass absolute paths.
+`oa-gen drift` exits with code 0 when the managed and runtime OpenAPI documents match, and with
+code 1 when it reports drift or cannot read the runtime OpenAPI. `--managed-openapi` and
+`--runtime-openapi` accept relative paths, resolved from the project root, as well as absolute paths.
 
 No `oa-gen` command writes a Fastify, Express, Hono, or Elysia router file. When you need router
 code, call `generateRouter()` from `@oa-sdk/router` in a build script. In the oa-sdk source
