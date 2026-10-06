@@ -108,7 +108,7 @@ flowchart TD
 - **결과물**: 원본을 바꿔 다시 생성해도 구현 파일은 그대로인 구조. 계약이 바뀌어 구현이 맞지 않으면 `tsc`가 알려 줍니다.
 
 ### Tier 3: CI gate
-- **하는 일**: PR마다 이전 계약과 비교해 breaking change가 있으면 실패시키고(§6.2), 커밋된 생성물이 원본과 같은지 `oa-gen check-artifact`로 확인합니다. OpenAPI 문서는 `oa-gen diff`(파일 경로 두 개), TypeSpec 원본은 `oa-gen tsp diff`(파일, 디렉터리, git ref)로 비교합니다.
+- **하는 일**: PR마다 이전 계약과 비교해 breaking change가 있으면 실패시키고(§6.2), 커밋된 생성물이 원본과 같은지 `oa-gen check-artifact`로 확인합니다. OpenAPI 문서는 `oa-gen diff`(파일 경로 두 개), TypeSpec 원본은 `oa-gen tsp diff`로 비교합니다. `tsp diff`의 `--base`에는 파일, 디렉터리, git ref, `<ref>:<path>`를 주고, `--head`에는 파일 경로나 `<ref>:<path>`를 줍니다. `--head HEAD`처럼 경로 없는 git ref는 현재 base를 자기 자신과 비교하는 결함이 있어 쓰지 않습니다(§6.2).
 - **결과물**: breaking change와 원본과 어긋난 생성물이 리뷰 전에 종료 코드로 드러납니다.
 
 ### 3.4 아키타입 선택 (Archetype)
@@ -665,7 +665,7 @@ jobs:
 ```
 
 - `oa-gen diff`는 요청·응답·파라미터 스키마가 조금이라도 바뀌면 선택 필드 추가도 breaking으로 판정하는 보수적 규칙입니다. `--fail-on-breaking`을 CI에 걸면 호환 변경에서도 실패할 수 있습니다.
-- `oa-gen tsp diff`는 TypeSpec 원본을 의미 단위로 비교해 선택 속성 추가 같은 호환 변경을 non-breaking으로 구분합니다. git ref만 주면 커밋된 내용을 비교하므로, 위처럼 head에는 파일 경로를 줍니다.
+- `oa-gen tsp diff`는 TypeSpec 원본을 의미 단위로 비교해 선택 속성 추가 같은 호환 변경을 non-breaking으로 구분합니다. git ref는 `git archive`로 그 커밋을 꺼내므로 작업 트리를 보지 않습니다. 그래서 위처럼 `--head`에는 파일 경로(작업 트리, CI checkout)를 주고, 두 커밋을 비교할 때는 `--base HEAD~1:main.tsp --head HEAD:main.tsp`처럼 `<ref>:<path>`를 줍니다. `--head HEAD`처럼 경로 없는 git ref는 현재 base를 자기 자신과 비교하는 결함이 있어 쓰지 않습니다(알려진 결함). `--base`가 git ref이면 breaking change가 있어도 `No semantic changes detected`와 종료 코드 0을 내므로 `--fail-on-breaking` gate가 항상 통과합니다.
 - `oa-gen check-artifact`는 커밋한 `<id>.openapi.json`이 원본에서 다시 만든 결과와 다르면 실패합니다. 생성물을 커밋하지 않는 프로젝트에서는 이 단계를 뺍니다.
 - base 브랜치에 `openapi.yaml`이 아직 없는 첫 PR에서는 `git show`가 실패하므로, 그 경우를 건너뛰는 조건을 추가합니다.
 
