@@ -72,21 +72,44 @@ Without `typesImport` the client is untyped: methods take `Record<string, string
 Pass the module that `oa-gen typegen` writes as `typesImport`. The client then uses those
 types, and also exports per-operation error types and guards.
 
-The TanStack Query code needs `typesImport` too, but not the typegen module itself. It imports an
-`<Operation>ClientError` type for every operation, and an `<Operation>Response` type for streaming
-operations, and typegen writes neither. Point it at a module that re-exports the typegen output
-and adds those names:
+The TanStack Query code needs `typesImport` too, but not the typegen module itself. Its import line
+names types that typegen does not always write:
+
+- `<Operation>ClientError` for every operation. typegen never writes it.
+- `<Operation>Response` for every operation that declares a response. typegen writes it only when
+  the success response (the lowest 2xx status, or `default` when there is none) has an
+  `application/json` schema. It is missing for a streaming response, a response without content
+  (a `204`, for example), and any other media type such as `text/csv`.
+- `<Operation>Body` for every operation with a request body. typegen writes it only for an
+  `application/json` body. It is missing for `application/octet-stream`, `multipart/form-data` and
+  any other media type.
+
+Point it at a module that re-exports the typegen output and adds the missing names. Copy the names
+from the import line of the generated `tanstack-query.ts` and add every one that `types.ts` does not
+export. For an API with `listUsers`, `getUserById`, a streaming `streamAuditEvents`, a `deleteUser`
+that answers `204` without content, and an `uploadAvatar` that takes an `application/octet-stream`
+body and answers `204`:
 
 ```ts
 // src/api/wire-types.ts
 export * from './types.js'
 import type { ClientError } from './client.js'
-// One alias per operation. Copy the names from the import line of the generated tanstack-query.ts.
-export type GetUserByIdClientError = ClientError
+// Every operation
 export type ListUsersClientError = ClientError
-// typegen writes no response type for a streaming operation
+export type GetUserByIdClientError = ClientError
+export type StreamAuditEventsClientError = ClientError
+export type DeleteUserClientError = ClientError
+export type UploadAvatarClientError = ClientError
+// Success responses without an application/json schema
 export type StreamAuditEventsResponse = unknown
+export type DeleteUserResponse = void
+export type UploadAvatarResponse = void
+// Request bodies that are not application/json
+export type UploadAvatarBody = unknown
 ```
+
+Alias a missing `<Operation>Response` to `void` when the success response has no content, and to
+`unknown` otherwise. Alias a missing `<Operation>Body` to `unknown`.
 
 For an operation that documents error responses, the typed client exports its own
 `<Operation>ClientError`; re-export that instead of the alias
@@ -145,9 +168,14 @@ imports `JsonPrimitive` and `Resolved` from `@oa-sdk/client`, `@tanstack/react-q
 
 ## Known limitations
 
-- `generateTanstackQuery({ typesImport })` with the plain `oa-gen typegen` output does not compile: the
-  generated code imports `<Operation>ClientError` for every operation and `<Operation>Response` for
-  streaming operations, which typegen does not emit (TS2305/TS2724). A typed client combined with
+- `generateTanstackQuery({ typesImport })` with the plain `oa-gen typegen` output does not compile
+  (TS2305/TS2724). The generated code imports `<Operation>ClientError` for every operation,
+  `<Operation>Response` for every operation that declares a response, and `<Operation>Body` for every
+  operation with a request body. typegen never emits `<Operation>ClientError`, emits
+  `<Operation>Response` only for an `application/json` success response, and emits
+  `<Operation>Body` only for an `application/json` request body, so streaming responses, responses
+  without content (`204`) and other media types also leave names missing.
+  The `wire-types.ts` module under [With types](#with-types) adds them. A typed client combined with
   TanStack Query code generated without `typesImport` does not compile either (TS2345: the untyped
   code passes `Record<string, string>` and `unknown` to the typed methods). Use one of the two
   combinations under [Generating a client](#generating-a-client).
