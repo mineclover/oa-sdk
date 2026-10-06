@@ -527,7 +527,8 @@ All documented CLI workflows correspond to verified commands registered in `pack
 
 - **TypeSpec AST Semantic Diff**:
   ```bash
-  oa-gen tsp diff --base HEAD~1 --head HEAD --fail-on-breaking
+  # --head에는 파일 경로나 <ref>:<path>를 준다(경로 없는 --head HEAD는 base를 자기 자신과 비교하는 알려진 결함이 있다)
+  oa-gen tsp diff --base HEAD~1:packages/schemas/typespec/main.tsp --head HEAD:packages/schemas/typespec/main.tsp --fail-on-breaking
   ```
 - **TypeSpec Mock Server Hot-Reload**:
   ```bash

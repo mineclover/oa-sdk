@@ -138,12 +138,14 @@ Missing required path 또는 forbidden emitted path는 non-zero로 종료한다.
 
 ## 5. Runtime drift 확인
 
+`--managed-openapi`와 파일 입력의 `--runtime-openapi`에는 절대 경로를 준다. 상대 경로를 주면 drift가 없어도 `Invalid behavior record: ... must match between input and target`로 종료 코드 1이 나는 알려진 결함이 있다([CLI 명령 레퍼런스](../cli-command-reference.md#전체-명령-색인)).
+
 파일 입력:
 
 ```bash
 node packages/codegen/dist/cli/index.js drift \
-  --runtime-openapi runtime.openapi.yaml \
-  --managed-openapi packages/schemas/src/.merged.yaml \
+  --runtime-openapi "$PWD/runtime.openapi.yaml" \
+  --managed-openapi "$PWD/packages/schemas/src/.merged.yaml" \
   --format json \
   > artifacts/openapi-governance/runtime-drift.json
 ```
@@ -153,7 +155,7 @@ URL 입력:
 ```bash
 node packages/codegen/dist/cli/index.js drift \
   --runtime-openapi-url http://localhost:3000/openapi.json \
-  --managed-openapi packages/schemas/src/.merged.yaml \
+  --managed-openapi "$PWD/packages/schemas/src/.merged.yaml" \
   --format json \
   > artifacts/openapi-governance/runtime-drift.json
 ```
@@ -164,7 +166,7 @@ node packages/codegen/dist/cli/index.js drift \
 node packages/codegen/dist/cli/index.js drift \
   --runtime-openapi-url https://api.example.test/openapi.json \
   --runtime-header "Authorization: Bearer $OPENAPI_TOKEN" \
-  --managed-openapi packages/schemas/src/.merged.yaml \
+  --managed-openapi "$PWD/packages/schemas/src/.merged.yaml" \
   --format json \
   > artifacts/openapi-governance/runtime-drift.json
 ```

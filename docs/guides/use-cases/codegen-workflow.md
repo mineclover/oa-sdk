@@ -266,8 +266,8 @@ node packages/codegen/dist/cli/index.js check-artifact \
   --target packages/schemas/src/targets/local-parity-api.yaml \
   --artifact packages/schemas/src/.builder/local-parity-api.yaml
 node packages/codegen/dist/cli/index.js drift \
-  --runtime-openapi runtime.openapi.yaml \
-  --managed-openapi packages/schemas/src/.merged.yaml \
+  --runtime-openapi "$PWD/runtime.openapi.yaml" \
+  --managed-openapi "$PWD/packages/schemas/src/.merged.yaml" \
   --format markdown
 # Definition Builder fallback/reference governance
 node packages/codegen/dist/cli/index.js duplicate-review \

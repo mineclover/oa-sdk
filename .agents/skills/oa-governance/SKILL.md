@@ -454,7 +454,8 @@ pnpm personas:coverage
 
 ### TypeSpec AST 시맨틱 차이 및 브레이킹 체인지 검사
 ```bash
-oa-gen tsp diff --base origin/main --head HEAD --fail-on-breaking
+# --head에는 파일 경로나 <ref>:<path>를 준다. 경로 없는 git ref(--head HEAD)는 base를 자기 자신과 비교하는 알려진 결함이 있다.
+oa-gen tsp diff --base origin/main:packages/schemas/typespec/main.tsp --head packages/schemas/typespec/main.tsp --fail-on-breaking
 ```
 
 ### TypeSpec 인메모리 핫 리로드 목 서버 구동

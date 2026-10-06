@@ -118,7 +118,8 @@ oa-gen generate:tanstack --spec packages/schemas/src/.merged.yaml --output src/a
 oa-gen validate --spec packages/schemas/src/.merged.yaml --require-32
 
 # TypeSpec AST 시맨틱 차이 및 브레이킹 체인지 검사
-oa-gen tsp diff --base origin/main --head HEAD --fail-on-breaking
+# --head에는 파일 경로나 <ref>:<path>를 준다. 경로 없는 git ref(--head HEAD)는 base를 자기 자신과 비교하는 알려진 결함이 있다.
+oa-gen tsp diff --base origin/main:packages/schemas/typespec/main.tsp --head packages/schemas/typespec/main.tsp --fail-on-breaking
 
 # OpenAPI 스펙 기반 실시간 무중단 핫 리로드 Mock HTTP 서버 구동 (100ms 디바운스, 파싱 에러 쉴딩, 원자적 라우트 교체)
 oa-gen mock --spec packages/schemas/dist/openapi.yaml --watch

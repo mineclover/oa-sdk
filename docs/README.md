@@ -16,8 +16,8 @@
 ├─────────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │ 2. 다운스트림 소비자 (Downstream Consumer)                                                              │
 │    • 순수 타입/가드: oa-gen typegen ➔ standalone-guards (MV3 CSP 안전, 초고속 검증)                    │
-│    • 프론트엔드: Fetch 클라이언트 초기화 ➔ 듀얼 콜 컨벤션 ➔ TanStack Query v5 3계층 (react/vue/svelte)  │
-│    • 백엔드 서비스: 순수 핸들러 계약 (*.contract.ts) ➔ 비즈니스 서비스 ➔ 고속 라우터 바인더             │
+│    • 프론트엔드: Fetch 클라이언트 초기화 ➔ 듀얼 콜 컨벤션 ➔ TanStack Query v5 (React)                  │
+│    • 백엔드 서비스: 순수 핸들러 계약 (*.contract.ts) ➔ 비즈니스 서비스 ➔ 라우터 코드(generateRouter)   │
 ├─────────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │ 3. CLI 및 파이프라인 자동화 (CLI Automation)                                                            │
 │    CLI 명령 레퍼런스 ➔ CLI 거버넌스 모델 ➔ 루트 자동 탐색 (--root) ➔ oa-gen diff & drift:check         │
@@ -61,7 +61,7 @@
 | 전체 가이드 색인 지도와 역할별 추천 경로 확인 | [가이드 종합 색인 및 아키텍처 지도](./guides/README.md) |
 | TypeSpec(.tsp) 기반 5분 빠른 API 엔드포인트 선언 및 실시간 Mock 테스트 | [TypeSpec 5분 퀵스타트](./guides/typespec/01-quickstart-5min.md) |
 | HTTP 엔드포인트 없는 순수 데이터 모델/DTO 선언 및 가드 생성 | [순수 타입 선언 및 가드 실무 가이드](./guides/pure-types-and-guards.md) |
-| React/Vue 프론트엔드에서 API 클라이언트 및 TanStack Query 훅 소비 | [프론트엔드 SDK 및 쿼리 소비 가이드](./guides/client-and-query-consumption.md) |
+| React 프론트엔드에서 API 클라이언트 및 TanStack Query 훅 소비 | [프론트엔드 SDK 및 쿼리 소비 가이드](./guides/client-and-query-consumption.md) |
 | 백엔드에서 덮어쓰기 위험 없이 비즈니스 핸들러 구현 | [백엔드 핸들러 계약 구현 가이드](./guides/backend-handler-contracts.md) |
 | 공개 OpenAPI 문서를 검증하고 TypeScript 타입을 생성 | [Quick Start](./guides/quick-start.md) |
 | 상태 유지 Mock 서버 구동 및 프론트엔드 병렬 개발 | [Mock 서버 사용법](./guides/mock-server-usage.md) |

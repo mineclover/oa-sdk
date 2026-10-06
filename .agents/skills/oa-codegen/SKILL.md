@@ -443,7 +443,8 @@ oa-gen typegen --spec packages/schemas/typespec/main.tsp --output packages/model
 oa-gen tsp-scaffold --route /orders --crud --envelope --file packages/schemas/typespec/orders.tsp
 
 # 10. TypeSpec AST 시맨틱 차이점 및 파괴적 변경사항 비교 (0.5초 초고속 분석)
-oa-gen tsp diff --base origin/main --head HEAD --fail-on-breaking
+# --head에는 파일 경로나 <ref>:<path>를 준다. 경로 없는 git ref(--head HEAD)는 base를 자기 자신과 비교하는 알려진 결함이 있다.
+oa-gen tsp diff --base origin/main:packages/schemas/typespec/main.tsp --head packages/schemas/typespec/main.tsp --fail-on-breaking
 
 # 11. 스펙 차이점 및 파괴적 변경사항 비교
 oa-gen diff --base spec-v1.yaml --head spec-v2.yaml --fail-on-breaking
