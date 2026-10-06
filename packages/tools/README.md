@@ -7,9 +7,11 @@ You write each tool yourself with `defineTool()` or `createSchemaTool()`. The pa
 generate tools from an OpenAPI or TypeSpec contract; `createSchemaTool()` wraps a JSON Schema object
 you pass in, such as a component schema emitted from your TypeSpec or OpenAPI source.
 
-> This README describes the package source, which includes changes made after 0.1.1, the version
-> currently on npm. They are listed in [Changes since 0.1.1](#changes-since-011); several of them
-> change default behavior.
+> npm has 0.1.1. This README describes the next release, which is not on npm yet. Sections, options,
+> and exports marked *(next release)* are not in 0.1.1. If you install 0.1.1, read
+> [Using 0.1.1](#using-011) first: its HTTP servers have none of the
+> [HTTP boundary](#http-boundary-next-release) checks, so they accept any `Origin`, have no bearer
+> token option, and answer a thrown tool error with the exception message.
 
 ---
 
@@ -19,13 +21,14 @@ you pass in, such as a component schema emitted from your TypeSpec or OpenAPI so
 npm install @oa-sdk/tools
 ```
 
-Requires Node.js 22 or later.
+Until the next release this installs 0.1.1, which also needs `@oa-sdk/chunk-stream-ui`
+([Using 0.1.1](#using-011)). Requires Node.js 22 or later.
 
 | Optional package | When you need it |
 |---|---|
 | `zod` (`>=3.0.0`, optional peer) | Tools whose `inputSchema` is a Zod schema |
-| `@oa-sdk/chunk-stream-ui` | `createChunkStreamTools()` building a stream from `getDocument`, and type-checking with `skipLibCheck: false` (its declarations import types from it). Not a dependency; install it yourself |
-| `@oa-sdk/peer-transport` | Used by `createWebMcpPeerApp()` when it can be imported next to this package; otherwise a built-in client is used. Not a dependency, and not on npm yet |
+| `@oa-sdk/chunk-stream-ui` | `createChunkStreamTools()` building a stream from `getDocument`, and type-checking with `skipLibCheck: false` (its declarations import types from it). Not a dependency; install it yourself. 0.1.1 needs it to load at all |
+| `@oa-sdk/peer-transport` | *(next release)* Used by `createWebMcpPeerApp()` when it can be imported next to this package; otherwise a built-in client is used. Not a dependency, and not on npm yet |
 
 ---
 
@@ -62,7 +65,7 @@ export const driveUploadTool = createSchemaTool({
     command: 'upload',
     arguments: [{ name: 'name', description: 'File name', required: true }],
   },
-  async execute(ctx, input) {
+  execute: async (ctx, input) => {
     // input has passed JSON Schema validation
     return `File uploaded: ${input.name}`
   },
@@ -71,12 +74,14 @@ export const driveUploadTool = createSchemaTool({
 const app = createToolApp({ name: 'drive-tools', version: '1.0.0' }).tools(driveUploadTool)
 
 // await app.runMcpStdio()            // MCP over stdio (Claude Desktop, Cursor, ...)
-// await app.serveMcp({ port: 3333 }) // MCP over HTTP (stateless)
-// await app.serveApi({ port: 3000 }) // REST API + OpenAPI + Swagger UI + MCP endpoint
+// await app.serveMcp({ port: 3333 }) // MCP over HTTP
+// await app.serveApi({ port: 3000 }) // REST API + OpenAPI + Swagger UI (+ MCP endpoint, next release)
 // await app.runCli()                 // Commander CLI
 ```
 
-Handlers are always called as `execute(ctx, input)`. Wrap a handler written input-first with
+Handlers are called as `execute(ctx, input)`. 0.1.1 instead picks the argument order from the
+handler's source text ([Using 0.1.1](#using-011)); the arrow function above works with both
+versions. *(next release)* Wrap a handler written input-first with
 `adaptInputFirstHandler((input, ctx) => ...)`.
 
 ### Interactive CLI prompts
@@ -91,7 +96,7 @@ File uploaded: my-file.txt
 
 ---
 
-## MCP over HTTP
+## MCP over HTTP *(next release)*
 
 `McpServerInstance.serveHttp()`, `ToolApp.serveMcp()`, and `createHttpApp()` serve a stateless MCP
 2026-07-28 JSON-RPC endpoint at `POST /mcp`:
@@ -115,13 +120,16 @@ File uploaded: my-file.txt
 | `/openapi.json`, `/api/v1/openapi.json` | OpenAPI 3.1 document of the routes |
 | `/docs`, `/api/v1/docs` | Swagger UI |
 | `/health` | `{ status, service, version, toolsCount }` |
-| `POST /mcp` | The MCP endpoint above |
+| `POST /mcp` | *(next release)* The MCP endpoint above |
 
-Route statuses follow `api.statusCodes`: `created` for a `POST` tool that sets it, otherwise `success`
-(default 200), `validationError` (default 400) for invalid input, and `serverError` (default 500)
-when the tool throws.
+*(next release)* Route statuses follow `api.statusCodes`: `created` for a `POST` tool that sets it,
+otherwise `success` (default 200), `validationError` (default 400) for invalid input, and
+`serverError` (default 500) when the tool throws. 0.1.1 ignores `api.statusCodes`.
 
-## HTTP boundary
+`serveApi()`, `serveHttpApp()`, `serveMcp()`, and `serveHttp()` listen on `0.0.0.0` unless you pass
+`hostname`.
+
+## HTTP boundary *(next release)*
 
 Both the REST app and the MCP HTTP server apply the same request checks:
 
@@ -149,45 +157,70 @@ Both the REST app and the MCP HTTP server apply the same request checks:
 - `createSchemaTool({ name, description, schema, pick?, omit?, overrides?, extend?, execute, ... })`:
   a tool built from a JSON Schema object. `pick`/`omit` select properties (`omit` also cleans
   `required`), `overrides` patches property schemas, `extend` adds properties.
-- `adaptInputFirstHandler(handler)`, `executeTool()`, `composeToolMiddleware()`, `createToolContext()`.
+- `executeTool()`, `composeToolMiddleware()`, `createToolContext()`; *(next release)*
+  `adaptInputFirstHandler(handler)`.
 
 ### `createToolApp(config)` → `ToolApp`
 
 `tools(...defs)`, `getTools()`, `getTool(name)`, `buildMcp(options?)`, `runMcpStdio(options?)`,
-`serveMcp(options?)` (resolves with the Node `http.Server`), `mountMcpRoute(app, path?, options?)`,
-`buildCli(options?)`, `runCli(argv?, options?)`, `buildApi(options?)`, `serveApi(options?)`.
+`serveMcp(options?)`, `buildCli(options?)`, `runCli(argv?, options?)`, `buildApi(options?)`,
+`serveApi(options?)`. *(next release)* `serveMcp()` takes `McpServerOptions` and resolves with the
+Node `http.Server`; `mountMcpRoute(app, path?, options?)`.
 
 ### MCP
 
 - `createMcpServer(tools, options)` → `McpServerInstance` with `runStdio()`, `serveHttp(options?)`,
-  `dispatcher`, `handleFetch(request)`, `handleNode(req, res)`, `getTools()`.
-  `McpServerOptions`: `name`, `version?`, `description?`, `port?`, `hostname?`, `authToken?`,
-  `allowedOrigins?`, `maxBodyBytes?`, `publicHealth?`.
-- `createStatelessMcpDispatcher()`, `MCP_PROTOCOL_VERSION_2026_07_28`, `McpHeaders`.
+  `getTools()`; *(next release)* `dispatcher`, `handleFetch(request)`, `handleNode(req, res)`.
+  `McpServerOptions`: `name`, `version?`, `description?`, `port?`, `hostname?`; *(next release)*
+  `authToken?`, `allowedOrigins?`, `maxBodyBytes?`, `publicHealth?`.
+- *(next release)* `createStatelessMcpDispatcher()`, `MCP_PROTOCOL_VERSION_2026_07_28`, `McpHeaders`.
 
 ### CLI and HTTP
 
 - `createCli(tools, { name?, version?, description?, outputFormat?, interactive? })` → a Commander
   `Command`; `promptMissingFields()`.
 - `createHttpApp(tools, options)` → Hono app; `serveHttpApp(tools, options)` starts it.
-  `HttpAdapterOptions`: `title?`, `version?`, `description?`, `port?`, `hostname?`, `enableMcp?`,
-  `mcpPath?`, `onListen?`, `authToken?`, `allowedOrigins?`, `maxBodyBytes?`, `publicHealth?`.
-- Boundary helpers: `authorizeToolHttpRequest()`, `readToolJsonRequest()`, `readToolNodeJsonRequest()`,
-  `validateToolHttpOptions()`, `ToolHttpError`.
-- Schema helpers: `createJsonSchemaValidator()`, `validateToolInput()`, `normalizeJsonSchema()`,
-  `isZodSchema()`.
+  `HttpAdapterOptions`: `title?`, `version?`, `description?`, `port?`, `hostname?`, `onListen?`;
+  *(next release)* `enableMcp?`, `mcpPath?`, `authToken?`, `allowedOrigins?`, `maxBodyBytes?`,
+  `publicHealth?`.
+- *(next release)* Boundary helpers: `authorizeToolHttpRequest()`, `readToolJsonRequest()`,
+  `readToolNodeJsonRequest()`, `validateToolHttpOptions()`, `ToolHttpError`.
+- Schema helpers: `validateToolInput()`, `normalizeJsonSchema()`, `isZodSchema()`; *(next release)*
+  `createJsonSchemaValidator()`.
 
 ### Chunk streams and WebMCP peers
 
 - `createChunkStreamTools(options)`, `registerChunkStreamTools(app, options)`.
-- `createWebMcpPeerApp(options)`, `WebMcpPeerBridgeClient`. A present non-array `allowedTools` value
-  in a peer document (including `null`) is treated as an empty allow-list.
+- `createWebMcpPeerApp(options)`, `WebMcpPeerBridgeClient`. *(next release)* A present non-array
+  `allowedTools` value in a peer document (including `null`) is treated as an empty allow-list.
 
 ---
 
-## Changes since 0.1.1
+## Using 0.1.1
 
-These apply from the release after 0.1.1:
+0.1.1 is the version on npm. Compared with this README:
+
+- Install `@oa-sdk/chunk-stream-ui` with it. 0.1.1 imports that package when it loads and fails with
+  `ERR_MODULE_NOT_FOUND` without it:
+
+  ```bash
+  npm install @oa-sdk/tools@0.1.1 @oa-sdk/chunk-stream-ui@0.1.0
+  ```
+
+- Write `execute` as a function whose first parameter is named `ctx`, such as
+  `execute: async (ctx, input) => ...`. 0.1.1 reads the handler's source text and calls it as
+  `execute(input, ctx)` unless the text starts with a `ctx` (or `_ctx`) parameter, so a method
+  `async execute(ctx, input) { ... }` receives the input as `ctx`.
+- The HTTP servers (`serveApi()`, `serveHttpApp()`, `serveMcp()`, `serveHttp()`) do none of the
+  [HTTP boundary](#http-boundary-next-release) checks: no `Origin` check, no `authToken`, no body size
+  limit. A tool that throws reports its exception message (over REST, 500
+  `{ "error": <the exception message> }`), and JSON Schema inputs get only shallow top-level checks.
+  They listen on `0.0.0.0` by default; pass `hostname: '127.0.0.1'` and keep them off untrusted
+  networks.
+- `serveHttp()` and `serveMcp()` serve MCP Streamable HTTP with `Mcp-Session-Id` sessions, and
+  `createHttpApp()` has no MCP endpoint.
+
+### Changes in the next release
 
 - `serveHttp()` serves the stateless MCP 2026-07-28 endpoint described above instead of
   `Mcp-Session-Id` sessions; `/health` reports `protocolVersion` instead of `activeSessions`.
