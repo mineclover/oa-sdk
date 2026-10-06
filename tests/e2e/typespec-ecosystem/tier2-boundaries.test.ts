@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest'
+import { parseDocument } from '@oa-sdk/parser'
 import { compileTypeSpecSnippet, emitOpenApi3Snippet } from './helpers/compiler.js'
 import { startInMemoryMockServer, fetchMock, type MockServerInstance } from './helpers/server.js'
 import { diffSnippets, hasBreakingChanges } from './helpers/diff.js'
@@ -670,7 +671,7 @@ describe('Tier 2: Boundary & Corner Cases (B1-B6)', () => {
       }
     })
 
-    it('T2-B6-4: detects recursive model ref-cycles and handles bounded recursive patterns', async () => {
+    it('T2-B6-4: serves bounded recursive models and diagnoses ref-cycles that never descend into the instance', async () => {
       const source = `
         import "@typespec/http";
         using TypeSpec.Http;
@@ -684,10 +685,54 @@ describe('Tier 2: Boundary & Corner Cases (B1-B6)', () => {
           @route("/categories") op get(): CategoryNode;
         }
       `
+      const categoryRef = '#/components/schemas/CategoryNode'
       const { document, cleanup } = await emitOpenApi3Snippet(source)
       try {
-        expect(document.components.schemas.CategoryNode.properties.subcategories.items.$ref).toBe('#/components/schemas/CategoryNode')
-        await expect(startInMemoryMockServer(document)).rejects.toThrow(/ref-cycle/)
+        const category = document.components.schemas.CategoryNode
+        expect(category.properties.subcategories.items.$ref).toBe(categoryRef)
+
+        // The cycle passes through `items`, so each step validates a nested value
+        // and terminates on every finite instance: valid recursion, no ref-cycle
+        // diagnostic, and the document stays complete.
+        expect(parseDocument(document).resolution).toMatchObject({ status: 'complete', diagnostics: [] })
+        const mock = await startInMemoryMockServer(document)
+        activeServers.push(mock)
+        const res = await fetchMock(mock.url, '/categories')
+        expect(res.status).toBe(200)
+        const body = res.json()
+        expect(body).toEqual(expect.objectContaining({ name: expect.any(String) }))
+        if (body.subcategories !== undefined) expect(Array.isArray(body.subcategories)).toBe(true)
+
+        // Cycles through aliases or same-instance keywords re-evaluate the same
+        // value and never terminate. TypeSpec cannot emit them (circular base
+        // types and self-spreads are compile errors), so they are derived from
+        // the emitted document.
+        const { subcategories: _subcategories, ...nonRecursiveProperties } = category.properties
+        const unboundedCycles: Record<string, { schemas: Record<string, unknown>; refs: string[] }> = {
+          'allOf self-reference': {
+            schemas: { CategoryNode: { ...category, properties: nonRecursiveProperties, allOf: [{ $ref: categoryRef }] } },
+            refs: [categoryRef],
+          },
+          'alias-only cycle': {
+            schemas: {
+              CategoryNode: { $ref: '#/components/schemas/CategoryAlias' },
+              CategoryAlias: { $ref: categoryRef },
+            },
+            refs: [categoryRef, '#/components/schemas/CategoryAlias'],
+          },
+        }
+        for (const [label, { schemas, refs }] of Object.entries(unboundedCycles)) {
+          const unbounded = {
+            ...document,
+            components: { ...document.components, schemas: { ...document.components.schemas, ...schemas } },
+          }
+          const { resolution } = parseDocument(unbounded)
+          expect(resolution.status, label).toBe('partial')
+          expect(resolution.diagnostics.map(d => [d.code, d.ref]), label)
+            .toEqual(expect.arrayContaining(refs.map(ref => ['ref-cycle', ref])))
+          await expect(startInMemoryMockServer(unbounded), label)
+            .rejects.toThrow(/requires complete \$ref resolution; received a partial ParsedDocument: ref-cycle/)
+        }
       } finally {
         await cleanup()
       }
