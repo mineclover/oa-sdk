@@ -210,7 +210,7 @@ Overlay를 Forge/Fern transformer에 전달하는 별도 downstream 단계입니
 
 `oa-gen generate:tanstack`은 OpenAPI 3.1/3.2 명세로부터 TanStack Query v5 기반의 3계층 아티팩트(Tier 1 Query Key Factory, Tier 2 Pure Options Factory, Tier 3 Composition Hooks)를 자동 생성합니다. 생성기는 동반 패키지 `@oa-sdk/client`에서 불러오며, 패키지가 없으면 설치 명령을 출력하고 종료 코드 1로 실패합니다.
 
-> ⚠️ **주의**: 과거 문서에 기재되었던 `--package`, `--client-name`, `--hooks`, `--banner` 플래그는 유효하지 않습니다. 대상 프레임워크 패키지는 `--framework <react|vue|svelte>`를 통해 지정하십시오.
+> ⚠️ **주의**: 과거 문서에 기재되었던 `--package`, `--client-name`, `--hooks`, `--banner` 플래그는 유효하지 않습니다. 대상 프레임워크 패키지는 `--framework <react|vue|svelte>`로 지정합니다. `vue`·`svelte` 출력은 현재 컴파일되지 않습니다(아래 알려진 제한).
 
 | 옵션 | 단축 | 타입 | 기본값 | 설명 |
 | --- | --- | --- | --- | --- |
@@ -223,11 +223,27 @@ Overlay를 Forge/Fern transformer에 전달하는 별도 downstream 단계입니
 | `--client-import <path>` | | `string` | `undefined` | 클라이언트 SDK 모듈 import 지정자 (예: `@oa-sdk/client` 또는 상대 경로) |
 | `--split` | | `boolean` | `false` | 산출물을 `keys.ts`, `queries.ts`, `hooks.ts`로 개별 분할 방출 |
 
-`--output` 디렉터리에는 기본으로 키·옵션·훅을 모두 담은 `tanstack-query.ts` 한 파일을 씁니다. 이 파일이 import하는 생성 파일은 같은 디렉터리의 `./client.js`(`oa-gen generate:client`로 생성)뿐이고, 훅을 담으므로 첫머리에 `'use client'` 지시문이 있습니다. `--split`은 `keys.ts`, `queries.ts`(옵션, `'use client'` 없음), `hooks.ts`(`'use client'`)를 쓰고, `queries.ts`와 `hooks.ts`는 `./client.js`와 앞 계층 파일(`./keys.js`, `./queries.js`)을 import합니다. Next.js Server Component처럼 `'use client'` 모듈을 import할 수 없는 곳에서는 `--split`의 `queries.ts`를 쓰고, `oa-gen generate`를 쓰는 프로젝트는 `generate`가 만드는 `<id>.queries.ts`를 씁니다. `--framework vue|svelte`는 훅을 만들지 않으므로 키와 옵션만 씁니다. 이름 규칙은 키 `<tag>Keys`(예: `usersKeys`), 옵션 `<operationId>QueryOptions`·`<operationId>MutationOptions`, 훅 `use<OperationId>Query`·`use<OperationId>Mutation`, 그리고 `createApiHooks`입니다. 옵션 팩토리와 훅은 첫 인자로 `createClient()`가 만든 클라이언트를 받습니다.
+`--output` 디렉터리에는 기본으로 키·옵션·훅을 모두 담은 `tanstack-query.ts` 한 파일을 씁니다. 이 파일이 import하는 생성 파일은 같은 디렉터리의 `./client.js`(`oa-gen generate:client`로 생성)뿐이고, 훅을 담으므로 첫머리에 `'use client'` 지시문이 있습니다. `--split`은 `keys.ts`, `queries.ts`(옵션, `'use client'` 없음), `hooks.ts`(`'use client'`)를 쓰고, `queries.ts`와 `hooks.ts`는 `./client.js`와 앞 계층 파일(`./keys.js`, `./queries.js`)을 import합니다. Next.js Server Component처럼 `'use client'` 모듈을 import할 수 없는 곳에서는 `--split`의 `queries.ts`를 쓰고, `oa-gen generate`를 쓰는 프로젝트는 `generate`가 만드는 `<id>.queries.ts`를 씁니다. `--framework vue|svelte`는 훅 없이 키와 옵션만 쓰지만, 이 출력은 현재 컴파일되지 않습니다(아래 알려진 제한). 이름 규칙은 키 `<tag>Keys`(예: `usersKeys`), 옵션 `<operationId>QueryOptions`·`<operationId>MutationOptions`, 훅 `use<OperationId>Query`·`use<OperationId>Mutation`, 그리고 `createApiHooks`입니다. 옵션 팩토리와 훅은 첫 인자로 `createClient()`가 만든 클라이언트를 받습니다.
 
 알려진 제한:
 
 - `--tier options`와 `--tier hooks`는 그 계층의 코드만 쓰고, 그 코드가 import하는 다른 계층 파일은 쓰지 않습니다. `--tier options` 출력은 `./keys.js`를, `--tier hooks` 출력은 `./keys.js`와 `./queries.js`를 import하므로 단독으로 생성하면 `tsc`가 `Cannot find module './keys.js'`(TS2307)로 실패합니다. `--split`과 함께 줘도 해당 파일 하나만 쓰므로 같습니다. 옵션만 담은 파일이 필요하면 `--tier` 없이 `--split`을 씁니다(outputRouting이 없는 프로젝트). `--tier keys` 출력은 이 명령의 다른 출력을 import하지 않습니다.
+- `--framework vue|svelte` 출력은 대상 패키지에 없는 export를 import하므로 `tsc`가 실패합니다(TS2724, 알려진 결함). `vue`는 `@tanstack/vue-query`에 없는 `UndefinedInitialDataOptions`(vue-query의 이름은 `UndefinedInitialQueryOptions`)를, `svelte`는 `@tanstack/svelte-query`에 없는 `UseMutationOptions`(5.x에서는 `mutationOptions`도)를 import합니다. Vue·Svelte에서는 import가 없는 키 팩토리(`--tier keys` 출력 또는 `oa-gen generate`의 `<id>.keys.ts`)와 `oa-gen generate:client` 클라이언트를 쓰고, 옵션은 각 패키지의 `queryOptions()`로 작성합니다.
+  ```ts
+  // oa-gen generate:tanstack --spec ./openapi.yaml -o ./src/api/keys.ts --tier keys
+  // oa-gen generate:client --spec ./openapi.yaml -o ./src/api/client.ts
+  import { queryOptions } from '@tanstack/vue-query' // Svelte: '@tanstack/svelte-query'
+  import { createClient } from './client.js'
+  import { usersKeys } from './keys.js'
+
+  const client = createClient({ baseUrl: '/api' })
+
+  export const getUserQuery = (userId: string) =>
+    queryOptions({
+      queryKey: usersKeys.getUser({ userId }),
+      queryFn: ({ signal }) => client.getUser({ userId }, { signal }),
+    })
+  ```
 - `--types-import`에 `oa-gen typegen` 출력만 넘기면 `<Operation>ClientError` 타입이 없어 `tsc`가 실패합니다(TS2305, 알려진 결함). 타입 없이 쓰려면 클라이언트와 TanStack 모두 `--types-import` 없이 생성합니다. 타입이 필요하면 typegen 출력을 다시 export하고 `<Operation>ClientError` 별칭을 더한 모듈을 `--types-import`로 지정합니다.
 - `oa.config.ts`에 `outputRouting`이 있는 프로젝트(`oa-gen init`의 기본 설정)에서 `--split`은 출력 경로가 바뀌고 상대 import가 깨집니다(TS2307). 이 조합은 쓰지 않습니다.
 - `oa-gen generate`를 쓰는 프로젝트에서는 다음 `oa-gen generate` 실행이 이 명령의 출력을 지웁니다. 그런 프로젝트는 `generate`가 만드는 `<id>.queries.ts`를 씁니다([generate 옵션](#oa-gen-generate-옵션-및-일괄-생성-명세)).

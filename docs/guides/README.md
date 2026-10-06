@@ -179,7 +179,7 @@ HTTP 전송 계층 없이 브라우저 확장프로그램(MV3), Worker IPC, WebS
   - 생성된 메서드의 호출 규칙: 위치 인자(`client.getUser({ userId }, { signal })`)와 단일 객체 인자.
   - 쿼리 파라미터 오염 방지 및 `AbortSignal` 취소 연동.
   - `withResponse`를 통한 헤더 및 원본 HTTP Response 접근.
-  - TanStack Query v5 3계층 옵션 팩토리(`--tier`, `--framework react|vue|svelte`) 연동.
+  - TanStack Query v5 3계층(키·옵션·훅) React 연동. Vue·Svelte 출력(`--framework vue|svelte`)과 `--tier options|hooks` 단독 출력은 현재 컴파일되지 않습니다([알려진 제한](./cli-command-reference.md#generatetanstack-옵션-및-인수-명세)).
 - **[클라이언트 SDK 배포 가이드](./client-sdk-distribution.md)**:
   - Model A: 로컬 온디맨드 소스 공급 (`devDependencies` + `oa-gen generate:client`)
   - Model B: 독립 사전 빌드 패키지 배포 (`oa-gen generate:client --pack`, 런타임 의존성 0개, `dist/index.js` + `.d.ts`)

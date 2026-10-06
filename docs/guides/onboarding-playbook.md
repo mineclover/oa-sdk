@@ -432,7 +432,9 @@ if (
 
 ### 4.9 TanStack Query (React Query) v5 3계층 구조
 
-TanStack Query 코드는 쿼리 키 팩토리(Tier 1), 순수 옵션 팩토리(Tier 2), 훅(Tier 3)으로 나뉩니다. 옵션 팩토리는 React 훅이 아니라 `queryOptions()` 객체를 돌려주므로 Next.js Server Component의 `prefetchQuery`나 Vue·Svelte에서도 씁니다. 클라이언트 초기화, 인증, 오류 처리는 [프론트엔드 SDK 및 쿼리 소비 가이드](./client-and-query-consumption.md)를 따릅니다.
+TanStack Query 코드는 쿼리 키 팩토리(Tier 1), 순수 옵션 팩토리(Tier 2), 훅(Tier 3)으로 나뉩니다. 옵션 팩토리는 React 훅이 아니라 `queryOptions()` 객체를 돌려주므로 Next.js Server Component의 `prefetchQuery`에서도 씁니다(§4.10). 클라이언트 초기화, 인증, 오류 처리는 [프론트엔드 SDK 및 쿼리 소비 가이드](./client-and-query-consumption.md)를 따릅니다.
+
+아래 표의 옵션·훅 파일은 모두 `@tanstack/react-query`를 import하는 React용입니다(`oa-gen generate`는 항상 React용으로 씁니다). `generate:tanstack --framework vue|svelte` 출력은 현재 `tsc`가 실패합니다(알려진 결함). Vue·Svelte에서는 import가 없는 키 팩토리(`<id>.keys.ts` 또는 `generate:tanstack --tier keys` 출력)와 생성된 클라이언트만 가져다 쓰고, 옵션은 각 패키지의 `queryOptions()`로 직접 작성합니다([CLI 명령 레퍼런스](./cli-command-reference.md#generatetanstack-옵션-및-인수-명세)).
 
 | 생성 경로 | 파일 | 포함하는 Tier |
 |---|---|---|
