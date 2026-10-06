@@ -16,6 +16,15 @@ export const DEFAULT_BANNER_MARKERS: readonly string[] = [
 ]
 
 /**
+ * `producer` values that `oa-gen` commands record in `.oa-manifest.json`: the
+ * name of the command that wrote the artifact.
+ */
+export const MANIFEST_PRODUCERS = {
+  generate: 'generate',
+  generateTanstack: 'generate:tanstack',
+} as const
+
+/**
  * Manifest record representing a single generated artifact on disk.
  */
 export interface ManifestArtifact {
@@ -23,14 +32,63 @@ export interface ManifestArtifact {
   path: string
   /** Artifact kind (contract, client, queries, keys, guards, schemas) */
   kind: ArtifactKind
-  /** Optional associated OpenAPI tag */
+  /** Routing tag the path was dispatched with. `oa-gen generate` sets it to the spec target id. */
   tag?: string | undefined
+  /**
+   * Command that wrote the artifact (see `MANIFEST_PRODUCERS`). Records written
+   * before codegen 0.9.0 have none; `manifestArtifactOwner` infers it for them.
+   */
+  producer?: string | undefined
+  /**
+   * Configuration file of the run that wrote the artifact, relative to rootDir
+   * (POSIX). Absent when that run read no configuration file.
+   */
+  configFile?: string | undefined
+  /** Spec target id (`specs[].id`) the artifact was generated for. Absent for artifacts of no single target. */
+  target?: string | undefined
   /** SHA-256 content hash ("sha256:...") */
   contentHash: string
   /** Source OpenAPI specification path or fingerprint */
   sourceSpec?: string | undefined
   /** Generation timestamp (ISO string) */
   generatedAt: string
+}
+
+/**
+ * Who wrote a manifest record, which decides the runs that may prune it.
+ */
+export interface ManifestArtifactOwner {
+  /** Command that wrote the record, or undefined when it cannot be told. */
+  producer: string | undefined
+  /** Configuration file of that run, relative to rootDir. Undefined when the run read none, or when `legacy`. */
+  configFile: string | undefined
+  /** Spec target id the record belongs to, if any. */
+  target: string | undefined
+  /** True for a record written before codegen 0.9.0: its owner is inferred and its configuration file is unknown. */
+  legacy: boolean
+}
+
+/**
+ * Owner of a manifest record.
+ *
+ * Records written before codegen 0.9.0 carry no `producer`. Their writers are
+ * known: only `oa-gen generate` set `tag` (always to the spec target id) and
+ * only it wrote `guards` records, while `oa-gen generate:tanstack` set neither.
+ * A legacy record with a `tag` is therefore owned by `oa-gen generate` for that
+ * target, a legacy `guards` record by `oa-gen generate` for no single target,
+ * and any other legacy record by an unknown producer.
+ */
+export function manifestArtifactOwner(artifact: ManifestArtifact): ManifestArtifactOwner {
+  if (artifact.producer !== undefined) {
+    return { producer: artifact.producer, configFile: artifact.configFile, target: artifact.target, legacy: false }
+  }
+  if (artifact.tag !== undefined) {
+    return { producer: MANIFEST_PRODUCERS.generate, configFile: undefined, target: artifact.tag, legacy: true }
+  }
+  if (artifact.kind === 'guards') {
+    return { producer: MANIFEST_PRODUCERS.generate, configFile: undefined, target: undefined, legacy: true }
+  }
+  return { producer: undefined, configFile: undefined, target: undefined, legacy: true }
 }
 
 /**
@@ -55,8 +113,14 @@ export interface WriteArtifactInput {
   kind: ArtifactKind
   /** Source code content to write */
   content: string
-  /** Optional associated OpenAPI tag */
+  /** Routing tag the path was dispatched with */
   tag?: string | undefined
+  /** Command that writes the artifact (see `MANIFEST_PRODUCERS`) */
+  producer?: string | undefined
+  /** Configuration file of the run, relative to rootDir (POSIX) */
+  configFile?: string | undefined
+  /** Spec target id the artifact is generated for */
+  target?: string | undefined
   /** Source OpenAPI spec path */
   sourceSpec?: string | undefined
 }
@@ -80,6 +144,22 @@ export interface PruneSkippedEntry {
   path: string
   reason: 'provenance-missing' | 'content-modified' | 'banner-missing' | 'file-not-found'
   detail: string
+}
+
+/**
+ * Options of an orphan pruning execution.
+ */
+export interface PruneOrphansOptions {
+  /** Reports what would be pruned without deleting files or saving the manifest */
+  dryRun?: boolean | undefined
+  /** Directory at which removal of emptied parent directories stops (defaults to rootDir) */
+  baseDir?: string | undefined
+  /**
+   * Records this execution may prune. A record outside the scope is never a
+   * candidate: its file is not deleted and the record stays in the manifest.
+   * Defaults to every record.
+   */
+  scope?: ((artifact: ManifestArtifact) => boolean) | undefined
 }
 
 /**
@@ -254,6 +334,9 @@ export class OaManifestManager {
         path: relPath,
         kind: art.kind,
         ...(art.tag ? { tag: art.tag } : {}),
+        ...(art.producer ? { producer: art.producer } : {}),
+        ...(art.configFile ? { configFile: art.configFile } : {}),
+        ...(art.target ? { target: art.target } : {}),
         contentHash,
         ...(art.sourceSpec ? { sourceSpec: art.sourceSpec } : {}),
         generatedAt: new Date().toISOString(),
@@ -270,13 +353,13 @@ export class OaManifestManager {
 
   /**
    * Evaluates candidate files for orphan pruning using the 3-Gate Safety Invariants:
-   * 1. Gate 1 (Manifest Provenance): Must be recorded in the manifest.
+   * 1. Gate 1 (Manifest Provenance): Must be recorded in the manifest, within `options.scope`.
    * 2. Gate 2 (Content Hash Integrity): Disk SHA-256 must match manifest hash (unmodified by developer).
    * 3. Gate 3 (Banner Verification): File on disk must contain an auto-generated banner.
    */
   public async pruneOrphans(
     activeRelativePaths: string[] | Set<string>,
-    options: { dryRun?: boolean; baseDir?: string } = {},
+    options: PruneOrphansOptions = {},
   ): Promise<PruneResult> {
     const manifest = await this.loadManifest()
     const activeSet = new Set(
@@ -292,8 +375,8 @@ export class OaManifestManager {
     for (const recorded of manifest.artifacts) {
       const posixPath = toPosix(recorded.path)
 
-      // Still active in current generation run -> keep
-      if (activeSet.has(posixPath)) {
+      // Outside this execution's scope, or still active in the current generation run -> keep
+      if ((options.scope && !options.scope(recorded)) || activeSet.has(posixPath)) {
         remainingArtifacts.push(recorded)
         continue
       }

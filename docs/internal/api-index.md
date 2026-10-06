@@ -956,6 +956,7 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `OaManifest` | `routing/manifest-manager.ts` | .oa-manifest.json 매니페스트 파일 스키마 인터페이스 |
 | `WriteArtifactInput` | `routing/manifest-manager.ts` | 매니페스트 관리자 파일 작성 입력 인터페이스 |
 | `WriteArtifactResult` | `routing/manifest-manager.ts` | 파일 작성 및 변경 감지 결과 인터페이스 |
+| `PruneOrphansOptions` | `routing/manifest-manager.ts` | 고아 파일 정리 옵션 인터페이스 (dry run, 빈 디렉터리 정리 기준, 정리 대상 기록 범위 `scope`) |
 | `PruneSkippedEntry` | `routing/manifest-manager.ts` | 3-Gate 검증 실패로 정리가 건너뛰어진 파일 항목 |
 | `PruneResult` | `routing/manifest-manager.ts` | 고아 파일 정리 실행 결과 인터페이스 |
 | `DispatchPathOptions` | `routing/path-dispatcher.ts` | 산출물 경로 디스패치 옵션 인터페이스 |

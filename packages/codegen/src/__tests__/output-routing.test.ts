@@ -28,6 +28,7 @@ import {
   findNearestPackageJson,
   resolvePackageSpecifier,
 } from '../routing/import-resolver.js'
+import { MANIFEST_PRODUCERS, manifestArtifactOwner } from '../routing/manifest-manager.js'
 
 describe('Output Path Routing Customization Engine', () => {
   let tmpDir: string
@@ -677,6 +678,68 @@ describe('Output Path Routing Customization Engine', () => {
       expect(dryResult.pruned).toEqual([file])
       // File still exists on disk because dryRun was true
       expect(fs.existsSync(path.join(tmpDir, file))).toBe(true)
+    })
+
+    it('records the producer, configuration file and spec target of each artifact', async () => {
+      const manager = new OaManifestManager(tmpDir)
+
+      await manager.writeArtifacts([
+        {
+          path: 'src/api/orders/orders.contract.ts',
+          kind: 'contract',
+          tag: 'orders',
+          producer: MANIFEST_PRODUCERS.generate,
+          configFile: 'oa.config.ts',
+          target: 'orders',
+          content: '/** @generated */\nexport const c = 1',
+        },
+        {
+          path: 'src/api/tanstack-query.ts',
+          kind: 'queries',
+          producer: MANIFEST_PRODUCERS.generateTanstack,
+          content: '/** @generated */\nexport const q = 1',
+        },
+      ])
+
+      const raw = JSON.parse(fs.readFileSync(path.join(tmpDir, '.oa-manifest.json'), 'utf8'))
+      expect(raw.artifacts[0]).toMatchObject({ producer: 'generate', configFile: 'oa.config.ts', target: 'orders' })
+      expect(raw.artifacts[1]).toMatchObject({ producer: 'generate:tanstack' })
+      expect(raw.artifacts[1]).not.toHaveProperty('configFile')
+      expect(raw.artifacts[1]).not.toHaveProperty('target')
+    })
+
+    it('prunes only records within the scope, leaving the others and their files untouched', async () => {
+      const manager = new OaManifestManager(tmpDir)
+      const owned = 'src/api/orders/orders.contract.ts'
+      const foreign = 'src/api/tanstack-query.ts'
+      await manager.writeArtifacts([
+        { path: owned, kind: 'contract', producer: 'generate', content: '/** @generated */\nexport const c = 1' },
+        { path: foreign, kind: 'queries', producer: 'generate:tanstack', content: '/** @generated */\nexport const q = 1' },
+      ])
+
+      const result = await manager.pruneOrphans([], { scope: artifact => artifact.producer === 'generate' })
+
+      expect(result.pruned).toEqual([owned])
+      expect(result.skipped).toEqual([])
+      expect(fs.existsSync(path.join(tmpDir, owned))).toBe(false)
+      expect(fs.existsSync(path.join(tmpDir, foreign))).toBe(true)
+      const manifest = await manager.loadManifest()
+      expect(manifest.artifacts.map(artifact => artifact.path)).toEqual([foreign])
+    })
+
+    it('infers the owner of records written before producers were recorded', () => {
+      const legacy = { contentHash: 'sha256:0', generatedAt: '2026-09-20T00:00:00.000Z' }
+
+      expect(manifestArtifactOwner({ ...legacy, path: 'a.ts', kind: 'contract', tag: 'orders' }))
+        .toEqual({ producer: 'generate', configFile: undefined, target: 'orders', legacy: true })
+      expect(manifestArtifactOwner({ ...legacy, path: 'guards/index.js', kind: 'guards' }))
+        .toEqual({ producer: 'generate', configFile: undefined, target: undefined, legacy: true })
+      // oa-gen generate:tanstack wrote neither a tag nor guards
+      expect(manifestArtifactOwner({ ...legacy, path: 'tanstack-query.ts', kind: 'queries' }))
+        .toEqual({ producer: undefined, configFile: undefined, target: undefined, legacy: true })
+      expect(manifestArtifactOwner({
+        ...legacy, path: 'b.ts', kind: 'client', tag: 'orders', producer: 'generate', configFile: 'oa.config.ts', target: 'orders',
+      })).toEqual({ producer: 'generate', configFile: 'oa.config.ts', target: 'orders', legacy: false })
     })
   })
 

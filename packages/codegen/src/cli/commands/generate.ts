@@ -32,7 +32,11 @@ import {
   createPathDispatcher,
   OaManifestManager,
   DEFAULT_BANNER_MARKERS,
+  MANIFEST_PRODUCERS,
+  manifestArtifactOwner,
+  toPosixPath,
   type ManifestArtifact,
+  type PruneResult,
   type WriteArtifactInput,
 } from '../../routing/index.js'
 
@@ -105,7 +109,7 @@ export const generate: Command = {
         ],
       }
       const rootDir = context?.projectRoot ?? (context as any)?.rootDir ?? context?.cwd ?? process.cwd()
-      await runConfigDrivenPipeline(syntheticConfig, rootDir, companionImporterFrom(context))
+      await runConfigDrivenPipeline(syntheticConfig, rootDir, companionImporterFrom(context), undefined)
       return
     }
 
@@ -119,7 +123,7 @@ export const generate: Command = {
     if (loaded) {
       // Check if loaded config is extended OaConfig with specs, guards, core, or product
       if (loaded.config.specs || loaded.config.guards || loaded.config.core || loaded.config.product) {
-        await runConfigDrivenPipeline(loaded.config, loaded.rootDir, companionImporterFrom(context))
+        await runConfigDrivenPipeline(loaded.config, loaded.rootDir, companionImporterFrom(context), loaded.configPath)
         return
       }
       // Legacy config with schemas
@@ -184,8 +188,10 @@ class SkippedCompanionOutputs {
   /** Recorded artifacts that belong to a skipped output of a spec this run still processed. */
   retainedPaths(artifacts: readonly ManifestArtifact[]): string[] {
     return artifacts
-      .filter(artifact => artifact.tag !== undefined
-        && this.retainedKindsByTag.has(JSON.stringify([artifact.kind, artifact.tag])))
+      .filter(artifact => {
+        const { target } = manifestArtifactOwner(artifact)
+        return target !== undefined && this.retainedKindsByTag.has(JSON.stringify([artifact.kind, target]))
+      })
       .map(artifact => artifact.path)
   }
 
@@ -200,6 +206,42 @@ class SkippedCompanionOutputs {
   }
 }
 
+/** What an `oa-gen generate` run generates, which decides the manifest records it owns. */
+interface GenerateRunScope {
+  /** Configuration file of the run, relative to rootDir (POSIX); undefined for `oa-gen generate --spec`. */
+  configFile: string | undefined
+  /** Spec target ids the run generates. */
+  targets: ReadonlySet<string>
+  /** Whether the run generates guards (`guards` is configured). */
+  generatesGuards: boolean
+}
+
+/**
+ * Manifest records an `oa-gen generate` run owns, and so may prune.
+ *
+ * - A run from a configuration file owns the records `oa-gen generate` wrote
+ *   from that same file, whichever spec targets it declared then, so that the
+ *   outputs of a target removed from the configuration are cleaned up.
+ * - A run without one (`oa-gen generate --spec <file>`) owns the records that
+ *   earlier such runs wrote for its spec target.
+ * - Records written before codegen 0.9.0 name no configuration file (see
+ *   `manifestArtifactOwner`). Those of `oa-gen generate` are owned by any run
+ *   that generates their spec target, and legacy guard records by any run that
+ *   generates guards.
+ *
+ * Records of other commands, such as `oa-gen generate:tanstack`, and of runs
+ * from other configuration files are never pruned.
+ */
+function ownedByGenerateRun(run: GenerateRunScope): (artifact: ManifestArtifact) => boolean {
+  return (artifact) => {
+    const owner = manifestArtifactOwner(artifact)
+    if (owner.producer !== MANIFEST_PRODUCERS.generate) return false
+    if (owner.legacy) return owner.target !== undefined ? run.targets.has(owner.target) : run.generatesGuards
+    if (run.configFile !== undefined) return owner.configFile === run.configFile
+    return owner.configFile === undefined && owner.target !== undefined && run.targets.has(owner.target)
+  }
+}
+
 /** Summary label of a projected OpenAPI document: the version its `openapi` field declares. */
 function openApiLabel(doc: Record<string, unknown>): string {
   return typeof doc['openapi'] === 'string' ? `OpenAPI ${doc['openapi']}` : 'OpenAPI (no version declared)'
@@ -207,11 +249,15 @@ function openApiLabel(doc: Record<string, unknown>): string {
 
 /**
  * Executes declarative multi-target generation driven by oa.config.ts.
+ *
+ * @param configPath Absolute path of the configuration file, or undefined for
+ *   `oa-gen generate --spec`, which reads none.
  */
 async function runConfigDrivenPipeline(
   config: OaConfig,
   rootDir: string,
   importCompanion: CompanionImporter,
+  configPath: string | undefined,
 ): Promise<void> {
   const resolvedConfig = resolveConfigWithDefaults(config)
   const specs = resolvedConfig.specs ?? []
@@ -244,6 +290,7 @@ async function runConfigDrivenPipeline(
     '$schema',
   ]
   const manifestManager = new OaManifestManager(rootDir, undefined, bannerMarkers)
+  const configFile = configPath === undefined ? undefined : toPosixPath(relative(rootDir, configPath))
   const artifactsToWrite: WriteArtifactInput[] = []
 
   console.log('\n🚀 [oa-gen generate] Executing Declarative Spec Pipeline...')
@@ -558,13 +605,29 @@ async function runConfigDrivenPipeline(
     }
   }
 
-  // Step 6: Commit all artifacts through OaManifestManager and prune orphans
-  const writeResult = await manifestManager.writeArtifacts(artifactsToWrite)
-  const activePaths = artifactsToWrite.map((a) =>
-    relative(rootDir, resolve(rootDir, a.path)),
-  )
-  activePaths.push(...skippedCompanionOutputs.retainedPaths(writeResult.manifest.artifacts))
-  await manifestManager.pruneOrphans(activePaths)
+  // Step 6: Commit all artifacts through OaManifestManager and prune the orphans this run owns.
+  // Every artifact is recorded as written by `oa-gen generate` from this run's configuration
+  // file, for the spec target it was generated for (guards belong to no single target).
+  const writeResult = await manifestManager.writeArtifacts(artifactsToWrite.map(artifact => ({
+    ...artifact,
+    producer: MANIFEST_PRODUCERS.generate,
+    configFile,
+    target: artifact.kind === 'guards' ? undefined : artifact.tag,
+  })))
+  let pruneResult: PruneResult | undefined
+  if (outputRouting?.pruneOrphans !== false) {
+    const activePaths = artifactsToWrite.map((a) =>
+      relative(rootDir, resolve(rootDir, a.path)),
+    )
+    activePaths.push(...skippedCompanionOutputs.retainedPaths(writeResult.manifest.artifacts))
+    pruneResult = await manifestManager.pruneOrphans(activePaths, {
+      scope: ownedByGenerateRun({
+        configFile,
+        targets: new Set(specResults.map(res => res.target.id)),
+        generatesGuards: resolvedConfig.guards !== undefined,
+      }),
+    })
+  }
 
   // Step 7: Formatted Summary
   console.log('================================================================================')
@@ -580,6 +643,12 @@ async function runConfigDrivenPipeline(
   }
   console.log(`Artifacts Written:   ${writeResult.written.length}`)
   console.log(`Artifacts Cached:    ${writeResult.skipped.length}`)
+  if (pruneResult) {
+    console.log(`Artifacts Pruned:    ${pruneResult.pruned.length}`)
+    for (const pruned of pruneResult.pruned) console.log(`    - ${pruned}`)
+  } else {
+    console.log('Artifacts Pruned:    0 (outputRouting.pruneOrphans: false)')
+  }
   for (const res of specResults) {
     const relOpenApi = relative(rootDir, res.openApiPath)
     const relSchema = relative(rootDir, res.jsonSchemaPath)

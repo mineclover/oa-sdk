@@ -33,13 +33,17 @@ export type {
 
 export {
   DEFAULT_BANNER_MARKERS,
+  MANIFEST_PRODUCERS,
   OaManifestManager,
+  manifestArtifactOwner,
 } from './manifest-manager.js'
 export type {
   ManifestArtifact,
+  ManifestArtifactOwner,
   OaManifest,
   WriteArtifactInput,
   WriteArtifactResult,
+  PruneOrphansOptions,
   PruneSkippedEntry,
   PruneResult,
 } from './manifest-manager.js'

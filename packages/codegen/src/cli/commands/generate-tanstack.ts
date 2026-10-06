@@ -6,7 +6,7 @@ import { loadSpecDocumentAsync } from '../lib/load-spec.js'
 import { loadOaConfig } from '../lib/config-loader.js'
 import { companionImporterFrom, requireCompanion } from '../lib/companion-packages.js'
 import { createPathDispatcher } from '../../routing/index.js'
-import { OaManifestManager, type WriteArtifactInput } from '../../routing/manifest-manager.js'
+import { MANIFEST_PRODUCERS, OaManifestManager, type WriteArtifactInput } from '../../routing/manifest-manager.js'
 
 export const generateTanstackCommand: Command = {
   name: 'generate:tanstack',
@@ -225,7 +225,10 @@ export const generateTanstackCommand: Command = {
       })
     }
 
-    const { written, skipped } = await manifestManager.writeArtifacts(artifactsToWrite)
+    // Recorded as this command's artifacts, which `oa-gen generate` never prunes.
+    const { written, skipped } = await manifestManager.writeArtifacts(
+      artifactsToWrite.map(artifact => ({ ...artifact, producer: MANIFEST_PRODUCERS.generateTanstack })),
+    )
 
     console.log(`\n🚀 [oa-gen generate:tanstack] TanStack Query v5 Artifact Generation Complete`)
     for (const art of written) {

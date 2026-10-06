@@ -200,6 +200,7 @@ export type {
   OaManifest,
   WriteArtifactInput,
   WriteArtifactResult,
+  PruneOrphansOptions,
   PruneSkippedEntry,
   PruneResult,
   DispatchPathOptions,

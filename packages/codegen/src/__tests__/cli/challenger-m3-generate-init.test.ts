@@ -249,11 +249,9 @@ export default {
       const userContractPath = path.join(tmpDir, 'src/contracts/custom-manual.ts')
       fs.writeFileSync(userContractPath, 'export interface ManualInterface { custom: boolean; }\n', 'utf8')
 
-      // C: Now create a v2 config targeting 'orders-api' instead of 'products-api'
+      // C: A second configuration file targeting 'orders-api' instead of 'products-api'
       const configV2Path = path.join(tmpDir, 'oa.config.v2.ts')
-      fs.writeFileSync(
-        configV2Path,
-        `
+      const configV2Source = `
 export default {
   rootDir: '.',
   specs: [
@@ -279,16 +277,17 @@ export default {
     },
   },
 }
-`,
-        'utf8',
-      )
+`
+      fs.writeFileSync(configV2Path, configV2Source, 'utf8')
 
-      // Re-run pipeline with the new target configuration
+      // Run the pipeline from the second configuration file. A run owns only the records that
+      // runs of its own configuration file wrote, so it must not prune what oa.config.ts generated.
+      // (Pruning the outputs of a target replaced within one configuration file is covered by
+      // generate-pipeline.test.ts.)
       await generate.run({ config: configV2Path }, { cwd: tmpDir, projectRoot: tmpDir })
 
-      // Verify old auto-generated products-api contract was safely pruned
-      expect(fs.existsSync(contractPath), 'Old generated contract must be pruned').toBe(false)
-      expect(fs.existsSync(clientPath), 'Old generated client must be pruned').toBe(false)
+      expect(fs.existsSync(contractPath), 'Contract generated from oa.config.ts must survive a run of oa.config.v2.ts').toBe(true)
+      expect(fs.existsSync(clientPath), 'Client generated from oa.config.ts must survive a run of oa.config.v2.ts').toBe(true)
 
       // Verify new orders-api artifacts exist
       const newContractPath = path.join(tmpDir, 'src/contracts/orders-api.contract.ts')
