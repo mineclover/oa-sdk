@@ -137,31 +137,49 @@ On Node.js, Elysia's default adapter has no `.listen()`; create the app with
   documented 2xx) as JSON.
 - **Envelope**: `return { status, body, headers? }` sets the status and headers.
 - **Streaming**: with status 200 or 206 (`StreamingResponse`), a stream in `body` is sent as is
-  instead of being serialized to JSON. A Node stream (anything with `pipe()`), a
-  `ReadableStream<Uint8Array>`, and a `Uint8Array` work with all four routers. The contract's
-  `StreamingBody` type also accepts an `AsyncIterable<Uint8Array | string>`, but the routers handle
-  it differently, so wrap an async generator in `Readable.from()` from `node:stream`:
-  `return { status: 200, body: Readable.from(events()), headers: { 'content-type': 'text/event-stream' } }`.
+  instead of being serialized to JSON. A `ReadableStream<Uint8Array>` and a `Uint8Array` work with
+  all four routers. The contract's `StreamingBody` type also accepts an
+  `AsyncIterable<Uint8Array | string>` and a Node stream (anything with `pipe()`), but the routers
+  handle those differently. Turn an async generator into a `ReadableStream<Uint8Array>` and write
+  header names in lowercase:
+
+  ```ts
+  import { ReadableStream, TextEncoderStream } from 'node:stream/web'
+
+  const body = ReadableStream.from(events()).pipeThrough(new TextEncoderStream())
+  return { status: 200, body, headers: { 'content-type': 'text/event-stream' } }
+  ```
+
   - Fastify cannot send an `AsyncIterable` (known defect). The router hands `body` to Fastify
     unchanged, which answers 500 `FST_ERR_REP_INVALID_PAYLOAD_TYPE` when the `Content-Type` is not
     JSON (for example `text/event-stream`), and 200 `{}` when none is set.
   - Elysia on Node.js with its default adapter (`app.handle()`, `app.fetch`) fails on an
-    `AsyncIterable` of strings with `Received non-Uint8Array chunk`. Elysia also adds its own
-    `content-type` to `ReadableStream` and `AsyncIterable` bodies, so a handler header named
-    `'Content-Type'` goes out as two values (`text/event-stream, text/plain`); write header names in
-    lowercase.
-  - Hono repeats the first chunk forever for an object whose `[Symbol.asyncIterator]()` returns a
-    new iterator on each call (`{ async *[Symbol.asyncIterator]() { ... } }`) (known defect).
-    Generator objects and Node streams are fine.
+    `AsyncIterable` of strings with `Received non-Uint8Array chunk`. With the `@elysiajs/node`
+    adapter it does not fail, but for a `text/event-stream` response Elysia wraps each generator
+    value in another SSE frame (`data: data: {...}`). Elysia also adds its own `content-type` to
+    `ReadableStream` and `AsyncIterable` bodies, so a handler header named `'Content-Type'` goes out
+    as two values (`text/event-stream, text/plain`).
+  - Hono calls `body[Symbol.asyncIterator]()` again for every chunk it reads from a body that is not
+    a `ReadableStream` or `Uint8Array` (known defect). An object whose `[Symbol.asyncIterator]()`
+    returns a new iterator on each call (`{ async *[Symbol.asyncIterator]() { ... } }`) therefore
+    repeats its first chunk forever. A Node stream (`Readable.from()` and others), which works with
+    Express, Fastify, and Elysia, sends the right bytes on Hono but gains a set of `error`, `close`,
+    and other listeners per chunk that are never removed: 50 chunks leave 51 `error` listeners and
+    trigger `MaxListenersExceededWarning`, and a long-lived SSE stream keeps adding them. An async
+    generator object returned as is works on Hono, because its `[Symbol.asyncIterator]()` returns
+    itself, but it is subject to the Fastify and Elysia limits above.
 
 A router treats a returned object as an envelope when it has a `body` property, its `status` is
 absent or a number, and its `headers` are absent or an object; it then sends only `body`. Wrap an
 entity that has its own `body` field: `return { status: 200, body: entity }`.
 
-Typing covers request members (typed when the contract has `typesImport`) and the success body.
-The request types restate the spec; the routers do not convert values to them (see the list below).
-Error statuses and bodies are not narrowed: the error map is `Record<number, unknown>`, so any
-`{ status: <number>, body: <value> }` compiles.
+Typing covers request members (typed when the contract has `typesImport`) and a body returned on
+its own (`return user`), which must match the response type. The request types restate the spec;
+the routers do not convert values to them (see the list below). An envelope's body is not checked,
+not even `{ status: 200, body }`: the error map is `Record<number, unknown>`, so `HandlerResponse`
+has a `{ status: number; body: unknown }` member that any `{ status: <number>, body: <value> }`
+matches. For the same reason, error statuses and bodies are not narrowed. To have an envelope's
+body checked, type it first (`const body: User = ...`).
 
 What the generated routers do not do:
 
