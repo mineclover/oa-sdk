@@ -183,7 +183,11 @@
 
 - **결과**: 공통 사실표(Node ≥22, 공개 패키지와 0.9.0 첫 배포, companion 동작, mock-server entry point, `generateRouter()` 기준 라우터 코드, TanStack 이름과 한계, init 스크립트, TypeSpec 1.16·`OaSdkTypeSpec`, 저장소 안/밖 사용법)를 실행 결과로 확정한 뒤, 문서 4개 묶음(시작·CLI, 소비자, TypeSpec, 스키마)을 고쳤다. 핵심 가치는 가이드 색인 상단(자세한 판)과 루트 README(짧은 판)에 넣었다. 묶음마다 정확성 리뷰 승인. 동작하지 않는 명령·스크립트는 동작하는 것처럼 쓰지 않고 한계와 우회 방법을 적었다(WS-J 결함과 연결).
 
-### WS-J — 조사에서 드러난 코드 결함 · `ready`
+### WS-J — 조사에서 드러난 코드 결함 · P0 진행 중
+
+**사용자 결정 (2026-10-06)**: RC export 전에 핵심 결함만 고친다(J1 `tsp diff` 자기 비교, J2 `drift` 상대 경로, J3 `generate`의 `pruneOrphans` 무시·op 수·3.1 표기·companion 오류 exit 0, J4 동작하지 않는 init 스크립트와 `generate:router`류 스크립트 정리). 라우터는 문서의 `generateRouter()` 기준을 유지하고 CLI 바인더 생성은 하지 않는다. 나머지(router 스트리밍, TanStack 타입 import·Vue/Svelte, tsp-scaffold, zod union, `core.router.target`, `oa-gen diff` 분류 정책)는 0.9.0 이후로 미룬다.
+
+**push (2026-10-06)**: main을 origin에 push했다(`43b41a21..2b78616d`). GitHub Actions는 계정 결제 문제로 job을 시작하지 않았다("recent account payments have failed or your spending limit needs to be increased"). 결제 해결 후 `gh run rerun 37411463030`. RC export는 이 CI가 통과한 커밋에서만 한다.
 
 | 결함 | 근거 |
 |---|---|
