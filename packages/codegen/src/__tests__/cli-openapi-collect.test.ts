@@ -48,6 +48,30 @@ describe('oa-gen normalize/upgrade/collect CLI', () => {
     expect(result.stdout).not.toContain('&ref_')
   })
 
+  it('normalize compiles a TypeSpec spec to the OpenAPI document diff compares it with', () => {
+    const specPath = join(tmpDir, 'main.tsp')
+    writeFileSync(specPath, [
+      'import "@typespec/http";',
+      'using Http;',
+      '@service(#{ title: "Users" }) namespace Users;',
+      'model User { id: string; }',
+      '@route("/users/{id}") @get op getUser(@path id: string): User;',
+      '',
+    ].join('\n'))
+    const outputPath = join(tmpDir, 'openapi.baseline.yaml')
+
+    const result = runCli(['normalize', '--spec', specPath, '--output', outputPath])
+
+    expect(result.status, result.stderr).toBe(0)
+    const normalized = parseYaml(readFileSync(outputPath, 'utf8')) as Record<string, any>
+    expect(normalized.openapi).toBe('3.2.0')
+    expect(normalized.paths['/users/{id}'].get.operationId).toBe('getUser')
+    // `oa-gen diff` compiles the same spec the same way, so the normalized document is its baseline.
+    const diff = runCli(['diff', '--base', outputPath, '--head', specPath, '--fail-on-breaking'])
+    expect(diff.status, diff.stdout + diff.stderr).toBe(0)
+    expect(diff.stdout).toContain('No endpoint or schema changes detected.')
+  })
+
   it('upgrade writes 3.2 artifact and a transform report', () => {
     const specPath = writeYaml('openapi.normalized.yaml', {
       openapi: '3.0.0',

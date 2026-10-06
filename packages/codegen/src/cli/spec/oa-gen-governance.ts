@@ -370,7 +370,7 @@ export const oaGenGovernanceManifest = {
             type: 'string',
             short: 's',
             required: true,
-            description: '정규화할 OpenAPI YAML/JSON 경로',
+            description: '정규화할 OpenAPI YAML/JSON 또는 TypeSpec(.tsp) 경로',
           },
           {
             name: 'output',
@@ -979,13 +979,13 @@ export const oaGenGovernanceManifest = {
             name: 'base',
             type: 'string',
             required: true,
-            description: 'base OpenAPI YAML/JSON 경로',
+            description: 'base OpenAPI YAML/JSON 또는 TypeSpec(.tsp) 경로',
           },
           {
             name: 'head',
             type: 'string',
             required: true,
-            description: 'head OpenAPI YAML/JSON 경로',
+            description: 'head OpenAPI YAML/JSON 또는 TypeSpec(.tsp) 경로',
           },
           {
             name: 'fail-on-breaking',
