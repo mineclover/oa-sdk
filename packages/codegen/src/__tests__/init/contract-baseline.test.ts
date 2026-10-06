@@ -173,9 +173,34 @@ describe('contract baseline of the enterprise archetype', () => {
     for (const specPath of ['openapi.yaml', 'api/spec.yml', 'openapi.json', 'typespec/main.tsp']) {
       expect(isSpecDocumentPath(specPath), specPath).toBe(true)
     }
-    for (const specPath of ['src/schema.ts', 'src/routes.tsx', 'spec']) {
+    // They read an OpenAPI document whatever the case of its extension ...
+    for (const specPath of ['OPENAPI.YAML', 'api/Spec.Yml', 'api/OPENAPI.JSON']) {
+      expect(isSpecDocumentPath(specPath), specPath).toBe(true)
+    }
+    // ... but compile only a `.tsp` file as TypeSpec, and would parse `main.TSP` as YAML.
+    for (const specPath of ['src/schema.ts', 'src/routes.tsx', 'spec', 'typespec/main.TSP']) {
       expect(isSpecDocumentPath(specPath), specPath).toBe(false)
     }
+  })
+
+  it('gates a spec whose extension is upper case, which oa-gen lint, diff and normalize load', async () => {
+    await fs.writeFile(path.join(projectDir, 'package.json'), JSON.stringify({ name: 'gated' }))
+    await fs.writeFile(path.join(projectDir, 'OPENAPI.YAML'), SPEC)
+
+    const result = await runInit({ cwd: projectDir, archetype: 'enterprise', yes: true })
+    expect(result.detectedSchema?.filePath).toBe('OPENAPI.YAML')
+    expect(result.contractBaseline).toEqual({ path: CONTRACT_BASELINE_PATH, specPath: 'OPENAPI.YAML', status: 'created' })
+    const pkg = JSON.parse(await read('package.json'))
+    expect(pkg.scripts.diff).toBe(`oa-gen diff --base ${CONTRACT_BASELINE_PATH} --head OPENAPI.YAML --fail-on-breaking`)
+    expect(pkg.scripts['lint:spec']).toBe('oa-gen lint --spec OPENAPI.YAML')
+
+    // The diff script passes on the spec it was created from.
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    await diff.run({
+      base: path.join(projectDir, CONTRACT_BASELINE_PATH),
+      head: path.join(projectDir, 'OPENAPI.YAML'),
+      'fail-on-breaking': true,
+    })
   })
 
   it('is created by oa-gen init --archetype enterprise, and kept by the next run', async () => {

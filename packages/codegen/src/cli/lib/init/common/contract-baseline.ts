@@ -13,12 +13,14 @@ export const CONTRACT_BASELINE_PATH = 'openapi.baseline.yaml'
 
 /**
  * True for a spec entry point that `oa-gen lint`, `validate --spec`, `diff` and `normalize` load:
- * an OpenAPI YAML/JSON document, or a TypeSpec entry point, which they compile in memory. A
- * TypeScript module (a schema module or `@oaOperation` sources) is projected only by commands that
- * read oa.config.ts.
+ * an OpenAPI YAML/JSON document, whatever the case of its extension (they parse a file that ends
+ * in neither `.tsp` nor `.json` as YAML, which JSON also is), or a TypeSpec entry point, which they
+ * compile in memory and recognise by its exact `.tsp` extension (lib/load-spec.ts). A TypeScript
+ * module (a schema module or `@oaOperation` sources) is projected only by commands that read
+ * oa.config.ts.
  */
 export function isSpecDocumentPath(specPath: string): boolean {
-  return /\.(ya?ml|json|tsp)$/.test(specPath)
+  return /\.(?:ya?ml|json)$/i.test(specPath) || specPath.endsWith('.tsp')
 }
 
 /** A contract baseline `oa-gen init` creates from the spec when the project has none yet. */

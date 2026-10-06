@@ -356,7 +356,7 @@ oa-gen mock --watch
 - 스펙 파일이 아직 없거나 불러오지 못하면 `init`은 기준선을 만들지 않고 이유를 출력합니다. 그동안 `diff`·`ci:gate`는 기준선이 없어 실패하므로, 스펙을 만든 뒤 `baseline:update`를 한 번 실행합니다.
 - `oa-gen diff`는 요청·응답·파라미터 스키마가 바뀌면 선택 필드 추가도 breaking으로 판정하는 보수적 규칙입니다. TypeSpec 원본을 의미 단위로 판정하려면 CI에 `oa-gen tsp diff --base origin/main:<path> --head <path> --fail-on-breaking`을 따로 등록합니다.
 - `ci:gate`의 `--require-32`는 스펙이 OpenAPI 3.2.x여야 통과합니다. TypeSpec 스펙은 3.2로 컴파일되므로 통과합니다.
-- 스펙 진입점이 OpenAPI YAML/JSON이나 TypeSpec(`.tsp`)이 아니면(TypeScript 스키마 모듈 등) 이 스크립트와 기준선을 추가하지 않고 이유를 출력합니다.
+- 스펙 진입점이 OpenAPI YAML/JSON(`.yaml`·`.yml`·`.json`, 대소문자 무관)이나 TypeSpec(`.tsp`)이 아니면(TypeScript 스키마 모듈 등) 이 스크립트와 기준선을 추가하지 않고 이유를 출력합니다.
 - 기준선은 스펙이 가리키는 파일의 내용을 담으므로 그 파일을 고친 변경도 `baseline:update`로만 기준선에 들어갑니다. URL(`https://...`)을 가리키는 `$ref`는 읽지 않고 그대로 비교합니다.
 
 이전 버전의 `init`이 추가한 다음 스크립트는 동작하지 않거나 `oa-gen generate`와 같은 일만 하므로 지금의 `init`은 추가하지 않습니다: `generate:router`(프레임워크 대상), `generate:client`(`mvp`), `generate:contract`(`microservice`, nestjs 대상), `test:contract`·`audit:wire`(`microservice`), `audit:csp`·`audit:shape`·`personas:check`(`enterprise`). `init --force`는 같은 이름의 스크립트(`diff`, `ci:gate`, `lint:spec`)만 새 명령으로 바꾸므로, 나머지는 `package.json`에서 직접 지우고 `generate` 스크립트를 씁니다.
