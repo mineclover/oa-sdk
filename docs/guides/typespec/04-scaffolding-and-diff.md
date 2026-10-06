@@ -196,7 +196,7 @@ npx oa-gen generate
 ```
 
 **생성물**:
-- `dist/specs/main-api.openapi.json` (OpenAPI 3.2.0 문서. 실행 요약에는 `OpenAPI 3.1`로 표시되지만 파일의 `openapi` 값은 3.2.0)
+- `dist/specs/main-api.openapi.json` (OpenAPI 3.2.0 문서. 실행 요약에도 `OpenAPI 3.2.0`으로 표시)
 - `dist/specs/main-api.schema.json` (JSON Schema 2020-12, `$defs`)
 - `src/api/main-api/main-api.contract.ts` (프레임워크와 무관한 핸들러 계약)
 - `src/api/main-api/main-api.client.ts` (fetch 클라이언트, 런타임 의존성 없음)
