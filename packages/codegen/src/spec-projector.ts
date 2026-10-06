@@ -2,8 +2,9 @@
  * packages/codegen/src/spec-projector.ts
  *
  * High-fidelity Schema Projection Engine for @oa-sdk:
- * Projects Zod master schemas to:
- *   1. OpenAPI 3.1 specifications with canonical x-schema-engine-* extensions
+ * Projects the schema entry of a profile target (Zod master schemas or a spec file) to:
+ *   1. OpenAPI specifications with canonical x-schema-engine-* extensions
+ *      (3.1.0 from Zod; a spec file keeps its own `openapi` version)
  *   2. JSON Schema Draft 2020-12 documents with $defs
  *   3. Standalone type guards via AJV
  */
@@ -321,7 +322,9 @@ export async function loadSchemaEntry(schemaEntryPath: string): Promise<{
 }
 
 /**
- * Projects a single profile target to OpenAPI 3.1 and JSON Schema Draft 2020-12.
+ * Projects a single profile target to an OpenAPI document and a JSON Schema
+ * Draft 2020-12 bundle. A Zod module projects to OpenAPI 3.1.0; a spec file
+ * (OpenAPI YAML/JSON, TypeSpec) keeps its own `openapi` version.
  */
 export async function projectTargetSpec(
   target: ProfileTargetConfig,

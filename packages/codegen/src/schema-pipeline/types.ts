@@ -4,7 +4,7 @@
  *
  * 1. Zod Master Schema ->
  * 2. JSON Schema Draft 2020-12 ->
- * 3. OpenAPI 3.1 ->
+ * 3. OpenAPI document (3.1.0 from a Zod module; a spec file keeps its own `openapi` version) ->
  * 4. TypeScript Type Guards using AJV
  */
 
@@ -29,6 +29,7 @@ export interface SchemaStage3OpenApiInfo {
   id: string
   path: string
   profile: string
+  /** OpenAPI version the projected document declares in its `openapi` field (`3.1.0` when it declares none). */
   specVersion: string
   versionHash: string
   schemaCount: number
@@ -60,8 +61,14 @@ export interface SchemaPipelineTransparencyManifest {
       dialect: 'https://json-schema.org/draft/2020-12/schema'
       bundles: SchemaStage2JsonSchemaInfo[]
     }
+    /** OpenAPI documents of the run. The key keeps its original name for compatibility; the documents need not be 3.1. */
     stage3_openApi31: {
-      specVersion: '3.1.0'
+      /**
+       * OpenAPI versions of `specs`: their distinct `specVersion` values in
+       * target order, joined with `", "` (`"3.2.0"`, or `"3.1.0, 3.2.0"` when
+       * the targets' documents differ). Empty when there are no specs.
+       */
+      specVersion: string
       specs: SchemaStage3OpenApiInfo[]
     }
     stage4_typeGuards: {

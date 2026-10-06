@@ -26,7 +26,8 @@ import type {
  *
  * 1. Zod Master Schema ->
  * 2. JSON Schema Draft 2020-12 (storage & AJV validation) ->
- * 3. OpenAPI 3.1 (contract & documentation with provenance) ->
+ * 3. OpenAPI document (contract & documentation with provenance; 3.1.0 from a
+ *    Zod module, while a spec file keeps its own `openapi` version) ->
  * 4. TypeScript Type Guards using AJV (zero-eval CSP, Tier 1 fast-path, polymorphic dispatch)
  */
 export async function executeSchemaPipeline(
@@ -99,7 +100,7 @@ export async function executeSchemaPipeline(
       })
     }
 
-    // Stage 2 & 3: Project to JSON Schema 2020-12 and OpenAPI 3.1
+    // Stage 2 & 3: Project to JSON Schema 2020-12 and OpenAPI
     const projection = await projectTargetSpec(target, rootDir)
     specResults.push(projection)
 
@@ -130,7 +131,7 @@ export async function executeSchemaPipeline(
       defs: defKeys,
     })
 
-    // Verify Stage 3: OpenAPI 3.1 Contract & Provenance
+    // Verify Stage 3: OpenAPI Contract & Provenance
     const compSchemas =
       ((projection.openApiDoc.components as Record<string, unknown>)?.schemas as Record<string, unknown>) ?? {}
     const compKeys = Object.keys(compSchemas)
@@ -216,7 +217,7 @@ export async function executeSchemaPipeline(
         bundles: stage2Bundles,
       },
       stage3_openApi31: {
-        specVersion: '3.1.0',
+        specVersion: distinctSpecVersions(stage3Specs),
         specs: stage3Specs,
       },
       stage4_typeGuards: {
@@ -242,6 +243,11 @@ export async function executeSchemaPipeline(
   }
 }
 
+/** The distinct OpenAPI versions of `specs`, in target order, joined with ", ". */
+function distinctSpecVersions(specs: readonly SchemaStage3OpenApiInfo[]): string {
+  return [...new Set(specs.map(spec => spec.specVersion))].join(', ')
+}
+
 /**
  * Formats a clean ASCII/Markdown transparency report for terminal or logs.
  */
@@ -255,7 +261,9 @@ export function formatTransparencyTable(manifest: SchemaPipelineTransparencyMani
   lines.push(`Zero-Eval CSP:    ${manifest.summary.zeroEvalCspCompliant ? '✅ 100% COMPLIANT (0 violations)' : '❌ CSP VIOLATIONS FOUND'}`)
   lines.push(`Provenance:       ${manifest.summary.provenanceComplete ? '✅ COMPLETE (VersionHash & Sources attached)' : '⚠️ INCOMPLETE'}`)
   lines.push('--------------------------------------------------------------------------------')
-  lines.push(' [Stage 1: Zod Master]  -->  [Stage 2: JSON Schema 2020-12]  -->  [Stage 3: OAS 3.1]  -->  [Stage 4: AJV Guards]')
+  const stage3Version = manifest.stages.stage3_openApi31.specVersion
+  const stage3Label = stage3Version ? `OAS ${stage3Version}` : 'OAS'
+  lines.push(` [Stage 1: Zod Master]  -->  [Stage 2: JSON Schema 2020-12]  -->  [Stage 3: ${stage3Label}]  -->  [Stage 4: AJV Guards]`)
   lines.push('--------------------------------------------------------------------------------')
 
   for (const s3 of manifest.stages.stage3_openApi31.specs) {

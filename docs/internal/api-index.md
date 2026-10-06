@@ -986,7 +986,7 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `SchemaPipelineTransparencyManifest` | `schema-pipeline/types.ts` | 4-Stage Transparent Schema Lifecycle Pipeline 실행 결과 매니페스트 |
 | `SchemaStage1ZodInfo` | `schema-pipeline/types.ts` | 4-Stage Pipeline Stage 1 (Zod Master Schema) 정보 |
 | `SchemaStage2JsonSchemaInfo` | `schema-pipeline/types.ts` | 4-Stage Pipeline Stage 2 (JSON Schema Draft 2020-12) 정보 |
-| `SchemaStage3OpenApiInfo` | `schema-pipeline/types.ts` | 4-Stage Pipeline Stage 3 (OpenAPI 3.1) 정보 |
+| `SchemaStage3OpenApiInfo` | `schema-pipeline/types.ts` | 4-Stage Pipeline Stage 3 (OpenAPI 문서, 버전은 `specVersion`) 정보 |
 | `SchemaStage4GuardInfo` | `schema-pipeline/types.ts` | 4-Stage Pipeline Stage 4 (AJV Standalone Type Guards) 정보 |
 | `DrizzleCodegenOptions` | `drizzle/index.ts` | `OutputOptions & { schemaPath, ... }` |
 | `OasSchema` | **`@oa-sdk/parser` re-export** | codegen이 parser 정식 타입 사용 |

@@ -164,7 +164,27 @@ describe('oa-gen generate summary', () => {
     const stage3 = manifest.stages.stage3_openApi31.specs[0]!
     expect(stage3.operationCount).toBe(5)
     expect(stage3.specVersion).toBe('3.2.0')
+    expect(manifest.stages.stage3_openApi31.specVersion).toBe('3.2.0')
+    expect(reportTable).toContain('[Stage 3: OAS 3.2.0]')
     expect(reportTable).toContain('Stage 3 (OpenAPI 3.2.0)')
     expect(reportTable).toContain('(5 ops,')
+    expect(reportTable).not.toContain('OAS 3.1')
+    expect(reportTable).not.toContain('OpenAPI 3.1')
+  })
+
+  it('reports the distinct versions of the documents in the schema pipeline report when targets differ', async () => {
+    const outDir = path.join(tmpDir, 'generated')
+    const specs = [
+      { id: 'library', profile: 'full-api-document' as const, schemaEntry: writeDocument('library.json', oas32Document), outDir },
+      { id: 'legacy', profile: 'full-api-document' as const, schemaEntry: writeDocument('legacy.json', { ...oas32Document, openapi: '3.1.1', webhooks: {} }), outDir },
+      { id: 'catalog', profile: 'full-api-document' as const, schemaEntry: writeDocument('catalog.json', oas32Document), outDir },
+    ]
+
+    const { manifest, reportTable } = await executeSchemaPipeline({ specs }, { rootDir: tmpDir, writeFiles: false })
+
+    expect(manifest.stages.stage3_openApi31.specs.map(spec => spec.specVersion)).toEqual(['3.2.0', '3.1.1', '3.2.0'])
+    expect(manifest.stages.stage3_openApi31.specVersion).toBe('3.2.0, 3.1.1')
+    expect(reportTable).toContain('[Stage 3: OAS 3.2.0, 3.1.1]')
+    expect(reportTable).toContain('Stage 3 (OpenAPI 3.1.1)')
   })
 })
