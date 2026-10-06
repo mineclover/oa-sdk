@@ -332,7 +332,8 @@ named export(`OrderSchema` → component `Order`), `schemas` 객체, default 객
 
 `oa-gen generate` 요약 출력은 `<id>.openapi.json` 줄에 파일의 `openapi` 필드 버전을 표시하고(`OpenAPI 3.2.0: <파일>`),
 `N ops`에 operation 수를 표시합니다. operation 수는 `paths` 아래 모든 HTTP 메서드(OAS 3.2 `query` 포함)와
-`additionalOperations` 항목을 세고, webhook은 세지 않습니다. TypeSpec 원본에 필요한 패키지 설치는
+`additionalOperations` 항목을 세고, webhook은 세지 않습니다. 스펙이 여러 파일로 나뉘어 있으면 다른 파일을 가리키는
+`$ref`를 스펙 파일의 위치에서 푼 스펙에서 세므로 다른 파일에 있는 path item의 operation도 셉니다. TypeSpec 원본에 필요한 패키지 설치는
 [Quick Start](./quick-start.md)를 따릅니다.
 
 ### 6.2 프로젝션 프로파일

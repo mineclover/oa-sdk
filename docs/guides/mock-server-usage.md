@@ -54,7 +54,7 @@ TypeSpec 원본에서 4xx 응답을 선언할 때는 `@oa-sdk/typespec-decorator
 
 ### 2.2 `oa-mock`
 
-`@oa-sdk/mock-server` 패키지는 자체 CLI `oa-mock`도 제공합니다. OpenAPI JSON/YAML 파일만 받고(`.tsp`와 `oa.config.ts` 기본값은 `oa-gen mock`에만 있음), 네트워크 지연·손실을 흉내 내는 옵션이 있습니다.
+`@oa-sdk/mock-server` 패키지는 자체 CLI `oa-mock`도 제공합니다. OpenAPI JSON/YAML 파일만 받고(`.tsp`와 `oa.config.ts` 기본값은 `oa-gen mock`에만 있음), 네트워크 지연·손실을 흉내 내는 옵션이 있습니다. 스펙이 여러 파일로 나뉘어 있으면 다른 파일을 가리키는 `$ref`(`./schemas.yaml#/User`, `./paths/user.yaml` 등)를 스펙 파일의 위치에서 풀어 검증하고 서빙하므로, 다른 파일에 있는 path item의 operation도 응답합니다. 없는 파일이나 서로만 가리키는 `$ref`처럼 풀 수 없는 `$ref`가 있으면 포트를 열기 전에 그 `$ref`를 출력하고 종료 코드 1로 실패합니다.
 
 ```bash
 npx oa-mock --spec ./openapi.yaml --port 4010 --stateful

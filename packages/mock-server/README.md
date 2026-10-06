@@ -180,6 +180,8 @@ node packages/mock-server/dist/cli/index.js --spec path/to/openapi.json --port 4
 
 The CLI parses JSON and YAML, validates the document before binding a port, and exits with a non-zero status when loading or validation fails. It never selects a bundled or workspace schema implicitly.
 
+A spec split across files is served as one document: the `$ref`s it makes into other files (`./schemas.yaml#/User`, `./paths/user.yaml`) resolve relative to the spec file, for validation and for serving, so the operations of a path item in another file are served too. A `$ref` that cannot be resolved, such as one to a missing file or a cycle of references, fails before a port is bound and names the reference.
+
 | Flag | Requirement | Default | Description |
 |------|-------------|---------|-------------|
 | `--spec`, `-s` | Required JSON/YAML path | None | OpenAPI specification file |
