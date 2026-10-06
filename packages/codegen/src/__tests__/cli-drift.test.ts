@@ -150,6 +150,35 @@ describe('oa-gen drift path arguments', () => {
     })
   })
 
+  describe('runtime source arguments', () => {
+    it('reports a missing runtime source as a usage error before recording a behavior', () => {
+      const result = runOaCli([
+        'drift',
+        '--managed-openapi', MANAGED,
+        '--behavior-log', 'logs/drift.behavior.jsonl',
+      ], { cwd: fixture.rootDir })
+
+      expect(result.status).toBe(1)
+      expect(result.stderr).toContain('missing required runtime input: --runtime-openapi or --runtime-openapi-url')
+      expect(result.stderr).not.toContain('Invalid behavior record')
+      expect(fixture.exists('logs/drift.behavior.jsonl')).toBe(false)
+    })
+
+    it('reports both runtime sources as a usage error before recording a behavior', () => {
+      const result = runOaCli([
+        'drift',
+        '--managed-openapi', MANAGED,
+        '--runtime-openapi', RUNTIME,
+        '--runtime-openapi-url', dataUrl(managedSpec()),
+        '--behavior-log', 'logs/drift.behavior.jsonl',
+      ], { cwd: fixture.rootDir })
+
+      expect(result.status).toBe(1)
+      expect(result.stderr).toContain('use only one of --runtime-openapi or --runtime-openapi-url')
+      expect(fixture.exists('logs/drift.behavior.jsonl')).toBe(false)
+    })
+  })
+
   describe('runtime URL input', () => {
     it.each(['drift', 'drift:live'] as const)('%s accepts a relative --managed-openapi and reports no drift', (command) => {
       const result = runDrift([

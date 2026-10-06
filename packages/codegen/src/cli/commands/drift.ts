@@ -82,14 +82,13 @@ export const drift: Command = {
     // and every behavior record and report uses these values. A relative argument and the
     // absolute path of the same file therefore produce the same input, target and identity.
     const managedPath = resolve(str(args, 'managed-openapi'))
-    const managed = loadSpecWithPath(managedPath)
-    const runtimeInput: { runtimePath?: string; runtimeUrl?: string } = {}
-    const runtimePathArg = optStr(args, 'runtime-openapi')
-    const runtimePath = runtimePathArg === undefined ? undefined : resolve(runtimePathArg)
-    const runtimeUrl = optStr(args, 'runtime-openapi-url')
-    if (runtimePath !== undefined) runtimeInput.runtimePath = runtimePath
-    if (runtimeUrl !== undefined) runtimeInput.runtimeUrl = runtimeUrl
+    // Usage errors are reported before the behavior starts: a record without exactly one
+    // runtime source would not be a valid sync_runtime_openapi record.
+    const runtimeSource = readRuntimeSource(optStr(args, 'runtime-openapi'), optStr(args, 'runtime-openapi-url'))
+    const runtimePath = runtimeSource.kind === 'file' ? runtimeSource.path : undefined
+    const runtimeUrl = runtimeSource.kind === 'url' ? runtimeSource.url : undefined
     const runtimeHeaders = parseRuntimeHeaders(optStrArray(args, 'runtime-header'))
+    const managed = loadSpecWithPath(managedPath)
     const behaviorInput = {
       ...(runtimePath !== undefined ? { runtimePath } : {}),
       ...(runtimeUrl !== undefined ? { runtimeUrl } : {}),
@@ -106,7 +105,7 @@ export const drift: Command = {
     const startedAt = Date.now()
 
     try {
-      const runtime = await loadRuntimeOpenApi(runtimeInput, {
+      const runtime = await loadRuntimeOpenApi(runtimeSource, {
         headers: runtimeHeaders,
       })
 
@@ -232,7 +231,7 @@ export const drift: Command = {
       if (issues.length > 0) throw new CliExitError(1)
     } catch (error) {
       if (error instanceof CliExitError) throw error
-      const targetKey = `${managedPath}|${runtimePath ?? runtimeUrl ?? 'unknown-runtime'}`
+      const targetKey = `${managedPath}|${runtimeSource.kind === 'file' ? runtimeSource.path : runtimeSource.url}`
       await behaviorRecorder.record(createBehaviorRecord({
         behaviorType: 'sync_runtime_openapi',
         status: 'failed',
@@ -281,11 +280,25 @@ export const driftLive: Command = {
   description: 'Live runtime HTTP endpoint OpenAPI drift check against managed OpenAPI spec',
 }
 
+/** The one runtime OpenAPI source a drift check compares against; a file path is absolute. */
+type RuntimeSource =
+  | { kind: 'file'; path: string }
+  | { kind: 'url'; url: string }
+
+function readRuntimeSource(
+  runtimePath: string | undefined,
+  runtimeUrl: string | undefined,
+): RuntimeSource {
+  if (runtimePath !== undefined && runtimeUrl !== undefined) {
+    throw new Error('use only one of --runtime-openapi or --runtime-openapi-url')
+  }
+  if (runtimePath !== undefined) return { kind: 'file', path: resolve(runtimePath) }
+  if (runtimeUrl !== undefined) return { kind: 'url', url: runtimeUrl }
+  throw new Error('missing required runtime input: --runtime-openapi or --runtime-openapi-url')
+}
+
 async function loadRuntimeOpenApi(
-  options: {
-    runtimePath?: string
-    runtimeUrl?: string
-  },
+  source: RuntimeSource,
   fetchOptions: {
     headers?: readonly RuntimeHeaderInput[]
   } = {},
@@ -293,14 +306,8 @@ async function loadRuntimeOpenApi(
   | { document: Record<string, unknown>; path: string; source: string; fetch?: RuntimeFetchInfo }
   | { source: string; failure: DriftFailure; fetch?: RuntimeFetchInfo }
 > {
-  if (options.runtimePath && options.runtimeUrl) {
-    throw new Error('use only one of --runtime-openapi or --runtime-openapi-url')
-  }
-  if (!options.runtimePath && !options.runtimeUrl) {
-    throw new Error('missing required runtime input: --runtime-openapi or --runtime-openapi-url')
-  }
-  if (options.runtimePath) {
-    const loaded = loadSpecWithPath(options.runtimePath)
+  if (source.kind === 'file') {
+    const loaded = loadSpecWithPath(source.path)
     return {
       document: loaded.document,
       path: loaded.path,
@@ -308,7 +315,7 @@ async function loadRuntimeOpenApi(
     }
   }
 
-  return fetchRuntimeOpenApi(options.runtimeUrl!, fetch, fetchOptions)
+  return fetchRuntimeOpenApi(source.url, fetch, fetchOptions)
 }
 
 export async function fetchRuntimeOpenApi(
