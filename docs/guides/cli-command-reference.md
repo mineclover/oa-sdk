@@ -120,6 +120,8 @@ oa-gen behavior-query \
 
 핸들러 계약은 동반 패키지 `@oa-sdk/router`, 클라이언트 SDK와 TanStack Query 옵션은 `@oa-sdk/client`가 생성합니다. 설정 파일이 `core.contracts.pureHandlers: true` 또는 `core.client.enabled: true`로 명시적으로 켠 산출물의 패키지가 없으면 파일을 쓰기 전에 설치 명령을 출력하고 종료 코드 1로 실패합니다. 패키지가 있어도 명시적으로 켠 산출물을 만드는 중 오류가 나면 그 오류를 출력하고, 어떤 파일도 쓰지 않은 채(`.oa-manifest.json` 포함) 종료 코드 1로 실패합니다. 기본값으로만 암시된 산출물은 패키지가 없거나 생성 중 오류가 나면 경고와 함께 그 산출물만 건너뛰고, 이전 실행이 만든 해당 파일은 유지합니다([판정 기준](./declarative-spec-configuration.md#명시적-요청과-암시적-기본값-동반-패키지)).
 
+스펙이 여러 파일로 나뉘어 `$ref`가 다른 파일(`./schemas.yaml#/Health`, `./paths/user.yaml` 등)을 가리키면, 계약·클라이언트·TanStack 생성기에 넘기기 전에 그 `$ref`를 스펙 파일(`schemaEntry`)의 위치에서 풉니다. 없는 파일을 가리키거나 서로만 가리키는 `$ref`처럼 풀 수 없는 `$ref`는 위의 생성 오류가 되며, 오류는 그 `$ref`와 진단 코드를 출력합니다(예: `external-ref-read-failed (./missing.yaml#/Health)`, `ref-cycle (./a.yaml#/A)`). `<id>.openapi.json`과 `<id>.schema.json`에는 `$ref`가 스펙에 쓴 그대로(스펙 파일 기준 상대 경로) 남습니다.
+
 `oa-gen generate`가 서버 쪽에 만드는 것은 핸들러 계약뿐이며 프레임워크 라우터 파일은 만들지 않습니다. 생성된 계약과 클라이언트의 요청·응답 타입은 `unknown`입니다. 실행이 끝나면 `.oa-manifest.json`에 기록된 생성 파일 가운데 이번 실행이 소유한 파일(같은 설정 파일로 실행한 `oa-gen generate`가 기록한 파일, `--spec` 실행이면 이전 `--spec` 실행이 같은 스펙 파일로 기록한 파일) 중 이번 실행이 만들지 않고 내용도 바뀌지 않은 파일을 지웁니다. `oa-gen generate:tanstack` 등 다른 명령이 기록한 파일과 다른 설정 파일이나 다른 스펙 파일(파일 이름이 같아도 경로가 다르면 다른 파일)의 실행이 기록한 파일은 지우지 않으며, `outputRouting.pruneOrphans: false`면 아무 파일도 지우지 않습니다([판정 규칙](./declarative-spec-configuration.md#45-생성-파일-정리)). 요약 출력의 `N ops`는 spec target의 operation 수(`query`와 `additionalOperations` 포함, webhook 제외), `<id>.openapi.json` 줄은 파일의 `openapi` 필드 버전(예: `OpenAPI 3.2.0`), `Artifacts Pruned`는 지운 파일입니다.
 
 | 옵션 | 단축 | 타입 | 기본값 | 설명 |
@@ -208,7 +210,7 @@ Overlay를 Forge/Fern transformer에 전달하는 별도 downstream 단계입니
 
 ## generate:tanstack 옵션 및 인수 명세
 
-`oa-gen generate:tanstack`은 OpenAPI 3.1/3.2 명세로부터 TanStack Query v5 기반의 3계층 아티팩트(Tier 1 Query Key Factory, Tier 2 Pure Options Factory, Tier 3 Composition Hooks)를 자동 생성합니다. 생성기는 동반 패키지 `@oa-sdk/client`에서 불러오며, 패키지가 없으면 설치 명령을 출력하고 종료 코드 1로 실패합니다.
+`oa-gen generate:tanstack`은 OpenAPI 3.1/3.2 명세로부터 TanStack Query v5 기반의 3계층 아티팩트(Tier 1 Query Key Factory, Tier 2 Pure Options Factory, Tier 3 Composition Hooks)를 자동 생성합니다. 생성기는 동반 패키지 `@oa-sdk/client`에서 불러오며, 패키지가 없으면 설치 명령을 출력하고 종료 코드 1로 실패합니다. `oa-gen generate:client`처럼 다른 파일을 가리키는 `$ref`는 스펙 파일의 위치에서 풀고, 풀 수 없는 `$ref`가 있으면 그 `$ref`를 출력하고 종료 코드 1로 실패합니다.
 
 > ⚠️ **주의**: 과거 문서에 기재되었던 `--package`, `--client-name`, `--hooks`, `--banner` 플래그는 유효하지 않습니다. 대상 프레임워크 패키지는 `--framework <react|vue|svelte>`로 지정합니다. `vue`·`svelte` 출력은 현재 컴파일되지 않습니다(아래 알려진 제한).
 
@@ -289,6 +291,8 @@ oa-gen generate:tanstack --spec ./openapi.yaml --output ./src/api --types-import
 | `--stateful` | | `boolean` | `false` | 인메모리 CRUD 저장소 활성화. POST가 만든 항목을 GET이 돌려주고 PUT/PATCH/DELETE가 갱신·삭제합니다. 이 모드의 목록 응답은 저장된 항목 배열이므로 문서의 응답 스키마(예: `{ items, total }` 형태)와 다를 수 있습니다 |
 
 요청은 파라미터·본문·보안 요구사항으로 검증해 잘못되면 422, 인증 정보가 없으면 401, 정의되지 않은 경로는 404로 답하고, 응답은 문서의 예제나 스키마로 만듭니다.
+
+OpenAPI 스펙이 여러 파일로 나뉘어 있으면 다른 파일을 가리키는 `$ref`를 스펙 파일의 위치에서 풀어 서빙하고, 풀 수 없는 `$ref`가 있으면 그 `$ref`를 출력하고 종료 코드 1로 실패합니다. `--watch`는 스펙 파일만 지켜보므로, `$ref`가 가리키는 다른 파일만 고쳤을 때는 스펙 파일을 다시 저장하거나 서버를 다시 시작해야 반영됩니다.
 
 ### 실시간 무중단 핫 리로드 3대 메커니즘
 `--watch` (`-w`) 플래그가 활성화되면 다음과 같은 안정성 메커니즘이 가동됩니다:
