@@ -124,8 +124,8 @@ export const init: Command = {
 }
 
 /**
- * One line on the contract baseline: what init did, and, when the gate cannot run yet, what makes
- * it run. The scripts are named as the enterprise archetype adds them.
+ * One line on the contract baseline: what init did, and, when the gate cannot run yet or was not
+ * added, what makes it run. The scripts are named as the enterprise archetype adds them.
  */
 function describeContractBaseline(baseline: ContractBaselineResult): string {
   switch (baseline.status) {
@@ -137,6 +137,8 @@ function describeContractBaseline(baseline: ContractBaselineResult): string {
       return `🔍 [dry-run] contract baseline would be created at ${baseline.path} from ${baseline.specPath}`
     case 'not-created':
       return `⚠️ Contract baseline ${baseline.path} not created: ${baseline.reason}. Run the "baseline:update" script once the spec loads; "diff" and "ci:gate" need it.`
+    case 'no-gate':
+      return `⚠️ Contract baseline ${baseline.path} and the "lint:spec", "diff", "baseline:update" and "ci:gate" scripts not added: ${baseline.reason}.`
   }
 }
 

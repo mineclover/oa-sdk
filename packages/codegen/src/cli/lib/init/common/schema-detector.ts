@@ -2,10 +2,17 @@ import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import type { DetectedSchemaItem } from '../types.js'
 import { CONTRACT_BASELINE_PATH } from './contract-baseline.js'
+import { SCAFFOLD_OUT_DIR } from './scripts.js'
 
 export interface SchemaDetectorOptions {
   maxDepth?: number
   ignoredDirs?: string[]
+  /**
+   * Files and directories, absolute or relative to `cwd`, that hold what `oa-gen generate` wrote,
+   * such as the OpenAPI documents of the spec targets of the project's oa.config.ts. They are
+   * skipped, as is `src/generated`, where the configuration `oa-gen init` writes has them.
+   */
+  generatedPaths?: readonly string[]
 }
 
 const DEFAULT_IGNORED_DIRS = new Set([
@@ -33,6 +40,10 @@ export async function detectSchemas(
 ): Promise<DetectedSchemaItem[]> {
   const maxDepth = options.maxDepth ?? 5
   const ignored = options.ignoredDirs ? new Set(options.ignoredDirs) : DEFAULT_IGNORED_DIRS
+  // A generated document restates a spec; it is never the spec the project edits.
+  const generated = new Set(
+    [SCAFFOLD_OUT_DIR, ...(options.generatedPaths ?? [])].map(generatedPath => path.resolve(cwd, generatedPath)),
+  )
   const items: DetectedSchemaItem[] = []
 
   async function walk(dir: string, depth = 0): Promise<void> {
@@ -49,7 +60,7 @@ export async function detectSchemas(
       const fullPath = path.join(dir, entry)
       const relPath = path.relative(cwd, fullPath)
       // The contract baseline is a copy of the released spec, never the spec the project edits.
-      if (relPath === CONTRACT_BASELINE_PATH) continue
+      if (relPath === CONTRACT_BASELINE_PATH || generated.has(path.resolve(fullPath))) continue
 
       try {
         const stat = await fs.stat(fullPath)

@@ -395,6 +395,20 @@ export function resolveProfileTarget(
 }
 
 /**
+ * The OpenAPI and JSON Schema documents `oa-gen generate` writes for the spec target `targetId`
+ * into its resolved `outDir`.
+ */
+export function profileTargetArtifactPaths(
+  resolvedOutDir: string,
+  targetId: string,
+): { openApiPath: string; jsonSchemaPath: string } {
+  return {
+    openApiPath: path.join(resolvedOutDir, `${targetId}.openapi.json`),
+    jsonSchemaPath: path.join(resolvedOutDir, `${targetId}.schema.json`),
+  }
+}
+
+/**
  * Resolves outDir of GuardTargetConfig relative to rootDir.
  */
 export function resolveGuardTarget(

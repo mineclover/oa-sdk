@@ -27,6 +27,7 @@ import {
 import type { TargetRuntime } from '../../cli/lib/init/types.js'
 import { defineConfig, type OaConfig } from '../../config.js'
 import { importerWithout } from '../helpers/companion-packages.js'
+import { installCodegenStandIn } from '../helpers/codegen-stand-in.js'
 
 /**
  * `oa-gen init` writes a configuration that turns companion-produced outputs on
@@ -149,12 +150,7 @@ describe('oa-gen init, then oa-gen generate, in a published install', () => {
         schemas: { Order: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } },
       },
     }, null, 2))
-    const codegenDir = path.join(dir, 'node_modules', '@oa-sdk', 'codegen')
-    fs.mkdirSync(codegenDir, { recursive: true })
-    fs.writeFileSync(path.join(codegenDir, 'package.json'), JSON.stringify({
-      name: '@oa-sdk/codegen', type: 'module', exports: { '.': './index.js' },
-    }))
-    fs.writeFileSync(path.join(codegenDir, 'index.js'), 'export const defineConfig = (config) => config\n')
+    installCodegenStandIn(dir)
     return dir
   }
 

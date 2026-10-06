@@ -335,7 +335,30 @@ describe('Modular Archetype Engine (packages/codegen/src/cli/lib/init/archetypes
       }
 
       expect(enterprise.getRecommendedScripts(options)).toEqual({})
-      expect(enterprise.getContractBaseline(options)).toBeUndefined()
+      expect(enterprise.getContractBaseline(options)).toEqual({
+        path: 'openapi.baseline.yaml',
+        status: 'no-gate',
+        reason: 'the spec entry point src/schema.ts is not an OpenAPI YAML/JSON document or a TypeSpec entry point, ' +
+          'which oa-gen lint and diff read',
+      })
+    })
+
+    it('adds no gate and no baseline, with the reason, when init cannot tell the spec entry point', () => {
+      // init keeps an oa.config.ts whose spec it cannot tell; the scripts never fall back to openapi.yaml.
+      const options = {
+        cwd: '.',
+        frameworkId: 'generic' as const,
+        runtime: 'node' as const,
+        archetypeId: 'enterprise' as const,
+        specEntryUnavailable: 'the existing oa.config.ts did not load',
+      }
+
+      expect(enterprise.getRecommendedScripts(options)).toEqual({})
+      expect(enterprise.getContractBaseline(options)).toEqual({
+        path: 'openapi.baseline.yaml',
+        status: 'no-gate',
+        reason: 'the existing oa.config.ts did not load',
+      })
     })
 
     it('mvp and microservice have no contract baseline', () => {

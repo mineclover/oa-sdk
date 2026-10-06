@@ -55,7 +55,14 @@ export interface TargetGenerateOptions {
   cwd: string
   frameworkId: TargetFrameworkId
   runtime: TargetRuntime
+  /** The spec entry point the scaffold records and its scripts run on. */
   detectedSchema?: DetectedSchemaItem | undefined
+  /**
+   * Why the scripts have no spec entry point to run on: `oa-gen init` keeps the project's
+   * oa.config.ts, and cannot tell which `schemaEntry` of it they should use. `detectedSchema` is
+   * then unset, and scripts on the spec are left out.
+   */
+  specEntryUnavailable?: string | undefined
   projectName?: string | undefined
   packageJson?: Record<string, unknown> | undefined
   force?: boolean | undefined
@@ -123,6 +130,10 @@ export interface InitResult {
   runtime: TargetRuntime
   configPath: string
   patchResult?: PackagePatchResult | undefined
+  /**
+   * The spec entry point of the scaffold: the `schemaEntry` of the oa.config.ts init keeps, or else
+   * the one given (`--spec`), detected or suggested, which the oa.config.ts init writes records.
+   */
   detectedSchema?: DetectedSchemaItem | undefined
   configFileCreated?: boolean | undefined
   packageJsonPatched?: boolean | undefined

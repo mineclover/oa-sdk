@@ -15,6 +15,7 @@ import { diff } from '../../cli/commands/diff.js'
 import { init } from '../../cli/commands/init.js'
 import { normalize } from '../../cli/commands/normalize.js'
 import { CliExitError } from '../../cli/lib/errors.js'
+import { installCodegenStandIn } from '../helpers/codegen-stand-in.js'
 
 /** codegen's node_modules, which has the TypeSpec libraries a `.tsp` spec imports. */
 const CODEGEN_NODE_MODULES = fileURLToPath(new URL('../../../node_modules', import.meta.url))
@@ -198,6 +199,8 @@ describe('contract baseline of the enterprise archetype', () => {
   it('is reported by the init command, with what to do when it could not be created', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
     await fs.writeFile(path.join(projectDir, 'package.json'), JSON.stringify({ name: 'gated' }))
+    // The second run keeps the oa.config.ts the first wrote, and reads its spec from it.
+    installCodegenStandIn(projectDir)
 
     await init.run({ cwd: projectDir, archetype: 'enterprise', yes: true })
     expect(log.mock.calls.map(([line]) => String(line))).toContain(

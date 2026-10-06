@@ -40,10 +40,22 @@ import { patchPackageJson } from './common/package-patcher.js'
 import { findPnpmWorkspace } from './common/pnpm-workspace.js'
 import {
   CONTRACT_BASELINE_PATH,
+  isContractBaselineSkip,
   isSpecDocumentPath,
   writeContractBaseline,
 } from './common/contract-baseline.js'
-import { DEFAULT_SCHEMA_ENTRY, oaGenScript, schemaEntryOf, scriptPath } from './common/scripts.js'
+import {
+  generatedArtifactPaths,
+  readExistingConfig,
+  retainedSpecEntry,
+} from './common/existing-config.js'
+import {
+  DEFAULT_SCHEMA_ENTRY,
+  SCAFFOLD_OUT_DIR,
+  oaGenScript,
+  schemaEntryOf,
+  scriptPath,
+} from './common/scripts.js'
 import {
   OA_SDK_INIT_PACKAGES,
   REGISTRY_OA_SDK_PACKAGES,
@@ -71,7 +83,12 @@ import type { UnavailableOaSdkPackage, UninstallableOaSdkEntry } from './oa-sdk-
 export * from './types.js'
 export type { ComposedDependencies } from './composer.js'
 export type { PnpmWorkspace } from './common/pnpm-workspace.js'
-export type { ContractBaselinePlan, ContractBaselineResult } from './common/contract-baseline.js'
+export type {
+  ContractBaselinePlan,
+  ContractBaselineResult,
+  ContractBaselineSkip,
+} from './common/contract-baseline.js'
+export type { ExistingConfig, ExistingSpecTarget, ScriptSpecEntry } from './common/existing-config.js'
 export type {
   DependencySection,
   OaSdkPackageName,
@@ -118,9 +135,14 @@ export {
   patchPackageJson,
   findPnpmWorkspace,
   CONTRACT_BASELINE_PATH,
+  isContractBaselineSkip,
   isSpecDocumentPath,
   writeContractBaseline,
+  generatedArtifactPaths,
+  readExistingConfig,
+  retainedSpecEntry,
   DEFAULT_SCHEMA_ENTRY,
+  SCAFFOLD_OUT_DIR,
   oaGenScript,
   schemaEntryOf,
   scriptPath,
@@ -185,11 +207,25 @@ export async function runInit(options: InitOptions = {}): Promise<InitResult> {
     routingPreset = 'default'
   }
 
-  // 3. Discover schema files across directory tree
-  const detectedList = await detectSchemas(cwd)
-  let primarySchema: DetectedSchemaItem | undefined
+  // 3. The project's oa.config.ts: init keeps it unless --force, and reads it either way, for the
+  // spec it records and the documents `oa-gen generate` wrote for it.
+  const configPath = path.join(cwd, 'oa.config.ts')
+  const existingConfig = await fs.access(configPath).then(
+    () => readExistingConfig(cwd, configPath),
+    () => undefined,
+  )
+  const retainConfig = existingConfig !== undefined && !options.force
 
-  if (options.spec) {
+  // 4. The spec entry point of the scaffold. The scripts run beside the oa.config.ts the project
+  // ends up with, so a kept one decides it; a new one records the given, detected or default spec.
+  let primarySchema: DetectedSchemaItem | undefined
+  let specEntryUnavailable: string | undefined
+
+  if (retainConfig) {
+    const specEntry = retainedSpecEntry(existingConfig, cwd, options.spec)
+    if ('schema' in specEntry) primarySchema = specEntry.schema
+    else specEntryUnavailable = specEntry.unavailable
+  } else if (options.spec) {
     primarySchema = {
       type: 'openapi-yaml',
       kind: 'openapi-yaml',
@@ -200,15 +236,14 @@ export async function runInit(options: InitOptions = {}): Promise<InitResult> {
       score: 100,
       description: `Explicitly provided specification: ${options.spec}`,
     }
-  } else if (detectedList.length > 0) {
-    primarySchema = detectedList[0]
   } else {
-    primarySchema = {
+    const detectedList = await detectSchemas(cwd, { generatedPaths: generatedArtifactPaths(existingConfig) })
+    primarySchema = detectedList[0] ?? {
       type: 'openapi-yaml',
       kind: 'openapi-yaml',
-      filePath: 'openapi.yaml',
-      path: path.resolve(cwd, 'openapi.yaml'),
-      relativePath: 'openapi.yaml',
+      filePath: DEFAULT_SCHEMA_ENTRY,
+      path: path.resolve(cwd, DEFAULT_SCHEMA_ENTRY),
+      relativePath: DEFAULT_SCHEMA_ENTRY,
       confidence: 0.5,
       score: 50,
       description: 'Default suggested OpenAPI YAML specification',
@@ -220,25 +255,19 @@ export async function runInit(options: InitOptions = {}): Promise<InitResult> {
     frameworkId: targetId,
     runtime: matchedProfile.defaultRuntime,
     detectedSchema: primarySchema,
+    specEntryUnavailable,
     routing: routingPreset,
     oaSdkSources: await findOaSdkPackageSources(cwd),
   }
 
-  // 4. Generate oa.config.ts content via composer
-  const configContent = composeInitConfig(matchedProfile, matchedArchetype, targetGenOptions)
-
-  const configPath = path.join(cwd, 'oa.config.ts')
+  // 5. Generate oa.config.ts content via composer
   let configFileCreated = false
-
-  if (!options.dryRun) {
-    const configExists = await fs.access(configPath).then(() => true).catch(() => false)
-    if (!configExists || options.force) {
-      await fs.writeFile(configPath, configContent, 'utf-8')
-      configFileCreated = true
-    }
+  if (!options.dryRun && !retainConfig) {
+    await fs.writeFile(configPath, composeInitConfig(matchedProfile, matchedArchetype, targetGenOptions), 'utf-8')
+    configFileCreated = true
   }
 
-  // 5. Non-destructively patch package.json if present
+  // 6. Non-destructively patch package.json if present
   let patchResult: PackagePatchResult | undefined
   let unavailablePackages: UnavailableOaSdkPackage[] | undefined
   let uninstallableEntries: UninstallableOaSdkEntry[] | undefined
@@ -268,11 +297,11 @@ export async function runInit(options: InitOptions = {}): Promise<InitResult> {
     // package.json does not exist or unreadable, skip patch
   }
 
-  // 6. Create the contract baseline the archetype's scripts compare the spec with, unless the
+  // 7. Create the contract baseline the archetype's scripts compare the spec with, unless the
   // project has one: it records a release, so only the project moves it (its baseline:update script).
   const baselinePlan = matchedArchetype.getContractBaseline?.({ ...targetGenOptions, archetypeId })
-  const contractBaseline = baselinePlan === undefined
-    ? undefined
+  const contractBaseline = baselinePlan === undefined || isContractBaselineSkip(baselinePlan)
+    ? baselinePlan
     : await writeContractBaseline(cwd, baselinePlan, { dryRun: options.dryRun })
 
   return {

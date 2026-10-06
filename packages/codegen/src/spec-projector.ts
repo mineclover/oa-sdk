@@ -23,7 +23,7 @@ import {
 } from '@oa-sdk/openapi-projection-contract'
 import { appendJsonPointer, loadSchema } from '@oa-sdk/parser'
 import type { ProfileTargetConfig, GuardTargetConfig } from './config.js'
-import { loadModule } from './cli/lib/config-loader.js'
+import { loadModule, profileTargetArtifactPaths } from './cli/lib/config-loader.js'
 import { zodToSchema } from './zod-to-schema.js'
 import { generateStandaloneGuards } from './standalone-guards/index.js'
 import type { GeneratedGuardArtifact } from './standalone-guards/types.js'
@@ -416,8 +416,7 @@ export async function projectTargetSpec(
     [OPENAPI_PROJECTION_REFS_EXTENSION]: refEdges,
   }
 
-  const openApiPath = path.join(resolvedOutDir, `${target.id}.openapi.json`)
-  const jsonSchemaPath = path.join(resolvedOutDir, `${target.id}.schema.json`)
+  const { openApiPath, jsonSchemaPath } = profileTargetArtifactPaths(resolvedOutDir, target.id)
 
   const operationCount = countPathOperations(coreOpenApiDoc)
   const schemaCount = Object.keys(components ?? {}).length

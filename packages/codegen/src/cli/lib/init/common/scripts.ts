@@ -4,6 +4,9 @@ import type { DetectedSchemaItem, TargetRuntime } from '../types.js'
 /** The spec entry point `oa-gen init` records when the project has none yet. */
 export const DEFAULT_SCHEMA_ENTRY = 'openapi.yaml'
 
+/** The `outDir` `oa-gen init` records for its spec target: where `oa-gen generate` writes its documents. */
+export const SCAFFOLD_OUT_DIR = './src/generated'
+
 /**
  * The spec entry point an `oa-gen init` run records as the `schemaEntry` of its spec target:
  * the detected or given one, else `openapi.yaml`. Relative paths are relative to the project root,

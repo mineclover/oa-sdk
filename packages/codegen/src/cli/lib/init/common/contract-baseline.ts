@@ -30,14 +30,34 @@ export interface ContractBaselinePlan {
 }
 
 /**
- * What `oa-gen init` did about a contract baseline: created it; left the one the project has, since
- * the baseline records a release and only the project moves it; would create it (dry run); or could
- * not create it, because the spec does not exist yet or does not load.
+ * Why an archetype that gates the spec against a contract baseline adds neither the baseline nor
+ * the scripts on it: the project has no spec entry point they can run on.
  */
-export type ContractBaselineResult = ContractBaselinePlan & (
-  | { status: 'created' | 'exists' | 'planned' }
-  | { status: 'not-created'; reason: string }
-)
+export interface ContractBaselineSkip {
+  /** The baseline document the scripts would compare with, relative to the project root. */
+  path: string
+  status: 'no-gate'
+  reason: string
+}
+
+/**
+ * What `oa-gen init` did about a contract baseline: created it; left the one the project has, since
+ * the baseline records a release and only the project moves it; would create it (dry run); could
+ * not create it, because the spec does not exist yet or does not load; or added no gate at all.
+ */
+export type ContractBaselineResult =
+  | (ContractBaselinePlan & (
+    | { status: 'created' | 'exists' | 'planned' }
+    | { status: 'not-created'; reason: string }
+  ))
+  | ContractBaselineSkip
+
+/** True for the plan of an archetype that adds no gate to the project. */
+export function isContractBaselineSkip(
+  plan: ContractBaselinePlan | ContractBaselineSkip,
+): plan is ContractBaselineSkip {
+  return 'status' in plan
+}
 
 /** Creates the contract baseline `plan` describes in the project at `cwd`, unless one exists. */
 export async function writeContractBaseline(

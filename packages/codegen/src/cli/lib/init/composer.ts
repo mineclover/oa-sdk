@@ -15,7 +15,7 @@ import {
   type OaSdkPackageName,
   type UnavailableOaSdkPackage,
 } from './oa-sdk-packages.js'
-import { schemaEntryOf } from './common/scripts.js'
+import { SCAFFOLD_OUT_DIR, schemaEntryOf } from './common/scripts.js'
 
 /**
  * Format a JavaScript/TypeScript object literal into formatted multi-line string.
@@ -162,7 +162,7 @@ export function composeInitConfig(
   const specObj: Record<string, unknown> = {
     id: `${target.id}-api`,
     schemaEntry,
-    outDir: './src/generated',
+    outDir: SCAFFOLD_OUT_DIR,
     target: target.id,
     ...(snippet.specFields ?? {}),
   }

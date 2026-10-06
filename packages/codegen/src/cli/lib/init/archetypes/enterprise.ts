@@ -7,10 +7,15 @@ import type {
   ArchetypeConfigSnippet,
   LifecycleArchetypeId,
   ContractBaselinePlan,
+  ContractBaselineSkip,
 } from './types.js'
 import type { RecommendedDependencies } from '../types.js'
 import type { OaConfig } from '../../../../config.js'
-import { CONTRACT_BASELINE_PATH, isSpecDocumentPath } from '../common/contract-baseline.js'
+import {
+  CONTRACT_BASELINE_PATH,
+  isContractBaselineSkip,
+  isSpecDocumentPath,
+} from '../common/contract-baseline.js'
 import { oaGenScript, schemaEntryOf, scriptPath } from '../common/scripts.js'
 
 export class EnterpriseArchetypeProfile implements ArchetypeProfile {
@@ -96,12 +101,12 @@ export class EnterpriseArchetypeProfile implements ArchetypeProfile {
    * The gate scripts, on the spec entry point: `lint:spec` lints it, `diff` fails on a change
    * that breaks clients of the contract baseline, `baseline:update` makes the spec the baseline,
    * and `ci:gate` runs `oa-gen validate --require-32`, the lint and the diff. They need a spec
-   * that `oa-gen lint`/`diff` load (OpenAPI YAML/JSON or TypeSpec); for any other entry point
-   * the archetype adds none.
+   * that `oa-gen lint`/`diff` load (OpenAPI YAML/JSON or TypeSpec); without one the archetype adds
+   * none (see `getContractBaseline`).
    */
   getRecommendedScripts(options: ArchetypeGenerateOptions): Record<string, string> {
     const baseline = this.getContractBaseline(options)
-    if (baseline === undefined) return {}
+    if (isContractBaselineSkip(baseline)) return {}
 
     const spec = scriptPath(baseline.specPath)
     const lint = oaGenScript(options.runtime, ['lint', '--spec', spec])
@@ -115,9 +120,19 @@ export class EnterpriseArchetypeProfile implements ArchetypeProfile {
     }
   }
 
-  getContractBaseline(options: ArchetypeGenerateOptions): ContractBaselinePlan | undefined {
+  getContractBaseline(options: ArchetypeGenerateOptions): ContractBaselinePlan | ContractBaselineSkip {
+    if (options.specEntryUnavailable !== undefined) {
+      return { path: CONTRACT_BASELINE_PATH, status: 'no-gate', reason: options.specEntryUnavailable }
+    }
     const specPath = schemaEntryOf(options)
-    return isSpecDocumentPath(specPath) ? { path: CONTRACT_BASELINE_PATH, specPath } : undefined
+    if (!isSpecDocumentPath(specPath)) {
+      return {
+        path: CONTRACT_BASELINE_PATH,
+        status: 'no-gate',
+        reason: `the spec entry point ${specPath} is not an OpenAPI YAML/JSON document or a TypeSpec entry point, which oa-gen lint and diff read`,
+      }
+    }
+    return { path: CONTRACT_BASELINE_PATH, specPath }
   }
 
   getRecommendedDependencies(_options: ArchetypeGenerateOptions): RecommendedDependencies {

@@ -6,9 +6,9 @@ import type {
   LifecycleArchetypeId,
 } from '../types.js'
 import type { OaConfig } from '../../../../config.js'
-import type { ContractBaselinePlan } from '../common/contract-baseline.js'
+import type { ContractBaselinePlan, ContractBaselineSkip } from '../common/contract-baseline.js'
 
-export type { LifecycleArchetypeId, ContractBaselinePlan }
+export type { LifecycleArchetypeId, ContractBaselinePlan, ContractBaselineSkip }
 
 export interface ArchetypeDetectionResult {
   confidence: number // 0.0 to 1.0
@@ -22,6 +22,8 @@ export interface ArchetypeGenerateOptions {
   runtime: TargetRuntime
   archetypeId: LifecycleArchetypeId
   detectedSchema?: DetectedSchemaItem | undefined
+  /** See `TargetGenerateOptions.specEntryUnavailable`. */
+  specEntryUnavailable?: string | undefined
   projectName?: string | undefined
   packageJson?: Record<string, unknown> | undefined
 }
@@ -58,9 +60,10 @@ export interface ArchetypeProfile {
 
   /**
    * The contract baseline the archetype's scripts compare the spec with, which `oa-gen init`
-   * creates from the spec when the project has none; omitted by archetypes without such scripts.
+   * creates from the spec when the project has none, or why the archetype adds neither it nor
+   * those scripts; omitted by archetypes without such scripts.
    */
-  getContractBaseline?(options: ArchetypeGenerateOptions): ContractBaselinePlan | undefined
+  getContractBaseline?(options: ArchetypeGenerateOptions): ContractBaselinePlan | ContractBaselineSkip
 
   /** Returns lifecycle-specific dependencies */
   getRecommendedDependencies(options: ArchetypeGenerateOptions): RecommendedDependencies
