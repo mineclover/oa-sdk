@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { extname, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { parse as parseYaml } from 'yaml'
-import { validateDocument, type OasDocument } from '@oa-sdk/parser'
+import { parseDocument, validateDocument, type OasDocument, type ParsedDocument } from '@oa-sdk/parser'
 import { createNodeMockServer, type NetworkChaosOptions } from '../adapters/node-http.js'
 
 const DEFAULT_PORT = 4010
@@ -31,7 +31,7 @@ export type CliMockServer = Pick<ReturnType<typeof createNodeMockServer>, 'start
 export type CliDependencies = {
   cwd: () => string
   readTextFile: (path: string) => Promise<string>
-  createServer: (spec: OasDocument, port: number, chaos?: NetworkChaosOptions, stateful?: boolean) => CliMockServer
+  createServer: (spec: ParsedDocument, port: number, chaos?: NetworkChaosOptions, stateful?: boolean) => CliMockServer
   stdout: Output
   stderr: Output
   onSignal: (signal: NodeJS.Signals, listener: () => void) => void
@@ -93,12 +93,13 @@ export async function main(
 
   let server: CliMockServer
   try {
+    const spec = parseLoadedSpec(loaded)
     if (options.stateful) {
-      server = dependencies.createServer(loaded.document, options.port, options.chaos, true)
+      server = dependencies.createServer(spec, options.port, options.chaos, true)
     } else if (options.chaos) {
-      server = dependencies.createServer(loaded.document, options.port, options.chaos)
+      server = dependencies.createServer(spec, options.port, options.chaos)
     } else {
-      server = dependencies.createServer(loaded.document, options.port)
+      server = dependencies.createServer(spec, options.port)
     }
     await server.start()
   } catch (error) {
@@ -158,6 +159,16 @@ export async function loadAndValidateSpec(
   }
 
   return { path: specPath, document: parsed as OasDocument }
+}
+
+/**
+ * The loaded spec parsed for the mock server. A spec that spans several files
+ * refers to the others relative to itself, so its `$ref`s are resolved from
+ * the spec file, as validation resolves them; one that still cannot be
+ * resolved leaves the parse partial, which the mock server rejects.
+ */
+function parseLoadedSpec(loaded: LoadedSpec): ParsedDocument {
+  return parseDocument(loaded.document, { basePath: loaded.path })
 }
 
 export function parsePort(value: string | undefined): number {

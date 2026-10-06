@@ -1,5 +1,9 @@
-import { describe, expect, it, vi } from 'vitest'
-import type { OasDocument } from '@oa-sdk/parser'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { isParsedDocumentComplete, type ParsedDocument } from '@oa-sdk/parser'
 import {
   CLI_HELP,
   loadAndValidateSpec,
@@ -8,6 +12,7 @@ import {
   type CliDependencies,
   type CliMockServer,
 } from '../../cli/main.js'
+import { MULTI_FILE_SPEC, MULTI_FILE_SPEC_ENTRY, writeSpecFiles } from '../fixtures/multi-file-spec.js'
 
 const JSON_SPEC = JSON.stringify({
   openapi: '3.2.0',
@@ -130,6 +135,51 @@ describe('oa-mock CLI', () => {
   })
 })
 
+describe('oa-mock CLI with a spec that spans several files', () => {
+  let root: string
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'oa-mock-multi-file-'))
+  })
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true })
+  })
+
+  /** A context that reads the spec files written under `root`, resolving `--spec` from it. */
+  const createFileContext = () => {
+    const context = createContext()
+    context.dependencies.cwd = () => root
+    context.dependencies.readTextFile = path => readFile(path, 'utf8')
+    return context
+  }
+
+  it('다른 파일을 가리키는 $ref를 스펙 파일 위치에서 풀어 서버에 넘긴다', async () => {
+    writeSpecFiles(root, MULTI_FILE_SPEC)
+    const context = createFileContext()
+
+    const exitCode = await main(['--spec', MULTI_FILE_SPEC_ENTRY, '--port', '0'], context.dependencies)
+
+    expect(context.stderr()).toBe('')
+    expect(exitCode).toBe(0)
+    expect(context.createServer).toHaveBeenCalledOnce()
+    const [spec, port] = context.createServer.mock.calls[0]!
+    expect(port).toBe(0)
+    expect(isParsedDocumentComplete(spec)).toBe(true)
+    // The operations of the path item in paths/user.yaml, with the schema it refers to in schemas.yaml.
+    const userRoute = spec.routes.get('/users/{id}')
+    expect([...(userRoute?.keys() ?? [])].sort()).toEqual(['delete', 'get'])
+    expect(userRoute?.get('get')?.operationId).toBe('getUser')
+    expect(userRoute?.get('get')?.responses['200']).toMatchObject({
+      content: {
+        'application/json': { schema: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } } },
+      },
+    })
+    expect(context.server.start).toHaveBeenCalledOnce()
+    expect(context.stdout()).toContain(`spec: ${join(root, MULTI_FILE_SPEC_ENTRY)}`)
+  })
+})
+
 describe('parsePort', () => {
   it('default는 4010이고 0과 65535를 허용한다', () => {
     expect(parsePort(undefined)).toBe(4010)
@@ -148,7 +198,7 @@ function createContext(source = JSON_SPEC) {
     start: vi.fn(async () => undefined),
     stop: vi.fn(async () => undefined),
   }
-  const createServer = vi.fn((_spec: OasDocument, _port: number) => server)
+  const createServer = vi.fn((_spec: ParsedDocument, _port: number) => server)
   const dependencies: CliDependencies = {
     cwd: () => '/workspace',
     readTextFile,

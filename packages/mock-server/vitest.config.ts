@@ -3,6 +3,7 @@ import { defineConfig } from 'vitest/config'
 import { configDefaults } from 'vitest/config'
 
 const NODE_HTTP_TESTS = [
+  'src/__tests__/integration/cli-multi-file.test.ts',
   'src/__tests__/integration/edge-cases.test.ts',
   'src/__tests__/integration/framework.test.ts',
   'src/__tests__/integration/node-http.test.ts',
