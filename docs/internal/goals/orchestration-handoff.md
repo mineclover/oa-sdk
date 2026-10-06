@@ -174,12 +174,14 @@
 - **동작 변화(잘못된 입력만)**: 잘못된 `allowedTools`는 빈 허용 목록으로 처리한다(fail closed). spec-lens 설정은 CLI가 읽는 키만 검증하고, 알 수 없는 `source`는 거부한다. preview는 잘못된 헤더를 조용히 버리지 않고 오류를 표시한다. preview 앱이 `test:internal`·`typecheck:internal`에 들어갔다.
 - **남은 일**: 설계상 baseline drift만으로도 check가 실패한다(added 약 444, removed 44 등, 모두 커밋된 작업의 의도된 결과). parser·codegen 병렬 단위가 모두 머지된 뒤 drift를 검토하고 `corepack pnpm type-registry:write`로 baseline을 갱신해 커밋한다. **baseline 쓰기는 사용자 승인 후에만 한다.** 예산 상한을 낮출지는 정책 결정이므로 사용자에게 남긴다.
 
-### WS-I — 사용 가이드 정비와 핵심 가치 · 조사 `done`, 작성은 RC 통합 이후 (2026-10-06 사용자 요청)
+### WS-I — 사용 가이드 정비와 핵심 가치 · `done` (2026-10-06)
 
 - **조사 결과**: 사용자 대상 문서 약 50개에서 238건의 어긋남(틀림·낡음·누락·깨진 예제·중복)을 찾았다. major-update/rewrite 판정이 20여 개다(README, 가이드 색인, onboarding-playbook, codegen README, client·router·mock-server·surface-ir·tools README, client/backend/pure-types 가이드, typespec/01~06, schema-authoring, schema-architecture, basic-spec-usage, declarative-spec-configuration, typespec-decorators·schemas README).
 - **공통 문제**: 핵심 가치 설명 부재, 외부 사용자와 모노레포 기여자 흐름이 섞임, CLI가 만들지 않는 프레임워크 라우터 바인더를 생성한다고 설명, 패키지 공개 상태·Node 버전 표기 불일치, TanStack 예제의 export 이름 오류, TypeSpec 예제가 compiler 1.16에서 컴파일 실패, 비공개 `@oa-sdk/schemas`를 설치 가능한 것처럼 import.
 - **핵심 가치 초안**(반박 리뷰 반영): 사람이 고치는 원본 하나와 다시 만들 수 있는 생성물, 기존 OpenAPI·외부 스키마의 점진 수용, 같은 parser 해석을 쓰는 생성·mock, 계약에서 소비자 코드까지, 계약을 지키는 mock, 변경 분류와 CI gate. 비목표(비즈니스 로직·호스팅·DB 물리 스키마·이 저장소에서의 npm publish)도 함께 적는다.
 - **진행 방식**: RC 통합이 main에 들어간 뒤, 공통 사실표(Node 버전, 공개 패키지, companion 동작, msw, 바인더 현실)를 먼저 고정하고 문서 묶음별로 작성·정확성 리뷰를 한다. RC 이후 기능(ref-projection, mock-server 응답 재사용)은 아직 쓸 수 있는 기능으로 쓰지 않는다.
+
+- **결과**: 공통 사실표(Node ≥22, 공개 패키지와 0.9.0 첫 배포, companion 동작, mock-server entry point, `generateRouter()` 기준 라우터 코드, TanStack 이름과 한계, init 스크립트, TypeSpec 1.16·`OaSdkTypeSpec`, 저장소 안/밖 사용법)를 실행 결과로 확정한 뒤, 문서 4개 묶음(시작·CLI, 소비자, TypeSpec, 스키마)을 고쳤다. 핵심 가치는 가이드 색인 상단(자세한 판)과 루트 README(짧은 판)에 넣었다. 묶음마다 정확성 리뷰 승인. 동작하지 않는 명령·스크립트는 동작하는 것처럼 쓰지 않고 한계와 우회 방법을 적었다(WS-J 결함과 연결).
 
 ### WS-J — 조사에서 드러난 코드 결함 · `ready`
 
@@ -200,6 +202,9 @@
 | TanStack 생성기가 모든 framework에 React 타입 이름을 쓴다(`generate-tanstack.ts:113-137`, `options-factory-generator.ts:150-154`). Vue/Svelte 출력과 `--tier options`의 SSR 권장은 실제로 동작하지 않는다 | 가이드 작성 |
 | `generate:zod`의 `z.union([discriminatedUnion, default])`가 mapping에 있는 discriminant인데 해당 variant를 통과하지 못한 본문을 default로 통과시킨다(OAS 3.2 의미와 다름) | 가이드 작성 |
 | `core.router.target`을 `validateOaConfig`는 받지만 `resolveConfigWithDefaults`가 버린다. 거부하거나 실제 설정으로 만들어야 한다 | 가이드 작성 |
+| `oa-gen drift`·`drift:live`는 `--managed-openapi`(파일 비교면 `--runtime-openapi`도)가 상대 경로이면 drift가 없어도 exit 1로 끝난다. behavior input에는 원래 인자를, target에는 resolve한 경로를 기록해 `validateSameStringField`가 거부한다(`drift.ts` 124/130, 183/189). 문서는 절대 경로(`$PWD/...`)를 쓰도록 안내 중 | 가이드 작성 중 직접 실행 |
+| `tsp-scaffold --output`은 `@oa-sdk/typespec-decorators` import 없는 헤더를 쓰고, `--envelope`이면 `OaSdkTypeSpec`과 충돌하는 Ok/Created/NoContent/PageResult를 따로 선언하며, 기존 파일을 경고 없이 덮어쓴다. `--file`은 import를 추가하지 않는다 | 가이드 작성 |
+| 생성된 TanStack 코드가 JSON이 아닌 성공 응답·요청 본문을 가진 operation에도 `<Op>Response`/`<Op>Body`를 import하는데 typegen은 만들지 않는다(204 DELETE 등) | 가이드 작성 |
 
 ### WS-G — Goal 68 DPM · 관제 대상 아님
 
