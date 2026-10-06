@@ -23,7 +23,7 @@ import {
   parseSpecDocument,
   type ActiveMockInstance,
 } from './helpers/mock-harness.js'
-import { runScript } from './helpers/cli.js'
+import { runRootPackageScript, runScript } from './helpers/cli.js'
 
 describe('Tier 4: Real-World Developer Workflows & End-to-End Scenarios', () => {
   let tmpRoot: string
@@ -269,16 +269,17 @@ describe('Tier 4: Real-World Developer Workflows & End-to-End Scenarios', () => 
 
   it('T4-S5: Monorepo Governance & Verification Gate Validation', async () => {
     // 1. Documentation gate
-    const docsRes = await runScript('node', ['--import', 'tsx', 'scripts/check-docs.ts'])
+    const docsRes = await runRootPackageScript('check:docs')
     expect(docsRes.exitCode).toBe(0)
     expect(docsRes.stdout).toContain('Documentation OK')
 
     // 2. CLI spec gate
-    const cliRes = await runScript('node', ['--import', 'tsx', 'scripts/check-cli-spec.ts'])
+    const cliRes = await runRootPackageScript('check:cli-spec')
     expect(cliRes.exitCode).toBe(0)
     expect(cliRes.stdout).toContain('CLI spec OK')
 
-    // 3. Release policy gate
+    // 3. Release policy gate (the policy check step of `check:release-policy`,
+    //    which also chains its self-tests through pnpm)
     const releaseRes = await runScript('node', ['--import', 'tsx', 'scripts/check-release-policy.ts'])
     expect(releaseRes.exitCode).toBe(0)
     expect(releaseRes.stdout).toContain('Release policy OK')

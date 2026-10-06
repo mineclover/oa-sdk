@@ -911,6 +911,7 @@ describe('Tier 1: Feature Coverage (Features 1–20)', () => {
     })
 
     it('T1-F19-4: check-release-policy gate passes cleanly (exit code 0)', async () => {
+      // `check:release-policy` chains its own self-tests through pnpm; this runs its policy check step.
       const res = await runScript('node', ['--import', 'tsx', 'scripts/check-release-policy.ts'])
       expect(res.exitCode).toBe(0)
       expect(res.stdout).toContain('Release policy OK')

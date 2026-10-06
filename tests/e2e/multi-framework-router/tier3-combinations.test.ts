@@ -26,7 +26,7 @@ import {
   parseSpecDocument,
   type ActiveMockInstance,
 } from './helpers/mock-harness.js'
-import { runScript } from './helpers/cli.js'
+import { runRootPackageScript } from './helpers/cli.js'
 
 describe('Tier 3: Cross-Feature Combinations', () => {
   let tmpRoot: string
@@ -388,7 +388,7 @@ describe('Tier 3: Cross-Feature Combinations', () => {
     }
 
     // Run governance check-cli-spec gate
-    const cliSpecRes = await runScript('node', ['--import', 'tsx', 'scripts/check-cli-spec.ts'])
+    const cliSpecRes = await runRootPackageScript('check:cli-spec')
     expect(cliSpecRes.exitCode).toBe(0)
   })
 })
