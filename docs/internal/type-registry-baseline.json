@@ -1418,7 +1418,7 @@
       },
       {
         "boundaryId": "type-boundary:212dd7a17e232694262faca60dc2a963",
-        "column": 18,
+        "column": 38,
         "filePath": "packages/codegen/src/cli/lib/provenance-report.ts",
         "kind": "deserialize",
         "line": 77,
@@ -1461,7 +1461,7 @@
         "column": 32,
         "filePath": "packages/mock-server/src/adapters/msw.ts",
         "kind": "deserialize",
-        "line": 255,
+        "line": 259,
         "sourceType": "request.json"
       },
       {
@@ -1889,7 +1889,7 @@
         "column": 52,
         "filePath": "packages/mock-server/src/adapters/msw.ts",
         "kind": "deserialize",
-        "line": 203,
+        "line": 207,
         "sourceType": "HttpResponse.json"
       },
       {
@@ -1957,6 +1957,14 @@
         "filePath": "packages/codegen/src/cli/commands/drift.ts",
         "kind": "deserialize",
         "line": 394,
+        "sourceType": "JSON.parse"
+      },
+      {
+        "boundaryId": "type-boundary:6398b0fd3820ea8236d7fd6582763492",
+        "column": 14,
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-files.ts",
+        "kind": "deserialize",
+        "line": 95,
         "sourceType": "JSON.parse"
       },
       {
@@ -2040,7 +2048,7 @@
         "column": 71,
         "filePath": "packages/mock-server/src/adapters/msw.ts",
         "kind": "any",
-        "line": 145
+        "line": 148
       },
       {
         "boundaryId": "type-boundary:6bd14d858f5c2eb8a3af80e99a40abc7",
@@ -3065,6 +3073,14 @@
         "sourceType": "c.json"
       },
       {
+        "boundaryId": "type-boundary:df63b4c7037a127d70cc1398c29e1ad5",
+        "column": 24,
+        "filePath": "packages/codegen/src/cli/commands/ref-projection.ts",
+        "kind": "deserialize",
+        "line": 69,
+        "sourceType": "JSON.parse"
+      },
+      {
         "boundaryId": "type-boundary:e24e46c568af7c73794126ba3408519f",
         "column": 38,
         "filePath": "packages/codegen/src/zodgen/schema-to-zod.ts",
@@ -3118,6 +3134,14 @@
         "line": 138
       },
       {
+        "boundaryId": "type-boundary:e761ac5b2e4da2d5db7c073fa866b70c",
+        "column": 39,
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-files.ts",
+        "kind": "deserialize",
+        "line": 81,
+        "sourceType": "JSON.parse"
+      },
+      {
         "boundaryId": "type-boundary:e8bd22191e8641c800741120154ca3fb",
         "column": 22,
         "filePath": "packages/router/src/chunk-stream/demuxer.ts",
@@ -3138,7 +3162,7 @@
         "column": 47,
         "filePath": "packages/mock-server/src/adapters/msw.ts",
         "kind": "deserialize",
-        "line": 205,
+        "line": 209,
         "sourceType": "HttpResponse.json"
       },
       {
@@ -3230,7 +3254,7 @@
         "column": 48,
         "filePath": "packages/mock-server/src/adapters/msw.ts",
         "kind": "deserialize",
-        "line": 204,
+        "line": 208,
         "sourceType": "HttpResponse.json"
       },
       {
@@ -3330,7 +3354,7 @@
         "column": 26,
         "filePath": "packages/mock-server/src/adapters/node-http.ts",
         "kind": "deserialize",
-        "line": 560,
+        "line": 595,
         "sourceType": "JSON.parse"
       },
       {
@@ -9341,6 +9365,16 @@
         "semanticHash": "d4340798e7809692fcf6f8482169a05f31fa73270b91a8ac034ca9016c088b91",
         "shapeHash": "0afaf2ad123ae97921bec470642734fd0be8ffebeed8abbddd50f68049ca5114",
         "syntaxHash": "6dc7d3aeecbbe0d71cd9892084946443e8c1363c9338eb946208657f50e38c9e"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/commands/ref-projection.ts",
+        "identity": "packages/codegen/src/cli/commands/ref-projection.ts#src/cli/commands/ref-projection.ts#neutral#@oa-sdk/codegen:src/cli/commands/ref-projection.ts#readGeneratorVersion#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/commands/ref-projection.ts#readGeneratorVersion",
+        "runtime": "neutral",
+        "semanticHash": "239fb8664201db852901a18f4c0ac32133d60a096ca254605c0ad192da69005a",
+        "shapeHash": "fe7198329d36308d1c7ac952b6fc9f9c91d02d5409caede1fa3df61e9fe1cb34",
+        "syntaxHash": "737f6b105176232699ee037c1a684bd4f0913c6ab3b6a246c486407fb7c34fae"
       },
       {
         "filePath": "packages/codegen/src/cli/commands/reference-check.ts",
@@ -17700,7 +17734,17 @@
         "runtime": "neutral",
         "semanticHash": "4816224c3c114fcef4c6afcbfab92164d16980de8eb388aadcb96509ed8c9b3e",
         "shapeHash": "f21c83a7e2f16cf98363749d5e257686666554b1e46c14fa686cb95e170c1f8d",
-        "syntaxHash": "14e32b63c024bbdc643ff3ea54156e9e4bf607b6adfab67785210a73901b2b8d"
+        "syntaxHash": "ea07aded72b812b7308bd06277a961c24e5ff7f4a26b16f9cb3074f80ba5670f"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/provenance-report.ts",
+        "identity": "packages/codegen/src/cli/lib/provenance-report.ts#src/cli/lib/provenance-report.ts#neutral#@oa-sdk/codegen:src/cli/lib/provenance-report.ts#parseBuildSpecProvenanceMap#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/provenance-report.ts#parseBuildSpecProvenanceMap",
+        "runtime": "neutral",
+        "semanticHash": "fd3e2e70bdfb49abb9299927d28beb582a7d3aa24a7124ca2ecd1f21711aa97b",
+        "shapeHash": "31730a994ac1783b70aa31ff0b244fd0382f02bf5006c8d953ea3748230610b1",
+        "syntaxHash": "bdd35a52c18d947888915e914cabc4e2f4d3ec96361e68fed9e59250afba3c68"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/provenance-report.ts",
@@ -17741,6 +17785,386 @@
         "semanticHash": "c5c28e313e079eefa77279139f8007b22f2720a210811c1904214364d05f16c3",
         "shapeHash": "bfe7f4baee2a3b3bd001948088160dbfd5bbb60819555f700c4f034cce901400",
         "syntaxHash": "23d0d0eda8607d46d1a071342fc1e60f9690c7e012c2144614cc683d22f1a6b9"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact-schema.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact-schema.ts#src/cli/lib/ref-projection-artifact-schema.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact-schema.ts#CompiledSchema#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact-schema.ts#CompiledSchema",
+        "runtime": "neutral",
+        "semanticHash": "70f3f5f7f07812d03d17f68b5db39a3042a66fde2e65403e9c868280a9e9beaf",
+        "shapeHash": "efcd74a0944496d6fa7d9b139cf678085bf12a4973a7d7f5c2d9ac6ad6bca958",
+        "syntaxHash": "ee18166563810521c6d34ae97b8a0fe03bc74c4a0ce993fdbd217f1a9d637f10"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact-schema.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact-schema.ts#src/cli/lib/ref-projection-artifact-schema.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact-schema.ts#RefProjectionArtifactSchemaIssue#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact-schema.ts#RefProjectionArtifactSchemaIssue",
+        "runtime": "neutral",
+        "semanticHash": "4ef0dab46083541a3d3f8220ca876a4fdf7163081edca692eacec39c861f7722",
+        "shapeHash": "a53e2afc2123e5766d72dfbfca4ab858edf223b57f745b2eea8dab0532050fb3",
+        "syntaxHash": "56826ea540c9a6e7cd4cdcb396d0f150fddcd5eb0641d1dd6279ae3fa02af9dd"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact-schema.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact-schema.ts#src/cli/lib/ref-projection-artifact-schema.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact-schema.ts#validateRefProjectionArtifact#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact-schema.ts#validateRefProjectionArtifact",
+        "runtime": "neutral",
+        "semanticHash": "1aa46cd3c2cbdc894844907001663eede16ba5474ff9c5c72cc431c6ad349553",
+        "shapeHash": "29e27fb24405afa36e8d2d4984f12641eceeeb7117a24acb656068a5d67785db",
+        "syntaxHash": "8639db60e9fa2c1b07fb46ba5a3685ca1546679ec05b09112f8a166777e42b64"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact.ts#src/cli/lib/ref-projection-artifact.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#AssertAllListed#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#AssertAllListed",
+        "runtime": "neutral",
+        "semanticHash": "5f884bba4b28c81c9decc77d9dba1671e365b4fd0bf8c1614eb894a11c48ab66",
+        "shapeHash": "c927190cb98a95f235c1f5ea1c260db76871c6c87134233fa0c9bbfa379ca38d",
+        "syntaxHash": "9fe0d0b7b55e89aa2da9baa0fb7d9d73c0a1db71b47113421949fefc98578fb8"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact.ts#src/cli/lib/ref-projection-artifact.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#compareCodeUnits#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#compareCodeUnits",
+        "runtime": "neutral",
+        "semanticHash": "2be7e28aac8614a64914553c5e85e4055dbae68749676eb8bafa3833c86a5a97",
+        "shapeHash": "8c3473203cde2e691fbfb149a745951e4d9d3fc1470da90c4f0eba48cedf9c5b",
+        "syntaxHash": "4fd5959825f59a8c82890a7d13fda19d147bde22677381a99b61e466d1b8d2cc"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact.ts#src/cli/lib/ref-projection-artifact.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#compareDiagnostics#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#compareDiagnostics",
+        "runtime": "neutral",
+        "semanticHash": "2ecd8e4f6175c14268ced41fef0c190cd75f3747a9834dbe0b4d34082f98982a",
+        "shapeHash": "427c264bb8ee3d3f55750aed9506a4f7777b6af8384ab4793613bb6c904acaf4",
+        "syntaxHash": "65df27fbca9e55bc035ca0b1c202243884dc5a62a8345f32123e685e7b424e7f"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact.ts#src/cli/lib/ref-projection-artifact.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#compareKeys#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#compareKeys",
+        "runtime": "neutral",
+        "semanticHash": "2471a6f254bd77f4cc1959237ecc51de47e419a842de555744d7f4a963298c0d",
+        "shapeHash": "d22cbae841d0210bf830eff38aec6300ace25e8f8dcc15fb1428d686253d3717",
+        "syntaxHash": "cae8293178668fd6aa80053b93cc42b869de8d221c1f0aef60e5f514e656c326"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact.ts#src/cli/lib/ref-projection-artifact.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#copySourceFile#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#copySourceFile",
+        "runtime": "neutral",
+        "semanticHash": "9687e650240cf08adc1a3b2138bb6b1169c73bdcdade739fdcd5e877e1c470d2",
+        "shapeHash": "8eb0b893e12a38a330f4a376a8dff3226fde91b51fc5509c47e981c28ce5ef0b",
+        "syntaxHash": "a58dc9d2d6d8c359ae0a15f0dcea9915892b2b4d7b3c4b1820d81da27ead1e9f"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact.ts#src/cli/lib/ref-projection-artifact.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#createRefProjectionArtifact#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#createRefProjectionArtifact",
+        "runtime": "neutral",
+        "semanticHash": "75ebdb956dc56d526bb597f9879ca1c8a5efc874eea0a4b5a46f1223cd0fe49e",
+        "shapeHash": "cad7996bc93d93db731fbb27f70c33b7d54676ddbcac5235530260512053cb64",
+        "syntaxHash": "18ed23be02760486b7feb28d72885d5412bfa996a9f2fcacbe48440394f499b8"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact.ts#src/cli/lib/ref-projection-artifact.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#CreateRefProjectionArtifactOptions#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#CreateRefProjectionArtifactOptions",
+        "runtime": "neutral",
+        "semanticHash": "795258f86d240fd2f7b14b794dc933078307e14d8e7d9c21354547764e386715",
+        "shapeHash": "023d28399b1e47f81b932ea31b9f228db3e20a19c78a4a4abd697493bdc7f26f",
+        "syntaxHash": "478b2074f265858dd22370c8de57a9c73bf69a76b78f87577a310d28254221f8"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact.ts#src/cli/lib/ref-projection-artifact.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#DiagnosticCodesAreListed#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#DiagnosticCodesAreListed",
+        "runtime": "neutral",
+        "semanticHash": "e2f65fe42c097804b7c92502ab525c21b8c48d12e0cd702b40479207fa2028a6",
+        "shapeHash": "d23c392288852c478e8d2ca94e72a1dbb2fb59acfc8dbd1472ee03af922539ae",
+        "syntaxHash": "b6354dee791e4d7935c981882b326335f23ae5f92842187baa82ac8d21fe998a"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact.ts#src/cli/lib/ref-projection-artifact.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#diagnosticKey#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#diagnosticKey",
+        "runtime": "neutral",
+        "semanticHash": "8336980506f910010214ab751cb81b5fa81d0277f53058942a417f65e1d91811",
+        "shapeHash": "4356a94ccb268e2b331f5755c55dac37aba7b086e065a3e0801e1db2ee9d67b7",
+        "syntaxHash": "9745c500e9dedaf8c036487df0c7d33d2a50c3f290a7414abedc7ef089bdf4ff"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact.ts#src/cli/lib/ref-projection-artifact.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#EntryRelativeFiles#class",
+        "kind": "class",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#EntryRelativeFiles",
+        "runtime": "neutral",
+        "semanticHash": "6dafb97d80cf8bc935979c16a9f3cf2a204aff94182b9d81bf4fe0a1b3513d3d",
+        "shapeHash": "96567ed13f34d1d9a5b97451c94634101dcbce4453fa2d98a01e639e22aa9298",
+        "syntaxHash": "957bea7f93b6a35a5fbd6a4a87a3c181f08ceb87a4e87f84e81f228805101709"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact.ts#src/cli/lib/ref-projection-artifact.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#fileReference#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#fileReference",
+        "runtime": "neutral",
+        "semanticHash": "3e492d0fd983cde880c2aa2720b2018f0a2de3dfcddde458f6f837a2142cb04f",
+        "shapeHash": "c5af65aeef2001b698a700fbe8b065db13a92c9ac03d94e27f7e491b390bb48f",
+        "syntaxHash": "e34cc9b8c6b431b496337354f1f5f88fcc0c7eb029b22cd1d88168256c1e6425"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact.ts#src/cli/lib/ref-projection-artifact.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#nodeIdentity#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#nodeIdentity",
+        "runtime": "neutral",
+        "semanticHash": "c1dfb24f548f09f18ea6b50712cdf2de6ab9daf3b95b2fddd99797bce2439e05",
+        "shapeHash": "91c5f9fd88f544feb2ccff3e7f7b3e58f07c0a39499574a437f4904b3be76482",
+        "syntaxHash": "4019285e471cbaf60fa5c1f92aa6777aacf0fd51289aa766c10e41514c77f287"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact.ts#src/cli/lib/ref-projection-artifact.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#NodeKindsAreListed#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#NodeKindsAreListed",
+        "runtime": "neutral",
+        "semanticHash": "af11907982b4e5562df93d8d72c625aa7d8b3ec0b9d00025e526d9790eb51f28",
+        "shapeHash": "b05cf589391edea7ed6525302643c7bc512084e5cf86d0508c3d0ed68b139b4c",
+        "syntaxHash": "2e3af7600cffc77d5f9bc1af6724cf018ad414d5935b6630615275638e787ba7"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact.ts#src/cli/lib/ref-projection-artifact.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#RefProjectionArtifact#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#RefProjectionArtifact",
+        "runtime": "neutral",
+        "semanticHash": "dc5773eb32581c9c9e4811f6e431cf71d7f520c688eb4beda454872d75461d6e",
+        "shapeHash": "aacddab0f98b607465676a9e88f5ba4c022fe3ac4ed7b9ff18d1ac4f084aa2f9",
+        "syntaxHash": "727c747adc0eb9374a84bf774c807017c0ce2aa23e726e896e7db572d26338ca"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact.ts#src/cli/lib/ref-projection-artifact.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#RefProjectionArtifactDiagnostic#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#RefProjectionArtifactDiagnostic",
+        "runtime": "neutral",
+        "semanticHash": "90ead6abc2439d66788ca703b39acac72c0f32f24f5ec8f57205cad655f6008a",
+        "shapeHash": "15af5ce10486b18483307f959845bd92e8251116b64f1d5a249a8a612e7c4927",
+        "syntaxHash": "d04ab26bddd07ca50857537a3306b0d73340fc217545ae1c0174284ef944ee26"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact.ts#src/cli/lib/ref-projection-artifact.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#RefProjectionArtifactEdge#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#RefProjectionArtifactEdge",
+        "runtime": "neutral",
+        "semanticHash": "4dedf0f33448214ad796214b6f33bf6a1d0f738b7c17f440034443898b623dda",
+        "shapeHash": "0448ad00abbc6af5336cf37f8031b016104e5635c2ba7db8177218fbb90d21dc",
+        "syntaxHash": "b67dd9051401a91958f0184f9b83e03dadba31264dbe3d04c1d9c6eb74661463"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact.ts#src/cli/lib/ref-projection-artifact.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#RefProjectionArtifactGenerator#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#RefProjectionArtifactGenerator",
+        "runtime": "neutral",
+        "semanticHash": "e9fbef6fe8c8e09c7e6a6323cecaa5c608a9ce9874e8107b245ee5b8354bfa7f",
+        "shapeHash": "8dcf03e1f1f376dd6effd2d67b02cfebea25673fad1702d1adce525526cf5f31",
+        "syntaxHash": "6702b5f9e6e4d14d9b94171c65a67df0310564aa8c5ca1c97f144f0a732cb8af"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact.ts#src/cli/lib/ref-projection-artifact.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#RefProjectionArtifactNode#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#RefProjectionArtifactNode",
+        "runtime": "neutral",
+        "semanticHash": "4cbb2514b337d1999ea12d48aaf54f9bca8780b8eab9c2dc1b74b561ab6b21b8",
+        "shapeHash": "317feadf56752ea54048dc29094b60b49aaff39c991b34a5e80a2aabc725a40c",
+        "syntaxHash": "9058557202ea98dc33c9c24cc0eb3ab02c4207b67f895772f2a6facf8f809a86"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact.ts#src/cli/lib/ref-projection-artifact.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#RefProjectionArtifactRecursion#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#RefProjectionArtifactRecursion",
+        "runtime": "neutral",
+        "semanticHash": "ef2b3d6790fe6676129e3f7727697bbfade1ddcd08b395388c2b332fb564a7cc",
+        "shapeHash": "43e061a366f82ac13f8fb4588ff2b9f7aa6c729afd77f88d13a2998912c281d1",
+        "syntaxHash": "ce75d3841ae5d07dde4f74381cf9ed09651f6e4cf4dd0cc17c1ba815988f96eb"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact.ts#src/cli/lib/ref-projection-artifact.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#RefProjectionArtifactSourceFile#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#RefProjectionArtifactSourceFile",
+        "runtime": "neutral",
+        "semanticHash": "3e4c2b4c14056b05d9e6b4c5402addea3039d315e6eb4d0bde79dfc4e041742b",
+        "shapeHash": "e736adb04731c9e379173f909f689ddff60e93572856e68ccf22cd11a4ae79b4",
+        "syntaxHash": "198454c72087848620abc6e7d87e1741009045f8462aa0a2733e8c6eb7687e27"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact.ts#src/cli/lib/ref-projection-artifact.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#RefProjectionArtifactSummary#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#RefProjectionArtifactSummary",
+        "runtime": "neutral",
+        "semanticHash": "b740e9e5c06a6498396c7ccc43ae06bbe9e23c12da7dcbdf1f496c9a9fa47caa",
+        "shapeHash": "9d235b41596e853dfe5dbfdf3606598e5a87cbbc7ad3a19a94155eefd9687de1",
+        "syntaxHash": "aefbbef28003c57c3779de65514ff180037f664254c5cb8c5cb2fea4cd839726"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact.ts#src/cli/lib/ref-projection-artifact.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#RefProjectionNodeIdentity#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#RefProjectionNodeIdentity",
+        "runtime": "neutral",
+        "semanticHash": "2d89ee27b217f85b98057a99fe6aff55e285370a28b142a560524008277c4c0c",
+        "shapeHash": "a1eb147446d1d46e18b1af1d1ea1bedbd2d4f82e0f2a13de2c29e6dd81317a9f",
+        "syntaxHash": "124695657d748d4bc2dcee0c1669a1b9c93f1d913826bec5cdb4c636fc6cc813"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact.ts#src/cli/lib/ref-projection-artifact.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#RefProjectionUnmappedReason#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#RefProjectionUnmappedReason",
+        "runtime": "neutral",
+        "semanticHash": "e6213fd3504a4e1c971afa6da8634fa7cbc62d44f2971904409c5e9c0ed04e95",
+        "shapeHash": "2d5245c7f1019255b6ba0e01a2ab019f473b451d85d96c01cfa5b31a9a02b99f",
+        "syntaxHash": "e927d5a4b04b2b7ee25c67dec14e48b36d45c59046e91d0a83d41c25afaa3f5f"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact.ts#src/cli/lib/ref-projection-artifact.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#rootRelativePath#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#rootRelativePath",
+        "runtime": "neutral",
+        "semanticHash": "9844502911d2246318c785c78b8807ff9c4bcaf665f2cc98eeaed620e87a3f9b",
+        "shapeHash": "c5af65aeef2001b698a700fbe8b065db13a92c9ac03d94e27f7e491b390bb48f",
+        "syntaxHash": "1d61b1ac9487c1728879924027081625d7310b111f4eb06e25699e08d4218eed"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact.ts#src/cli/lib/ref-projection-artifact.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#serializeRefProjectionArtifact#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#serializeRefProjectionArtifact",
+        "runtime": "neutral",
+        "semanticHash": "2084d12b7c991fb3e8c98e07752bca525b3f9f5b18c0d5a7a353f86a0200d802",
+        "shapeHash": "a0c0c3d1f749fdc91ba7fb34792130b078d95b1852eec4e72863692adcd56498",
+        "syntaxHash": "753f097221a5d1325be37571c0b7f7fccb88c767df4c9b79b261d88b0034e802"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact.ts#src/cli/lib/ref-projection-artifact.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#summarizeRefProjectionArtifact#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#summarizeRefProjectionArtifact",
+        "runtime": "neutral",
+        "semanticHash": "5afc513c06effbd54f06eefb85f5ee7ee3ee7951d0a66842d44916c1b84ccf57",
+        "shapeHash": "95b422ff5bc8311ce460d7d770e1773a80c3fcfe271aeea4d04354db80834f4e",
+        "syntaxHash": "033993bbd1550483caa87fe9534c5f07e32eb20238bc5a03c99291f62d678a8a"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-artifact.ts#src/cli/lib/ref-projection-artifact.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#toArtifactDiagnostic#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-artifact.ts#toArtifactDiagnostic",
+        "runtime": "neutral",
+        "semanticHash": "6c818755e57460dea64129b81568fbd33edb82496016489c2baf706d82f59428",
+        "shapeHash": "fb2953c42d4a2bcf3ff73a6ae11f7435daddba04a84ac51433de3a04a00a2415",
+        "syntaxHash": "a6ea2240fb05f9afb3da95a7fb60971df20d5f4418f18510ced6c632e7095000"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-files.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-files.ts#src/cli/lib/ref-projection-files.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-files.ts#createRefProjectionArtifactFromFiles#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-files.ts#createRefProjectionArtifactFromFiles",
+        "runtime": "neutral",
+        "semanticHash": "a2ddf38baa46c24633e1f424dbc97370aeb830082a7df5d05875bb65af62142a",
+        "shapeHash": "1b69a2fbecf042aa20838d34db4a79657e2869312a0450d0aa0901fd9ae02eb0",
+        "syntaxHash": "37eb73f9322b098819e5db654063057e38569edbbe6cd606e6e925086a836b96"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-files.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-files.ts#src/cli/lib/ref-projection-files.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-files.ts#CreateRefProjectionArtifactFromFilesOptions#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-files.ts#CreateRefProjectionArtifactFromFilesOptions",
+        "runtime": "neutral",
+        "semanticHash": "48d2d17baf5b99cdd513f89fb5fbc4c2cbf028f74a3b6641a0c23d0cd7a7f375",
+        "shapeHash": "e61d7dd3bb7a4931f4de79585e2f8d656c2696d3ba87ace3072b61dd45d8219e",
+        "syntaxHash": "48a2a3c803c24a75e30c9420d837b72b6e064baa255ba65b90fd5dc015a8f42a"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-files.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-files.ts#src/cli/lib/ref-projection-files.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-files.ts#errorMessage#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-files.ts#errorMessage",
+        "runtime": "neutral",
+        "semanticHash": "605747dab4cb6584b0e869b3a710e020ff9d33135369e3c4ae2a0ab928d51c88",
+        "shapeHash": "af5678f1534b1ddf4160a9a264fbd7eae037bf36d2a90bc91a63f575cad3b5b9",
+        "syntaxHash": "0260042be5e77b50725d32877380dd42eb4870a3d5461d7e3f5d85dbd42af0d6"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-files.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-files.ts#src/cli/lib/ref-projection-files.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-files.ts#InputFile#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-files.ts#InputFile",
+        "runtime": "neutral",
+        "semanticHash": "183f603863439b40ec2bf27ee9f43d73dee7e9fcf3bd2f8a5c89665889e99562",
+        "shapeHash": "08c017788ab8f5275e7d72e2794699c6983f996b861fafd9669e1d8dda79623e",
+        "syntaxHash": "b5109a089c9acb07d94e2af2a133750ad53daa3974379433b9a7570aab0938ad"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-files.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-files.ts#src/cli/lib/ref-projection-files.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-files.ts#isRecord#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-files.ts#isRecord",
+        "runtime": "neutral",
+        "semanticHash": "817aaa54f5db297323f930f2f365a5f08e4d402aa0beeeb893f52cb744c77d5a",
+        "shapeHash": "c91435eb4555d6c825407db05a6f1c9d47975c263b297896e25bbd7ddaf682c0",
+        "syntaxHash": "6e2ff76e016131ec78ef437a4a99f83cba7621a27134644e9f8c2494049dc7c0"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-files.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-files.ts#src/cli/lib/ref-projection-files.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-files.ts#parseSpecDocument#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-files.ts#parseSpecDocument",
+        "runtime": "neutral",
+        "semanticHash": "26ce141cd965613a1c305f263c55f366576fdb8c0b4268abcfa97a0b3f328bc0",
+        "shapeHash": "4f5fb5bc299828cb3b60349dbe2966f0db7f0087bf159959d73d45e61a3fb562",
+        "syntaxHash": "33680b9dfb47c2035f492ccdb7e2a812da957418b848fcefaa37174616169c71"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-files.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-files.ts#src/cli/lib/ref-projection-files.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-files.ts#readInputFile#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-files.ts#readInputFile",
+        "runtime": "neutral",
+        "semanticHash": "2fb8f059fff199bd75f605857a47386c2789a37aa18605e4bc357dba824e5bed",
+        "shapeHash": "b4ed7b6436a701f58a8776d3845f4a54266a6567585221a9c73fedeb42faa66c",
+        "syntaxHash": "cc92582c00049abf0189c71d81fc2c925fbe59e835cd9cbb849a977601a84894"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/ref-projection-files.ts",
+        "identity": "packages/codegen/src/cli/lib/ref-projection-files.ts#src/cli/lib/ref-projection-files.ts#neutral#@oa-sdk/codegen:src/cli/lib/ref-projection-files.ts#readProvenance#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/ref-projection-files.ts#readProvenance",
+        "runtime": "neutral",
+        "semanticHash": "dc5c9bbf08474ba00f8f50e888bbb639708fcaa7d47e0db554d3614336bc4ccf",
+        "shapeHash": "7db571c1b6ef2ccc76fca5a37c9a2355903bb0db47564d1c0d661cbd700198f2",
+        "syntaxHash": "e39acf2dd884217d2f185123c8f4a5acc69110aa7fe19bf4db6f55eeb6858158"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/review-behavior-result.ts",
@@ -40680,7 +41104,7 @@
         "runtime": "neutral",
         "semanticHash": "c2d808b629d9c4ad2b0177dfc2accb129ce8317198660cf5981a1b157baa9cd4",
         "shapeHash": "fc256acce654928fb42a9b9050d39ac6bb44b7bc3dd9711a38ba3332787dae86",
-        "syntaxHash": "ba84522e7b90d8b2e4ef58596a00a2d75cff9ef647fadf28a7e8a3d93a22341f"
+        "syntaxHash": "81d66479e722f35bf7d70c141ad9a8671556ea02d70af3cd94457f533f036a70"
       },
       {
         "filePath": "packages/mock-server/src/adapters/msw.ts",
@@ -40804,13 +41228,23 @@
       },
       {
         "filePath": "packages/mock-server/src/adapters/node-http.ts",
+        "identity": "packages/mock-server/src/adapters/node-http.ts#src/adapters/node-http.ts#neutral#@oa-sdk/mock-server:src/adapters/node-http.ts#CompiledRoute#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/mock-server:src/adapters/node-http.ts#CompiledRoute",
+        "runtime": "neutral",
+        "semanticHash": "d378a654ed7d498b3ccae68a5ec60e1e5be867a3133ec82f131c04c6db3cd8d3",
+        "shapeHash": "ea24350277d987706d65aac984ad5fb964605981c3903a8ec87c0077276fdaa7",
+        "syntaxHash": "7a521cf33907dbba1a7c8afb13549ce1d26866b7128c0c91458827572b595b10"
+      },
+      {
+        "filePath": "packages/mock-server/src/adapters/node-http.ts",
         "identity": "packages/mock-server/src/adapters/node-http.ts#src/adapters/node-http.ts#neutral#@oa-sdk/mock-server:src/adapters/node-http.ts#createNodeMockServer#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/mock-server:src/adapters/node-http.ts#createNodeMockServer",
         "runtime": "neutral",
         "semanticHash": "d39606df0d3364c63735ba026222fdf3a66022bbb64069519d21106fe7464ec0",
         "shapeHash": "c5899f5ec6aa809313b98024bc369987d2c0f7103960ee47bd799742f331f39e",
-        "syntaxHash": "27895bd1c9ffe9b6df752db7b348cd6b520359a3e38d1d2d2873c85343d1d775"
+        "syntaxHash": "002c388be63b0878fa5d6446a0ece0f5fc9de8a43a4de6bbe04d55b814897159"
       },
       {
         "filePath": "packages/mock-server/src/adapters/node-http.ts",
@@ -40978,9 +41412,9 @@
         "kind": "type-alias",
         "qualifiedName": "@oa-sdk/mock-server:src/adapters/node-http.ts#ServerRoutingState",
         "runtime": "neutral",
-        "semanticHash": "f50621710a34abe52ce50a993776dac4a79983285e63d2798af18ced345fb0aa",
-        "shapeHash": "db529fe415ef177f798a2f85c07306dda2fb56716415a95756f1915195bdd1c4",
-        "syntaxHash": "8f2ce506def2145d5030cdf333ff12fa55cffd95a091292965f5c28e13c1056f"
+        "semanticHash": "97e59cdabe43b0af1f9f42266d256c117e44edf4a6e9a409cac845313a53e79c",
+        "shapeHash": "48b5324ba3defe5d85200d1c2ba797490d0b24967693673280569db6dc52deea",
+        "syntaxHash": "6caa65ac0c51655973ef4524b03baa7d24196d5e5c0917d1abd820c957738917"
       },
       {
         "filePath": "packages/mock-server/src/adapters/node-http.ts",
@@ -41000,7 +41434,7 @@
         "runtime": "neutral",
         "semanticHash": "0b54dac8b05d2ec7eace5d19c43a455e48317f7e9a78a0395b97305675295a55",
         "shapeHash": "eb1523718f86d6e7b374bb7716ad44150cb1a5fc8d80132475d54286fef095a2",
-        "syntaxHash": "0ce30bb2d0f975bc4c0fd08ae76ad211d1038f0895302cda0f46efee48c03305"
+        "syntaxHash": "97967f1b5aba9a412c159612e7a3bbb981228308a0514ecf613df6882800c1a2"
       },
       {
         "filePath": "packages/mock-server/src/adapters/node-http.ts",
@@ -41011,6 +41445,16 @@
         "semanticHash": "f62ebfcc368544df278867fda262eaad20607fbba20be5d10a7c8ad10e16b2ee",
         "shapeHash": "fb93abcd5703a373f3084b62b52716458d665fe820eee0c91bfe22605d3f8790",
         "syntaxHash": "cd4e893a4d95df8b2a93b263cd5dd567c846dab048ee23c2bab852a40d7a7142"
+      },
+      {
+        "filePath": "packages/mock-server/src/adapters/node-http.ts",
+        "identity": "packages/mock-server/src/adapters/node-http.ts#src/adapters/node-http.ts#neutral#@oa-sdk/mock-server:src/adapters/node-http.ts#writePayload#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/adapters/node-http.ts#writePayload",
+        "runtime": "neutral",
+        "semanticHash": "30a90f375fcc9bbd8889447b65f88b0334715dde7f9b32ed23a973039dd42ad1",
+        "shapeHash": "a5787f16414a0ea02e222a1241f91b6c0853ce10cc56695b433338d544cbbca9",
+        "syntaxHash": "003daba853fd4a6a4ff95468277d9e37e21cab844035ac430d699c80dd1e2a0c"
       },
       {
         "filePath": "packages/mock-server/src/adapters/node-http.ts",
@@ -41394,13 +41838,43 @@
       },
       {
         "filePath": "packages/mock-server/src/core/generate.ts",
+        "identity": "packages/mock-server/src/core/generate.ts#src/core/generate.ts#neutral#@oa-sdk/mock-server:src/core/generate.ts#foldRequiredObject#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/generate.ts#foldRequiredObject",
+        "runtime": "neutral",
+        "semanticHash": "7c97bfdc9aac9491488e1e167589b433cefc06bd44cfd98a9d15300020bd2bb0",
+        "shapeHash": "0edfd1ac099ae7b824dc80287908dbd1aa840def0c6ad03263203ef30a593fca",
+        "syntaxHash": "18f9620475486165d1739ae2d95e4b7796b10f6cddfe6e2d1f3a73c54a02c21f"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/generate.ts",
+        "identity": "packages/mock-server/src/core/generate.ts#src/core/generate.ts#neutral#@oa-sdk/mock-server:src/core/generate.ts#foldRequiredProperties#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/generate.ts#foldRequiredProperties",
+        "runtime": "neutral",
+        "semanticHash": "70fd638f43f0a8619ffe26ee3b96359db77688d59b8855292fe191d9dec6e744",
+        "shapeHash": "27c3399899c3d17020c74dd4353425f53acd979651552e2cc9c93e69faf32a4f",
+        "syntaxHash": "e9579baf50ee8e7a55b91789c098119fcf872e25cac93815ac3d341e1da5d2e8"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/generate.ts",
         "identity": "packages/mock-server/src/core/generate.ts#src/core/generate.ts#neutral#@oa-sdk/mock-server:src/core/generate.ts#GenerateFolder#class",
         "kind": "class",
         "qualifiedName": "@oa-sdk/mock-server:src/core/generate.ts#GenerateFolder",
         "runtime": "neutral",
         "semanticHash": "174673339779f7926f5bacc434e0abb3119e57fbf5da5c080749bd4d2cd915a1",
         "shapeHash": "f708cf8ed56a3ac807e37d15f78ea45272744756bebecdc0add28f1bc0cb8fbe",
-        "syntaxHash": "96f4d56ef8225c0acf2e98d3836a53a907773390434149f86a11591584c9e80c"
+        "syntaxHash": "d025bd22b1cdf26c83d6a1ff87d44f061b8943e8afa95e4d8cf469af76b33ee9"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/generate.ts",
+        "identity": "packages/mock-server/src/core/generate.ts#src/core/generate.ts#neutral#@oa-sdk/mock-server:src/core/generate.ts#generatesAsBuiltin#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/generate.ts#generatesAsBuiltin",
+        "runtime": "neutral",
+        "semanticHash": "5ca8f8497d207f062a8721aebf3b4458079df2b7d2c1c43dd8a70bf17fcb5330",
+        "shapeHash": "58a4164b5da5a0134d75cf3ef67a89181cbc15bec00faca4c65c22f368d7f417",
+        "syntaxHash": "7bdf430fa5de47eb5cc6e397529c397ae6c4c27648d85aaa474a134626d057e2"
       },
       {
         "filePath": "packages/mock-server/src/core/generate.ts",
@@ -41413,14 +41887,64 @@
         "syntaxHash": "c806488fa2687bed03765d3756ba363c41ebe3976b7d3ec09f9a23ba78e9342b"
       },
       {
-        "filePath": "packages/mock-server/src/core/handler.ts",
-        "identity": "packages/mock-server/src/core/handler.ts#src/core/handler.ts#neutral#@oa-sdk/mock-server:src/core/handler.ts#applyPlugins#function",
+        "filePath": "packages/mock-server/src/core/generate.ts",
+        "identity": "packages/mock-server/src/core/generate.ts#src/core/generate.ts#neutral#@oa-sdk/mock-server:src/core/generate.ts#hasBuiltinGenerationMethods#function",
         "kind": "function",
-        "qualifiedName": "@oa-sdk/mock-server:src/core/handler.ts#applyPlugins",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/generate.ts#hasBuiltinGenerationMethods",
         "runtime": "neutral",
-        "semanticHash": "4ac246d3203b401d8b4586c31ac363acc5dc9892061e80ad794e3d2ba916c46d",
-        "shapeHash": "14f907b12b944341cab06bf54b5a349fa84b6b6bd264421ffdf7092b07008725",
-        "syntaxHash": "b36dedb19ba06aaf4452e81b0f25f9eb6e8ae4a013adf0da51b141983b8eaf0e"
+        "semanticHash": "0b859a1b428ee4ca5f0307ad2bcbaf68065ee8879ec02771c3ac58bd356cd118",
+        "shapeHash": "58a4164b5da5a0134d75cf3ef67a89181cbc15bec00faca4c65c22f368d7f417",
+        "syntaxHash": "9ce4f8ceea5505a14ddf50f58922a939be4f87e7720c8b5ba67e915e8fc03cf4"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/generate.ts",
+        "identity": "packages/mock-server/src/core/generate.ts#src/core/generate.ts#neutral#@oa-sdk/mock-server:src/core/generate.ts#hasBuiltinHandlers#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/generate.ts#hasBuiltinHandlers",
+        "runtime": "neutral",
+        "semanticHash": "f176af0b6e74af0c20b6573a5a36246ec681812ac6250777f5484c5378bea825",
+        "shapeHash": "f1d416852f274f0f0c9a50490e558a0112987332e7715f40ff131a2762f20dde",
+        "syntaxHash": "f0b03ffad3c8020ea65d1c07519fcdbe85961102cb80631517b55af733c7456a"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/generate.ts",
+        "identity": "packages/mock-server/src/core/generate.ts#src/core/generate.ts#neutral#@oa-sdk/mock-server:src/core/generate.ts#requiredEntries#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/generate.ts#requiredEntries",
+        "runtime": "neutral",
+        "semanticHash": "c0a8377b8824c66c4a823d11758873a6124c8fb55c9b587bdb8c19bfd60adcf4",
+        "shapeHash": "5451c836bb8c7bf99b8da08910151d0d313ac845eb8ebb81d9ecd3452fdc7518",
+        "syntaxHash": "d58d651172b522af449ee60636a53fcf25dbf40f7ba1cd722fcb6870893e8bf7"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/handler.ts",
+        "identity": "packages/mock-server/src/core/handler.ts#src/core/handler.ts#neutral#@oa-sdk/mock-server:src/core/handler.ts#CheckedResponse#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/handler.ts#CheckedResponse",
+        "runtime": "neutral",
+        "semanticHash": "f87be54cc755521cb52f90b93ad3d0f2ef3997bd910d1d76223b74dec1ce2622",
+        "shapeHash": "6e569c85c5a817be23054b42e1c763137f340125b828da8d3e5b05c8da53fb14",
+        "syntaxHash": "4486961a5587fae5cde89a37417be02d9f8e3068ef8456f9bb70eba0cd69f753"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/handler.ts",
+        "identity": "packages/mock-server/src/core/handler.ts#src/core/handler.ts#neutral#@oa-sdk/mock-server:src/core/handler.ts#documentedValidationResponse#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/handler.ts#documentedValidationResponse",
+        "runtime": "neutral",
+        "semanticHash": "56dcab88550df72d9edfa7ceaed922ec7e3022486c38cc64af3ef0fa87ce3337",
+        "shapeHash": "a0e761326e5c7e3ba1d7e1ef22c167a2fb1106eea72ec8735bc9f952eb5fabea",
+        "syntaxHash": "9cadc1e48805c4c54f371d74d2822c974c403aaf266c8ebcfffd140a0762a2c3"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/handler.ts",
+        "identity": "packages/mock-server/src/core/handler.ts#src/core/handler.ts#neutral#@oa-sdk/mock-server:src/core/handler.ts#finalizeChecked#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/handler.ts#finalizeChecked",
+        "runtime": "neutral",
+        "semanticHash": "29b4fdabe629431fc40f5d6d40dce2d21b48a1a33f051dacee25ad410be92fbc",
+        "shapeHash": "2757dfde1bb8bcd0d7e786da400315830db466525bd361fa1feec344bff49e6b",
+        "syntaxHash": "b203fe74a6754acedadd1cee7bc4fb6ded95ffcd4d6b5e25621ece0f1b5bfb43"
       },
       {
         "filePath": "packages/mock-server/src/core/handler.ts",
@@ -41428,9 +41952,19 @@
         "kind": "function",
         "qualifiedName": "@oa-sdk/mock-server:src/core/handler.ts#finalizeResult",
         "runtime": "neutral",
-        "semanticHash": "45726323ed363f74cc798d73725843250cd32323da1479d3b49a76754c30475b",
-        "shapeHash": "193272508067d8d7da7f3089d7e89980f461abcb335358bcaa97846f1bc9399b",
-        "syntaxHash": "58fa211532f3cf8cb522ce130110958e63a5fe30a08b616d314c8befd7f7a85b"
+        "semanticHash": "7f48a3988dc26b490c2f22aab49499a7003494ea4862d958cd33fa76914c42ed",
+        "shapeHash": "bea6675c835e0be7fd22dcac16665440e23c85af1ffbac390450ce219174a1bc",
+        "syntaxHash": "9ae30ff668eec6fb150c4589bf9b6223bb29969db2fbadb8869581cc1f08b84d"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/handler.ts",
+        "identity": "packages/mock-server/src/core/handler.ts#src/core/handler.ts#neutral#@oa-sdk/mock-server:src/core/handler.ts#HandlerEntry#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/handler.ts#HandlerEntry",
+        "runtime": "neutral",
+        "semanticHash": "5b0c902ac0f087bf5a467eb5046dfffc9868c5c132315dcd35ecda03517c901c",
+        "shapeHash": "e4e639f0bb59e3643a811490ccb78255b30bebb00a31e197454e6d8fa2edd1cd",
+        "syntaxHash": "1ddb6ce852ab26844cbe428b3ed0fdf9e8d93a0bbed361d91689c51fd72d7702"
       },
       {
         "filePath": "packages/mock-server/src/core/handler.ts",
@@ -41438,9 +41972,9 @@
         "kind": "function",
         "qualifiedName": "@oa-sdk/mock-server:src/core/handler.ts#handleRequest",
         "runtime": "neutral",
-        "semanticHash": "f79c1ddffb809ad5b6b6fa0ce002fdf5fc59e1c198864a9cecde4a66a9510fba",
-        "shapeHash": "818c8f64b212c9f75604f46046995f09c8797a437947f037c820b1a6d5cc2c4a",
-        "syntaxHash": "6ee22509d6e602c29cd224847741f37c747831649730b4f37d908f4e119a5b31"
+        "semanticHash": "109a6dab6bb11233b53d23151290e253d5dae2d5971ae7c5f5433f602fe9573d",
+        "shapeHash": "3db65e83d739b5777715f30ced9ecb1362a9ceba2d3c7ce7d47a2c4bc84a1738",
+        "syntaxHash": "0f2b150e711034590f4c5a2db464882cf991630acdca817f5d2871fb9facce4c"
       },
       {
         "filePath": "packages/mock-server/src/core/handler.ts",
@@ -41454,6 +41988,16 @@
       },
       {
         "filePath": "packages/mock-server/src/core/handler.ts",
+        "identity": "packages/mock-server/src/core/handler.ts#src/core/handler.ts#neutral#@oa-sdk/mock-server:src/core/handler.ts#handleRouteRequest#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/handler.ts#handleRouteRequest",
+        "runtime": "neutral",
+        "semanticHash": "230e8e0ec20f9bbf79e5a8f64415c44d42f6b8da750ba104327266a63b76ef70",
+        "shapeHash": "d53a102e4be9e18852760427bf8c1c001c155a93e2f5979d65cfa4d296d06701",
+        "syntaxHash": "14a2c7870cea041d8da390521cbb0919461c58bf6d71b01b7d76943d9a131a74"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/handler.ts",
         "identity": "packages/mock-server/src/core/handler.ts#src/core/handler.ts#neutral#@oa-sdk/mock-server:src/core/handler.ts#HandlerResult#type-alias",
         "kind": "type-alias",
         "qualifiedName": "@oa-sdk/mock-server:src/core/handler.ts#HandlerResult",
@@ -41461,6 +42005,16 @@
         "semanticHash": "0bed03d54a98aa7d88a41468aea13efb4364b6c1e251936e80fbbcc3e9f1dd37",
         "shapeHash": "2ca28c81c6763a24cd04594d0ab655396802cd46fd3ffa9ce3675feee8e4b8c3",
         "syntaxHash": "7ae21d9499e1981d6561ac03727672fa9777f6dafa588e2c7f4bf8d6a1eddbcc"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/handler.ts",
+        "identity": "packages/mock-server/src/core/handler.ts#src/core/handler.ts#neutral#@oa-sdk/mock-server:src/core/handler.ts#isFinalCheck#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/handler.ts#isFinalCheck",
+        "runtime": "neutral",
+        "semanticHash": "388e58ee90cc5c18bd44623e8025ca369fb76cc37ec6db78567a4af52f10d425",
+        "shapeHash": "b8835e86652e31cf8b32183cc2200a2928844c0d6adb619803e4bce4b27c8e44",
+        "syntaxHash": "367e788b55e2ea6e32adff220a20802cdab588d531e00f38209f686588a8b605"
       },
       {
         "filePath": "packages/mock-server/src/core/handler.ts",
@@ -41484,6 +42038,26 @@
       },
       {
         "filePath": "packages/mock-server/src/core/handler.ts",
+        "identity": "packages/mock-server/src/core/handler.ts#src/core/handler.ts#neutral#@oa-sdk/mock-server:src/core/handler.ts#matchPlugins#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/handler.ts#matchPlugins",
+        "runtime": "neutral",
+        "semanticHash": "9b838aabd58a498e904ee2a137be421fb7237c489c7ada1094a2ad400bae331e",
+        "shapeHash": "7897d1819f7cdc8efc3147ea0d86a57783a2a95a631a432d9c26706e643862da",
+        "syntaxHash": "faef4725a0530a7d9b99b56a02423e4ee2eea5600806c25800970472ac8bd811"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/handler.ts",
+        "identity": "packages/mock-server/src/core/handler.ts#src/core/handler.ts#neutral#@oa-sdk/mock-server:src/core/handler.ts#operationMeta#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/handler.ts#operationMeta",
+        "runtime": "neutral",
+        "semanticHash": "52109694a07558c42e745163e1d4fb25170d053d96a06fc42a6e10d416c9e2e5",
+        "shapeHash": "6bc287d356afabcf7fa35312f853f7fcab6ce494ecef60d9feee21f3d1b2bebb",
+        "syntaxHash": "6f72e9e422680acf65fde0326ec10b5fbe6b6d3ae2a48d743fadc44a0d0b938d"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/handler.ts",
         "identity": "packages/mock-server/src/core/handler.ts#src/core/handler.ts#neutral#@oa-sdk/mock-server:src/core/handler.ts#pickDocumentedResponse#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/mock-server:src/core/handler.ts#pickDocumentedResponse",
@@ -41494,6 +42068,16 @@
       },
       {
         "filePath": "packages/mock-server/src/core/handler.ts",
+        "identity": "packages/mock-server/src/core/handler.ts#src/core/handler.ts#neutral#@oa-sdk/mock-server:src/core/handler.ts#PickedOnce#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/handler.ts#PickedOnce",
+        "runtime": "neutral",
+        "semanticHash": "f8221a10c681784baa162042cd30658796cb1893ead205ac84fed4977f97a0e8",
+        "shapeHash": "9643faecabe9a94eff65363c1e2a248f58e93d0d9c9dc1fb76b3d71cd7cd78da",
+        "syntaxHash": "77722e4e438de85468b51de0b550fbb811762c3945afe9520a703b95c72ab391"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/handler.ts",
         "identity": "packages/mock-server/src/core/handler.ts#src/core/handler.ts#neutral#@oa-sdk/mock-server:src/core/handler.ts#pickUnauthorizedResponse#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/mock-server:src/core/handler.ts#pickUnauthorizedResponse",
@@ -41501,6 +42085,46 @@
         "semanticHash": "c723a9b04c6cf6aeb48290508ce15b829b8d2c28efaa116541bf382c597cc625",
         "shapeHash": "e0e1ad66bb91d750bd9bf2603b662057c46b2e9ffa1e3fe2c43672876db1117c",
         "syntaxHash": "c82ae7a2683a53f6d849ac25a63d4a86e541938a6aab840e805657328c2ebda0"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/handler.ts",
+        "identity": "packages/mock-server/src/core/handler.ts#src/core/handler.ts#neutral#@oa-sdk/mock-server:src/core/handler.ts#recordedCheck#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/handler.ts#recordedCheck",
+        "runtime": "neutral",
+        "semanticHash": "95326b5de83b380a9466812b6d75e65e645915cd5101e5221b9ce7584a5817ee",
+        "shapeHash": "5ee6ff43994a6e6a3274513e0a46038ccf7bf712d66eab3e82b5f1b4d205708d",
+        "syntaxHash": "a4157a9c9fd704324511d7f91e6bf375b7b78638ee98f68f25ee8332b9f1570b"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/handler.ts",
+        "identity": "packages/mock-server/src/core/handler.ts#src/core/handler.ts#neutral#@oa-sdk/mock-server:src/core/handler.ts#rejectedRequestResult#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/handler.ts#rejectedRequestResult",
+        "runtime": "neutral",
+        "semanticHash": "30ce96ddc609af5aa486cabc58af7a9a3cd645e15753d189f962c6df9080a6db",
+        "shapeHash": "e5ca7a6bcd12dec6e9feb184e47ef14754248d3a09dabfbeb28f662fadf5d300",
+        "syntaxHash": "48192d40b5206d04eee4026fce423fcc28abd68c0f2b93e52914528e6faab293"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/handler.ts",
+        "identity": "packages/mock-server/src/core/handler.ts#src/core/handler.ts#neutral#@oa-sdk/mock-server:src/core/handler.ts#responseSchemaError#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/handler.ts#responseSchemaError",
+        "runtime": "neutral",
+        "semanticHash": "cb894e1c2914cfaa0a5fcfc3421eb0f8af2a4d2715eb694c51ff193ec4ce4689",
+        "shapeHash": "b78994a895e6e46a42fe3584936da1b47153c93129117eb1928d98d66877746c",
+        "syntaxHash": "2206481e14864e149c0e1b7014d24c2d4e04594647b6a28a3613c3de23b4a532"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/handler.ts",
+        "identity": "packages/mock-server/src/core/handler.ts#src/core/handler.ts#neutral#@oa-sdk/mock-server:src/core/handler.ts#RouteResponses#class",
+        "kind": "class",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/handler.ts#RouteResponses",
+        "runtime": "neutral",
+        "semanticHash": "c639e8cb56bbd2b6c11236b21228b8bed727fabcd8596c1e00688621ff2e87e8",
+        "shapeHash": "0792b2427deaacecb3823ee53a166c30ad1b2a7b08d7f5b6a626fd73e9b1557a",
+        "syntaxHash": "b96d2d61bcfb99b35f9063a413c2d2f3124333bcd52a5f83b73a0e84e4d358c1"
       },
       {
         "filePath": "packages/mock-server/src/core/handler.ts",
@@ -41524,13 +42148,33 @@
       },
       {
         "filePath": "packages/mock-server/src/core/handler.ts",
+        "identity": "packages/mock-server/src/core/handler.ts#src/core/handler.ts#neutral#@oa-sdk/mock-server:src/core/handler.ts#transformResponse#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/handler.ts#transformResponse",
+        "runtime": "neutral",
+        "semanticHash": "6e1d29c20a3cb8fd2d86a1f90ec54d033f8a01e68b59a09b23437c33642329ac",
+        "shapeHash": "73fc5b1e29250e89b8bc599e4b065f2d38503962c234136020378a1635c72669",
+        "syntaxHash": "0801bba732f1a90fbcaf70e57fe83a8be841fbb52f67b98bf86927ed8670d829"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/handler.ts",
+        "identity": "packages/mock-server/src/core/handler.ts#src/core/handler.ts#neutral#@oa-sdk/mock-server:src/core/handler.ts#validationErrors#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/handler.ts#validationErrors",
+        "runtime": "neutral",
+        "semanticHash": "49329257a430587e531df119b70a46889a9055ad56a36e894311ef332ccde3f1",
+        "shapeHash": "feba3ebab752aa0f65e7b6206b61a12c8b5b5e3b5133e50714867d7c022366c9",
+        "syntaxHash": "531249a535029634179635bad718882772065a630e9bbf957dcf0af70150a388"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/handler.ts",
         "identity": "packages/mock-server/src/core/handler.ts#src/core/handler.ts#neutral#@oa-sdk/mock-server:src/core/handler.ts#withContractSafeValidationDetails#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/mock-server:src/core/handler.ts#withContractSafeValidationDetails",
         "runtime": "neutral",
-        "semanticHash": "66b12bf836427f96a1f2e7c68e860501e5f17eab9567ec8a6d5ec66a13063795",
-        "shapeHash": "e70aa6f133814e9961fee60780544c026d2759787c767a92df3cebe54ceacb53",
-        "syntaxHash": "0953d5e49c44c61fa358a1b7c87a20f788e21148f77ed59a2d0eeadeca0ee054"
+        "semanticHash": "0883a6a1354cc7c61560541078bfab6b02d58f4ac608cc060a1fc2b1621ced62",
+        "shapeHash": "e6309985a5c8050f4c49e36fac632c06d254fbd429c00717cecf9b6c5f862f72",
+        "syntaxHash": "38eec9bfd43e0b101e2d8badbb78cacba9aa03dac678672026bdb6ef6438ae44"
       },
       {
         "filePath": "packages/mock-server/src/core/media-body.ts",
@@ -42401,6 +43045,16 @@
         "semanticHash": "7df24781335945df7c6fd8ee8b576a5698cc3d0bf533044715a1c644a4e4fdbf",
         "shapeHash": "c83568e1f4d13949b91939e72b7f69c62395d76b9c9aefbac48dd3dff0fbec31",
         "syntaxHash": "10f1dbe2dc86a99be3d2765da840d5d30da42e63a938e50ca091cf318fa8a617"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/stream.ts",
+        "identity": "packages/mock-server/src/core/stream.ts#src/core/stream.ts#neutral#@oa-sdk/mock-server:src/core/stream.ts#sharedGenerationIsBuiltin#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/stream.ts#sharedGenerationIsBuiltin",
+        "runtime": "neutral",
+        "semanticHash": "be66602bf4fe9e7a3851383f3ee2739aeba6c3387a98c1ac940096df6c33662c",
+        "shapeHash": "ac6e4621006c5ff4c404c62688682d288d577784c35319bfb2c5505d977d5917",
+        "syntaxHash": "8cb2a4740d94f90680003639bf27543ce625fe555080962e4f82ed418aef2f98"
       },
       {
         "filePath": "packages/mock-server/src/core/stream.ts",
@@ -45454,6 +46108,16 @@
       },
       {
         "filePath": "packages/parser/src/json-pointer.ts",
+        "identity": "packages/parser/src/json-pointer.ts#src/json-pointer.ts#neutral#@oa-sdk/parser:src/json-pointer.ts#findNearestJsonPointerEntry#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/parser:src/json-pointer.ts#findNearestJsonPointerEntry",
+        "runtime": "neutral",
+        "semanticHash": "cef952174b2497f7c7c9e80565edecf67ffd82a890fa9ad905351b3b92a91330",
+        "shapeHash": "ca88d731fa5516d867281fd1745033ec57dffb64e170ae6d74d56b775563797c",
+        "syntaxHash": "53d7617f94972364aabc4ef752134dd2dbcfe88acc6d3566c0867f8c2f7b46d7"
+      },
+      {
+        "filePath": "packages/parser/src/json-pointer.ts",
         "identity": "packages/parser/src/json-pointer.ts#src/json-pointer.ts#neutral#@oa-sdk/parser:src/json-pointer.ts#formatJsonPointer#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/parser:src/json-pointer.ts#formatJsonPointer",
@@ -45471,6 +46135,16 @@
         "semanticHash": "94b833600efd129160e03f457b9a52c09a7634da5672e24cf45980bc76c78615",
         "shapeHash": "02169437a9ea38945b33198c68fdbf8e0b48eaf9790b282a5b5c700dde3e1eea",
         "syntaxHash": "12d35a297ad0b33da676d287f76a763dbff67597fc8176c4e071e9f1d2060000"
+      },
+      {
+        "filePath": "packages/parser/src/json-pointer.ts",
+        "identity": "packages/parser/src/json-pointer.ts#src/json-pointer.ts#neutral#@oa-sdk/parser:src/json-pointer.ts#JsonPointerEntryMatch#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/parser:src/json-pointer.ts#JsonPointerEntryMatch",
+        "runtime": "neutral",
+        "semanticHash": "c497b91608d301e56bac78ebae7427210abb08220e359c8da73c22f2abb86b58",
+        "shapeHash": "3931e917431ffd0dea0ed98869d04095c15ff65b13969d0029246b7bde1ab299",
+        "syntaxHash": "e7682aa1a0ca5a4cefa3a8bba077ed791faa84bd134898e09570f61a16cda6df"
       },
       {
         "filePath": "packages/parser/src/json-pointer.ts",
@@ -46604,6 +47278,16 @@
       },
       {
         "filePath": "packages/parser/src/ref-projection.ts",
+        "identity": "packages/parser/src/ref-projection.ts#src/ref-projection.ts#neutral#@oa-sdk/parser:src/ref-projection.ts#outsideNodesDiagnostic#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/parser:src/ref-projection.ts#outsideNodesDiagnostic",
+        "runtime": "neutral",
+        "semanticHash": "da97930b12f3a6195f151aac7bfabac005f4228d88b8c05bcfb43dc2bbee01f8",
+        "shapeHash": "5b80eab9bfb226faad08776010bbe58a1b6cc6ee7de73dfceed825f0dceb4f30",
+        "syntaxHash": "df049580ceabfd12891a8b1f3dbb3c1b3763b1b1f28042167733bddda202cc36"
+      },
+      {
+        "filePath": "packages/parser/src/ref-projection.ts",
         "identity": "packages/parser/src/ref-projection.ts#src/ref-projection.ts#neutral#@oa-sdk/parser:src/ref-projection.ts#PointerOwnerIndex#class",
         "kind": "class",
         "qualifiedName": "@oa-sdk/parser:src/ref-projection.ts#PointerOwnerIndex",
@@ -46620,7 +47304,7 @@
         "runtime": "neutral",
         "semanticHash": "c0abe9cf43f48934c09385309ee8f0852023114ed91f78d7f26185cd7e7604eb",
         "shapeHash": "d5526061f4a66457ed9d353d487c7b9d5bd2169665b6576ad555b44bcd9001e6",
-        "syntaxHash": "1b9fce772521194c9b7b070da01390ce8217be5d91c59a6d2e99355f46332c39"
+        "syntaxHash": "9aa03fe4e152daba12c0b2cdf7938f65e8a8e41ebcd1901dcb04ea1a37e6e2c9"
       },
       {
         "filePath": "packages/parser/src/ref-projection.ts",
@@ -46628,9 +47312,29 @@
         "kind": "type-alias",
         "qualifiedName": "@oa-sdk/parser:src/ref-projection.ts#RefProjection",
         "runtime": "neutral",
-        "semanticHash": "514eb8e5fc7a4080b65e64c4400b70296249e9fc38728c0c6ebaea7055ff71c4",
-        "shapeHash": "7438ed88fd34bc1a0c5348d11ecfbd4b8002f3beca79ad41fe7a81681f4f9af0",
-        "syntaxHash": "95fe6f57ff9d8e9247cc9daea0d460fe06fa4aba5b3bb98c4837a5256726d880"
+        "semanticHash": "7c8ca3105e7b11522a53fe8d53ceacbe21f9f633bc6497a09e0cae405648c072",
+        "shapeHash": "9dd1a6993aebaf24e9f989109075a0b26a9125986ffb4fee8c0c4410309de2fd",
+        "syntaxHash": "36e8eb20c242facc60dc8f32c49664ce03ad00e1d1a7fecd55eeaa9998091e44"
+      },
+      {
+        "filePath": "packages/parser/src/ref-projection.ts",
+        "identity": "packages/parser/src/ref-projection.ts#src/ref-projection.ts#neutral#@oa-sdk/parser:src/ref-projection.ts#RefProjectionDiagnostic#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/parser:src/ref-projection.ts#RefProjectionDiagnostic",
+        "runtime": "neutral",
+        "semanticHash": "a5d38e17b25bfdea4d47adb2276a1da267a0106267adb79e39a79e4e7907156a",
+        "shapeHash": "77a342349d09c7ab87b284252eec802990d7960813abcf55a7fdbacad8522dd4",
+        "syntaxHash": "96462f0edb0a5343e196de66bfe6f51ab3eb6fc185eade4cd7e1414a4ab7aaf9"
+      },
+      {
+        "filePath": "packages/parser/src/ref-projection.ts",
+        "identity": "packages/parser/src/ref-projection.ts#src/ref-projection.ts#neutral#@oa-sdk/parser:src/ref-projection.ts#RefProjectionDiagnosticCode#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/parser:src/ref-projection.ts#RefProjectionDiagnosticCode",
+        "runtime": "neutral",
+        "semanticHash": "e954271e652e28e84bae97fddddf60389586800d8b3780c567da24c9dbbe4b63",
+        "shapeHash": "9cf46ef5981f75cbee70102cb291a6e60be30b45f94bcc6129388a69e75ec967",
+        "syntaxHash": "d9105f520a53ab6a822f6036e7532273eac0e8f11586d80790ba25d785341ceb"
       },
       {
         "filePath": "packages/parser/src/ref-projection.ts",
@@ -46661,6 +47365,16 @@
         "semanticHash": "3dc1092e7f535be7fae42af8e826fdddc50478c0a76e7e8d74717a06e47ec611",
         "shapeHash": "51b48477fa66912c02531d5eeba2aa73b4abf10492a9633254eb2fdf5e1cdd6d",
         "syntaxHash": "4de2e108654457a50151013a75ff581567699a0b89ffaec1ab229b74539398e4"
+      },
+      {
+        "filePath": "packages/parser/src/ref-projection.ts",
+        "identity": "packages/parser/src/ref-projection.ts#src/ref-projection.ts#neutral#@oa-sdk/parser:src/ref-projection.ts#RefProjectionOutsideNodesDiagnostic#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/parser:src/ref-projection.ts#RefProjectionOutsideNodesDiagnostic",
+        "runtime": "neutral",
+        "semanticHash": "76b4d7260f08e572b3e580526c09d129a4f5d53c01dcf7546810d6149b86714a",
+        "shapeHash": "c524fbabb5b656a206fa01732b081b4ed5dd5c622f86f70802869e9b1a5ea9d0",
+        "syntaxHash": "48aad8378b8c4939b0696e884478ff93a3448e69550a6f0a6a1f7420ecd4bcc0"
       },
       {
         "filePath": "packages/parser/src/ref-projection.ts",
@@ -52590,7 +53304,7 @@
         "runtime": "neutral",
         "semanticHash": "ca3a4818faca675908bf0f07c9b301bcccbcc4a02a78d97d9b01a71cc9c74e29",
         "shapeHash": "e1bd50ccc1261c0635d79a8da7d6bcf1fceb2864fe222f8891351188f2ecf435",
-        "syntaxHash": "b9fcfaaac268cf03a7c01d5bfa512f9407e4fdd46b6d99c8661ea6f661abebe4"
+        "syntaxHash": "c7e27e17227614e57dd54f0a0d875cc534ad3b8663eb74075831180e31e61898"
       },
       {
         "filePath": "packages/spec-lens/src/application/queries/get-graph.query.ts",
@@ -52641,16 +53355,6 @@
         "semanticHash": "817aaa54f5db297323f930f2f365a5f08e4d402aa0beeeb893f52cb744c77d5a",
         "shapeHash": "c91435eb4555d6c825407db05a6f1c9d47975c263b297896e25bbd7ddaf682c0",
         "syntaxHash": "6e2ff76e016131ec78ef437a4a99f83cba7621a27134644e9f8c2494049dc7c0"
-      },
-      {
-        "filePath": "packages/spec-lens/src/application/queries/get-graph.query.ts",
-        "identity": "packages/spec-lens/src/application/queries/get-graph.query.ts#src/application/queries/get-graph.query.ts#neutral#@oa-sdk/spec-lens:src/application/queries/get-graph.query.ts#nearestCanonicalId#function",
-        "kind": "function",
-        "qualifiedName": "@oa-sdk/spec-lens:src/application/queries/get-graph.query.ts#nearestCanonicalId",
-        "runtime": "neutral",
-        "semanticHash": "72e7c4d5d489797021bafc82f47e7c8b47ac30a4be395ac02b91a8592a3c6b89",
-        "shapeHash": "6dfc1056f934153256600b4d473d44351308a5cefa1caa05a7bc47b643a8410a",
-        "syntaxHash": "444694931b2f897db43702125733f22b2d17cdd248a93c83dfef2af9196d1870"
       },
       {
         "filePath": "packages/spec-lens/src/application/queries/get-paths.query.ts",
@@ -57363,7 +58067,7 @@
         "syntaxHash": "d64bef6795e9fd5c1c7aa8401da256f67b5160fdcd8de71546cd89e230584cbe"
       }
     ],
-    "digest": "2fcf9fed09ff42e6c7696d1dae0997b2c79ed084378ebdb00d92d4ac82f27805",
+    "digest": "1c6b8cf4a55ff885b1f6bf891e121fc3e40b771d4f3b08de63af36a8d6555454",
     "publicSurfaces": [
       {
         "exportKey": "./guards",
@@ -57924,6 +58628,7 @@
           "CodegenSourceAdapterResult:type",
           "ConfigValidationError:type",
           "ConfigValidationResult:type",
+          "CreateRefProjectionArtifactOptions:type",
           "DEFAULT_BANNER_MARKERS:mixed",
           "DispatchPathOptions:type",
           "DispatchedArtifactPath:type",
@@ -57990,6 +58695,18 @@
           "PruneResult:type",
           "PruneSkippedEntry:type",
           "PythonContractSpecSnapshotAdapterOptions:type",
+          "REF_PROJECTION_ARTIFACT_SCHEMA_V1:mixed",
+          "REF_PROJECTION_SCHEMA_VERSION:mixed",
+          "RefProjectionArtifact:type",
+          "RefProjectionArtifactDiagnostic:type",
+          "RefProjectionArtifactEdge:type",
+          "RefProjectionArtifactGenerator:type",
+          "RefProjectionArtifactNode:type",
+          "RefProjectionArtifactRecursion:type",
+          "RefProjectionArtifactSchemaIssue:type",
+          "RefProjectionArtifactSourceFile:type",
+          "RefProjectionNodeIdentity:type",
+          "RefProjectionUnmappedReason:type",
           "ResolveImportOptions:type",
           "ResolveTokenOptions:type",
           "ResolvedGuardTarget:type",
@@ -58098,6 +58815,7 @@
           "createParallelEvidenceMetrics:mixed",
           "createParallelEvidenceReport:mixed",
           "createPathDispatcher:mixed",
+          "createRefProjectionArtifact:mixed",
           "createReplaceEdit:mixed",
           "createRuntimeZodValidators:mixed",
           "createSQLiteWorkspaceIndex:mixed",
@@ -58151,6 +58869,7 @@
           "scaffoldOpenApiGovernance:mixed",
           "schemaToTs:mixed",
           "schemaToZod:mixed",
+          "serializeRefProjectionArtifact:mixed",
           "splitWords:mixed",
           "stableStringify:mixed",
           "stringifyOpenApiYaml:mixed",
@@ -58165,11 +58884,12 @@
           "ttscContractProvenanceAdapter:mixed",
           "upgradeOpenApiDocumentTo32:mixed",
           "validateOaConfig:mixed",
+          "validateRefProjectionArtifact:mixed",
           "zodSchemaSourceAdapter:mixed",
           "zodToSchema:mixed"
         ],
         "filePath": "packages/codegen/src/index.ts",
-        "hash": "bac1a29c56a5cc7cc2568cb3e90f00cbf54e619ff318be44e8a464a7b84cbd64",
+        "hash": "dac795bd8f0f2c6d10b7201fc465c0d6edda550daeacd055ef946c984e308fd5",
         "packageName": "@oa-sdk/codegen",
         "runtime": "neutral"
       },
@@ -59633,6 +60353,7 @@
           "IncompleteParsedDocumentError:mixed",
           "InternalDerefCycleStrategy:type",
           "InternalDerefOptions:type",
+          "JsonPointerEntryMatch:type",
           "MatchResult:type",
           "OasCallback:type",
           "OasComponents:type",
@@ -59680,6 +60401,7 @@
           "SchemaFolder:mixed",
           "appendJsonPointer:mixed",
           "assertParsedDocumentComplete:mixed",
+          "canonicalJsonPointerFragment:mixed",
           "createParsedDocumentRefResolution:mixed",
           "derefInternalSpec:mixed",
           "derefInternalSpecWithDiagnostics:mixed",
@@ -59687,6 +60409,7 @@
           "escapeJsonPointerToken:mixed",
           "findByPath:mixed",
           "findByTag:mixed",
+          "findNearestJsonPointerEntry:mixed",
           "findOperation:mixed",
           "foldSchema:mixed",
           "formatJsonPointer:mixed",
@@ -59704,7 +60427,7 @@
           "unescapeJsonPointerToken:mixed"
         ],
         "filePath": "packages/parser/src/browser.ts",
-        "hash": "75ea6b489d6bcb95bd68945f15f1e43e3c2ca28d3c903a58d3238483f611a1bd",
+        "hash": "36f9ce7a72926c3a585ecc9059ca0420cdc85569992812a961d8ed0d8ba77841",
         "packageName": "@oa-sdk/parser",
         "runtime": "browser"
       },
@@ -59778,6 +60501,7 @@
           "HTTP_METHODS:mixed",
           "HttpMethod:type",
           "IncompleteParsedDocumentError:mixed",
+          "JsonPointerEntryMatch:type",
           "LintCategory:type",
           "LintOptions:type",
           "LintResult:type",
@@ -59833,9 +60557,12 @@
           "RefGraphOptions:type",
           "RefKind:type",
           "RefProjection:type",
+          "RefProjectionDiagnostic:type",
+          "RefProjectionDiagnosticCode:type",
           "RefProjectionEdge:type",
           "RefProjectionNode:type",
           "RefProjectionNodeKind:type",
+          "RefProjectionOutsideNodesDiagnostic:type",
           "RefProjectionRecursion:type",
           "Referenceable:type",
           "RouteIndex:type",
@@ -59853,6 +60580,7 @@
           "appendJsonPointer:mixed",
           "assertParsedDocumentComplete:mixed",
           "buildPathPointer:mixed",
+          "canonicalJsonPointerFragment:mixed",
           "collectDefinitionRefs:mixed",
           "collectRefs:mixed",
           "computeDefinitionOpenApiProjectionVersionHash:mixed",
@@ -59873,6 +60601,7 @@
           "extractOperationsFromSource:mixed",
           "findByPath:mixed",
           "findByTag:mixed",
+          "findNearestJsonPointerEntry:mixed",
           "findOperation:mixed",
           "foldSchema:mixed",
           "formatJsonPointer:mixed",
@@ -59905,7 +60634,7 @@
           "validateDocument:mixed"
         ],
         "filePath": "packages/parser/src/index.ts",
-        "hash": "13692829befdc0d69996c0b0306b5ecc780d20be30c94d50068b62cc4d1f21f8",
+        "hash": "48f5c6c50e7611b9c9829d9a3b8dbad979a68b0c223866ba5b418a7e322114f4",
         "packageName": "@oa-sdk/parser",
         "runtime": "neutral"
       },
@@ -61353,7 +62082,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "80ab07465a1592e64bf9f92e77be71c33492736fbb43c4a63210b1c02569d060",
+      "contentHash": "a513c6445f3a413be4a478e5c15c96c2c3f3560e56ab02b114566c20789d4198",
       "filePath": "packages/codegen/src/cli/commands.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -61507,6 +62236,13 @@
       "role": "authority"
     },
     {
+      "contentHash": "22449000c9ada3c092225db7c9cdf2d43ff243bc625ad0210ce829bc67d2822f",
+      "filePath": "packages/codegen/src/cli/commands/ref-projection.ts",
+      "origin": "handwritten",
+      "packageName": "@oa-sdk/codegen",
+      "role": "authority"
+    },
+    {
       "contentHash": "bad13ccf3157ca39244ee5e1cba360e3a4b7a9510947e5d485a8787826e6c415",
       "filePath": "packages/codegen/src/cli/commands/reference-check.ts",
       "origin": "handwritten",
@@ -61619,7 +62355,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "3388781ca20ffe1dc384ae02a8ab7ae293219fb0d0e63a14f04600cfe2e3d7f4",
+      "contentHash": "2a57e5d19947831976dc3be4baddefadb21496deb9bdf0003ab4abed291ce206",
       "filePath": "packages/codegen/src/cli/lib/artifact-compatibility-policy.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -62053,8 +62789,29 @@
       "role": "authority"
     },
     {
-      "contentHash": "0d7b3a98c67e8e3b7b01083bf2ead028e6b1c979cbb4e97d5496d7366ffe3e5d",
+      "contentHash": "0c7523854c595611e888ad3fa06546553bcf3b4183867bd22a122552af74a786",
       "filePath": "packages/codegen/src/cli/lib/provenance-report.ts",
+      "origin": "handwritten",
+      "packageName": "@oa-sdk/codegen",
+      "role": "authority"
+    },
+    {
+      "contentHash": "1e90e9418af0a2438790c07dd79f2f44b8f8028b58cd53f8cdb9995f400f6ab5",
+      "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact-schema.ts",
+      "origin": "handwritten",
+      "packageName": "@oa-sdk/codegen",
+      "role": "authority"
+    },
+    {
+      "contentHash": "e0c843cb83f2e99737e6fd22625125723f733843df9343c14c6bffd2df49bdfa",
+      "filePath": "packages/codegen/src/cli/lib/ref-projection-artifact.ts",
+      "origin": "handwritten",
+      "packageName": "@oa-sdk/codegen",
+      "role": "authority"
+    },
+    {
+      "contentHash": "ed681a6c48ff0423c3c0a439739cb7341c378c40dbd637bff01f74a643c9ed03",
+      "filePath": "packages/codegen/src/cli/lib/ref-projection-files.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
@@ -62270,7 +63027,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "92bc9036ca5f9feb1b117f3365dcb18516c0597c8fdb81447b98ca325f29b5d7",
+      "contentHash": "d48ff9882ae7fc3f7db1a89a781ca870f7f4cafaa2b014e53387230e7d826403",
       "filePath": "packages/codegen/src/cli/spec/oa-gen-governance.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -62333,7 +63090,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "32df1e4f275119ce79cf1cc26ddade1815949404e2067840c77163c2e3346d13",
+      "contentHash": "35f4f1f9ef0df214ba5e0fd9d88c9e6993f6e65e0cbc13ed90a4a53a179fb315",
       "filePath": "packages/codegen/src/index.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -66834,14 +67591,14 @@
       "role": "authority"
     },
     {
-      "contentHash": "339b8904f4b812a653ebcfde8fde7b0f820ce681286207c64e2ef210bb04c5c7",
+      "contentHash": "99d96459e1d126ed27c465a6cdb266c2098e58fe5167e090d2785464e5cc9b61",
       "filePath": "packages/mock-server/src/adapters/msw.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/mock-server",
       "role": "authority"
     },
     {
-      "contentHash": "03c3bdc39660527e368335758290e4f5de8c34bd35b8ef65fcc813bef75a5977",
+      "contentHash": "2580b137906b367e7330a25d59a478b258dfcbf99e95772c827e03aafcb8f794",
       "filePath": "packages/mock-server/src/adapters/node-http.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/mock-server",
@@ -66883,14 +67640,14 @@
       "role": "authority"
     },
     {
-      "contentHash": "d0dad4bc841984876b99002f50e39c92f1861043951351c6274272de74eef0f7",
+      "contentHash": "f9ca82c8877a93feab8d525ddc6bf6981c26a5b3b71f733401e7e15f96ad4fee",
       "filePath": "packages/mock-server/src/core/generate.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/mock-server",
       "role": "authority"
     },
     {
-      "contentHash": "0a6a3e95d17acee32ebedb326517eec78c86eae6e96394e2ff9fdd3de8e6fe5e",
+      "contentHash": "f17d421be64397da31457dd15c467bb8fdc4706becf2eea629dc673d19f06ddc",
       "filePath": "packages/mock-server/src/core/handler.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/mock-server",
@@ -66904,7 +67661,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "369dd3e0b4aa2da728b1e33457a59df851bd4dfc53096eb79611342aaeea9fd0",
+      "contentHash": "5117bcf2f78e82322f993dabbd9349dc8b1938e41a3e65ae177ced357621d3f8",
       "filePath": "packages/mock-server/src/core/plugin.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/mock-server",
@@ -66918,7 +67675,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "092f818b06537499946928dca65b91ea0fce2a24e108822ac8b5b95e276a34e2",
+      "contentHash": "3e1cf364172c16f849e3f61f2fc9e33ee4882bef45c63c8998d6509153f6f60b",
       "filePath": "packages/mock-server/src/core/request-validation/schema-compiler.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/mock-server",
@@ -66953,7 +67710,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "3361906ac89dc4e40287614e94e85b24c4bba8aff90e1e3e7097e55b51e83aa8",
+      "contentHash": "33ce074e6a75e63e1c9adef547af6663bd67aa2f08ae471979a2d6c316a344bb",
       "filePath": "packages/mock-server/src/core/stream.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/mock-server",
@@ -67030,7 +67787,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "b1971754d538e3765f2a22531eac79671e91ef19213b72e680ed38b8a61f81b5",
+      "contentHash": "0e0326d7a9c665fe439650daf10e37df5c1e2f7f40d078f21f044c3c02dce746",
       "filePath": "packages/parser/src/browser.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/parser",
@@ -67121,14 +67878,14 @@
       "role": "authority"
     },
     {
-      "contentHash": "90e4618e1d7e39e557487972d6ca2a9a8f26f4d572d3ed262b793c2028a8c173",
+      "contentHash": "efe273a459be194bc3e16fae06e04ca049b44ae3089342cc5baffee805a7f0fb",
       "filePath": "packages/parser/src/index.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/parser",
       "role": "authority"
     },
     {
-      "contentHash": "cf3988e07525c4ae17bc7a658df8419094b6c5c326edfd78a8f4d21f9eeb6bdf",
+      "contentHash": "362e6bbd10611543b7650a95e4e81d0e3ac839731e4226f3f71bcd5030ed5fcb",
       "filePath": "packages/parser/src/json-pointer.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/parser",
@@ -67219,7 +67976,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "2537952261da2aae7ad5b9c7c4a649aa4f060f44c055674ee67c89f74440098c",
+      "contentHash": "72e272e12185a16dbc53bc6065ccb54d1173e94e8d7495095533d73e8c00d3fd",
       "filePath": "packages/parser/src/ref-projection.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/parser",
@@ -67765,7 +68522,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "74a2a82df73b09292ade392fb39be3c00687d0223267327917c4690a6d471eaf",
+      "contentHash": "b6d7e32bab5fa4dbab6e9a9aa68abf01de01f8e7bb39b36fe1eb1157d16fcb87",
       "filePath": "packages/spec-lens/src/application/queries/get-graph.query.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/spec-lens",
