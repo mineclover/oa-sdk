@@ -417,12 +417,17 @@ async function runConfigDrivenPipeline(
   console.log(`   Project Root: ${rootDir}\n`)
 
   // Every downstream generator consumes the same projected document. Parse it
-  // once per target, on first use, instead of once per generator.
+  // once per target, on first use, instead of once per generator. A spec that
+  // spans several files keeps its `$ref`s to the other files, written relative
+  // to its schema entry, so they are resolved from there: the generators need
+  // every `$ref` resolved, and one that cannot be leaves the parse partial,
+  // which they reject.
   const parsedSpecs = new Map<TargetSpecProjectionResult, ParsedDocument>()
   const parsedSpec = (res: TargetSpecProjectionResult): ParsedDocument => {
     let parsed = parsedSpecs.get(res)
     if (!parsed) {
-      parsed = parseDocument(res.openApiDoc as OasDocument)
+      const { resolvedSchemaEntry } = resolveProfileTarget(res.target, rootDir)
+      parsed = parseDocument(res.openApiDoc as OasDocument, { basePath: resolvedSchemaEntry })
       parsedSpecs.set(res, parsed)
     }
     return parsed

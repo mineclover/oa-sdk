@@ -144,6 +144,7 @@ export const generateTanstackCommand: Command = {
         queriesImport,
         includeHooks,
         tier,
+        basePath: loadedSpec.path,
       })
 
       if (tier === 'all' || tier === 'keys') {
@@ -189,6 +190,7 @@ export const generateTanstackCommand: Command = {
         clientImport,
         includeHooks,
         tier,
+        basePath: loadedSpec.path,
       })
 
       let content = generated.combinedCode

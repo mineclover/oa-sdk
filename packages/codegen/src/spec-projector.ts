@@ -23,7 +23,7 @@ import {
 } from '@oa-sdk/openapi-projection-contract'
 import { appendJsonPointer, loadSchema } from '@oa-sdk/parser'
 import type { ProfileTargetConfig, GuardTargetConfig } from './config.js'
-import { loadModule, profileTargetArtifactPaths } from './cli/lib/config-loader.js'
+import { loadModule, profileTargetArtifactPaths, resolveProfileTarget } from './cli/lib/config-loader.js'
 import { zodToSchema } from './zod-to-schema.js'
 import { generateStandaloneGuards } from './standalone-guards/index.js'
 import type { GeneratedGuardArtifact } from './standalone-guards/types.js'
@@ -325,18 +325,17 @@ export async function loadSchemaEntry(schemaEntryPath: string): Promise<{
  * Projects a single profile target to an OpenAPI document and a JSON Schema
  * Draft 2020-12 bundle. A Zod module projects to OpenAPI 3.1.0; a spec file
  * (OpenAPI YAML/JSON, TypeSpec) keeps its own `openapi` version.
+ *
+ * The OpenAPI document keeps the `$ref`s of a spec file as written: one to
+ * another file is relative to the schema entry, the file
+ * `resolveProfileTarget(target, rootDir).resolvedSchemaEntry` names, and
+ * resolves only from there (`parseDocument(openApiDoc, { basePath })`).
  */
 export async function projectTargetSpec(
   target: ProfileTargetConfig,
   rootDir: string,
 ): Promise<TargetSpecProjectionResult> {
-  const resolvedSchemaEntry = path.isAbsolute(target.schemaEntry)
-    ? path.resolve(target.schemaEntry)
-    : path.resolve(rootDir, target.schemaEntry)
-
-  const resolvedOutDir = path.isAbsolute(target.outDir)
-    ? path.resolve(target.outDir)
-    : path.resolve(rootDir, target.outDir)
+  const { resolvedSchemaEntry, resolvedOutDir } = resolveProfileTarget(target, rootDir)
 
   const relSourcePath = path.relative(rootDir, resolvedSchemaEntry)
   const { schemas, paths, customProjection } = await loadSchemaEntry(resolvedSchemaEntry)

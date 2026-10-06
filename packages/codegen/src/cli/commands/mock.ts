@@ -1,6 +1,6 @@
 import { extname, relative } from 'node:path'
 import type { NodeMockServer } from '@oa-sdk/mock-server'
-import type { OasDocument } from '@oa-sdk/parser'
+import { parseDocument, type OasDocument, type ParsedDocument } from '@oa-sdk/parser'
 import { resolveConfigWithDefaults } from '../../config.js'
 import type { Command, CommandArgValue, CommandContext } from '../lib/types.js'
 import { optStr, bool, resolveArgPath } from '../lib/args.js'
@@ -205,7 +205,7 @@ export const mock: Command = {
       throw new CliExitError(1)
     }
 
-    const server = createNodeMockServer(doc, { port, host, stateful: isStateful })
+    const server = createNodeMockServer(parseSpecFile(doc, resolvedSpec), { port, host, stateful: isStateful })
     await server.start()
     console.log(`🚀 Zero-Build Mock Server running at: ${server.url}`)
     console.log(`📄 Specification: ${resolvedSpec}`)
@@ -215,10 +215,10 @@ export const mock: Command = {
     if (isWatch) {
       console.log(`👀 Watch mode enabled: monitoring ${resolvedSpec} for changes...`)
       watcher = watchSpec(resolvedSpec, {
-        onChange: async (newDoc) => {
+        onChange: async (newDoc, { filePath }) => {
           console.log(`[oa-gen mock:watch] Change detected, reloading specification...`)
           try {
-            const { routesCount } = server.updateSpec(newDoc)
+            const { routesCount } = server.updateSpec(parseSpecFile(newDoc, filePath))
             console.log(`🔄 [oa-gen mock:watch] Hot-reloaded routes successfully (${routesCount} operations active)`)
           } catch (err: any) {
             console.error(`❌ [oa-gen mock:watch] Routing error, keeping previous routes active:`)
@@ -266,6 +266,16 @@ export const mock: Command = {
       }
     })
   },
+}
+
+/**
+ * `document`, read from the spec file `filePath`, parsed for the mock server.
+ * A spec that spans several files refers to the others relative to itself, so
+ * its `$ref`s are resolved from `filePath`; one that still cannot be resolved
+ * leaves the parse partial, which the mock server rejects.
+ */
+function parseSpecFile(document: OasDocument, filePath: string): ParsedDocument {
+  return parseDocument(document, { basePath: filePath })
 }
 
 export default mock

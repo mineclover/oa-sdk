@@ -229,6 +229,23 @@ try {
   if (!existsSync(join(upgraded, 'src', 'generated', 'generic-api.openapi.json'))) {
     throw new Error('the generate script of packed oa-gen init (mvp) wrote no src/generated/generic-api.openapi.json for the upgrade to ignore')
   }
+  // The scaffold turns handler contracts on explicitly, and they come from the spec with the files it
+  // refers to resolved: the contract the run records holds the operations of the path item in another
+  // file. Its path is the one the scaffold's output routing gives it, as .oa-manifest.json records.
+  const upgradedContracts = JSON.parse(readFileSync(join(upgraded, '.oa-manifest.json'), 'utf8')).artifacts
+    .filter(artifact => artifact.kind === 'contract')
+    .map(artifact => artifact.path)
+  if (upgradedContracts.length !== 1 || !readFileSync(join(upgraded, upgradedContracts[0]), 'utf8').includes('deleteUser:')) {
+    throw new Error(
+      `the generate script of packed oa-gen init (mvp) wrote no handler contract for deleteUser, which api/paths/user.yaml declares ` +
+        `(contracts recorded: ${upgradedContracts.join(', ') || '(none)'})`,
+    )
+  }
+  // The mock script serves the spec with those files resolved as well.
+  const upgradedMock = await serveOnce(`${readScripts(upgraded).mock} --port 0`, upgraded, '/users/u1')
+  if (upgradedMock.status !== 200) {
+    throw new Error(`the mock script of packed oa-gen init (mvp) answered GET /users/u1, which api/paths/user.yaml declares, with ${upgradedMock.status}: ${upgradedMock.body}`)
+  }
   execFileSync(process.execPath, [oaGen, 'init', '--yes', '--archetype', 'enterprise', '--cwd', upgraded], { stdio: ['ignore', 'ignore', 'inherit'] })
   const upgradedScripts = readScripts(upgraded)
   const gatedDiff = 'oa-gen diff --base openapi.baseline.yaml --head api/contract.yaml --fail-on-breaking'
@@ -284,7 +301,8 @@ try {
       `and every script it writes runs in a "type": "commonjs" project (${INIT_ARCHETYPES
         .map(({ id, scripts }) => `${id}: ${Object.keys(scripts).join(', ')}`).join(' | ')}), ` +
       `the enterprise gate failing once the spec breaks its contract baseline, ` +
-      `also after an upgrade from mvp on a spec that spans three files, one of them a path item`,
+      `also after an upgrade from mvp on a spec that spans three files, one of them a path item ` +
+      `whose operations the generated handler contract holds and the mock serves`,
   )
 } finally {
   rmSync(temporaryDirectory, { recursive: true, force: true })
