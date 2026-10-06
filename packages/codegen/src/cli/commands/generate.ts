@@ -433,6 +433,25 @@ async function runConfigDrivenPipeline(
     return parsed
   }
 
+  /**
+   * Whether a target declares a CRDT entity, which turns its CRDT modules on.
+   * The markers are looked for in the parsed schemas the CRDT generators read,
+   * not in the projected document, where a component may be a `$ref` to its
+   * schema in another file. A document that cannot be parsed is judged by the
+   * schemas it holds itself; generating its CRDT modules then reports the error.
+   */
+  const declaresCrdtEntity = (res: TargetSpecProjectionResult): boolean => {
+    let schemas: Record<string, unknown>
+    try {
+      schemas = parsedSpec(res).schemas
+    } catch {
+      schemas = (res.openApiDoc as any)?.components?.schemas ?? {}
+    }
+    return Object.values(schemas).some(
+      (s: any) => s && typeof s === 'object' && ('x-oa-sdk-crdt-entity' in s || 'x-oa-sdk-crdt' in s),
+    )
+  }
+
   // Step 1: Schema Projection (OpenAPI 3.1/3.2 and JSON Schema 2020-12)
   for (const target of specs) {
     const result = await projectTargetSpec(target, rootDir)
@@ -580,11 +599,7 @@ async function runConfigDrivenPipeline(
   {
     const output = GENERATE_COMPANION_OUTPUTS.crdt
     for (const res of specResults) {
-      const schemas = (res.openApiDoc as any)?.components?.schemas ?? {}
-      const hasCrdtEntity = Object.values(schemas).some(
-        (s: any) => s && typeof s === 'object' && ('x-oa-sdk-crdt-entity' in s || 'x-oa-sdk-crdt' in s),
-      )
-      if (!hasCrdtEntity) continue
+      if (!declaresCrdtEntity(res)) continue
 
       const id = res.target.id
       const generated = await generateCompanionOutput(output, ['@oa-sdk/router', '@oa-sdk/client'], id, async () => {

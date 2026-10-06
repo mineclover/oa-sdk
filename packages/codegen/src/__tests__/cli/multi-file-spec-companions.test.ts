@@ -16,7 +16,8 @@ import { CliExitError } from '../../cli/lib/errors.js'
 /**
  * A spec that spans several files reaches the companion generators (router,
  * client, mock-server) with the `$ref`s to the other files resolved from the
- * spec file, in `oa-gen generate`, `oa-gen generate:tanstack` and
+ * spec file, and `oa-gen generate` finds the CRDT entities among the resolved
+ * schemas, in `oa-gen generate`, `oa-gen generate:tanstack` and
  * `oa-gen mock`, and so does the Surface IR builder of `oa-gen surface`. A
  * `$ref` that still cannot be resolved fails an output the configuration turns
  * on explicitly, naming the reference, and fails `oa-gen surface`.
@@ -132,6 +133,48 @@ components:
 `,
 }
 
+/** A collaborative entity, marked for the CRDT modules, as written in its own file. */
+const CRDT_ENTITY_SCHEMA = `DocumentWorkspace:
+  type: object
+  x-oa-sdk-crdt-entity: { partitionKey: docId, compaction: checkpoint-squash, strategy: delta-sharded }
+  required: [docId]
+  properties:
+    docId: { type: string }
+    title: { type: string, x-oa-sdk-crdt: { type: lww-register, resolution: last-write-wins, role: value } }
+`
+
+const CRDT_SPEC_HEAD = `openapi: 3.2.0
+info: { title: Workspace API, version: 1.0.0 }
+paths:
+  /workspaces/{docId}:
+    get:
+      operationId: getWorkspace
+      parameters:
+        - { name: docId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/DocumentWorkspace' } } } }
+components:
+  schemas:
+`
+
+/** An API whose CRDT entity is a component that refers to the entity's schema in another file. */
+const MULTI_FILE_CRDT_SPEC: Record<string, string> = {
+  'api/contract.yaml': `${CRDT_SPEC_HEAD}    DocumentWorkspace: { $ref: './schemas.yaml#/DocumentWorkspace' }\n`,
+  'api/schemas.yaml': CRDT_ENTITY_SCHEMA,
+}
+
+/** The API of MULTI_FILE_CRDT_SPEC written in one file. */
+const SINGLE_FILE_CRDT_SPEC: Record<string, string> = {
+  'api/contract.yaml': CRDT_SPEC_HEAD + CRDT_ENTITY_SCHEMA.replace(/^(?=.)/gm, '    '),
+}
+
+const CRDT_OUTPUTS = [
+  'contract.crdt.contract.ts',
+  'contract.crdt.router.ts',
+  'contract.crdt.client.ts',
+  'contract.crdt.hooks.ts',
+] as const
+
 /** Turns on handler contracts and the client SDK explicitly, so that failing to generate them fails the run. */
 const EXPLICIT_CONFIG = JSON.stringify({
   rootDir: '.',
@@ -214,6 +257,22 @@ describe('companion outputs of a spec that spans several files', () => {
       const diagnostics = ts.getPreEmitDiagnostics(program)
         .map(diagnostic => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))
       expect(diagnostics).toEqual([])
+    })
+
+    it('generates the CRDT modules of an entity defined in another file as for the same spec written in one file', async () => {
+      const multiFile = project('multi-file', { ...MULTI_FILE_CRDT_SPEC, 'oa.config.json': EXPLICIT_CONFIG })
+      const singleFile = project('single-file', { ...SINGLE_FILE_CRDT_SPEC, 'oa.config.json': EXPLICIT_CONFIG })
+
+      await runGenerate(multiFile)
+      await runGenerate(singleFile)
+
+      expect(errors).toEqual([])
+      expect(warnings).toEqual([])
+      for (const output of CRDT_OUTPUTS) {
+        expect(fs.existsSync(path.join(multiFile, 'generated', output)), output).toBe(true)
+        expect(generated(multiFile, output), output).toBe(generated(singleFile, output))
+      }
+      expect(generated(multiFile, 'contract.crdt.contract.ts')).toContain('DocumentWorkspaceCrdtHandler')
     })
 
     it('generates a schema that recurses through other files', async () => {

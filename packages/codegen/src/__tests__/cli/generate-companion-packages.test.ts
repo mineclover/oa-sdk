@@ -422,6 +422,35 @@ describe('oa-gen generate without companion packages', () => {
       )
       expect(logs.join('\n')).not.toContain('CRDT Modules:')
     })
+
+    it('reports the parse error of a document that declares a CRDT entity but cannot be parsed', async () => {
+      // A `null` tag, which the parsed IR cannot index, in a spec that declares a CRDT entity.
+      writeSpec({
+        Board: {
+          type: 'object',
+          'x-oa-sdk-crdt-entity': { partitionKey: 'boardId', strategy: 'delta-sharded' },
+          properties: {
+            boardId: { type: 'string' },
+            title: { type: 'string', 'x-oa-sdk-crdt': { type: 'lww-register', role: 'value' } },
+          },
+        },
+      })
+      const specPath = path.join(tmpDir, 'orders.json')
+      fs.writeFileSync(specPath, JSON.stringify({ ...JSON.parse(fs.readFileSync(specPath, 'utf8')), tags: [null] }))
+      writeConfig({ contracts: { pureHandlers: false }, client: { enabled: false } })
+
+      await runGenerate(importCompanion)
+
+      expect(errors).toEqual([])
+      expect(fs.existsSync(openApiPath)).toBe(true)
+      for (const module of ['contract', 'router', 'client', 'hooks']) {
+        expect(fs.existsSync(out(`orders.crdt.${module}.ts`)), `orders.crdt.${module}.ts`).toBe(false)
+      }
+      const warning = warnings.join('\n')
+      expect(warning).toContain('Failed to generate CRDT modules via @oa-sdk/router and @oa-sdk/client: ')
+      expect(warning).toMatch(/Failed to generate CRDT modules via [^\n]*\(spec target "orders"\)/)
+      expect(logs.join('\n')).not.toContain('CRDT Modules:')
+    })
   })
 
   it('does not need a companion whose output is switched off', async () => {
