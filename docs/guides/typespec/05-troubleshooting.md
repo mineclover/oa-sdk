@@ -69,8 +69,10 @@ TypeSpec(`.tsp`)을 작성하고 검증할 때 만나는 컴파일 오류, decor
 
 승인 절차의 정본은 [계약 변경 절차](../typespec-authoring-conventions.md#7-계약-변경-절차-contract-change-workflow)입니다.
 
-### Q5. `pnpm schema:typespec-check` 결과에 `restored normalized diff: fail`이 나옵니다.
-- **원인**: `.tsp`를 고쳐 OpenAPI가 바뀌었지만 커밋된 승인 스냅샷(`packages/schemas/typespec/approved.openapi.yaml`)을 아직 갱신하지 않았습니다.
+### Q5. `.tsp`를 고친 뒤 `pnpm schema:typespec-check`가 `failed gates: expectedDiff` 또는 `restored normalized diff: fail`로 실패합니다.
+- **원인**: `.tsp`를 고쳐 OpenAPI가 바뀌었지만 커밋된 승인 스냅샷(`packages/schemas/typespec/approved.openapi.yaml`)을 아직 갱신하지 않았습니다. 어느 줄이 나오는지는 변경 종류에 따라 다릅니다.
+  - 기존 operation의 요청·응답 schema가 바뀌면(선택 속성 추가 포함) bundle check가 먼저 실패합니다. `restored breaking diff: yes`와 `### API Spec Diff`의 `#### Breaking Changes` 목록 뒤에 `TypeSpec schema check failed gates: expectedDiff`가 나옵니다. 뒤따르는 freshness check는 실행되지 않으므로 `restored normalized diff` 줄은 없습니다.
+  - 새 operation 추가나 설명 문구 변경처럼 breaking으로 분류되지 않는 변경은 bundle check를 통과하고, freshness check에서 `restored normalized diff: fail`이 나옵니다. 복원한 OpenAPI가 승인 스냅샷과 다르고 그 차이가 `accepted-restored-drift.json`에 리뷰해 둔 항목에도 없다는 뜻입니다. 달라진 위치는 그 아래 `Accepted restored reference drift mismatch:` 블록의 `unexpected actual drift` 목록에 나옵니다. 같은 블록에 `missing accepted drift`나 `changed accepted drift value`가 나오면 리뷰해 둔 항목이 현재 복원 결과와 맞지 않는 것이므로, 항목을 리뷰한 뒤 바로 아래 Q6의 명령(`--write --clear-accepted-restored-drift`)으로 승격합니다.
 - **해결 절차**: `pnpm schema:approve-typespec-reference`로 candidate diff가 의도한 변경인지 확인하고, `pnpm schema:approve-typespec-reference -- --write`로 갱신한 뒤 `pnpm schema:typespec-check`를 다시 실행합니다.
 
 ---
