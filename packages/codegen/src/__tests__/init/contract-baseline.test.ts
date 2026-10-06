@@ -240,5 +240,20 @@ describe('contract baseline of the enterprise archetype', () => {
       `📌 Contract baseline: created ${CONTRACT_BASELINE_PATH} from openapi.yaml; commit it. ` +
         'The "diff" script fails on changes that break it, and "baseline:update" moves it to the spec when you release.',
     )
+
+    log.mockClear()
+    await init.run({ cwd: projectDir, archetype: 'enterprise', yes: true })
+    expect(log.mock.calls.map(([line]) => String(line))).toContain(`📌 Contract baseline: kept the existing ${CONTRACT_BASELINE_PATH}.`)
+  })
+
+  it('is reported without the scripts that use it when the project has no package.json', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    await fs.writeFile(path.join(projectDir, 'openapi.yaml'), SPEC)
+
+    await init.run({ cwd: projectDir, archetype: 'enterprise', yes: true })
+    expect(log.mock.calls.map(([line]) => String(line))).toContain(
+      `📌 Contract baseline: created ${CONTRACT_BASELINE_PATH} from openapi.yaml; commit it. ` +
+        'There is no package.json, so init added none of the scripts that use it.',
+    )
   })
 })

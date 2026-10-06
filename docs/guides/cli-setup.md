@@ -140,7 +140,7 @@ yarn oa-gen --help
 
 Bun 런타임 대상(elysia)에서는 `oa-gen` 대신 `bun x oa-gen`을 씁니다. 프레임워크 대상은 개발 서버 스크립트(fastify `dev: tsx watch src/server.ts`와 `build: tsc`, express `tsx watch src/app.ts`, hono `tsx watch src/index.ts`, elysia `bun --watch src/index.ts`, nestjs `start:dev: nest start --watch`)와 프레임워크 의존성도 추가하지만, 서버 진입 파일과 `tsconfig.json`은 만들지 않으므로 이 스크립트는 직접 작성한 서버 코드가 있어야 실행됩니다. Fastify·Express·Hono·Elysia 라우터 코드는 빌드 스크립트에서 `@oa-sdk/router`의 `generateRouter()`로 씁니다.
 
-이전 버전의 `init`이 추가한 `generate:router`·`generate:client`·`generate:contract`(`oa-gen generate`와 같은 일만 함)와 `test:contract`·`audit:wire`·`audit:csp`·`audit:shape`·`personas:check`(그대로는 동작하지 않음)는 지금의 `init`이 추가하지 않습니다. `init --force`도 이 스크립트를 지우지 않으므로 `package.json`에서 직접 지웁니다([CLI 명령 레퍼런스](./cli-command-reference.md#아키타입---archetype)).
+이전 버전의 `init`이 추가한 `generate:router`·`generate:client`·`generate:contract`(`oa-gen generate`와 같은 일만 함)와 `test:contract`·`audit:wire`·`audit:csp`·`audit:shape`·`personas:check`(그대로는 동작하지 않음)는 지금의 `init`이 추가하지 않습니다. `init --force`도 이 스크립트를 지우지 않으므로 `package.json`에서 직접 지웁니다. `init`은 이전 `init`이 쓴 명령 그대로 남은 스크립트를 이유와 할 일과 함께 출력합니다([CLI 명령 레퍼런스](./cli-command-reference.md#아키타입---archetype)).
 
 `init`을 쓰지 않는 프로젝트는 같은 이름으로 직접 등록합니다.
 

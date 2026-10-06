@@ -359,7 +359,7 @@ oa-gen mock --watch
 - 스펙 진입점이 OpenAPI YAML/JSON(`.yaml`·`.yml`·`.json`, 대소문자 무관)이나 TypeSpec(`.tsp`)이 아니면(TypeScript 스키마 모듈 등) 이 스크립트와 기준선을 추가하지 않고 이유를 출력합니다.
 - 기준선은 스펙이 가리키는 파일의 내용을 담으므로 그 파일을 고친 변경도 `baseline:update`로만 기준선에 들어갑니다. URL(`https://...`)을 가리키는 `$ref`는 읽지 않고 그대로 비교합니다.
 
-이전 버전의 `init`이 추가한 다음 스크립트는 동작하지 않거나 `oa-gen generate`와 같은 일만 하므로 지금의 `init`은 추가하지 않습니다: `generate:router`(프레임워크 대상), `generate:client`(`mvp`), `generate:contract`(`microservice`, nestjs 대상), `test:contract`·`audit:wire`(`microservice`), `audit:csp`·`audit:shape`·`personas:check`(`enterprise`). `init --force`는 같은 이름의 스크립트(`diff`, `ci:gate`, `lint:spec`)만 새 명령으로 바꾸므로, 나머지는 `package.json`에서 직접 지우고 `generate` 스크립트를 씁니다.
+이전 버전의 `init`이 추가한 다음 스크립트는 동작하지 않거나 `oa-gen generate`와 같은 일만 하므로 지금의 `init`은 추가하지 않습니다: `generate:router`(프레임워크 대상), `generate:client`(`mvp`), `generate:contract`(`microservice`, nestjs 대상), `test:contract`·`audit:wire`(`microservice`), `audit:csp`·`audit:shape`·`personas:check`(`enterprise`). `init --force`는 같은 이름의 스크립트(`diff`, `ci:gate`, `lint:spec`)만 새 명령으로 바꾸므로, 나머지는 `package.json`에서 직접 지우고 `generate` 스크립트를 씁니다. `init`은 이전 `init`이 쓴 명령 그대로 `package.json`에 남은 이 스크립트를 이유와 할 일(지우기, 또는 같은 이름으로 지금 쓰는 명령으로 바꾸기)과 함께 출력합니다. `--force` 없이 `enterprise`로 다시 실행해 이전 `diff`·`ci:gate`가 남으면, 계약 기준선 안내도 이 스크립트를 바꿔야 기준선과 비교한다고 알립니다.
 
 ### 산출물 라우팅 프리셋 (`--routing`)
 

@@ -6,6 +6,7 @@ import type {
   UninstallableOaSdkEntry,
 } from './oa-sdk-packages.js'
 import type { ContractBaselineResult } from './common/contract-baseline.js'
+import type { RetiredInitScriptEntry } from './common/retired-scripts.js'
 
 export type TargetFrameworkId =
   | 'fastify'
@@ -145,6 +146,11 @@ export interface InitResult {
    * lives, such as `workspace:*` entries an earlier init wrote outside a workspace.
    */
   uninstallableEntries?: UninstallableOaSdkEntry[] | undefined
+  /**
+   * Scripts package.json has (after the patch) that an earlier init wrote and this one no longer
+   * writes, because they failed as written or only repeated the `generate` script.
+   */
+  retiredScripts?: RetiredInitScriptEntry[] | undefined
   /** The contract baseline the archetype's scripts compare the spec with, for an archetype that has one. */
   contractBaseline?: ContractBaselineResult | undefined
   dryRun?: boolean | undefined

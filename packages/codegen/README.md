@@ -88,7 +88,10 @@ dependencies first) and gates its spec target, or the one of several that `--spe
 cannot tell which spec to gate, it adds neither the baseline nor these scripts and prints why. Scripts that earlier versions of `init` added and that failed or only ran
 `oa-gen generate` (`generate:router`, `generate:client`, `generate:contract`, `test:contract`,
 `audit:wire`, `audit:csp`, `audit:shape`, `personas:check`) are no longer added; remove them from
-`package.json`.
+`package.json`. Earlier enterprise scaffolds also have `diff`, `ci:gate` and `lint:spec` commands
+that fail (`oa-gen diff --base origin/main ...`), which a rerun without `--force` keeps. `init`
+lists each of these scripts still in `package.json` with why and what to do: remove it, or replace
+it with the command `init` now writes under that name.
 
 ### Companion packages
 

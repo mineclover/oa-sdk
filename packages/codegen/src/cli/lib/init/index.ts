@@ -49,6 +49,7 @@ import {
   readExistingConfig,
   retainedSpecEntry,
 } from './common/existing-config.js'
+import { findRetiredInitScripts } from './common/retired-scripts.js'
 import {
   DEFAULT_SCHEMA_ENTRY,
   SCAFFOLD_OUT_DIR,
@@ -79,6 +80,7 @@ import type {
 } from './types.js'
 import type { ArchetypeProfile } from './archetypes/types.js'
 import type { UnavailableOaSdkPackage, UninstallableOaSdkEntry } from './oa-sdk-packages.js'
+import type { RetiredInitScriptEntry } from './common/retired-scripts.js'
 
 export * from './types.js'
 export type { ComposedDependencies } from './composer.js'
@@ -89,6 +91,7 @@ export type {
   ContractBaselineSkip,
 } from './common/contract-baseline.js'
 export type { ExistingConfig, ExistingSpecTarget, ScriptSpecEntry } from './common/existing-config.js'
+export type { RetiredInitScriptEntry } from './common/retired-scripts.js'
 export type {
   DependencySection,
   OaSdkPackageName,
@@ -141,6 +144,7 @@ export {
   generatedArtifactPaths,
   readExistingConfig,
   retainedSpecEntry,
+  findRetiredInitScripts,
   DEFAULT_SCHEMA_ENTRY,
   SCAFFOLD_OUT_DIR,
   oaGenScript,
@@ -271,6 +275,7 @@ export async function runInit(options: InitOptions = {}): Promise<InitResult> {
   let patchResult: PackagePatchResult | undefined
   let unavailablePackages: UnavailableOaSdkPackage[] | undefined
   let uninstallableEntries: UninstallableOaSdkEntry[] | undefined
+  let retiredScripts: RetiredInitScriptEntry[] | undefined
   const pkgPath = path.join(cwd, 'package.json')
   let packageJsonPatched = false
 
@@ -288,6 +293,9 @@ export async function runInit(options: InitOptions = {}): Promise<InitResult> {
     // Entries the patch keeps (existing ones, without --force) or never touches (packages init
     // no longer writes) can still be ones the project cannot install where it lives.
     uninstallableEntries = findUninstallableOaSdkEntries(patchResult.patchedContent, targetGenOptions.oaSdkSources)
+    // Scripts an earlier init wrote stay as well: the patch never removes a script and, without
+    // --force, keeps one whose name it writes again.
+    retiredScripts = findRetiredInitScripts(patchResult.patchedContent, patches.scripts)
 
     if (!options.dryRun && patchResult.modified) {
       await fs.writeFile(pkgPath, patchResult.patchedContent, 'utf-8')
@@ -317,6 +325,7 @@ export async function runInit(options: InitOptions = {}): Promise<InitResult> {
     packageJsonPath: pkgPath,
     unavailablePackages,
     uninstallableEntries,
+    retiredScripts,
     contractBaseline,
     dryRun: options.dryRun ?? false,
   }

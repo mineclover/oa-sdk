@@ -2,7 +2,13 @@ import type { Command } from '../lib/types.js'
 import { bool, optStr } from '../lib/args.js'
 import { CliExitError } from '../lib/errors.js'
 import { runInit } from '../lib/init/index.js'
-import type { ContractBaselineResult, DependencySection, UninstallableOaSdkEntry } from '../lib/init/index.js'
+import type {
+  ContractBaselineResult,
+  DependencySection,
+  PatchAction,
+  RetiredInitScriptEntry,
+  UninstallableOaSdkEntry,
+} from '../lib/init/index.js'
 
 export const init: Command = {
   name: 'init',
@@ -117,29 +123,90 @@ export const init: Command = {
         console.log(`⚠️ package.json lists @oa-sdk packages this project cannot install where it lives${dryRun ? ' (after the planned patch)' : ''}:`)
         for (const entry of uninstallable) console.log(`   - ${describeUninstallableEntry(entry)}`)
       }
+      const retired = result.retiredScripts ?? []
+      if (retired.length > 0) {
+        console.log(`⚠️ package.json keeps scripts an earlier oa-gen init wrote, which this one no longer writes${dryRun ? ' (after the planned patch)' : ''}:`)
+        for (const script of retired) console.log(`   - ${describeRetiredScript(script)}`)
+      }
     }
 
-    if (result.contractBaseline) console.log(describeContractBaseline(result.contractBaseline))
+    if (result.contractBaseline) {
+      console.log(describeContractBaseline(result.contractBaseline, result.patchResult?.scripts))
+    }
   },
 }
 
+/** The scripts of the enterprise archetype that use the contract baseline. */
+const BASELINE_SCRIPTS = ['diff', 'baseline:update', 'ci:gate']
+
 /**
  * One line on the contract baseline: what init did, and, when the gate cannot run yet or was not
- * added, what makes it run. The scripts are named as the enterprise archetype adds them.
+ * added, what makes it run. `scripts` is the patch of the package.json scripts, if the project
+ * has a package.json.
  */
-function describeContractBaseline(baseline: ContractBaselineResult): string {
+function describeContractBaseline(baseline: ContractBaselineResult, scripts: readonly PatchAction[] | undefined): string {
+  let summary: string
   switch (baseline.status) {
-    case 'created':
-      return `📌 Contract baseline: created ${baseline.path} from ${baseline.specPath}; commit it. The "diff" script fails on changes that break it, and "baseline:update" moves it to the spec when you release.`
-    case 'exists':
-      return `📌 Contract baseline: kept the existing ${baseline.path}`
-    case 'planned':
-      return `🔍 [dry-run] contract baseline would be created at ${baseline.path} from ${baseline.specPath}`
-    case 'not-created':
-      return `⚠️ Contract baseline ${baseline.path} not created: ${baseline.reason}. Run the "baseline:update" script once the spec loads; "diff" and "ci:gate" need it.`
     case 'no-gate':
       return `⚠️ Contract baseline ${baseline.path} and the "lint:spec", "diff", "baseline:update" and "ci:gate" scripts not added: ${baseline.reason}.`
+    case 'created':
+      summary = `📌 Contract baseline: created ${baseline.path} from ${baseline.specPath}; commit it.`
+      break
+    case 'exists':
+      summary = `📌 Contract baseline: kept the existing ${baseline.path}.`
+      break
+    case 'planned':
+      summary = `🔍 [dry-run] contract baseline would be created at ${baseline.path} from ${baseline.specPath}.`
+      break
+    case 'not-created':
+      summary = `⚠️ Contract baseline ${baseline.path} not created: ${baseline.reason}.`
+      break
   }
+  const note = baselineScriptsNote(baseline.status, scripts)
+  return note === undefined ? summary : `${summary} ${note}`
+}
+
+/**
+ * What the scripts that use the contract baseline do with it, as package.json has them: the
+ * scripts the archetype adds; the project's own commands under some of those names, which the
+ * patch keeps without --force (an earlier init's `diff` and `ci:gate`, say), so the gate is not
+ * set up until they are replaced; or none at all, without a package.json.
+ */
+function baselineScriptsNote(
+  status: 'created' | 'exists' | 'planned' | 'not-created',
+  scripts: readonly PatchAction[] | undefined,
+): string | undefined {
+  if (scripts === undefined) return 'There is no package.json, so init added none of the scripts that use it.'
+
+  const kept = BASELINE_SCRIPTS.filter(name => scripts.some(script => script.key === name && script.action === 'skipped'))
+  if (kept.length > 0) {
+    const replace = `package.json keeps its own ${quotedList(kept)} ${kept.length === 1 ? 'script' : 'scripts'}, which init did not replace; ` +
+      `replace ${kept.length === 1 ? 'it with the command' : 'them with the commands'} listed above`
+    return status === 'not-created'
+      ? `${replace}, then run "baseline:update" once the spec loads.`
+      : `${replace} to gate the spec against it.`
+  }
+
+  switch (status) {
+    case 'created':
+      return 'The "diff" script fails on changes that break it, and "baseline:update" moves it to the spec when you release.'
+    case 'not-created':
+      return 'Run the "baseline:update" script once the spec loads; "diff" and "ci:gate" need it.'
+    default:
+      return undefined
+  }
+}
+
+/** `"a"`, `"a" and "b"`, `"a", "b" and "c"`. */
+function quotedList(names: readonly string[]): string {
+  const quoted = names.map(name => `"${name}"`)
+  return quoted.length === 1 ? quoted[0]! : `${quoted.slice(0, -1).join(', ')} and ${quoted[quoted.length - 1]}`
+}
+
+/** One line for a script an earlier init wrote, ending with what to do about it. */
+function describeRetiredScript(script: RetiredInitScriptEntry): string {
+  const fix = script.fix.action === 'remove' ? 'remove it' : `replace it with "${script.fix.replacement}"`
+  return `script "${script.name}": "${script.command}" (${script.reason}); ${fix}`
 }
 
 const SECTION_LABELS: Record<DependencySection, string> = {
