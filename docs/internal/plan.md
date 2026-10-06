@@ -145,7 +145,7 @@ Status: active
 
 ##### 4.5 CLI 및 프로그래밍 방식 연동
 *   `@oa-sdk/router`의 `generateRouter` 및 `generateHandlerContract` API를 통해 프레임워크 라우터 바인더와 순수 핸들러 계약을 원클릭으로 생성합니다.
-*   `oa-gen init` 온보딩 시 프로젝트의 프레임워크에 맞추어 `npm run generate:router` 스크립트(`oa-gen generate --target <framework>`)가 `package.json`에 비파괴적으로 등록되어 표준화된 코드젠 파이프라인을 즉시 사용할 수 있습니다.
+*   `oa-gen init`은 프레임워크 대상에도 `generate` 스크립트(`oa-gen generate`)를 `package.json`에 비파괴적으로 등록합니다. `oa-gen generate`는 라우터 바인더를 만들지 않으므로, 라우터 코드는 빌드 스크립트에서 `generateRouter()`로 생성합니다(CLI 바인더 생성은 하지 않기로 결정, 2026-10-06).
 
 ##### 4.6 TanStack Query (React Query) v5 3계층 코드 생성기 (`oa-gen generate:tanstack`) (완료 ✅)
 *   **Tier 1 — 계층형 쿼리 키 트리 (`key-factory-generator.ts`)**: `userKeys.all`, `userKeys.lists()`, `userKeys.list(filters)`, `userKeys.details()`, `userKeys.detail(id)` 등 타입 안전 튜플 구조 자동 생성.

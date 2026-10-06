@@ -269,9 +269,9 @@ async updateUser({ params, query, headers, body }) {
 
 ## 7. `oa-gen init`과의 관계
 
-`oa-gen init --target <framework> --yes`는 `oa.config.ts`와 `package.json`(스크립트, `devDependencies`)만 씁니다. 계약, 라우터, 서버 진입점 파일은 만들지 않습니다.
+`oa-gen init --target <framework> --yes`는 `oa.config.ts`와 `package.json`(스크립트, `devDependencies`)만 씁니다(`--archetype enterprise`는 계약 기준선 `openapi.baseline.yaml`도). 계약, 라우터, 서버 진입점 파일은 만들지 않습니다.
 
-- `init`이 추가하는 `generate:router` 스크립트(`oa-gen generate --target <framework>`)는 `oa-gen generate`와 같은 일을 하며 라우터 파일을 만들지 않습니다. 결과는 3.2절의 타입 없는 계약, 클라이언트, TanStack Query 코드입니다.
+- `init`이 추가하는 `generate` 스크립트(`oa-gen generate`)는 라우터 파일을 만들지 않습니다. 결과는 3.2절의 타입 없는 계약, 클라이언트, TanStack Query 코드이며, 라우터 코드는 위처럼 빌드 스크립트에서 `generateRouter()`로 씁니다.
 - 프레임워크 대상의 `dev`·`build` 스크립트(`tsx watch src/server.ts`, `tsc`)는 사용자가 `src/server.ts`와 `tsconfig.json`을 만든다고 전제합니다.
 
 라우터가 필요하면 3.1절의 스크립트를 `package.json`에 등록해 씁니다.

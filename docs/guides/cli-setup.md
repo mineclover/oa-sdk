@@ -129,18 +129,18 @@ yarn oa-gen --help
 ```
 
 ### `package.json` 스크립트
-`oa-gen init`은 다음 스크립트를 `package.json`에 추가합니다(이미 있는 이름은 `--force` 없이는 바꾸지 않습니다).
+`oa-gen init`은 다음 스크립트를 `package.json`에 추가합니다(이미 있는 이름은 `--force` 없이는 바꾸지 않습니다). 추가하는 스크립트는 모두 쓰인 그대로 스캐폴드에서 실행됩니다.
 
 | 스크립트 | 추가하는 경우 | 명령 | 동작 |
 |---|---|---|---|
-| `generate` | `generic` 대상 | `oa-gen generate` | `oa.config.ts`에 선언한 산출물 일괄 생성 |
-| `generate:router` | fastify·express·hono·elysia 대상 | `oa-gen generate --target <프레임워크>` | `oa-gen generate`와 같습니다. 라우터 파일을 만들지 않습니다. |
-| `generate:contract` | nestjs 대상, `microservice` 아키타입 | `oa-gen generate --target generic` | `oa-gen generate`와 같습니다. |
-| `generate:client` | `mvp` 아키타입 | `oa-gen generate --target client` | `oa-gen generate`와 같습니다. |
+| `generate` | 모든 대상 | `oa-gen generate` | `oa.config.ts`에 선언한 산출물(OpenAPI 문서, 핸들러 계약, 클라이언트 SDK, TanStack Query 키·옵션) 일괄 생성. 라우터 파일은 만들지 않습니다. |
 | `mock` | 모든 대상 | `oa-gen mock --watch` | `oa.config.ts`의 spec target(하나일 때)을 mock 서버로 서빙 |
 | `validate` | `mvp` 아키타입 | `oa-gen validate` | `oa.config.ts`의 모든 spec target 검증 |
+| `lint:spec`, `diff`, `baseline:update`, `ci:gate` | `enterprise` 아키타입 | `oa-gen lint`, `oa-gen diff`, `oa-gen normalize`, `oa-gen validate`(스펙 진입점과 계약 기준선 `openapi.baseline.yaml` 대상) | 스펙 린트와 기준선 대비 breaking change gate. [CLI 명령 레퍼런스](./cli-command-reference.md#enterprise의-breaking-change-gate) |
 
-`oa-gen generate`의 `--target`은 `standalone-guards` 외의 값을 무시하므로, `--target`이 붙은 스크립트도 전체 `oa-gen generate`와 같은 파일을 씁니다. 프레임워크 대상은 개발 서버 스크립트(fastify `dev: tsx watch src/server.ts`와 `build: tsc`, express `tsx watch src/app.ts`, hono `tsx watch src/index.ts`, elysia `bun --watch src/index.ts`, nestjs `start:dev: nest start --watch`)와 프레임워크 의존성도 추가하지만, 서버 진입 파일과 `tsconfig.json`은 만들지 않습니다. `microservice`·`enterprise` 아키타입이 추가하는 나머지 스크립트 중 일부는 그대로는 동작하지 않습니다(알려진 결함, [CLI 명령 레퍼런스](./cli-command-reference.md#아키타입---archetype)).
+Bun 런타임 대상(elysia)에서는 `oa-gen` 대신 `bun x oa-gen`을 씁니다. 프레임워크 대상은 개발 서버 스크립트(fastify `dev: tsx watch src/server.ts`와 `build: tsc`, express `tsx watch src/app.ts`, hono `tsx watch src/index.ts`, elysia `bun --watch src/index.ts`, nestjs `start:dev: nest start --watch`)와 프레임워크 의존성도 추가하지만, 서버 진입 파일과 `tsconfig.json`은 만들지 않으므로 이 스크립트는 직접 작성한 서버 코드가 있어야 실행됩니다. Fastify·Express·Hono·Elysia 라우터 코드는 빌드 스크립트에서 `@oa-sdk/router`의 `generateRouter()`로 씁니다.
+
+이전 버전의 `init`이 추가한 `generate:router`·`generate:client`·`generate:contract`(`oa-gen generate`와 같은 일만 함)와 `test:contract`·`audit:wire`·`audit:csp`·`audit:shape`·`personas:check`(그대로는 동작하지 않음)는 지금의 `init`이 추가하지 않습니다. `init --force`도 이 스크립트를 지우지 않으므로 `package.json`에서 직접 지웁니다([CLI 명령 레퍼런스](./cli-command-reference.md#아키타입---archetype)).
 
 `init`을 쓰지 않는 프로젝트는 같은 이름으로 직접 등록합니다.
 

@@ -53,7 +53,7 @@ node packages/codegen/dist/cli/index.js --help
 
 | 명령 | 언제 쓰는가 | 최소 입력 | 결과 / 다음 단계 |
 | --- | --- | --- | --- |
-| `oa-gen init` | 타겟 분리형 온보딩 엔진으로 `oa.config.ts` 및 런타임 스크립트를 구성할 때 | 없음 (자동 감지) 또는 `--target <framework>` | 대화형/헤드리스 온보딩, `oa.config.ts` 생성 및 `package.json` 비파괴적 패치; `--target` (`-t`), `--archetype <mvp|microservice|enterprise>` (`-a`), `--routing <default|fsd|monorepo|by-kind>` (`-r`), `--cwd`, `--spec` (`-s`), `--yes` (`-y`), `--force` (`-f`), `--dry-run` 지원 |
+| `oa-gen init` | 타겟 분리형 온보딩 엔진으로 `oa.config.ts` 및 런타임 스크립트를 구성할 때 | 없음 (자동 감지) 또는 `--target <framework>` | 대화형/헤드리스 온보딩, `oa.config.ts` 생성 및 `package.json` 비파괴적 패치(추가하는 스크립트는 모두 그대로 실행됨), `enterprise`는 계약 기준선 `openapi.baseline.yaml`도 생성; `--target` (`-t`), `--archetype <mvp|microservice|enterprise>` (`-a`), `--routing <default|fsd|monorepo|by-kind>` (`-r`), `--cwd`, `--spec` (`-s`), `--yes` (`-y`), `--force` (`-f`), `--dry-run` 지원 |
 | `oa-gen generate:client` | OpenAPI 3.1/3.2 또는 TypeSpec(.tsp) 스펙에서 타입 안전 fetch 클라이언트 SDK를 생성할 때 | `--spec <openapi\|typespec>` | fetch 클라이언트 SDK 산출물; `--spec` (`-s`), `--output <path>` (`-o`), `--types-import <path>`, `--banner`, 배포용 패키지 빌드 `--pack` (`--name`, `--package-version`, `--description`) 지원. `oa-gen client`는 별칭이고, `oa-gen pack:client`는 `generate:client --pack`과 같다(`oa-gen --help` 목록에는 표시되지 않음) |
 | `oa-gen generate:zod` | OpenAPI 3.2 또는 TypeSpec(.tsp) 스펙에서 Zod 4 스키마 및 TypeScript 타입을 생성할 때 | `--spec <openapi\|typespec>` | Zod 4 스키마 정의 및 TypeScript 타입 생성; `--output <path>`로 파일/디렉터리 지정, `--style <schema\|both>`, 사전 검증 `--validate`/`--no-validate`(기본 켬), `--lint`, `--categories <list>`, 정규화 `--normalize`/`--no-normalize`(기본 켬), 검증 오류를 무시하는 `--force` 지원. 런타임 검증기는 CLI가 아니라 `@oa-sdk/codegen/zodgen`의 `createRuntimeZodValidators()` API로 만든다 |
 | `oa-gen generate:tanstack` | OpenAPI 3.1/3.2 또는 TypeSpec(.tsp) 스펙에서 TanStack Query v5 3계층(Query Key Factory, Options Factory, Hooks) 코드를 생성할 때 | `--spec <openapi\|typespec>` | TanStack Query v5 산출물 (keys, options, hooks); `--spec` (`-s`), `--output <dir>` (`-o`), `--config <path>` (`-c`), `--tier <all\|keys\|options\|hooks>`, `--framework <react\|vue\|svelte>`, `--client-import <path>`, `--types-import <path>`, `--split` 지원 |
@@ -69,7 +69,7 @@ node packages/codegen/dist/cli/index.js --help
 | `oa-gen audit:csp` | Manifest V3 브라우저 익스텐션 번들의 CSP 위반(eval, new Function, 런타임 ajv/zod/oa-sdk)을 정적 검사할 때 | `--bundle <dir>` | 0 eval, 0 runtime dependency 검증 리포트 및 non-zero exit code gate |
 | `oa-gen audit:shape` | TypeScript AST 소스 또는 번들의 타입 구문 및 TypeSpec/OpenAPI 투영 적합성을 감사할 때 | `--bundle <dir>` 또는 `--source <file>` | 24개 syntax feature 분류 및 tripartite projection (direct/policy-required/unsupported) 진단 리포트; `--fail-on-unsupported`, `--json` 지원 |
 | `oa-gen build-spec` | fragments와 target으로 reference OpenAPI를 만들 때 | `--target <target.yaml>` | OpenAPI와 diagnostics/provenance/metadata sidecars |
-| `oa-gen normalize` | 외부 OpenAPI를 stable governance artifact로 정규화할 때 | `--spec <openapi>` | normalized artifact |
+| `oa-gen normalize` | 외부 OpenAPI나 TypeSpec 스펙을 stable governance artifact로 정규화할 때 | `--spec <openapi\|tsp>` | normalized artifact(OpenAPI YAML, 키 정렬). TypeSpec(`.tsp`)은 메모리에서 OpenAPI 3.2로 컴파일한 문서 |
 | `oa-gen upgrade` | 외부 OpenAPI 3.0/3.1을 3.2 analysis artifact로 볼 때 | `--spec <openapi>` | upgraded artifact와 optional report |
 | `oa-gen collect` | raw 보존·normalize·upgrade를 한 번에 수행할 때 | `--spec`, `--normalized`, `--upgraded` | external intake artifact set; `--raw`는 원본 복사본이 필요할 때만 추가 |
 | `oa-gen tsp-export` | OpenAPI를 TypeSpec spike/bundle로 변환해 볼 때 | `--spec <openapi>` | `.tsp`, report, optional sidecar/manifest; bundle manifest는 `--output`과 `--sidecar`가 함께 필요 |
@@ -82,7 +82,7 @@ node packages/codegen/dist/cli/index.js --help
 | `oa-gen behavior-query` | behavior SQLite projection을 검색·집계할 때 | `--behavior-db <sqlite> --mode <mode>` | query report; mode에 따라 `--behavior-type`, identity/target/decision/recommendation selector가 필요하며 `recent` 계열은 `--status`, `--limit`을 지원한다 |
 | `oa-gen duplicate-review` | Definition fragment의 duplicate identity/collision을 검토할 때 | `--fragments <dir>` | report/review/ci policy report |
 | `oa-gen target-check` | target 또는 artifact가 필요한/금지 path를 만족하는지 확인할 때 | `--target <target>` 또는 `--artifact <openapi>` | assertion report; 두 source는 one-of |
-| `oa-gen diff` | base/head OpenAPI의 consumer-visible 변경을 분류할 때 | `--base <openapi> --head <openapi>` | change report; 엔드포인트 및 컴포넌트 스키마 변경 분류, `--fail-on-breaking`으로 파괴적 변경 시 exit code 1. 입력은 OpenAPI YAML/JSON 파일 경로만 받으며 git ref는 받지 않는다. 요청·응답·파라미터 스키마가 바뀌면 선택 필드 추가도 breaking으로 판정하는 보수적 규칙이므로 `--fail-on-breaking`을 CI에 걸면 호환 변경에서도 실패할 수 있다 |
+| `oa-gen diff` | base/head OpenAPI의 consumer-visible 변경을 분류할 때 | `--base <openapi> --head <openapi>` | change report; 엔드포인트 및 컴포넌트 스키마 변경 분류, `--fail-on-breaking`으로 파괴적 변경 시 exit code 1. 입력은 OpenAPI YAML/JSON 또는 TypeSpec(`.tsp`, 메모리에서 OpenAPI 3.2로 컴파일) 파일 경로이며 git ref는 받지 않는다. 요청·응답·파라미터 스키마가 바뀌면 선택 필드 추가도 breaking으로 판정하는 보수적 규칙이므로 `--fail-on-breaking`을 CI에 걸면 호환 변경에서도 실패할 수 있다 |
 | `oa-gen check-artifact` | 원본에서 다시 만든 OpenAPI 문서와 저장된 생성물이 같은지 확인할 때 | 없음 (`oa.config.ts` 타겟의 `<id>.openapi.json` 일괄 대조) 또는 `--head <openapi> --artifact <openapi>` | 결정론적 SHA-256 (`x-schema-engine-version-hash`) 기반 freshness decision 리포트, 어긋나면 exit code 1. 생성된 TypeScript 파일은 비교하지 않는다 |
 | `oa-gen drift:check` | `oa-gen check-artifact`의 전용 별칭(alias)으로 CI/CD 스펙 드리프트 게이트를 실행할 때 | 없음 (`oa.config.ts` 타겟 일괄 대조) 또는 `--head <openapi> --artifact <openapi>` | 드리프트 발생 시 non-zero (code 1) 종료하는 CI 차단 게이트 리포트 |
 | `oa-gen drift:live` | 라이브 런타임 HTTP 엔드포인트 OpenAPI와 관리 스펙 간 드리프트를 검사할 때 | `--managed-openapi <spec> --runtime-openapi-url <url>` | 라이브 런타임 HTTP 엔드포인트 드리프트 리포트; `--managed-openapi`, `--runtime-openapi-url`, `--runtime-header` 지원. `oa-gen drift`와 같은 명령이다 |
@@ -327,27 +327,36 @@ oa-gen mock --watch
 
 ### 아키타입 (`--archetype`)
 
-아키타입은 `oa.config.ts`에 기록하는 설정값, 출력 위치, `package.json` 스크립트와 의존성의 묶음입니다. 기록된 gate·persona 설정을 읽어 동작을 바꾸는 명령은 아직 없습니다. `core.gates.*`(`driftCheck`, `failOnBreaking`, `baseRef`, `preflightLint`), `core.client.wireFormatSafety`, `product.jitSchema`, `product.zeroCopy`, `product.personas.enforceCoverage`는 CI나 다른 도구가 읽도록 남기는 값이며, breaking change gate 등은 CI에 직접 명령을 등록해 겁니다.
+아키타입은 `oa.config.ts`에 기록하는 설정값, 출력 위치, `package.json` 스크립트와 의존성의 묶음입니다. 기록된 gate·persona 설정을 읽어 동작을 바꾸는 명령은 아직 없습니다. `core.gates.*`(`driftCheck`, `failOnBreaking`, `baseRef`, `preflightLint`), `core.client.wireFormatSafety`, `product.jitSchema`, `product.zeroCopy`, `product.personas.enforceCoverage`는 CI나 다른 도구가 읽도록 남기는 값입니다. breaking change gate는 `enterprise`가 추가하는 스크립트(아래)나 CI에 직접 등록한 명령으로 겁니다.
 
-`init`은 아키타입과 관계없이 스캐폴드가 쓰는 동반 패키지를 추가하며, 아래 표의 의존성은 아키타입이 그 위에 더하는 것입니다.
+`init`은 아키타입과 관계없이 스캐폴드가 쓰는 동반 패키지를 추가하며, 아래 표의 의존성은 아키타입이 그 위에 더하는 것입니다. 스크립트도 모든 대상이 추가하는 `generate`·`mock`([CLI 설정 가이드](./cli-setup.md#packagejson-스크립트))에 아키타입의 것을 더합니다. 클라이언트 SDK와 핸들러 계약은 `generate`가 만듭니다.
 
 | 아키타입 | 기록하는 설정 | 추가 스크립트 | 추가 의존성 |
 | --- | --- | --- | --- |
-| `mvp` (기본) | `client.outDir: './src/client'`(outputRouting이 있으면 쓰이지 않음), gate 값 `false`/`'warn'` | `generate:client`(= `oa-gen generate`), `validate`, `mock` | `@oa-sdk/client`, `@oa-sdk/mock-server` |
-| `microservice` | `contracts.outDir: './src/contracts'`(outputRouting이 있으면 쓰이지 않음), `driftCheck: true`, `preflightLint: 'error'`, `wireFormatSafety`·`jitSchema`·`zeroCopy: true` | `generate:contract`(= `oa-gen generate`), `test:contract`, `audit:wire`, `mock` | `@oa-sdk/core`, `@oa-sdk/router`, `vitest` |
-| `enterprise` | `failOnBreaking: true`, `baseRef: 'origin/main'`, `personas.enforceCoverage: true` 등 | `diff`, `ci:gate`, `lint:spec`, `audit:csp`, `audit:shape`, `personas:check` | `@oa-sdk/core`(`@oa-sdk/personas`는 그 패키지를 가진 워크스페이스 안에서만) |
+| `mvp` (기본) | `client.outDir: './src/client'`(outputRouting이 있으면 쓰이지 않음), gate 값 `false`/`'warn'` | `mock`, `validate` | `@oa-sdk/client`, `@oa-sdk/mock-server` |
+| `microservice` | `contracts.outDir: './src/contracts'`(outputRouting이 있으면 쓰이지 않음), `driftCheck: true`, `preflightLint: 'error'`, `wireFormatSafety`·`jitSchema`·`zeroCopy: true` | `mock` | `@oa-sdk/core`, `@oa-sdk/router` |
+| `enterprise` | `failOnBreaking: true`, `baseRef: 'origin/main'`(읽는 명령 없음), `personas.enforceCoverage: true` 등 | `lint:spec`, `diff`, `baseline:update`, `ci:gate` | `@oa-sdk/core`(`@oa-sdk/personas`는 그 패키지를 가진 워크스페이스 안에서만) |
 
-`init`이 추가하지만 그대로는 동작하지 않는 스크립트가 있습니다(알려진 결함). 필요하면 오른쪽의 동작하는 명령으로 바꿔 씁니다.
+`init`이 추가하는 스크립트는 모두 쓰인 그대로 스캐폴드에서 실행됩니다. codegen의 패키지 검증(`smoke:pack`)이 배포 tarball로 아키타입마다 `init`을 실행하고, 추가된 스크립트를 하나씩 실행해 확인합니다.
 
-| 아키타입 | 스크립트 | 실패 이유 | 대신 쓸 명령 |
-| --- | --- | --- | --- |
-| `microservice` | `test:contract` | `init`이 `src/__tests__/contracts` 테스트를 만들지 않음 | 직접 작성한 계약 테스트 실행 |
-| `microservice` | `audit:wire` | `oa-gen audit:shape`에 `--strict` 옵션이 없음 | `oa-gen audit:shape --source <file>` |
-| `enterprise` | `diff`, `ci:gate` | `oa-gen diff`는 git ref가 아닌 OpenAPI 파일 경로만 받고, `ci:gate`에는 필수 옵션 `--head`가 없음 | `oa-gen diff --base <base.yaml> --head <head.yaml> --fail-on-breaking`, TypeSpec 원본은 `oa-gen tsp diff --base <ref>:<path> --head <path> --fail-on-breaking`, `oa-gen validate --require-32` |
-| `enterprise` | `lint:spec` | `oa-gen lint`는 `--spec`이 필요하고 설정 파일을 읽지 않음 | `oa-gen lint --spec <file>` |
-| `enterprise` | `audit:csp` | Manifest V3 확장 번들(`./dist`) 감사이며 API 프로젝트에는 해당 경로가 없음 | 확장 번들이 있을 때만 `oa-gen audit:csp --bundle <dir>` |
-| `enterprise` | `audit:shape` | `--bundle` 또는 `--source` 대상이 없음 | `oa-gen audit:shape --source <file>` |
-| `enterprise` | `personas:check` | `oa-gen`에 없는 명령 | 없음(persona 검증은 저장소 전용 `@oa-sdk/personas`) |
+#### `enterprise`의 breaking change gate
+
+`enterprise`는 스펙 진입점(`schemaEntry`)을 검사하는 스크립트를 추가하고, 비교 기준인 **계약 기준선**(contract baseline) `openapi.baseline.yaml`을 프로젝트 루트에 만듭니다. 기준선은 스펙을 `oa-gen normalize`로 정규화한 OpenAPI 문서(키 정렬, TypeSpec은 OpenAPI 3.2로 컴파일)이며, 커밋해 두고 릴리스할 때 옮깁니다. 저장소 기록이나 원격 브랜치를 읽지 않으므로 로컬과 CI에서 같은 결과가 나옵니다.
+
+| 스크립트 | 명령(스펙이 `openapi.yaml`일 때) | 동작 |
+| --- | --- | --- |
+| `lint:spec` | `oa-gen lint --spec openapi.yaml` | 모든 규칙 카테고리로 린트하고 error가 있으면 실패 |
+| `diff` | `oa-gen diff --base openapi.baseline.yaml --head openapi.yaml --fail-on-breaking` | 기준선 대비 breaking change가 있으면 실패 |
+| `baseline:update` | `oa-gen normalize --spec openapi.yaml --output openapi.baseline.yaml` | 현재 스펙을 새 기준선으로 씀(릴리스 뒤, 또는 승인한 breaking change를 받아들일 때) |
+| `ci:gate` | `oa-gen validate --spec openapi.yaml --require-32 && oa-gen lint --spec openapi.yaml && oa-gen diff --base openapi.baseline.yaml --head openapi.yaml --fail-on-breaking` | OpenAPI 3.2 검증, 린트, breaking diff를 차례로 실행 |
+
+- 기준선 파일이 이미 있으면 `init`은 `--force`를 주어도 바꾸지 않습니다. 기준선은 릴리스한 계약이므로 `baseline:update`로만 옮깁니다.
+- 스펙 파일이 아직 없거나 불러오지 못하면 `init`은 기준선을 만들지 않고 이유를 출력합니다. 그동안 `diff`·`ci:gate`는 기준선이 없어 실패하므로, 스펙을 만든 뒤 `baseline:update`를 한 번 실행합니다.
+- `oa-gen diff`는 요청·응답·파라미터 스키마가 바뀌면 선택 필드 추가도 breaking으로 판정하는 보수적 규칙입니다. TypeSpec 원본을 의미 단위로 판정하려면 CI에 `oa-gen tsp diff --base origin/main:<path> --head <path> --fail-on-breaking`을 따로 등록합니다.
+- `ci:gate`의 `--require-32`는 스펙이 OpenAPI 3.2.x여야 통과합니다. TypeSpec 스펙은 3.2로 컴파일되므로 통과합니다.
+- 스펙 진입점이 OpenAPI YAML/JSON이나 TypeSpec(`.tsp`)이 아니면(TypeScript 스키마 모듈 등) 이 스크립트와 기준선을 추가하지 않습니다.
+
+이전 버전의 `init`이 추가한 다음 스크립트는 동작하지 않거나 `oa-gen generate`와 같은 일만 하므로 지금의 `init`은 추가하지 않습니다: `generate:router`(프레임워크 대상), `generate:client`(`mvp`), `generate:contract`(`microservice`, nestjs 대상), `test:contract`·`audit:wire`(`microservice`), `audit:csp`·`audit:shape`·`personas:check`(`enterprise`). `init --force`는 같은 이름의 스크립트(`diff`, `ci:gate`, `lint:spec`)만 새 명령으로 바꾸므로, 나머지는 `package.json`에서 직접 지우고 `generate` 스크립트를 씁니다.
 
 ### 산출물 라우팅 프리셋 (`--routing`)
 

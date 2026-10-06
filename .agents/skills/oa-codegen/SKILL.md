@@ -507,8 +507,10 @@ export interface InitCommandOptions {
 | 아키타입 (`--archetype`) | 타깃 단계 | 거버넌스 정책 및 기본 설정 | 권장 시나리오 |
 |---|---|---|---|
 | **`mvp`** | 프로토타입, 해커톤, 신규 프로젝트 (Day 1) | `driftCheck: false`, `failOnBreaking: false`, `preflightLint: 'warn'`, `wireFormatSafety: false`, `jitSchema: false`, `zeroCopy: false` | 빠른 반복 주기, 라이브 목 중심 개발 |
-| **`microservice`** | 고성능 내부 서비스, 백엔드 API (Day 60+) | `driftCheck: true`, `failOnBreaking: false`, `preflightLint: 'error'`, `wireFormatSafety: true`, `resolveSymbolCycles: true`, `jitSchema: true`, `zeroCopy: true` | 고처리량 런타임(Fastify JIT/Elysia Zero-Copy), 엄격한 계약 테스트 |
+| **`microservice`** | 고성능 내부 서비스, 백엔드 API (Day 60+) | `driftCheck: true`, `failOnBreaking: false`, `preflightLint: 'error'`, `wireFormatSafety: true`, `resolveSymbolCycles: true`, `jitSchema: true`, `zeroCopy: true` | 고처리량 런타임(Fastify JIT/Elysia Zero-Copy), 순수 핸들러 계약 |
 | **`enterprise`** | 다중 팀 공개 플랫폼, 규제 준수 환경 (Day 180+) | `driftCheck: true`, `failOnBreaking: true`, `baseRef: 'origin/main'`, `preflightLint: 'error'`, `personas.enforceCoverage: true`, `minCoverageRatio: 0.8` | CI 무관용 파괴적 변경 차단, 페르소나 마스킹 강제 |
+
+기록되는 gate·persona 값은 어떤 명령도 읽지 않습니다. 아키타입이 동작에 남기는 차이는 `package.json` 스크립트이며, 모두 스캐폴드에서 그대로 실행됩니다(codegen `smoke:pack`이 배포 tarball로 아키타입마다 확인). 모든 대상이 `generate`(`oa-gen generate`)·`mock`(`oa-gen mock --watch`)을 추가하고, `mvp`는 `validate`를, `enterprise`는 `lint:spec`·`diff`·`baseline:update`·`ci:gate`를 더합니다. `enterprise`의 gate는 `init`이 스펙에서 만드는 계약 기준선 `openapi.baseline.yaml`(`oa-gen normalize` 출력, 기존 파일은 덮어쓰지 않음)과 비교합니다: `diff`는 `oa-gen diff --base openapi.baseline.yaml --head <spec> --fail-on-breaking`, `ci:gate`는 `oa-gen validate --spec <spec> --require-32 && oa-gen lint --spec <spec> &&` 그 diff, `baseline:update`는 `oa-gen normalize --spec <spec> --output openapi.baseline.yaml`. 구현은 `archetypes/enterprise.ts`와 `common/contract-baseline.ts`이며, `src/__tests__/init/script-invocations.test.ts`가 모든 대상·아키타입 조합의 스크립트가 존재하는 명령과 선언된 옵션, 스캐폴드에 있는 파일만 쓰는지 검사합니다.
 
 ### 8.3 4대 산출물 라우팅 프리셋 (`--routing`)
 `oa-gen init --routing <preset>`을 통해 프로젝트 폴더 구조에 맞는 `outputRouting` 블록을 즉시 생성합니다:
@@ -522,11 +524,11 @@ export interface InitCommandOptions {
 
 | 타깃 프로필 | 감지 기준 (Markers) | 호스트 런타임 | 주입 스크립트 | 주입 의존성 |
 |---|---|---|---|---|
-| **`fastify`** | `dependencies['fastify']` 또는 `fastify.config.{ts,js}` | Node ESM | `'dev': 'tsx watch src/server.ts'`<br/>`'generate:router': 'oa-gen generate --target fastify'` | `@oa-sdk/codegen`, `@oa-sdk/router`, `tsx`, `typescript`, `@types/node` |
-| **`elysia`** | `dependencies['elysia']` 또는 `bun.lockb` / `bun.lock` | Bun Native | `'dev': 'bun --watch src/index.ts'`<br/>`'generate:router': 'bun x oa-gen generate --target elysia'`<br/>`'mock': 'bun x oa-gen mock --watch'` | `@oa-sdk/codegen`, `@oa-sdk/router`, `@types/bun: 'latest'` (Node 도구 0개) |
+| **`fastify`** | `dependencies['fastify']` 또는 `fastify.config.{ts,js}` | Node ESM | `'dev': 'tsx watch src/server.ts'`<br/>`'generate': 'oa-gen generate'` | `@oa-sdk/codegen`, `@oa-sdk/router`, `tsx`, `typescript`, `@types/node` |
+| **`elysia`** | `dependencies['elysia']` 또는 `bun.lockb` / `bun.lock` | Bun Native | `'dev': 'bun --watch src/index.ts'`<br/>`'generate': 'bun x oa-gen generate'`<br/>`'mock': 'bun x oa-gen mock --watch'` | `@oa-sdk/codegen`, `@oa-sdk/router`, `@types/bun: 'latest'` (Node 도구 0개) |
 | **`hono`** | `dependencies['hono']` | Bun 또는 Node (락파일 감지) | Bun: `bun --watch` / `bun x`<br/>Node: `tsx watch` | `@oa-sdk/codegen`, `@oa-sdk/router`, 호스트 런타임 도구 |
-| **`express`** | `dependencies['express']` | Node ESM | `'dev': 'tsx watch src/app.ts'`<br/>`'generate:router': 'oa-gen generate --target express'` | `@types/express`, `tsx`, `@types/node`, `@oa-sdk/codegen`, `@oa-sdk/router` |
-| **`nestjs`** | `@nestjs/core` 또는 `nest-cli.json` | Node.js | `'start:dev': 'nest start --watch'`<br/>`'generate:contract': 'oa-gen generate --target generic'` | `@oa-sdk/codegen` |
+| **`express`** | `dependencies['express']` | Node ESM | `'dev': 'tsx watch src/app.ts'`<br/>`'generate': 'oa-gen generate'` | `@types/express`, `tsx`, `@types/node`, `@oa-sdk/codegen`, `@oa-sdk/router` |
+| **`nestjs`** | `@nestjs/core` 또는 `nest-cli.json` | Node.js | `'start:dev': 'nest start --watch'`<br/>`'generate': 'oa-gen generate'` | `@oa-sdk/codegen` |
 | **`generic`** | 상위 프로필 신뢰도 < 0.5일 때 폴백 (신뢰도 0.1) | Node.js | `'generate': 'oa-gen generate'`<br/>`'mock': 'oa-gen mock --watch'` | `@oa-sdk/codegen` |
 
 ### 8.5 엄격한 런타임 격리 (Strict Runtime Isolation)

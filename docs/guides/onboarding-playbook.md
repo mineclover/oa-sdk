@@ -113,9 +113,9 @@ flowchart TD
 
 ### 3.4 아키타입 선택 (Archetype)
 
-`oa-gen init --archetype <mvp|microservice|enterprise>`는 `oa.config.ts`에 기록하는 설정값, 출력 위치, `package.json` 스크립트와 의존성의 묶음을 고릅니다. 기록된 gate·persona 설정(`core.gates.*`, `product.jitSchema`, `product.zeroCopy`, `core.client.wireFormatSafety`, `product.personas.enforceCoverage`)을 읽어 동작을 바꾸는 명령은 아직 없습니다. 그래서 `init`이 쓴 설정에서 `archetype`이나 이 값들을 나중에 바꿔도 `oa-gen generate`의 결과와 CI 동작은 달라지지 않으며, 아키타입의 차이는 `init` 시점에 추가되는 스크립트와 의존성에 남습니다. breaking change gate는 §6.2처럼 CI에 직접 등록합니다.
+`oa-gen init --archetype <mvp|microservice|enterprise>`는 `oa.config.ts`에 기록하는 설정값, 출력 위치, `package.json` 스크립트와 의존성의 묶음을 고릅니다. 기록된 gate·persona 설정(`core.gates.*`, `product.jitSchema`, `product.zeroCopy`, `core.client.wireFormatSafety`, `product.personas.enforceCoverage`)을 읽어 동작을 바꾸는 명령은 아직 없습니다. 그래서 `init`이 쓴 설정에서 `archetype`이나 이 값들을 나중에 바꿔도 `oa-gen generate`의 결과와 CI 동작은 달라지지 않으며, 아키타입의 차이는 `init` 시점에 추가되는 스크립트와 의존성에 남습니다. breaking change gate는 `enterprise`가 추가하는 스크립트(커밋한 계약 기준선 `openapi.baseline.yaml`과 비교)로 걸거나, §6.2처럼 CI에 직접 등록합니다.
 
-아키타입별 기록 값, 추가 스크립트, 그리고 `microservice`·`enterprise`가 추가하지만 그대로는 동작하지 않는 스크립트(알려진 결함)와 대신 쓸 명령은 [CLI 명령 레퍼런스의 아키타입 절](./cli-command-reference.md#아키타입---archetype)에 정리했습니다. persona 관련 기능은 저장소 전용 비공개 패키지 `@oa-sdk/personas`가 필요하므로 oa-sdk 저장소 밖에서는 쓸 수 없습니다.
+아키타입별 기록 값과 추가 스크립트는 [CLI 명령 레퍼런스의 아키타입 절](./cli-command-reference.md#아키타입---archetype)에 정리했습니다. `init`이 추가하는 스크립트는 모두 그대로 실행됩니다. `mvp`는 `generate`·`mock`·`validate`, `microservice`는 `generate`·`mock`, `enterprise`는 `generate`·`mock`에 `lint:spec`·`diff`·`baseline:update`·`ci:gate`를 더합니다(프레임워크 대상은 개발 서버 스크립트도 추가). persona 관련 기능은 저장소 전용 비공개 패키지 `@oa-sdk/personas`가 필요하므로 oa-sdk 저장소 밖에서는 쓸 수 없습니다.
 
 ```bash
 # Fastify 대상, microservice 아키타입, FSD 출력 위치로 초기화
@@ -129,7 +129,7 @@ npx oa-gen init --dry-run
 
 ## 4. 프레임워크 연결 레시피 (Framework Recipes)
 
-`oa-gen generate`는 서버 쪽에 프레임워크와 무관한 핸들러 계약(`<id>.contract.ts`)만 생성합니다. Fastify·Express·Hono·Elysia 라우터 코드가 필요하면 빌드 스크립트에서 `@oa-sdk/router`의 `generateRouter()`를 호출해 파일로 씁니다. `oa-gen` 명령으로는 라우터 파일을 만들지 않으며, `init`이 프레임워크 대상에 추가하는 `generate:router` 스크립트(`oa-gen generate --target <프레임워크>`)도 `oa-gen generate`와 같은 일을 할 뿐 라우터 파일을 만들지 않습니다.
+`oa-gen generate`는 서버 쪽에 프레임워크와 무관한 핸들러 계약(`<id>.contract.ts`)만 생성합니다. Fastify·Express·Hono·Elysia 라우터 코드가 필요하면 빌드 스크립트에서 `@oa-sdk/router`의 `generateRouter()`를 호출해 파일로 씁니다. `oa-gen` 명령으로는 라우터 파일을 만들지 않으며, `init`이 프레임워크 대상에 추가하는 생성 스크립트도 `generate`(`oa-gen generate`)입니다.
 
 아래 레시피는 [Quick Start](./quick-start.md) 1단계의 `openapi.yaml`(operation `listUsers`, `createUser`, `getUser`)을 원본으로, `"type": "module"`인 TypeScript 프로젝트를 가정합니다. Fastify(5.8), Express(5), Hono(4) 레시피는 생성된 라우터와 아래 핸들러를 `tsc`로 검사하고 요청을 보내 200·201·404 응답을 확인했습니다. Elysia 레시피는 생성 코드의 시그니처를 기준으로 썼으며 `tsc`로 검사하지 않았습니다.
 
@@ -348,7 +348,7 @@ NestJS는 컨트롤러와 데코레이터가 라우팅을 맡으므로 라우터
 ```bash
 npx oa-gen init --target nestjs --yes
 ```
-`init`은 `@nestjs/core` 또는 `nest-cli.json`을 감지하면 spec target을 `id: 'nestjs-api'`, `target: 'nestjs'`로 기록하고, `start:dev`(`nest start --watch`), `generate:contract`(`oa-gen generate`와 같음), `mock` 스크립트를 추가합니다.
+`init`은 `@nestjs/core` 또는 `nest-cli.json`을 감지하면 spec target을 `id: 'nestjs-api'`, `target: 'nestjs'`로 기록하고, `start:dev`(`nest start --watch`), `generate`(`oa-gen generate`), `mock` 스크립트를 추가합니다.
 
 #### 2단계: OpenAPI 추출 스크립트 작성 (`scripts/export-openapi.ts`)
 HTTP 리스너를 열지 않고 NestJS 앱 메타데이터만 부트스트랩하여 OpenAPI 문서를 파일로 씁니다.
@@ -563,7 +563,7 @@ export function UserDetailView({ userId }: { userId: string }) {
 
 1. **MVP 단계**: `npx oa-gen init --target fastify --archetype mvp --yes`로 시작합니다. 프론트엔드는 `oa-gen mock --watch`로, 백엔드는 §4의 핸들러 계약으로 개발합니다.
 2. **Microservice 단계**: 요청별 테넌트·추적 정보가 필요해지면 라우터 코드를 `contextInjection: true`로 생성하고 서버 진입점에서 `getContext`를 등록합니다(런북 2). `oa.config.ts`의 `archetype`을 `'microservice'`로 바꾸는 것만으로는 생성 결과가 달라지지 않습니다.
-3. **Enterprise 단계**: 여러 팀이 같은 계약을 쓰면 §6.2의 breaking change gate와 `oa-gen check-artifact`를 CI에 등록합니다. `enterprise` 아키타입이 추가하는 `diff`·`ci:gate` 스크립트는 그대로는 동작하지 않으므로(알려진 결함) §6.2의 명령을 씁니다.
+3. **Enterprise 단계**: 여러 팀이 같은 계약을 쓰면 `npx oa-gen init --target fastify --archetype enterprise --yes`를 다시 실행합니다. 지금 스펙으로 계약 기준선 `openapi.baseline.yaml`을 만들고 `lint:spec`·`diff`·`baseline:update`·`ci:gate` 스크립트를 추가합니다(이미 있는 스크립트와 `oa.config.ts`는 `--force`를 줄 때만 바꿉니다). 기준선을 커밋하고 CI에서 `npm run ci:gate`와 `oa-gen check-artifact`를 실행하며, 릴리스할 때 `npm run baseline:update`로 기준선을 옮깁니다. TypeSpec 원본을 의미 단위로 비교하려면 §6.2의 `oa-gen tsp diff`를 함께 등록합니다.
 
 #### 런북 2: 기존 서비스의 인증·멀티테넌시 컨텍스트 연결
 
@@ -668,6 +668,7 @@ jobs:
 - `oa-gen tsp diff`는 TypeSpec 원본을 의미 단위로 비교해 선택 속성 추가 같은 호환 변경을 non-breaking으로 구분합니다. git ref는 `git archive`로 그 커밋을 꺼내므로 작업 트리를 보지 않습니다. 그래서 위처럼 `--head`에는 파일 경로(작업 트리, CI checkout)를 줍니다. 두 커밋을 비교할 때는 `--base HEAD~1:main.tsp --head HEAD:main.tsp`처럼 `<ref>:<path>`를 주거나, `--base HEAD~1 --head HEAD`처럼 경로 없는 git ref를 줍니다. 경로 없는 ref는 상대편 진입점과 같은 저장소 루트 기준 경로를 자기 커밋에서 읽고, 진입점을 하나로 정할 수 없으면(그 경로가 커밋에 없거나 `main.tsp`가 여럿) `<ref>:<path>`를 달라는 오류로 끝납니다. 두 쪽이 같은 커밋이면(`--base HEAD --head HEAD`) 커밋끼리만 비교하므로 작업 트리 변경은 보이지 않고, stderr에 그 사실을 알립니다.
 - `oa-gen check-artifact`는 커밋한 `<id>.openapi.json`이 원본에서 다시 만든 결과와 다르면 실패합니다. 생성물을 커밋하지 않는 프로젝트에서는 이 단계를 뺍니다.
 - base 브랜치에 `openapi.yaml`이 아직 없는 첫 PR에서는 `git show`가 실패하므로, 그 경우를 건너뛰는 조건을 추가합니다.
+- `enterprise` 아키타입으로 초기화한 프로젝트는 base 브랜치의 파일 대신 커밋한 계약 기준선 `openapi.baseline.yaml`과 비교하는 `npm run ci:gate`(OpenAPI 3.2 검증, 린트, `oa-gen diff --fail-on-breaking`)를 OpenAPI 단계 대신 쓸 수 있습니다. 기준선은 릴리스할 때 `npm run baseline:update`로 옮깁니다([CLI 명령 레퍼런스](./cli-command-reference.md#enterprise의-breaking-change-gate)).
 
 ---
 

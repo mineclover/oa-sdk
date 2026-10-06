@@ -53,7 +53,7 @@ sourceOfTruth:
 
 ## 0단계: 30초 제로 마찰 온보딩 (`oa-gen init`)
 
-프로젝트 루트에서 `oa-gen init`을 실행하면 프레임워크(Fastify, Elysia, Hono, Express, NestJS)와 스펙 소스(`.tsp`, `openapi.yaml`, `openapi.json`, `@oaOperation` JSDoc)를 감지하여 `oa.config.ts`와 `package.json` 스크립트를 구성합니다.
+프로젝트 루트에서 `oa-gen init`을 실행하면 프레임워크(Fastify, Elysia, Hono, Express, NestJS)와 스펙 소스(`.tsp`, `openapi.yaml`, `openapi.json`, `@oaOperation` JSDoc)를 감지하여 `oa.config.ts`와 `package.json` 스크립트를 구성합니다. 기본 아키타입 `mvp`에서는 `generate`, `mock`, `validate` 스크립트가 추가되고(프레임워크를 감지하면 그 개발 서버 스크립트도), `--archetype enterprise`는 스펙 린트와 breaking change gate 스크립트(`lint:spec`, `diff`, `baseline:update`, `ci:gate`)와 그 비교 기준인 계약 기준선 `openapi.baseline.yaml`을 더합니다. 추가되는 스크립트는 모두 그대로 실행됩니다. 아키타입별 목록은 [CLI 명령 레퍼런스](./cli-command-reference.md#아키타입---archetype)에 있습니다.
 
 > **준비**
 > - Node.js 22 이상. CI가 Node.js 22·24·26에서 배포 후보를 설치해 확인합니다.
@@ -281,14 +281,14 @@ export function UserProfile({ userId }: { userId: string }) {
 npx oa-gen generate
 ```
 
-`init`이 프레임워크를 감지하지 못한 프로젝트(`target: 'generic'`, spec target id `generic-api`)에서는 다음 파일을 씁니다. 프레임워크를 감지한 프로젝트는 파일 이름의 id만 다릅니다(예: `fastify-api`).
+`init`이 추가한 `generate` 스크립트(`npm run generate`)도 같은 명령입니다. `init`이 프레임워크를 감지하지 못한 프로젝트(`target: 'generic'`, spec target id `generic-api`)에서는 다음 파일을 씁니다. 프레임워크를 감지한 프로젝트는 파일 이름의 id만 다릅니다(예: `fastify-api`).
 
 - `src/generated/generic-api.openapi.json`, `src/generated/generic-api.schema.json`: OpenAPI 문서(설정의 `core.dialect.oasVersion`, init 기본 3.2.0)와 JSON Schema
 - `src/api/generic-api/generic-api.contract.ts`: 프레임워크와 무관한 핸들러 계약(`ApiHandlers`, `<Operation>Context`, `HandlerResponse`). 구현은 이 파일이 아니라 별도 파일에 쓰므로 다시 생성해도 구현 코드는 덮어쓰이지 않습니다.
 - `src/api/generic-api/generic-api.client.ts`: 클라이언트 SDK
 - `src/api/generic-api/generic-api.keys.ts`, `src/api/generic-api/generic-api.queries.ts`: TanStack Query 키·옵션 팩토리
 
-`oa-gen generate`는 서버 쪽에 프레임워크와 무관한 핸들러 계약(`<id>.contract.ts`)만 생성합니다. Fastify·Express·Hono·Elysia 라우터 코드가 필요하면 빌드 스크립트에서 `@oa-sdk/router`의 `generateRouter()`를 호출해 파일로 씁니다. `oa-gen` 명령으로는 라우터 파일을 만들지 않으며, `init`이 프레임워크 대상에 추가하는 `generate:router` 스크립트도 `oa-gen generate`와 같은 일을 할 뿐 라우터 파일을 만들지 않습니다. 빌드 스크립트 예시는 [온보딩 플레이북의 프레임워크 연결 레시피](./onboarding-playbook.md#4-프레임워크-연결-레시피-framework-recipes)에 있습니다.
+`oa-gen generate`는 서버 쪽에 프레임워크와 무관한 핸들러 계약(`<id>.contract.ts`)만 생성합니다. Fastify·Express·Hono·Elysia 라우터 코드가 필요하면 빌드 스크립트에서 `@oa-sdk/router`의 `generateRouter()`를 호출해 파일로 씁니다. `oa-gen` 명령으로는 라우터 파일을 만들지 않으며, `init`이 프레임워크 대상에도 추가하는 스크립트는 이 단계의 `generate`(`oa-gen generate`)입니다. 빌드 스크립트 예시는 [온보딩 플레이북의 프레임워크 연결 레시피](./onboarding-playbook.md#4-프레임워크-연결-레시피-framework-recipes)에 있습니다.
 
 `oa-gen generate`가 만든 핸들러 계약과 클라이언트의 요청·응답 타입은 `unknown`입니다. 타입이 있는 핸들러 계약이 필요하면 위 레시피처럼 `oa-gen typegen` 출력과 `generateHandlerContract(spec, { typesImport })`를 함께 씁니다.
 

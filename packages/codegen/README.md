@@ -61,6 +61,29 @@ code, call `generateRouter()` from `@oa-sdk/router` in a build script. In the oa
 repository, the step-by-step guide is `docs/guides/quick-start.md` and the full option reference is
 `docs/guides/cli-command-reference.md`.
 
+### Scripts `oa-gen init` adds
+
+Every script `oa-gen init` adds to `package.json` runs as written in the scaffold (through
+`bun x oa-gen` on Bun):
+
+| Added for | Scripts |
+| --- | --- |
+| Every target | `generate` (`oa-gen generate`) and `mock` (`oa-gen mock --watch`); a detected framework also gets its dev server script, which runs your own server code |
+| `--archetype mvp` (default) | `validate` (`oa-gen validate`) |
+| `--archetype microservice` | nothing more |
+| `--archetype enterprise` | `lint:spec`, `diff`, `baseline:update`, `ci:gate` |
+
+The `enterprise` scripts gate the spec entry point against a contract baseline,
+`openapi.baseline.yaml`, which `init` creates from the spec: the document `oa-gen normalize` writes
+for it (TypeSpec is compiled to OpenAPI 3.2). Commit it. `diff` runs
+`oa-gen diff --base openapi.baseline.yaml --head <spec> --fail-on-breaking`, `ci:gate` runs
+`oa-gen validate --spec <spec> --require-32`, `oa-gen lint --spec <spec>` and that diff, and
+`baseline:update` makes the current spec the baseline when you release. `init` never overwrites an
+existing baseline. Scripts that earlier versions of `init` added and that failed or only ran
+`oa-gen generate` (`generate:router`, `generate:client`, `generate:contract`, `test:contract`,
+`audit:wire`, `audit:csp`, `audit:shape`, `personas:check`) are no longer added; remove them from
+`package.json`.
+
 ### Companion packages
 
 Handler contract, client, and mock outputs come from companion packages that `oa-gen` loads on

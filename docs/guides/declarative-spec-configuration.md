@@ -132,8 +132,9 @@ Fastify·Express·Hono·Elysia 라우터 코드가 필요하면 빌드 스크립
 | `product.jitSchema`, `product.zeroCopy` | `false` | `true` | `true` |
 | `product.personas.enforceCoverage` | - | - | `true` (`minCoverageRatio: 0.8`) |
 
-`oa-gen init --archetype`이 추가하는 `package.json` 스크립트 중 동작하는 것과 그렇지 않은 것은
-[CLI 설치 가이드](./cli-setup.md)와 [CLI 명령 레퍼런스](./cli-command-reference.md)를 따릅니다.
+`oa-gen init --archetype`이 추가하는 `package.json` 스크립트는 이 값들을 읽지 않고 스펙 파일과 명령 옵션으로 동작합니다.
+`enterprise`의 breaking change gate도 `baseRef`가 아니라 `init`이 만든 계약 기준선 `openapi.baseline.yaml`과 비교합니다.
+스크립트 목록은 [CLI 설치 가이드](./cli-setup.md#packagejson-스크립트)와 [CLI 명령 레퍼런스](./cli-command-reference.md#아키타입---archetype)를 따릅니다.
 
 ### 2.4 spec target
 

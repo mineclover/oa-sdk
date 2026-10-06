@@ -149,7 +149,7 @@ Every codebase must be classified into one of three Lifecycle Archetypes based o
 | **Target Stage** | Greenfield prototypes, POCs, early-stage startups (Day 1) | Production microservices, high-traffic internal APIs (Day 60+) | Multi-team regulated platforms, public APIs, enterprise SOA (Day 180+) |
 | **Throughput & Serialization** | Standard JSON serialization, zero tuning overhead | Fastify JIT inlined schema (`fast-json-stringify`) or Bun Elysia zero-copy destructuring | Multi-target projection bundles, cached schema evaluation, sub-millisecond serialization |
 | **Wire Typing Safety** | Relaxed primitive typing | Strict wire-safe typing (`wireFormatSafety: true`, `JsonPrimitive<T>`) | Strict wire-safe typing + circular reference lazy resolution + schema sealing |
-| **Contract Testing** | Manual validation, live mock unblocking | Automated unit contract tests (`vitest` / native `bun test` testing `ApiHandlers`) | Comprehensive contract integration suite + mock mesh simulation |
+| **Contract Testing** | Manual validation, live mock unblocking | Automated unit contract tests the team writes (`vitest` / native `bun test` testing `ApiHandlers`); `oa-gen init` adds no test script | Comprehensive contract integration suite + mock mesh simulation |
 | **Breaking Change Gates** | Advisory / non-blocking diff warnings | Automated PR gate (`oa-gen diff --fail-on-breaking`) | Zero-tolerance CI gate + TypeSpec semantic diff + persona coverage audit |
 | **Context Injection** | Static dependency container or omitted | Per-request tenancy (`tenantId`) and tracing (`traceId`) via `getContext` | Full IAM actor context (`user`, `roles`, `permissions`, `auditSpan`) |
 | **Persona Governance** | Disabled (`personas: undefined`) | Optional capability traits on sensitive endpoints | Mandatory `@personaCapability` checks, `@pseudonymize` data masking |
@@ -225,7 +225,7 @@ Verify the returned target ID, detected runtime (`bun` or `node`), and candidate
 ### Step 2: Archetype & Target Execution
 Run the onboarding initialization specifying both the target framework, the lifecycle archetype preset (`mvp`, `microservice`, `enterprise`), and the output routing preset (`default`, `fsd`, `monorepo`, `by-kind`):
 ```bash
-# For Fastify Microservice with FSD routing (Node ESM, JIT schema, contract tests)
+# For Fastify Microservice with FSD routing (Node ESM, handler contracts)
 npx oa-gen init --target fastify --archetype microservice --routing fsd --yes
 
 # For Bun Elysia MVP with default routing (Bun native, zero-copy, live mock)
@@ -494,12 +494,12 @@ npx oa-gen tsp diff --base origin/main --head ./main.tsp --fail-on-breaking
 #### Zero-Breakage Evolution Runbook
 1. **Day 1 MVP $\rightarrow$ Day 60 Microservice**:
    - Update `oa.config.ts`: change `archetype: 'mvp'` to `archetype: 'microservice'`.
-   - Run `npx oa-gen init --target fastify --archetype microservice --force` (updates scripts to include contract tests).
+   - Run `npx oa-gen init --target fastify --archetype microservice --force` (rewrites `oa.config.ts` with the microservice settings; the archetype adds no script beyond `generate` and `mock`, and init writes no contract tests).
    - In router binder, provide `getContext` to extract `tenantId` and `traceId`.
    - **Result**: `api.contract.ts` and `src/services/user.service.ts` remain **100% untouched** (0 code modifications).
 2. **Day 60 Microservice $\rightarrow$ Day 180 Enterprise**:
    - Update `oa.config.ts`: change `archetype: 'microservice'` to `archetype: 'enterprise'`.
-   - Add `oa-gen diff --fail-on-breaking` to GitHub Actions workflow.
+   - Run `npx oa-gen init --target fastify --archetype enterprise --yes`: it creates the contract baseline `openapi.baseline.yaml` from the spec and adds the `lint:spec`, `diff`, `baseline:update` and `ci:gate` scripts. Commit the baseline, run `npm run ci:gate` (OpenAPI 3.2 validation, lint, `oa-gen diff --base openapi.baseline.yaml --head <spec> --fail-on-breaking`) in GitHub Actions, and move the baseline with `npm run baseline:update` when releasing.
    - Annotate TypeSpec/OpenAPI schemas with `@personaCapability` and `@pseudonymize`.
    - Expand `getContext` to return full enterprise IAM context (`user`, `roles`, `auditLog`).
    - **Result**: Core wire contracts and business handlers remain invariant while enterprise governance is activated.
