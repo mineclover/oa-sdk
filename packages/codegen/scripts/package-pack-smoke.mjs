@@ -1,8 +1,8 @@
-import { execFileSync, spawn } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { execFileSync, spawn, spawnSync } from 'node:child_process'
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { builtinModules } from 'node:module'
 import { tmpdir } from 'node:os'
-import { join, relative } from 'node:path'
+import { delimiter, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { embeddedVersionTables } from './embedded-workspace-versions.mjs'
@@ -13,14 +13,43 @@ import { readBuiltAgainstVersions } from './workspace-versions.mjs'
  * must write and the private ones it must leave out, outside a workspace. Every archetype must
  * write codegen, and every `@oa-sdk` package any of them writes must carry its built-against
  * range; the lists name the packages only some archetypes use, so that the smoke fails when the
- * packed init stops writing or reporting them rather than checking fewer packages. `runs` names
- * the scripts the archetype must add and the smoke runs in its scaffold: `validate` must pass, and
- * `mock` must serve the consumer's OpenAPI document.
+ * packed init stops writing or reporting them rather than checking fewer packages.
+ *
+ * `scripts` names every script the archetype adds to package.json in a project init detects no
+ * framework in, in the order init writes them, and how the smoke runs it in the scaffold: an
+ * `exits` script must exit 0, and a `serves` script must start the mock server and answer
+ * GET /health. Init writing any other script, or leaving one out, fails the smoke, so every script
+ * init writes runs here; none needs the network or a remote repository. `baseline` names the
+ * contract baseline that init creates and the archetype's breaking change gate compares the spec
+ * with.
  */
 const INIT_ARCHETYPES = [
-  { id: 'mvp', writes: [], omits: [], runs: ['validate', 'mock'] },
-  { id: 'microservice', writes: ['@oa-sdk/core'], omits: [], runs: [] },
-  { id: 'enterprise', writes: ['@oa-sdk/core'], omits: ['@oa-sdk/personas'], runs: [] },
+  {
+    id: 'mvp',
+    writes: [],
+    omits: [],
+    scripts: { generate: 'exits', mock: 'serves', validate: 'exits' },
+  },
+  {
+    id: 'microservice',
+    writes: ['@oa-sdk/core'],
+    omits: [],
+    scripts: { generate: 'exits', mock: 'serves' },
+  },
+  {
+    id: 'enterprise',
+    writes: ['@oa-sdk/core'],
+    omits: ['@oa-sdk/personas'],
+    scripts: {
+      generate: 'exits',
+      mock: 'serves',
+      'lint:spec': 'exits',
+      diff: 'exits',
+      'baseline:update': 'exits',
+      'ci:gate': 'exits',
+    },
+    baseline: 'openapi.baseline.yaml',
+  },
 ]
 
 const packageDirectory = new URL('..', import.meta.url)
@@ -109,28 +138,52 @@ try {
     }
   }
 
-  // The scripts `oa-gen init` adds must run in the scaffold as written. They read the scaffolded
-  // oa.config.ts, which imports @oa-sdk/codegen, installed in the consumer as a registry install
-  // would place it.
-  for (const { archetype, consumer, scripts } of scaffolds.filter(({ archetype }) => archetype.runs.length > 0)) {
-    for (const script of archetype.runs) {
-      if (typeof scripts[script] !== 'string' || !scripts[script].startsWith('oa-gen ')) {
-        throw new Error(`packed oa-gen init must add an oa-gen "${script}" script for ${archetype.id}, received ${JSON.stringify(scripts[script])}`)
-      }
+  // Every script `oa-gen init` adds must run in the scaffold as written, the way a package manager
+  // runs it: through a shell, with the project's node_modules/.bin on PATH, where an install links
+  // the packed oa-gen bin. The scripts read the scaffolded oa.config.ts, which imports
+  // @oa-sdk/codegen, installed in the consumer as a registry install would place it.
+  chmodSync(oaGen, 0o755)
+  for (const { archetype, consumer, scripts } of scaffolds) {
+    const expected = Object.keys(archetype.scripts)
+    if (JSON.stringify(Object.keys(scripts)) !== JSON.stringify(expected)) {
+      throw new Error(
+        `packed oa-gen init (${archetype.id}) must add exactly the scripts ${expected.join(', ')}, ` +
+          `received ${JSON.stringify(scripts)}`,
+      )
     }
     mkdirSync(join(consumer, 'node_modules', '@oa-sdk'), { recursive: true })
+    mkdirSync(join(consumer, 'node_modules', '.bin'), { recursive: true })
     symlinkSync(join(temporaryDirectory, 'package'), join(consumer, 'node_modules', manifest.name), 'dir')
-    if (archetype.runs.includes('validate')) {
-      execFileSync(process.execPath, [oaGen, ...scripts.validate.split(' ').slice(1)], {
-        cwd: consumer,
-        stdio: ['ignore', 'ignore', 'inherit'],
-      })
-    }
-    if (archetype.runs.includes('mock')) {
-      const mockResponse = await serveOnce([oaGen, ...scripts.mock.split(' ').slice(1), '--port', '0'], consumer, '/health')
-      if (mockResponse.status !== 200) {
-        throw new Error(`the mock script of packed oa-gen init (${archetype.id}) answered GET /health with ${mockResponse.status}: ${mockResponse.body}`)
+    symlinkSync(oaGen, join(consumer, 'node_modules', '.bin', 'oa-gen'))
+
+    const baseline = archetype.baseline === undefined ? undefined : readFileSync(join(consumer, archetype.baseline), 'utf8')
+    for (const [script, run] of Object.entries(archetype.scripts)) {
+      if (run === 'serves') {
+        const response = await serveOnce(`${scripts[script]} --port 0`, consumer, '/health')
+        if (response.status !== 200) {
+          throw new Error(`the ${script} script of packed oa-gen init (${archetype.id}) answered GET /health with ${response.status}: ${response.body}`)
+        }
+      } else {
+        runScript(archetype, script, scripts[script], consumer)
       }
+    }
+
+    if (archetype.baseline !== undefined) {
+      // The baseline init created is the one the scaffold's own baseline:update script writes for
+      // the same spec, and the gate scripts compare with it: they fail once the spec breaks it,
+      // and pass again once baseline:update accepts the change.
+      if (readFileSync(join(consumer, archetype.baseline), 'utf8') !== baseline) {
+        throw new Error(`the baseline:update script of packed oa-gen init (${archetype.id}) rewrote the ${archetype.baseline} init created from the same spec`)
+      }
+      const spec = join(consumer, 'openapi.yaml')
+      writeFileSync(spec, readFileSync(spec, 'utf8').replace('  /health:', '  /status:'))
+      for (const script of ['diff', 'ci:gate']) {
+        if (scriptExitCode(scripts[script], consumer) === 0) {
+          throw new Error(`the ${script} script of packed oa-gen init (${archetype.id}) passed a spec that removes GET /health from ${archetype.baseline}`)
+        }
+      }
+      runScript(archetype, 'baseline:update', scripts['baseline:update'], consumer)
+      runScript(archetype, 'diff', scripts.diff, consumer)
     }
   }
 
@@ -159,30 +212,61 @@ try {
       `init writes registry ranges (${scaffolds.map(({ archetype, specifiers, omitted }) =>
         `${archetype.id}: ${specifiers.map(([name, specifier]) => `${name}@${specifier}`).join(', ')}` +
           `${omitted.length > 0 ? `; leaves out ${omitted.join(', ')}` : ''}`).join(' | ')}), ` +
-      `and its ${INIT_ARCHETYPES.filter(({ runs }) => runs.length > 0)
-        .map(({ id, runs }) => `${id} ${runs.join(' and ')}`).join(', ')} scripts run in a "type": "commonjs" project`,
+      `and every script it writes runs in a "type": "commonjs" project (${INIT_ARCHETYPES
+        .map(({ id, scripts }) => `${id}: ${Object.keys(scripts).join(', ')}`).join(' | ')}), ` +
+      `the enterprise gate failing once the spec breaks its contract baseline`,
   )
 } finally {
   rmSync(temporaryDirectory, { recursive: true, force: true })
 }
 
 /**
- * Starts the packed `oa-gen` with `args` in `cwd`, waits for the mock server it prints, requests
- * `path` from it and stops it. Rejects when the command exits first or takes longer than a minute.
+ * Runs the script command line `command` in the project at `cwd` as a package manager runs it, and
+ * throws with its output unless it exits 0.
  */
-function serveOnce(args, cwd, path) {
+function runScript(archetype, script, command, cwd) {
+  const result = spawnSync(command, { cwd, env: scriptEnvironment(cwd), shell: true, encoding: 'utf8' })
+  if (result.status !== 0) {
+    throw new Error(
+      `the ${script} script of packed oa-gen init (${archetype.id}) failed with ${result.status ?? result.signal}: ` +
+        `${command}\n${result.stdout}${result.stderr}`,
+    )
+  }
+}
+
+/** The exit code of the script command line `command` run in the project at `cwd`. */
+function scriptExitCode(command, cwd) {
+  return spawnSync(command, { cwd, env: scriptEnvironment(cwd), shell: true, stdio: 'ignore' }).status
+}
+
+/** The environment a package manager runs the scripts of the project at `cwd` with: its bins on PATH. */
+function scriptEnvironment(cwd) {
+  return { ...process.env, PATH: [join(cwd, 'node_modules', '.bin'), process.env.PATH].join(delimiter) }
+}
+
+/**
+ * Starts the script command line `command` in the project at `cwd`, waits for the mock server it
+ * prints, requests `path` from it and stops it, with every process the script started. Rejects
+ * when the command exits first or takes longer than a minute.
+ */
+function serveOnce(command, cwd, path) {
   return new Promise((resolvePromise, rejectPromise) => {
-    const child = spawn(process.execPath, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] })
+    // Its own process group, so that stopping it stops the server under the shell as well.
+    const child = spawn(command, { cwd, env: scriptEnvironment(cwd), shell: true, detached: true, stdio: ['ignore', 'pipe', 'pipe'] })
     let output = ''
     let settled = false
     const settle = (action) => {
       if (settled) return
       settled = true
       clearTimeout(timer)
-      child.kill('SIGTERM')
+      try {
+        process.kill(-child.pid, 'SIGTERM')
+      } catch {
+        // The script has already exited.
+      }
       action()
     }
-    const timer = setTimeout(() => settle(() => rejectPromise(new Error(`oa-gen ${args.slice(1).join(' ')} did not start a server:\n${output}`))), 60_000)
+    const timer = setTimeout(() => settle(() => rejectPromise(new Error(`${command} did not start a server:\n${output}`))), 60_000)
     const collect = (chunk) => {
       output += chunk
       const url = output.match(/running at: (http:\/\/\S+)/)?.[1]
@@ -195,7 +279,7 @@ function serveOnce(args, cwd, path) {
     }
     child.stdout.on('data', collect)
     child.stderr.on('data', chunk => { output += chunk })
-    child.on('exit', code => settle(() => rejectPromise(new Error(`oa-gen ${args.slice(1).join(' ')} exited with ${code}:\n${output}`))))
+    child.on('exit', code => settle(() => rejectPromise(new Error(`${command} exited with ${code}:\n${output}`))))
   })
 }
 
