@@ -518,7 +518,17 @@ export function UserDetailView({ userId }: { userId: string }) {
 }
 ```
 
-`oa-gen generate`가 만든 클라이언트의 응답 타입은 `unknown`이므로, 필드에 접근하려면 응답을 좁히거나 타입이 있는 클라이언트(`oa-gen generate:client --types-import`)를 씁니다.
+`oa-gen generate`가 만든 클라이언트와 `<id>.queries.ts`의 응답 타입은 `JsonPrimitive<unknown>`입니다. `<id>.queries.ts`는 `ApiClient` 타입을 `<id>.client.ts`에서 가져오므로, 타입이 있는 클라이언트(`oa-gen generate:client --types-import`)를 넘겨도 `data` 타입은 그대로이고 `user?.name`은 `tsc`에서 실패합니다(TS2339). 필드에 접근하려면 다음 중 하나를 씁니다.
+
+- 응답을 타입 가드 등으로 좁힙니다.
+- 옵션 팩토리의 타입 인자 `TData`에 `oa-gen typegen`이 만든 응답 타입을 지정합니다. 타입만 지정하며 응답을 런타임에 검증하지는 않습니다.
+  ```tsx
+  // npx oa-gen typegen --spec ./openapi.yaml -o src/api/types.ts
+  import type { User } from '@/api/types'
+
+  const { data: user } = useQuery(getUserQueryOptions<User>(client, { userId }))
+  ```
+- `oa-gen generate`를 쓰지 않는 프로젝트(outputRouting 없음)에서는 클라이언트와 `generate:tanstack --split`을 모두 `--types-import`로 생성합니다. `generate:tanstack`에는 typegen 출력에 `<Operation>ClientError` 별칭을 더한 모듈을 넘깁니다(§4.9, [CLI 명령 레퍼런스](./cli-command-reference.md#generatetanstack-옵션-및-인수-명세)). 이렇게 만든 `queries.ts`는 `'use client'`가 없으므로 위 예시의 `<id>.queries.ts` 자리에 씁니다.
 
 ---
 
