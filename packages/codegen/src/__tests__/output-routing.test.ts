@@ -680,7 +680,7 @@ describe('Output Path Routing Customization Engine', () => {
       expect(fs.existsSync(path.join(tmpDir, file))).toBe(true)
     })
 
-    it('records the producer, configuration file and spec target of each artifact', async () => {
+    it('records the producer, configuration or spec file and spec target of each artifact', async () => {
       const manager = new OaManifestManager(tmpDir)
 
       await manager.writeArtifacts([
@@ -694,6 +694,15 @@ describe('Output Path Routing Customization Engine', () => {
           content: '/** @generated */\nexport const c = 1',
         },
         {
+          path: 'gen/billing/openapi.client.ts',
+          kind: 'client',
+          tag: 'openapi',
+          producer: MANIFEST_PRODUCERS.generate,
+          specFile: 'services/billing/openapi.json',
+          target: 'openapi',
+          content: '/** @generated */\nexport const b = 1',
+        },
+        {
           path: 'src/api/tanstack-query.ts',
           kind: 'queries',
           producer: MANIFEST_PRODUCERS.generateTanstack,
@@ -703,9 +712,13 @@ describe('Output Path Routing Customization Engine', () => {
 
       const raw = JSON.parse(fs.readFileSync(path.join(tmpDir, '.oa-manifest.json'), 'utf8'))
       expect(raw.artifacts[0]).toMatchObject({ producer: 'generate', configFile: 'oa.config.ts', target: 'orders' })
-      expect(raw.artifacts[1]).toMatchObject({ producer: 'generate:tanstack' })
+      expect(raw.artifacts[0]).not.toHaveProperty('specFile')
+      expect(raw.artifacts[1]).toMatchObject({ producer: 'generate', specFile: 'services/billing/openapi.json', target: 'openapi' })
       expect(raw.artifacts[1]).not.toHaveProperty('configFile')
-      expect(raw.artifacts[1]).not.toHaveProperty('target')
+      expect(raw.artifacts[2]).toMatchObject({ producer: 'generate:tanstack' })
+      expect(raw.artifacts[2]).not.toHaveProperty('configFile')
+      expect(raw.artifacts[2]).not.toHaveProperty('specFile')
+      expect(raw.artifacts[2]).not.toHaveProperty('target')
     })
 
     it('prunes only records within the scope, leaving the others and their files untouched', async () => {
@@ -731,15 +744,18 @@ describe('Output Path Routing Customization Engine', () => {
       const legacy = { contentHash: 'sha256:0', generatedAt: '2026-09-20T00:00:00.000Z' }
 
       expect(manifestArtifactOwner({ ...legacy, path: 'a.ts', kind: 'contract', tag: 'orders' }))
-        .toEqual({ producer: 'generate', configFile: undefined, target: 'orders', legacy: true })
+        .toEqual({ producer: 'generate', configFile: undefined, specFile: undefined, target: 'orders', legacy: true })
       expect(manifestArtifactOwner({ ...legacy, path: 'guards/index.js', kind: 'guards' }))
-        .toEqual({ producer: 'generate', configFile: undefined, target: undefined, legacy: true })
+        .toEqual({ producer: 'generate', configFile: undefined, specFile: undefined, target: undefined, legacy: true })
       // oa-gen generate:tanstack wrote neither a tag nor guards
       expect(manifestArtifactOwner({ ...legacy, path: 'tanstack-query.ts', kind: 'queries' }))
-        .toEqual({ producer: undefined, configFile: undefined, target: undefined, legacy: true })
+        .toEqual({ producer: undefined, configFile: undefined, specFile: undefined, target: undefined, legacy: true })
       expect(manifestArtifactOwner({
         ...legacy, path: 'b.ts', kind: 'client', tag: 'orders', producer: 'generate', configFile: 'oa.config.ts', target: 'orders',
-      })).toEqual({ producer: 'generate', configFile: 'oa.config.ts', target: 'orders', legacy: false })
+      })).toEqual({ producer: 'generate', configFile: 'oa.config.ts', specFile: undefined, target: 'orders', legacy: false })
+      expect(manifestArtifactOwner({
+        ...legacy, path: 'c.ts', kind: 'client', tag: 'openapi', producer: 'generate', specFile: 'services/orders/openapi.json', target: 'openapi',
+      })).toEqual({ producer: 'generate', configFile: undefined, specFile: 'services/orders/openapi.json', target: 'openapi', legacy: false })
     })
   })
 

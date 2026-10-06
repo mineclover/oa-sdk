@@ -23,8 +23,9 @@ describe('oa-gen generate orphan pruning', () => {
   const readManifest = () => JSON.parse(fs.readFileSync(file('.oa-manifest.json'), 'utf8')) as OaManifest
   const recordOf = (relativePath: string) => readManifest().artifacts.find(artifact => artifact.path === relativePath)
 
-  const writeSpec = (name: string) => {
-    fs.writeFileSync(file(`${name}.json`), JSON.stringify({
+  const writeSpec = (name: string, relativePath = `${name}.json`) => {
+    fs.mkdirSync(path.dirname(file(relativePath)), { recursive: true })
+    fs.writeFileSync(file(relativePath), JSON.stringify({
       openapi: '3.1.0',
       info: { title: `${name} API`, version: '1.0.0' },
       paths: {
@@ -123,8 +124,9 @@ describe('oa-gen generate orphan pruning', () => {
       await runGenerate({ spec: file('billing.json'), 'out-dir': file('adhoc') })
 
       expect(exists('adhoc/billing.contract.ts')).toBe(true)
-      expect(recordOf('adhoc/billing.contract.ts')).toMatchObject({ producer: 'generate', target: 'billing' })
+      expect(recordOf('adhoc/billing.contract.ts')).toMatchObject({ producer: 'generate', specFile: 'billing.json', target: 'billing' })
       expect(recordOf('adhoc/billing.contract.ts')).not.toHaveProperty('configFile')
+      expect(recordOf('generated/orders.contract.ts')).not.toHaveProperty('specFile')
       expect(exists('generated/orders.contract.ts')).toBe(true)
       expect(exists('generated/orders.openapi.json')).toBe(true)
       expect(exists('src/api/tanstack-query.ts')).toBe(true)
@@ -135,7 +137,7 @@ describe('oa-gen generate orphan pruning', () => {
       expect(exists('generated/orders.contract.ts')).toBe(true)
     })
 
-    it('lets a --spec run prune what an earlier --spec run generated for the same spec target', async () => {
+    it('lets a --spec run prune what an earlier --spec run generated from the same spec file', async () => {
       await runGenerate({ spec: file('billing.json'), 'out-dir': file('out-a') })
       await runGenerate({ spec: file('orders.json'), 'out-dir': file('out-a') })
       expect(exists('out-a/billing.contract.ts')).toBe(true)
@@ -146,6 +148,28 @@ describe('oa-gen generate orphan pruning', () => {
       expect(exists('out-a/billing.contract.ts')).toBe(false)
       // Another spec target's outputs are not this run's
       expect(exists('out-a/orders.contract.ts')).toBe(true)
+    })
+
+    it('does not let --spec runs of different spec files with the same file name prune each other', async () => {
+      // Both spec files project to the spec target id "openapi", their file name.
+      writeSpec('orders', 'services/orders/openapi.json')
+      writeSpec('billing', 'services/billing/openapi.json')
+      const outputs = (dir: string) => ['openapi.openapi.json', 'openapi.schema.json', 'openapi.contract.ts', 'openapi.client.ts']
+        .map(name => `${dir}/${name}`)
+
+      await runGenerate({ spec: 'services/orders/openapi.json', 'out-dir': 'gen/orders' })
+      await runGenerate({ spec: 'services/billing/openapi.json', 'out-dir': 'gen/billing' })
+
+      for (const output of [...outputs('gen/orders'), ...outputs('gen/billing')]) expect(exists(output)).toBe(true)
+      expect(recordOf('gen/orders/openapi.contract.ts')).toMatchObject({ specFile: 'services/orders/openapi.json', target: 'openapi' })
+      expect(recordOf('gen/billing/openapi.contract.ts')).toMatchObject({ specFile: 'services/billing/openapi.json', target: 'openapi' })
+      expect(logs.join('\n')).toContain('Artifacts Pruned:    0')
+
+      // The same spec file, however the path is written, still owns its earlier output.
+      await runGenerate({ spec: file('services/orders/openapi.json'), 'out-dir': 'gen/orders-v2' })
+
+      for (const output of outputs('gen/orders')) expect(exists(output)).toBe(false)
+      for (const output of [...outputs('gen/orders-v2'), ...outputs('gen/billing')]) expect(exists(output)).toBe(true)
     })
 
     it('does not let runs of different configuration files prune each other', async () => {
@@ -210,6 +234,25 @@ describe('oa-gen generate orphan pruning', () => {
       expect(exists('src/api/tanstack-query.ts')).toBe(true)
       expect(recordOf('src/old/billing.contract.ts')).toEqual(expect.not.objectContaining({ producer: expect.anything() }))
       expect(recordOf('generated/orders.contract.ts')).toMatchObject({ producer: 'generate', configFile: 'oa.config.json' })
+    })
+
+    it('does not let a --spec run prune legacy records, which name no spec file', async () => {
+      const legacyContract = legacyRecord('src/old/orders.contract.ts', 'contract', 'orders')
+      fs.writeFileSync(file('.oa-manifest.json'), JSON.stringify({
+        version: 1,
+        generator: '@oa-sdk/codegen',
+        lastRun: '2026-09-20T00:00:00.000Z',
+        // Written by an oa-gen generate 0.8.x run from a configuration file with a spec target "orders"
+        artifacts: [legacyContract],
+      }, null, 2))
+      writeSpec('orders', 'services/orders.json')
+
+      // An unrelated spec file whose name is that spec target id
+      await runGenerate({ spec: 'services/orders.json', 'out-dir': 'adhoc' })
+
+      expect(exists('adhoc/orders.contract.ts')).toBe(true)
+      expect(exists('src/old/orders.contract.ts')).toBe(true)
+      expect(recordOf('src/old/orders.contract.ts')).toEqual(legacyContract)
     })
   })
 })

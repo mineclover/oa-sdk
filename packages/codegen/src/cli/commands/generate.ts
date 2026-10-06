@@ -107,7 +107,9 @@ export const generate: Command = {
         ],
       }
       const rootDir = context?.projectRoot ?? (context as any)?.rootDir ?? context?.cwd ?? process.cwd()
-      await runConfigDrivenPipeline(syntheticConfig, rootDir, companionImporterFrom(context), undefined)
+      // Resolved the way projectTargetSpec resolves `schemaEntry`.
+      const specFile = toPosixPath(relative(rootDir, resolve(rootDir, directSpecPath)))
+      await runConfigDrivenPipeline(syntheticConfig, rootDir, companionImporterFrom(context), { specFile })
       return
     }
 
@@ -121,7 +123,8 @@ export const generate: Command = {
     if (loaded) {
       // Check if loaded config is extended OaConfig with specs, guards, core, or product
       if (loaded.config.specs || loaded.config.guards || loaded.config.core || loaded.config.product) {
-        await runConfigDrivenPipeline(loaded.config, loaded.rootDir, companionImporterFrom(context), loaded.configPath)
+        const configFile = toPosixPath(relative(loaded.rootDir, loaded.configPath))
+        await runConfigDrivenPipeline(loaded.config, loaded.rootDir, companionImporterFrom(context), { configFile })
         return
       }
       // Legacy config with schemas
@@ -273,10 +276,19 @@ function describeFailures(failures: readonly FailedCompanionOutput[]): string[] 
   })
 }
 
+/**
+ * The file an `oa-gen generate` run starts from, relative to rootDir (POSIX):
+ * its configuration file, or the spec file of `oa-gen generate --spec`, which
+ * reads no configuration file. The run records it on every artifact it writes,
+ * and it decides which manifest records the run owns.
+ */
+type GenerateRunSource =
+  | { readonly configFile: string; readonly specFile?: undefined }
+  | { readonly configFile?: undefined; readonly specFile: string }
+
 /** What an `oa-gen generate` run generates, which decides the manifest records it owns. */
 interface GenerateRunScope {
-  /** Configuration file of the run, relative to rootDir (POSIX); undefined for `oa-gen generate --spec`. */
-  configFile: string | undefined
+  source: GenerateRunSource
   /** Spec target ids the run generates. */
   targets: ReadonlySet<string>
   /** Whether the run generates guards (`guards` is configured). */
@@ -286,26 +298,33 @@ interface GenerateRunScope {
 /**
  * Manifest records an `oa-gen generate` run owns, and so may prune.
  *
- * - A run from a configuration file owns the records `oa-gen generate` wrote
- *   from that same file, whichever spec targets it declared then, so that the
- *   outputs of a target removed from the configuration are cleaned up.
- * - A run without one (`oa-gen generate --spec <file>`) owns the records that
- *   earlier such runs wrote for its spec target.
- * - Records written before codegen 0.9.0 name no configuration file (see
- *   `manifestArtifactOwner`). Those of `oa-gen generate` are owned by any run
- *   that generates their spec target, and legacy guard records by any run that
- *   generates guards.
+ * - A run owns the records `oa-gen generate` wrote from the same source file.
+ *   For a run from a configuration file that covers whichever spec targets the
+ *   file declared then, so that the outputs of a target removed from it are
+ *   cleaned up. For `oa-gen generate --spec <file>` it covers what earlier runs
+ *   wrote from that same spec file, whatever their `--out-dir`; a spec file at
+ *   another path is another source even when its file name, and so its spec
+ *   target id, is the same.
+ * - Records written before codegen 0.9.0 name no source file (see
+ *   `manifestArtifactOwner`), only the spec target id. A spec target id
+ *   identifies an output only within a configuration file, which declares it;
+ *   for `--spec` runs it is just the spec file name. Those records of
+ *   `oa-gen generate` are therefore owned by any run from a configuration file
+ *   that generates their spec target, legacy guard records by any such run that
+ *   generates guards, and none of them by a `--spec` run.
  *
  * Records of other commands, such as `oa-gen generate:tanstack`, and of runs
- * from other configuration files are never pruned.
+ * from other source files are never pruned.
  */
 function ownedByGenerateRun(run: GenerateRunScope): (artifact: ManifestArtifact) => boolean {
   return (artifact) => {
     const owner = manifestArtifactOwner(artifact)
     if (owner.producer !== MANIFEST_PRODUCERS.generate) return false
-    if (owner.legacy) return owner.target !== undefined ? run.targets.has(owner.target) : run.generatesGuards
-    if (run.configFile !== undefined) return owner.configFile === run.configFile
-    return owner.configFile === undefined && owner.target !== undefined && run.targets.has(owner.target)
+    if (owner.legacy) {
+      if (run.source.configFile === undefined) return false
+      return owner.target !== undefined ? run.targets.has(owner.target) : run.generatesGuards
+    }
+    return owner.configFile === run.source.configFile && owner.specFile === run.source.specFile
   }
 }
 
@@ -323,14 +342,14 @@ function openApiLabel(doc: Record<string, unknown>): string {
  * as they were. Guards come next (their generator writes the files itself),
  * then every artifact is committed through the manifest.
  *
- * @param configPath Absolute path of the configuration file, or undefined for
- *   `oa-gen generate --spec`, which reads none.
+ * @param source The configuration file the run reads, or for
+ *   `oa-gen generate --spec`, which reads none, the spec file.
  */
 async function runConfigDrivenPipeline(
   config: OaConfig,
   rootDir: string,
   importCompanion: CompanionImporter,
-  configPath: string | undefined,
+  source: GenerateRunSource,
 ): Promise<void> {
   const resolvedConfig = resolveConfigWithDefaults(config)
   const specs = resolvedConfig.specs ?? []
@@ -363,12 +382,11 @@ async function runConfigDrivenPipeline(
     '$schema',
   ]
   const manifestManager = new OaManifestManager(rootDir, undefined, bannerMarkers)
-  const configFile = configPath === undefined ? undefined : toPosixPath(relative(rootDir, configPath))
   const artifactsToWrite: WriteArtifactInput[] = []
 
-  /** Queues an artifact of this run, recorded as written by `oa-gen generate` from `configFile` for `target`. */
+  /** Queues an artifact of this run, recorded as written by `oa-gen generate` from `source` for `target`. */
   const queue = (artifact: WriteArtifactInput, target?: string): void => {
-    artifactsToWrite.push({ ...artifact, producer: MANIFEST_PRODUCERS.generate, configFile, target })
+    artifactsToWrite.push({ ...artifact, producer: MANIFEST_PRODUCERS.generate, ...source, target })
   }
 
   /**
@@ -654,7 +672,7 @@ async function runConfigDrivenPipeline(
     activePaths.push(...outcomes.retainedPaths(writeResult.manifest.artifacts))
     pruneResult = await manifestManager.pruneOrphans(activePaths, {
       scope: ownedByGenerateRun({
-        configFile,
+        source,
         targets: new Set(specResults.map(res => res.target.id)),
         generatesGuards: resolvedConfig.guards !== undefined,
       }),

@@ -44,6 +44,11 @@ export interface ManifestArtifact {
    * (POSIX). Absent when that run read no configuration file.
    */
   configFile?: string | undefined
+  /**
+   * Spec file a run without a configuration file (`oa-gen generate --spec`)
+   * was started from, relative to rootDir (POSIX). Absent for other runs.
+   */
+  specFile?: string | undefined
   /** Spec target id (`specs[].id`) the artifact was generated for. Absent for artifacts of no single target. */
   target?: string | undefined
   /** SHA-256 content hash ("sha256:...") */
@@ -62,9 +67,14 @@ export interface ManifestArtifactOwner {
   producer: string | undefined
   /** Configuration file of that run, relative to rootDir. Undefined when the run read none, or when `legacy`. */
   configFile: string | undefined
+  /** Spec file of that run when it read no configuration file, relative to rootDir. Undefined otherwise, or when `legacy`. */
+  specFile: string | undefined
   /** Spec target id the record belongs to, if any. */
   target: string | undefined
-  /** True for a record written before codegen 0.9.0: its owner is inferred and its configuration file is unknown. */
+  /**
+   * True for a record written before codegen 0.9.0: its owner is inferred, and
+   * the configuration or spec file of the run that wrote it is unknown.
+   */
   legacy: boolean
 }
 
@@ -80,15 +90,22 @@ export interface ManifestArtifactOwner {
  */
 export function manifestArtifactOwner(artifact: ManifestArtifact): ManifestArtifactOwner {
   if (artifact.producer !== undefined) {
-    return { producer: artifact.producer, configFile: artifact.configFile, target: artifact.target, legacy: false }
+    return {
+      producer: artifact.producer,
+      configFile: artifact.configFile,
+      specFile: artifact.specFile,
+      target: artifact.target,
+      legacy: false,
+    }
   }
+  const unknownSource = { configFile: undefined, specFile: undefined, legacy: true }
   if (artifact.tag !== undefined) {
-    return { producer: MANIFEST_PRODUCERS.generate, configFile: undefined, target: artifact.tag, legacy: true }
+    return { producer: MANIFEST_PRODUCERS.generate, target: artifact.tag, ...unknownSource }
   }
   if (artifact.kind === 'guards') {
-    return { producer: MANIFEST_PRODUCERS.generate, configFile: undefined, target: undefined, legacy: true }
+    return { producer: MANIFEST_PRODUCERS.generate, target: undefined, ...unknownSource }
   }
-  return { producer: undefined, configFile: undefined, target: undefined, legacy: true }
+  return { producer: undefined, target: undefined, ...unknownSource }
 }
 
 /**
@@ -119,6 +136,8 @@ export interface WriteArtifactInput {
   producer?: string | undefined
   /** Configuration file of the run, relative to rootDir (POSIX) */
   configFile?: string | undefined
+  /** Spec file of a run without a configuration file, relative to rootDir (POSIX) */
+  specFile?: string | undefined
   /** Spec target id the artifact is generated for */
   target?: string | undefined
   /** Source OpenAPI spec path */
@@ -336,6 +355,7 @@ export class OaManifestManager {
         ...(art.tag ? { tag: art.tag } : {}),
         ...(art.producer ? { producer: art.producer } : {}),
         ...(art.configFile ? { configFile: art.configFile } : {}),
+        ...(art.specFile ? { specFile: art.specFile } : {}),
         ...(art.target ? { target: art.target } : {}),
         contentHash,
         ...(art.sourceSpec ? { sourceSpec: art.sourceSpec } : {}),
