@@ -384,17 +384,36 @@ oa-gen init --dry-run
 | `--crud` | | `boolean` | N | `false` | 리소스 전체 CRUD 엔드포인트 5종 및 요청/응답 DTO 일괄 생성 |
 | `--envelope` | | `boolean` | N | `false` | 표준 제네릭 래퍼(`Ok<T>`, `Created<T>`, `NoContent`, `PageResult<T>`) 적용 |
 | `--resource <name>` | | `string` | N | 자동 유추 | CRUD 대상 리소스 이름 (기본: 라우트 경로로부터 유추) |
-| `--file <path>` | `-f` | `string` | N | - | 생성된 코드를 기존 `.tsp` 파일 끝에 자동으로 추가 주입 |
-| `--output <path>` | `-o` | `string` | N | - | 출력 파일 경로 (`-` 지정 시 stdout 출력) |
+| `--file <path>` | `-f` | `string` | N | - | 생성된 코드를 이미 있는 `.tsp` 파일 끝에 추가 (import·`using` 줄은 붙이지 않음) |
+| `--output <path>` | `-o` | `string` | N | - | 출력 파일 경로 (`-` 지정 시 stdout 출력). 이미 있는 파일은 scaffold 코드로 덮어씀 |
 
-`--file`은 이미 있는 `.tsp` 파일에만 추가합니다. 기본 `--auth bearerAuth`가 만드는 `@useAuth(bearerAuth)`는 `bearerAuth` 식별자가 있어야 컴파일됩니다. 이 저장소는 `packages/schemas/typespec/common.tsp`에 `model bearerAuth is BearerAuth;`를 두며, 다른 프로젝트는 같은 선언을 추가하거나 `--auth none`을 씁니다. `--envelope`의 `Ok<T>` 등은 `@oa-sdk/typespec-decorators`의 표준 계약(`using OaSdkTypeSpec;`)을 씁니다.
+`--file`과 `--output`을 모두 생략하면 stdout으로 출력합니다. `--file`은 이미 있는 `.tsp` 파일에만 추가하고 import나 `using` 줄은 붙이지 않습니다. scaffold 코드는 `--envelope` 여부와 관계없이 `@operationId`(`@typespec/openapi`)와 `@oaUseResponseComponent`(`@oa-sdk/typespec-decorators`)를 쓰고, `--envelope`의 `Ok<T>`, `Created<T>`, `NoContent`, `PageResult<T>`도 `@oa-sdk/typespec-decorators`의 표준 계약입니다. 따라서 대상 파일은 다음 머리말을 갖춰야 컴파일됩니다.
+
+```typespec
+import "@typespec/http";
+import "@typespec/openapi";
+import "@oa-sdk/typespec-decorators";
+
+using Http;
+using OpenAPI;
+using OaSdkTypeSpec;
+
+@service(#{ title: "Orders" })
+namespace OrdersApi;
+```
+
+- `@typespec/openapi` import와 `using OpenAPI;`가 없으면 `oa-gen validate`가 `Unknown decorator @operationId`로, `@oa-sdk/typespec-decorators` import와 `using OaSdkTypeSpec;`이 없으면 `Unknown decorator @oaUseResponseComponent`로 실패합니다(`invalid-ref`, 종료 코드 1). 세 라이브러리의 설치는 [CLI 설정의 TypeSpec 작성 의존성](./cli-setup.md#typespec-작성-의존성)을 따릅니다.
+- 기본 `--auth bearerAuth`가 만드는 `@useAuth(bearerAuth)`는 `bearerAuth` 식별자가 있어야 컴파일됩니다. 이 저장소는 `packages/schemas/typespec/common.tsp`에 `model bearerAuth is BearerAuth;`를 두며, 다른 프로젝트는 같은 선언을 머리말 아래에 추가하거나 `--auth none`을 씁니다.
+- `--output`으로 새 파일을 만들면 `@typespec/http`·`@typespec/openapi` import만 붙이고 `@oa-sdk/typespec-decorators` import는 붙이지 않아 그대로는 컴파일되지 않습니다. `--envelope`와 함께 주면 `Ok<T>` 등을 파일 안에 따로 선언하므로 `using OaSdkTypeSpec;`을 더해도 `ambiguous-symbol`로 실패합니다. 위 머리말을 갖춘 파일을 먼저 만들고 `--file`로 추가합니다.
+- scaffold가 붙이는 `@oaUseResponseComponent("400", "BadRequest")` 등은 `oa-gen`이 `.tsp`를 메모리에서 컴파일할 때(`validate`, `typegen`, `generate`, `mock --tsp`) 실제 응답이 되지 않고 `x-oa-sdk-operation-component-refs` 확장으로만 남습니다. 응답으로 바뀌는 곳은 이 저장소의 bundle restore 경로(`pnpm schema:typespec-check`)뿐입니다. 다른 프로젝트에서 4xx 응답이 필요하면 생성된 operation의 반환 타입에 `ErrorResponse<Status>`나 `StandardHttpErrors`를 더합니다.
 
 실행 예시:
 ```bash
-# CRUD 5종 + 제네릭 엔벨롭 표준 스펙 생성 후 기존 파일에 추가 (이 저장소에서는 packages/schemas/typespec/*.tsp)
-oa-gen tsp-scaffold --route /orders --crud --envelope --file ./main.tsp
+# CRUD 5종 + 제네릭 엔벨롭 표준 스펙 생성 후 위 머리말을 갖춘 기존 파일에 추가
+# (bearerAuth 선언이 없으면 --auth none. 이 저장소에서는 packages/schemas/typespec/*.tsp)
+oa-gen tsp-scaffold --route /orders --crud --envelope --auth none --file ./main.tsp
 
-# 단일 POST 엔드포인트 생성
+# 단일 POST 엔드포인트 코드를 stdout으로 출력
 oa-gen tsp-scaffold --route /articles --method post --operation-id createArticle
 ```
 

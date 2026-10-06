@@ -216,7 +216,34 @@ npm install --save-dev @oa-sdk/typespec-decorators@^0.3.0 \
   @typespec/compiler@^1.16.0 @typespec/http@^1.16.0 @typespec/openapi@^1.16.0
 ```
 
-`tsp-scaffold --file` appends to an existing file. Its default `--auth bearerAuth` emits `@useAuth(bearerAuth)`, which compiles only when the file declares `model bearerAuth is BearerAuth;`; pass `--auth none` otherwise.
+`tsp-scaffold --file` appends to an existing file and adds no `import` or `using` lines. The scaffold
+always emits `@operationId` (from `@typespec/openapi`) and `@oaUseResponseComponent` (from
+`@oa-sdk/typespec-decorators`), and `--envelope` uses the standard `Ok<T>`, `Created<T>`, `NoContent` and
+`PageResult<T>` contracts from `@oa-sdk/typespec-decorators`. The target file therefore needs this header;
+without it `oa-gen validate` fails with `Unknown decorator @operationId` or
+`Unknown decorator @oaUseResponseComponent`:
+
+```typespec
+import "@typespec/http";
+import "@typespec/openapi";
+import "@oa-sdk/typespec-decorators";
+
+using Http;
+using OpenAPI;
+using OaSdkTypeSpec;
+
+@service(#{ title: "Orders" })
+namespace OrdersApi;
+```
+
+The default `--auth bearerAuth` emits `@useAuth(bearerAuth)`, which compiles only when the file also declares
+`model bearerAuth is BearerAuth;`; pass `--auth none` otherwise. `--output` starts a new file with only the
+`@typespec/http` and `@typespec/openapi` imports and overwrites an existing file with the scaffold alone, so its
+output does not compile as written; create the file with the header above and use `--file`.
+
+When `oa-gen` compiles a `.tsp` file in memory, `@oaUseResponseComponent` stays an
+`x-oa-sdk-operation-component-refs` extension rather than a response; add `ErrorResponse<Status>` or
+`StandardHttpErrors` to an operation's return type for 4xx responses.
 
 ```bash
 # Direct TypeScript type generation from .tsp

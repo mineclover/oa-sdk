@@ -177,6 +177,9 @@ corepack pnpm --version
 corepack pnpm install
 
 # 스펙 관리 (TypeSpec 정본 워크플로)
+# tsp-scaffold --file은 이미 있는 파일에만 추가하고 import·using 줄을 붙이지 않는다.
+# articles.tsp는 @typespec/http·@typespec/openapi·@oa-sdk/typespec-decorators import와
+# using Http; using OpenAPI; using OaSdkTypeSpec; namespace OaSdkApi;를 갖춰 먼저 만들고 main.tsp에서 import한다.
 node packages/codegen/dist/cli/index.js tsp-scaffold --route /articles --crud --envelope --file packages/schemas/typespec/articles.tsp # 엔드포인트/DTO 스캐폴딩
 node packages/codegen/dist/cli/index.js mock --tsp packages/schemas/typespec/main.tsp --watch # TypeSpec 인메모리 컴파일 실시간 Mock 서버 (무빌드 핫리로드)
 node packages/codegen/dist/cli/index.js tsp diff --base origin/main:packages/schemas/typespec/main.tsp --head packages/schemas/typespec/main.tsp --fail-on-breaking # 커밋 전 변경까지 포함한 TypeSpec 의미 단위 breaking change 검사
