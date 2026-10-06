@@ -103,7 +103,7 @@ describe('bundleExternalRefs', () => {
     expect(refsIn(bundled)).toEqual([schemaPointer])
   })
 
-  it('keeps the meaning of the fields next to a ref', () => {
+  it('keeps the meaning of the keywords next to a schema ref', () => {
     write('api/schemas.yaml', { User: { type: 'object', description: 'A user', required: ['id'], allOf: [{ required: ['name'] }] } })
     const user = { type: 'object', description: 'A user', required: ['id'], allOf: [{ required: ['name'] }] }
     const schemas = (bundled: Record<string, unknown>) => (bundled.components as { schemas: Record<string, unknown> }).schemas
@@ -127,6 +127,106 @@ describe('bundleExternalRefs', () => {
     })
     // OpenAPI 3.0 ignores the fields next to a ref.
     expect(schemas(entry(document('3.0.3'), 'api/openapi-30.yaml'))).toEqual({ Annotated: user, Constrained: user })
+  })
+
+  it('sets the fields next to a Path Item ref, which are fields of the path item, on the copy in every version', () => {
+    const operations = {
+      summary: 'A user',
+      get: { operationId: 'getUser', responses: { '200': jsonResponse({ $ref: '../schemas.json#/User' }) } },
+      delete: { operationId: 'deleteUser', responses: { '204': { description: 'Deleted' } } },
+    }
+    write('api/paths/user.yaml', operations)
+    write('api/schemas.json', { User: USER, Address: ADDRESS })
+    const user = { ...USER, properties: { ...USER.properties, address: ADDRESS } }
+    const document = (version: Record<string, string>, id: Record<string, unknown>) => ({
+      ...version,
+      info: { title: 'Users', version: '1.0.0' },
+      paths: { '/users/{id}': { $ref: './paths/user.yaml', summary: 'One user', parameters: [id] } },
+    })
+
+    for (const [version, id] of [
+      [{ openapi: '3.2.0' }, { name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+      [{ openapi: '3.0.3' }, { name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+      [{ swagger: '2.0' }, { name: 'id', in: 'path', required: true, type: 'string' }],
+    ] as const) {
+      // On a conflict (summary) the fields next to the ref win, as in the parser's dereference.
+      expect(entry(document(version, id)).paths, JSON.stringify(version)).toEqual({
+        '/users/{id}': {
+          ...operations,
+          get: { ...operations.get, responses: { '200': jsonResponse(user) } },
+          summary: 'One user',
+          parameters: [id],
+        },
+      })
+    }
+  })
+
+  it('keeps the summary and description next to a Reference Object where its target has that field, and drops its other fields', () => {
+    const limit = { name: 'limit', in: 'query', description: 'How many', schema: { type: 'integer' } }
+    const ok = { description: 'OK' }
+    const hook = { '{$request.body#/url}': { post: { responses: { '200': ok } } } }
+    write('api/components.yaml', { Limit: limit, Ok: ok, Hook: hook, Retry: { description: 'Seconds to wait', schema: { type: 'integer' } } })
+    const document = (openapi: string) => ({
+      openapi,
+      info: { title: 'Items', version: '1.0.0' },
+      paths: {
+        '/items': {
+          get: {
+            parameters: [{ $ref: './components.yaml#/Limit', required: true, summary: 'Limit', description: 'Page size' }],
+            responses: {
+              '200': { $ref: './components.yaml#/Ok', summary: 'Items', description: 'The items', 'x-internal': true },
+              '503': {
+                description: 'Unavailable',
+                headers: { 'Retry-After': { $ref: './components.yaml#/Retry', required: true } },
+              },
+            },
+            callbacks: { onItem: { $ref: './components.yaml#/Hook', description: 'Called per item' } },
+          },
+        },
+      },
+    })
+    const operation = (openapi: string) => (entry(document(openapi)).paths as Record<string, { get: unknown }>)['/items']!.get
+    const unavailable = { description: 'Unavailable', headers: { 'Retry-After': { description: 'Seconds to wait', schema: { type: 'integer' } } } }
+
+    // OpenAPI 3.1: a parameter and a response have a description (not a summary), a callback neither.
+    expect(operation('3.1.0')).toEqual({
+      parameters: [{ ...limit, description: 'Page size' }],
+      responses: { '200': { description: 'The items' }, '503': unavailable },
+      callbacks: { onItem: hook },
+    })
+    // OpenAPI 3.2 gave the Response Object a summary.
+    expect((operation('3.2.0') as { responses: unknown }).responses).toEqual({
+      '200': { summary: 'Items', description: 'The items' },
+      '503': unavailable,
+    })
+    // OpenAPI 3.0 ignores every field next to a Reference Object.
+    expect(operation('3.0.3')).toEqual({ parameters: [limit], responses: { '200': ok, '503': unavailable }, callbacks: { onItem: hook } })
+  })
+
+  it('refers a Path Item ref to the components entry that holds its copy, with the fields next to it as written', () => {
+    const operations = { get: { operationId: 'listUsers', responses: { '200': { description: 'OK' } } } }
+    write('api/paths/users.yaml', operations)
+    const bundled = entry({
+      openapi: '3.2.0',
+      info: { title: 'Users', version: '1.0.0' },
+      paths: { '/users': { $ref: './paths/users.yaml', description: 'All users' } },
+      components: { pathItems: { Users: { $ref: './paths/users.yaml' } } },
+    })
+
+    expect(bundled.paths).toEqual({ '/users': { $ref: '#/components/pathItems/Users', description: 'All users' } })
+    expect(bundled.components).toEqual({ pathItems: { Users: operations } })
+  })
+
+  it('sets the fields next to a ref outside the OpenAPI objects on the copy, as the parser\'s dereference does', () => {
+    write('api/samples.yaml', { User: { id: 'u1' } })
+    const bundled = entry({
+      openapi: '3.0.3',
+      info: { title: 'Users', version: '1.0.0' },
+      paths: {},
+      'x-samples': { ada: { $ref: './samples.yaml#/User', name: 'Ada' } },
+    })
+
+    expect(bundled['x-samples']).toEqual({ ada: { id: 'u1', name: 'Ada' } })
   })
 
   it('keeps refs within the entry document, plain-name fragments and refs to URLs as written', () => {
