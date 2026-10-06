@@ -39,6 +39,12 @@ import { detectSchemas } from './common/schema-detector.js'
 import { patchPackageJson } from './common/package-patcher.js'
 import { findPnpmWorkspace } from './common/pnpm-workspace.js'
 import {
+  CONTRACT_BASELINE_PATH,
+  isSpecDocumentPath,
+  writeContractBaseline,
+} from './common/contract-baseline.js'
+import { DEFAULT_SCHEMA_ENTRY, oaGenScript, schemaEntryOf, scriptPath } from './common/scripts.js'
+import {
   OA_SDK_INIT_PACKAGES,
   REGISTRY_OA_SDK_PACKAGES,
   REGISTRY_SOURCES,
@@ -65,6 +71,7 @@ import type { UnavailableOaSdkPackage, UninstallableOaSdkEntry } from './oa-sdk-
 export * from './types.js'
 export type { ComposedDependencies } from './composer.js'
 export type { PnpmWorkspace } from './common/pnpm-workspace.js'
+export type { ContractBaselinePlan, ContractBaselineResult } from './common/contract-baseline.js'
 export type {
   DependencySection,
   OaSdkPackageName,
@@ -110,6 +117,13 @@ export {
   detectSchemas,
   patchPackageJson,
   findPnpmWorkspace,
+  CONTRACT_BASELINE_PATH,
+  isSpecDocumentPath,
+  writeContractBaseline,
+  DEFAULT_SCHEMA_ENTRY,
+  oaGenScript,
+  schemaEntryOf,
+  scriptPath,
   OA_SDK_INIT_PACKAGES,
   REGISTRY_OA_SDK_PACKAGES,
   REGISTRY_SOURCES,
@@ -254,6 +268,13 @@ export async function runInit(options: InitOptions = {}): Promise<InitResult> {
     // package.json does not exist or unreadable, skip patch
   }
 
+  // 6. Create the contract baseline the archetype's scripts compare the spec with, unless the
+  // project has one: it records a release, so only the project moves it (its baseline:update script).
+  const baselinePlan = matchedArchetype.getContractBaseline?.({ ...targetGenOptions, archetypeId })
+  const contractBaseline = baselinePlan === undefined
+    ? undefined
+    : await writeContractBaseline(cwd, baselinePlan, { dryRun: options.dryRun })
+
   return {
     targetId,
     archetypeId,
@@ -267,6 +288,7 @@ export async function runInit(options: InitOptions = {}): Promise<InitResult> {
     packageJsonPath: pkgPath,
     unavailablePackages,
     uninstallableEntries,
+    contractBaseline,
     dryRun: options.dryRun ?? false,
   }
 }

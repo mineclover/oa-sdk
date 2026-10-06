@@ -14,8 +14,8 @@ export class MicroserviceArchetypeProfile implements ArchetypeProfile {
   readonly id: LifecycleArchetypeId = 'microservice'
   readonly name = 'Microservice'
   readonly displayName = 'Microservice'
-  readonly description = 'High-throughput runtime optimization (Fastify JIT / Bun Elysia zero-copy), strict wire typing (JsonPrimitive<T>), pure handler contracts (*.contract.ts), automated contract tests'
-  readonly summaryBullet = 'High throughput, strict wire typing, contract tests'
+  readonly description = 'High-throughput runtime optimization (Fastify JIT / Bun Elysia zero-copy), strict wire typing (JsonPrimitive<T>), pure handler contracts (*.contract.ts)'
+  readonly summaryBullet = 'High throughput, strict wire typing, handler contracts'
 
   async detect(cwd: string): Promise<ArchetypeDetectionResult> {
     const matchedMarkers: string[] = []
@@ -84,36 +84,25 @@ export class MicroserviceArchetypeProfile implements ArchetypeProfile {
     }
   }
 
+  /**
+   * The live mock. The handler contracts come from the `generate` script every target adds;
+   * the archetype writes no contract tests, so it adds no script to run them.
+   */
   getRecommendedScripts(options: ArchetypeGenerateOptions): Record<string, string> {
     if (options.runtime === 'bun') {
       return {
-        'generate:contract': 'bun x oa-gen generate --target generic',
-        'test:contract': 'bun test src/__tests__/contracts',
-        'audit:wire': 'bun x oa-gen audit:shape --strict',
         'mock': 'bun x oa-gen mock --watch',
       }
     }
 
     return {
-      'generate:contract': 'oa-gen generate --target generic',
-      'test:contract': 'vitest run src/__tests__/contracts',
-      'audit:wire': 'oa-gen audit:shape --strict',
       'mock': 'oa-gen mock --watch',
     }
   }
 
-  getRecommendedDependencies(options: ArchetypeGenerateOptions): RecommendedDependencies {
-    if (options.runtime === 'bun') {
-      return {
-        devDependencies: {},
-        oaSdkDevDependencies: ['@oa-sdk/core', '@oa-sdk/router'],
-      }
-    }
-
+  getRecommendedDependencies(_options: ArchetypeGenerateOptions): RecommendedDependencies {
     return {
-      devDependencies: {
-        'vitest': '^1.6.0',
-      },
+      devDependencies: {},
       oaSdkDevDependencies: ['@oa-sdk/core', '@oa-sdk/router'],
     }
   }

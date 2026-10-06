@@ -36,7 +36,8 @@ describe('oa-gen init CLI & Orchestrator', () => {
 
     const pkg = JSON.parse(await fs.readFile(path.join(tmpDir, 'package.json'), 'utf-8'))
     expect(pkg.scripts['dev']).toContain('tsx watch')
-    expect(pkg.scripts['generate:router']).toContain('fastify')
+    expect(pkg.scripts['generate']).toBe('oa-gen generate')
+    expect(pkg.scripts['generate:router']).toBeUndefined()
     expect(pkg.devDependencies['tsx']).toBeDefined()
   })
 
@@ -116,7 +117,7 @@ describe('oa-gen init CLI & Orchestrator', () => {
     expect(configExists).toBe(true)
 
     const pkg = JSON.parse(await fs.readFile(path.join(tmpDir, 'package.json'), 'utf-8'))
-    expect(pkg.scripts['generate:router']).toContain('express')
+    expect(pkg.scripts['generate']).toBe('oa-gen generate')
   })
 
   it('exposes --archetype option in Command definition', () => {
@@ -145,10 +146,13 @@ describe('oa-gen init CLI & Orchestrator', () => {
     expect(config).toContain("wireFormatSafety: true")
 
     const pkg = JSON.parse(await fs.readFile(path.join(tmpDir, 'package.json'), 'utf-8'))
-    expect(pkg.scripts['test:contract']).toBe('vitest run src/__tests__/contracts')
-    expect(pkg.scripts['generate:contract']).toBeDefined()
-    expect(pkg.scripts['audit:wire']).toBeDefined()
-    expect(pkg.devDependencies['vitest']).toBeDefined()
+    expect(pkg.scripts).toEqual({
+      dev: 'tsx watch src/server.ts',
+      build: 'tsc',
+      generate: 'oa-gen generate',
+      mock: 'oa-gen mock --watch',
+    })
+    expect(pkg.devDependencies['vitest']).toBeUndefined()
     // Outside any workspace, the release of @oa-sdk/core this codegen was built against.
     expect(pkg.devDependencies['@oa-sdk/core']).toBe(`^${BUILT_AGAINST_VERSIONS['@oa-sdk/core']}`)
   })
@@ -173,8 +177,16 @@ describe('oa-gen init CLI & Orchestrator', () => {
 
     const pkg = JSON.parse(await fs.readFile(path.join(tmpDir, 'package.json'), 'utf-8'))
     expect(pkg.scripts['ci:gate']).toContain('--fail-on-breaking')
-    expect(pkg.scripts['diff']).toBeDefined()
-    expect(pkg.scripts['personas:check']).toBeDefined()
+    expect(pkg.scripts['diff']).toBe('oa-gen diff --base openapi.baseline.yaml --head openapi.yaml --fail-on-breaking')
+    expect(pkg.scripts['baseline:update']).toBe('oa-gen normalize --spec openapi.yaml --output openapi.baseline.yaml')
+    expect(pkg.scripts['personas:check']).toBeUndefined()
+    // Without a spec yet, init cannot create the baseline the diff compares with, and says why.
+    expect(res.contractBaseline).toEqual({
+      path: 'openapi.baseline.yaml',
+      specPath: 'openapi.yaml',
+      status: 'not-created',
+      reason: 'the spec openapi.yaml does not exist yet',
+    })
     // @oa-sdk/personas is private, so outside a workspace that contains it init leaves it out and says so.
     expect(pkg.devDependencies['@oa-sdk/personas']).toBeUndefined()
     expect(res.unavailablePackages?.map(entry => entry.name)).toEqual(['@oa-sdk/personas'])
@@ -222,7 +234,8 @@ describe('oa-gen init CLI & Orchestrator', () => {
 
     let pkg = JSON.parse(await fs.readFile(path.join(tmpDir, 'package.json'), 'utf-8'))
     expect(pkg.scripts['custom']).toBe('echo custom-script')
-    expect(pkg.scripts['generate:client']).toBeDefined()
+    expect(pkg.scripts['generate']).toBe('oa-gen generate')
+    expect(pkg.scripts['validate']).toBe('oa-gen validate')
     expect(pkg.scripts['ci:gate']).toBeUndefined()
 
     // 2. Day 180 Enterprise Evolution with --force

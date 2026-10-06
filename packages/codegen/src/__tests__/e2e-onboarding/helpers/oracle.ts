@@ -435,69 +435,46 @@ export function getRecommendedScriptsForPair(
   if (framework === 'fastify') {
     scripts['dev'] = 'tsx watch src/server.ts'
     scripts['build'] = 'tsc'
-    scripts['generate:router'] = 'oa-gen generate --target fastify'
+    scripts['generate'] = 'oa-gen generate'
   } else if (framework === 'elysia') {
     scripts['dev'] = 'bun --watch src/index.ts'
-    scripts['generate:router'] = 'bun x oa-gen generate --target elysia'
+    scripts['generate'] = 'bun x oa-gen generate'
   } else if (framework === 'hono') {
     if (runtime === 'bun') {
       scripts['dev'] = 'bun --watch src/index.ts'
-      scripts['generate:router'] = 'bun x oa-gen generate --target hono'
+      scripts['generate'] = 'bun x oa-gen generate'
     } else {
       scripts['dev'] = 'tsx watch src/index.ts'
       scripts['build'] = 'tsc'
-      scripts['generate:router'] = 'oa-gen generate --target hono'
+      scripts['generate'] = 'oa-gen generate'
     }
   } else if (framework === 'express') {
     scripts['dev'] = 'tsx watch src/app.ts'
     scripts['build'] = 'tsc'
-    scripts['generate:router'] = 'oa-gen generate --target express'
+    scripts['generate'] = 'oa-gen generate'
   } else if (framework === 'nestjs') {
     scripts['start:dev'] = 'nest start --watch'
-    scripts['generate:contract'] = 'oa-gen generate --target generic'
+    scripts['generate'] = 'oa-gen generate'
   } else {
     scripts['generate'] = 'oa-gen generate'
   }
 
-  // 2. Lifecycle Archetype scripts
+  // 2. Lifecycle Archetype scripts. The client SDK and the handler contracts come from the
+  // framework's `generate`; the enterprise gate runs on the spec entry point (openapi.yaml without
+  // a detected spec) and the contract baseline init creates from it.
+  const oaGen = runtime === 'bun' ? 'bun x oa-gen' : 'oa-gen'
   if (archetype === 'mvp') {
-    if (runtime === 'bun') {
-      scripts['mock'] = 'bun x oa-gen mock --watch'
-      scripts['generate:client'] = 'bun x oa-gen generate --target client'
-      scripts['validate'] = 'bun x oa-gen validate'
-    } else {
-      scripts['mock'] = 'oa-gen mock --watch'
-      scripts['generate:client'] = 'oa-gen generate --target client'
-      scripts['validate'] = 'oa-gen validate'
-    }
+    scripts['mock'] = `${oaGen} mock --watch`
+    scripts['validate'] = `${oaGen} validate`
   } else if (archetype === 'microservice') {
-    if (runtime === 'bun') {
-      scripts['generate:contract'] = 'bun x oa-gen generate --target contract'
-      scripts['test:contract'] = 'bun test src/__tests__/contracts'
-      scripts['audit:wire'] = 'bun x oa-gen audit:shape --strict'
-      scripts['mock'] = 'bun x oa-gen mock --watch'
-    } else {
-      scripts['generate:contract'] = 'oa-gen generate --target contract'
-      scripts['test:contract'] = 'vitest run src/__tests__/contracts'
-      scripts['audit:wire'] = 'oa-gen audit:shape --strict'
-      scripts['mock'] = 'oa-gen mock --watch'
-    }
+    scripts['mock'] = `${oaGen} mock --watch`
   } else if (archetype === 'enterprise') {
-    if (runtime === 'bun') {
-      scripts['diff'] = 'bun x oa-gen diff --base origin/main --head HEAD --fail-on-breaking'
-      scripts['lint:spec'] = 'bun x oa-gen lint --categories structure,refs,components,semantics'
-      scripts['audit:csp'] = 'bun x oa-gen audit:csp --bundle ./dist'
-      scripts['audit:shape'] = 'bun x oa-gen audit:shape --fail-on-unsupported'
-      scripts['personas:check'] = 'bun x oa-gen personas:check'
-      scripts['ci:gate'] = 'bun x oa-gen diff --base origin/main --fail-on-breaking && bun x oa-gen validate --require-32'
-    } else {
-      scripts['diff'] = 'oa-gen diff --base origin/main --head HEAD --fail-on-breaking'
-      scripts['lint:spec'] = 'oa-gen lint --categories structure,refs,components,semantics'
-      scripts['audit:csp'] = 'oa-gen audit:csp --bundle ./dist'
-      scripts['audit:shape'] = 'oa-gen audit:shape --fail-on-unsupported'
-      scripts['personas:check'] = 'oa-gen personas:check'
-      scripts['ci:gate'] = 'oa-gen diff --base origin/main --fail-on-breaking && oa-gen validate --require-32'
-    }
+    const lint = `${oaGen} lint --spec openapi.yaml`
+    const diff = `${oaGen} diff --base openapi.baseline.yaml --head openapi.yaml --fail-on-breaking`
+    scripts['lint:spec'] = lint
+    scripts['diff'] = diff
+    scripts['baseline:update'] = `${oaGen} normalize --spec openapi.yaml --output openapi.baseline.yaml`
+    scripts['ci:gate'] = [`${oaGen} validate --spec openapi.yaml --require-32`, lint, diff].join(' && ')
   }
 
   return scripts
@@ -568,9 +545,6 @@ export function getRecommendedDevDepsForPair(
     addOaSdk('@oa-sdk/mock-server')
   } else if (archetype === 'microservice') {
     addOaSdk('@oa-sdk/core')
-    if (runtime === 'node') {
-      deps['vitest'] = '^1.6.0'
-    }
   } else if (archetype === 'enterprise') {
     addOaSdk('@oa-sdk/core')
     addOaSdk('@oa-sdk/personas')

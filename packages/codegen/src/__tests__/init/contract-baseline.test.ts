@@ -1,0 +1,162 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as fs from 'node:fs/promises'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { parse as parseYaml } from 'yaml'
+import {
+  CONTRACT_BASELINE_PATH,
+  detectSchemas,
+  isSpecDocumentPath,
+  runInit,
+  writeContractBaseline,
+} from '../../cli/lib/init/index.js'
+import { init } from '../../cli/commands/init.js'
+import { normalize } from '../../cli/commands/normalize.js'
+
+/** codegen's node_modules, which has the TypeSpec libraries a `.tsp` spec imports. */
+const CODEGEN_NODE_MODULES = fileURLToPath(new URL('../../../node_modules', import.meta.url))
+
+const SPEC = [
+  'openapi: 3.2.0',
+  'info: { version: 1.0.0, title: Users }',
+  'paths:',
+  '  /users/{id}:',
+  '    get:',
+  '      operationId: getUser',
+  '      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]',
+  "      responses: { '200': { description: OK } }",
+  '',
+].join('\n')
+
+describe('contract baseline of the enterprise archetype', () => {
+  let projectDir: string
+
+  beforeEach(async () => {
+    projectDir = await fs.mkdtemp(path.join(os.tmpdir(), 'oa-contract-baseline-'))
+  })
+
+  afterEach(async () => {
+    vi.restoreAllMocks()
+    await fs.rm(projectDir, { recursive: true, force: true })
+  })
+
+  const plan = { path: CONTRACT_BASELINE_PATH, specPath: 'openapi.yaml' }
+  const read = (file: string) => fs.readFile(path.join(projectDir, file), 'utf8')
+
+  it('is created from the spec as oa-gen normalize writes it, so the baseline:update script rewrites it unchanged', async () => {
+    await fs.writeFile(path.join(projectDir, 'openapi.yaml'), SPEC)
+
+    expect(await writeContractBaseline(projectDir, plan)).toEqual({ ...plan, status: 'created' })
+
+    const baseline = await read(CONTRACT_BASELINE_PATH)
+    expect(parseYaml(baseline)).toEqual(parseYaml(SPEC))
+    await normalize.run({ spec: path.join(projectDir, 'openapi.yaml'), output: path.join(projectDir, 'normalized.yaml') })
+    expect(await read('normalized.yaml')).toBe(baseline)
+  })
+
+  it('compiles a TypeSpec spec to the OpenAPI document the gate compares with', async () => {
+    await fs.symlink(CODEGEN_NODE_MODULES, path.join(projectDir, 'node_modules'), 'dir')
+    await fs.writeFile(path.join(projectDir, 'main.tsp'), [
+      'import "@typespec/http";',
+      'using Http;',
+      '@service(#{ title: "Users" }) namespace Users;',
+      'model User { id: string; }',
+      '@route("/users/{id}") @get op getUser(@path id: string): User;',
+      '',
+    ].join('\n'))
+
+    const typespecPlan = { path: CONTRACT_BASELINE_PATH, specPath: 'main.tsp' }
+    expect(await writeContractBaseline(projectDir, typespecPlan)).toEqual({ ...typespecPlan, status: 'created' })
+
+    const baseline = await read(CONTRACT_BASELINE_PATH)
+    expect(parseYaml(baseline).openapi).toBe('3.2.0')
+    expect(parseYaml(baseline).paths['/users/{id}'].get.operationId).toBe('getUser')
+    // oa-gen normalize, which the baseline:update script runs, reads the TypeSpec spec as well.
+    await normalize.run({ spec: path.join(projectDir, 'main.tsp'), output: path.join(projectDir, 'normalized.yaml') })
+    expect(await read('normalized.yaml')).toBe(baseline)
+  })
+
+  it('keeps a baseline the project has, which records a release', async () => {
+    await fs.writeFile(path.join(projectDir, 'openapi.yaml'), SPEC)
+    await fs.writeFile(path.join(projectDir, CONTRACT_BASELINE_PATH), 'released: true\n')
+
+    expect(await writeContractBaseline(projectDir, plan)).toEqual({ ...plan, status: 'exists' })
+    expect(await read(CONTRACT_BASELINE_PATH)).toBe('released: true\n')
+  })
+
+  it('is only planned in a dry run', async () => {
+    await fs.writeFile(path.join(projectDir, 'openapi.yaml'), SPEC)
+
+    expect(await writeContractBaseline(projectDir, plan, { dryRun: true })).toEqual({ ...plan, status: 'planned' })
+    await expect(fs.access(path.join(projectDir, CONTRACT_BASELINE_PATH))).rejects.toThrow()
+  })
+
+  it('is not created, with the reason, when the spec does not exist or does not load', async () => {
+    expect(await writeContractBaseline(projectDir, plan)).toEqual({
+      ...plan,
+      status: 'not-created',
+      reason: 'the spec openapi.yaml does not exist yet',
+    })
+
+    await fs.writeFile(path.join(projectDir, 'openapi.yaml'), 'openapi: [unclosed\n')
+    const result = await writeContractBaseline(projectDir, plan)
+    expect(result.status).toBe('not-created')
+    expect(result.status === 'not-created' && result.reason).toMatch(/^the spec openapi\.yaml did not load: /)
+    await expect(fs.access(path.join(projectDir, CONTRACT_BASELINE_PATH))).rejects.toThrow()
+  })
+
+  it('is never detected as the spec of the project', async () => {
+    await fs.mkdir(path.join(projectDir, 'api'))
+    await fs.writeFile(path.join(projectDir, 'api', 'spec.yaml'), SPEC)
+    await fs.writeFile(path.join(projectDir, CONTRACT_BASELINE_PATH), SPEC)
+
+    expect((await detectSchemas(projectDir)).map(item => item.filePath)).toEqual([path.join('api', 'spec.yaml')])
+  })
+
+  it('applies to the spec documents oa-gen lint, diff and normalize load', () => {
+    for (const specPath of ['openapi.yaml', 'api/spec.yml', 'openapi.json', 'typespec/main.tsp']) {
+      expect(isSpecDocumentPath(specPath), specPath).toBe(true)
+    }
+    for (const specPath of ['src/schema.ts', 'src/routes.tsx', 'spec']) {
+      expect(isSpecDocumentPath(specPath), specPath).toBe(false)
+    }
+  })
+
+  it('is created by oa-gen init --archetype enterprise, and kept by the next run', async () => {
+    await fs.writeFile(path.join(projectDir, 'package.json'), JSON.stringify({ name: 'gated' }))
+    await fs.writeFile(path.join(projectDir, 'openapi.yaml'), SPEC)
+
+    const first = await runInit({ cwd: projectDir, archetype: 'enterprise', yes: true })
+    expect(first.contractBaseline).toEqual({ ...plan, status: 'created' })
+    const baseline = await read(CONTRACT_BASELINE_PATH)
+
+    // A later change to the spec does not move the baseline: only the baseline:update script does.
+    await fs.writeFile(path.join(projectDir, 'openapi.yaml'), SPEC.replace('/users/{id}', '/people/{id}'))
+    const second = await runInit({ cwd: projectDir, archetype: 'enterprise', yes: true, force: true })
+    expect(second.contractBaseline).toEqual({ ...plan, status: 'exists' })
+    expect(await read(CONTRACT_BASELINE_PATH)).toBe(baseline)
+
+    const mvp = await runInit({ cwd: projectDir, archetype: 'mvp', yes: true })
+    expect(mvp.contractBaseline).toBeUndefined()
+  })
+
+  it('is reported by the init command, with what to do when it could not be created', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    await fs.writeFile(path.join(projectDir, 'package.json'), JSON.stringify({ name: 'gated' }))
+
+    await init.run({ cwd: projectDir, archetype: 'enterprise', yes: true })
+    expect(log.mock.calls.map(([line]) => String(line))).toContain(
+      `⚠️ Contract baseline ${CONTRACT_BASELINE_PATH} not created: the spec openapi.yaml does not exist yet. ` +
+        'Run the "baseline:update" script once the spec loads; "diff" and "ci:gate" need it.',
+    )
+
+    log.mockClear()
+    await fs.writeFile(path.join(projectDir, 'openapi.yaml'), SPEC)
+    await init.run({ cwd: projectDir, archetype: 'enterprise', yes: true })
+    expect(log.mock.calls.map(([line]) => String(line))).toContain(
+      `📌 Contract baseline: created ${CONTRACT_BASELINE_PATH} from openapi.yaml; commit it. ` +
+        'The "diff" script fails on changes that break it, and "baseline:update" moves it to the spec when you release.',
+    )
+  })
+})

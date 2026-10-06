@@ -5,6 +5,7 @@ import type {
   UnavailableOaSdkPackage,
   UninstallableOaSdkEntry,
 } from './oa-sdk-packages.js'
+import type { ContractBaselineResult } from './common/contract-baseline.js'
 
 export type TargetFrameworkId =
   | 'fastify'
@@ -133,5 +134,7 @@ export interface InitResult {
    * lives, such as `workspace:*` entries an earlier init wrote outside a workspace.
    */
   uninstallableEntries?: UninstallableOaSdkEntry[] | undefined
+  /** The contract baseline the archetype's scripts compare the spec with, for an archetype that has one. */
+  contractBaseline?: ContractBaselineResult | undefined
   dryRun?: boolean | undefined
 }

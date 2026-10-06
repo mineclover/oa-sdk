@@ -71,7 +71,7 @@ export default defineConfig({
     return {
       'dev': 'tsx watch src/server.ts',
       'build': 'tsc',
-      'generate:router': 'oa-gen generate --target fastify',
+      'generate': 'oa-gen generate',
       'mock': 'oa-gen mock --watch',
     }
   }

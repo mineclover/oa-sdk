@@ -15,6 +15,7 @@ import {
   type OaSdkPackageName,
   type UnavailableOaSdkPackage,
 } from './oa-sdk-packages.js'
+import { schemaEntryOf } from './common/scripts.js'
 
 /**
  * Format a JavaScript/TypeScript object literal into formatted multi-line string.
@@ -149,7 +150,7 @@ export function composeInitConfig(
   archetype: ArchetypeProfile,
   options: TargetGenerateOptions,
 ): string {
-  const schemaEntry = options.detectedSchema?.filePath ?? 'openapi.yaml'
+  const schemaEntry = schemaEntryOf(options)
   const archetypeOptions: ArchetypeGenerateOptions = {
     ...options,
     archetypeId: archetype.id,

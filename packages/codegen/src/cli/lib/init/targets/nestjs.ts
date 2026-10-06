@@ -57,7 +57,7 @@ export default defineConfig({
   getRecommendedScripts(_options: TargetGenerateOptions): Record<string, string> {
     return {
       'start:dev': 'nest start --watch',
-      'generate:contract': 'oa-gen generate --target generic',
+      'generate': 'oa-gen generate',
       'mock': 'oa-gen mock --watch',
     }
   }

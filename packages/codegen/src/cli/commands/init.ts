@@ -2,7 +2,7 @@ import type { Command } from '../lib/types.js'
 import { bool, optStr } from '../lib/args.js'
 import { CliExitError } from '../lib/errors.js'
 import { runInit } from '../lib/init/index.js'
-import type { DependencySection, UninstallableOaSdkEntry } from '../lib/init/index.js'
+import type { ContractBaselineResult, DependencySection, UninstallableOaSdkEntry } from '../lib/init/index.js'
 
 export const init: Command = {
   name: 'init',
@@ -118,7 +118,26 @@ export const init: Command = {
         for (const entry of uninstallable) console.log(`   - ${describeUninstallableEntry(entry)}`)
       }
     }
+
+    if (result.contractBaseline) console.log(describeContractBaseline(result.contractBaseline))
   },
+}
+
+/**
+ * One line on the contract baseline: what init did, and, when the gate cannot run yet, what makes
+ * it run. The scripts are named as the enterprise archetype adds them.
+ */
+function describeContractBaseline(baseline: ContractBaselineResult): string {
+  switch (baseline.status) {
+    case 'created':
+      return `📌 Contract baseline: created ${baseline.path} from ${baseline.specPath}; commit it. The "diff" script fails on changes that break it, and "baseline:update" moves it to the spec when you release.`
+    case 'exists':
+      return `📌 Contract baseline: kept the existing ${baseline.path}`
+    case 'planned':
+      return `🔍 [dry-run] contract baseline would be created at ${baseline.path} from ${baseline.specPath}`
+    case 'not-created':
+      return `⚠️ Contract baseline ${baseline.path} not created: ${baseline.reason}. Run the "baseline:update" script once the spec loads; "diff" and "ci:gate" need it.`
+  }
 }
 
 const SECTION_LABELS: Record<DependencySection, string> = {

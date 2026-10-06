@@ -1,6 +1,7 @@
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import type { DetectedSchemaItem } from '../types.js'
+import { CONTRACT_BASELINE_PATH } from './contract-baseline.js'
 
 export interface SchemaDetectorOptions {
   maxDepth?: number
@@ -47,6 +48,8 @@ export async function detectSchemas(
       if (ignored.has(entry)) continue
       const fullPath = path.join(dir, entry)
       const relPath = path.relative(cwd, fullPath)
+      // The contract baseline is a copy of the released spec, never the spec the project edits.
+      if (relPath === CONTRACT_BASELINE_PATH) continue
 
       try {
         const stat = await fs.stat(fullPath)

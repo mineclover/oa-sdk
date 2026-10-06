@@ -60,7 +60,7 @@ export default defineConfig({
     // Bun native scripts: strictly ZERO tsx, ZERO nodemon
     return {
       'dev': 'bun --watch src/index.ts',
-      'generate:router': 'bun x oa-gen generate --target elysia',
+      'generate': 'bun x oa-gen generate',
       'mock': 'bun x oa-gen mock --watch',
     }
   }

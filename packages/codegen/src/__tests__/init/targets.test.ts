@@ -67,7 +67,9 @@ describe('Init Target Strategy Profiles', () => {
         runtime: 'node',
       })
       expect(scripts['dev']).toContain('tsx watch')
-      expect(scripts['generate:router']).toContain('fastify')
+      // oa-gen writes no router: the script runs generate as is, without a --target it would ignore.
+      expect(scripts['generate']).toBe('oa-gen generate')
+      expect(scripts['generate:router']).toBeUndefined()
     })
 
     it('includes Node devDependencies and excludes Bun dependencies', () => {
@@ -110,7 +112,7 @@ describe('Init Target Strategy Profiles', () => {
         runtime: 'bun',
       })
       expect(scripts['dev']).toContain('bun --watch')
-      expect(scripts['generate:router']).toContain('bun x')
+      expect(scripts['generate']).toBe('bun x oa-gen generate')
       expect(scripts['mock']).toContain('bun x')
 
       const combined = Object.values(scripts).join(' ')
@@ -149,7 +151,7 @@ describe('Init Target Strategy Profiles', () => {
         runtime: 'bun',
       })
       expect(scripts['dev']).toContain('bun --watch')
-      expect(scripts['generate:router']).toContain('bun x')
+      expect(scripts['generate']).toBe('bun x oa-gen generate')
     })
 
     it('selects tsx watch scripts when runtime is node', () => {
@@ -159,7 +161,7 @@ describe('Init Target Strategy Profiles', () => {
         runtime: 'node',
       })
       expect(scripts['dev']).toContain('tsx watch')
-      expect(scripts['generate:router']).not.toContain('bun x')
+      expect(scripts['generate']).toBe('oa-gen generate')
     })
   })
 
@@ -176,13 +178,14 @@ describe('Init Target Strategy Profiles', () => {
       expect(res.detectedRuntime).toBe('node')
     })
 
-    it('recommends express router generation and types', () => {
+    it('recommends generation of the handler contracts and express types', () => {
       const scripts = profile.getRecommendedScripts({
         cwd: tmpDir,
         frameworkId: 'express',
         runtime: 'node',
       })
-      expect(scripts['generate:router']).toContain('express')
+      expect(scripts['generate']).toBe('oa-gen generate')
+      expect(scripts['generate:router']).toBeUndefined()
 
       const deps = profile.getRecommendedDependencies({
         cwd: tmpDir,
@@ -213,7 +216,8 @@ describe('Init Target Strategy Profiles', () => {
         runtime: 'node',
       })
       expect(scripts['start:dev']).toBe('nest start --watch')
-      expect(scripts['generate:contract']).toBeDefined()
+      expect(scripts['generate']).toBe('oa-gen generate')
+      expect(scripts['generate:contract']).toBeUndefined()
     })
   })
 

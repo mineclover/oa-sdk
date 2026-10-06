@@ -88,18 +88,20 @@ export class MvpArchetypeProfile implements ArchetypeProfile {
     }
   }
 
+  /**
+   * The live mock and the validation of every spec target. The client SDK comes from the
+   * `generate` script every target adds, since oa.config.ts enables the client output.
+   */
   getRecommendedScripts(options: ArchetypeGenerateOptions): Record<string, string> {
     if (options.runtime === 'bun') {
       return {
         'mock': 'bun x oa-gen mock --watch',
-        'generate:client': 'bun x oa-gen generate --target client',
         'validate': 'bun x oa-gen validate',
       }
     }
 
     return {
       'mock': 'oa-gen mock --watch',
-      'generate:client': 'oa-gen generate --target client',
       'validate': 'oa-gen validate',
     }
   }

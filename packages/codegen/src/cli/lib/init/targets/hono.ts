@@ -63,13 +63,13 @@ export default defineConfig({
     if (options.runtime === 'bun') {
       return {
         'dev': 'bun --watch src/index.ts',
-        'generate:router': 'bun x oa-gen generate --target hono',
+        'generate': 'bun x oa-gen generate',
         'mock': 'bun x oa-gen mock --watch',
       }
     }
     return {
       'dev': 'tsx watch src/index.ts',
-      'generate:router': 'oa-gen generate --target hono',
+      'generate': 'oa-gen generate',
       'mock': 'oa-gen mock --watch',
     }
   }

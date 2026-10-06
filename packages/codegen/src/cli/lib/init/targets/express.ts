@@ -55,7 +55,7 @@ export default defineConfig({
   getRecommendedScripts(_options: TargetGenerateOptions): Record<string, string> {
     return {
       'dev': 'tsx watch src/app.ts',
-      'generate:router': 'oa-gen generate --target express',
+      'generate': 'oa-gen generate',
       'mock': 'oa-gen mock --watch',
     }
   }

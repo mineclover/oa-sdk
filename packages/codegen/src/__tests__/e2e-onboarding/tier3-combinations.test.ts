@@ -53,9 +53,9 @@ describe('E2E Tier 3: Cross-Feature Pairwise Combinations (20 Combinations)', ()
     const deps = getRecommendedDevDepsForPair('fastify', 'mvp', 'node')
 
     expect(scripts['dev']).toBe('tsx watch src/server.ts')
-    expect(scripts['generate:router']).toBe('oa-gen generate --target fastify')
+    expect(scripts['generate']).toBe('oa-gen generate')
     expect(scripts['mock']).toBe('oa-gen mock --watch')
-    expect(scripts['generate:client']).toBe('oa-gen generate --target client')
+    expect(scripts['validate']).toBe('oa-gen validate')
 
     // Outside a workspace, the releases compatible with the ones codegen was built against.
     expect(deps['@oa-sdk/router']).toBe(`^${builtAgainstVersion('@oa-sdk/router')}`)
@@ -70,26 +70,26 @@ describe('E2E Tier 3: Cross-Feature Pairwise Combinations (20 Combinations)', ()
     expect(workspaceDeps['@oa-sdk/mock-server']).toBe('workspace:*')
   })
 
-  it('T3-02: Fastify x Microservice — Fastify JIT router with pure contracts and vitest contract tests', () => {
+  it('T3-02: Fastify x Microservice — pure handler contracts, and no test runner for tests init does not write', () => {
     const scripts = getRecommendedScriptsForPair('fastify', 'microservice', 'node')
     const deps = getRecommendedDevDepsForPair('fastify', 'microservice', 'node')
 
     expect(scripts['dev']).toBe('tsx watch src/server.ts')
-    expect(scripts['generate:contract']).toBe('oa-gen generate --target contract')
-    expect(scripts['test:contract']).toBe('vitest run src/__tests__/contracts')
-    expect(scripts['audit:wire']).toBe('oa-gen audit:shape --strict')
+    expect(scripts['generate']).toBe('oa-gen generate')
+    expect(scripts['test:contract']).toBeUndefined()
+    expect(scripts['audit:wire']).toBeUndefined()
 
     expect(deps['@oa-sdk/core']).toBe(`^${builtAgainstVersion('@oa-sdk/core')}`)
-    expect(deps['vitest']).toBe('^1.6.0')
+    expect(deps['vitest']).toBeUndefined()
   })
 
-  it('T3-03: Fastify x Enterprise — Fastify JIT router with CI breaking diff and persona enforcement', () => {
+  it('T3-03: Fastify x Enterprise — breaking diff gate against the contract baseline and persona enforcement', () => {
     const scripts = getRecommendedScriptsForPair('fastify', 'enterprise', 'node')
     const deps = getRecommendedDevDepsForPair('fastify', 'enterprise', 'node')
 
-    expect(scripts['diff']).toBe('oa-gen diff --base origin/main --head HEAD --fail-on-breaking')
-    expect(scripts['personas:check']).toBe('oa-gen personas:check')
-    expect(scripts['ci:gate']).toContain('diff --base origin/main --fail-on-breaking')
+    expect(scripts['diff']).toBe('oa-gen diff --base openapi.baseline.yaml --head openapi.yaml --fail-on-breaking')
+    expect(scripts['personas:check']).toBeUndefined()
+    expect(scripts['ci:gate']).toContain('oa-gen diff --base openapi.baseline.yaml --head openapi.yaml --fail-on-breaking')
     // @oa-sdk/personas is private: only the workspace provides it.
     expect(deps['@oa-sdk/personas']).toBeUndefined()
     expect(getRecommendedDevDepsForPair('fastify', 'enterprise', 'node', 'workspace')['@oa-sdk/personas']).toBe('workspace:*')
@@ -100,7 +100,7 @@ describe('E2E Tier 3: Cross-Feature Pairwise Combinations (20 Combinations)', ()
     const deps = getRecommendedDevDepsForPair('elysia', 'mvp', 'bun')
 
     expect(scripts['dev']).toBe('bun --watch src/index.ts')
-    expect(scripts['generate:router']).toBe('bun x oa-gen generate --target elysia')
+    expect(scripts['generate']).toBe('bun x oa-gen generate')
     expect(scripts['mock']).toBe('bun x oa-gen mock --watch')
 
     // Invariant: strictly 0 Node tooling
@@ -110,13 +110,13 @@ describe('E2E Tier 3: Cross-Feature Pairwise Combinations (20 Combinations)', ()
     expect(deps['@types/bun']).toBe('latest')
   })
 
-  it('T3-05: Bun Elysia x Microservice — Bun zero-copy router with handler contracts and bun test', () => {
+  it('T3-05: Bun Elysia x Microservice — handler contracts on Bun, with no test runner', () => {
     const scripts = getRecommendedScriptsForPair('elysia', 'microservice', 'bun')
     const deps = getRecommendedDevDepsForPair('elysia', 'microservice', 'bun')
 
     expect(scripts['dev']).toBe('bun --watch src/index.ts')
-    expect(scripts['generate:contract']).toBe('bun x oa-gen generate --target contract')
-    expect(scripts['test:contract']).toBe('bun test src/__tests__/contracts')
+    expect(scripts['generate']).toBe('bun x oa-gen generate')
+    expect(scripts['test:contract']).toBeUndefined()
 
     // Invariant: strictly zero vitest in Bun microservice
     expect(deps['vitest']).toBeUndefined()
@@ -124,50 +124,52 @@ describe('E2E Tier 3: Cross-Feature Pairwise Combinations (20 Combinations)', ()
     expect(deps['@types/bun']).toBe('latest')
   })
 
-  it('T3-06: Bun Elysia x Enterprise — Bun router with Bun-native diff and persona gates', () => {
+  it('T3-06: Bun Elysia x Enterprise — Bun-native diff gate against the contract baseline', () => {
     const scripts = getRecommendedScriptsForPair('elysia', 'enterprise', 'bun')
     const deps = getRecommendedDevDepsForPair('elysia', 'enterprise', 'bun')
 
-    expect(scripts['diff']).toBe('bun x oa-gen diff --base origin/main --head HEAD --fail-on-breaking')
-    expect(scripts['ci:gate']).toContain('bun x oa-gen diff --base origin/main --fail-on-breaking')
+    expect(scripts['diff']).toBe('bun x oa-gen diff --base openapi.baseline.yaml --head openapi.yaml --fail-on-breaking')
+    expect(scripts['ci:gate']).toContain('bun x oa-gen diff --base openapi.baseline.yaml --head openapi.yaml --fail-on-breaking')
     expect(deps['@oa-sdk/personas']).toBeUndefined()
     expect(getRecommendedDevDepsForPair('elysia', 'enterprise', 'bun', 'workspace')['@oa-sdk/personas']).toBe('workspace:*')
     expect(deps['tsx']).toBeUndefined()
   })
 
-  it('T3-07: Hono (Node ESM) x Microservice — Multi-runtime router on Node with vitest', () => {
+  it('T3-07: Hono (Node ESM) x Microservice — contracts on Node with no test runner', () => {
     const scripts = getRecommendedScriptsForPair('hono', 'microservice', 'node')
     const deps = getRecommendedDevDepsForPair('hono', 'microservice', 'node')
 
     expect(scripts['dev']).toBe('tsx watch src/index.ts')
-    expect(scripts['test:contract']).toBe('vitest run src/__tests__/contracts')
+    expect(scripts['generate']).toBe('oa-gen generate')
+    expect(scripts['test:contract']).toBeUndefined()
     expect(deps['tsx']).toBe('^4.7.0')
-    expect(deps['vitest']).toBe('^1.6.0')
+    expect(deps['vitest']).toBeUndefined()
   })
 
-  it('T3-08: Hono (Bun native) x Microservice — Multi-runtime router on Bun with bun test', () => {
+  it('T3-08: Hono (Bun native) x Microservice — contracts on Bun with no test runner', () => {
     const scripts = getRecommendedScriptsForPair('hono', 'microservice', 'bun')
     const deps = getRecommendedDevDepsForPair('hono', 'microservice', 'bun')
 
     expect(scripts['dev']).toBe('bun --watch src/index.ts')
-    expect(scripts['test:contract']).toBe('bun test src/__tests__/contracts')
+    expect(scripts['generate']).toBe('bun x oa-gen generate')
+    expect(scripts['test:contract']).toBeUndefined()
     expect(deps['@types/bun']).toBe('latest')
     expect(deps['tsx']).toBeUndefined()
     expect(deps['vitest']).toBeUndefined()
   })
 
-  it('T3-09: Express x Enterprise — Express router with method guards and breaking change CI gate', () => {
+  it('T3-09: Express x Enterprise — breaking change CI gate, and no audit of a bundle the API project does not have', () => {
     const scripts = getRecommendedScriptsForPair('express', 'enterprise', 'node')
     expect(scripts['dev']).toBe('tsx watch src/app.ts')
-    expect(scripts['diff']).toBe('oa-gen diff --base origin/main --head HEAD --fail-on-breaking')
-    expect(scripts['audit:csp']).toBe('oa-gen audit:csp --bundle ./dist')
+    expect(scripts['diff']).toBe('oa-gen diff --base openapi.baseline.yaml --head openapi.yaml --fail-on-breaking')
+    expect(scripts['audit:csp']).toBeUndefined()
   })
 
   it('T3-10: NestJS x Microservice — Nest CLI co-existence with generic contract generation', () => {
     const scripts = getRecommendedScriptsForPair('nestjs', 'microservice', 'node')
     expect(scripts['start:dev']).toBe('nest start --watch')
-    expect(scripts['generate:contract']).toBe('oa-gen generate --target contract')
-    expect(scripts['test:contract']).toBe('vitest run src/__tests__/contracts')
+    expect(scripts['generate']).toBe('oa-gen generate')
+    expect(scripts['test:contract']).toBeUndefined()
   })
 
   it('T3-11: Generic x MVP — Framework-agnostic baseline with live mock and client SDK', () => {
@@ -183,7 +185,8 @@ describe('E2E Tier 3: Cross-Feature Pairwise Combinations (20 Combinations)', ()
   it('T3-12: Generic x Enterprise — Framework-agnostic full governance baseline', () => {
     const scripts = getRecommendedScriptsForPair('generic', 'enterprise', 'node')
     expect(scripts['diff']).toContain('--fail-on-breaking')
-    expect(scripts['personas:check']).toBe('oa-gen personas:check')
+    expect(scripts['personas:check']).toBeUndefined()
+    expect(scripts['lint:spec']).toBe('oa-gen lint --spec openapi.yaml')
     expect(scripts['ci:gate']).toBeDefined()
   })
 

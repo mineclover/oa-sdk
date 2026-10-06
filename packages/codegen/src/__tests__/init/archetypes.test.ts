@@ -9,6 +9,7 @@ import {
   MvpArchetypeProfile,
   MicroserviceArchetypeProfile,
   EnterpriseArchetypeProfile,
+  type ArchetypeProfile,
 } from '../../cli/lib/init/archetypes/index.js'
 
 describe('Modular Archetype Engine (packages/codegen/src/cli/lib/init/archetypes/)', () => {
@@ -64,9 +65,8 @@ describe('Modular Archetype Engine (packages/codegen/src/cli/lib/init/archetypes
         archetypeId: 'mvp',
       })
 
-      expect(scripts['mock']).toBe('oa-gen mock --watch')
-      expect(scripts['generate:client']).toBe('oa-gen generate --target client')
-      expect(scripts['validate']).toBe('oa-gen validate')
+      // The client SDK comes from the generate script of the target: `generate --target client` was plain generate.
+      expect(scripts).toEqual({ mock: 'oa-gen mock --watch', validate: 'oa-gen validate' })
     })
 
     it('returns Bun scripts for MVP', () => {
@@ -77,9 +77,7 @@ describe('Modular Archetype Engine (packages/codegen/src/cli/lib/init/archetypes
         archetypeId: 'mvp',
       })
 
-      expect(scripts['mock']).toBe('bun x oa-gen mock --watch')
-      expect(scripts['generate:client']).toBe('bun x oa-gen generate --target client')
-      expect(scripts['validate']).toBe('bun x oa-gen validate')
+      expect(scripts).toEqual({ mock: 'bun x oa-gen mock --watch', validate: 'bun x oa-gen validate' })
     })
 
     it('returns recommended devDependencies for MVP', () => {
@@ -155,7 +153,7 @@ describe('Modular Archetype Engine (packages/codegen/src/cli/lib/init/archetypes
       expect(fragment.product?.zeroCopy).toBe(true)
     })
 
-    it('returns Node scripts with vitest for contract testing', () => {
+    it('returns only the live mock for Node: init writes no contract tests to run', () => {
       const scripts = microservice.getRecommendedScripts({
         cwd: '.',
         frameworkId: 'fastify',
@@ -163,13 +161,10 @@ describe('Modular Archetype Engine (packages/codegen/src/cli/lib/init/archetypes
         archetypeId: 'microservice',
       })
 
-      expect(scripts['generate:contract']).toBe('oa-gen generate --target generic')
-      expect(scripts['test:contract']).toBe('vitest run src/__tests__/contracts')
-      expect(scripts['audit:wire']).toBe('oa-gen audit:shape --strict')
-      expect(scripts['mock']).toBe('oa-gen mock --watch')
+      expect(scripts).toEqual({ mock: 'oa-gen mock --watch' })
     })
 
-    it('returns Bun scripts with bun test and zero vitest', () => {
+    it('returns only the live mock for Bun', () => {
       const scripts = microservice.getRecommendedScripts({
         cwd: '.',
         frameworkId: 'elysia',
@@ -177,21 +172,17 @@ describe('Modular Archetype Engine (packages/codegen/src/cli/lib/init/archetypes
         archetypeId: 'microservice',
       })
 
-      expect(scripts['generate:contract']).toBe('bun x oa-gen generate --target generic')
-      expect(scripts['test:contract']).toBe('bun test src/__tests__/contracts')
-      expect(scripts['audit:wire']).toBe('bun x oa-gen audit:shape --strict')
-      expect(scripts['mock']).toBe('bun x oa-gen mock --watch')
-      expect(scripts['test:contract']).not.toContain('vitest')
+      expect(scripts).toEqual({ mock: 'bun x oa-gen mock --watch' })
     })
 
-    it('enforces strict runtime isolation in devDependencies for Bun vs Node', () => {
+    it('adds no test runner, on Node or Bun', () => {
       const nodeDeps = microservice.getRecommendedDependencies({
         cwd: '.',
         frameworkId: 'fastify',
         runtime: 'node',
         archetypeId: 'microservice',
       })
-      expect(nodeDeps.devDependencies['vitest']).toBeDefined()
+      expect(nodeDeps.devDependencies).toEqual({})
       expect(nodeDeps.oaSdkDevDependencies).toEqual(['@oa-sdk/core', '@oa-sdk/router'])
 
       const bunDeps = microservice.getRecommendedDependencies({
@@ -200,7 +191,7 @@ describe('Modular Archetype Engine (packages/codegen/src/cli/lib/init/archetypes
         runtime: 'bun',
         archetypeId: 'microservice',
       })
-      expect(bunDeps.devDependencies['vitest']).toBeUndefined()
+      expect(bunDeps.devDependencies).toEqual({})
       expect(bunDeps.oaSdkDevDependencies).toEqual(['@oa-sdk/core', '@oa-sdk/router'])
     })
 
@@ -226,7 +217,7 @@ describe('Modular Archetype Engine (packages/codegen/src/cli/lib/init/archetypes
       expect(enterprise.id).toBe('enterprise')
       expect(enterprise.name).toBe('Enterprise')
       expect(enterprise.displayName).toBe('Enterprise')
-      expect(enterprise.description).toContain('Semantic breaking change CI gates')
+      expect(enterprise.description).toContain('Breaking change CI gate against a committed contract baseline')
       expect(enterprise.summaryBullet).toBeDefined()
     })
 
@@ -268,7 +259,14 @@ describe('Modular Archetype Engine (packages/codegen/src/cli/lib/init/archetypes
       expect(fragment.product?.personas?.minCoverageRatio).toBe(0.8)
     })
 
-    it('returns Enterprise scripts for Node', () => {
+    const specAt = (filePath: string) => ({
+      type: 'openapi-yaml' as const,
+      filePath,
+      confidence: 1,
+      description: 'test spec',
+    })
+
+    it('returns Enterprise gate scripts on the spec and the contract baseline for Node', () => {
       const scripts = enterprise.getRecommendedScripts({
         cwd: '.',
         frameworkId: 'express',
@@ -276,15 +274,19 @@ describe('Modular Archetype Engine (packages/codegen/src/cli/lib/init/archetypes
         archetypeId: 'enterprise',
       })
 
-      expect(scripts['diff']).toBe('oa-gen diff --base origin/main --head HEAD --fail-on-breaking')
-      expect(scripts['lint:spec']).toBe('oa-gen lint --categories structure,refs,components,semantics')
-      expect(scripts['audit:csp']).toBe('oa-gen audit:csp --bundle ./dist')
-      expect(scripts['audit:shape']).toBe('oa-gen audit:shape --fail-on-unsupported')
-      expect(scripts['personas:check']).toBe('oa-gen personas:check')
-      expect(scripts['ci:gate']).toBe('oa-gen diff --base origin/main --fail-on-breaking && oa-gen validate --require-32')
+      // Without a detected spec, the openapi.yaml init records as the schema entry.
+      expect(scripts).toEqual({
+        'lint:spec': 'oa-gen lint --spec openapi.yaml',
+        'diff': 'oa-gen diff --base openapi.baseline.yaml --head openapi.yaml --fail-on-breaking',
+        'baseline:update': 'oa-gen normalize --spec openapi.yaml --output openapi.baseline.yaml',
+        'ci:gate':
+          'oa-gen validate --spec openapi.yaml --require-32' +
+          ' && oa-gen lint --spec openapi.yaml' +
+          ' && oa-gen diff --base openapi.baseline.yaml --head openapi.yaml --fail-on-breaking',
+      })
     })
 
-    it('returns Enterprise scripts for Bun with bun x prefixes', () => {
+    it('returns Enterprise scripts for Bun with every oa-gen command run through bun x', () => {
       const scripts = enterprise.getRecommendedScripts({
         cwd: '.',
         frameworkId: 'elysia',
@@ -292,9 +294,53 @@ describe('Modular Archetype Engine (packages/codegen/src/cli/lib/init/archetypes
         archetypeId: 'enterprise',
       })
 
-      expect(scripts['diff']).toBe('bun x oa-gen diff --base origin/main --head HEAD --fail-on-breaking')
-      expect(scripts['personas:check']).toBe('bun x oa-gen personas:check')
-      expect(scripts['ci:gate']).toContain('bun x oa-gen diff')
+      expect(scripts['diff']).toBe('bun x oa-gen diff --base openapi.baseline.yaml --head openapi.yaml --fail-on-breaking')
+      expect(scripts['ci:gate']).toBe(
+        'bun x oa-gen validate --spec openapi.yaml --require-32' +
+          ' && bun x oa-gen lint --spec openapi.yaml' +
+          ' && bun x oa-gen diff --base openapi.baseline.yaml --head openapi.yaml --fail-on-breaking',
+      )
+      for (const script of Object.values(scripts)) {
+        expect(script.split(' && ').every(command => command.startsWith('bun x oa-gen ')), script).toBe(true)
+      }
+    })
+
+    it('runs the gate on the detected spec entry point, TypeSpec included, quoting a path with spaces', () => {
+      const options = { cwd: '.', frameworkId: 'generic' as const, runtime: 'node' as const, archetypeId: 'enterprise' as const }
+
+      const typespec = enterprise.getRecommendedScripts({ ...options, detectedSchema: specAt(path.join('typespec', 'main.tsp')) })
+      expect(typespec['lint:spec']).toBe('oa-gen lint --spec typespec/main.tsp')
+      expect(typespec['baseline:update']).toBe('oa-gen normalize --spec typespec/main.tsp --output openapi.baseline.yaml')
+
+      const spaced = enterprise.getRecommendedScripts({ ...options, detectedSchema: specAt(path.join('My API', 'openapi.yaml')) })
+      expect(spaced['diff']).toBe('oa-gen diff --base openapi.baseline.yaml --head "My API/openapi.yaml" --fail-on-breaking')
+    })
+
+    it('plans the contract baseline from the spec entry point', () => {
+      const options = { cwd: '.', frameworkId: 'generic' as const, runtime: 'node' as const, archetypeId: 'enterprise' as const }
+
+      expect(enterprise.getContractBaseline(options)).toEqual({ path: 'openapi.baseline.yaml', specPath: 'openapi.yaml' })
+      expect(enterprise.getContractBaseline({ ...options, detectedSchema: specAt('main.tsp') }))
+        .toEqual({ path: 'openapi.baseline.yaml', specPath: 'main.tsp' })
+    })
+
+    it('adds no gate and no baseline for a spec entry point lint and diff cannot load', () => {
+      // A TypeScript schema module is projected only by the commands that read oa.config.ts.
+      const options = {
+        cwd: '.',
+        frameworkId: 'generic' as const,
+        runtime: 'node' as const,
+        archetypeId: 'enterprise' as const,
+        detectedSchema: specAt('src/schema.ts'),
+      }
+
+      expect(enterprise.getRecommendedScripts(options)).toEqual({})
+      expect(enterprise.getContractBaseline(options)).toBeUndefined()
+    })
+
+    it('mvp and microservice have no contract baseline', () => {
+      const profiles: ArchetypeProfile[] = [new MvpArchetypeProfile(), new MicroserviceArchetypeProfile()]
+      for (const profile of profiles) expect(profile.getContractBaseline, profile.id).toBeUndefined()
     })
 
     it('returns recommended devDependencies for Enterprise', () => {

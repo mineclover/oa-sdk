@@ -60,7 +60,7 @@ describe('E2E Tier 4: Real-World Workload Scenarios (5 Workflows)', () => {
 
     const mvpScripts = getRecommendedScriptsForPair('hono', 'mvp', 'node')
     expect(mvpScripts['mock']).toBe('oa-gen mock --watch')
-    expect(mvpScripts['generate:client']).toBe('oa-gen generate --target client')
+    expect(mvpScripts['generate']).toBe('oa-gen generate')
 
     // Initial contract generation
     const contractV1 = generateHandlerContractWithContext(SAMPLE_OAS32_JSON)
@@ -90,8 +90,8 @@ describe('E2E Tier 4: Real-World Workload Scenarios (5 Workflows)', () => {
     expect(resolvedMs.core!.client!.wireFormatSafety).toBe(true) // JsonPrimitive<T> safety
 
     const msScripts = getRecommendedScriptsForPair('fastify', 'microservice', 'node')
-    expect(msScripts['test:contract']).toBe('vitest run src/__tests__/contracts')
-    expect(msScripts['audit:wire']).toBe('oa-gen audit:shape --strict')
+    expect(msScripts['generate']).toBe('oa-gen generate')
+    expect(msScripts['test:contract']).toBeUndefined()
 
     // Stage 3: Day 180 Enterprise (Governance, Breaking Diff Gates & Personas)
     const enterpriseConfig = {
@@ -218,9 +218,7 @@ describe('E2E Tier 4: Real-World Workload Scenarios (5 Workflows)', () => {
 
     // Verify all emitted commands use Bun native tooling
     expect(scripts['dev']).toBe('bun --watch src/index.ts')
-    expect(scripts['generate:contract']).toBe('bun x oa-gen generate --target contract')
-    expect(scripts['test:contract']).toBe('bun test src/__tests__/contracts')
-    expect(scripts['audit:wire']).toBe('bun x oa-gen audit:shape --strict')
+    expect(scripts['generate']).toBe('bun x oa-gen generate')
     expect(scripts['mock']).toBe('bun x oa-gen mock --watch')
 
     // Invariant: zero Node tools injected

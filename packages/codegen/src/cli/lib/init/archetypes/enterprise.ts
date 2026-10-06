@@ -6,16 +6,19 @@ import type {
   ArchetypeDetectionResult,
   ArchetypeConfigSnippet,
   LifecycleArchetypeId,
+  ContractBaselinePlan,
 } from './types.js'
 import type { RecommendedDependencies } from '../types.js'
 import type { OaConfig } from '../../../../config.js'
+import { CONTRACT_BASELINE_PATH, isSpecDocumentPath } from '../common/contract-baseline.js'
+import { oaGenScript, schemaEntryOf, scriptPath } from '../common/scripts.js'
 
 export class EnterpriseArchetypeProfile implements ArchetypeProfile {
   readonly id: LifecycleArchetypeId = 'enterprise'
   readonly name = 'Enterprise'
   readonly displayName = 'Enterprise'
-  readonly description = 'Semantic breaking change CI gates (oa-gen diff --fail-on-breaking), persona capability traits (@oa-sdk/personas), multi-target bundle projections, strict preflight schema linting'
-  readonly summaryBullet = 'CI drift defense, personas, strict linting'
+  readonly description = 'Breaking change CI gate against a committed contract baseline (oa-gen diff --fail-on-breaking), OpenAPI 3.2 validation, strict spec linting, persona coverage settings (@oa-sdk/personas)'
+  readonly summaryBullet = 'Breaking change gate, strict linting, personas'
 
   async detect(cwd: string): Promise<ArchetypeDetectionResult> {
     const matchedMarkers: string[] = []
@@ -89,26 +92,32 @@ export class EnterpriseArchetypeProfile implements ArchetypeProfile {
     }
   }
 
+  /**
+   * The gate scripts, on the spec entry point: `lint:spec` lints it, `diff` fails on a change
+   * that breaks clients of the contract baseline, `baseline:update` makes the spec the baseline,
+   * and `ci:gate` runs `oa-gen validate --require-32`, the lint and the diff. They need a spec
+   * that `oa-gen lint`/`diff` load (OpenAPI YAML/JSON or TypeSpec); for any other entry point
+   * the archetype adds none.
+   */
   getRecommendedScripts(options: ArchetypeGenerateOptions): Record<string, string> {
-    if (options.runtime === 'bun') {
-      return {
-        'diff': 'bun x oa-gen diff --base origin/main --head HEAD --fail-on-breaking',
-        'lint:spec': 'bun x oa-gen lint --categories structure,refs,components,semantics',
-        'audit:csp': 'bun x oa-gen audit:csp --bundle ./dist',
-        'audit:shape': 'bun x oa-gen audit:shape --fail-on-unsupported',
-        'personas:check': 'bun x oa-gen personas:check',
-        'ci:gate': 'bun x oa-gen diff --base origin/main --fail-on-breaking && bun x oa-gen validate --require-32',
-      }
-    }
+    const baseline = this.getContractBaseline(options)
+    if (baseline === undefined) return {}
 
+    const spec = scriptPath(baseline.specPath)
+    const lint = oaGenScript(options.runtime, ['lint', '--spec', spec])
+    const diff = oaGenScript(options.runtime, ['diff', '--base', baseline.path, '--head', spec, '--fail-on-breaking'])
+    const validate = oaGenScript(options.runtime, ['validate', '--spec', spec, '--require-32'])
     return {
-      'diff': 'oa-gen diff --base origin/main --head HEAD --fail-on-breaking',
-      'lint:spec': 'oa-gen lint --categories structure,refs,components,semantics',
-      'audit:csp': 'oa-gen audit:csp --bundle ./dist',
-      'audit:shape': 'oa-gen audit:shape --fail-on-unsupported',
-      'personas:check': 'oa-gen personas:check',
-      'ci:gate': 'oa-gen diff --base origin/main --fail-on-breaking && oa-gen validate --require-32',
+      'lint:spec': lint,
+      'diff': diff,
+      'baseline:update': oaGenScript(options.runtime, ['normalize', '--spec', spec, '--output', baseline.path]),
+      'ci:gate': [validate, lint, diff].join(' && '),
     }
+  }
+
+  getContractBaseline(options: ArchetypeGenerateOptions): ContractBaselinePlan | undefined {
+    const specPath = schemaEntryOf(options)
+    return isSpecDocumentPath(specPath) ? { path: CONTRACT_BASELINE_PATH, specPath } : undefined
   }
 
   getRecommendedDependencies(_options: ArchetypeGenerateOptions): RecommendedDependencies {

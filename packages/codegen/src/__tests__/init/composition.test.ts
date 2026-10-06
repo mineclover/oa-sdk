@@ -147,7 +147,11 @@ describe('Orthogonal Target x Archetype Composition Engine ($6 \\times 3 = 18$ M
       expect(bunDeps.devDependencies['@types/bun']).toBeDefined()
       expect(bunDeps.devDependencies['tsx']).toBeUndefined()
       expect(bunDeps.devDependencies['vitest']).toBeUndefined()
-      expect(bunScripts['test:contract']).toBe('bun test src/__tests__/contracts')
+      expect(bunScripts).toEqual({
+        dev: 'bun --watch src/index.ts',
+        generate: 'bun x oa-gen generate',
+        mock: 'bun x oa-gen mock --watch',
+      })
 
       // 2. Hono on Node
       const nodeDeps = composeInitDependencies(hono, microservice, {
@@ -162,13 +166,17 @@ describe('Orthogonal Target x Archetype Composition Engine ($6 \\times 3 = 18$ M
       })
       expect(nodeDeps.devDependencies['@types/node']).toBeDefined()
       expect(nodeDeps.devDependencies['@types/bun']).toBeUndefined()
-      expect(nodeDeps.devDependencies['vitest']).toBeDefined()
-      expect(nodeScripts['test:contract']).toBe('vitest run src/__tests__/contracts')
+      expect(nodeDeps.devDependencies['vitest']).toBeUndefined()
+      expect(nodeScripts).toEqual({
+        dev: 'tsx watch src/index.ts',
+        generate: 'oa-gen generate',
+        mock: 'oa-gen mock --watch',
+      })
     })
   })
 
   describe('3. Lifecycle Archetype Invariants in Composed Configurations', () => {
-    it('Enterprise archetype injects CI gate scripts and persona traits across all targets', () => {
+    it('Enterprise archetype injects the contract baseline gate scripts and persona traits across all targets', () => {
       const enterprise = getArchetypeProfile('enterprise')
 
       for (const tId of targetIds) {
@@ -179,9 +187,16 @@ describe('Orthogonal Target x Archetype Composition Engine ($6 \\times 3 = 18$ M
           runtime: target.defaultRuntime,
         })
 
-        expect(patches.scripts['diff'], `${tId} diff script`).toBeDefined()
-        expect(patches.scripts['ci:gate'], `${tId} ci:gate script`).toBeDefined()
-        expect(patches.scripts['personas:check'], `${tId} personas:check script`).toBeDefined()
+        const oaGen = target.defaultRuntime === 'bun' ? 'bun x oa-gen' : 'oa-gen'
+        expect(patches.scripts['diff'], `${tId} diff script`)
+          .toBe(`${oaGen} diff --base openapi.baseline.yaml --head openapi.yaml --fail-on-breaking`)
+        expect(patches.scripts['baseline:update'], `${tId} baseline:update script`)
+          .toBe(`${oaGen} normalize --spec openapi.yaml --output openapi.baseline.yaml`)
+        expect(patches.scripts['ci:gate'], `${tId} ci:gate script`).toContain(`${oaGen} validate --spec openapi.yaml --require-32`)
+        // No command oa-gen lacks, and no audit of a bundle or a source the scaffold does not have.
+        for (const retired of ['personas:check', 'audit:csp', 'audit:shape']) {
+          expect(patches.scripts[retired], `${tId} ${retired} script`).toBeUndefined()
+        }
 
         // @oa-sdk/personas is private: only a workspace that contains it can provide it.
         expect(patches.devDependencies['@oa-sdk/personas'], `${tId} personas devDep`).toBeUndefined()
@@ -197,7 +212,7 @@ describe('Orthogonal Target x Archetype Composition Engine ($6 \\times 3 = 18$ M
       }
     })
 
-    it('Microservice archetype injects contract testing scripts and wire typing', () => {
+    it('Microservice archetype adds the live mock and generation, and no script for tests or audits init does not set up', () => {
       const microservice = getArchetypeProfile('microservice')
 
       for (const tId of targetIds) {
@@ -208,13 +223,16 @@ describe('Orthogonal Target x Archetype Composition Engine ($6 \\times 3 = 18$ M
           runtime: target.defaultRuntime,
         })
 
-        expect(patches.scripts['generate:contract']).toBeDefined()
-        expect(patches.scripts['test:contract']).toBeDefined()
-        expect(patches.scripts['audit:wire']).toBeDefined()
+        expect(patches.scripts['generate'], tId).toMatch(/^(bun x )?oa-gen generate$/)
+        expect(patches.scripts['mock'], tId).toMatch(/^(bun x )?oa-gen mock --watch$/)
+        for (const retired of ['generate:contract', 'test:contract', 'audit:wire']) {
+          expect(patches.scripts[retired], `${tId} ${retired} script`).toBeUndefined()
+        }
+        expect(patches.devDependencies['vitest'], tId).toBeUndefined()
       }
     })
 
-    it('MVP archetype injects live mock and client SDK scripts', () => {
+    it('MVP archetype injects live mock, validation and the generation of the client SDK', () => {
       const mvp = getArchetypeProfile('mvp')
 
       for (const tId of targetIds) {
@@ -226,7 +244,8 @@ describe('Orthogonal Target x Archetype Composition Engine ($6 \\times 3 = 18$ M
         })
 
         expect(patches.scripts['mock']).toBeDefined()
-        expect(patches.scripts['generate:client']).toBeDefined()
+        expect(patches.scripts['generate'], tId).toMatch(/^(bun x )?oa-gen generate$/)
+        expect(patches.scripts['generate:client'], tId).toBeUndefined()
         expect(patches.scripts['validate']).toBeDefined()
         expect(patches.devDependencies['@oa-sdk/client']).toBeDefined()
       }

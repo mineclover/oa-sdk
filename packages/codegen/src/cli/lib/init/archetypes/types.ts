@@ -6,8 +6,9 @@ import type {
   LifecycleArchetypeId,
 } from '../types.js'
 import type { OaConfig } from '../../../../config.js'
+import type { ContractBaselinePlan } from '../common/contract-baseline.js'
 
-export type { LifecycleArchetypeId }
+export type { LifecycleArchetypeId, ContractBaselinePlan }
 
 export interface ArchetypeDetectionResult {
   confidence: number // 0.0 to 1.0
@@ -48,8 +49,18 @@ export interface ArchetypeProfile {
   /** Returns partial OaConfig representation of the archetype */
   generateConfigFragment(options: ArchetypeGenerateOptions): Partial<OaConfig>
 
-  /** Returns lifecycle-specific scripts tailored to runtime (bun vs node) */
+  /**
+   * Returns lifecycle-specific scripts tailored to runtime (bun vs node). Each must run as written
+   * in the scaffold: an `oa-gen` command with options it declares and reads, on files the scaffold
+   * has (the spec, oa.config.ts, and what `getContractBaseline` creates).
+   */
   getRecommendedScripts(options: ArchetypeGenerateOptions): Record<string, string>
+
+  /**
+   * The contract baseline the archetype's scripts compare the spec with, which `oa-gen init`
+   * creates from the spec when the project has none; omitted by archetypes without such scripts.
+   */
+  getContractBaseline?(options: ArchetypeGenerateOptions): ContractBaselinePlan | undefined
 
   /** Returns lifecycle-specific dependencies */
   getRecommendedDependencies(options: ArchetypeGenerateOptions): RecommendedDependencies

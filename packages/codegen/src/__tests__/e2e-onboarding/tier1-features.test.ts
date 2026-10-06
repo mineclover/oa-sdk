@@ -488,25 +488,26 @@ describe('E2E Tier 1: Feature Coverage (Features 1–17)', () => {
   // Feature 8: Orthogonal Target x Archetype Composition
   // =========================================================================
   describe('Feature 8: Orthogonal Target x Archetype Composition', () => {
-    it('T1-F08-1: composes Fastify with MVP producing Fastify router and mock scripts', () => {
+    it('T1-F08-1: composes Fastify with MVP producing generation and mock scripts', () => {
       const scripts = getRecommendedScriptsForPair('fastify', 'mvp', 'node')
       expect(scripts['dev']).toContain('tsx watch')
-      expect(scripts['generate:router']).toContain('fastify')
+      expect(scripts['generate']).toBe('oa-gen generate')
       expect(scripts['mock']).toContain('oa-gen mock --watch')
     })
 
-    it('T1-F08-2: composes Fastify with Microservice producing JIT router and vitest contract tests', () => {
+    it('T1-F08-2: composes Fastify with Microservice producing contract generation and no script for tests init does not write', () => {
       const scripts = getRecommendedScriptsForPair('fastify', 'microservice', 'node')
-      expect(scripts['generate:contract']).toBeDefined()
-      expect(scripts['test:contract']).toContain('vitest')
-      expect(scripts['audit:wire']).toBeDefined()
+      expect(scripts['generate']).toBe('oa-gen generate')
+      expect(scripts['test:contract']).toBeUndefined()
+      expect(scripts['audit:wire']).toBeUndefined()
     })
 
-    it('T1-F08-3: composes Fastify with Enterprise producing breaking diff and persona gates', () => {
+    it('T1-F08-3: composes Fastify with Enterprise producing the breaking diff gate against the contract baseline', () => {
       const scripts = getRecommendedScriptsForPair('fastify', 'enterprise', 'node')
+      expect(scripts['diff']).toContain('--base openapi.baseline.yaml')
       expect(scripts['diff']).toContain('--fail-on-breaking')
-      expect(scripts['ci:gate']).toBeDefined()
-      expect(scripts['personas:check']).toBeDefined()
+      expect(scripts['ci:gate']).toContain(scripts['diff']!)
+      expect(scripts['personas:check']).toBeUndefined()
     })
 
     it('T1-F08-4: composes Bun Elysia with Microservice maintaining strict Bun runtime isolation', () => {
@@ -514,8 +515,8 @@ describe('E2E Tier 1: Feature Coverage (Features 1–17)', () => {
       const deps = getRecommendedDevDepsForPair('elysia', 'microservice', 'bun')
 
       expect(scripts['dev']).toContain('bun --watch')
-      expect(scripts['test:contract']).toContain('bun test')
-      expect(scripts['generate:contract']).toContain('bun x')
+      expect(scripts['generate']).toBe('bun x oa-gen generate')
+      expect(scripts['mock']).toBe('bun x oa-gen mock --watch')
 
       // Invariant: zero Node tools
       expect(deps['tsx']).toBeUndefined()
@@ -622,22 +623,21 @@ describe('E2E Tier 1: Feature Coverage (Features 1–17)', () => {
     it('T1-F11-1: generates MVP scripts with live mock and client SDK generation', () => {
       const scripts = getRecommendedScriptsForPair('hono', 'mvp', 'node')
       expect(scripts['mock']).toBe('oa-gen mock --watch')
-      expect(scripts['generate:client']).toBe('oa-gen generate --target client')
+      expect(scripts['generate']).toBe('oa-gen generate')
       expect(scripts['validate']).toBe('oa-gen validate')
     })
 
-    it('T1-F11-2: generates Microservice scripts with contract generation and testing', () => {
+    it('T1-F11-2: generates Microservice scripts with contract generation and the live mock', () => {
       const scripts = getRecommendedScriptsForPair('fastify', 'microservice', 'node')
-      expect(scripts['generate:contract']).toBe('oa-gen generate --target contract')
-      expect(scripts['test:contract']).toBe('vitest run src/__tests__/contracts')
-      expect(scripts['audit:wire']).toBe('oa-gen audit:shape --strict')
+      expect(scripts['generate']).toBe('oa-gen generate')
+      expect(scripts['mock']).toBe('oa-gen mock --watch')
     })
 
-    it('T1-F11-3: generates Enterprise scripts with CI breaking diff and persona check', () => {
+    it('T1-F11-3: generates Enterprise scripts with the breaking diff gate against the contract baseline', () => {
       const scripts = getRecommendedScriptsForPair('fastify', 'enterprise', 'node')
-      expect(scripts['diff']).toBe('oa-gen diff --base origin/main --head HEAD --fail-on-breaking')
-      expect(scripts['personas:check']).toBe('oa-gen personas:check')
-      expect(scripts['ci:gate']).toContain('diff --base origin/main --fail-on-breaking')
+      expect(scripts['diff']).toBe('oa-gen diff --base openapi.baseline.yaml --head openapi.yaml --fail-on-breaking')
+      expect(scripts['baseline:update']).toBe('oa-gen normalize --spec openapi.yaml --output openapi.baseline.yaml')
+      expect(scripts['ci:gate']).toContain('oa-gen validate --spec openapi.yaml --require-32')
     })
 
     it('T1-F11-4: preserves existing custom scripts in package.json non-destructively', async () => {
