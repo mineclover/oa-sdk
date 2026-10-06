@@ -1,7 +1,5 @@
 import { resolve, relative } from 'node:path'
 import { existsSync } from 'node:fs'
-import { readFile, writeFile, mkdir } from 'node:fs/promises'
-import { parse as parseYaml } from 'yaml'
 import { parseDocument, type OasDocument, type ParsedDocument } from '@oa-sdk/parser'
 import type { Command, CommandArgValue } from '../lib/types.js'
 import type { CodegenConfig, OaConfig } from '../../config.js'
@@ -165,45 +163,114 @@ async function assertExplicitCompanionOutputsAvailable(config: OaConfig, compani
   throw new CliExitError(1)
 }
 
-/**
- * Implied outputs skipped because their companion package is not installed.
- *
- * A skipped output keeps what an earlier run generated for it: the spec still
- * asks for it and it only could not be regenerated here, so those files are not
- * orphans and must survive pruning.
- */
-class SkippedCompanionOutputs {
-  readonly entries: MissingCompanionOutput[] = []
-  private readonly retainedKindsByTag = new Set<string>()
+/** An output of one spec target whose generation threw. */
+interface FailedCompanionOutput {
+  output: CompanionOutput
+  /** Companion packages that generate the output. */
+  packages: readonly CompanionPackageName[]
+  /** Spec target id. */
+  target: string
+  message: string
+  /** The configuration switch that turned the output on, when the configuration requests it explicitly. */
+  request: ExplicitCompanionOutput | undefined
+}
 
-  record(output: CompanionOutput, packageName: CompanionPackageName, tags: readonly string[]): void {
-    if (!this.entries.some(entry => entry.output === output.label && entry.packageName === packageName)) {
-      this.entries.push({ output: output.label, packageName })
+/**
+ * Companion-produced outputs of a run that were not generated.
+ *
+ * An output is generated for a spec target whole or not at all. One that is not
+ * was either skipped, because its companion package is not installed, or
+ * failed, because generating it threw. Either way it keeps what an earlier run
+ * generated for it: the spec still asks for the output, which only could not
+ * be regenerated here, so those files are not orphans and must survive pruning.
+ * A failed output that the configuration requests explicitly fails the run.
+ */
+class CompanionOutputOutcomes {
+  readonly skipped: MissingCompanionOutput[] = []
+  readonly failed: FailedCompanionOutput[] = []
+  private readonly retainedKindsByTarget = new Set<string>()
+
+  constructor(private readonly explicitOutputs: readonly ExplicitCompanionOutput[]) {}
+
+  skip(output: CompanionOutput, packageName: CompanionPackageName, target: string): void {
+    if (!this.skipped.some(entry => entry.output === output.label && entry.packageName === packageName)) {
+      this.skipped.push({ output: output.label, packageName })
     }
-    for (const tag of tags) {
-      for (const kind of output.kinds) this.retainedKindsByTag.add(JSON.stringify([kind, tag]))
-    }
+    this.retain(output, target)
   }
 
-  /** Recorded artifacts that belong to a skipped output of a spec this run still processed. */
+  fail(output: CompanionOutput, packages: readonly CompanionPackageName[], target: string, error: unknown): void {
+    this.failed.push({
+      output,
+      packages,
+      target,
+      message: error instanceof Error ? error.message : String(error),
+      request: this.explicitOutputs.find(request => request.output === output.label),
+    })
+    this.retain(output, target)
+  }
+
+  /** Failed outputs that the configuration requests explicitly. Any of them fails the run. */
+  requestedFailures(): FailedCompanionOutput[] {
+    return this.failed.filter(failure => failure.request !== undefined)
+  }
+
+  /** Recorded artifacts of an output that was skipped or failed for a spec target of this run. */
   retainedPaths(artifacts: readonly ManifestArtifact[]): string[] {
     return artifacts
       .filter(artifact => {
         const { target } = manifestArtifactOwner(artifact)
-        return target !== undefined && this.retainedKindsByTag.has(JSON.stringify([artifact.kind, target]))
+        return target !== undefined && this.retainedKindsByTarget.has(JSON.stringify([artifact.kind, target]))
       })
       .map(artifact => artifact.path)
   }
 
   /** Warning that names every skipped output, its package, and the install command. */
-  format(): string {
+  formatSkipped(): string {
     const lines = ['⚠️  [oa-gen generate] Skipped outputs whose companion package is not installed:']
-    for (const entry of this.entries) lines.push(`   - ${entry.output}: ${entry.packageName}`)
+    for (const entry of this.skipped) lines.push(`   - ${entry.output}: ${entry.packageName}`)
     lines.push('   Install the packages to generate these outputs (files from earlier runs are kept):')
-    lines.push(`     ${companionInstallCommand(missingCompanionPackages(this.entries))}`)
+    lines.push(`     ${companionInstallCommand(missingCompanionPackages(this.skipped))}`)
     lines.push('   Outputs turned on explicitly (core.contracts.pureHandlers: true, core.client.enabled: true) fail generation instead of being skipped.')
     return lines.join('\n')
   }
+
+  /** Error for a run stopped because an output the configuration requests explicitly failed. */
+  formatRequestedFailures(): string {
+    const lines = ['[oa-gen generate] Generation failed; no files were written. An output the configuration turns on explicitly could not be generated:']
+    for (const line of describeFailures(this.failed)) lines.push(`  - ${line}`)
+    const switches = [...new Set(this.requestedFailures().flatMap(failure => failure.request ? [failure.request.configSwitch] : []))]
+    lines.push(`Fix the error, or set ${switches.join(' and ')} to false to generate without ${switches.length === 1 ? 'this output' : 'these outputs'}.`)
+    return lines.join('\n')
+  }
+
+  /** Warning for outputs that failed although nothing requests them explicitly. */
+  formatImpliedFailures(): string {
+    const lines = ['⚠️  [oa-gen generate] Skipped outputs that failed to generate:']
+    for (const line of describeFailures(this.failed)) lines.push(`   - ${line}`)
+    lines.push('   No configuration switch turns these outputs on explicitly, so generation continued without them (files from earlier runs are kept).')
+    return lines.join('\n')
+  }
+
+  private retain(output: CompanionOutput, target: string): void {
+    for (const kind of output.kinds) this.retainedKindsByTarget.add(JSON.stringify([kind, target]))
+  }
+}
+
+/** One line per output and error, naming the spec targets it failed for. */
+function describeFailures(failures: readonly FailedCompanionOutput[]): string[] {
+  const groups = new Map<string, { failure: FailedCompanionOutput; targets: string[] }>()
+  for (const failure of failures) {
+    const key = JSON.stringify([failure.output.label, failure.message])
+    const group = groups.get(key)
+    if (group) group.targets.push(failure.target)
+    else groups.set(key, { failure, targets: [failure.target] })
+  }
+  return [...groups.values()].map(({ failure, targets }) => {
+    const scope = `spec target${targets.length === 1 ? '' : 's'} ${targets.map(target => `"${target}"`).join(', ')}`
+    const requestedBy = failure.request ? `; requested by ${failure.request.requestedBy}` : ''
+    return `Failed to generate ${failure.output.label} via ${failure.packages.join(' and ')}: ${failure.message} (${scope}${requestedBy})`
+  })
 }
 
 /** What an `oa-gen generate` run generates, which decides the manifest records it owns. */
@@ -250,6 +317,12 @@ function openApiLabel(doc: Record<string, unknown>): string {
 /**
  * Executes declarative multi-target generation driven by oa.config.ts.
  *
+ * Projections and companion outputs are generated in memory, and nothing is
+ * written until no output the configuration requests explicitly has failed:
+ * such a failure leaves the files and `.oa-manifest.json` of the previous run
+ * as they were. Guards come next (their generator writes the files itself),
+ * then every artifact is committed through the manifest.
+ *
  * @param configPath Absolute path of the configuration file, or undefined for
  *   `oa-gen generate --spec`, which reads none.
  */
@@ -268,14 +341,14 @@ async function runConfigDrivenPipeline(
   if (specs.length > 0) {
     await assertExplicitCompanionOutputsAvailable(config, companions)
   }
-  const skippedCompanionOutputs = new SkippedCompanionOutputs()
+  const outcomes = new CompanionOutputOutcomes(explicitCompanionOutputs(config))
   const loadCompanionFor = async <N extends CompanionPackageName>(
     output: CompanionOutput,
     packageName: N,
-    tags: readonly string[],
+    target: string,
   ): Promise<CompanionModules[N] | undefined> => {
     const loaded = await companions.load(packageName)
-    if (loaded === undefined) skippedCompanionOutputs.record(output, packageName, tags)
+    if (loaded === undefined) outcomes.skip(output, packageName, target)
     return loaded
   }
 
@@ -292,6 +365,35 @@ async function runConfigDrivenPipeline(
   const manifestManager = new OaManifestManager(rootDir, undefined, bannerMarkers)
   const configFile = configPath === undefined ? undefined : toPosixPath(relative(rootDir, configPath))
   const artifactsToWrite: WriteArtifactInput[] = []
+
+  /** Queues an artifact of this run, recorded as written by `oa-gen generate` from `configFile` for `target`. */
+  const queue = (artifact: WriteArtifactInput, target?: string): void => {
+    artifactsToWrite.push({ ...artifact, producer: MANIFEST_PRODUCERS.generate, configFile, target })
+  }
+
+  /**
+   * Generates one companion output for one spec target, whole or not at all:
+   * its artifacts are queued only when `build` produced every one of them.
+   * `build` returns undefined when a companion it needs is not installed.
+   * Returns whether the output was generated.
+   */
+  const generateCompanionOutput = async (
+    output: CompanionOutput,
+    packages: readonly CompanionPackageName[],
+    target: string,
+    build: () => Promise<WriteArtifactInput[] | undefined>,
+  ): Promise<boolean> => {
+    let artifacts: WriteArtifactInput[] | undefined
+    try {
+      artifacts = await build()
+    } catch (error) {
+      outcomes.fail(output, packages, target, error)
+      return false
+    }
+    if (artifacts === undefined) return false
+    for (const artifact of artifacts) queue(artifact, target)
+    return true
+  }
 
   console.log('\n🚀 [oa-gen generate] Executing Declarative Spec Pipeline...')
   console.log(`   Project Root: ${rootDir}\n`)
@@ -310,219 +412,163 @@ async function runConfigDrivenPipeline(
 
   // Step 1: Schema Projection (OpenAPI 3.1/3.2 and JSON Schema 2020-12)
   for (const target of specs) {
-    const resolved = resolveProfileTarget(target, rootDir)
-    await mkdir(resolved.resolvedOutDir, { recursive: true })
-
     const result = await projectTargetSpec(target, rootDir)
-    const openApiJson = JSON.stringify(result.openApiDoc, null, 2) + '\n'
-    const jsonSchemaJson = JSON.stringify(result.jsonSchemaDoc, null, 2) + '\n'
-
-    await writeFile(result.openApiPath, openApiJson, 'utf8')
-    await writeFile(result.jsonSchemaPath, jsonSchemaJson, 'utf8')
-
-    artifactsToWrite.push({
+    queue({
       path: result.openApiPath,
       kind: 'schemas',
       tag: target.id,
-      content: openApiJson,
+      content: JSON.stringify(result.openApiDoc, null, 2) + '\n',
       sourceSpec: target.schemaEntry,
-    })
-    artifactsToWrite.push({
+    }, target.id)
+    queue({
       path: result.jsonSchemaPath,
       kind: 'schemas',
       tag: target.id,
-      content: jsonSchemaJson,
+      content: JSON.stringify(result.jsonSchemaDoc, null, 2) + '\n',
       sourceSpec: target.schemaEntry,
-    })
-
+    }, target.id)
     specResults.push(result)
   }
 
-  // Step 2: Standalone Type Guards
-  let guardSummary: string | undefined
-  if (resolvedConfig.guards) {
-    const guardRes = await projectTargetGuards(resolvedConfig.guards, specResults, rootDir)
-    guardSummary = `${guardRes.artifacts.length} guard artifacts (${guardRes.guardCount} types) -> ${relative(rootDir, guardRes.outDir)}`
-    for (const artifact of guardRes.artifacts) {
-      artifactsToWrite.push({
-        path: artifact.filePath,
-        kind: 'guards',
-        content: artifact.content,
-      })
-    }
-  }
-
-  const specTags = specResults.map(res => res.target.id)
-
-  // Step 3: Handler Contracts (@oa-sdk/router)
+  // Step 2: Handler Contracts (@oa-sdk/router)
   const contractsConfig = resolvedConfig.core?.contracts
   let contractsGeneratedCount = 0
-  if (contractsConfig?.pureHandlers !== false && specResults.length > 0) {
-    try {
-      const router = await loadCompanionFor(GENERATE_COMPANION_OUTPUTS.contracts, '@oa-sdk/router', specTags)
-      if (router) {
-        for (const res of specResults) {
-          const contractCode = router.generateHandlerContract(parsedSpec(res), {
-            contractName: contractsConfig?.contractName ?? 'ApiHandlers',
-            banner: contractsConfig?.banner ?? true,
-            contextImport: resolvedConfig.product?.contextInjection?.importPath,
-            contextTypeName: resolvedConfig.product?.contextInjection?.typeName,
-          })
+  if (contractsConfig?.pureHandlers !== false) {
+    const output = GENERATE_COMPANION_OUTPUTS.contracts
+    for (const res of specResults) {
+      const id = res.target.id
+      const generated = await generateCompanionOutput(output, ['@oa-sdk/router'], id, async () => {
+        const router = await loadCompanionFor(output, '@oa-sdk/router', id)
+        if (!router) return undefined
+        const contractCode = router.generateHandlerContract(parsedSpec(res), {
+          contractName: contractsConfig?.contractName ?? 'ApiHandlers',
+          banner: contractsConfig?.banner ?? true,
+          contextImport: resolvedConfig.product?.contextInjection?.importPath,
+          contextTypeName: resolvedConfig.product?.contextInjection?.typeName,
+        })
 
-          let contractPath: string
-          if (outputRouting) {
-            contractPath = dispatcher.dispatch({ kind: 'contract', tag: res.target.id }).absolutePath
-          } else if (contractsConfig?.outDir) {
-            contractPath = resolve(rootDir, contractsConfig.outDir, `${res.target.id}.contract.ts`)
-          } else {
-            const targetResolved = resolveProfileTarget(res.target, rootDir)
-            contractPath = resolve(targetResolved.resolvedOutDir, `${res.target.id}.contract.ts`)
-          }
-
-          artifactsToWrite.push({
-            path: contractPath,
-            kind: 'contract',
-            tag: res.target.id,
-            content: contractCode,
-            sourceSpec: res.openApiPath,
-          })
-          contractsGeneratedCount++
+        let contractPath: string
+        if (outputRouting) {
+          contractPath = dispatcher.dispatch({ kind: 'contract', tag: id }).absolutePath
+        } else if (contractsConfig?.outDir) {
+          contractPath = resolve(rootDir, contractsConfig.outDir, `${id}.contract.ts`)
+        } else {
+          const targetResolved = resolveProfileTarget(res.target, rootDir)
+          contractPath = resolve(targetResolved.resolvedOutDir, `${id}.contract.ts`)
         }
-      }
-    } catch (err) {
-      console.warn('⚠️  Failed to generate handler contracts via @oa-sdk/router:', err instanceof Error ? err.message : String(err))
+
+        return [{ path: contractPath, kind: 'contract', tag: id, content: contractCode, sourceSpec: res.openApiPath }]
+      })
+      if (generated) contractsGeneratedCount++
     }
   }
 
-  // Step 4: Client SDK (@oa-sdk/client)
+  // Step 3: Client SDK (@oa-sdk/client)
   const clientConfig = resolvedConfig.core?.client
   let clientGeneratedCount = 0
-  if (clientConfig?.enabled !== false && specResults.length > 0) {
-    try {
-      const client = await loadCompanionFor(GENERATE_COMPANION_OUTPUTS.client, '@oa-sdk/client', specTags)
-      if (client) {
-        for (const res of specResults) {
-          const typesImport = clientConfig?.typesImport ?? (res.target as any).typesImport
-          const clientCode = client.generateClient(parsedSpec(res), {
-            banner: true,
-            ...(typesImport ? { typesImport } : {}),
-          })
+  if (clientConfig?.enabled !== false) {
+    const output = GENERATE_COMPANION_OUTPUTS.client
+    for (const res of specResults) {
+      const id = res.target.id
+      const generated = await generateCompanionOutput(output, ['@oa-sdk/client'], id, async () => {
+        const client = await loadCompanionFor(output, '@oa-sdk/client', id)
+        if (!client) return undefined
+        const typesImport = clientConfig?.typesImport ?? (res.target as any).typesImport
+        const clientCode = client.generateClient(parsedSpec(res), {
+          banner: true,
+          ...(typesImport ? { typesImport } : {}),
+        })
 
-          let clientPath: string
-          if (outputRouting) {
-            clientPath = dispatcher.dispatch({ kind: 'client', tag: res.target.id }).absolutePath
-          } else if (clientConfig?.outDir) {
-            clientPath = resolve(rootDir, clientConfig.outDir, `${res.target.id}.client.ts`)
-          } else {
-            const targetResolved = resolveProfileTarget(res.target, rootDir)
-            clientPath = resolve(targetResolved.resolvedOutDir, `${res.target.id}.client.ts`)
-          }
-
-          artifactsToWrite.push({
-            path: clientPath,
-            kind: 'client',
-            tag: res.target.id,
-            content: clientCode,
-            sourceSpec: res.openApiPath,
-          })
-          clientGeneratedCount++
+        let clientPath: string
+        if (outputRouting) {
+          clientPath = dispatcher.dispatch({ kind: 'client', tag: id }).absolutePath
+        } else if (clientConfig?.outDir) {
+          clientPath = resolve(rootDir, clientConfig.outDir, `${id}.client.ts`)
+        } else {
+          const targetResolved = resolveProfileTarget(res.target, rootDir)
+          clientPath = resolve(targetResolved.resolvedOutDir, `${id}.client.ts`)
         }
-      }
-    } catch (err) {
-      console.warn('⚠️  Failed to generate client SDK via @oa-sdk/client:', err instanceof Error ? err.message : String(err))
+
+        return [{ path: clientPath, kind: 'client', tag: id, content: clientCode, sourceSpec: res.openApiPath }]
+      })
+      if (generated) clientGeneratedCount++
     }
   }
 
-  // Step 5: TanStack Query options (@oa-sdk/client)
+  // Step 4: TanStack Query options (@oa-sdk/client)
   let tanstackGeneratedCount = 0
-  if (specResults.length > 0) {
-    try {
-      const client = await loadCompanionFor(GENERATE_COMPANION_OUTPUTS.tanstack, '@oa-sdk/client', specTags)
-      if (client) {
+  {
+    const output = GENERATE_COMPANION_OUTPUTS.tanstack
+    for (const res of specResults) {
+      const id = res.target.id
+      const generated = await generateCompanionOutput(output, ['@oa-sdk/client'], id, async () => {
+        const client = await loadCompanionFor(output, '@oa-sdk/client', id)
+        if (!client) return undefined
         const { generateTanstackQuery } = client
-        for (const res of specResults) {
-          let clientImport: string | undefined
-          let keysPath: string
-          let queriesPath: string
-  
-          if (outputRouting) {
-            keysPath = dispatcher.dispatch({ kind: 'keys', tag: res.target.id }).absolutePath
-            queriesPath = dispatcher.dispatch({ kind: 'queries', tag: res.target.id }).absolutePath
-            clientImport = dispatcher.resolveImport(
-              { kind: 'queries', tag: res.target.id },
-              { kind: 'client', tag: res.target.id },
-            )
-          } else {
-            const targetResolved = resolveProfileTarget(res.target, rootDir)
-            keysPath = resolve(targetResolved.resolvedOutDir, `${res.target.id}.keys.ts`)
-            queriesPath = resolve(targetResolved.resolvedOutDir, `${res.target.id}.queries.ts`)
-            clientImport = `./${res.target.id}.client.js`
-          }
-  
-          if (outputRouting && keysPath !== queriesPath) {
-            const keysImport = dispatcher.resolveImport(
-              { kind: 'queries', tag: res.target.id },
-              { kind: 'keys', tag: res.target.id },
-            )
-            const tanstackResult = generateTanstackQuery(parsedSpec(res), {
-              queryPackage: '@tanstack/react-query',
-              includeHooks: true,
-              clientImport,
-              keysImport,
-              tier: 'all',
-            })
-  
-            artifactsToWrite.push({
-              path: keysPath,
-              kind: 'keys',
-              tag: res.target.id,
-              content: tanstackResult.keysCode,
-              sourceSpec: res.openApiPath,
-            })
-            artifactsToWrite.push({
-              path: queriesPath,
-              kind: 'queries',
-              tag: res.target.id,
-              content: tanstackResult.queriesCode,
-              sourceSpec: res.openApiPath,
-            })
-          } else {
-            const tanstackResult = generateTanstackQuery(parsedSpec(res), {
-              queryPackage: '@tanstack/react-query',
-              includeHooks: true,
-              clientImport,
-            })
-  
-            artifactsToWrite.push({
-              path: queriesPath,
-              kind: 'queries',
-              tag: res.target.id,
-              content: tanstackResult.combinedCode,
-              sourceSpec: res.openApiPath,
-            })
-          }
-          tanstackGeneratedCount++
+
+        let clientImport: string | undefined
+        let keysPath: string
+        let queriesPath: string
+        if (outputRouting) {
+          keysPath = dispatcher.dispatch({ kind: 'keys', tag: id }).absolutePath
+          queriesPath = dispatcher.dispatch({ kind: 'queries', tag: id }).absolutePath
+          clientImport = dispatcher.resolveImport(
+            { kind: 'queries', tag: id },
+            { kind: 'client', tag: id },
+          )
+        } else {
+          const targetResolved = resolveProfileTarget(res.target, rootDir)
+          keysPath = resolve(targetResolved.resolvedOutDir, `${id}.keys.ts`)
+          queriesPath = resolve(targetResolved.resolvedOutDir, `${id}.queries.ts`)
+          clientImport = `./${id}.client.js`
         }
-      }
-    } catch (err) {
-      console.warn('⚠️  Failed to generate TanStack Query options via @oa-sdk/client:', err instanceof Error ? err.message : String(err))
+
+        if (outputRouting && keysPath !== queriesPath) {
+          const keysImport = dispatcher.resolveImport(
+            { kind: 'queries', tag: id },
+            { kind: 'keys', tag: id },
+          )
+          const tanstackResult = generateTanstackQuery(parsedSpec(res), {
+            queryPackage: '@tanstack/react-query',
+            includeHooks: true,
+            clientImport,
+            keysImport,
+            tier: 'all',
+          })
+          return [
+            { path: keysPath, kind: 'keys', tag: id, content: tanstackResult.keysCode, sourceSpec: res.openApiPath },
+            { path: queriesPath, kind: 'queries', tag: id, content: tanstackResult.queriesCode, sourceSpec: res.openApiPath },
+          ]
+        }
+
+        const tanstackResult = generateTanstackQuery(parsedSpec(res), {
+          queryPackage: '@tanstack/react-query',
+          includeHooks: true,
+          clientImport,
+        })
+        return [{ path: queriesPath, kind: 'queries', tag: id, content: tanstackResult.combinedCode, sourceSpec: res.openApiPath }]
+      })
+      if (generated) tanstackGeneratedCount++
     }
   }
 
-  // Step 5.5: CRDT Collaboration Modules (@oa-sdk/router & @oa-sdk/client)
+  // Step 5: CRDT Collaboration Modules (@oa-sdk/router & @oa-sdk/client)
   let crdtGeneratedCount = 0
-  for (const res of specResults) {
-    const schemas = (res.openApiDoc as any)?.components?.schemas ?? {}
-    const hasCrdtEntity = Object.values(schemas).some(
-      (s: any) => s && typeof s === 'object' && ('x-oa-sdk-crdt-entity' in s || 'x-oa-sdk-crdt' in s),
-    )
+  {
+    const output = GENERATE_COMPANION_OUTPUTS.crdt
+    for (const res of specResults) {
+      const schemas = (res.openApiDoc as any)?.components?.schemas ?? {}
+      const hasCrdtEntity = Object.values(schemas).some(
+        (s: any) => s && typeof s === 'object' && ('x-oa-sdk-crdt-entity' in s || 'x-oa-sdk-crdt' in s),
+      )
+      if (!hasCrdtEntity) continue
 
-    if (hasCrdtEntity) {
-      try {
+      const id = res.target.id
+      const generated = await generateCompanionOutput(output, ['@oa-sdk/router', '@oa-sdk/client'], id, async () => {
         // The four CRDT modules reference each other, so they are produced together or not at all.
-        const router = await loadCompanionFor(GENERATE_COMPANION_OUTPUTS.crdt, '@oa-sdk/router', [res.target.id])
-        const client = await loadCompanionFor(GENERATE_COMPANION_OUTPUTS.crdt, '@oa-sdk/client', [res.target.id])
-        if (!router || !client) continue
+        const router = await loadCompanionFor(output, '@oa-sdk/router', id)
+        const client = await loadCompanionFor(output, '@oa-sdk/client', id)
+        if (!router || !client) return undefined
         const { generateCrdtHandlerContract, generateCrdtRouter } = router
         const { generateCrdtClient, generateCrdtHooks } = client
 
@@ -532,94 +578,80 @@ async function runConfigDrivenPipeline(
         // 1. CRDT contract
         const crdtContractCode = generateCrdtHandlerContract(parsedSpec(res), { banner: true })
         const crdtContractPath = outputRouting
-          ? dispatcher.dispatch({ kind: 'crdt-contract', tag: res.target.id }).absolutePath
-          : resolve(targetDir, `${res.target.id}.crdt.contract.ts`)
-        artifactsToWrite.push({
-          path: crdtContractPath,
-          kind: 'crdt-contract',
-          tag: res.target.id,
-          content: crdtContractCode,
-          sourceSpec: res.openApiPath,
-        })
+          ? dispatcher.dispatch({ kind: 'crdt-contract', tag: id }).absolutePath
+          : resolve(targetDir, `${id}.crdt.contract.ts`)
 
         // 2. CRDT router
         const crdtRouterCode = generateCrdtRouter(parsedSpec(res), {
           target: ((resolvedConfig.core as any)?.router as any)?.target ?? 'hono',
           contractImport: outputRouting
             ? dispatcher.resolveImport(
-                { kind: 'crdt-router', tag: res.target.id },
-                { kind: 'crdt-contract', tag: res.target.id },
+                { kind: 'crdt-router', tag: id },
+                { kind: 'crdt-contract', tag: id },
               )
-            : `./${res.target.id}.crdt.contract.js`,
+            : `./${id}.crdt.contract.js`,
           banner: true,
         })
         const crdtRouterPath = outputRouting
-          ? dispatcher.dispatch({ kind: 'crdt-router', tag: res.target.id }).absolutePath
-          : resolve(targetDir, `${res.target.id}.crdt.router.ts`)
-        artifactsToWrite.push({
-          path: crdtRouterPath,
-          kind: 'crdt-router',
-          tag: res.target.id,
-          content: crdtRouterCode,
-          sourceSpec: res.openApiPath,
-        })
+          ? dispatcher.dispatch({ kind: 'crdt-router', tag: id }).absolutePath
+          : resolve(targetDir, `${id}.crdt.router.ts`)
 
         // 3. CRDT client
         const crdtClientCode = generateCrdtClient(parsedSpec(res), { banner: true })
         const crdtClientPath = outputRouting
-          ? dispatcher.dispatch({ kind: 'crdt-client', tag: res.target.id }).absolutePath
-          : resolve(targetDir, `${res.target.id}.crdt.client.ts`)
-        artifactsToWrite.push({
-          path: crdtClientPath,
-          kind: 'crdt-client',
-          tag: res.target.id,
-          content: crdtClientCode,
-          sourceSpec: res.openApiPath,
-        })
+          ? dispatcher.dispatch({ kind: 'crdt-client', tag: id }).absolutePath
+          : resolve(targetDir, `${id}.crdt.client.ts`)
 
         // 4. CRDT hooks
         const crdtHooksCode = generateCrdtHooks(parsedSpec(res), {
           clientImport: outputRouting
             ? dispatcher.resolveImport(
-                { kind: 'crdt-hooks', tag: res.target.id },
-                { kind: 'crdt-client', tag: res.target.id },
+                { kind: 'crdt-hooks', tag: id },
+                { kind: 'crdt-client', tag: id },
               )
-            : `./${res.target.id}.crdt.client.js`,
+            : `./${id}.crdt.client.js`,
           banner: true,
         })
         const crdtHooksPath = outputRouting
-          ? dispatcher.dispatch({ kind: 'crdt-hooks', tag: res.target.id }).absolutePath
-          : resolve(targetDir, `${res.target.id}.crdt.hooks.ts`)
-        artifactsToWrite.push({
-          path: crdtHooksPath,
-          kind: 'crdt-hooks',
-          tag: res.target.id,
-          content: crdtHooksCode,
-          sourceSpec: res.openApiPath,
-        })
+          ? dispatcher.dispatch({ kind: 'crdt-hooks', tag: id }).absolutePath
+          : resolve(targetDir, `${id}.crdt.hooks.ts`)
 
-        crdtGeneratedCount++
-      } catch (err) {
-        console.warn('⚠️  Failed to generate CRDT modules:', err instanceof Error ? err.message : String(err))
-      }
+        return [
+          { path: crdtContractPath, kind: 'crdt-contract', tag: id, content: crdtContractCode, sourceSpec: res.openApiPath },
+          { path: crdtRouterPath, kind: 'crdt-router', tag: id, content: crdtRouterCode, sourceSpec: res.openApiPath },
+          { path: crdtClientPath, kind: 'crdt-client', tag: id, content: crdtClientCode, sourceSpec: res.openApiPath },
+          { path: crdtHooksPath, kind: 'crdt-hooks', tag: id, content: crdtHooksCode, sourceSpec: res.openApiPath },
+        ]
+      })
+      if (generated) crdtGeneratedCount++
     }
   }
 
-  // Step 6: Commit all artifacts through OaManifestManager and prune the orphans this run owns.
-  // Every artifact is recorded as written by `oa-gen generate` from this run's configuration
-  // file, for the spec target it was generated for (guards belong to no single target).
-  const writeResult = await manifestManager.writeArtifacts(artifactsToWrite.map(artifact => ({
-    ...artifact,
-    producer: MANIFEST_PRODUCERS.generate,
-    configFile,
-    target: artifact.kind === 'guards' ? undefined : artifact.tag,
-  })))
+  // An output the configuration requests explicitly must not fail silently.
+  // Stop before anything is written, so no partial output looks like a success.
+  if (outcomes.requestedFailures().length > 0) {
+    console.error(outcomes.formatRequestedFailures())
+    throw new CliExitError(1)
+  }
+
+  // Step 6: Standalone Type Guards (written by the guard generator, then recorded)
+  let guardSummary: string | undefined
+  if (resolvedConfig.guards) {
+    const guardRes = await projectTargetGuards(resolvedConfig.guards, specResults, rootDir)
+    guardSummary = `${guardRes.artifacts.length} guard artifacts (${guardRes.guardCount} types) -> ${relative(rootDir, guardRes.outDir)}`
+    for (const artifact of guardRes.artifacts) {
+      queue({ path: artifact.filePath, kind: 'guards', content: artifact.content })
+    }
+  }
+
+  // Step 7: Commit all artifacts through OaManifestManager and prune the orphans this run owns
+  const writeResult = await manifestManager.writeArtifacts(artifactsToWrite)
   let pruneResult: PruneResult | undefined
   if (outputRouting?.pruneOrphans !== false) {
     const activePaths = artifactsToWrite.map((a) =>
       relative(rootDir, resolve(rootDir, a.path)),
     )
-    activePaths.push(...skippedCompanionOutputs.retainedPaths(writeResult.manifest.artifacts))
+    activePaths.push(...outcomes.retainedPaths(writeResult.manifest.artifacts))
     pruneResult = await manifestManager.pruneOrphans(activePaths, {
       scope: ownedByGenerateRun({
         configFile,
@@ -629,7 +661,7 @@ async function runConfigDrivenPipeline(
     })
   }
 
-  // Step 7: Formatted Summary
+  // Step 8: Formatted Summary
   console.log('================================================================================')
   console.log('                 OA-SDK GENERATE: SPEC & GUARD SUMMARY                          ')
   console.log('                 OA-SDK GENERATE: DECLARATIVE PIPELINE SUMMARY                  ')
@@ -664,8 +696,11 @@ async function runConfigDrivenPipeline(
     console.log(` ✅ ${guardSummary}`)
   }
   console.log('================================================================================\n')
-  if (skippedCompanionOutputs.entries.length > 0) {
-    console.warn(skippedCompanionOutputs.format() + '\n')
+  if (outcomes.skipped.length > 0) {
+    console.warn(outcomes.formatSkipped() + '\n')
+  }
+  if (outcomes.failed.length > 0) {
+    console.warn(outcomes.formatImpliedFailures() + '\n')
   }
 }
 

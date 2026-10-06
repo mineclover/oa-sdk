@@ -10,8 +10,26 @@ import {
   companionInstallCommand,
   type CompanionCommandContext,
   type CompanionImporter,
+  type CompanionModules,
+  type CompanionPackageName,
 } from '../../cli/lib/companion-packages.js'
 import { importerWithout } from '../helpers/companion-packages.js'
+
+/** Importer of an install in which some exports of the companion `name` throw when called. */
+function importerWithFailing<N extends CompanionPackageName>(
+  name: N,
+  failing: Partial<Record<keyof CompanionModules[N], Error>>,
+): CompanionImporter {
+  return (async (requested: CompanionPackageName) => {
+    const loaded = await importCompanion(requested)
+    if (requested !== name) return loaded
+    const overrides = Object.fromEntries(Object.entries(failing).map(([exportName, error]) => [
+      exportName,
+      () => { throw error },
+    ]))
+    return { ...loaded, ...overrides }
+  }) as CompanionImporter
+}
 
 /**
  * `oa-gen generate` in a published install, where @oa-sdk/router and
@@ -279,6 +297,130 @@ describe('oa-gen generate without companion packages', () => {
       expect(manifest.artifacts.map(artifact => artifact.kind)).toEqual(
         expect.arrayContaining(['contract', 'client', 'queries']),
       )
+    })
+  })
+
+  describe('errors thrown while a companion generates an output', () => {
+    const snapshotOf = (dir: string): Record<string, string> => {
+      const files: Record<string, string> = {}
+      const walk = (current: string) => {
+        for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+          const absolute = path.join(current, entry.name)
+          if (entry.isDirectory()) walk(absolute)
+          else files[path.relative(dir, absolute)] = fs.readFileSync(absolute, 'utf8')
+        }
+      }
+      walk(dir)
+      return files
+    }
+
+    it('fails the run with the error, writing nothing, when the output is requested explicitly', async () => {
+      writeConfig({ contracts: { pureHandlers: true } })
+
+      const failure = await exitOf(runGenerate(importerWithFailing('@oa-sdk/router', {
+        generateHandlerContract: new Error('contract renderer exploded'),
+      })))
+
+      expect(failure).toBeInstanceOf(CliExitError)
+      expect((failure as CliExitError).exitCode).toBe(1)
+      const message = errors.join('\n')
+      expect(message).toContain('Generation failed; no files were written')
+      expect(message).toContain('Failed to generate handler contracts via @oa-sdk/router: contract renderer exploded')
+      expect(message).toContain('requested by core.contracts.pureHandlers: true')
+      expect(message).toContain('set core.contracts.pureHandlers to false')
+      expect(fs.existsSync(path.join(tmpDir, 'generated'))).toBe(false)
+      expect(fs.existsSync(path.join(tmpDir, '.oa-manifest.json'))).toBe(false)
+      expect(logs.join('\n')).not.toContain('Contracts Generated')
+    })
+
+    it('fails when core.client.enabled: true and the client generator throws', async () => {
+      writeConfig({ client: { enabled: true } })
+
+      const failure = await exitOf(runGenerate(importerWithFailing('@oa-sdk/client', {
+        generateClient: new Error('client renderer exploded'),
+      })))
+
+      expect(failure).toBeInstanceOf(CliExitError)
+      const message = errors.join('\n')
+      expect(message).toContain('Failed to generate client SDK via @oa-sdk/client: client renderer exploded')
+      expect(message).toContain('requested by core.client.enabled: true')
+      expect(fs.existsSync(openApiPath)).toBe(false)
+      expect(fs.existsSync(contractPath)).toBe(false)
+    })
+
+    it('leaves the files and manifest of the previous run untouched when a requested output fails', async () => {
+      writeConfig({ contracts: { pureHandlers: true }, client: { enabled: true } })
+      await runGenerate(importCompanion)
+      const before = snapshotOf(tmpDir)
+      expect(Object.keys(before)).toEqual(expect.arrayContaining([
+        '.oa-manifest.json',
+        path.join('generated', 'orders.openapi.json'),
+        path.join('generated', 'orders.contract.ts'),
+      ]))
+
+      // The spec changes, then the requested contract fails to generate.
+      writeSpec({ Customer: { type: 'object', properties: { name: { type: 'string' } } } })
+      const failure = await exitOf(runGenerate(importerWithFailing('@oa-sdk/router', {
+        generateHandlerContract: new Error('contract renderer exploded'),
+      })))
+
+      expect(failure).toBeInstanceOf(CliExitError)
+      const after = snapshotOf(tmpDir)
+      delete before['orders.json']
+      delete after['orders.json']
+      expect(after).toEqual(before)
+    })
+
+    it('skips an implied output with a warning, keeps its earlier files, and generates the rest', async () => {
+      writeConfig()
+      await runGenerate(importCompanion)
+      const contract = fs.readFileSync(contractPath, 'utf8')
+      warnings.length = 0
+      logs.length = 0
+
+      await runGenerate(importerWithFailing('@oa-sdk/router', {
+        generateHandlerContract: new Error('contract renderer exploded'),
+      }))
+
+      expect(errors).toEqual([])
+      const warning = warnings.join('\n')
+      expect(warning).toContain('Skipped outputs that failed to generate')
+      expect(warning).toContain('Failed to generate handler contracts via @oa-sdk/router: contract renderer exploded (spec target "orders")')
+      expect(warning).toContain('files from earlier runs are kept')
+      expect(logs.join('\n')).toContain('Contracts Generated: 0')
+      expect(logs.join('\n')).toContain('Clients Generated:   1')
+      expect(fs.readFileSync(contractPath, 'utf8')).toBe(contract)
+      expect(fs.existsSync(clientPath)).toBe(true)
+      expect(fs.existsSync(queriesPath)).toBe(true)
+    })
+
+    it('writes none of the CRDT modules when one of them fails to generate', async () => {
+      writeSpec({
+        Board: {
+          type: 'object',
+          'x-oa-sdk-crdt-entity': { partitionKey: 'boardId', strategy: 'delta-sharded' },
+          properties: {
+            boardId: { type: 'string' },
+            title: { type: 'string', 'x-oa-sdk-crdt': { type: 'lww-register', role: 'value' } },
+          },
+        },
+      })
+      writeConfig({ contracts: { pureHandlers: true }, client: { enabled: true } })
+
+      await runGenerate(importerWithFailing('@oa-sdk/client', {
+        generateCrdtClient: new Error('crdt client renderer exploded'),
+      }))
+
+      expect(errors).toEqual([])
+      for (const module of ['contract', 'router', 'client', 'hooks']) {
+        expect(fs.existsSync(out(`orders.crdt.${module}.ts`)), `orders.crdt.${module}.ts`).toBe(false)
+      }
+      expect(fs.existsSync(contractPath)).toBe(true)
+      expect(fs.existsSync(clientPath)).toBe(true)
+      expect(warnings.join('\n')).toContain(
+        'Failed to generate CRDT modules via @oa-sdk/router and @oa-sdk/client: crdt client renderer exploded (spec target "orders")',
+      )
+      expect(logs.join('\n')).not.toContain('CRDT Modules:')
     })
   })
 
