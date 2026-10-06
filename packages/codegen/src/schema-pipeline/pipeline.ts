@@ -134,7 +134,6 @@ export async function executeSchemaPipeline(
     const compSchemas =
       ((projection.openApiDoc.components as Record<string, unknown>)?.schemas as Record<string, unknown>) ?? {}
     const compKeys = Object.keys(compSchemas)
-    const paths = (projection.openApiDoc.paths as Record<string, unknown>) ?? {}
     const refs = (projection.openApiDoc['x-schema-engine-refs'] as unknown[]) ?? []
 
     stage3Specs.push({
@@ -144,7 +143,7 @@ export async function executeSchemaPipeline(
       specVersion: String(projection.openApiDoc.openapi ?? '3.1.0'),
       versionHash: projection.versionHash,
       schemaCount: compKeys.length,
-      operationCount: Object.keys(paths).length,
+      operationCount: projection.operationCount,
       refsCount: refs.length,
       schemas: compKeys,
     })
@@ -264,7 +263,7 @@ export function formatTransparencyTable(manifest: SchemaPipelineTransparencyMani
     lines.push(`Target: ${s3.id} (${s3.profile})`)
     lines.push(`  • Stage 1 (Zod):         ${s3.schemaCount} schemas extracted`)
     lines.push(`  • Stage 2 (Draft 2020):  ${s2?.path ?? 'N/A'} ($defs: ${s2?.defsCount ?? 0})`)
-    lines.push(`  • Stage 3 (OpenAPI 3.1): ${s3.path} (${s3.operationCount} ops, ${s3.refsCount} refs, ${s3.versionHash.slice(0, 15)}...)`)
+    lines.push(`  • Stage 3 (OpenAPI ${s3.specVersion}): ${s3.path} (${s3.operationCount} ops, ${s3.refsCount} refs, ${s3.versionHash.slice(0, 15)}...)`)
   }
 
   for (const g of manifest.stages.stage4_typeGuards.guards) {

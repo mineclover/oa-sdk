@@ -20,7 +20,7 @@ import {
   type SchemaRefEdge,
   type SchemaSourceCoordinate,
 } from '@oa-sdk/openapi-projection-contract'
-import { appendJsonPointer } from '@oa-sdk/parser'
+import { appendJsonPointer, parseDocument, type OasDocument } from '@oa-sdk/parser'
 import type { ProfileTargetConfig, GuardTargetConfig } from './config.js'
 import { loadModule } from './cli/lib/config-loader.js'
 import { zodToSchema } from './zod-to-schema.js'
@@ -35,6 +35,7 @@ export interface TargetSpecProjectionResult {
   versionHash: string
   openApiPath: string
   jsonSchemaPath: string
+  /** Operations under `paths` (see `countPathOperations`), not the number of paths. */
   operationCount: number
   schemaCount: number
 }
@@ -187,6 +188,18 @@ export function extractRefsFromDocument(doc: unknown, defaultSourcePath = ''): S
   }
   walk(doc, '#')
   return refs
+}
+
+/**
+ * Number of operations under `paths`, as `@oa-sdk/parser` indexes them: every
+ * fixed-field HTTP method (OAS 3.2 `query` included) and every
+ * `additionalOperations` entry of each Path Item, following Path Item `$ref`s
+ * within the document. Webhooks are not operations of the described server and
+ * are not counted.
+ */
+function countPathOperations(doc: Record<string, unknown>): number {
+  // No passes: the document is indexed as it is, without dereferencing schemas.
+  return parseDocument(doc as unknown as OasDocument, []).operations.length
 }
 
 /**
@@ -395,7 +408,7 @@ export async function projectTargetSpec(
   const openApiPath = path.join(resolvedOutDir, `${target.id}.openapi.json`)
   const jsonSchemaPath = path.join(resolvedOutDir, `${target.id}.schema.json`)
 
-  const operationCount = Object.keys((coreOpenApiDoc.paths as Record<string, unknown>) ?? {}).length
+  const operationCount = countPathOperations(coreOpenApiDoc)
   const schemaCount = Object.keys(components ?? {}).length
 
   return {

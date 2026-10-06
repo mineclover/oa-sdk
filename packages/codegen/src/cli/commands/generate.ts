@@ -200,6 +200,11 @@ class SkippedCompanionOutputs {
   }
 }
 
+/** Summary label of a projected OpenAPI document: the version its `openapi` field declares. */
+function openApiLabel(doc: Record<string, unknown>): string {
+  return typeof doc['openapi'] === 'string' ? `OpenAPI ${doc['openapi']}` : 'OpenAPI (no version declared)'
+}
+
 /**
  * Executes declarative multi-target generation driven by oa.config.ts.
  */
@@ -581,7 +586,7 @@ async function runConfigDrivenPipeline(
     const opInfo = res.operationCount > 0 ? `${res.operationCount} ops, ` : ''
     const titleInfo = res.target.title ? `(${res.target.title}) ` : ''
     console.log(` ✅ ${res.target.id.padEnd(20)} [${(res.target.profile ?? 'full-api-document').padEnd(18)}] ${titleInfo}-> ${opInfo}${res.schemaCount} schemas`)
-    console.log(`    - OpenAPI 3.1: ${relOpenApi}`)
+    console.log(`    - ${openApiLabel(res.openApiDoc)}: ${relOpenApi}`)
     console.log(`    - JSON Schema: ${relSchema}`)
   }
 
