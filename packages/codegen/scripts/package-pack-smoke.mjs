@@ -186,12 +186,14 @@ try {
 
   // The move to the enterprise archetype the onboarding runbook describes: init runs again,
   // without --force, in a project scaffolded with the default archetype, after generate wrote its
-  // documents. The spec spans two files and has a name init does not detect. Init keeps
-  // oa.config.ts, so the gate must check the spec it records rather than a generated document,
-  // and the baseline must hold the file the spec refers to, so that breaking it fails the gate.
+  // documents. The spec spans three files and has a name init does not detect: a response schema
+  // and a path item, with a field of the path item next to its $ref, live in other files. Init
+  // keeps oa.config.ts, so the gate must check the spec it records rather than a generated
+  // document, and the baseline must hold the files the spec refers to, so that breaking either of
+  // them fails the gate.
   const upgrade = { id: 'mvp, then enterprise' }
   const upgraded = join(temporaryDirectory, 'consumer-upgrade')
-  mkdirSync(join(upgraded, 'api'), { recursive: true })
+  mkdirSync(join(upgraded, 'api', 'paths'), { recursive: true })
   writeFileSync(join(upgraded, 'package.json'), `${JSON.stringify({ name: 'consumer', private: true, type: 'commonjs' }, null, 2)}\n`)
   writeFileSync(join(upgraded, 'api', 'contract.yaml'), [
     'openapi: 3.2.0',
@@ -202,10 +204,25 @@ try {
     '      operationId: getHealth',
     '      summary: Health',
     "      responses: { '200': { description: OK, content: { application/json: { schema: { $ref: './schemas.yaml#/Health' } } } } }",
+    '  /users/{id}:',
+    "    $ref: './paths/user.yaml'",
+    '    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]',
     '',
   ].join('\n'))
   const healthSchema = ['Health:', '  type: object', '  required: [ok]', '  properties: { ok: { type: boolean } }', ''].join('\n')
   writeFileSync(join(upgraded, 'api', 'schemas.yaml'), healthSchema)
+  const userPathItem = [
+    'get:',
+    '  operationId: getUser',
+    '  summary: User',
+    "  responses: { '200': { description: OK } }",
+    'delete:',
+    '  operationId: deleteUser',
+    '  summary: Delete user',
+    "  responses: { '204': { description: Deleted } }",
+    '',
+  ].join('\n')
+  writeFileSync(join(upgraded, 'api', 'paths', 'user.yaml'), userPathItem)
   execFileSync(process.execPath, [oaGen, 'init', '--yes', '--spec', 'api/contract.yaml', '--cwd', upgraded], { stdio: ['ignore', 'ignore', 'inherit'] })
   installPackedCodegen(upgraded, oaGen)
   runScript(upgrade, 'generate', readScripts(upgraded).generate, upgraded)
@@ -218,15 +235,25 @@ try {
   if (upgradedScripts.diff !== gatedDiff) {
     throw new Error(`packed oa-gen init (${upgrade.id}) must gate the schemaEntry of the oa.config.ts it keeps (${gatedDiff}), received ${JSON.stringify(upgradedScripts)}`)
   }
-  if (readFileSync(join(upgraded, 'openapi.baseline.yaml'), 'utf8').includes('schemas.yaml')) {
-    throw new Error(`the contract baseline packed oa-gen init (${upgrade.id}) created refers to api/schemas.yaml instead of holding it`)
+  const upgradedBaseline = readFileSync(join(upgraded, 'openapi.baseline.yaml'), 'utf8')
+  for (const referenced of ['schemas.yaml', 'user.yaml']) {
+    if (upgradedBaseline.includes(referenced)) {
+      throw new Error(`the contract baseline packed oa-gen init (${upgrade.id}) created refers to ${referenced} instead of holding it`)
+    }
   }
   runScript(upgrade, 'ci:gate', upgradedScripts['ci:gate'], upgraded)
-  writeFileSync(join(upgraded, 'api', 'schemas.yaml'), healthSchema.replace('required: [ok]', 'required: []').replace('type: boolean', 'type: string'))
-  for (const script of ['diff', 'ci:gate']) {
-    if (scriptExitCode(upgradedScripts[script], upgraded) === 0) {
-      throw new Error(`the ${script} script of packed oa-gen init (${upgrade.id}) passed a breaking change made in api/schemas.yaml, which the spec refers to`)
+  const breakingChanges = [
+    ['api/schemas.yaml', healthSchema, healthSchema.replace('required: [ok]', 'required: []').replace('type: boolean', 'type: string')],
+    ['api/paths/user.yaml', userPathItem, userPathItem.slice(0, userPathItem.indexOf('delete:'))],
+  ]
+  for (const [file, original, broken] of breakingChanges) {
+    writeFileSync(join(upgraded, file), broken)
+    for (const script of ['diff', 'ci:gate']) {
+      if (scriptExitCode(upgradedScripts[script], upgraded) === 0) {
+        throw new Error(`the ${script} script of packed oa-gen init (${upgrade.id}) passed a breaking change made in ${file}, which the spec refers to`)
+      }
     }
+    writeFileSync(join(upgraded, file), original)
   }
 
   // Install hints for a missing companion, and the specifiers `oa-gen init` writes, name the
@@ -257,7 +284,7 @@ try {
       `and every script it writes runs in a "type": "commonjs" project (${INIT_ARCHETYPES
         .map(({ id, scripts }) => `${id}: ${Object.keys(scripts).join(', ')}`).join(' | ')}), ` +
       `the enterprise gate failing once the spec breaks its contract baseline, ` +
-      `also after an upgrade from mvp on a spec that spans two files`,
+      `also after an upgrade from mvp on a spec that spans three files, one of them a path item`,
   )
 } finally {
   rmSync(temporaryDirectory, { recursive: true, force: true })
