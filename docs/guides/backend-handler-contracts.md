@@ -115,6 +115,7 @@ export interface ApiHandlers<TContext = unknown> {
 
 ```typescript
 // src/handlers.ts
+import { Readable } from 'node:stream'
 import type { ApiHandlers } from './api.contract.js'
 import type { User } from './types.js'
 
@@ -147,7 +148,8 @@ export const handlers: ApiHandlers = {
     async function* events() {
       yield 'data: {"level":"info","message":"started"}\n\n'
     }
-    return { status: 200, body: events(), headers: { 'Content-Type': 'text/event-stream' } }
+    // generator를 Node 스트림으로 감싸야 네 라우터가 모두 보냄(6절 4항)
+    return { status: 200, body: Readable.from(events()), headers: { 'content-type': 'text/event-stream' } }
   },
 }
 ```
@@ -245,7 +247,7 @@ async updateUser({ params, query, headers, body }) {
 }
 ```
 
-경로·쿼리 값의 변환과 검증을 프레임워크에 맡기려면 Fastify 라우터를 씁니다. 계약 검증이 필요한 개발·테스트 단계에서는 [mock 서버](./mock-server-usage.md)를 함께 씁니다.
+경로·쿼리 값의 변환과 검증을 프레임워크에 맡기려면 Fastify 라우터를 씁니다(스트리밍 본문의 라우터별 제한은 [6절 4항](#6-handlerresponse-반환-규칙)). 계약 검증이 필요한 개발·테스트 단계에서는 [mock 서버](./mock-server-usage.md)를 함께 씁니다.
 
 ---
 
@@ -254,7 +256,10 @@ async updateUser({ params, query, headers, body }) {
 1. **본문만 반환**: `return user`는 operation의 기본 성공 상태(가장 낮은 2xx, 예를 들어 생성 operation은 201)로 JSON 응답합니다.
 2. **상태·헤더 지정**: `return { status: 200, body: user, headers: { 'Cache-Control': 'max-age=3600' } }`.
 3. **오류 응답**: `return { status: 404, body: { code: 'NOT_FOUND', message: '...' } }`.
-4. **스트리밍**: `body`에 `ReadableStream`, `AsyncIterable<Uint8Array | string>`, Node 스트림(`pipe()`를 가진 객체), `Uint8Array`를 넣으면 청크 단위로 보냅니다. 상태 코드는 200 또는 206(`StreamingResponse`)입니다.
+4. **스트리밍**: 상태 200 또는 206(`StreamingResponse`)으로 `body`에 스트림을 넣으면 JSON으로 직렬화하지 않고 그대로 보냅니다. 네 라우터에서 모두 동작하는 `body`는 Node 스트림(`pipe()`를 가진 객체), `ReadableStream<Uint8Array>`, `Uint8Array`입니다. 계약의 `StreamingBody` 타입은 `AsyncIterable<Uint8Array | string>`도 받지만 라우터마다 처리가 달라서, async generator는 `node:stream`의 `Readable.from()`으로 감싸 넣습니다([4절 예제](#4-핸들러-구현)).
+   - Fastify: `AsyncIterable`을 보내지 못합니다(알려진 결함). 라우터가 `body`를 Fastify에 그대로 넘기므로 `Content-Type`이 `text/event-stream`처럼 JSON이 아니면 500 `FST_ERR_REP_INVALID_PAYLOAD_TYPE`, 지정하지 않으면 200 `{}`로 응답합니다.
+   - Elysia: Node.js에서 기본 어댑터(`app.handle()`, `app.fetch`)로 처리하면 문자열 청크를 내는 `AsyncIterable`이 `Received non-Uint8Array chunk`로 실패합니다. 또 `ReadableStream`·`AsyncIterable` 본문에는 Elysia가 자기 `content-type`을 붙이므로, 헤더 이름을 `'Content-Type'`으로 주면 `text/event-stream, text/plain`처럼 값이 두 개 나갑니다. 헤더 이름은 소문자로 씁니다.
+   - Hono: `[Symbol.asyncIterator]()`를 부를 때마다 새 반복자를 돌려주는 객체(`{ async *[Symbol.asyncIterator]() { ... } }`)는 첫 청크를 끝없이 반복합니다(알려진 결함). generator 객체와 Node 스트림은 정상입니다.
 
 라우터는 반환값이 `body` 속성을 가진 객체이고, `status`가 없거나 숫자이며, `headers`가 없거나 객체이면 `{ status, body, headers }` 응답 봉투로 해석해 `body`만 보냅니다. 따라서 `body` 필드를 가진 엔티티를 본문으로 돌려줄 때는 `return { status: 200, body: entity }`처럼 반드시 감쌉니다.
 

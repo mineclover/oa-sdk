@@ -136,9 +136,23 @@ On Node.js, Elysia's default adapter has no `.listen()`; create the app with
 - **Body only**: `return user` answers with the operation's default success status (the lowest
   documented 2xx) as JSON.
 - **Envelope**: `return { status, body, headers? }` sets the status and headers.
-- **Streaming**: put a `ReadableStream`, an `AsyncIterable<Uint8Array | string>`, a Node stream
-  (anything with `pipe()`), or a `Uint8Array` in `body`, with status 200 or 206
-  (`StreamingResponse`); the router writes it chunk by chunk.
+- **Streaming**: with status 200 or 206 (`StreamingResponse`), a stream in `body` is sent as is
+  instead of being serialized to JSON. A Node stream (anything with `pipe()`), a
+  `ReadableStream<Uint8Array>`, and a `Uint8Array` work with all four routers. The contract's
+  `StreamingBody` type also accepts an `AsyncIterable<Uint8Array | string>`, but the routers handle
+  it differently, so wrap an async generator in `Readable.from()` from `node:stream`:
+  `return { status: 200, body: Readable.from(events()), headers: { 'content-type': 'text/event-stream' } }`.
+  - Fastify cannot send an `AsyncIterable` (known defect). The router hands `body` to Fastify
+    unchanged, which answers 500 `FST_ERR_REP_INVALID_PAYLOAD_TYPE` when the `Content-Type` is not
+    JSON (for example `text/event-stream`), and 200 `{}` when none is set.
+  - Elysia on Node.js with its default adapter (`app.handle()`, `app.fetch`) fails on an
+    `AsyncIterable` of strings with `Received non-Uint8Array chunk`. Elysia also adds its own
+    `content-type` to `ReadableStream` and `AsyncIterable` bodies, so a handler header named
+    `'Content-Type'` goes out as two values (`text/event-stream, text/plain`); write header names in
+    lowercase.
+  - Hono repeats the first chunk forever for an object whose `[Symbol.asyncIterator]()` returns a
+    new iterator on each call (`{ async *[Symbol.asyncIterator]() { ... } }`) (known defect).
+    Generator objects and Node streams are fine.
 
 A router treats a returned object as an envelope when it has a `body` property, its `status` is
 absent or a number, and its `headers` are absent or an object; it then sends only `body`. Wrap an
