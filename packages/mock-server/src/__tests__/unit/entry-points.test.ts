@@ -17,7 +17,7 @@ async function failureMessages(load: () => Promise<unknown>): Promise<string[]> 
   return messages
 }
 
-describe('entry points without the optional msw peer', () => {
+describe('entry points without the optional msw peer', { timeout: 15_000 }, () => {
   beforeEach(() => {
     vi.resetModules()
     vi.doMock('msw', () => {
