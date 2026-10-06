@@ -1,3 +1,4 @@
+import { resolve } from 'node:path'
 import type { Command } from '../lib/types.js'
 import { loadSpecWithPath } from '../lib/load-spec.js'
 import { optStr, str } from '../lib/args.js'
@@ -104,8 +105,11 @@ export const review: Command = {
   },
   async run(args) {
     const { validateDocument } = await import('@oa-sdk/parser')
-    const basePathArg = str(args, 'base')
-    const headPathArg = str(args, 'head')
+    // --base and --head are resolved once, against the same directory loadSpecWithPath reads from,
+    // and the behavior records use these values. A relative argument and the absolute path of the
+    // same file therefore produce the same input, target and identity.
+    const basePath = resolve(str(args, 'base'))
+    const headPath = resolve(str(args, 'head'))
     const artifactPathArg = optStr(args, 'artifact')
     const targetPath = optStr(args, 'target')
     const fragmentsDir = optStr(args, 'fragments')
@@ -122,10 +126,10 @@ export const review: Command = {
     const startedAt = Date.now()
 
     try {
-      const base = loadSpecWithPath(basePathArg)
-      const rawHead = loadSpecWithPath(headPathArg)
+      const base = loadSpecWithPath(basePath)
+      const rawHead = loadSpecWithPath(headPath)
       const head = loadOpenApiOrTarget({
-        specPath: headPathArg,
+        specPath: headPath,
         ...(targetPath ? { targetPath } : {}),
         ...(fragmentsDir ? { fragmentsDir } : {}),
       })
@@ -183,8 +187,8 @@ export const review: Command = {
             ...(targetPath ? { targetPath } : {}),
           },
           input: {
-            basePath: basePathArg,
-            headPath: headPathArg,
+            basePath,
+            headPath,
             ...(artifactPathArg ? { artifactPath: artifactPathArg } : {}),
             ...(targetPath ? { targetPath } : {}),
             ...(fragmentsDir ? { fragmentsDir } : {}),
@@ -227,14 +231,14 @@ export const review: Command = {
           },
           target: {
             targetType: 'openapi-review',
-            targetKey: `${basePathArg}|${headPathArg}`,
-            basePath: basePathArg,
-            headPath: headPathArg,
+            targetKey: `${basePath}|${headPath}`,
+            basePath,
+            headPath,
             ...(targetPath ? { targetPath } : {}),
           },
           input: {
-            basePath: basePathArg,
-            headPath: headPathArg,
+            basePath,
+            headPath,
             ...(artifactPathArg ? { artifactPath: artifactPathArg } : {}),
             ...(targetPath ? { targetPath } : {}),
             ...(fragmentsDir ? { fragmentsDir } : {}),
