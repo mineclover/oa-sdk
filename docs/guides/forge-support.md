@@ -144,6 +144,7 @@ const overlays = emitForgeOverlays(surface, parsed)
 ## `oa-gen surface`
 
 공식 CLI 진입점은 `surface`입니다. `--spec`에는 OpenAPI YAML/JSON이나 TypeSpec `.tsp`를 줍니다.
+여러 파일로 나뉜 OpenAPI 스펙은 다른 파일을 가리키는 `$ref`를 스펙 파일의 위치에서 풀어 읽습니다([풀 수 없는 `$ref`와 Overlay 적용](./cli-command-reference.md#surface-옵션-및-인수-명세)).
 
 ```bash
 npx oa-gen surface \

@@ -204,6 +204,8 @@ oa-gen surface \
 
 이 저장소에서는 production artifact(`packages/schemas/dist/openapi.json`)를 `--spec`에 넘긴다.
 
+스펙이 여러 파일로 나뉘어 `$ref`가 다른 파일(`./schemas.yaml#/Health`, `./paths/user.yaml` 등)을 가리키면, `oa-gen generate:client`처럼 그 `$ref`를 스펙 파일의 위치에서 풀어 Surface IR을 만듭니다. 풀 수 없는 `$ref`가 있으면 `surface-ir.json`과 `forge-projection.json`의 진단에 `surface-ir/incomplete-document` 오류를 남기고 종료 코드 1로 실패합니다. Overlay는 `paths` 아래의 operation을 `operationId`로 찾으므로, 다른 파일에 있는 path item의 operation에는 path item을 한 문서로 모은 스펙(예: `oa-gen normalize` 출력)에 적용해야 반영됩니다.
+
 생성되는 `surface-manifest.json`은 입력 artifact hash, IR version hash, operation/command
 수, diagnostic 수, Overlay 경로를 기록합니다. Forge 전체 TypeScript SDK 생성은 생성된
 Overlay를 Forge/Fern transformer에 전달하는 별도 downstream 단계입니다.
