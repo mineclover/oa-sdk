@@ -35,6 +35,33 @@ function git(cwd: string, args: string[]): string {
 describe('tsp diff: entry points of git references', () => {
   let repo: string
   const opened: ResolvedTypeSpecDiffSources[] = []
+  /** Directories outside the repository that a test created; removed after each test. */
+  const scratchDirs: string[] = []
+
+  async function scratchDir(prefix: string): Promise<string> {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), prefix))
+    scratchDirs.push(dir)
+    return dir
+  }
+
+  /** Creates (or retargets) the symbolic link `relPath` in the working tree. */
+  async function pointLink(relPath: string, target: string): Promise<void> {
+    const linkPath = path.join(repo, relPath)
+    await fs.rm(linkPath, { force: true })
+    await fs.symlink(target, linkPath, 'dir')
+  }
+
+  /**
+   * Tag `base` has `v1/main.tsp`, `v2/main.tsp` (a required property added) and a tracked link `current -> v1`.
+   * The next commit only retargets the link to `v2`, so `current/main.tsp` gains the required property.
+   */
+  async function commitRetargetedLink(): Promise<void> {
+    await pointLink('current', 'v1')
+    await commit({ 'v1/main.tsp': BASE_SPEC, 'v2/main.tsp': BREAKING_SPEC }, 'base')
+    git(repo, ['tag', 'base'])
+    await pointLink('current', 'v2')
+    await commit({}, 'point current at v2')
+  }
 
   async function writeFiles(files: Record<string, string>): Promise<void> {
     for (const [relPath, content] of Object.entries(files)) {
@@ -73,6 +100,7 @@ describe('tsp diff: entry points of git references', () => {
   afterEach(async () => {
     for (const sources of opened.splice(0)) await sources.cleanup()
     await fs.rm(repo, { recursive: true, force: true })
+    for (const dir of scratchDirs.splice(0)) await fs.rm(dir, { recursive: true, force: true })
   })
 
   describe('CLI exit codes', () => {
@@ -126,6 +154,20 @@ describe('tsp diff: entry points of git references', () => {
       expect(workingTree.status).toBe(1)
       expect(workingTree.stdout).toContain('`required-property-added` `User.email`')
       expect(workingTree.stderr).not.toContain('compares that commit with itself')
+    })
+
+    it('reports the change when --head reaches the working tree through a tracked link retargeted since the path-less --base', async () => {
+      await commitRetargetedLink()
+
+      const result = runOaCli(
+        ['tsp', 'diff', '--base', 'base', '--head', './current/main.tsp', '--fail-on-breaking'],
+        { cwd: repo },
+      )
+
+      expect(result.stderr).not.toContain('compares')
+      expect(result.stdout).not.toContain('No semantic changes detected')
+      expect(result.stdout).toContain('`required-property-added` `User.email`')
+      expect(result.status).toBe(1)
     })
 
     it('fails with a request for <ref>:<path> when a path-less ref has several main.tsp files', async () => {
@@ -260,6 +302,100 @@ describe('tsp diff: entry points of git references', () => {
 
       await expect(resolveTypeSpecProgramRef('HEAD:missing.tsp', repo)).rejects.toThrow(
         /TypeSpec entry point "missing\.tsp" does not exist in git reference "HEAD"/,
+      )
+    })
+  })
+
+  describe('symbolic links', () => {
+    it.each([
+      ['the linked file', 'current/main.tsp'],
+      ['the linked directory', 'current'],
+    ])('reads a path-less --base through the same link when --head names %s', async (_label, headPath) => {
+      await commitRetargetedLink()
+
+      const { sources, result } = await resolvePair('base', path.join(repo, headPath))
+
+      // The link name is kept, so the base commit resolves `current` to its own target (v1), not the head's (v2).
+      expect(sources.head.repoRelativeEntry).toBe('current/main.tsp')
+      expect(sources.base.repoRelativeEntry).toBe('current/main.tsp')
+      expect(sources.sameSourceNotice).toBeUndefined()
+      expect(breakingCodes(result)).toEqual(['required-property-added User.email'])
+    })
+
+    it('reads a path-less --head through the same link when --base names the working tree through it', async () => {
+      await commitRetargetedLink()
+      const headCommit = git(repo, ['rev-parse', 'HEAD'])
+      await pointLink('current', 'v1')
+
+      const { sources, result } = await resolvePair(path.join(repo, 'current', 'main.tsp'), 'HEAD')
+
+      expect(sources.base.repoRelativeEntry).toBe('current/main.tsp')
+      expect(sources.head.source).toEqual({ kind: 'git', rev: 'HEAD', commit: headCommit, entry: 'current/main.tsp' })
+      expect(breakingCodes(result)).toEqual(['required-property-added User.email'])
+    })
+
+    it.each([
+      ['the linked checkout as project root and invocation directory', 'link', 'link'],
+      ['the linked checkout as project root, the real directory as invocation directory', 'link', 'real'],
+      ['the real directory as project root, the linked checkout as invocation directory', 'real', 'link'],
+    ] as const)('maps a working-tree --head inside a symlinked repository root with %s', async (_label, rootAlias, cwdAlias) => {
+      await commitRetargetedLink()
+      const checkout = path.join(await scratchDir('tsp-diff-checkout-'), 'checkout')
+      await fs.symlink(repo, checkout, 'dir')
+      const realRepo = await fs.realpath(repo)
+      const spelled = { link: checkout, real: realRepo }
+
+      const sources = await resolveTypeSpecDiffSources('base', './current/main.tsp', {
+        projectRoot: spelled[rootAlias],
+        cwd: spelled[cwdAlias],
+      })
+      opened.push(sources)
+      const result = diffTypeSpecPrograms(sources.base.program, sources.head.program, {
+        baseRef: 'base',
+        headRef: './current/main.tsp',
+      })
+
+      expect(sources.head.repoRelativeEntry).toBe('current/main.tsp')
+      expect(sources.base.repoRelativeEntry).toBe('current/main.tsp')
+      expect(breakingCodes(result)).toEqual(['required-property-added User.email'])
+    })
+
+    it('does not map a working-tree path that leaves the repository through a link to a repository path', async () => {
+      const outside = await scratchDir('tsp-diff-outside-')
+      await fs.writeFile(path.join(outside, 'main.tsp'), BREAKING_SPEC, 'utf8')
+      await fs.symlink(path.join(repo, 'spec'), path.join(outside, 'back'), 'dir')
+      // `ext` is tracked as an absolute link out of the repository, so reading `ext/main.tsp` from the commit
+      // would reach the same outside file as the working tree.
+      await pointLink('ext', outside)
+      await commit({ 'main.tsp': BASE_SPEC, 'spec/main.tsp': BASE_SPEC }, 'base')
+      git(repo, ['tag', 'base'])
+      await commit({ 'spec/main.tsp': BREAKING_SPEC }, 'require email')
+
+      const leaving = await resolvePair('base', path.join(repo, 'ext', 'main.tsp'))
+      expect(leaving.sources.head.repoRelativeEntry).toBeUndefined()
+      expect(leaving.sources.base.repoRelativeEntry).toBe('main.tsp')
+      expect(breakingCodes(leaving.result)).toEqual(['required-property-added User.email'])
+
+      // A route that leaves and re-enters the repository maps from where it re-enters.
+      const returning = await resolvePair('base', path.join(repo, 'ext', 'back', 'main.tsp'))
+      expect(returning.sources.head.repoRelativeEntry).toBe('spec/main.tsp')
+      expect(returning.sources.base.repoRelativeEntry).toBe('spec/main.tsp')
+      expect(breakingCodes(returning.result)).toEqual(['required-property-added User.email'])
+    })
+
+    it('rejects a git entry point that leads out of its commit through a committed link', async () => {
+      const outside = await scratchDir('tsp-diff-outside-')
+      await fs.writeFile(path.join(outside, 'main.tsp'), BREAKING_SPEC, 'utf8')
+      await pointLink('ext', outside)
+      await commit({ 'main.tsp': BASE_SPEC }, 'base')
+      git(repo, ['tag', 'base'])
+
+      await expect(resolvePair('base:ext/main.tsp', path.join(repo, 'main.tsp'))).rejects.toThrow(
+        /"ext\/main\.tsp" of git reference "base:ext\/main\.tsp" leads out of commit [0-9a-f]{12} through a symbolic link\. Pass an entry point inside the commit as base:<path>\./,
+      )
+      // The other side's entry point is read through the commit's own link too, and stays inside the commit.
+      await expect(resolvePair('base', 'HEAD:ext/main.tsp')).rejects.toThrow(
+        /"ext\/main\.tsp" of git reference "base" leads out of commit [0-9a-f]{12} through a symbolic link/,
       )
     })
   })

@@ -122,14 +122,69 @@ function toPosix(relativePath: string): string {
   return relativePath.split(path.sep).join('/')
 }
 
-/** `target` relative to `root` with `/` separators, or `undefined` when `target` is outside `root`. */
-function containedRelativePath(root: string, target: string): string | undefined {
-  const relative = path.relative(realpathOrSelf(root), realpathOrSelf(target))
-  if (relative === '') return '.'
+/**
+ * Where the entry `name` at `lexical` really is, given that its parent directory really is `realParent`.
+ * An entry that does not exist (yet) cannot be a link, so it sits in `realParent`; a link that cannot be
+ * resolved (dangling or looping) gives `undefined`.
+ */
+function realChildPath(lexical: string, realParent: string, name: string): string | undefined {
+  try {
+    return fsSync.realpathSync(lexical)
+  } catch {
+    try {
+      fsSync.lstatSync(lexical)
+      return undefined
+    } catch {
+      return path.join(realParent, name)
+    }
+  }
+}
+
+/** `target` relative to `root` with `/` separators (`''` for `root` itself), or `undefined` when it lies outside. */
+function relativeInside(root: string, target: string): string | undefined {
+  const relative = path.relative(root, target)
   if (path.isAbsolute(relative) || relative === '..' || relative.startsWith(`..${path.sep}`)) {
     return undefined
   }
   return toPosix(relative)
+}
+
+/**
+ * `target` relative to the directory `root` with `/` separators (`.` for `root` itself), or `undefined`
+ * when `target` does not really lie in `root`.
+ *
+ * The path keeps the symbolic links `target` passes through inside `root`: with a tracked link
+ * `current -> v1`, `<repo>/current/main.tsp` maps to `current/main.tsp`, so another commit resolves
+ * `current` its own way. Only the point where `target` enters `root` is resolved, which covers `root`
+ * and `target` spelled through different aliases (`/tmp` and `/private/tmp`, a symlinked checkout, a link
+ * from outside into the repository). A route that leaves `root` through a link and comes back starts
+ * again where it re-enters, so the path, read from `root`, reaches the same file without leaving `root`.
+ */
+function containedRelativePath(root: string, target: string): string | undefined {
+  const realRoot = realpathOrSelf(root)
+  const absoluteTarget = path.resolve(target)
+  const fsRoot = path.parse(absoluteTarget).root
+  const names = absoluteTarget.slice(fsRoot.length).split(path.sep).filter(name => name.length > 0)
+
+  let lexical = fsRoot
+  let real = realpathOrSelf(fsRoot)
+  let mapped = relativeInside(realRoot, real)
+  for (const name of names) {
+    lexical = path.join(lexical, name)
+    const realChild = realChildPath(lexical, real, name)
+    // A dangling or looping link leads nowhere that could be checked.
+    if (realChild === undefined) return undefined
+    real = realChild
+    const inside = relativeInside(realRoot, real)
+    if (inside === undefined || mapped === undefined) {
+      // Outside `root`, or entering it here: the path (re)starts from where this component really is.
+      mapped = inside
+    } else {
+      mapped = mapped === '' ? name : `${mapped}/${name}`
+    }
+  }
+  if (mapped === undefined) return undefined
+  return mapped === '' ? '.' : mapped
 }
 
 /**
@@ -339,7 +394,16 @@ async function materializeTypeSpecRef(
       entrypoint = await discoverGitEntry(parsed, tempDir, hint)
     }
 
-    const entry = toPosix(path.relative(tempDir, entrypoint)) || '.'
+    // A link committed in the tree (or one an entry hint passes through) may point out of the extraction,
+    // for example an absolute link into the working tree. That file is not this commit's content.
+    const entry = containedRelativePath(tempDir, entrypoint)
+    if (entry === undefined) {
+      throw new Error(
+        `TypeSpec entry point "${toPosix(path.relative(tempDir, entrypoint))}" of git reference "${parsed.ref}" `
+        + `leads out of commit ${parsed.commit.slice(0, 12)} through a symbolic link. `
+        + `Pass an entry point inside the commit as ${parsed.rev}:<path>.`,
+      )
+    }
     await linkNodeModules(repoRoot, tempDir)
     const program = await compile(NodeHost, entrypoint, { noEmit: true })
     checkCompilationErrors(program, parsed.ref)
