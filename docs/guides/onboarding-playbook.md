@@ -115,7 +115,7 @@ flowchart TD
 
 `oa-gen init --archetype <mvp|microservice|enterprise>`는 `oa.config.ts`에 기록하는 설정값, 출력 위치, `package.json` 스크립트와 의존성의 묶음을 고릅니다. 기록된 gate·persona 설정(`core.gates.*`, `product.jitSchema`, `product.zeroCopy`, `core.client.wireFormatSafety`, `product.personas.enforceCoverage`)을 읽어 동작을 바꾸는 명령은 아직 없습니다. 그래서 `init`이 쓴 설정에서 `archetype`이나 이 값들을 나중에 바꿔도 `oa-gen generate`의 결과와 CI 동작은 달라지지 않으며, 아키타입의 차이는 `init` 시점에 추가되는 스크립트와 의존성에 남습니다. breaking change gate는 `enterprise`가 추가하는 스크립트(커밋한 계약 기준선 `openapi.baseline.yaml`과 비교)로 걸거나, §6.2처럼 CI에 직접 등록합니다.
 
-아키타입별 기록 값과 추가 스크립트는 [CLI 명령 레퍼런스의 아키타입 절](./cli-command-reference.md#아키타입---archetype)에 정리했습니다. `init`이 추가하는 스크립트는 모두 그대로 실행됩니다. `mvp`는 `generate`·`mock`·`validate`, `microservice`는 `generate`·`mock`, `enterprise`는 `generate`·`mock`에 `lint:spec`·`diff`·`baseline:update`·`ci:gate`를 더합니다(프레임워크 대상은 개발 서버 스크립트도 추가). persona 관련 기능은 저장소 전용 비공개 패키지 `@oa-sdk/personas`가 필요하므로 oa-sdk 저장소 밖에서는 쓸 수 없습니다.
+아키타입별 기록 값과 추가 스크립트는 [CLI 명령 레퍼런스의 아키타입 절](./cli-command-reference.md#아키타입---archetype)에 정리했습니다. `init`이 추가하는 `oa-gen` 스크립트는 모두 그대로 실행됩니다. `mvp`는 `generate`·`mock`·`validate`, `microservice`는 `generate`·`mock`, `enterprise`는 `generate`·`mock`에 `lint:spec`·`diff`·`baseline:update`·`ci:gate`를 더합니다(프레임워크 대상은 개발 서버 스크립트도 추가하며, 이 스크립트는 직접 작성한 서버 코드가 있어야 실행됩니다). persona 관련 기능은 저장소 전용 비공개 패키지 `@oa-sdk/personas`가 필요하므로 oa-sdk 저장소 밖에서는 쓸 수 없습니다.
 
 ```bash
 # Fastify 대상, microservice 아키타입, FSD 출력 위치로 초기화

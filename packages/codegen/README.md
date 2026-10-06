@@ -63,12 +63,14 @@ repository, the step-by-step guide is `docs/guides/quick-start.md` and the full 
 
 ### Scripts `oa-gen init` adds
 
-Every script `oa-gen init` adds to `package.json` runs as written in the scaffold (through
-`bun x oa-gen` on Bun):
+Every `oa-gen` script `oa-gen init` adds to `package.json` runs as written in the scaffold (through
+`bun x oa-gen` on Bun). A framework target also adds dev server and build scripts that run your own
+server code; `init` writes neither the server entry file nor `tsconfig.json`, so they run once you
+add them:
 
 | Added for | Scripts |
 | --- | --- |
-| Every target | `generate` (`oa-gen generate`) and `mock` (`oa-gen mock --watch`); a detected framework also gets its dev server script, which runs your own server code |
+| Every target | `generate` (`oa-gen generate`) and `mock` (`oa-gen mock --watch`); a detected framework also gets its dev server script (`dev`, or `start:dev` for NestJS) and, for Fastify, `build` (`tsc`) |
 | `--archetype mvp` (default) | `validate` (`oa-gen validate`) |
 | `--archetype microservice` | nothing more |
 | `--archetype enterprise` | `lint:spec`, `diff`, `baseline:update`, `ci:gate` |

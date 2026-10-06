@@ -379,7 +379,7 @@
 3. `T4-03: CI 풀 리퀘스트 스펙 최신성 게이트`:
    `artifacts/specs/`의 커밋된 OpenAPI 아티팩트가 라이브 Zod 스키마와 일치하는지 CI 환경에서 검사하여, 추적되지 않은 스키마 변경 시 PR 병합을 차단.
 4. `T4-04: 릴리스 워크플로우 내 브레이킹 체인지 의미론 게이트`:
-   `oa-gen diff --base v1.0.0 --head HEAD --fail-on-breaking`을 실행하여 하위 비호환 변경이 있을 경우 배포를 방지.
+   `v1.0.0` 태그의 스펙을 파일로 꺼내(`git show v1.0.0:<스펙 경로> > <base 파일>`) `oa-gen diff --base <base 파일> --head <현재 스펙 파일> --fail-on-breaking`을 실행하여 하위 비호환 변경이 있을 경우 배포를 방지(`oa-gen diff`는 git ref를 받지 않음).
 5. `T4-05: Manifest V3 콘텐츠 스크립트 라이브 편집 샌드박스 불변식`:
    컴파일된 29개 독립형 가드를 엄격한 VM 샌드박스(`eval` 및 `Function` 완전 비활성화 환경)에 로드하여 정상 실행을 확인.
 6. `T4-06: 클린 Git Clone 환경 빌드 검증`:

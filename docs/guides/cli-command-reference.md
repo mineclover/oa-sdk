@@ -53,7 +53,7 @@ node packages/codegen/dist/cli/index.js --help
 
 | 명령 | 언제 쓰는가 | 최소 입력 | 결과 / 다음 단계 |
 | --- | --- | --- | --- |
-| `oa-gen init` | 타겟 분리형 온보딩 엔진으로 `oa.config.ts` 및 런타임 스크립트를 구성할 때 | 없음 (자동 감지) 또는 `--target <framework>` | 대화형/헤드리스 온보딩, `oa.config.ts` 생성 및 `package.json` 비파괴적 패치(추가하는 스크립트는 모두 그대로 실행됨), `enterprise`는 계약 기준선 `openapi.baseline.yaml`도 생성; `--target` (`-t`), `--archetype <mvp|microservice|enterprise>` (`-a`), `--routing <default|fsd|monorepo|by-kind>` (`-r`), `--cwd`, `--spec` (`-s`), `--yes` (`-y`), `--force` (`-f`), `--dry-run` 지원 |
+| `oa-gen init` | 타겟 분리형 온보딩 엔진으로 `oa.config.ts` 및 런타임 스크립트를 구성할 때 | 없음 (자동 감지) 또는 `--target <framework>` | 대화형/헤드리스 온보딩, `oa.config.ts` 생성 및 `package.json` 비파괴적 패치(추가하는 `oa-gen` 스크립트는 모두 그대로 실행됨. 프레임워크 대상의 개발 서버·빌드 스크립트는 직접 작성한 서버 코드가 있어야 실행됨), `enterprise`는 계약 기준선 `openapi.baseline.yaml`도 생성; `--target` (`-t`), `--archetype <mvp|microservice|enterprise>` (`-a`), `--routing <default|fsd|monorepo|by-kind>` (`-r`), `--cwd`, `--spec` (`-s`), `--yes` (`-y`), `--force` (`-f`), `--dry-run` 지원 |
 | `oa-gen generate:client` | OpenAPI 3.1/3.2 또는 TypeSpec(.tsp) 스펙에서 타입 안전 fetch 클라이언트 SDK를 생성할 때 | `--spec <openapi\|typespec>` | fetch 클라이언트 SDK 산출물; `--spec` (`-s`), `--output <path>` (`-o`), `--types-import <path>`, `--banner`, 배포용 패키지 빌드 `--pack` (`--name`, `--package-version`, `--description`) 지원. `oa-gen client`는 별칭이고, `oa-gen pack:client`는 `generate:client --pack`과 같다(`oa-gen --help` 목록에는 표시되지 않음) |
 | `oa-gen generate:zod` | OpenAPI 3.2 또는 TypeSpec(.tsp) 스펙에서 Zod 4 스키마 및 TypeScript 타입을 생성할 때 | `--spec <openapi\|typespec>` | Zod 4 스키마 정의 및 TypeScript 타입 생성; `--output <path>`로 파일/디렉터리 지정, `--style <schema\|both>`, 사전 검증 `--validate`/`--no-validate`(기본 켬), `--lint`, `--categories <list>`, 정규화 `--normalize`/`--no-normalize`(기본 켬), 검증 오류를 무시하는 `--force` 지원. 런타임 검증기는 CLI가 아니라 `@oa-sdk/codegen/zodgen`의 `createRuntimeZodValidators()` API로 만든다 |
 | `oa-gen generate:tanstack` | OpenAPI 3.1/3.2 또는 TypeSpec(.tsp) 스펙에서 TanStack Query v5 3계층(Query Key Factory, Options Factory, Hooks) 코드를 생성할 때 | `--spec <openapi\|typespec>` | TanStack Query v5 산출물 (keys, options, hooks); `--spec` (`-s`), `--output <dir>` (`-o`), `--config <path>` (`-c`), `--tier <all\|keys\|options\|hooks>`, `--framework <react\|vue\|svelte>`, `--client-import <path>`, `--types-import <path>`, `--split` 지원 |
@@ -337,7 +337,7 @@ oa-gen mock --watch
 | `microservice` | `contracts.outDir: './src/contracts'`(outputRouting이 있으면 쓰이지 않음), `driftCheck: true`, `preflightLint: 'error'`, `wireFormatSafety`·`jitSchema`·`zeroCopy: true` | `mock` | `@oa-sdk/core`, `@oa-sdk/router` |
 | `enterprise` | `failOnBreaking: true`, `baseRef: 'origin/main'`(읽는 명령 없음), `personas.enforceCoverage: true` 등 | `lint:spec`, `diff`, `baseline:update`, `ci:gate` | `@oa-sdk/core`(`@oa-sdk/personas`는 그 패키지를 가진 워크스페이스 안에서만) |
 
-`init`이 추가하는 스크립트는 모두 쓰인 그대로 스캐폴드에서 실행됩니다. codegen의 패키지 검증(`smoke:pack`)이 배포 tarball로 아키타입마다 `init`을 실행하고, 추가된 스크립트를 하나씩 실행해 확인합니다.
+`init`이 추가하는 `oa-gen` 스크립트는 모두 쓰인 그대로 스캐폴드에서 실행됩니다. codegen의 패키지 검증(`smoke:pack`)이 배포 tarball로 아키타입마다 `init`을 실행하고(프레임워크를 감지하지 않는 `generic` 대상), 추가된 스크립트를 하나씩 실행해 확인합니다. 프레임워크 대상이 더하는 개발 서버·빌드 스크립트(`dev`, fastify의 `build`, nestjs의 `start:dev`)는 `init`이 만들지 않는 서버 진입 파일과 `tsconfig.json`이 있어야 실행됩니다([CLI 설정 가이드](./cli-setup.md#packagejson-스크립트)).
 
 #### `enterprise`의 breaking change gate
 

@@ -53,7 +53,7 @@ sourceOfTruth:
 
 ## 0단계: 30초 제로 마찰 온보딩 (`oa-gen init`)
 
-프로젝트 루트에서 `oa-gen init`을 실행하면 프레임워크(Fastify, Elysia, Hono, Express, NestJS)와 스펙 소스(`.tsp`, `openapi.yaml`, `openapi.json`, `@oaOperation` JSDoc)를 감지하여 `oa.config.ts`와 `package.json` 스크립트를 구성합니다. 기본 아키타입 `mvp`에서는 `generate`, `mock`, `validate` 스크립트가 추가되고(프레임워크를 감지하면 그 개발 서버 스크립트도), `--archetype enterprise`는 스펙 린트와 breaking change gate 스크립트(`lint:spec`, `diff`, `baseline:update`, `ci:gate`)와 그 비교 기준인 계약 기준선 `openapi.baseline.yaml`을 더합니다. 추가되는 스크립트는 모두 그대로 실행됩니다. 아키타입별 목록은 [CLI 명령 레퍼런스](./cli-command-reference.md#아키타입---archetype)에 있습니다.
+프로젝트 루트에서 `oa-gen init`을 실행하면 프레임워크(Fastify, Elysia, Hono, Express, NestJS)와 스펙 소스(`.tsp`, `openapi.yaml`, `openapi.json`, `@oaOperation` JSDoc)를 감지하여 `oa.config.ts`와 `package.json` 스크립트를 구성합니다. 기본 아키타입 `mvp`에서는 `generate`, `mock`, `validate` 스크립트가 추가되고(프레임워크를 감지하면 그 개발 서버 스크립트도), `--archetype enterprise`는 스펙 린트와 breaking change gate 스크립트(`lint:spec`, `diff`, `baseline:update`, `ci:gate`)와 그 비교 기준인 계약 기준선 `openapi.baseline.yaml`을 더합니다. 추가되는 `oa-gen` 스크립트는 모두 스캐폴드에서 그대로 실행됩니다. 프레임워크 대상의 개발 서버·빌드 스크립트(`dev`, fastify의 `build`, nestjs의 `start:dev`)는 `init`이 만들지 않는 서버 진입 파일과 `tsconfig.json`이 있어야 실행되므로, 서버 코드를 직접 작성한 뒤 씁니다([CLI 설치 및 설정 가이드](./cli-setup.md#packagejson-스크립트)). 아키타입별 목록은 [CLI 명령 레퍼런스](./cli-command-reference.md#아키타입---archetype)에 있습니다.
 
 > **준비**
 > - Node.js 22 이상. CI가 Node.js 22·24·26에서 배포 후보를 설치해 확인합니다.

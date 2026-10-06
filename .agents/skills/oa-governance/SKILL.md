@@ -420,7 +420,7 @@ flowchart TD
 | **`microservice`** | 프로덕션 단일 서비스 | `driftCheck: true`, `failOnBreaking: false`, `preflightLint: 'error'`, `wireFormatSafety: true`, `resolveSymbolCycles: true`, `jitSchema: true`, `zeroCopy: true` | 스키마 린트 에러 시 빌드 차단, 런타임 최적화 강제 |
 | **`enterprise`** | 멀티 팀 분산 거버넌스 | `driftCheck: true`, `failOnBreaking: true`, `baseRef: 'origin/main'`, `preflightLint: 'error'`, `personas.enforceCoverage: true`, `minCoverageRatio: 0.8` | 브레이킹 체인지 감지 시 PR 머지 즉시 차단, 페르소나 커버리지 80% 미만 시 실패 |
 
-위 프리셋 값을 읽어 동작을 바꾸는 `oa-gen` 명령은 아직 없습니다. 게이트는 `init`이 추가하는 스크립트로 걸리며, 스크립트는 모두 스캐폴드에서 그대로 실행됩니다. `enterprise`는 `init`이 스펙에서 만드는 계약 기준선 `openapi.baseline.yaml`과 비교하는 `diff`(`oa-gen diff --fail-on-breaking`), OpenAPI 3.2 검증·린트·diff를 묶은 `ci:gate`, 기준선을 옮기는 `baseline:update`(`oa-gen normalize`), `lint:spec`을 추가합니다. 스펙은 프로젝트에 남는 `oa.config.ts`의 `schemaEntry`이며, 기준선은 스펙이 `$ref`로 가리키는 다른 파일의 내용까지 담으므로 그 파일의 breaking change도 `diff`에서 실패합니다. persona 커버리지 검사 스크립트는 없습니다(oa-sdk 저장소 루트의 `pnpm personas:check`는 `@oa-sdk/personas` 패키지의 `check`를 실행하는 저장소 스크립트입니다).
+위 프리셋 값을 읽어 동작을 바꾸는 `oa-gen` 명령은 아직 없습니다. 게이트는 `init`이 추가하는 스크립트로 걸리며, `init`이 추가하는 `oa-gen` 스크립트는 모두 스캐폴드에서 그대로 실행됩니다. `enterprise`는 `init`이 스펙에서 만드는 계약 기준선 `openapi.baseline.yaml`과 비교하는 `diff`(`oa-gen diff --fail-on-breaking`), OpenAPI 3.2 검증·린트·diff를 묶은 `ci:gate`, 기준선을 옮기는 `baseline:update`(`oa-gen normalize`), `lint:spec`을 추가합니다. 스펙은 프로젝트에 남는 `oa.config.ts`의 `schemaEntry`이며, 기준선은 스펙이 `$ref`로 가리키는 다른 파일의 내용까지 담으므로 그 파일의 breaking change도 `diff`에서 실패합니다. persona 커버리지 검사 스크립트는 없습니다(oa-sdk 저장소 루트의 `pnpm personas:check`는 `@oa-sdk/personas` 패키지의 `check`를 실행하는 저장소 스크립트입니다).
 
 ### 5.4 출력 매니페스트 및 3단계 고아 프루닝 거버넌스 (.oa-manifest.json 3-Gate Invariants)
 

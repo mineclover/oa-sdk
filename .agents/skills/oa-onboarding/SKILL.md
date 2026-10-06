@@ -484,8 +484,11 @@ Verify that modifying the schema triggers debounced (100ms) recompilation and `s
 Incorporate breaking change defense and evolve projects across maturity stages without breaking contracts:
 
 ```bash
-# CI/CD pull request gate for OpenAPI
-npx oa-gen diff --base origin/main --head ./openapi.yaml --fail-on-breaking
+# CI/CD pull request gate for OpenAPI. oa-gen diff compares two spec files, not git refs, so it
+# compares the spec with the committed contract baseline. The enterprise archetype creates
+# openapi.baseline.yaml and runs this diff in `npm run ci:gate`; elsewhere create the baseline
+# once with `npx oa-gen normalize --spec ./openapi.yaml --output ./openapi.baseline.yaml`.
+npx oa-gen diff --base ./openapi.baseline.yaml --head ./openapi.yaml --fail-on-breaking
 
 # CI/CD pull request gate for TypeSpec
 npx oa-gen tsp diff --base origin/main --head ./main.tsp --fail-on-breaking

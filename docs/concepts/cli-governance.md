@@ -372,7 +372,7 @@ flowchart TD
 |:---:|---|---|---|
 | **Gate 1** | `pnpm check:cli-spec` | CLI 매니페스트 및 명령어 엔티티 일치 검증 | 매니페스트와 CLI 구현 불일치 시 Exit 1 |
 | **Gate 2** | `oa-gen drift:check` | Zod 소스 스키마와 커밋된 OpenAPI 아티팩트 일치 검증 | 해시 불일치, 파일 누락/손상 시 Exit 1 |
-| **Gate 3** | `oa-gen diff --base <tag> --head HEAD --fail-on-breaking` | 이전 릴리스 대비 하위 비호환 계약 파괴 차단 | 11개 엔드포인트 / 7개 스키마 브레이킹 변경 감지 시 Exit 1 |
+| **Gate 3** | `oa-gen diff --base <이전 릴리스 스펙 파일> --head <현재 스펙 파일> --fail-on-breaking` | 이전 릴리스 대비 하위 비호환 계약 파괴 차단. `oa-gen diff`는 git ref가 아니라 스펙 파일 두 개를 비교하므로, base는 커밋해 둔 계약 기준선(`openapi.baseline.yaml`, 여러 파일로 나뉜 스펙도 한 문서로 담음)이나, 한 파일 스펙이면 `git show <tag>:<스펙 경로>`로 꺼낸 파일을 준다 | 11개 엔드포인트 / 7개 스키마 브레이킹 변경 감지 시 Exit 1 |
 | **Gate 4** | `oa-gen audit:csp --bundle <outDir>` | 배포용 타입 가드 번들의 Manifest V3 보안 적합성 검증 | `eval`, `new Function`, 무거운 런타임 import 발견 시 Exit 1 |
 
 이 4대 게이트가 모두 통과할 때만 모노레포는 안전한 릴리스 승인(`APPROVE`) 상태에 도달한다.
