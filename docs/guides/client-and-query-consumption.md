@@ -238,13 +238,13 @@ npx oa-gen generate:tanstack --spec ./openapi.yaml -o src/api
 npm install @tanstack/react-query
 ```
 
-생성된 파일은 `@tanstack/react-query`(또는 `--framework`로 고른 패키지)와 `@oa-sdk/client`의 타입(`JsonPrimitive`, `Resolved`)을 import합니다. 따라서 1.1절처럼 앱 프로젝트에 `@oa-sdk/client`가 설치되어 있어야 합니다(타입만 쓰므로 `devDependencies`로 충분합니다).
+생성된 파일은 `@tanstack/react-query`와 `@oa-sdk/client`의 타입(`JsonPrimitive`, `Resolved`)을 import합니다. 따라서 1.1절처럼 앱 프로젝트에 `@oa-sdk/client`가 설치되어 있어야 합니다(타입만 쓰므로 `devDependencies`로 충분합니다).
 
 | 옵션 | 동작 |
 |---|---|
 | `-o, --output` | `.ts`로 끝나면 그 파일, 디렉터리면 `<디렉터리>/tanstack-query.ts`에 씁니다. 생략하면 `oa.config.ts`의 `outputRouting` 경로, 그것도 없으면 `src/api/generated/tanstack-query.ts`입니다. |
-| `--tier` | `all`(기본), `keys`, `options`, `hooks`. `keys`·`options`이면 훅을 만들지 않습니다. |
-| `--framework` | `react`(기본), `vue`, `svelte`. `vue`·`svelte`는 `@tanstack/vue-query`·`@tanstack/svelte-query`를 import하고 키와 옵션 팩토리만 만듭니다(훅 없음). 옵션을 각 프레임워크의 `useQuery`에 넘깁니다. |
+| `--tier` | `all`(기본), `keys`, `options`, `hooks`. 고른 계층만 씁니다. `options` 파일은 `./keys.js`를, `hooks` 파일은 `./keys.js`와 `./queries.js`를 import하지만 그 파일을 쓰지 않으므로, 혼자 생성하면 `TS2307`로 실패합니다. 계층을 나눠 쓰려면 같은 디렉터리에 `--tier keys -o src/api/keys.ts`, `--tier options -o src/api/queries.ts`(필요하면 `--tier hooks -o src/api/hooks.ts`)를 차례로 생성합니다. |
+| `--framework` | `react`(기본), `vue`, `svelte`. `vue`·`svelte` 출력은 컴파일되지 않습니다(알려진 결함). 생성기가 어떤 프레임워크든 React용 타입 이름(`UndefinedInitialDataOptions`, `UseMutationOptions` 등)을 import하므로 `@tanstack/vue-query`에서는 `TS2724`·`TS2769`, `@tanstack/svelte-query`(5·6)에서는 `TS2724`(`UseMutationOptions` 등이 없음)로 실패합니다. 지금 쓸 수 있는 대상은 React뿐입니다. |
 | `--client-import` | `ApiClient` 타입을 가져올 모듈. 기본값은 `./client.js`입니다. 배포된 클라이언트 패키지를 쓸 때 지정합니다. |
 | `--types-import` | typegen 타입을 가져올 모듈. 7.4절의 한계를 먼저 확인합니다. |
 | `--split` | 출력 디렉터리에 `keys.ts`, `queries.ts`, `hooks.ts`를 따로 씁니다. `oa.config.ts`에 `outputRouting`이 있는 프로젝트(`oa-gen init`이 만든 설정)에서는 생성 파일의 상대 import가 깨지므로(`TS2307`) 쓰지 않습니다. |
@@ -299,7 +299,7 @@ export function UserProfile({ userId }: { userId: string }) {
 }
 ```
 
-같은 옵션 팩토리를 SSR의 `queryClient.prefetchQuery()`나 Vue·Svelte의 `useQuery`에도 넘길 수 있습니다.
+옵션 팩토리는 `queryClient.prefetchQuery()`·`fetchQuery()`에도 그대로 넘길 수 있습니다. 다만 기본 생성 파일(`tanstack-query.ts`)은 훅을 담고 있어 맨 위에 `'use client'` 지시문이 있습니다. React Server Component(Next.js App Router 등)에서 이 파일의 옵션 팩토리를 호출하면 `Attempted to call getUserByIdQueryOptions() from the server but getUserByIdQueryOptions is on the client` 오류가 납니다. 서버에서 prefetch하려면 7.1절 `--tier` 설명처럼 `keys.ts`와 `queries.ts`를 따로 생성하고, 지시문이 없는 `queries.ts`에서 옵션 팩토리를 import합니다(Next.js 15 App Router에서 확인).
 
 ### 7.4 응답 타입을 붙이기 (`--types-import`)
 

@@ -36,11 +36,16 @@ Generators throw when the document's `$ref`s do not resolve completely.
 
 ## Generating a client
 
+The client and the TanStack Query code must be generated the same way: both without types, or
+both with types. TanStack Query code generated without types does not compile against a typed
+client (TS2345).
+
+### Without types
+
 With the CLI:
 
 ```bash
-npx oa-gen typegen --spec ./openapi.yaml -o src/api/types.ts
-npx oa-gen generate:client --spec ./openapi.yaml --types-import ./types.js -o src/api/client.ts
+npx oa-gen generate:client --spec ./openapi.yaml -o src/api/client.ts
 npx oa-gen generate:tanstack --spec ./openapi.yaml -o src/api
 ```
 
@@ -53,14 +58,48 @@ import { generateClient, generateTanstackQuery } from '@oa-sdk/client'
 
 const spec = parse(readFileSync('openapi.yaml', 'utf8'))
 
-writeFileSync('src/api/client.ts', generateClient(spec, { typesImport: './types.js' }))
-const { combinedCode } = generateTanstackQuery(spec, { clientImport: './client.js' })
+writeFileSync('src/api/client.ts', generateClient(spec))
+// The TanStack Query code imports the ApiClient type from ./client.js (option clientImport)
+const { combinedCode } = generateTanstackQuery(spec)
 writeFileSync('src/api/tanstack-query.ts', combinedCode)
 ```
 
 Without `typesImport` the client is untyped: methods take `Record<string, string>`,
-`Record<string, unknown>` and `unknown`, and return `unknown`. With it, they use the types that
-`oa-gen typegen` writes, and the client also exports per-operation error types and guards.
+`Record<string, unknown>` and `unknown`, and return `unknown`. Query data is `unknown` as well.
+
+### With types
+
+Pass the module that `oa-gen typegen` writes as `typesImport`. The client then uses those
+types, and also exports per-operation error types and guards.
+
+The TanStack Query code needs `typesImport` too, but not the typegen module itself. It imports an
+`<Operation>ClientError` type for every operation, and an `<Operation>Response` type for streaming
+operations, and typegen writes neither. Point it at a module that re-exports the typegen output
+and adds those names:
+
+```ts
+// src/api/wire-types.ts
+export * from './types.js'
+import type { ClientError } from './client.js'
+// One alias per operation. Copy the names from the import line of the generated tanstack-query.ts.
+export type GetUserByIdClientError = ClientError
+export type ListUsersClientError = ClientError
+// typegen writes no response type for a streaming operation
+export type StreamAuditEventsResponse = unknown
+```
+
+For an operation that documents error responses, the typed client exports its own
+`<Operation>ClientError`; re-export that instead of the alias
+(`export type { GetUserByIdClientError } from './client.js'`) to keep the error body types.
+
+```bash
+npx oa-gen typegen --spec ./openapi.yaml -o src/api/types.ts
+npx oa-gen generate:client --spec ./openapi.yaml --types-import ./types.js -o src/api/client.ts
+npx oa-gen generate:tanstack --spec ./openapi.yaml -o src/api --types-import ./wire-types.js
+```
+
+With the library, pass the same values: `generateClient(spec, { typesImport: './types.js' })` and
+`generateTanstackQuery(spec, { typesImport: './wire-types.js' })`.
 
 ## The generated client
 
@@ -101,16 +140,32 @@ const user = await client.getUserById({ userId: 'u-1' }) // path parameters are 
   before use. SSE `data` frames that are not JSON, and `[DONE]` frames, are skipped.
 
 The generated client imports nothing except the `typesImport` module. Generated TanStack Query code
-imports `JsonPrimitive` and `Resolved` from `@oa-sdk/client`, the TanStack Query package of the target
-framework, and `ApiClient` from `./client.js` (or `clientImport`).
+imports `JsonPrimitive` and `Resolved` from `@oa-sdk/client`, `@tanstack/react-query`, and
+`ApiClient` from `./client.js` (or `clientImport`).
 
 ## Known limitations
 
 - `generateTanstackQuery({ typesImport })` with the plain `oa-gen typegen` output does not compile: the
   generated code imports `<Operation>ClientError` for every operation and `<Operation>Response` for
-  streaming operations, which typegen does not emit (TS2305/TS2724). Generate both the client and
-  the TanStack code without `typesImport`, or point `typesImport` at a module that re-exports the
-  typegen output and adds the missing names.
+  streaming operations, which typegen does not emit (TS2305/TS2724). A typed client combined with
+  TanStack Query code generated without `typesImport` does not compile either (TS2345: the untyped
+  code passes `Record<string, string>` and `unknown` to the typed methods). Use one of the two
+  combinations under [Generating a client](#generating-a-client).
+- Only React output works. The generators use React type names (`UndefinedInitialDataOptions`,
+  `UseMutationOptions`, and others) whatever `queryPackage` is. Code generated for
+  `@tanstack/vue-query` or `@tanstack/svelte-query` (`oa-gen generate:tanstack --framework vue|svelte`)
+  does not compile (TS2724, for example `'@tanstack/svelte-query' has no exported member named
+  'UseMutationOptions'`).
+- With `--tier options` or `--tier hooks`, `oa-gen generate:tanstack` writes a file that imports
+  `./keys.js` (the hooks file also imports `./queries.js`) but does not write those files, so the
+  file alone fails with TS2307. Generate one file per tier into the same directory:
+  `--tier keys -o src/api/keys.ts`, then `--tier options -o src/api/queries.ts` (and
+  `--tier hooks -o src/api/hooks.ts` if needed). The library's `keysCode`, `queriesCode` and
+  `hooksCode` have the same imports, so write them as `keys.ts`, `queries.ts` and `hooks.ts`.
+- The combined file (`tanstack-query.ts`) and the hooks file start with `'use client'`. In a React
+  Server Component (for example to prefetch in the Next.js App Router), calling an options factory
+  imported from the combined file fails with `Attempted to call ...() from the server but ... is on
+  the client`. Server code imports options factories from `queries.ts`, which has no directive.
 - The runtime accepts single-object calls (`{ params, body, query, headers, signal }`), an options
   object in place of a skipped argument, and `signal` inside the query object, but the typed
   signatures do not declare them, so TypeScript rejects them.
@@ -142,7 +197,7 @@ framework, and `ApiClient` from `./client.js` (or `clientImport`).
 
 | Export | Description |
 |---|---|
-| `generateTanstackQuery(spec, options?)` | Returns `{ keysCode, queriesCode, hooksCode, combinedCode }`. Options: `queryPackage` (default `@tanstack/react-query`), `typesImport`, `clientImport` (default `./client.js`), `clientName` (default `ApiClient`), `keysImport`, `queriesImport`, `tier` (`all`, `keys`, `options`, `hooks`), `includeHooks`, `banner`, `basePath` |
+| `generateTanstackQuery(spec, options?)` | Returns `{ keysCode, queriesCode, hooksCode, combinedCode }`. Options: `queryPackage` (default `@tanstack/react-query`, the only package whose output compiles), `typesImport`, `clientImport` (default `./client.js`), `clientName` (default `ApiClient`), `keysImport`, `queriesImport`, `tier` (`all`, `keys`, `options`, `hooks`), `includeHooks`, `banner`, `basePath` |
 | `generateKeyFactory`, `generateOptionsFactory`, `generateHookFactory` | One tier at a time |
 | `isQueryOperation`, `getOperationTag`, `toKeyFactoryName` | The naming rules the generators use |
 

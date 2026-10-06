@@ -57,7 +57,7 @@ const client = createClient({ baseUrl: 'https://api.example.com' })
 const page = await client.listUsers({ limit: 20 })
 ```
 
-TanStack Query 코드도 같은 앱에서 생성합니다([TanStack Query v5](./client-and-query-consumption.md#7-tanstack-query-v5)). 같은 프로젝트에서 `oa-gen generate`도 실행한다면, `generate`가 다른 명령이 쓴 생성 파일(`generate:tanstack` 출력 등)을 `.oa-manifest.json` 기준으로 지운다는 점에 주의합니다([`oa-gen generate`가 만드는 TanStack 코드](./client-and-query-consumption.md#75-oa-gen-generate가-만드는-tanstack-코드)).
+TanStack Query 코드도 같은 앱에서 생성합니다([TanStack Query v5](./client-and-query-consumption.md#7-tanstack-query-v5)). 위 스크립트는 타입 있는 클라이언트를 만들므로, TanStack 코드도 [7.4절](./client-and-query-consumption.md#74-응답-타입을-붙이기---types-import)처럼 빠진 이름을 더한 모듈을 `--types-import`로 지정해 생성합니다. `--types-import` 없이 생성한 TanStack 코드는 타입 있는 클라이언트와 함께 컴파일되지 않습니다(`TS2345`). 같은 프로젝트에서 `oa-gen generate`도 실행한다면, `generate`가 다른 명령이 쓴 생성 파일(`generate:tanstack` 출력 등)을 `.oa-manifest.json` 기준으로 지운다는 점에 주의합니다([`oa-gen generate`가 만드는 TanStack 코드](./client-and-query-consumption.md#75-oa-gen-generate가-만드는-tanstack-코드)).
 
 ---
 
@@ -173,7 +173,7 @@ export function AdminCount() {
 }
 ```
 
-`-o`가 `.ts`로 끝나면 그 파일에 씁니다. 키·옵션·훅 이름, `--framework vue|svelte`(훅 없이 키와 옵션만 생성), `--tier` 같은 나머지 옵션은 [TanStack Query v5](./client-and-query-consumption.md#7-tanstack-query-v5)를 따릅니다.
+`-o`가 `.ts`로 끝나면 그 파일에 씁니다. 키·옵션·훅 이름과 `--tier` 같은 나머지 옵션은 [TanStack Query v5](./client-and-query-consumption.md#7-tanstack-query-v5)를 따릅니다. 생성 코드는 `@tanstack/react-query` 전용입니다. `--framework vue|svelte` 출력은 컴파일되지 않습니다(알려진 결함).
 
 ---
 
@@ -183,7 +183,7 @@ export function AdminCount() {
 |---|---|---|---|
 | 앱 하나, 빠른 개발 | Model A | `oa-gen mock --stateful` | 앱에서 `generate:tanstack` |
 | 사내 모노레포(여러 패키지) | Model B(`workspace:*`로 연결) | `createNodeMockServer(spec, { stateful })` | 각 앱에서 `--client-import`로 생성 |
-| 외부 고객사·외주사 공급 | Model B(`npm publish`) | 스펙 문서를 함께 전달하고, 소비자가 `oa-gen mock`이나 MSW 어댑터(`@oa-sdk/mock-server/adapters/msw`, `msw` 필요)로 띄움 | 프레임워크와 무관한 `--tier options` |
+| 외부 고객사·외주사 공급 | Model B(`npm publish`) | 스펙 문서를 함께 전달하고, 소비자가 `oa-gen mock`이나 MSW 어댑터(`@oa-sdk/mock-server/adapters/msw`, `msw` 필요)로 띄움 | React 앱에서 `--client-import`로 생성(3.4절) |
 | CI E2E 테스트(Playwright) | Model A 또는 B | `oa-mock --spec <file> --stateful --port 4010` | 해당 없음 |
 
 mock 서버 구성은 [Mock 서버 사용 가이드](./mock-server-usage.md)를 따릅니다.
