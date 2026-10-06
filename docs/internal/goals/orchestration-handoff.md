@@ -195,6 +195,11 @@
 | `oa-gen generate` 요약이 3.2.0 파일을 'OpenAPI 3.1'로 표시하고, companion 안의 생성 오류는 경고만 남긴 채 exit 0으로 끝난다. 생성된 contract와 client는 타입이 `unknown`이다 | 사실표 확정 |
 | `generate:tanstack --split`은 `outputRouting` 아래에서 상대 import가 깨진다 | 사실표 확정 |
 | `oa-gen diff`는 OpenAPI 파일 경로만 받고 스키마 fingerprint가 바뀌면 모두 breaking이다. `tsp diff` 방식의 additive 분류로 바꿀지 정책 결정 필요 | 사실표 확정 |
+| **`oa-gen tsp diff`에서 `--base`가 git ref이고 `--head`가 경로 없는 git ref(`HEAD`)이면 base를 자기 자신과 비교한다**(`No semantic changes`, exit 0, `--fail-on-breaking` 무력화). 원인: `tsp-diff.ts:51` fallback=`baseProgram.entrypoint`, `typespec-ref-resolver.ts:157-160` 경로 클램프. `--help`와 README·skill 문서의 `--base origin/main --head HEAD` 예시가 이 형태다 | 가이드 작성 중 직접 실행. **CI gate를 무력화하므로 우선순위 높음** |
+| router target: Fastify는 AsyncIterable 응답 본문을 그대로 넘겨 실패한다(`targets/fastify.ts` ~239, `Readable.from()` 필요). Hono는 `pull()`마다 iterator를 새로 만들어 재반복 가능한 객체의 첫 청크를 무한 반복한다(`targets/hono.ts:392-399`). Elysia는 헤더 이름 대소문자를 유지해 스트림 응답에 content-type이 중복된다(`targets/elysia.ts:211-213`). `streaming-contract.test.ts`는 타입만 검사해 이를 잡지 못한다 | 가이드 작성 |
+| TanStack 생성기가 모든 framework에 React 타입 이름을 쓴다(`generate-tanstack.ts:113-137`, `options-factory-generator.ts:150-154`). Vue/Svelte 출력과 `--tier options`의 SSR 권장은 실제로 동작하지 않는다 | 가이드 작성 |
+| `generate:zod`의 `z.union([discriminatedUnion, default])`가 mapping에 있는 discriminant인데 해당 variant를 통과하지 못한 본문을 default로 통과시킨다(OAS 3.2 의미와 다름) | 가이드 작성 |
+| `core.router.target`을 `validateOaConfig`는 받지만 `resolveConfigWithDefaults`가 버린다. 거부하거나 실제 설정으로 만들어야 한다 | 가이드 작성 |
 
 ### WS-G — Goal 68 DPM · 관제 대상 아님
 
