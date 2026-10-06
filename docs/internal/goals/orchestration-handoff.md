@@ -187,6 +187,8 @@
 
 **사용자 결정 (2026-10-06)**: RC export 전에 핵심 결함만 고친다(J1 `tsp diff` 자기 비교, J2 `drift` 상대 경로, J3 `generate`의 `pruneOrphans` 무시·op 수·3.1 표기·companion 오류 exit 0, J4 동작하지 않는 init 스크립트와 `generate:router`류 스크립트 정리). 라우터는 문서의 `generateRouter()` 기준을 유지하고 CLI 바인더 생성은 하지 않는다. 나머지(router 스트리밍, TanStack 타입 import·Vue/Svelte, tsp-scaffold, zod union, `core.router.target`, `oa-gen diff` 분류 정책)는 0.9.0 이후로 미룬다.
 
+**진행 (2026-10-06)**: J1–J4를 main에 통합했다(리뷰 승인, 0.9.0 changelog·type-registry baseline 반영). 통합 후 로컬 CI 미러에서 `codegen smoke:pack`이 실패해 J5를 열었다: `oa-gen generate`가 외부 파일 `$ref`를 풀지 않은 문서를 router·client 생성기에 넘겨, 여러 파일로 나눈 spec에서 핸들러 계약·client·TanStack 생성이 실패한다. 이전에는 경고로만 남아 산출물이 조용히 빠졌고, J3가 명시 산출물 실패를 exit 1로 바꾸면서 드러났다. 루트 e2e(CI 밖) T2-B6-4(재귀 모델), T1-F19-3(없어진 `scripts/dist/check-api-index.js` 실행)도 함께 정리 중이다.
+
 **push (2026-10-06)**: main을 origin에 push했다(`43b41a21..2b78616d`). GitHub Actions는 계정 결제 문제로 job을 시작하지 않았다("recent account payments have failed or your spending limit needs to be increased"). 결제 해결 후 `gh run rerun 37411463030`. RC export는 이 CI가 통과한 커밋에서만 한다.
 
 | 결함 | 근거 |
