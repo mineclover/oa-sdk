@@ -516,6 +516,48 @@ TypeSpec → JSON Schema / TypeSpec semantic graph → Runtime Schema
 
 ---
 
+
+---
+
+## 예상 소비자: WIREFRAME-BOOK
+
+이 연구의 우선 소비 후보 중 하나는 `mineclover/wireframe-storyboard-toolkit`의 WIREFRAME-BOOK / Framebook Behavior Contract이다.
+
+관련 이슈:
+
+- Behavior / Flow canonical 의미 계층: https://github.com/mineclover/wireframe-storyboard-toolkit/issues/15
+- Canvas / Sequence / Timeline / Behavior / Evidence projection 및 runtime lowering 경계: https://github.com/mineclover/wireframe-storyboard-toolkit/issues/17
+
+예상 책임 경계는 다음과 같다.
+
+```text
+oa-sdk
+  └─ TypeSpec schema authoring / projection toolchain 후보
+       │
+       │ 공급 가능한 것
+       ├─ data schema vocabulary
+       ├─ JSON Schema / TypeScript projection
+       ├─ runtime-schema adapter/tooling
+       └─ schema validation / drift gate
+                │
+                ▼
+WIREFRAME-BOOK
+  └─ Storyboard / Behavior Contract 소유
+       ├─ Subject / Input / State
+       ├─ Transition / Action / Effect
+       ├─ state ↔ schema binding
+       ├─ authoring projection
+       └─ XState runtime lowering
+```
+
+중요한 경계:
+
+- WIREFRAME-BOOK의 Behavior 의미·topology·binding 소유권이 oa-sdk로 이동하는 것은 아니다.
+- oa-sdk는 **재사용 가능한 schema authoring/projection capability를 공급하는 후보**다.
+- WIREFRAME-BOOK은 해당 capability를 소비할 수 있지만, TypeSpec이나 XState에 canonical contract가 종속되어서는 안 된다.
+- oa-sdk 연구 결과가 `Reject`여도 WIREFRAME-BOOK Behavior Contract 자체는 유효해야 한다.
+- `Adopt` 또는 `Partial adopt` 판정 시 WIREFRAME-BOOK의 실제 소비 경로는 별도 integration/implementation 이슈에서 확정한다.
+
 ## 13. 비범위
 
 이번 연구에서 하지 않는다.
