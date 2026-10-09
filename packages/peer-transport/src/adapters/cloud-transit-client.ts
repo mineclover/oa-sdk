@@ -117,6 +117,19 @@ export class CloudTransitClient {
         }
       }
 
+      if (responseJson.result && typeof responseJson.result === 'object' && responseJson.result.isError) {
+        const item = responseJson.result.content?.[0]
+        const firstText = item && typeof item === 'object' && 'text' in item && typeof (item as { text: unknown }).text === 'string'
+          ? (item as { text: string }).text
+          : 'Tool execution error'
+        return {
+          result: responseJson.result as T,
+          error: firstText,
+          isError: true,
+          status: 'error',
+        }
+      }
+
       return {
         result: responseJson.result as T,
         isError: false,

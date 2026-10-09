@@ -3,10 +3,20 @@
  *
  * Enforces the invariant: 1 Domain Skill <---> N Runtime MCP Sessions.
  */
-import type { WebMcpPeerRecord, WebMcpBridgeClient } from '@oa-sdk/peer-transport'
-import type { DomainSkillDefinition, McpSessionInstance } from './types.js'
+import type {
+  WebMcpPeerRecord,
+  WebMcpBridgeClient,
+  CloudTransitClient,
+  PeerCallPayload,
+  PeerCallResult,
+} from '@oa-sdk/peer-transport'
+import type { DomainSkillDefinition, McpSessionInstance, McpTransportType } from './types.js'
 import { defineTool, type ToolDefinition } from '@oa-sdk/tools'
 import { assertToolInput, validateDomainSkill, validateMeshIdentifier, validateSession } from './security.js'
+
+export type PeerToolCaller = {
+  callTool<T = unknown>(payload: PeerCallPayload): Promise<PeerCallResult<T>>
+}
 
 export class SkillRegistry {
   private skills = new Map<string, DomainSkillDefinition>()
@@ -135,13 +145,13 @@ export class SkillRegistry {
    */
   hydratePeerSession(
     peer: WebMcpPeerRecord,
-    bridgeClient?: WebMcpBridgeClient,
+    bridgeClient?: WebMcpBridgeClient | CloudTransitClient | PeerToolCaller,
   ): { skill: DomainSkillDefinition; session: McpSessionInstance } {
     if (!peer || typeof peer !== 'object' || typeof peer.alias !== 'string' || peer.alias.length === 0 || peer.alias.length > 128) {
       throw new TypeError('peer alias is required')
     }
-    // 1. Determine canonical domain name (e.g. 'wireframe-local' -> 'wireframe')
-    const domain = validateMeshIdentifier(peer.alias.replace(/-(local|session-\d+|tab-\d+|\d+)$/, '').toLowerCase(), 'domain')
+    // 1. Determine canonical domain name (e.g. 'wireframe-local', 'wireframe-cloud' -> 'wireframe')
+    const domain = validateMeshIdentifier(peer.alias.replace(/-(local|cloud|relay|session-\d+|tab-\d+|\d+)$/, '').toLowerCase(), 'domain')
 
     // 2. Fetch or create the canonical DomainSkill
     let skill = this.skills.get(domain)
@@ -208,11 +218,18 @@ export class SkillRegistry {
     // 3. Create and bind runtime McpSessionInstance
     const sessionId = validateMeshIdentifier(peer.id ?? peer.alias, 'session id')
     const peerStatus = peer.status === 'connected' || peer.status === 'ready' ? 'active' : peer.status === 'disconnected' ? 'disconnected' : 'idle'
+    const isCloudTransit = peer.origin?.includes('/transit/') || (Boolean(bridgeClient) && typeof bridgeClient === 'object' && 'peerAlias' in (bridgeClient as Record<string, unknown>))
+    const inferredTransport: McpTransportType = isCloudTransit
+      ? 'cloud-transit'
+      : peer.origin?.startsWith('http')
+        ? 'bridge-http'
+        : 'p2p-webrtc'
+
     const session: McpSessionInstance = {
       sessionId,
       domain,
       alias: peer.alias,
-      transportType: peer.origin?.startsWith('http') ? 'bridge-http' : 'p2p-webrtc',
+      transportType: inferredTransport,
       endpointUrl: peer.invitationUrl ?? peer.signalingUrl,
       status: peer.status === undefined ? 'active' : peerStatus,
       callTool: async (toolName, args) => {
@@ -222,7 +239,7 @@ export class SkillRegistry {
         if (bridgeClient) {
           const res = await bridgeClient.callTool({
             tool: toolName,
-            args: input,
+            args: input as Record<string, unknown> | undefined,
             peer: peer.alias,
             sessionId: peer.id,
           })

@@ -68,7 +68,7 @@ export function validateSession(session: McpSessionInstance): McpSessionInstance
   validateMeshIdentifier(session.sessionId, 'session id')
   validateMeshIdentifier(session.domain, 'session domain')
   validateMeshIdentifier(session.alias, 'session alias')
-  if (!['p2p-webrtc', 'bridge-http', 'stdio', 'http-stateless'].includes(session.transportType)) throw new Error('session transport is invalid')
+  if (!['p2p-webrtc', 'p2p-relay', 'bridge-http', 'cloud-transit', 'stdio', 'http-stateless'].includes(session.transportType)) throw new Error('session transport is invalid')
   if (!['active', 'idle', 'disconnected'].includes(session.status)) throw new Error('session status is invalid')
   if (typeof session.callTool !== 'function') throw new TypeError('session callTool must be a function')
   return session

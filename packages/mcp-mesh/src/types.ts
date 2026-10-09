@@ -25,7 +25,13 @@ export interface DomainSkillDefinition {
   } | undefined
 }
 
-export type McpTransportType = 'p2p-webrtc' | 'bridge-http' | 'stdio' | 'http-stateless'
+export type McpTransportType =
+  | 'p2p-webrtc'
+  | 'p2p-relay'
+  | 'bridge-http'
+  | 'cloud-transit'
+  | 'stdio'
+  | 'http-stateless'
 
 export interface McpSessionInstance {
   /** Unique session ID (e.g. peer id or tab UUID) */

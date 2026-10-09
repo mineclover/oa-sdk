@@ -1805,7 +1805,7 @@ domain skill과 session instance를 등록하고 호출을 route한다. 여러 d
 |---|---|---|
 | `DomainSkillDefinition`, `McpSessionInstance`, `McpTransportType`, `SkillPackage` | `mcp-mesh/src/types.ts` | domain skill·session·transport·skill package 계약 |
 | `MetaSkillDefinition`, `MeshRoutingDecision` | `mcp-mesh/src/types.ts` | meta skill과 routing 결정 계약 |
-| `SkillRegistry` | `mcp-mesh/src/skill-registry.ts` | domain·session·meta skill 등록과 조회 |
+| `SkillRegistry`, `PeerToolCaller` | `mcp-mesh/src/skill-registry.ts` | domain·session·meta skill 등록과 조회 및 peer 도구 호출 계약 |
 | `MeshRouter` | `mcp-mesh/src/mesh-router.ts` | 호출 routing과 모호하지 않은 도구 aggregate |
 | `validateMeshIdentifier`, `validateToolDefinition`, `assertToolInput`, `validateWorkspaceRules` | `mcp-mesh/src/security.ts` | mesh 식별자·도구·입력·workspace rule 검증 |
 | `validateDomainSkill`, `validateSession`, `validateMetaSkill`, `validatePeerPackage` | `mcp-mesh/src/security.ts` | domain·session·meta skill·peer package 검증 |

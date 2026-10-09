@@ -45,4 +45,32 @@ describe('@oa-sdk/mcp-mesh — peer allow-lists read through the bridge client',
       expect(skill.tools.map((tool) => tool.name)).toEqual(['search', 'delete_all'])
     }
   })
+
+  it('hydrates peer session with CloudTransitClient or PeerToolCaller', async () => {
+    const peer: WebMcpPeerRecord = {
+      alias: 'wireframe-cloud',
+      origin: 'https://relay.example.com/transit/wireframe-cloud/mcp',
+      cachedTools: [{ name: 'storyboard_create' }],
+      status: 'connected',
+    }
+
+    let invokedPayload: any = null
+    const mockTransitCaller = {
+      peerAlias: 'wireframe-cloud',
+      callTool: async (payload: any) => {
+        invokedPayload = payload
+        return { result: { success: true }, isError: false, status: 'success' as const }
+      },
+    }
+
+    const registry = new SkillRegistry()
+    const { skill, session } = registry.hydratePeerSession(peer, mockTransitCaller)
+    expect(skill.domain).toBe('wireframe')
+    expect(session.transportType).toBe('cloud-transit')
+
+    const res = await session.callTool('storyboard_create', { title: 'New Storyboard' })
+    expect(res).toEqual({ success: true })
+    expect(invokedPayload.tool).toBe('storyboard_create')
+    expect(invokedPayload.args).toEqual({ title: 'New Storyboard' })
+  })
 })
