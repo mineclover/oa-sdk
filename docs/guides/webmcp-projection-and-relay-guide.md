@@ -289,3 +289,133 @@ pnpm --filter @oa-sdk/mcp-mesh test
 # 4. 전체 87개 테스트 동시 검증
 pnpm --filter @oa-sdk/peer-transport --filter @oa-sdk/peer-server --filter @oa-sdk/mcp-mesh test
 ```
+
+---
+
+## 7. 실전 도입 트러블슈팅 및 8대 함정(Gotchas) 방어 가이드
+
+실제 프로덕션 환경 및 대규모 모노레포(예: `wireframe-storyboard-toolkit`, `scene-platform`)에 게이트웨이를 도입하는 과정에서 마주치기 쉬운 8대 함정과 구체적인 해결 패턴입니다.
+
+### [Gotcha 1] `enableCloudTransit: true` 및 `enableRelay: true` 플래그 누락
+- **현상**: `createPeerServer({ port: 8787 })` 구동 후 `POST /transit/:peer/mcp` 호출 시 `404 Not Found` 또는 WebSocket `/ws` 접속 시 핸드셰이크 거절.
+- **원인**: 보안상 기본값이 `false`로 설정되어 있어 명시적으로 켜지 않으면 라우트가 마운트되지 않습니다.
+- **해결책**:
+  ```typescript
+  // 올바른 설정
+  const peerServer = createPeerServer({
+    port: 8787,
+    enableRelay: true,          // WebSocket 시그널링 & 패킷 릴레이 (/ws)
+    enableCloudTransit: true,   // Cloud Transit 프록시 (/transit/:peer/mcp)
+  })
+  ```
+
+---
+
+### [Gotcha 2] 동적 에페머럴 포트(`port: 0`) 바인딩 시점 및 포트 획득
+- **현상**: 테스트나 다중 인스턴스 환경에서 `port: 0`을 전달했으나 `peerServer.port`가 여전히 `0`이라 클라이언트가 연결하지 못함 (`ECONNREFUSED`).
+- **원인**: 생성 시점에는 소켓 바인딩이 완료되지 않으며, `peerServer.port` 프로퍼티는 초기 요청 포트(0)를 보유합니다.
+- **해결책**:
+  ```typescript
+  // 반드시 await server.start()를 호출하고 반환된 port 또는 server.address().port를 사용
+  const peerServer = createPeerServer({ port: 0, enableCloudTransit: true })
+  const { port } = await peerServer.start()
+  // 또는: const actualPort = peerServer.server.address().port
+  ```
+
+---
+
+### [Gotcha 3] MCP 도구 호출 결과와 내부 도구 에러 매핑 규약 (`isError: true` vs Protocol Error)
+- **현상**: 내부 도구 실행에서 `{ ok: false, error: { message: '실패 원인' } }` 객체를 반환했는데, `CloudTransitClient`가 이를 `status: 'success'`로 반환하여 에이전트/테스트가 실패를 감지하지 못함.
+- **원인**: MCP(Model Context Protocol)는 도구 실행 실패를 HTTP 500이나 JSON-RPC 에러가 아니라 `result: { isError: true, content: [{ type: 'text', text: message }] }`로 전달하도록 규정합니다. Provider가 `isError: true`를 지정하지 않으면 게이트웨이는 일반 성공 페이로드로 간주하여 `{ isError: false }`로 래핑합니다.
+- **해결책**:
+  ```typescript
+  // Provider 브리지 메시지 핸들러에서 ok: false를 isError: true로 변환
+  const invokeResult = await agent.invoke(toolName, toolArgs)
+  if (invokeResult && typeof invokeResult === 'object' && 'ok' in invokeResult && invokeResult.ok === false) {
+    peerServer.roomManager.handleProviderMessage(alias, {
+      type: 'mcp',
+      message: {
+        id,
+        result: {
+          isError: true,
+          content: [{ type: 'text', text: invokeResult.error?.message || 'Tool execution failed' }],
+        },
+      },
+    })
+    return
+  }
+  ```
+
+---
+
+### [Gotcha 4] MCP `CallToolResult` 텍스트 엔벨로프(`content[0].text`) 언패킹
+- **현상**: `const res = await client.callTool(...)` 호출 후 `res.result.myField`에 직접 접근하면 `undefined` 발생.
+- **원인**: MCP 표준 규약상 도구 반환값은 항상 `content: Array<{ type: 'text', text: string }>` 형태로 JSON 문자열화되어 전달됩니다.
+- **해결책**:
+  ```typescript
+  const res = await client.callTool({ tool: 'storyboard_context_get', args: {} })
+  if (res.status === 'success' && res.result?.content?.[0]?.text) {
+    const payload = JSON.parse(res.result.content[0].text)
+    console.log('실제 도구 반환 데이터:', payload)
+  }
+  ```
+
+---
+
+### [Gotcha 5] 코어 번들러 제로-의존성(Zero-Dependency) 격리 아키텍처
+- **현상**: 웹 애플리케이션 코어 `src/`에 `@oa-sdk/peer-transport`를 직접 import했다가 번들러 빌드 단계에서 `External runtime import` 에러 발생 (WST `scripts/build.mjs` 등).
+- **원인**: 순수 브라우저 저작 코어는 0-의존성 IIFE/ESM 번들 무결성을 보장하기 위해 외부 패키지 import를 금지하는 경우가 많습니다.
+- **해결책**: 네트워크 전송 레이어(`@oa-sdk/peer-transport`)를 코어 `src/`에 직접 import하지 않고, `scripts/` (게이트웨이 데몬), `packages/` (전용 확장 모듈), 또는 브라우저 엔트리포인트 어댑터로 격리하여 의존성 주입(Dependency Injection) 형태로 연결합니다.
+
+---
+
+### [Gotcha 6] AST 주석 스캐너의 템플릿 리터럴 격리 면역성 (Literal String Immunity)
+- **현상**: 소스 코드 내에 `/* @editable */` 주석이 분명히 적혀 있음에도 `findAnchors`가 0개를 반환함.
+- **원인**: TypeScript/Babel 기반 AST 스캐너는 문자열 및 백틱 템플릿 리터럴 내부의 텍스트를 주석 트리비아가 아닌 텍스트 리터럴로 취급하여 건너뜁니다 (`if (isInsideLiteral) continue;`). 프리셋이 템플릿 문자열(`PRESETS.code = \`...\``)로 정의되어 있을 때 전체 파일을 파싱하면 주석이 무시됩니다.
+- **해결책**: 파일 전체를 파싱하지 않고 템플릿 리터럴 내부의 실제 소스 코드 문자열을 별도로 추출하여 `findAnchors`에 전달합니다.
+
+---
+
+### [Gotcha 7] 단일 게이트웨이 다중 피어 멀티 테넌트 공존 (Single Gateway Multi-Peer Routing)
+- **현상**: 로컬 개발 환경에서 여러 프로젝트(WST, Scene Platform 등)를 동시에 띄울 때 포트를 각각 분리(`8787`, `8788`)하여 관리해야 하는 번거로움과 포트 충돌 위험.
+- **원인 및 해결책**: `@oa-sdk/peer-server`는 단일 포트(`8787`)에서 URL 경로별 피어 alias 라우팅을 지원하므로, 하나의 데몬에서 충돌 없이 완전 격리 운영이 가능합니다:
+  - `http://127.0.0.1:8787/transit/wireframe-storyboard/mcp` $\to$ WST (68개 도구)
+  - `http://127.0.0.1:8787/transit/scene-stage/mcp` $\to$ Scene Platform (6개 도구)
+
+---
+
+### [Gotcha 8] 런타임 권한 객체의 엄격한 속성 검증 (Strict Key Validation)
+- **현상**: `authority` 제공 시 `AUTHORITY_UNAVAILABLE` 에러가 발생하며 쓰기 도구 호출이 거부됨.
+- **원인**: 런타임 타입 가드가 `hasKeys`를 통해 허용되지 않은 키(예: `display`에 `{ handle }` 포함)나 누락된 필수 키(예: `grant`에 `documentId` 누락)를 감지하고 Fail-Closed 방식으로 차단함.
+- **해결책**:
+  ```typescript
+  // 허용된 정확한 키만을 전달
+  const principal = {
+    principalId: 'p-agent-1',
+    kind: 'automation',
+    display: { name: 'Agent', role: 'assistant' }, // role 필수, 임의의 handle 등 제외
+  }
+  const grant = {
+    id: 'grant-1',
+    principalId: 'p-agent-1',
+    documentId: document.id,                        // documentId 필수
+    commandFamilies: ['slide.*', 'sequence.*'],
+    expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    revocationVersion: 1,
+  }
+  ```
+
+---
+
+## 8. 모노레포 및 외부 프로젝트 검증 체크리스트
+
+새로운 웹 프로젝트에 WebMCP 게이트웨이를 연결할 때 다음 체크리스트를 순서대로 확인하십시오:
+
+- [ ] **패키지 링크**: `node_modules/@oa-sdk/peer-transport` 및 `node_modules/@oa-sdk/peer-server` 심볼릭 링크 또는 의존성 설치 확인.
+- [ ] **게이트웨이 플래그**: `createPeerServer` 호출 시 `enableRelay: true`, `enableCloudTransit: true` 설정 확인.
+- [ ] **실제 포트 바인딩**: `await server.start()` 호출 및 `server.address().port` 확인.
+- [ ] **에러 매핑**: Provider 메시지 핸들러에서 실패 응답을 `{ isError: true, content: [{ type: 'text', text: msg }] }` 형태로 래핑하는지 확인.
+- [ ] **엔벨로프 언패킹**: 클라이언트 측에서 `JSON.parse(res.result.content[0].text)`로 실제 페이로드를 언패킹하는지 확인.
+- [ ] **CORS 설정**: 브라우저 오리진(`http://localhost:5173` 등)이 `allowedOrigins`에 등록되어 있는지 확인.
+- [ ] **멀티 테넌트 격리**: 서로 다른 피어 alias 간 도구 목록 및 호출이 완벽히 분리되는지 확인.
+

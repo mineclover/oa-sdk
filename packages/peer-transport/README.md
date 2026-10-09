@@ -75,6 +75,17 @@ const transit = createCloudTransitClient({
 
 const result = await transit.callTool({
   tool: 'storyboard_page_create',
-  args: { title: 'Design' },
+  args: { pageId: 'page-1', name: 'Design' },
 })
+
+if (result.status === 'success' && result.result?.content?.[0]?.text) {
+  // MCP CallToolResult 엔벨로프 언패킹
+  const data = JSON.parse(result.result.content[0].text)
+  console.log('성공 반환 데이터:', data)
+} else if (result.isError) {
+  console.error('도구 실행 실패:', result.error)
+}
 ```
+
+> 상세한 트러블슈팅 및 8대 함정 방어 가이드는 [WebMCP 프로젝션 및 중계 연동 가이드](../../docs/guides/webmcp-projection-and-relay-guide.md#7-실전-도입-트러블슈팅-및-8대-함정gotchas-방어-가이드)를 참조하십시오.
+

@@ -20,9 +20,19 @@ export interface PeerServerOptions {
   maxBodyBytes?: number | undefined
   /** Maximum number of in-flight provider calls (default: 1024). */
   maxPendingCalls?: number | undefined
-  /** Enable WebSocket signaling & packet relay server (default: false) */
+  /**
+   * Enable WebSocket signaling & packet relay server on `/ws` (default: false).
+   *
+   * @important Must be set to `true` when browser peers connect via `createWebSocketTransportAdapter`.
+   * When `false`, WebSocket upgrade requests to `/ws` are rejected.
+   */
   enableRelay?: boolean | undefined
-  /** Enable Cloud Transit proxy routes at /transit/:peer/mcp (default: false) */
+  /**
+   * Enable Cloud Transit proxy routes at `/transit/:peer/mcp` and `/mcp` (default: false).
+   *
+   * @important Must be set to `true` when external AI agents invoke tools via `createCloudTransitClient`.
+   * When `false`, POST requests to `/transit/:peer/mcp` return 404 Not Found.
+   */
   enableCloudTransit?: boolean | undefined
 }
 

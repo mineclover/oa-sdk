@@ -86,16 +86,44 @@ function errorMessage(error: unknown): string | undefined {
 }
 
 export interface PeerServerInstance {
+  /** The underlying Node.js HTTP server. */
   server: Server
+  /** Configured port (may be 0 if ephemeral port was requested). */
   port: number
+  /** Hostname bound to. */
   hostname: string
+  /** Peer room manager for in-memory provider attachment and tool dispatch. */
   roomManager: PeerRoomManager
+  /** File peer store for persistent peer discovery. */
   store: FilePeerStore
+  /** Relay manager for WebSocket signaling and packet relay (if enableRelay is true). */
   relayManager?: PeerRelayManager | undefined
+  /**
+   * Starts listening on the configured hostname and port.
+   * Resolves with the actual OS-assigned listening port and hostname.
+   */
   start: () => Promise<{ port: number; hostname: string }>
+  /** Closes all connections, timers, and the HTTP server. */
   close: () => Promise<void>
 }
 
+/**
+ * Creates and initializes a WebMCP Peer Server instance.
+ *
+ * @param options Server configuration options.
+ * @important To enable WebSocket relay for browser peers, set `enableRelay: true`.
+ * @important To enable Cloud Transit MCP routes (`/transit/:peer/mcp`), set `enableCloudTransit: true`.
+ * @example
+ * ```typescript
+ * const gateway = createPeerServer({
+ *   port: 8787,
+ *   enableRelay: true,
+ *   enableCloudTransit: true,
+ *   allowedOrigins: ['http://localhost:5173'],
+ * })
+ * const { port } = await gateway.start()
+ * ```
+ */
 export function createPeerServer(options: PeerServerOptions = {}): PeerServerInstance {
   const port = options.port ?? 8787
   const hostname = options.hostname ?? '127.0.0.1'

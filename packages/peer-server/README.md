@@ -60,3 +60,6 @@ export default {
   }
 }
 ```
+
+> 상세한 트러블슈팅 및 8대 함정 방어 가이드는 [WebMCP 프로젝션 및 중계 연동 가이드](../../docs/guides/webmcp-projection-and-relay-guide.md#7-실전-도입-트러블슈팅-및-8대-함정gotchas-방어-가이드)를 참조하십시오.
+

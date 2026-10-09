@@ -40,6 +40,20 @@ export class CloudTransitClient {
 
   /**
    * Execute an MCP tool on the target peer through Cloud Transit Proxy.
+   *
+   * @param payload Tool execution request specifying tool name, arguments, and optional timeout.
+   * @returns `PeerCallResult<T>` with:
+   *   - `status`: `'success' | 'error'`
+   *   - `isError`: `false` on success, `true` on error.
+   *   - `result`: Raw MCP `CallToolResult` (`{ content: [{ type: 'text', text: string }] }`).
+   *     To access the underlying application response payload, parse `result.content[0].text`:
+   *     ```typescript
+   *     const res = await client.callTool({ tool: 'my_tool', args: {} })
+   *     if (res.status === 'success' && res.result?.content?.[0]?.text) {
+   *       const data = JSON.parse(res.result.content[0].text)
+   *     }
+   *     ```
+   *   - `error`: Populated with the error message when `isError: true`.
    */
   async callTool<T = unknown>(payload: PeerCallPayload): Promise<PeerCallResult<T>> {
     const targetAlias = payload.peer ?? this.peerAlias
