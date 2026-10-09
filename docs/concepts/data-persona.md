@@ -104,6 +104,15 @@ publishing 정책으로 실행하는 별도 source of truth다.
 surface 뒤의 데이터셋이 어떤 logical relationship을 보존하며 가명처리되었고 어떤 validation
 report로 증명되는가"를 설명한다.
 
+### 텔레메트리(Telemetry) 및 FSM과의 관계
+
+[Design-Driven Telemetry](./design-driven-telemetry.md)는 페르소나 계약의 `skills.observability`와 `skills.security`를 프론트엔드 및 상태 머신(XState FSM) 런타임으로 확장한다.
+
+- **`skills.observability` (`trace-context`, `metrics-emission`)**:
+  - 페르소나가 요구하는 관측성 의무는 XState 머신의 전이 이벤트(`TrackSymbol`) 및 OpenTelemetry W3C `traceparent` 전파를 통해 실시간 트레이스로 실현된다.
+- **`skills.security` (`pii-masked-default`, `pseudonymized`)**:
+  - 세션에 바인딩된 페르소나의 보안 권한에 따라, 텔레메트리 파이프라인(`@oa-sdk/telemetry`)이 DPM 가명화 토큰을 적용하거나 민감 필드를 마스킹하여 GTM 및 Sentry로 안전하게 프로젝션한다.
+
 ### links — 페르소나 간 관계 (v0.9)
 
 qa-sdk/definition-catalog의 `LinkType` 10종 중 페르소나 컨텍스트 의미 있는 3종 차용.

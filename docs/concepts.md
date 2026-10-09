@@ -115,3 +115,11 @@
 ## SchemaAlgebra
 
 정의: [Runtime And Generation](./concepts/runtime-and-generation.md#schemaalgebra)
+
+## Design-Driven Telemetry
+
+정의: [Design-Driven Telemetry](./concepts/design-driven-telemetry.md)
+
+## Tracking Symbol
+
+정의: [Tracking Symbol](./concepts/design-driven-telemetry.md#3-추적-심볼tracking-symbol-명명-체계)

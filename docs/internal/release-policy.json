@@ -35,7 +35,8 @@
     "@oa-sdk/mcp-mesh",
     "@oa-sdk/router",
     "@oa-sdk/client",
-    "@oa-sdk/mock-server"
+    "@oa-sdk/mock-server",
+    "@oa-sdk/telemetry"
   ],
   "optionalPeerEntryPoints": {
     "@oa-sdk/mock-server": {
@@ -83,7 +84,8 @@
         "@oa-sdk/peer-transport",
         "@oa-sdk/peer-server",
         "@oa-sdk/collab-workspace",
-        "@oa-sdk/mcp-mesh"
+        "@oa-sdk/mcp-mesh",
+        "@oa-sdk/telemetry"
       ]
     },
     "maintenance": {
@@ -133,7 +135,8 @@
     "@oa-sdk/peer-transport",
     "@oa-sdk/peer-server",
     "@oa-sdk/collab-workspace",
-    "@oa-sdk/mcp-mesh"
+    "@oa-sdk/mcp-mesh",
+    "@oa-sdk/telemetry"
   ],
   "ignored": [
     "@oa-sdk/dpm",

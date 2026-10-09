@@ -138,6 +138,11 @@ Backend HTTP adapter와 browser UI가 공유하는 의존성이 적은 wire 계�
 | `DefinitionBuilderServerConfig`, `TypeSpecBundleServerConfig`, `SpecServerConfig` | `spec-lens-contract/src/index.ts` | project kind별 server 설정 |
 | `SpecLensApiResponseMap`, `SpecLensApiError` | `spec-lens-contract/src/index.ts` | endpoint 응답 map과 API 오류 |
 | `isSpecLensProjectKind`, `isSpecSourceKind`, `isSpecLensResponse` | `spec-lens-contract/src/index.ts` | project kind·source kind·HTTP 응답 runtime guard |
+| `DashboardView`, `ScenarioTopicId`, `ScenarioPersona`, `ScenarioGuardEvaluationResult`, `ScenarioGuard`, `ScenarioTerminalGoal`, `ScenarioTransitionRule`, `ScenarioTopicDefinition`, `LensBehaviorAction`, `ScenarioStepProvenance`, `ScenarioMachineContext`, `FlowStep`, `FlowPath`, `FlowMatrixRow`, `FlowEnumerationResult` | `spec-lens-contract/src/index.ts` | 유저 시나리오 주제 및 FSM 네비게이션 타입 |
+| `SPEC_DRIFT_TRIAGE_SCENARIO`, `ENDPOINT_EXPLORATION_SCENARIO`, `BREAKING_IMPACT_ANALYSIS_SCENARIO`, `CIRCULAR_REF_DIAGNOSTIC_SCENARIO`, `DEFAULT_SCENARIOS`, `ScenarioRegistry` | `spec-lens-contract/src/index.ts` | 4대 표준 시나리오 정의 및 시나리오 레지스트리 |
+| `guardRequireDiffPair`, `guardRequirePathPattern`, `guardRequireSymbolId` | `spec-lens-contract/src/index.ts` | 시나리오 전이 가드 함수 |
+| `createInitialScenarioState`, `scenarioTransitionReducer`, `ScenarioTransitionResult` | `spec-lens-contract/src/index.ts` | 순수 FSM 상태 머신 초기화 및 전이 리듀서 |
+| `ScenarioFlowEnumerator` | `spec-lens-contract/src/index.ts` | 시나리오 정적 경로 분석 및 Mermaid/DOT 다이어그램 생성기 |
 
 ---
 
@@ -939,6 +944,13 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `APITOMY_REFERENCE_ADAPTER_VERSION` | `apitomy/index.ts` | reference 비교 리포트의 adapter contract version |
 | `auditShapeCommand` | `cli/commands/audit-shape.ts` | TypeScript AST 타입 형태 분류 및 TypeSpec/OpenAPI 투영 가능성 진단 감사 CLI 커맨드 |
 | `auditShapeFiles()` | `cli/lib/audit-shape-files.ts` | 지정된 경로 내 TypeScript 소스 파일들의 타입 형태를 감사하여 진단 리포트 생성 |
+| `extractWireSchemaFromOas()` | `wire-adapter/wire-schema-extractor.ts` | TypeSpec/OAS 스펙에서 canonical WireSchemaModel IR 추출 및 1-based 자동 인덱싱 fallback |
+| `TypeSpecWirePipeline` | `wire-adapter/typespec-wire-pipeline.ts` | TypeSpec SSOT 기반 플러그형 wire 타겟 변환 파이프라인 클래스 |
+| `typeSpecWirePipeline` | `wire-adapter/typespec-wire-pipeline.ts` | TypeSpec wire 변환 파이프라인 기본 싱글톤 인스턴스 |
+| `Proto3TargetAdapter` | `wire-adapter/adapters/proto3-target-adapter.ts` | Protocol Buffers v3 (.proto) 스키마 생성 타겟 어댑터 |
+| `ProtobufCodecTargetAdapter` | `wire-adapter/adapters/protobuf-codec-target-adapter.ts` | Zero-eval CSP 준수 순수 TypeScript Protobuf 바이너리 코덱 생성 어댑터 |
+| `RpcContractTargetAdapter` | `wire-adapter/adapters/rpc-contract-target-adapter.ts` | 양방향 RPC 서비스 핸들러 계약 및 클라이언트 SDK 생성 어댑터 |
+| `MessagePackTargetAdapter` | `wire-adapter/adapters/messagepack-target-adapter.ts` | MessagePack 바이너리 통신 코덱 바인딩 생성 어댑터 |
 
 ### 타입 (`@oa-sdk/codegen`)
 
@@ -1109,6 +1121,21 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `ParallelEvidenceSubjectStatus` | `cli/lib/parallel-evidence.ts` | matched-pointer/contract-only/implementation-only subject status |
 | `ParallelEvidenceV1` | `cli/lib/parallel-evidence.ts` | TypeSpec authority를 보존하는 review-only joined evidence envelope |
 | `TtscContractProvenanceV2` | `cli/lib/parallel-evidence.ts` | maintained ttsc artifact structural contract |
+| `TypeSpecWireTargetAdapter` | `wire-adapter/wire-adapter-types.ts` | 플러그형 wire 타겟 어댑터 인터페이스 |
+| `WireTransformationResult` | `wire-adapter/wire-adapter-types.ts` | wire 변환 결과 인터페이스 |
+| `TransformationBundle` | `wire-adapter/typespec-wire-pipeline.ts` | 다중 타겟 변환 번들 인터페이스 |
+| `WireSchemaModel` | `wire-adapter/wire-schema-model.ts` | TypeSpec SSOT canonical wire 스키마 중간 표현(IR) |
+| `WireModel` | `wire-adapter/wire-schema-model.ts` | wire 메시지 모델 메타데이터 인터페이스 |
+| `WireField` | `wire-adapter/wire-schema-model.ts` | wire 메시지 필드 태그 인덱스 및 스칼라 타입 메타데이터 |
+| `WireEnum` | `wire-adapter/wire-schema-model.ts` | wire 열거형 메타데이터 인터페이스 |
+| `WireEnumMember` | `wire-adapter/wire-schema-model.ts` | wire 열거형 멤버 메타데이터 인터페이스 |
+| `WireService` | `wire-adapter/wire-schema-model.ts` | wire RPC 서비스 메타데이터 인터페이스 |
+| `WireMethod` | `wire-adapter/wire-schema-model.ts` | wire RPC 메서드 및 스트리밍 메타데이터 인터페이스 |
+| `ExtractorOptions` | `wire-adapter/wire-schema-extractor.ts` | wire 스키마 추출 옵션 인터페이스 |
+| `Proto3AdapterOptions` | `wire-adapter/adapters/proto3-target-adapter.ts` | Proto3 스키마 생성 옵션 인터페이스 |
+| `ProtobufCodecAdapterOptions` | `wire-adapter/adapters/protobuf-codec-target-adapter.ts` | Protobuf TS 코덱 생성 옵션 인터페이스 |
+| `RpcContractAdapterOptions` | `wire-adapter/adapters/rpc-contract-target-adapter.ts` | RPC 계약 생성 옵션 인터페이스 |
+| `MessagePackAdapterOptions` | `wire-adapter/adapters/messagepack-target-adapter.ts` | MessagePack 코덱 생성 옵션 인터페이스 |
 
 ### 내부 함수 (`@oa-sdk/codegen` — index 미노출)
 
@@ -1335,6 +1362,9 @@ Governance manifest: `packages/codegen/src/cli/spec/oa-gen-governance.ts` 및 `d
 | `demuxChunkStream()` | `chunk-stream.ts` | 청크 스트림 디멀티플렉싱 함수 |
 | `DemuxChunkStreamOptions` | `chunk-stream.ts` | 청크 스트림 디멀티플렉싱 옵션 인터페이스 |
 | `SyntheticEmptyChunk` | `chunk-stream.ts` | 합성 빈 청크 인터페이스 |
+| `RouterCodecRegistry` | `codec/router-codec.ts` | 백엔드 binary wire 코덱 등록 및 content-type 해결 레지스트리 |
+| `RouterCodecAdapter` | `codec/router-codec.ts` | 백엔드 binary 인코딩/디코딩 어댑터 인터페이스 |
+| `negotiateResponseMediaType()` | `codec/router-codec.ts` | Accept 헤더 및 등록된 코덱 기반 응답 미디어 타입 협상 함수 |
 
 ---
 
@@ -1342,11 +1372,23 @@ Governance manifest: `packages/codegen/src/cli/spec/oa-gen-governance.ts` 및 `d
 
 | 함수/타입 | 파일 | 용도 |
 |-----------|------|------|
-| `ClientConfig` | `client-types.ts` | 클라이언트 인스턴스 설정 인터페이스 (baseUrl, headers, middleware, timeout, retry 등) |
+| `ClientConfig` | `client-types.ts` | 클라이언트 인스턴스 설정 인터페이스 (baseUrl, headers, middleware, timeout, retry, codecs 등) |
 | `ClientError` | `error-contract.ts` | 클라이언트 HTTP 에러 클래스 (status, statusText, body, data, response) |
 | `ClientMethodOptions` | `client-types.ts` | 개별 API 호출 메서드 옵션 타입 (signal, headers) |
 | `ClientMiddleware` | `client-types.ts` | 클라이언트 미들웨어 인터페이스 (onRequest, onResponse, onError) |
 | `ClientResponse` | `client-types.ts` | withResponse 호출 시 반환되는 래퍼 타입 (body, headers, response) |
+| `BinaryCodecAdapter` | `codec/codec-types.ts` | 바이너리 직렬화/압축 코덱 어댑터 인터페이스 (mediaTypes, encode, decode) |
+| `BinaryBodyInit` | `codec/codec-types.ts` | 바이너리 코덱이 반환하는 유선 페이로드 바디 타입 유니온 |
+| `BinaryCodecRegistry` | `codec/codec-types.ts` | 미디어 타입 기반 바이너리 코덱 등록 및 해결 레지스트리 클래스 |
+| `MessagePackAdapter` | `codec/adapters/messagepack-adapter.ts` | 0 의존성 순수 TypeScript MessagePack 바이너리 코덱 어댑터 클래스 |
+| `messagePackAdapter` | `codec/adapters/messagepack-adapter.ts` | MessagePackAdapter 기본 싱글톤 인스턴스 |
+| `encodeMessagePack()` | `codec/adapters/messagepack-adapter.ts` | JS 값 → MessagePack Uint8Array 바이너리 인코딩 함수 |
+| `decodeMessagePack()` | `codec/adapters/messagepack-adapter.ts` | MessagePack Uint8Array/ArrayBuffer → JS 값 디코딩 함수 |
+| `ProtobufAdapter` | `codec/adapters/protobuf-adapter.ts` | Protocol Buffers 직렬화/역직렬화 어댑터 클래스 |
+| `createProtobufAdapter()` | `codec/adapters/protobuf-adapter.ts` | Typia AOT / protobufjs 호환 Protobuf 어댑터 팩토리 함수 |
+| `ProtobufAdapterOptions` | `codec/adapters/protobuf-adapter.ts` | Protobuf 어댑터 생성 옵션 인터페이스 |
+| `RawBinaryAdapter` | `codec/adapters/raw-binary-adapter.ts` | octet-stream 바이너리 패스스루 코덱 어댑터 클래스 |
+| `createRawBinaryAdapter()` | `codec/adapters/raw-binary-adapter.ts` | 원시 바이너리 코덱 어댑터 팩토리 함수 |
 | `apiKeyAuth()` | `client-types.ts` | API 키 인증 미들웨어 생성 팩토리 함수 |
 | `basicAuth()` | `client-types.ts` | Basic 인증 미들웨어 생성 팩토리 함수 |
 | `bearerAuth()` | `client-types.ts` | Bearer 토큰 인증 미들웨어 생성 팩토리 함수 |
@@ -1737,6 +1779,7 @@ project identity, snapshot builder, source adapter, SQLite cache와 CQRS query h
 | `computeTsconfigUniverse`, `computeTsconfigUniverseDigest`, `createEmptyTsconfigUniverse`, `ContractConfigDigest`, `ContractConfigUniverse` | `spec-lens/src/infrastructure/cache/sqlite/cache-key.ts` | transitive tsconfig universe와 cache digest |
 | `parseJsonc`, `stripJsonComments`, `removeTrailingCommas`, `configurationClosure`, `resolveConfigurationFile`, `ConfigurationClosure` | `spec-lens/src/infrastructure/cache/sqlite/cache-key.ts` | JSONC 읽기와 configuration closure 탐색 |
 | `createSpecLensServer`, `serveSpecLens`, `DefinitionBuilderSpecLensServerConfig`, `SpecLensServerConfig`, `TypeSpecBundleSpecLensServerConfig` | `spec-lens/src/presentation/http/server.ts` | HTTP 서버 구성·실행과 project kind별 설정 |
+| `runScenarioCli`, `verifyAllScenarios`, `ScenarioCliOptions` | `spec-lens/src/scenario-cli.ts` | 시나리오 CLI 실행기·검증기 및 옵션 |
 
 ---
 
@@ -1751,6 +1794,11 @@ OpenAPI component, persona, DPM 및 CRDT 메타데이터를 TypeSpec에서 선�
 | `$pseudonymize`, `VALID_DPM_TRANSFORMS`, `VALID_DPM_ROLES` | `typespec-decorators/src/decorators.ts` | DPM projection decorator와 허용 transform·role |
 | `$crdt`, `$crdtEntity` | `typespec-decorators/src/decorators.ts` | CRDT field·entity decorator |
 | `VALID_CRDT_TYPES`, `VALID_CRDT_RESOLUTIONS`, `VALID_CRDT_ENGINES`, `VALID_CRDT_ROLES`, `VALID_CRDT_COMPACTIONS` | `typespec-decorators/src/decorators.ts` | CRDT type·resolution·engine·role·compaction 허용값 |
+| `$actorInput`, `$machineContext`, `$eventPayload`, `$behaviorRef` | `typespec-decorators/src/decorators.ts` | XState / Behavior 런타임 데이터 스키마 decorator |
+| `$storageRef`, `$storageCatalog` | `typespec-decorators/src/decorators.ts` | Atlas DB 물리 카탈로그 증거 및 컬럼 바인딩 decorator |
+| `$protobuf`, `$field`, `$rpc`, `$wireFormat` | `typespec-decorators/src/protobuf.ts` | Protocol Buffers 및 RPC wire format 데코레이터 |
+| `PROTOBUF_EXTENSION`, `PROTOBUF_FIELD_EXTENSION`, `RPC_EXTENSION`, `WIRE_FORMAT_EXTENSION` | `typespec-decorators/src/constants.ts` | OpenAPI x-oa-sdk wire 확장 프로퍼티 키 |
+| `VALID_WIRE_FORMATS`, `VALID_RPC_STREAMING`, `VALID_PROTOBUF_SCALAR_TYPES` | `typespec-decorators/src/constants.ts` | Wire format, RPC 스트리밍, Protobuf 스칼라 타입 허용값 |
 | `$lib`, `reportDiagnostic` | `typespec-decorators/src/lib.ts` | TypeSpec library와 diagnostic 보고 |
 
 ---
@@ -1764,3 +1812,26 @@ TypeSpec에서 빌드한 OpenAPI 문서를 JSON·YAML package asset으로 제공
 | `.` | `./dist/openapi.json` | 기본 OpenAPI JSON 문서 |
 | `./openapi.json` | `./dist/openapi.json` | 명시적 JSON 문서 entrypoint |
 | `./openapi.yaml` | `./dist/openapi.yaml` | 명시적 YAML 문서 entrypoint |
+
+---
+
+## 설계 주도 텔레메트리와 XState 인스펙터 (`@oa-sdk/telemetry`)
+
+추적 심볼(Tracking Symbol) 레지스트리, XState v5 비침습 라이프사이클 인스펙터, DPM 결정론적 관계 보존 가명화 브릿지 및 다중 프로바이더(GTM/Sentry/OTel) 디스패처를 제공한다.
+
+| Export | 정의 | 용도 |
+|---|---|---|
+| `SymbolLayer`, `PiiLevel`, `KpiDimension`, `ParsedTrackSymbol`, `SymbolRoutingConfig`, `SymbolDefinition` | `telemetry/src/symbols/types.ts` | 추적 심볼 문법 계층, PII 처리 등급, KPI 차원, 라우팅 메타데이터 계약 |
+| `TRACK_SYMBOL_REGEX`, `isValidTrackSymbol`, `parseTrackSymbol`, `formatTrackSymbol` | `telemetry/src/symbols/grammar.ts` | 추적 심볼 정규식 및 파싱/포맷/유효성 검증 함수 |
+| `SymbolRegistryOptions`, `SymbolRegistry`, `createSymbolRegistry` | `telemetry/src/symbols/registry.ts` | 닫힌 심볼 카탈로그 레지스트리 및 등록/조회 팩토리 |
+| `TelemetryContext`, `TelemetryEnvironment`, `TelemetryEnvelope` | `telemetry/src/envelope/types.ts` | 실행 컨텍스트(W3C Trace), 환경, 표준 텔레메트리 엔벨로프 계약 |
+| `generateTraceId`, `generateSpanId`, `CreateEnvelopeOptions`, `createTelemetryEnvelope` | `telemetry/src/envelope/builder.ts` | W3C 분산 추적 ID 생성 및 엔벨로프 합성 빌더 |
+| `TelemetryIdentity`, `setGlobalTelemetryIdentity`, `getGlobalTelemetryIdentity`, `clearGlobalTelemetryIdentity`, `subscribeTelemetryIdentity` | `telemetry/src/identity/identity.ts` | 전역/세션 사용자 식별자 및 가명 토큰 바인딩/구독 |
+| `DpmTokenOptions`, `DpmTelemetryAdapterOptions`, `DpmTelemetryAdapter` | `telemetry/src/dpm/types.ts` | DPM 가명화 옵션 및 어댑터 인터페이스 |
+| `createDpmTelemetryAdapter` | `telemetry/src/dpm/adapter.ts` | PII 민감키 마스킹 및 관계 보존 결정론적 가명화 토큰 어댑터 팩토리 |
+| `TelemetryDispatcher` | `telemetry/src/dispatcher/types.ts` | 다중 프로바이더 텔레메트리 디스패처 공통 인터페이스 |
+| `GtmDispatcherOptions`, `createGtmDispatcher` | `telemetry/src/dispatcher/gtm.ts` | Google Tag Manager dataLayer 푸시 및 GA4 이벤트 포맷팅 디스패처 |
+| `SentryLikeClient`, `SentryDispatcherOptions`, `createSentryDispatcher` | `telemetry/src/dispatcher/sentry.ts` | Sentry Breadcrumbs 누적, Context 갱신 및 Exception 캡처 디스패처 |
+| `OtelLikeSpan`, `OtelLikeTracer`, `OtelDispatcherOptions`, `createOtelDispatcher` | `telemetry/src/dispatcher/otel.ts` | OpenTelemetry Span 생명주기 및 이벤트 기록 디스패처 |
+| `createCompositeDispatcher` | `telemetry/src/dispatcher/composite.ts` | 다중 프로바이더 동시 브로드캐스트 합성 디스패처 |
+| `XStateInspectorOptions`, `ActorRefLike`, `SnapshotLike`, `InspectionEventLike`, `createTelemetryInspector` | `telemetry/src/xstate/inspector.ts` | XState v5의 inspect 훅에 연결되는 비침습 중앙집중식 인스펙터 팩토리 |

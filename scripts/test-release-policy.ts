@@ -81,6 +81,7 @@ assert.deepEqual(configuration.candidates, [
   '@oa-sdk/router',
   '@oa-sdk/client',
   '@oa-sdk/mock-server',
+  '@oa-sdk/telemetry',
 ])
 assert.equal(requiresReleasePreflight(false), true)
 assert.equal(requiresReleasePreflight(true), false)

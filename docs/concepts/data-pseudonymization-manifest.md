@@ -76,7 +76,7 @@ OpenAPI root나 schema에 `x-dpm-version`, `x-dpm-policy-id`, `x-dpm-registry-ve
 | API 계약/스펙 SSOT | `@oa-sdk/schemas`, `@oa-sdk/parser`, `@oa-sdk/openapi-projection-contract`, `@oa-sdk/codegen` | Gateway OpenAPI와 catalog projection evidence를 제공한다. DPM 본문 policy의 source of truth는 아니다. |
 | 논리 데이터 계약 | `@oa-sdk/dpm`, `@oa-sdk/personas` | Relationship Registry, logical entity namespace, 가명 데이터 audience obligation을 소유한다. |
 | 실행/소비자 산출물 | `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`, `@oa-sdk/typia-mock` | 안정화된 gateway OpenAPI artifact를 소비한다. relationship approval이나 namespace 정책은 결정하지 않는다. |
-| 거버넌스/관측 | `@oa-sdk/spec-lens` | Gateway/spec drift 관측에 쓸 수 있다. DPM freshness나 REL/SAF validation을 대체하지 않는다. |
+| 거버넌스/관측 | `@oa-sdk/spec-lens`, `@oa-sdk/telemetry` | Gateway/spec drift 관측에 쓸 수 있다. `@oa-sdk/telemetry`는 DPM 가명화 토큰을 통해 FSM 및 프론트엔드 관측 시 PII를 은닉하면서도 관계 추적성을 보존한다. |
 
 ## Existing Concepts
 
@@ -84,6 +84,7 @@ OpenAPI root나 schema에 `x-dpm-version`, `x-dpm-policy-id`, `x-dpm-registry-ve
 |---|---|
 | [OpenAPI Projection](./openapi-projection.md) | DB catalog나 table schema projection을 DPM의 `catalog` 입력으로 사용할 수 있다. 다만 관계의 source of truth는 projection이 아니라 Relationship Registry다. |
 | [Data Persona](./data-persona.md) | `access: [pseudonymized]`와 `skills: [pseudonymized]`는 API audience 의무다. DPM은 그 의무를 데이터 제품으로 실현하는 정책이다. |
+| [Design-Driven Telemetry](./design-driven-telemetry.md) | XState 상태 머신 및 UI 심볼 추적 시, DPM의 관계 보존 가명화(Relationship-Preserving Pseudonymization) 토큰을 적용하여 PII를 원천 보호하면서도 E2E 유저 여정 및 분산 추적(Lineage)을 유지한다. |
 | [Schema Annotations](../guides/schema-annotations.md) | 필드 소유자, 내부 note, lifecycle 같은 개발자 메타데이터를 담는다. 가명처리 실행 정책의 SSOT는 아니다. |
 | [Contract Governance](./contract-governance.md) | DPM, registry snapshot, compiled plan, validation report, AI schema context가 drift/freshness/review 대상이 된다. |
 

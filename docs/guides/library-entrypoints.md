@@ -18,7 +18,7 @@ oa-sdk는 하나의 runtime SDK가 아니라 OpenAPI 계약을 작성·검증·�
 
 | 패키지 | 배포 | 시작 역할 | 공개 entrypoint | 먼저 볼 자료 |
 | --- | --- | --- | --- | --- |
-| `@oa-sdk/typespec-decorators` | npm | OA SDK TypeSpec 데코레이터와 표준 계약(`Ok`, `ErrorResponse`, `StandardHttpErrors` 등, `OaSdkTypeSpec` namespace). 표준 계약은 0.3.0부터 | package root | [TypeSpec 작성 의존성](./cli-setup.md#typespec-작성-의존성) |
+| `@oa-sdk/typespec-decorators` | npm | OA SDK TypeSpec 데코레이터와 표준 계약(`Ok`, `ErrorResponse`, `StandardHttpErrors` 등, `OaSdkTypeSpec` namespace). 표준 계약은 0.3.0부터 | package root, `./api`, `./governance`, `./crdt`, `./behavior`, `./storage` | [TypeSpec 작성 의존성](./cli-setup.md#typespec-작성-의존성) |
 | `@oa-sdk/parser` | npm | OpenAPI 3.2 → ParsedDocument IR, `$ref` 해석, lint/validate, RFC 6901 JSON Pointer helper(`parseJsonPointer`, `formatJsonPointer` 등) | package root, `./browser` | [parser README](../../packages/parser/README.md) |
 | `@oa-sdk/surface-ir` | 0.9.0부터 | target-neutral API surface IR와 Forge SDK/CLI projection·Overlay 생성. `@oa-sdk/codegen`의 런타임 의존성으로 함께 설치되며 `oa-gen surface`가 사용 | package root | [Cloudflare Forge 지원](./forge-support.md) |
 | `@oa-sdk/codegen` | npm | typegen, Zod 4 코드 생성, Drizzle/Zod 변환, `oa-gen` CLI(bin `oa-gen`) | package root, `./drizzle`, `./typegen`, `./typegen/browser`, `./zodgen`, `./spec-lens`, `./apitomy` | [CLI 명령 레퍼런스](./cli-command-reference.md) |
@@ -41,6 +41,7 @@ oa-sdk는 하나의 runtime SDK가 아니라 OpenAPI 계약을 작성·검증·�
 | `@oa-sdk/chunk-stream-ui` | npm | UI Action 어댑터, ContentPort 원자적 배치 브리지, StoryboardDocument 스트림 변환 및 재생 브리지 | package root | [API index](../internal/api-index.md) |
 | `@oa-sdk/chunk-stream-timeseries` | npm | 다채널 시계열 텔레메트리 어댑터, LTTB 다운샘플링, 데시메이션 | package root | [API index](../internal/api-index.md) |
 | `@oa-sdk/chunk-stream-react` | npm | React 18/19 타임라인 재생 및 스크러빙 훅, 피어 상주 인식, 원격 측정 오버레이 | package root | [API index](../internal/api-index.md) |
+| `@oa-sdk/telemetry` | 후보·미배포 | 설계 주도 텔레메트리, 추적 심볼 레지스트리, XState v5 비침습 인스펙터, DPM 가명화 브릿지 및 다중 프로바이더(GTM/Sentry/OTel) 디스패처 | package root | [Design-Driven Telemetry](../concepts/design-driven-telemetry.md) |
 
 ## 도구·피어 통신
 
