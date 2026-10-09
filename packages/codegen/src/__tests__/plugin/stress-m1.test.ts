@@ -306,6 +306,21 @@ describe('Empirical Stress Suite — Milestone 1 (challenger_m1_2)', () => {
         expect(sorted[i]?.name).toBe(`post_${i - 80}`)
       }
     })
+
+    it('detects a cycle in a 500-node graph without stack overflow', () => {
+      // 500 nodes: 0 -> 1 -> ... -> 499 -> 0
+      const plugins: TspPlugin[] = []
+      for (let i = 0; i < 500; i++) {
+        const deps = i === 0 ? ['cycle_499'] : [`cycle_${i - 1}`]
+        plugins.push(createPlugin(`cycle_${i}`, deps))
+      }
+
+      const start = performance.now()
+      expect(() => sortPlugins(plugins)).toThrow(TspPluginCycleError)
+      const durationMs = performance.now() - start
+
+      expect(durationMs).toBeLessThan(100)
+    })
   })
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -521,6 +536,42 @@ describe('Empirical Stress Suite — Milestone 1 (challenger_m1_2)', () => {
       expect(() => ctx.resolveImport('models\\user.ts', 'models/user.ts')).toThrow(
         /Self-import is not allowed/,
       )
+    })
+
+    it('handles 1,000 virtual files and 1,000 relative import resolutions with sub-100ms latency', () => {
+      const ctx = createPluginContext({
+        entrypoint: '/app/main.tsp',
+        outputDir: '/app/dist',
+        document: makeDoc('Test'),
+        config: { input: 'main.tsp', plugins: [] },
+      })
+
+      const start = performance.now()
+      // Add 1,000 files across 20 directories
+      for (let i = 0; i < 1000; i++) {
+        const dir = `dir_${i % 20}`
+        ctx.addFile({
+          path: `${dir}/file_${i}.ts`,
+          content: `export const val_${i} = ${i};`,
+          sourcePlugin: 'perf',
+        })
+      }
+
+      expect(ctx.getFiles().length).toBe(1000)
+
+      // Resolve 1,000 imports across different directories
+      for (let i = 0; i < 1000; i++) {
+        const fromPath = `dir_${i % 20}/file_${i}.ts`
+        const toPath = `dir_${(i + 7) % 20}/file_${(i + 13) % 1000}.ts`
+        if (fromPath.toLowerCase() !== toPath.toLowerCase()) {
+          const resolved = ctx.resolveImport(fromPath, toPath)
+          expect(resolved.endsWith('.js')).toBe(true)
+          expect(resolved.startsWith('.')).toBe(true)
+        }
+      }
+
+      const durationMs = performance.now() - start
+      expect(durationMs).toBeLessThan(100)
     })
   })
 
