@@ -245,6 +245,85 @@ const artifacts = await generateStandaloneGuards({
 });
 ```
 
+## TypeSpec Builder Platform (openapi-ts Style Pipeline)
+
+Beyond standalone CLI commands, `@oa-sdk/codegen` provides a comprehensive programmatic builder platform (`createTspBuilder`, `defineTspConfig`) that treats TypeSpec (`.tsp`) as the Single Source of Truth (SSOT). It performs in-memory AST compilation without writing intermediate OpenAPI YAML files to disk, schedules plugins via a topological DAG (Kahn's algorithm), and renders openapi-ts style client SDKs, TanStack Query v5 3-tier hooks, framework router contracts, and binary codecs.
+
+### Quickstart
+
+```typescript
+import {
+  createTspBuilder,
+  defineTspConfig,
+  pluginTypescript,
+  pluginClient,
+  pluginTanstackQuery,
+  pluginRouter,
+  pluginWire,
+} from '@oa-sdk/codegen';
+
+// 1. Initialize builder with fluent chaining or defineTspConfig
+const builder = createTspBuilder('./api/main.tsp', {
+  openApiVersion: '3.2.0',
+});
+
+// 2. Register multi-target plugins (DAG resolves topological order automatically)
+builder
+  .use(pluginTypescript({ output: 'types.ts', typeGuards: true }))
+  .use(pluginClient({ output: 'client.ts', httpClient: 'fetch' }))
+  .use(pluginTanstackQuery({ output: 'queries.ts', split: false }))
+  .use(pluginRouter({ target: 'hono', output: 'router.ts' }))
+  .use(pluginWire({ codecs: ['protobuf', 'msgpack'] }));
+
+// 3. Programmatic introspection (in-memory cached, <5ms)
+const report = await builder.introspect();
+console.log(`Routes: ${report.routesCount}, Models: ${report.models.length}`);
+
+// 4. Build all targets to virtual file system or disk
+const result = await builder.build({
+  output: './src/generated',
+  clean: true,
+});
+```
+
+### Multi-Target Plugin Matrix
+
+| Plugin | Dependencies | Default Output | Description |
+| --- | --- | --- | --- |
+| `pluginTypescript` | None | `types.ts`, `guards.ts` | TypeScript DTO models, enums (`union`/`ts`/`js`), JSDoc docstrings, and standalone zero-eval type guards |
+| `pluginClient` (`pluginSdk`) | `typescript` | `client.ts` | openapi-ts calling convention `{ path, query, body, headers }`, `{ data, error, response }` discriminated union, status-based `isErrorStatus(res, 404)` narrowing, and tree-shakeable functional endpoints |
+| `pluginTanstackQuery` | `typescript`, `client` | `queries.ts` | TanStack Query v5 3-Tier architecture: Tier 1 Keys (`*Keys`), Tier 2 Options (`queryOptions`), Tier 3 Hooks (`use*Query`) |
+| `pluginRouter` | `typescript` | `api.contract.ts`, `router.ts` | Framework-independent handler contracts (`HandlerResponse<TSuccess, TErrorMap>`) and router adapters for Hono, Express, Fastify (JIT inline schema), and Bun Elysia (zero-copy) |
+| `pluginWire` | `typescript` | `wire.ts`, `schema.proto` | Zero-eval CSP-safe Protobuf and MessagePack binary codecs, Protocol Buffers v3 `.proto` schemas, and dynamic MIME negotiation (`resolveBinaryCodec`) |
+
+### Vite Integration (`vitePluginTsp`)
+
+Integrate code generation and TypeSpec live reloading into your Vite development server:
+
+```typescript
+// vite.config.ts
+import { defineConfig } from 'vite';
+import { vitePluginTsp, pluginTypescript, pluginClient } from '@oa-sdk/codegen';
+
+export default defineConfig({
+  plugins: [
+    vitePluginTsp({
+      config: {
+        input: './api/main.tsp',
+        output: './src/generated',
+        plugins: [pluginTypescript(), pluginClient()],
+      },
+      runOnDev: true,   // Build on dev server start
+      runOnBuild: true, // Build before bundle
+      watch: true,      // Watch .tsp files and trigger full-reload HMR
+      debounceMs: 150,
+    }),
+  ],
+});
+```
+
+For full documentation, architecture diagrams, and migration details, see the [TypeSpec Builder Platform Guide](../../docs/guides/typespec-builder-platform.md).
+
 ## TypeSpec Direct Codegen & Scaffolding
 
 `oa-gen` compiles TypeSpec (`.tsp`) files directly in-memory to generate TypeScript types, Zod schemas, TanStack Query hooks, and run validations without intermediate OpenAPI YAML build artifacts. The libraries a `.tsp` file imports are resolved from the file's location, so add them as direct development dependencies; strict layouts such as pnpm otherwise fail with `import-not-found`:

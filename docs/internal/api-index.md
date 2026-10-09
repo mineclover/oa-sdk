@@ -810,7 +810,7 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 ## 함수 (`@oa-sdk/codegen`)
 
 Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@oa-sdk/codegen/typegen`)에서 동일하게 지원한다.
-지원 subpath는 package exports의 `.`, `./apitomy`, `./drizzle`, `./spec-lens`, `./typegen`, `./typegen/browser`, `./zodgen`이며 `typegen/generate-types.ts`와 `typegen/schema-to-ts.ts`는 문서상 코드 위치일 뿐 package deep import로 공개하지 않는다.
+지원 subpath는 package exports의 `.`, `./apitomy`, `./drizzle`, `./plugin`, `./spec-lens`, `./typegen`, `./typegen/browser`, `./zodgen`이며 `typegen/generate-types.ts`와 `typegen/schema-to-ts.ts`는 문서상 코드 위치일 뿐 package deep import로 공개하지 않는다.
 `./typegen/browser`는 이미 로드된 OpenAPI 객체를 위한 브라우저 안전 surface이며, 외부 파일 `$ref` 분석과 `basePath` 처리는 Node용 `./typegen`에 남긴다.
 `./zodgen`은 OpenAPI 3.2 Schema Object(Draft 2020-12)를 최신 Zod 4 코드로 생성하고 런타임 검증기를 제공하는 모듈이다.
 
@@ -951,6 +951,32 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `ProtobufCodecTargetAdapter` | `wire-adapter/adapters/protobuf-codec-target-adapter.ts` | Zero-eval CSP 준수 순수 TypeScript Protobuf 바이너리 코덱 생성 어댑터 |
 | `RpcContractTargetAdapter` | `wire-adapter/adapters/rpc-contract-target-adapter.ts` | 양방향 RPC 서비스 핸들러 계약 및 클라이언트 SDK 생성 어댑터 |
 | `MessagePackTargetAdapter` | `wire-adapter/adapters/messagepack-target-adapter.ts` | MessagePack 바이너리 통신 코덱 바인딩 생성 어댑터 |
+| `defineTspConfig()` | `plugin/config.ts` | TypeSpec SSOT 빌드 파이프라인 설정 정의 헬퍼 |
+| `validateTspConfig()` | `plugin/config.ts` | TypeSpec 설정 객체 유효성 검증 및 기본값 정규화 |
+| `sortPlugins()` | `plugin/sorter.ts` | Kahn 알고리즘 기반 플러그인 위상 정렬 편의 함수 |
+| `sortPluginEntries()` | `plugin/sorter.ts` | 플러그인 의존성 DAG 위상 정렬 및 순환 참조/누락 검증 |
+| `compileTypeSpecInMemory()` | `plugin/compiler.ts` | 디스크 파일 생성 없는 TypeSpec 인메모리 컴파일 및 OAS 3.2 추출 |
+| `resolveTypeSpecEntrypoint()` | `plugin/compiler.ts` | TypeSpec 파일 또는 프로젝트 디렉터리 엔트리포인트 절대 경로 해결 |
+| `createPluginContext()` | `plugin/context.ts` | TspPluginContext 인스턴스 팩토리 함수 |
+| `normalizeVirtualPath()` | `plugin/context.ts` | 가상 파일 상대 POSIX 경로 정규화 |
+| `formatEsmImportExtension()` | `plugin/context.ts` | ESM 임포트용 .js 확장자 치환 |
+| `TspPluginContextImpl` | `plugin/context.ts` | 가상 파일 시스템 및 플러그인 실행 컨텍스트 구현 클래스 |
+| `runTspPluginPipeline()` | `plugin/runner.ts` | TypeSpec 플러그인 4단계 라이프사이클 실행 및 파일 방출 오케스트레이터 |
+| `pluginTypescript()` | `plugin/plugins/typescript.ts` | 순수 TypeScript 모델, 열거형 및 타입 가드 생성 플러그인 |
+| `pluginClient()` | `plugin/plugins/client.ts` | openapi-ts 스타일 단일 객체 인자 및 판별 유니온 클라이언트 SDK 생성 플러그인 |
+| `pluginSdk()` | `plugin/plugins/client.ts` | pluginClient의 표준 명칭 별칭 |
+| `pluginTanstackQuery()` | `plugin/plugins/tanstack-query.ts` | TanStack Query v5 3-Tier(Keys, Options, Hooks) 생성 플러그인 |
+| `pluginRouter()` | `plugin/plugins/router.ts` | 서버 프레임워크 핸들러 계약 및 라우터 바인딩 생성 플러그인 |
+| `pluginWire()` | `plugin/plugins/wire.ts` | Zero-eval Protobuf 및 바이너리 코덱 바인딩 생성 플러그인 |
+| `TspPluginError` | `plugin/types.ts` | TypeSpec 플러그인 엔진 공통 에러 기본 클래스 |
+| `TspPluginCycleError` | `plugin/types.ts` | 플러그인 간 순환 의존성 감지 시 발생하는 에러 |
+| `TspPluginMissingDependencyError` | `plugin/types.ts` | 필수 선행 플러그인 누락 시 발생하는 에러 |
+| `TspPluginDuplicateError` | `plugin/types.ts` | 중복 플러그인 이름 등록 시 발생하는 에러 |
+| `TspFileConflictError` | `plugin/types.ts` | 동일 가상 파일 경로 충돌 시 발생하는 에러 |
+| `TspConfigValidationError` | `plugin/types.ts` | TypeSpec 파이프라인 설정 유효성 검증 실패 에러 |
+| `TspProjectBuilder` | `plugin/builder.ts` | TypeSpec 프로젝트 고수준 프로그래머블 빌더 플랫폼 클래스 |
+| `createTspBuilder()` | `plugin/builder.ts` | TypeSpec 프로젝트 빌더 인스턴스 생성 팩토리 함수 |
+| `vitePluginTsp()` | `plugin/vite.ts` | TypeSpec 빌더 Vite/개발 서버 통합 플러그인 |
 
 ### 타입 (`@oa-sdk/codegen`)
 
@@ -1136,6 +1162,37 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `ProtobufCodecAdapterOptions` | `wire-adapter/adapters/protobuf-codec-target-adapter.ts` | Protobuf TS 코덱 생성 옵션 인터페이스 |
 | `RpcContractAdapterOptions` | `wire-adapter/adapters/rpc-contract-target-adapter.ts` | RPC 계약 생성 옵션 인터페이스 |
 | `MessagePackAdapterOptions` | `wire-adapter/adapters/messagepack-target-adapter.ts` | MessagePack 코덱 생성 옵션 인터페이스 |
+| `TspPlugin` | `plugin/types.ts` | TypeSpec SSOT 플러그인 코어 인터페이스 (setup, transform, generate, emit) |
+| `TspPluginContext` | `plugin/types.ts` | 가상 파일 시스템, AST 및 진단 채널을 제공하는 플러그인 실행 컨텍스트 |
+| `TspGeneratedFile` | `plugin/types.ts` | 인메모리 가상 생성 파일 메타데이터 및 내용 인터페이스 |
+| `TspPluginDiagnostic` | `plugin/types.ts` | 플러그인 실행 중 보고되는 진단 메시지 인터페이스 |
+| `TspConfig` | `plugin/types.ts` | TypeSpec SSOT 플러그인 파이프라인 설정 인터페이스 |
+| `TspConfigInput` | `plugin/types.ts` | TypeSpec 입력 경로 또는 상세 설정 객체 유니온 |
+| `TspConfigInputObject` | `plugin/types.ts` | TypeSpec 엔트리포인트 및 프로젝트 디렉터리 설정 객체 |
+| `TspPluginEntry` | `plugin/types.ts` | 플러그인 단독 또는 튜플 옵션 등록 엔트리 타입 |
+| `NormalizedPluginRegistration` | `plugin/sorter.ts` | 위상 정렬된 플러그인 정규화 등록 레코드 |
+| `TypeSpecCompilerOptions` | `plugin/compiler.ts` | 인메모리 TypeSpec 컴파일러 옵션 인터페이스 |
+| `TypeSpecCompilerResult` | `plugin/compiler.ts` | 인메모리 컴파일 결과 (Program, Document, routesCount) |
+| `CreatePluginContextOptions` | `plugin/context.ts` | 플러그인 컨텍스트 생성 옵션 인터페이스 |
+| `RunTspPluginPipelineOptions` | `plugin/runner.ts` | 파이프라인 러너 실행 오버라이드 옵션 인터페이스 |
+| `TspPipelineResult` | `plugin/runner.ts` | 파이프라인 실행 결과 요약 인터페이스 |
+| `PluginTypescriptOptions` | `plugin/plugins/typescript.ts` | TypeScript 모델 플러그인 옵션 인터페이스 |
+| `PluginClientOptions` | `plugin/plugins/client.ts` | openapi-ts 클라이언트 SDK 플러그인 옵션 인터페이스 |
+| `PluginTanstackQueryOptions` | `plugin/plugins/tanstack-query.ts` | TanStack Query v5 플러그인 옵션 인터페이스 |
+| `PluginRouterOptions` | `plugin/plugins/router.ts` | 서버 라우터 및 계약 플러그인 옵션 인터페이스 |
+| `PluginWireOptions` | `plugin/plugins/wire.ts` | 바이너리 코덱 바인딩 플러그인 옵션 인터페이스 |
+| `TspIntrospectedParameter` | `plugin/builder.ts` | TypeSpec 파라미터 인트로스펙션 메타데이터 |
+| `TspIntrospectedResponse` | `plugin/builder.ts` | TypeSpec 응답 및 에러 상태 인트로스펙션 메타데이터 |
+| `TspIntrospectedOperation` | `plugin/builder.ts` | TypeSpec 엔드포인트 연산 인트로스펙션 메타데이터 |
+| `TspIntrospectedModelProperty` | `plugin/builder.ts` | TypeSpec 모델 속성 및 제약조건 인트로스펙션 메타데이터 |
+| `TspIntrospectedModel` | `plugin/builder.ts` | TypeSpec 모델 스키마 인트로스펙션 메타데이터 |
+| `TspIntrospectionReport` | `plugin/builder.ts` | TypeSpec 프로젝트 전체 종합 인트로스펙션 리포트 |
+| `CreateTspBuilderOptions` | `plugin/builder.ts` | TspProjectBuilder 초기화 옵션 |
+| `TspWatchEvent` | `plugin/builder.ts` | TypeSpec 감시 이벤트 페이로드 |
+| `TspWatchOptions` | `plugin/builder.ts` | TypeSpec 빌더 감시 모드 옵션 |
+| `TspWatcherHandle` | `plugin/builder.ts` | TypeSpec 파일 감시 제어 핸들 인터페이스 |
+| `VitePluginTspOptions` | `plugin/vite.ts` | Vite TypeSpec 빌더 플러그인 설정 옵션 |
+| `VitePluginTspResult` | `plugin/vite.ts` | Vite 호환 플러그인 구조체 인터페이스 |
 
 ### 내부 함수 (`@oa-sdk/codegen` — index 미노출)
 

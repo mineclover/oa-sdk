@@ -33,6 +33,7 @@ export interface TspGeneratedFile {
  * Diagnostic message reported by plugins during execution.
  */
 export interface TspPluginDiagnostic {
+  plugin?: string | undefined
   code?: string | undefined
   message: string
   severity: 'info' | 'warning' | 'error'

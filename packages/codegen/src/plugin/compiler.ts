@@ -7,9 +7,9 @@ import type { TspConfigInput } from './types.js'
 
 export interface TypeSpecCompilerOptions {
   /** Existing program for incremental compilation cache */
-  oldProgram?: Program
+  oldProgram?: Program | undefined
   /** Target OpenAPI specification version (default: '3.2.0') */
-  openApiVersion?: '3.0.0' | '3.1.0' | '3.2.0'
+  openApiVersion?: '3.0.0' | '3.1.0' | '3.2.0' | undefined
 }
 
 export interface TypeSpecCompilerResult {
