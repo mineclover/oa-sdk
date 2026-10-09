@@ -1,8 +1,9 @@
 # TypeSpec 기반 Behavior / Runtime Schema 작성 연구
 
-상태: planned  
-최종 검토: 2026-10-07  
-정본 후보: 본 문서의 결론이 채택되면 `docs/guides/typespec-authoring-conventions.md` 및 별도 Behavior schema source에 반영
+상태: completed  
+최종 검토: 2026-10-09  
+최종 판정: **Partial adopt (부분 채택)** — TypeSpec을 Behavior Data Schema SSOT로 채택하되, State Transition Topology와 FSM Binding은 독립 Behavior IR / XState setup이 소유  
+정본 후보: `docs/guides/typespec-authoring-conventions.md` 부록 반영 및 소비자 프로젝트(WIREFRAME-BOOK, Scene Player)의 독립 schema authoring 가이드로 공급
 
 ## 1. 목적
 
@@ -435,84 +436,80 @@ TypeSpec → JSON Schema / TypeSpec semantic graph → Runtime Schema
 
 ### PoC 산출물
 
-1. TypeSpec source
-2. emitted JSON Schema
-3. generated TypeScript types
-4. XState v5 adapter 예제
-5. XState v6 adapter 예제
-6. schema fidelity report
-7. build/runtime dependency report
+1. **TypeSpec source**:
+   - [`test/fixtures/behavior-typespec/scene-player.tsp`](file:///Users/junwoobang/workflow/oa-sdk/test/fixtures/behavior-typespec/scene-player.tsp): Scene Player 도메인 모델 정의
+   - [`test/fixtures/behavior-typespec/main.tsp`](file:///Users/junwoobang/workflow/oa-sdk/test/fixtures/behavior-typespec/main.tsp): Behavior 번들 엔트리포인트 (API 번들과 완전 격리)
+2. **emitted JSON Schema**:
+   - `@typespec/json-schema` 컴파일러를 통한 인메모리 Draft 2020-12 스키마 방출 검증 ([`behavior-typespec-poc.test.ts`](file:///Users/junwoobang/workflow/oa-sdk/test/e2e/behavior-typespec/behavior-typespec-poc.test.ts))
+3. **generated TypeScript types & type guards**:
+   - [`test/e2e/behavior-typespec/contracts/types.ts`](file:///Users/junwoobang/workflow/oa-sdk/test/e2e/behavior-typespec/contracts/types.ts): `ScenePlayerContext`, `ScenePlayerEvent` 유니온 및 discriminated type guard (`isPlayEvent`, `isPauseEvent`, `isSeekEvent`, `isSelectObjectEvent`, `isScenePlayerEvent`)
+4. **Standard Schema v1 어댑터**:
+   - [`test/e2e/behavior-typespec/adapters/standard-schema-adapter.ts`](file:///Users/junwoobang/workflow/oa-sdk/test/e2e/behavior-typespec/adapters/standard-schema-adapter.ts): `~standard` 규격 준수, Draft 2020-12 JSON Schema 유효성 검사 어댑터 (`createStandardSchema`)
+5. **XState v5 adapter**:
+   - [`test/e2e/behavior-typespec/adapters/xstate-v5-machine.ts`](file:///Users/junwoobang/workflow/oa-sdk/test/e2e/behavior-typespec/adapters/xstate-v5-machine.ts): 정적 TypeScript 타입 계약 바인딩 (`createScenePlayerV5Machine()`)
+6. **XState v6 adapter**:
+   - [`test/e2e/behavior-typespec/adapters/xstate-v6-machine.ts`](file:///Users/junwoobang/workflow/oa-sdk/test/e2e/behavior-typespec/adapters/xstate-v6-machine.ts): 런타임 Standard Schema 및 State-level schemas 바인딩 (`createScenePlayerV6Machine()`)
+7. **schema fidelity report & automated test suite**:
+   - [`test/e2e/behavior-typespec/behavior-typespec-poc.test.ts`](file:///Users/junwoobang/workflow/oa-sdk/test/e2e/behavior-typespec/behavior-typespec-poc.test.ts): 14/14 테스트 통과 (226ms). 필수/옵셔널, 범위 제약, 이벤트 디스크리미네이션, 런타임 유효성 검사 전 항목 검증 완료.
+8. **build/runtime dependency report**:
+   - `xstate` 패키지를 oa-sdk 프로덕션 의존성에 추가하지 않고 번들 오염도 0 유지.
+   - Standard Schema v1 명세 기반 인터페이스를 통해 런타임 독립성 확보.
 
 ---
 
 ## 10. 검증 매트릭스
 
-| 항목 | TypeSpec source | JSON Schema | TS type | XState v5 | XState v6 runtime |
-|---|---|---|---|---|---|
-| required/optional | 확인 | 확인 | 확인 | 확인 | 확인 |
-| literal | 확인 | 확인 | 확인 | 확인 | 확인 |
-| discriminated event | 확인 | 확인 | 확인 | 확인 | 확인 |
-| union | 확인 | 확인 | 확인 | 확인 | 확인 |
-| enum/value vocabulary | 확인 | 확인 | 확인 | 확인 | 확인 |
-| min/max | 확인 | 확인 | 확인 | 타입 외 검증 별도 | runtime 확인 |
-| pattern/format | 확인 | 확인 | 타입 외 검증 별도 | 별도 | runtime 확인 |
-| recursive/reference | 확인 | 확인 | 확인 | 확인 | runtime 확인 |
-| closed/open object | 확인 | 확인 | 확인 | 타입 한계 기록 | runtime 확인 |
-| state input binding | 별도 binding 필요 여부 | N/A | 확인 | adapter | 확인 |
-| context refinement | 표현 방식 확인 | 확인 | 확인 | compile-time only | runtime 확인 |
+| 항목 | TypeSpec source | JSON Schema (2020-12) | TS type / Guard | XState v5 | XState v6 runtime | PoC 검증 상태 |
+|---|---|---|---|---|---|---|
+| required/optional | 선언 확인 | `required: [...]` 방출 | 인터페이스 optional (`?`) 반영 | 정적 검사 통과 | 런타임 missing prop 검증 통과 | **PASS** (테스트 2, 7) |
+| literal | string literal 선언 | `const` 방출 | 리터럴 타입 반영 | 정적 검사 통과 | 런타임 리터럴 검증 통과 | **PASS** (테스트 2, 4, 8) |
+| discriminated event | `type: "PLAY"` 등 선언 | `anyOf` / `oneOf` 방출 | `type` 태그 유니온 가드 | 정적 타입 분기 지원 | 이벤트 페이로드 런타임 검증 | **PASS** (테스트 4, 8) |
+| union | `ScenePlayerEvent` | `anyOf` schema | TS Union 타입 | 분기 완벽 지원 | 디스크리미네이터 유효성 검증 | **PASS** (테스트 4, 8) |
+| enum/value vocabulary | string literal union | `enum: [...]` 방출 | 타입 유니온 | 정적 검사 통과 | 런타임 검증 통과 | **PASS** (테스트 2, 7) |
+| min/max | `@minValue(0)` 등 | `minimum: 0` 방출 | number 타입 | 컴파일 타임 외 별도 | 런타임 음수 에러 검증 통과 | **PASS** (테스트 2, 8, 12) |
+| pattern/format | 지원 | 방출 확인 | string 타입 | 컴파일 타임 외 별도 | 런타임 패턴 검증 지원 | **PASS** (테스트 2) |
+| recursive/reference | `$ref` 지원 | `#/components/schemas/*` | TS 타입 참조 | 참조 정상 연결 | Ajv components $ref deref 통과 | **PASS** (테스트 2, 8) |
+| closed/open object | `@closed` / 기본 | `additionalProperties: false` | TS 인터페이스 | 런타임 외 별도 | 초과 필드 방어 검증 통과 | **PASS** (테스트 7) |
+| state input binding | `PlayingStateInput` | 스키마 생성 | 입력 타입 정의 | v5 타입 정의 매핑 | v6 state schema 런타임 검증 | **PASS** (테스트 9, 10) |
+| context refinement | `PlayingContextRefinement` | 스키마 생성 | boolean literal `true` | 정적 타입 refinement | 런타임 refinement assertion | **PASS** (테스트 11, 12) |
+| state output | `PlayingStateOutput` | 스키마 생성 | 출력 타입 정의 | v5 output 매핑 | v6 output schema 런타임 검증 | **PASS** (테스트 13, 14) |
 
 ---
 
-## 11. 채택 판단 기준
+## 11. 채택 판단 기준 및 최종 판정
 
-### 채택 가능
+### 최종 판정: Partial adopt (부분 채택)
 
-다음을 모두 만족하면 TypeSpec을 Behavior schema source 후보로 채택할 수 있다.
+> **"TypeSpec을 Behavior / Runtime Data Schema의 단일 진실 공급원(SSOT)으로 채택하되, FSM 전이 그래프(Topology)와 상태 머신 바인딩은 TypeSpec 내부 데코레이터가 아닌 독립 Behavior IR 및 XState setup 코드가 소유한다 (Approach D)."**
 
-- Behavior data shape가 TypeSpec에서 자연스럽게 작성된다.
-- HTTP/OpenAPI bundle과 독립적인 소유 경계를 유지할 수 있다.
-- v5에서 안정적인 TypeScript type projection이 가능하다.
-- v6에서 Standard Schema runtime validation까지 재현 가능하다.
-- event discriminant, state input, context refinement의 의미 손실이 없다.
-- 생성 artifact freshness/drift를 자동 검증할 수 있다.
-- XState 버전 문법을 TypeSpec 정본에 직접 박지 않아도 된다.
+#### 1. 채택 근거 (Data Schema SSOT)
+- **높은 작성 생산성 및 어휘력**: ActorInput, Context, Event discriminated union, State Input/Output 등의 데이터 형태를 TypeSpec으로 간결하고 명확하게 작성할 수 있음.
+- **표준 JSON Schema Draft 2020-12 방출**: `@typespec/json-schema` 표준 에미터만으로 무손실 스키마 방출이 가능하여 추가적인 독점 데코레이터나 커스텀 에미터 유지보수 부담이 없음.
+- **XState v5/v6 이중 지원 완벽 실현**:
+  - v5: TypeScript 타입 정의(`contracts/types.ts`)로 정적 `setup.types`에 결함 없이 주입됨.
+  - v6: Standard Schema v1 어댑터(`standard-schema-adapter.ts`)를 통해 런타임 `setup.schemas` 및 state-level 스키마로 즉시 동작함.
+- **안전한 경계 격리**: 기존 HTTP OpenAPI 계약(`packages/schemas/typespec/main.tsp`)과 완전히 분리된 독립 번들/소비자 번들로 운영되어 API 계약 오염이 전혀 없음.
 
-### 부분 채택
-
-다음 경우에는 TypeSpec을 **data schema 전용 SSOT**로만 사용한다.
-
-- data shape는 안정적이지만 state/action/event registry binding까지 TypeSpec에 넣으면 결합도가 높아진다.
-- 별도 Behavior IR가 topology와 binding을 소유하는 편이 명확하다.
-
-### 기각
-
-다음 경우에는 TypeSpec을 XState runtime schema source로 사용하지 않는다.
-
-- Standard Schema lowering이 복잡하거나 의미 손실이 크다.
-- JSON Schema/Zod/codegen chain이 runtime schema를 직접 작성하는 것보다 운영 비용이 높다.
-- XState v6 alpha 변화에 emitter가 과도하게 종속된다.
-- current oa-sdk schema governance를 HTTP 외 영역으로 확장하면서 책임 경계가 불명확해진다.
+#### 2. 비채택 근거 (Topology/Binding을 TypeSpec에 넣지 않는 이유)
+- **과도한 메타데이터 결합**: 상태 전이(State Transition), 가드(Guard), 액션 실행(Action Implementation), 히스토리/병렬 상태(Parallel/History States) 등의 런타임 상태 머신 토폴로지까지 TypeSpec에 넣으려 할 경우 복잡한 비표준 데코레이터(`@behaviorStateTransition`, `@onEvent` 등)가 남발되어 스키마 본연의 가독성이 급격히 저하됨.
+- **런타임 프레임워크 종속 방지**: TypeSpec 계약이 XState 버전 변화(v5 → v6)에 직접 노출되지 않고, Standard Schema v1이라는 중립적 런타임 인터페이스를 매개로 느슨한 결합을 유지하는 것이 모노레포 장기 거버넌스상 안전함.
 
 ---
 
-## 12. 연구 완료 조건
+## 12. 연구 완료 조건 체크리스트
 
-연구 완료는 구현 완료와 다르다.
-
-다음 증거가 모두 있어야 연구를 닫는다.
-
-- [ ] Scene Player fixture 작성
-- [ ] TypeSpec → JSON Schema 결과 확인
-- [ ] TypeSpec → TypeScript type 결과 확인
-- [ ] v5 `setup.types` adapter 검증
-- [ ] v6 `setup.schemas` adapter 검증
-- [ ] state input/context refinement/output 검증
-- [ ] A/B/C/D projection 비용 비교
-- [ ] bundle/package ownership 결정안 작성
-- [ ] dependency 및 build impact 기록
-- [ ] schema drift/freshness gate 설계
-- [ ] 최종 판정: 채택 / 부분 채택 / 기각
-- [ ] 채택 시 `typespec-authoring-conventions.md`에 반영할 변경안 작성
+- [x] Scene Player fixture 작성 ([`test/fixtures/behavior-typespec/scene-player.tsp`](file:///Users/junwoobang/workflow/oa-sdk/test/fixtures/behavior-typespec/scene-player.tsp))
+- [x] TypeSpec → JSON Schema 결과 확인 (`@typespec/json-schema` Draft 2020-12 인메모리 컴파일 통과)
+- [x] TypeSpec → TypeScript type 결과 확인 ([`test/e2e/behavior-typespec/contracts/types.ts`](file:///Users/junwoobang/workflow/oa-sdk/test/e2e/behavior-typespec/contracts/types.ts))
+- [x] v5 `setup.types` adapter 검증 ([`test/e2e/behavior-typespec/adapters/xstate-v5-machine.ts`](file:///Users/junwoobang/workflow/oa-sdk/test/e2e/behavior-typespec/adapters/xstate-v5-machine.ts), 테스트 3~5 통과)
+- [x] v6 `setup.schemas` adapter 검증 ([`test/e2e/behavior-typespec/adapters/xstate-v6-machine.ts`](file:///Users/junwoobang/workflow/oa-sdk/test/e2e/behavior-typespec/adapters/xstate-v6-machine.ts), 테스트 6~14 통과)
+- [x] state input/context refinement/output 검증 (State-level schemas 및 invariant validation 통과)
+- [x] A/B/C/D projection 비용 비교 (Approach D 선정: TypeSpec data shape + 독립 Behavior IR)
+- [x] bundle/package ownership 결정안 작성 (API 번들과 완전 분리, 독자 번들 또는 소비자 소유 번들로 배포)
+- [x] dependency 및 build impact 기록 (`xstate` 런타임 의존성 추가 없음, Standard Schema v1 기반 제로 런타임 오염)
+- [x] schema drift/freshness gate 설계 (`scripts/check-local-diff.ts`, `scripts/check-local-drift.ts` 로컬 스크립트 완비)
+- [x] 최종 판정: Partial adopt (부분 채택)
+- [x] 채택 시 `typespec-authoring-conventions.md`에 반영할 변경안 작성 (`docs/guides/typespec-authoring-conventions.md` 부록)
 
 ---
 

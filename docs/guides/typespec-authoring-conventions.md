@@ -205,8 +205,33 @@ wire 값 집합을 바꾸는 것은 계약 변경입니다. 이름 있는 alias�
 
 rollback 경로는 두 번째 작성 경로가 아닙니다. `:openapi` 명령은 되돌릴 수 있음을 증명하거나 실패한 TypeSpec migration을 복구할 때만 쓰고, 생성된 production artifact를 커밋하기 전에 `pnpm schema:validate`를 다시 실행합니다.
 
+## 9. 부록: Behavior 및 런타임 데이터 스키마 작성 지침 (Partial Adopt)
+
+Issue #1 연구 결과([`docs/spec-governance/typespec-behavior-schema-authoring-research.md`](../spec-governance/typespec-behavior-schema-authoring-research.md))에 따라, TypeSpec을 Behavior/FSM 런타임의 **Data Schema SSOT**로 확장 활용할 때의 지침입니다.
+
+### 9.1 번들 분리 원칙
+- **HTTP OpenAPI 계약 오염 금지**: Behavior 스키마는 production HTTP API 정본(`packages/schemas/typespec/main.tsp`)에 import하지 않습니다.
+- 독립 번들(예: `test/fixtures/behavior-typespec/main.tsp`, 향후 `packages/schemas/typespec-behavior/`) 또는 소비자 프로젝트(WIREFRAME-BOOK 등) 자체 번들로 관리합니다.
+
+### 9.2 소유 경계 (Approach D)
+- **TypeSpec 소유 (Data Schema SSOT)**:
+  - `ActorInput`, `Context`, `Events` (discriminated union)
+  - `StateInput`, `StateContextRefinement`, `StateOutput`
+  - `ActionParams`
+  - `@typespec/json-schema`를 통한 JSON Schema Draft 2020-12 및 TypeScript 모델/타입 가드 생성
+- **독립 소유 (Behavior IR 및 런타임 Setup)**:
+  - 상태 전이 그래프(State Transition Topology), 병렬/히스토리 상태
+  - 가드 조건 및 액션 구현체 바인딩
+  - XState setup/createMachine 정의
+
+### 9.3 런타임 프로젝션 (XState v5/v6)
+- **XState v5**: 생성된 TypeScript 타입을 `setup({ types: { ... } })` 계약에 직접 주입.
+- **XState v6**: Standard Schema v1(`~standard`) 규격을 구현하는 런타임 어댑터(`createStandardSchema`)를 통해 `setup({ schemas: { ... } })` 및 state-level `schemas` 런타임 유효성 검증 제공.
+- **런타임 의존성**: `xstate`를 oa-sdk 코어 패키지 의존성에 강제하지 않고, Standard Schema v1 중립 규격으로 분리 유지.
+
 ## 참고 문서
 
+- [TypeSpec 기반 Behavior / Runtime Schema 작성 연구 보고서](../spec-governance/typespec-behavior-schema-authoring-research.md)
 - [TypeSpec 5분 퀵스타트 (저장소 기여자용)](./typespec/01-quickstart-5min.md)
 - [TypeSpec 데코레이터 레퍼런스](./typespec/03-decorators-reference.md)
 - [TypeSpec 스캐폴딩 및 Semantic Diff](./typespec/04-scaffolding-and-diff.md)
@@ -215,3 +240,4 @@ rollback 경로는 두 번째 작성 경로가 아닙니다. `:openapi` 명령�
 - [Canonical schema pipeline and governance spec](../internal/spec.md)
 - [TypeSpec-first authoring ADR](../internal/architecture/009-typespec-first-authoring.md)
 - [Production operations and promotion runbook](../internal/typespec-roundtrip/production-operations.md)
+

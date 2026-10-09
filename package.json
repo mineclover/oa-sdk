@@ -91,6 +91,8 @@
     "check:release-policy": "node --import tsx scripts/check-release-policy.ts && corepack pnpm test:release-policy && corepack pnpm test:release-preflight",
     "test:release-policy": "node --import tsx scripts/test-release-policy.ts",
     "check:workspace-scope": "pnpm check:release-policy",
+    "check:local-diff": "node --import tsx scripts/check-local-diff.ts",
+    "check:local-drift": "node --import tsx scripts/check-local-drift.ts",
     "spec:diff": "node scripts/dist/spec-diff.js",
     "typespec:roundtrip": "node --import tsx scripts/typespec-roundtrip.ts",
     "typespec:bundle-check": "node --import tsx scripts/typespec-bundle-check.ts",
