@@ -1,0 +1,194 @@
+import { describe, it, expect, vi } from 'vitest'
+import { Client } from '../fixtures/client-reference.js'
+
+describe('Tier 2: Boundary & Corner Cases — Client SDK & Types', () => {
+  it('B3.1: 204 No Content response returns data undefined, error undefined, status 204', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
+    const client = new Client({ fetch: mockFetch })
+
+    const result = await client.request({
+      method: 'DELETE',
+      url: '/pets/123',
+    })
+
+    expect(result.data).toBeUndefined()
+    expect(result.error).toBeUndefined()
+    expect(result.response.status).toBe(204)
+  })
+
+  it('B3.2: 400 Bad Request returns data undefined, structured error payload, status 400', async () => {
+    const errorBody = { code: 'INVALID_INPUT', message: 'Name is required' }
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(errorBody), {
+        status: 400,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+    const client = new Client({ fetch: mockFetch })
+
+    const result = await client.request<{ id: string }, typeof errorBody>({
+      method: 'POST',
+      url: '/pets',
+      body: {},
+    })
+
+    expect(result.data).toBeUndefined()
+    expect(result.error).toEqual(errorBody)
+    expect(result.response.status).toBe(400)
+  })
+
+  it('B3.3: 401 Unauthorized returns data undefined, error, status 401', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ code: 'UNAUTHORIZED' }), { status: 401 }),
+    )
+    const client = new Client({ fetch: mockFetch })
+
+    const result = await client.request({ method: 'GET', url: '/secure' })
+    expect(result.data).toBeUndefined()
+    expect(result.response.status).toBe(401)
+  })
+
+  it('B3.4: 500 Internal Server Error returns data undefined, error, status 500', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ code: 'INTERNAL_ERROR' }), { status: 500 }),
+    )
+    const client = new Client({ fetch: mockFetch })
+
+    const result = await client.request({ method: 'GET', url: '/crash' })
+    expect(result.data).toBeUndefined()
+    expect(result.response.status).toBe(500)
+  })
+
+  it('B3.5: pre-aborted AbortSignal rejects immediately before fetch is called', async () => {
+    const mockFetch = vi.fn()
+    const client = new Client({ fetch: mockFetch })
+
+    const controller = new AbortController()
+    controller.abort(new Error('Cancelled by user'))
+
+    mockFetch.mockImplementation((_, init) => {
+      if (init.signal?.aborted) {
+        return Promise.reject(init.signal.reason)
+      }
+      return Promise.resolve(new Response('{}', { status: 200 }))
+    })
+
+    await expect(
+      client.get({ url: '/pets', signal: controller.signal }),
+    ).rejects.toThrow(/Cancelled by user/)
+  })
+
+  it('B3.6: aborting AbortSignal mid-flight cancels pending request', async () => {
+    const controller = new AbortController()
+    const mockFetch = vi.fn().mockImplementation((_, init: RequestInit) => {
+      return new Promise((_, reject) => {
+        init.signal?.addEventListener('abort', () => {
+          reject(new DOMException('The user aborted a request.', 'AbortError'))
+        })
+      })
+    })
+
+    const client = new Client({ fetch: mockFetch })
+    const promise = client.get({ url: '/long-polling', signal: controller.signal })
+
+    controller.abort()
+    await expect(promise).rejects.toThrow(/aborted/)
+  })
+
+  it('B3.7: URL-encodes path parameters containing slashes and reserved characters', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }))
+    const client = new Client({ fetch: mockFetch })
+
+    await client.get({
+      url: '/categories/{categoryName}/items',
+      path: { categoryName: 'dogs/cats&birds#1' },
+    })
+
+    const [calledUrl] = mockFetch.mock.calls[0]
+    expect(calledUrl).toBe('/categories/dogs%2Fcats%26birds%231/items')
+  })
+
+  it('B3.8: prevents collision when query parameter key is named "query" or "headers"', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }))
+    const client = new Client({ fetch: mockFetch })
+
+    await client.get({
+      url: '/search',
+      query: { query: 'golden retriever', headers: 'all' },
+    })
+
+    const [calledUrl] = mockFetch.mock.calls[0]
+    expect(calledUrl).toBe('/search?query=golden+retriever&headers=all')
+  })
+
+  it('B3.9: omits undefined query parameters from query string', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }))
+    const client = new Client({ fetch: mockFetch })
+
+    await client.get({
+      url: '/items',
+      query: { active: true, tag: undefined, limit: 10 },
+    })
+
+    const [calledUrl] = mockFetch.mock.calls[0]
+    expect(calledUrl).toBe('/items?active=true&limit=10')
+    expect(calledUrl).not.toContain('tag')
+  })
+
+  it('B3.10: accurately serializes boolean, numeric, and string query parameters', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }))
+    const client = new Client({ fetch: mockFetch })
+
+    await client.get({
+      url: '/filter',
+      query: { flag: false, count: 0, rating: 4.5, sort: 'asc' },
+    })
+
+    const [calledUrl] = mockFetch.mock.calls[0]
+    expect(calledUrl).toBe('/filter?flag=false&count=0&rating=4.5&sort=asc')
+  })
+
+  it('B3.11: leaves URL clean without trailing question mark when query is empty', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }))
+    const client = new Client({ fetch: mockFetch })
+
+    await client.get({ url: '/clean', query: {} })
+    const [calledUrl] = mockFetch.mock.calls[0]
+    expect(calledUrl).toBe('/clean')
+  })
+
+  it('B3.12: merges request headers with client config headers overriding on collision', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }))
+    const client = new Client({
+      headers: {
+        'x-client-ver': '1.0',
+        authorization: 'Bearer default',
+      },
+      fetch: mockFetch,
+    })
+
+    await client.get({
+      url: '/data',
+      headers: {
+        authorization: 'Bearer custom-token',
+        'x-request-id': 'req-999',
+      },
+    })
+
+    const [, calledInit] = mockFetch.mock.calls[0]
+    expect(calledInit.headers['x-client-ver']).toBe('1.0')
+    expect(calledInit.headers['authorization']).toBe('Bearer custom-token')
+    expect(calledInit.headers['x-request-id']).toBe('req-999')
+  })
+
+  it('B3.13: throwOnError option triggers exception rather than returning error result', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ message: 'Forbidden' }), { status: 403 }),
+    )
+    const client = new Client({ fetch: mockFetch })
+
+    await expect(
+      client.get({ url: '/admin', throwOnError: true }),
+    ).rejects.toThrow(/HTTP Error 403/)
+  })
+})
