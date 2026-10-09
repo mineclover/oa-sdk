@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "0.1.0",
+  "referenceId": "ref-google-workspace-toolkit",
+  "collaborationId": "collab-context-harness",
+  "ownerRef": "github:mineclover/google-workspace-toolkit",
+  "requiredScopeRef": "repo:mineclover/google-workspace-toolkit",
+  "provenance": "source-reference",
+  "source": {
+    "provider": "github",
+    "nativeRef": "github.com/mineclover/google-workspace-toolkit:docs/context-harness/OPERATIONS_GUIDE.md",
+    "snapshot": {
+      "kind": "immutable",
+      "id": "c7351ab000000000000000000000000000000000"
+    }
+  }
+}

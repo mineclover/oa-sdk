@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mineclover/google-workspace-toolkit/blob/master/specs/context-harness/collaborations-registry.schema.json",
+  "title": "Collaboration Registry v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "recordType",
+    "registryScope",
+    "scopePolicy",
+    "collaborations"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "0.1.0"
+    },
+    "recordType": {
+      "const": "collaborations-registry"
+    },
+    "registryScope": {
+      "$ref": "#/$defs/scope"
+    },
+    "scopePolicy": {
+      "type": "string",
+      "minLength": 1
+    },
+    "collaborations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "collaborationId",
+          "title",
+          "kind",
+          "status",
+          "architectureStatus",
+          "ownerScope",
+          "folderId",
+          "managementPath",
+          "manifestPath",
+          "participantWorkspaceIds",
+          "externalRepositoryRefs",
+          "links"
+        ],
+        "properties": {
+          "collaborationId": {
+            "type": "string",
+            "pattern": "^collab-[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "const": "cross-project-collaboration"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "maintenance",
+              "archived"
+            ]
+          },
+          "architectureStatus": {
+            "enum": [
+              "proposed",
+              "accepted",
+              "historical"
+            ]
+          },
+          "ownerScope": {
+            "$ref": "#/$defs/scope"
+          },
+          "folderId": {
+            "$ref": "#/$defs/driveId"
+          },
+          "managementPath": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.-]+\\.json$"
+          },
+          "manifestPath": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.-]+\\.json$"
+          },
+          "participantWorkspaceIds": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^ws-[a-z0-9-]+$"
+            }
+          },
+          "externalRepositoryRefs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "links": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "designPullRequest",
+              "projectIssue"
+            ],
+            "properties": {
+              "designPullRequest": {
+                "type": "string",
+                "pattern": "^https://github\\.com/"
+              },
+              "projectIssue": {
+                "type": "string",
+                "pattern": "^https://github\\.com/"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "personal",
+            "organization"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "driveId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{12,}$",
+      "not": {
+        "const": "root"
+      }
+    }
+  }
+}

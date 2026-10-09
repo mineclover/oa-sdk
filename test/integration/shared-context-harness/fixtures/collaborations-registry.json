@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "0.1.0",
+  "recordType": "collaborations-registry",
+  "registryScope": {
+    "type": "personal",
+    "id": "MINECLOVER"
+  },
+  "scopePolicy": "joint-workspaces-isolated-from-project-registries",
+  "collaborations": [
+    {
+      "collaborationId": "collab-context-harness",
+      "title": "Context Harness Shared Collaboration Pilot",
+      "kind": "cross-project-collaboration",
+      "status": "active",
+      "architectureStatus": "proposed",
+      "ownerScope": {
+        "type": "personal",
+        "id": "MINECLOVER"
+      },
+      "folderId": "1h_CjCUEaOUaKzImXqbmbRS0AGkPdmkiB",
+      "managementPath": "management.json",
+      "manifestPath": "collaboration.json",
+      "participantWorkspaceIds": [
+        "ws-google-tools",
+        "ws-semantic-catalog"
+      ],
+      "externalRepositoryRefs": [
+        "mineclover/oa-sdk"
+      ],
+      "links": {
+        "designPullRequest": "https://github.com/mineclover/google-workspace-toolkit/pull/22",
+        "projectIssue": "https://github.com/mineclover/oa-sdk/issues/2"
+      }
+    }
+  ]
+}

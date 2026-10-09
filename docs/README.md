@@ -32,6 +32,7 @@
 2. **순수 데이터 모델 & DTO 선언 (Non-HTTP)**: [순수 타입 선언 및 가드 실무 가이드](./guides/pure-types-and-guards.md), [스키마 아키텍처 및 작성 규칙](./guides/schema-architecture-and-conventions.md)
 3. **멀티 티어 스키마 & 도구 분리**: [멀티 티어 스키마 및 ttsc·Atlas 역할 분리 가이드](./guides/schema-architecture-and-ttsc-guide.md)
 4. **선언적 스펙 설정**: [선언적 스펙 설정 (oa.config.ts)](./guides/declarative-spec-configuration.md)
+5. **프로그래머블 빌더 플랫폼**: [TypeSpec Builder Platform](./guides/typespec-builder-platform.md), [빌더 사용성 평가 리포트](./reports/typespec-builder-usability-report.md)
 
 ### 🔌 2. 다운스트림 소비자 경로 (Consumer Track)
 1. **순수 타입 & 제로-런타임 가드**: [순수 타입 선언 및 가드 실무 가이드](./guides/pure-types-and-guards.md), [검증 엔진 성능 벤치마크](./benchmarks/validation-engines.md)
@@ -41,6 +42,7 @@
 5. **WebMCP 피어링·P2P 전송·폴더 동시 편집 & 멀티 MCP 메시**: [WebMCP 피어링 및 동시 편집 아키텍처](./concepts/webmcp-peering-mesh-and-collab.md)
 6. **Cloudflare Forge SDK/CLI projection**: [Cloudflare Forge 지원](./guides/forge-support.md)
 7. **대시보드 시나리오 네비게이션 & BEHAVIOR FSM**: [유저 시나리오 주제 단위 화면 네비게이션 & BEHAVIOR FSM 엔진 가이드](./guides/scenario-navigation-fsm-engine.md)
+8. **TypeSpec Builder Platform & openapi-ts SDK**: [TypeSpec Builder Platform](./guides/typespec-builder-platform.md), [빌더 사용성 평가 리포트](./reports/typespec-builder-usability-report.md)
 
 ### ⚙️ 3. CLI 및 빌드 자동화 엔지니어 경로
 1. [CLI 명령 레퍼런스](./guides/cli-command-reference.md): `oa-gen`의 모든 명령어 옵션, 전역 플래그(`--root`), 프로파일 필터링, 독립형 가드 분할(`--split`).
@@ -70,6 +72,7 @@
 | OpenAPI artifact를 Cloudflare Forge SDK/CLI 표면으로 투영 | [Cloudflare Forge 지원](./guides/forge-support.md) |
 | 선언적 다중 프로파일 스펙 및 거버넌스를 설정 | [선언적 스펙 설정 (oa.config.ts)](./guides/declarative-spec-configuration.md) → [스키마 아키텍처 및 작성 규칙](./guides/schema-architecture-and-conventions.md) |
 | 브라우저(WebMCP) 피어링, 작업 폴더 P2P 동시 편집, AI 1등 편집자 연동 | [WebMCP 피어링 및 동시 편집 아키텍처](./concepts/webmcp-peering-mesh-and-collab.md) |
+| TypeSpec(.tsp) 단일 정본 인메모리 빌더 및 openapi-ts 스타일 클라이언트·Query 연동 | [TypeSpec Builder Platform](./guides/typespec-builder-platform.md) → [빌더 사용성 평가 리포트](./reports/typespec-builder-usability-report.md) |
 | OA SDK production contract를 작성·승인 | [기본 스펙 사용 기준](./guides/basic-spec-usage.md) → [TypeSpec Authoring Conventions](./guides/typespec-authoring-conventions.md) |
 | 4계층 E2E 테스트 모델 및 드리프트 거버넌스를 확인 | [테스트 인프라](./concepts/test-infrastructure.md) → [CLI 거버넌스 및 스펙 검증 모델](./concepts/cli-governance.md) |
 | 런타임 검증 엔진별 성능(ops/sec, 지연시간) 및 번들/CSP 비교 리포트 확인 | [검증 엔진 성능 벤치마크](./benchmarks/validation-engines.md) |
@@ -96,6 +99,8 @@
 | 문서 | 대상 및 요약 |
 |---|---|
 | [가이드 종합 색인 및 아키텍처 지도](./guides/README.md) | 전체 가이드의 이원화(선언자 vs 소비자) 탐색 지도 및 추천 읽기 경로 |
+| [TypeSpec Builder Platform](./guides/typespec-builder-platform.md) | TypeSpec 단일 정본 인메모리 컴파일, 플러그인 파이프라인, openapi-ts 스타일 클라이언트 및 Vite HMR 연동 |
+| [TypeSpec Builder 사용성 평가 리포트](./reports/typespec-builder-usability-report.md) | 18개 E2E 시나리오, 콜드 95ms / 웜 0.18ms, Wire 직렬화 73.74% 압축률, DX 4.92/5.0 벤치마크 |
 | [순수 타입 선언 및 가드 실무 가이드](./guides/pure-types-and-guards.md) | HTTP 없는 순수 모델 선언(TypeSpec/Zod), 순수 타입 생성 및 제로-eval 독립형 가드 실무 |
 | [선언적 스펙 설정 (oa.config.ts)](./guides/declarative-spec-configuration.md) | 모노레포 다중 프로파일 스펙, 정적 타입 가드, 스펙 드리프트 거버넌스 설정 |
 | [스키마 아키텍처 및 작성 규칙](./guides/schema-architecture-and-conventions.md) | TypeSpec SSOT 마스터 스키마, 비디오 트랜지션 다형성 파라미터 표준, 4단계 프로젝션 파이프라인, 엄격한 수치 범위 및 MV3 무런타임 가드 |

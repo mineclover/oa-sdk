@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "0.1.0",
+  "referenceId": "ref-oa-sdk",
+  "collaborationId": "collab-context-harness",
+  "ownerRef": "github:mineclover/oa-sdk",
+  "requiredScopeRef": "repo:mineclover/oa-sdk",
+  "provenance": "source-reference",
+  "source": {
+    "provider": "github",
+    "nativeRef": "github.com/mineclover/oa-sdk:README.md",
+    "snapshot": {
+      "kind": "immutable",
+      "id": "6542531b402849e7939116e0339912066f7fbb5a"
+    }
+  }
+}

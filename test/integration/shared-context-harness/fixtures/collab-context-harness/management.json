@@ -1,0 +1,78 @@
+{
+  "schemaVersion": "0.1.0",
+  "recordType": "collaboration-management-projection",
+  "collaborationId": "collab-context-harness",
+  "workspaceKind": "cross-project-collaboration",
+  "lifecycleStatus": "active",
+  "architectureStatus": "proposed",
+  "managementBasis": "github-pr-and-drive-pilot",
+  "ownerScope": {
+    "type": "personal",
+    "id": "MINECLOVER"
+  },
+  "registeredParticipantWorkspaceIds": [
+    "ws-google-tools",
+    "ws-semantic-catalog"
+  ],
+  "unregisteredSourceRepositories": [
+    "mineclover/oa-sdk"
+  ],
+  "sourceReferenceIds": [
+    "ref-oa-sdk",
+    "ref-google-workspace-toolkit",
+    "ref-semantic-platform"
+  ],
+  "primaryRepository": "mineclover/google-workspace-toolkit",
+  "designPullRequest": {
+    "provider": "github",
+    "nativeUrl": "https://github.com/mineclover/google-workspace-toolkit/pull/22",
+    "stateAtRegistration": "draft"
+  },
+  "workstreams": [
+    {
+      "id": "ws-1",
+      "title": "Drive+NES / shared context harness",
+      "ownerWorkspaceId": "ws-google-tools",
+      "externalIssueUrl": "https://github.com/mineclover/google-workspace-toolkit/issues/23",
+      "observedIssueState": "open"
+    },
+    {
+      "id": "ws-2",
+      "title": "bounded Context Projection adapter",
+      "ownerWorkspaceId": "ws-semantic-catalog",
+      "externalIssueUrl": "https://github.com/mineclover/semantic-platform/issues/1",
+      "observedIssueState": "open"
+    },
+    {
+      "id": "ws-3",
+      "title": "schema/tool consumption validation",
+      "ownerRepository": "mineclover/oa-sdk",
+      "externalIssueUrl": "https://github.com/mineclover/oa-sdk/issues/2",
+      "observedIssueState": "open"
+    }
+  ],
+  "milestones": [
+    {
+      "id": "m1-pilot",
+      "label": "Drive Collaboration Structure Pilot",
+      "state": "verified"
+    },
+    {
+      "id": "m2-contract",
+      "label": "TypeSpec and Tools Contract Verification",
+      "state": "verified"
+    },
+    {
+      "id": "m3-e2e-acl",
+      "label": "Authenticated Provider ACL Integration",
+      "state": "planned"
+    }
+  ],
+  "verification": {
+    "remoteFolderReadback": "verified-byte-for-byte",
+    "remoteManifestReadback": "verified-sha256-match",
+    "runtimeAclIntegrationTest": "pending-production-credentials",
+    "runtimeSourceAccessIntegrationTest": "mock-verified-fail-closed",
+    "note": "Pilot validation completed on 2026-10-09. Read-only boundary strictly enforced."
+  }
+}

@@ -32,6 +32,8 @@ export default defineConfig({
       '@oa-sdk/spec-lens': path.resolve(__dirname, 'packages/spec-lens/src/index.ts'),
       '@oa-sdk/client': path.resolve(__dirname, 'packages/client/src/index.ts'),
       '@oa-sdk/router': path.resolve(__dirname, 'packages/router/src/index.ts'),
+      '@oa-sdk/tools': path.resolve(__dirname, 'packages/tools/src/index.ts'),
+      '@oa-sdk/collab-workspace': path.resolve(__dirname, 'packages/collab-workspace/src/index.ts'),
     },
   },
 })

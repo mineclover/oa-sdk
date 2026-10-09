@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mineclover/google-workspace-toolkit/blob/master/specs/context-harness/collaboration.schema.json",
+  "title": "Shared Collaboration Manifest v0.1 — proposed",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion","collaborationId","title","ownerScope","storage","governingPolicyRef","participants"],
+  "properties": {
+    "schemaVersion": {"const":"0.1.0"},
+    "collaborationId": {"type":"string","pattern":"^collab-[a-z0-9]+(-[a-z0-9]+)*$"},
+    "title": {"type":"string","minLength":1},
+    "ownerScope": {
+      "type":"object","additionalProperties":false,"required":["type","id"],
+      "properties":{"type":{"enum":["organization","personal"]},"id":{"type":"string","minLength":1}}
+    },
+    "storage": {
+      "type":"object","additionalProperties":false,"required":["rootFolderId","folderIds"],
+      "properties":{
+        "rootFolderId":{"$ref":"#/$defs/driveId"},
+        "folderIds":{
+          "type":"object","additionalProperties":false,
+          "required":["discussions","proposals","decisions","references","distributions"],
+          "properties":{
+            "discussions":{"$ref":"#/$defs/driveId"},
+            "proposals":{"$ref":"#/$defs/driveId"},
+            "decisions":{"$ref":"#/$defs/driveId"},
+            "references":{"$ref":"#/$defs/driveId"},
+            "distributions":{"$ref":"#/$defs/driveId"}
+          }
+        }
+      }
+    },
+    "governingPolicyRef":{"type":"string","minLength":1},
+    "participants":{
+      "type":"array","minItems":1,"maxItems":64,
+      "items":{
+        "type":"object","additionalProperties":false,"required":["workspaceId","contribution"],
+        "properties":{
+          "workspaceId":{"type":"string","pattern":"^ws-[a-z0-9-]+$"},
+          "contribution":{"enum":["source","consumer","reviewer"]}
+        }
+      }
+    }
+  },
+  "$defs":{"driveId":{"type":"string","pattern":"^[A-Za-z0-9_-]{12,}$","not":{"const":"root"}}}
+}

@@ -1,0 +1,29 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://github.com/mineclover/google-workspace-toolkit/blob/master/specs/context-harness/reference.schema.json",
+  "title":"Collaboration Source Reference Card v0.1 — proposed",
+  "type":"object","additionalProperties":false,
+  "required":["schemaVersion","referenceId","collaborationId","ownerRef","requiredScopeRef","provenance","source"],
+  "properties":{
+    "schemaVersion":{"const":"0.1.0"},
+    "referenceId":{"type":"string","pattern":"^ref-[a-z0-9]+(-[a-z0-9]+)*$"},
+    "collaborationId":{"type":"string","pattern":"^collab-[a-z0-9]+(-[a-z0-9]+)*$"},
+    "ownerRef":{"type":"string","minLength":1},
+    "requiredScopeRef":{"type":"string","minLength":1},
+    "provenance":{"enum":["source-reference","agent-analysis","human-assertion"]},
+    "source":{
+      "type":"object","additionalProperties":false,"required":["provider","nativeRef","snapshot"],
+      "properties":{
+        "provider":{"enum":["github","drive","nes","semantic","web"]},
+        "nativeRef":{"type":"string","minLength":1},
+        "snapshot":{
+          "type":"object","additionalProperties":false,"required":["kind","id"],
+          "properties":{
+            "kind":{"enum":["working","immutable"]},
+            "id":{"type":"string","minLength":8}
+          }
+        }
+      }
+    }
+  }
+}

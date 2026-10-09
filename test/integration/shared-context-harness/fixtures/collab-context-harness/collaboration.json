@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "0.1.0",
+  "collaborationId": "collab-context-harness",
+  "title": "Context Harness Shared Collaboration Pilot",
+  "ownerScope": {
+    "type": "personal",
+    "id": "MINECLOVER"
+  },
+  "storage": {
+    "rootFolderId": "1h_CjCUEaOUaKzImXqbmbRS0AGkPdmkiB",
+    "folderIds": {
+      "discussions": "1m0oG9fBv_fixture_disc",
+      "proposals": "1m0oG9fBv_fixture_prop",
+      "decisions": "1m0oG9fBv_fixture_deci",
+      "references": "1m0oG9fBv_fixture_refs",
+      "distributions": "1m0oG9fBv_fixture_dist"
+    }
+  },
+  "governingPolicyRef": "git:mineclover/google-workspace-toolkit:docs/context-harness/OPERATIONS_GUIDE.md",
+  "participants": [
+    {
+      "workspaceId": "ws-google-tools",
+      "contribution": "source"
+    },
+    {
+      "workspaceId": "ws-semantic-catalog",
+      "contribution": "consumer"
+    }
+  ]
+}

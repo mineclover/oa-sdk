@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "0.1.0",
+  "referenceId": "ref-semantic-platform",
+  "collaborationId": "collab-context-harness",
+  "ownerRef": "github:mineclover/semantic-platform",
+  "requiredScopeRef": "repo:mineclover/semantic-platform",
+  "provenance": "source-reference",
+  "source": {
+    "provider": "github",
+    "nativeRef": "github.com/mineclover/semantic-platform:README.md",
+    "snapshot": {
+      "kind": "immutable",
+      "id": "1111222233334444555566667777888899990000"
+    }
+  }
+}

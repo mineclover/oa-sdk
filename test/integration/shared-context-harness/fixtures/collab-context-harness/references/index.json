@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "0.1.0",
+  "recordType": "collaboration-reference-index",
+  "collaborationId": "collab-context-harness",
+  "parentFolderId": "1m0oG9fBv_fixture_refs",
+  "registrationPolicy": "explicit-registration-required",
+  "references": [
+    {
+      "referenceId": "ref-oa-sdk",
+      "fileId": "1m0oG9fBv_ref_oa_sdk_file",
+      "contentSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ownerRef": "github:mineclover/oa-sdk",
+      "sourceSnapshotId": "6542531b402849e7939116e0339912066f7fbb5a"
+    },
+    {
+      "referenceId": "ref-google-workspace-toolkit",
+      "fileId": "1m0oG9fBv_ref_gwt_file",
+      "contentSha256": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a",
+      "ownerRef": "github:mineclover/google-workspace-toolkit",
+      "sourceSnapshotId": "c7351ab000000000000000000000000000000000"
+    },
+    {
+      "referenceId": "ref-semantic-platform",
+      "fileId": "1m0oG9fBv_ref_sem_file",
+      "contentSha256": "ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d",
+      "ownerRef": "github:mineclover/semantic-platform",
+      "sourceSnapshotId": "1111222233334444555566667777888899990000"
+    }
+  ]
+}

@@ -4,6 +4,7 @@
 
 - 클라이언트를 별도 npm 패키지로 만들어 배포하는 방법은 [클라이언트 SDK 배포 가이드](./client-sdk-distribution.md)를 따릅니다.
 - 백엔드 없이 예제를 실행할 mock 서버는 [Mock 서버 사용 가이드](./mock-server-usage.md)를 따릅니다.
+- TypeSpec(`.tsp`) 단일 정본 기반의 인메모리 빌더, openapi-ts 스타일 단일 객체 인자 호출, `isErrorStatus` 판별 에러 유니온은 [8절](#8-typespec-builder-platform-및-openapi-ts-스타일-파이프라인) 및 [TypeSpec Builder Platform 가이드](./typespec-builder-platform.md)를 따릅니다.
 
 예제는 다음 operation을 가진 OpenAPI 문서를 기준으로 합니다. 모든 operation은 `bearerAuth`(HTTP bearer) 보안 스킴을 요구합니다.
 
@@ -417,3 +418,54 @@ const options = listUsersInfiniteQueryOptions<InfiniteData<JsonPrimitive<ListUse
 ```
 
 스트리밍 operation에도 `<operationId>QueryOptions`와 훅이 생성되지만, `queryFn`이 `AsyncGenerator`를 데이터로 반환하므로 TanStack Query로 스트림을 읽을 수 없습니다(알려진 결함). 스트리밍 operation은 6절처럼 클라이언트 메서드를 직접 씁니다.
+
+---
+
+## 8. TypeSpec Builder Platform 및 openapi-ts 스타일 파이프라인
+
+CLI를 통한 파일 생성(`oa-gen generate:client`) 외에도, TypeSpec(`.tsp`)을 단일 정본으로 사용하는 프로젝트에서는 `@oa-sdk/codegen`의 **프로그래머블 인메모리 빌더 API**(`createTspBuilder`)를 활용할 수 있습니다.
+
+### 8.1 호출 규약 비교: 위치 인자 vs openapi-ts 단일 객체 인자
+
+| 항목 | CLI 생성 클라이언트 (`@oa-sdk/client`) | openapi-ts 스타일 클라이언트 (`pluginClient`) |
+|---|---|---|
+| 메서드 형태 | `client.getUserById({ userId }, { signal })` | `client.GET('/users/{userId}', { path: { userId }, signal })` |
+| 엔드포인트 명시성 | operationId 기반 메서드 | HTTP Method + URL Path 경로 기반 매핑 |
+| 인자 바인딩 | 파라미터별 분리 인자 | `{ path, query, body, headers }` 단일 객체 |
+| 오류 식별 패턴 | try-catch + `<Op>ClientError` | `{ data, error, response }` + `isErrorStatus(res, code)` 판별 유니온 |
+| 빌드 파이프라인 | CLI 사전 생성 파일 디스크 저장 | 인메모리 프로그래머블 빌더 / Vite dev loop 실시간 HMR |
+
+### 8.2 멀티 상태 에러 식별 유니온 (`isErrorStatus`)
+
+openapi-ts 스타일 클라이언트는 TypeScript 판별 유니온(discriminated union)을 활용하여 HTTP 상태 코드별로 에러 페이로드를 타입 가드로 좁힐 수 있습니다:
+
+```typescript
+import { createTspClient, isErrorStatus } from './api/client.js'
+
+const client = createTspClient({ baseUrl: 'https://api.example.com' })
+
+const res = await client.GET('/users/{userId}', {
+  path: { userId: 'user-123' },
+})
+
+if (res.error) {
+  if (isErrorStatus(res, 404)) {
+    // res.error는 { message: string, code: 'NOT_FOUND' }로 자동 축소(narrowing)
+    console.error('사용자를 찾을 수 없습니다:', res.error.message)
+  } else if (isErrorStatus(res, 409)) {
+    // res.error는 { conflictKey: string, reason: string }으로 자동 축소
+    console.warn('충돌 발생:', res.error.conflictKey)
+  }
+  return
+}
+
+// res.data는 200 OK User 페이로드로 완벽 추론
+console.log('조회 성공:', res.data.name)
+```
+
+### 8.3 Vite dev loop 통합 및 상세 가이드
+
+인메모리 빌더 및 Vite 플러그인(`vitePluginTsp`), TanStack Query 3계층 자동 생성, Wire 통신 압축 연동에 관한 상세 내용은 다음 문서를 참조하십시오:
+- **[TypeSpec Builder Platform 가이드](./typespec-builder-platform.md)**: 전체 아키텍처, 빌더 라이프사이클, 플러그인 작성법, Vite HMR 설정.
+- **[TypeSpec Builder 사용성 평가 리포트](../reports/typespec-builder-usability-report.md)**: DX 4.92 / 5.0, 18개 E2E 시나리오 검증, 콜드 95ms / 웜 0.18ms 벤치마크.
+

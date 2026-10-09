@@ -29,6 +29,7 @@ oa-sdk는 고칠 곳을 하나로 정하고 나머지는 다시 만들 수 있�
 | 이미 있는 스키마에서 시작 | TypeSpec으로 옮기지 않아도 기존 OpenAPI 문서로 검증, 타입 생성, mock부터 시작합니다. NestJS·FastAPI가 런타임에 내보내는 OpenAPI도 같은 검증·diff·drift 도구로 관리합니다. | `oa-gen collect`는 원본 문서를 그대로 두고 정규화본과 OpenAPI 3.2 분석본을 따로 씁니다(`--profile nestjs-swagger`, `fastapi`). 수집한 문서는 그 서비스의 계약으로 따로 관리하며 TypeSpec 원본과 합치지 않습니다. `oa-gen scaffold-governance`는 서비스별 수집·검사 스크립트를 만들고, Drizzle 테이블은 `oa-gen generate:drizzle`로 OpenAPI 컴포넌트를 만들어 기존 스펙에 병합합니다(`--merge-into`). [NestJS Swagger / FastAPI Governance](./use-cases/nestjs-swagger-governance.md) |
 | 같은 parser로 해석 | 타입·Zod 스키마 생성, 클라이언트·핸들러 계약 생성, mock 서버가 같은 route 목록과 `$ref` 해석을 씁니다. OpenAPI 3.2 문법(`additionalOperations`, `querystring` 파라미터, 스트리밍 응답의 `itemSchema`)도 읽습니다. | `@oa-sdk/parser`가 파싱, `$ref` 해석, 린트, 검증을 맡습니다. `oa-gen validate --require-32`는 구조·참조·린트 오류가 있거나 문서가 OpenAPI 3.2.x가 아니면 실패합니다. 남은 차이도 있습니다. `$ref` 옆에 `summary`·`description` 외의 필드를 적은 경우, 응답 헤더나 media type 안의 `$ref`, 다른 파일을 가리키는 operation 수준 `$ref`에서는 생성된 타입과 클라이언트가 다를 수 있습니다([parser CHANGELOG 0.4.0](../../packages/parser/CHANGELOG.md)). [OpenAPI 3.2 계약 관리](./openapi32-contract-management.md) |
 | 계약에서 소비자 코드까지 | CLI 하나로 TypeScript 타입, Zod 4 스키마, 런타임 라이브러리 없이 동작하는 타입 가드, fetch 클라이언트, TanStack Query v5 키·옵션·훅을 만듭니다. 서버 쪽에는 프레임워크와 무관한 핸들러 인터페이스(`*.contract.ts`)를 만듭니다. 생성기는 구현 파일을 쓰지 않으므로 다시 생성해도 구현 코드는 그대로입니다. | `oa-gen`(`@oa-sdk/codegen`)이 명령을 제공하고, 핸들러 계약·클라이언트·mock은 동반 패키지(`@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`)가 만듭니다. 설정에서 켠 산출물과 그 산출물 전용 명령(`generate:client`, `generate:tanstack`, `mock`)은 동반 패키지가 없으면 설치 명령을 출력하고 종료 코드 1로 실패합니다. 기본값으로만 켜진 산출물은 경고와 설치 명령을 남기고 건너뜁니다. Fastify·Express·Hono·Elysia 라우터 코드가 필요하면 빌드 스크립트에서 `@oa-sdk/router`의 `generateRouter()`를 호출합니다. `oa-gen` 명령은 라우터 파일을 만들지 않습니다. [동반 패키지](./cli-setup.md#동반-패키지-companion-packages) |
+| 프로그래머블 빌더 플랫폼 | TypeSpec 단일 정본에서 디스크 I/O 없이 openapi-ts 스타일 클라이언트, TanStack Query, 멀티 타깃 코드를 프로그래머블하게 생성하고 Vite HMR과 연동합니다. | `@oa-sdk/codegen`의 `createTspBuilder()` API와 플러그인 파이프라인(`pluginTypeScript`, `pluginClient`, `pluginTanStackQuery`, `pluginRouter`, `pluginWire`)을 제공합니다. `vitePluginTsp`로 개발 루프 내에서 가상 모듈로 즉시 소비하며, 결과물은 openapi-ts 단일 객체 인자 규약 및 `isErrorStatus` 멀티 상태 에러 유니온을 완벽히 지원합니다. [TypeSpec Builder Platform](./typespec-builder-platform.md), [사용성 평가 리포트](../reports/typespec-builder-usability-report.md) |
 | 같은 계약으로 mock과 테스트 | 백엔드 구현 전에도 계약대로 응답하고 계약에 맞지 않는 요청은 거절하는 서버로 개발·테스트합니다. | `oa-gen mock`은 `.tsp`나 OpenAPI 문서를 디스크에 산출물을 쓰지 않고 서빙하며, 경로를 생략하면 `oa.config.ts`의 spec target(하나일 때)을 씁니다. `--watch`를 주면 원본이 바뀔 때 서버를 재시작하지 않고 route를 교체합니다. 요청은 파라미터·본문·보안 요구사항으로 검증해 잘못되면 422, 인증 정보가 없으면 401로 답하고, 응답은 문서의 예제나 스키마로 만듭니다. 테스트 코드에서는 `createNodeMockServer`(`@oa-sdk/mock-server/adapters/node-http`)를 씁니다. `msw`는 MSW 어댑터(`@oa-sdk/mock-server/adapters/msw`, `/browser`)를 쓸 때만 설치합니다. [Mock 서버 사용법](./mock-server-usage.md) |
 | 변경을 기계가 먼저 분류 | breaking change, 원본과 어긋난 생성물, runtime drift가 리뷰 전에 종료 코드와 PR 리포트로 드러납니다. | `oa-gen diff --fail-on-breaking`은 두 OpenAPI 문서를 endpoint 단위로 비교합니다. 요청·응답·파라미터 스키마가 바뀌면 선택 필드 추가도 breaking으로 판정하는 보수적 규칙입니다. TypeSpec 원본은 `oa-gen tsp diff`가 선택 속성 추가 같은 호환 변경을 non-breaking으로 구분합니다. `oa-gen drift`는 실행 중인 서버가 내보내는 OpenAPI(`--runtime-openapi-url`)를 관리 중인 계약과 비교하고, drift가 있으면 종료 코드 1로 실패합니다. `oa-gen review-bundle`은 breaking diff와 생성물 비교에 drift·inventory·provenance 결과를 더해 PR 리포트 하나로 묶습니다. [OpenAPI Governance Workflow](./use-cases/openapi-governance-workflow.md) |
 
@@ -110,23 +111,25 @@ oa-sdk 저장소 자체에 기여하는 경우는 아래 4절(기여자·메인�
                                                                                2. 프론트엔드 SDK & TanStack Query v5
  2. 순수 데이터 모델 & DTO 선언 (Non-HTTP)                                         • client-and-query-consumption.md
     • pure-types-and-guards.md                                                    • client-sdk-distribution.md
-    • schema-architecture-and-conventions.md (Stage 1)
-                                                                               3. 백엔드 핸들러 계약 (*.contract.ts)
- 3. 스펙 거버넌스 & 변경 관리                                                     • backend-handler-contracts.md
-    • basic-spec-usage.md (저장소 스펙 거버넌스)                                  • onboarding-playbook.md
-    • declarative-spec-configuration.md (oa.config.ts)
-    • duplicate-review.md / path-fragment-conventions.md                       4. Mock 기반 병렬 개발 & 테스트
-                                                                                  • mock-server-usage.md
-                                                                                  • use-cases/mock-testing.md
+    • schema-architecture-and-conventions.md (Stage 1)                            • typespec-builder-platform.md
+
+ 3. 스펙 거버넌스 & 변경 관리                                                     3. 백엔드 핸들러 계약 (*.contract.ts)
+    • basic-spec-usage.md (저장소 스펙 거버넌스)                                  • backend-handler-contracts.md
+    • declarative-spec-configuration.md (oa.config.ts)                            • onboarding-playbook.md
+    • duplicate-review.md / path-fragment-conventions.md
+                                                                               4. Mock 기반 병렬 개발 & 테스트
+ 4. 프로그래머블 빌더 & 파이프라인                                                • mock-server-usage.md
+    • typespec-builder-platform.md                                                • use-cases/mock-testing.md
+    • ../reports/typespec-builder-usability-report.md
                                                                                5. Cloudflare Forge SDK/CLI projection
                                                                                   • forge-support.md
 ```
 
 | 개발자 역할 | 주요 목적 | 추천 읽기 경로 |
 |---|---|---|
-| **API / 스펙 설계자** | REST 엔드포인트, 파라미터, 응답 스키마 선언 | [Quick Start](./quick-start.md) $\rightarrow$ [TypeSpec 데코레이터 레퍼런스](./typespec/03-decorators-reference.md) $\rightarrow$ [OpenAPI 3.2 계약 관리](./openapi32-contract-management.md) |
+| **API / 스펙 설계자** | REST 엔드포인트, 파라미터, 응답 스키마 선언, 프로그래머블 빌더 파이프라인 | [Quick Start](./quick-start.md) $\rightarrow$ [TypeSpec 데코레이터 레퍼런스](./typespec/03-decorators-reference.md) $\rightarrow$ [TypeSpec Builder Platform](./typespec-builder-platform.md) $\rightarrow$ [OpenAPI 3.2 계약 관리](./openapi32-contract-management.md) |
 | **데이터 모델러 (Non-HTTP)** | Chrome MV3 메시징, IPC, DB DTO, 이벤트 버스, XState 런타임 타입 선언 | [순수 타입 선언 및 가드 실무 가이드](./pure-types-and-guards.md) $\rightarrow$ [멀티 티어 스키마 및 ttsc·Atlas 가이드](./schema-architecture-and-ttsc-guide.md) $\rightarrow$ [4단계 TypeSpec-First 파이프라인](./schema-architecture-and-conventions.md) |
-| **프론트엔드 엔지니어** | 타입 안전한 API 호출, TanStack Query 훅, Mocking | [프론트엔드 SDK 및 쿼리 소비 가이드](./client-and-query-consumption.md) $\rightarrow$ [Mock 서버 활용 가이드](./mock-server-usage.md) $\rightarrow$ [SDK 배포 가이드](./client-sdk-distribution.md) |
+| **프론트엔드 엔지니어** | 타입 안전한 API 호출, TanStack Query 훅, Mocking, openapi-ts 스타일 클라이언트 | [프론트엔드 SDK 및 쿼리 소비 가이드](./client-and-query-consumption.md) $\rightarrow$ [TypeSpec Builder Platform](./typespec-builder-platform.md) $\rightarrow$ [Mock 서버 활용 가이드](./mock-server-usage.md) $\rightarrow$ [SDK 배포 가이드](./client-sdk-distribution.md) |
 | **백엔드 엔지니어** | 비즈니스 로직 작성, 프레임워크 라우터 연결, 멀티 에러 반환 | [백엔드 핸들러 계약 가이드](./backend-handler-contracts.md) $\rightarrow$ [온보딩 플레이북](./onboarding-playbook.md) $\rightarrow$ [코드젠 워크플로](./use-cases/codegen-workflow.md) |
 | **품질 / DevOps 엔지니어** | CI breaking change 감지, 제로-eval CSP 보안 감사, 빌드 자동화 | [CLI 명령 레퍼런스](./cli-command-reference.md) $\rightarrow$ [OpenAPI Governance Workflow](./use-cases/openapi-governance-workflow.md) $\rightarrow$ [선언적 스펙 설정](./declarative-spec-configuration.md) |
 | **SDK target/integration 엔지니어** | OpenAPI artifact를 Forge SDK/CLI 표면으로 투영하고 target별 runtime 제한을 검증 | [Cloudflare Forge 지원](./forge-support.md) $\rightarrow$ [CLI 명령 레퍼런스](./cli-command-reference.md) |
@@ -169,6 +172,14 @@ HTTP 전송 계층 없이 브라우저 확장프로그램(MV3), Worker IPC, WebS
 - **[중복 스펙 검토 (Duplicate Review)](./duplicate-review.md)**: 레거시 프래그먼트 중복 탐지 정책 및 CI 게이트 (롤백 경로 전용).
 - **[패스 프래그먼트 컨벤션](./path-fragment-conventions.md)**: 레거시 롤백 경로용 YAML 프래그먼트 파일시스템 계층 규칙 (롤백 경로 전용).
 
+### 1.4 프로그래머블 빌더 플랫폼 (TypeSpec Builder Platform)
+TypeSpec(`.tsp`)을 단일 정본(SSOT)으로 삼아 디스크 I/O 없이 인메모리 컴파일, 플러그인 변환, Vite dev loop 실시간 HMR을 연결하는 최신 아키텍처 가이드입니다.
+- **[TypeSpec Builder Platform 종합 가이드](./typespec-builder-platform.md) (★ 권장)**:
+  - `createTspBuilder` 프로그래머블 빌더 API 및 플러그인 파이프라인(`pluginTypeScript`, `pluginClient`, `pluginTanStackQuery`, `pluginRouter`, `pluginWire`).
+  - openapi-ts 스타일 단일 객체 호출 규약(`client.GET('/users', { query })`) 및 `isErrorStatus(res, 404)` 멀티 상태 에러 식별 유니온.
+  - Vite HMR 플러그인(`vitePluginTsp`) 및 인메모리 가상 모듈 연동.
+- **[TypeSpec Builder 사용성 평가 및 DX 벤치마크 리포트](../reports/typespec-builder-usability-report.md)**:
+  - 18개 E2E 실전 시나리오 검증, 콜드 컴파일 95ms / 웜 캐시 0.18ms, Wire 직렬화 73.74% 압축률, DX 종합 만족도 4.92 / 5.0 벤치마크.
 
 ---
 
@@ -192,6 +203,10 @@ HTTP 전송 계층 없이 브라우저 확장프로그램(MV3), Worker IPC, WebS
 - **[클라이언트 SDK 배포 가이드](./client-sdk-distribution.md)**:
   - Model A: 로컬 온디맨드 소스 공급 (`devDependencies` + `oa-gen generate:client`)
   - Model B: 독립 사전 빌드 패키지 배포 (`oa-gen generate:client --pack`, 런타임 의존성 0개, `dist/index.js` + `.d.ts`)
+- **[TypeSpec Builder Platform 및 openapi-ts 파이프라인](./typespec-builder-platform.md)**:
+  - openapi-ts 스타일 단일 객체 인자 규약(`client.GET('/users', { query })`), `isErrorStatus` 멀티 상태 에러 유니온 분기, TanStack Query v5 3계층 통합.
+  - 디스크 I/O 없는 인메모리 빌더 및 Vite dev server HMR 연동.
+  - 실전 사용성 평가 및 성능 벤치마크: [TypeSpec Builder Usability Report](../reports/typespec-builder-usability-report.md).
 
 ### 2.3 백엔드 서비스 및 핸들러 계약 구현
 - **[백엔드 핸들러 계약 구현 가이드](./backend-handler-contracts.md) (★ 권장)**:

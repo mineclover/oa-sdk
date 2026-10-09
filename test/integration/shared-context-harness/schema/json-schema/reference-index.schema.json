@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mineclover/google-workspace-toolkit/blob/master/specs/context-harness/reference-index.schema.json",
+  "title": "Collaboration Reference Index v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "recordType",
+    "collaborationId",
+    "parentFolderId",
+    "registrationPolicy",
+    "references"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "0.1.0"
+    },
+    "recordType": {
+      "const": "collaboration-reference-index"
+    },
+    "collaborationId": {
+      "type": "string",
+      "pattern": "^collab-[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "parentFolderId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{12,}$",
+      "not": {
+        "const": "root"
+      }
+    },
+    "registrationPolicy": {
+      "type": "string",
+      "minLength": 1
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "referenceId",
+          "fileId",
+          "contentSha256",
+          "ownerRef",
+          "sourceSnapshotId"
+        ],
+        "properties": {
+          "referenceId": {
+            "type": "string",
+            "pattern": "^ref-[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "fileId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{12,}$",
+            "not": {
+              "const": "root"
+            }
+          },
+          "contentSha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "ownerRef": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sourceSnapshotId": {
+            "type": "string",
+            "minLength": 8
+          }
+        }
+      }
+    }
+  }
+}

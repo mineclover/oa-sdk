@@ -1,0 +1,230 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mineclover/google-workspace-toolkit/blob/master/specs/context-harness/collaboration-management.schema.json",
+  "title": "Collaboration Management Projection v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "recordType",
+    "collaborationId",
+    "workspaceKind",
+    "lifecycleStatus",
+    "architectureStatus",
+    "managementBasis",
+    "ownerScope",
+    "registeredParticipantWorkspaceIds",
+    "unregisteredSourceRepositories",
+    "sourceReferenceIds",
+    "primaryRepository",
+    "designPullRequest",
+    "workstreams",
+    "milestones",
+    "verification"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "0.1.0"
+    },
+    "recordType": {
+      "const": "collaboration-management-projection"
+    },
+    "collaborationId": {
+      "type": "string",
+      "pattern": "^collab-[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "workspaceKind": {
+      "const": "cross-project-collaboration"
+    },
+    "lifecycleStatus": {
+      "enum": [
+        "active",
+        "maintenance",
+        "archived"
+      ]
+    },
+    "architectureStatus": {
+      "enum": [
+        "proposed",
+        "accepted",
+        "historical"
+      ]
+    },
+    "managementBasis": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ownerScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "personal",
+            "organization"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "registeredParticipantWorkspaceIds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^ws-[a-z0-9-]+$"
+      }
+    },
+    "unregisteredSourceRepositories": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "sourceReferenceIds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^ref-[a-z0-9]+(-[a-z0-9]+)*$"
+      }
+    },
+    "primaryRepository": {
+      "type": "string",
+      "minLength": 1
+    },
+    "designPullRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "nativeUrl",
+        "stateAtRegistration"
+      ],
+      "properties": {
+        "provider": {
+          "const": "github"
+        },
+        "nativeUrl": {
+          "type": "string",
+          "pattern": "^https://github\\.com/"
+        },
+        "stateAtRegistration": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "workstreams": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "externalIssueUrl",
+          "observedIssueState"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "ownerWorkspaceId": {
+            "type": "string",
+            "pattern": "^ws-[a-z0-9-]+$"
+          },
+          "ownerRepository": {
+            "type": "string",
+            "minLength": 1
+          },
+          "externalIssueUrl": {
+            "type": "string",
+            "pattern": "^https://github\\.com/"
+          },
+          "observedIssueState": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "milestones": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "label",
+          "state"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "state": {
+            "enum": [
+              "planned",
+              "partially-observed",
+              "verified",
+              "blocked"
+            ]
+          }
+        }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "remoteFolderReadback",
+        "remoteManifestReadback",
+        "runtimeAclIntegrationTest",
+        "runtimeSourceAccessIntegrationTest",
+        "note"
+      ],
+      "properties": {
+        "remoteFolderReadback": {
+          "type": "string",
+          "minLength": 1
+        },
+        "remoteManifestReadback": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runtimeAclIntegrationTest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runtimeSourceAccessIntegrationTest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}
