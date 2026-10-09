@@ -48,10 +48,10 @@ oa-sdk는 하나의 runtime SDK가 아니라 OpenAPI 계약을 작성·검증·�
 | 패키지 | 배포 | 시작 역할 | 공개 entrypoint | 먼저 볼 자료 |
 | --- | --- | --- | --- | --- |
 | `@oa-sdk/tools` | npm | JSON Schema로 정의한 도구를 MCP·CLI·HTTP로 노출하는 adapter(`defineTool`, `createSchemaTool`, `createMcpServer`, `createCli`). 계약에서 도구를 자동 생성하지는 않는다 | package root | [tools README](../../packages/tools/README.md) |
-| `@oa-sdk/peer-transport` | 후보·미배포 | 검증된 MCP/CRDT/presence packet transport, bounded reconnect queue, authenticated bridge client | package root | [WebMCP peering mesh](../concepts/webmcp-peering-mesh-and-collab.md) |
-| `@oa-sdk/peer-server` | 후보·미배포 | local peer registry와 authenticated signaling/RPC dispatch | package root | [WebMCP peering mesh](../concepts/webmcp-peering-mesh-and-collab.md) |
+| `@oa-sdk/peer-transport` | 후보·미배포 | 3채널(mcp-jsonrpc, crdt-delta, presence) 패킷 다중화, 우선순위 버퍼링, WebMcpBridgeClient, WebSocketTransportAdapter, CloudTransitClient (런타임 의존성 0개) | package root, `./adapters` | [WebMCP 프로젝션 가이드](./webmcp-projection-and-relay-guide.md) |
+| `@oa-sdk/peer-server` | 후보·미배포 | 기본 포트 8787의 HTTP 피어 레지스트리, 랑데부 디스크립터, WebSocket 시그널링/패킷 중계(`relay`), Cloud Transit Proxy(`cloud`, `/transit/:peer/mcp`) | package root, `./relay`, `./cloud` | [WebMCP 프로젝션 가이드](./webmcp-projection-and-relay-guide.md) |
 | `@oa-sdk/collab-workspace` | 후보·미배포 | path/line 검증을 포함한 in-memory Tree-Lattice와 scoped intent locks | package root | [WebMCP peering mesh](../concepts/webmcp-peering-mesh-and-collab.md) |
-| `@oa-sdk/mcp-mesh` | 후보·미배포 | canonical domain skill, runtime session, validated namespaced routing 및 CLI(bin `oa-mesh`, `oa-tools`) | package root, `./cli` | [WebMCP peering mesh](../concepts/webmcp-peering-mesh-and-collab.md) |
+| `@oa-sdk/mcp-mesh` | 후보·미배포 | canonical domain skill, runtime session, validated namespaced routing, peer session hydration 및 CLI(bin `oa-mesh`, `oa-tools`) | package root, `./cli` | [WebMCP 프로젝션 가이드](./webmcp-projection-and-relay-guide.md) |
 
 ## 저장소 전용 패키지 (비공개)
 

@@ -121,8 +121,10 @@ oa-sdk 저장소 자체에 기여하는 경우는 아래 4절(기여자·메인�
  4. 프로그래머블 빌더 & 파이프라인                                                • mock-server-usage.md
     • typespec-builder-platform.md                                                • use-cases/mock-testing.md
     • ../reports/typespec-builder-usability-report.md
-                                                                               5. Cloudflare Forge SDK/CLI projection
-                                                                                  • forge-support.md
+                                                                                5. Cloudflare Forge SDK/CLI projection
+                                                                                   • forge-support.md
+                                                                                6. WebMCP 프로젝션 게이트웨이 & P2P 중계
+                                                                                   • webmcp-projection-and-relay-guide.md
 ```
 
 | 개발자 역할 | 주요 목적 | 추천 읽기 경로 |
@@ -133,6 +135,7 @@ oa-sdk 저장소 자체에 기여하는 경우는 아래 4절(기여자·메인�
 | **백엔드 엔지니어** | 비즈니스 로직 작성, 프레임워크 라우터 연결, 멀티 에러 반환 | [백엔드 핸들러 계약 가이드](./backend-handler-contracts.md) $\rightarrow$ [온보딩 플레이북](./onboarding-playbook.md) $\rightarrow$ [코드젠 워크플로](./use-cases/codegen-workflow.md) |
 | **품질 / DevOps 엔지니어** | CI breaking change 감지, 제로-eval CSP 보안 감사, 빌드 자동화 | [CLI 명령 레퍼런스](./cli-command-reference.md) $\rightarrow$ [OpenAPI Governance Workflow](./use-cases/openapi-governance-workflow.md) $\rightarrow$ [선언적 스펙 설정](./declarative-spec-configuration.md) |
 | **SDK target/integration 엔지니어** | OpenAPI artifact를 Forge SDK/CLI 표면으로 투영하고 target별 runtime 제한을 검증 | [Cloudflare Forge 지원](./forge-support.md) $\rightarrow$ [CLI 명령 레퍼런스](./cli-command-reference.md) |
+| **Web / 에이전트 통합 엔지니어** | 브라우저 인-페이지 도구를 외부에 투영, WebSocket 릴레이, Cloud Transit 연동 | [WebMCP 프로젝션 가이드](./webmcp-projection-and-relay-guide.md) $\rightarrow$ [WebMCP 개념 아키텍처](../concepts/webmcp-peering-mesh-and-collab.md) |
 | **oa-sdk 저장소 기여자** | production TypeSpec 계약, 패키지 소스, 문서 변경 | [기여자 온보딩](./onboarding-playbook.md#9-oa-sdk-모노레포-기여자-온보딩) $\rightarrow$ [TypeSpec 기여 워크플로](./typespec/01-quickstart-5min.md) $\rightarrow$ [기본 스펙 사용 기준](./basic-spec-usage.md) |
 
 ---
@@ -253,6 +256,14 @@ TypeSpec(`.tsp`)을 단일 정본(SSOT)으로 삼아 디스크 I/O 없이 인메
   - TypeSpec data shape $\rightarrow$ Draft 2020-12 $\rightarrow$ Standard Schema v1 어댑터 $\rightarrow$ XState v5(`setup.types`) 및 v6(`setup.schemas` / state-level schemas) 검증 (14/14 tests pass, Partial adopt 판정).
 - **[공유 컨텍스트 협업 하네스 계약 평가 리포트](../spec-governance/shared-context-harness-contract-evaluation.md)**:
   - `@oa-sdk/tools` 기반 Read-Only 도구 인터페이스(MCP/CLI/REST) 및 fail-closed 보안 경계 검증 (22/22 tests pass).
+
+### 2.7 WebMCP 프로젝션 게이트웨이 및 P2P 중계 연동
+- **[WebMCP 프로젝션 게이트웨이 및 P2P 중계 연동 가이드](./webmcp-projection-and-relay-guide.md) (★ 권장)**:
+  - 브라우저 인-페이지 런타임(Wireframe/Storyboard 툴킷, 캔버스 에디터 등)의 도구와 상태를 외부 AI 에이전트에 노출하는 3계층 프로젝션 토폴로지.
+  - `createPeerServer({ enableRelay: true, enableCloudTransit: true })`를 통한 단 15줄 로컬 게이트웨이 데몬 구동.
+  - `P2pTransportChannel` + `createWebSocketTransportAdapter` 기반 브라우저 Page Connector 구현 (도구 포트 개설).
+  - `createCloudTransitClient` 및 `@oa-sdk/mcp-mesh`(`hydratePeerSession`)를 통한 투명한 브라우저 도구 원격 호출 및 오케스트레이션.
+  - 새로고침(F5) 시 3채널 메모리 버퍼링 및 우선순위 플러시(`mcp-jsonrpc` > `crdt-delta` > `presence`), 48-hex 단일 사용 티켓 및 32-프레임 플러딩 차단 등 보안 강화.
 
 ---
 

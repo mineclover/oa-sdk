@@ -40,7 +40,7 @@
 2. **프론트엔드 SDK & TanStack Query**: [프론트엔드 SDK 및 쿼리 소비 가이드](./guides/client-and-query-consumption.md), [클라이언트 SDK 배포 가이드](./guides/client-sdk-distribution.md), [Quick Start](./guides/quick-start.md)
 3. **백엔드 서비스 & 핸들러 계약**: [백엔드 핸들러 계약 구현 가이드](./guides/backend-handler-contracts.md), [온보딩 플레이북](./guides/onboarding-playbook.md), [코드젠 워크플로](./guides/use-cases/codegen-workflow.md)
 4. **Mock 기반 병렬 개발 & 테스트**: [Mock 서버 사용법](./guides/mock-server-usage.md), [Mock 테스팅 유스케이스](./guides/use-cases/mock-testing.md)
-5. **WebMCP 피어링·P2P 전송·폴더 동시 편집 & 멀티 MCP 메시**: [WebMCP 피어링 및 동시 편집 아키텍처](./concepts/webmcp-peering-mesh-and-collab.md)
+5. **WebMCP 프로젝션 게이트웨이·P2P 중계·동시 편집**: [WebMCP 프로젝션 가이드](./guides/webmcp-projection-and-relay-guide.md), [WebMCP 피어링 및 동시 편집 아키텍처](./concepts/webmcp-peering-mesh-and-collab.md)
 6. **Cloudflare Forge SDK/CLI projection**: [Cloudflare Forge 지원](./guides/forge-support.md)
 7. **대시보드 시나리오 네비게이션 & BEHAVIOR FSM**: [유저 시나리오 주제 단위 화면 네비게이션 & BEHAVIOR FSM 엔진 가이드](./guides/scenario-navigation-fsm-engine.md)
 8. **TypeSpec Builder Platform & openapi-ts SDK**: [TypeSpec Builder Platform](./guides/typespec-builder-platform.md), [빌더 사용성 평가 리포트](./reports/typespec-builder-usability-report.md)
@@ -74,7 +74,7 @@
 | 상태 유지 Mock 서버 구동 및 프론트엔드 병렬 개발 | [Mock 서버 사용법](./guides/mock-server-usage.md) |
 | OpenAPI artifact를 Cloudflare Forge SDK/CLI 표면으로 투영 | [Cloudflare Forge 지원](./guides/forge-support.md) |
 | 선언적 다중 프로파일 스펙 및 거버넌스를 설정 | [선언적 스펙 설정 (oa.config.ts)](./guides/declarative-spec-configuration.md) → [스키마 아키텍처 및 작성 규칙](./guides/schema-architecture-and-conventions.md) |
-| 브라우저(WebMCP) 피어링, 작업 폴더 P2P 동시 편집, AI 1등 편집자 연동 | [WebMCP 피어링 및 동시 편집 아키텍처](./concepts/webmcp-peering-mesh-and-collab.md) |
+| 브라우저(WebMCP) 도구 노출, 게이트웨이 및 P2P 중계 연동 | [WebMCP 프로젝션 가이드](./guides/webmcp-projection-and-relay-guide.md) → [WebMCP 개념 아키텍처](./concepts/webmcp-peering-mesh-and-collab.md) |
 | TypeSpec(.tsp) 단일 정본 인메모리 빌더 및 openapi-ts 스타일 클라이언트·Query 연동 | [TypeSpec Builder Platform](./guides/typespec-builder-platform.md) → [빌더 사용성 평가 리포트](./reports/typespec-builder-usability-report.md) |
 | OA SDK production contract를 작성·승인 | [기본 스펙 사용 기준](./guides/basic-spec-usage.md) → [TypeSpec Authoring Conventions](./guides/typespec-authoring-conventions.md) |
 | 4계층 E2E 테스트 모델 및 드리프트 거버넌스를 확인 | [테스트 인프라](./concepts/test-infrastructure.md) → [CLI 거버넌스 및 스펙 검증 모델](./concepts/cli-governance.md) |
