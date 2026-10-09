@@ -45,7 +45,10 @@ TypeSpec 계약에서는 `packages/schemas/typespec/**/*.tsp`가 사람이 작�
 | 계약 검토 baseline | [`approved.openapi.yaml`](../../packages/schemas/typespec/approved.openapi.yaml) | TypeSpec에서 생성된 승인 snapshot |
 | 계약 규칙 | [`typespec-authoring-conventions.md`](../guides/typespec-authoring-conventions.md) | 변경·버전·drift 규칙 |
 | 에이전트 스킬 거버넌스 | [`agent-skill-governance-proposal.md`](./agent-skill-governance-proposal.md) | 글로벌 기본 닫힘 및 프로젝트별 스킬 활성화 규격 |
+| 협업 하네스 계약 평가 | [`shared-context-harness-contract-evaluation.md`](./shared-context-harness-contract-evaluation.md) | 공유 컨텍스트 협업 하네스 도구 계약 및 fail-closed 보안 경계 평가 |
+| 런타임 행위 스키마 연구 | [`typespec-behavior-schema-authoring-research.md`](./typespec-behavior-schema-authoring-research.md) | TypeSpec 기반 Behavior / Runtime Schema 작성 및 XState 프로젝션 연구 (Partial adopt) |
 | 문서 기준 이력 | [`decision-log.md`](./decision-log.md) | 공식 기준 변경 기록 |
+
 
 정본의 상태가 바뀌면 이 표와 변경 이력을 같은 변경 단위에서 갱신한다.
 

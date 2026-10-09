@@ -33,6 +33,7 @@
 3. **멀티 티어 스키마 & 도구 분리**: [멀티 티어 스키마 및 ttsc·Atlas 역할 분리 가이드](./guides/schema-architecture-and-ttsc-guide.md)
 4. **선언적 스펙 설정**: [선언적 스펙 설정 (oa.config.ts)](./guides/declarative-spec-configuration.md)
 5. **프로그래머블 빌더 플랫폼**: [TypeSpec Builder Platform](./guides/typespec-builder-platform.md), [빌더 사용성 평가 리포트](./reports/typespec-builder-usability-report.md)
+6. **Behavior 및 런타임 데이터 스키마 저작**: [TypeSpec Behavior / Runtime Schema 작성 연구](./spec-governance/typespec-behavior-schema-authoring-research.md), [TypeSpec 작성 규칙 부록 9](./guides/typespec-authoring-conventions.md#9-부록-behavior-및-런타임-데이터-스키마-작성-지침-partial-adopt)
 
 ### 🔌 2. 다운스트림 소비자 경로 (Consumer Track)
 1. **순수 타입 & 제로-런타임 가드**: [순수 타입 선언 및 가드 실무 가이드](./guides/pure-types-and-guards.md), [검증 엔진 성능 벤치마크](./benchmarks/validation-engines.md)
@@ -50,6 +51,8 @@
 3. [선언적 스펙 설정 (oa.config.ts)](./guides/declarative-spec-configuration.md): 모노레포 루트 자동 탐색(`findProjectRoot()`) 및 6계층 해석 우선순위.
 4. [WebMCP & 멀티 MCP CLI 통합](./concepts/webmcp-peering-mesh-and-collab.md): `oa-mesh` / `oa-tools`를 통한 피어 관리, 스킬 하이드레이션, 폴더 CRDT 동시 편집, AI 1등 편집자.
 5. [WebMCP 보안 감사 및 경계 계약](./security/webmcp-hardening.md): 인증, 입력 크기, RPC/packet replay, CRDT ingress, MCP/HTTP 검증과 잔여 운영 가정.
+6. [로컬 Breaking Diff 및 Drift 검증 도구](../scripts/check-local-diff.ts): 로컬 환경에서 브레이킹 변경(`pnpm check:local-diff`) 및 런타임 스키마 드리프트(`pnpm check:local-drift`) 사전 검출.
+
 
 ### 🛡️ 4. 테스트 및 품질 보증 (QA) 경로
 1. [TEST_INFRA.md](../TEST_INFRA.md): E2E 테스트 빠른 검증 명령어 및 단일 진실 공급원 안내.
@@ -152,6 +155,8 @@
 | [시나리오 라이프사이클 및 아티팩트 거버넌스](./guides/scenario-lifecycle-and-artifacts.md) | 5단계 라이프사이클, spec-lens scenario CLI, 정형 아티팩트 및 듀얼 프리뷰어 |
 | [Ariga Atlas 물리 DB 드리프트 거버넌스](./guides/use-cases/atlas-schema-drift-governance.md) | Atlas migrate diff → atlas schema inspect JSON 증거 덤프 → TypeSpec @storageRef 정적 드리프트 CI 검증 |
 | [Spec-Lens Platform](./spec-lens/README.md) | OpenAPI 스펙 변경 이력 관측, 임의 커밋 비교, D3 의존성 그래프 및 웹 대시보드 (`@oa-sdk/spec-lens`, `apps/spec-lens`) |
+| [공유 컨텍스트 협업 하네스 계약 평가](./spec-governance/shared-context-harness-contract-evaluation.md) | 공유 컨텍스트 협업 하네스와 oa-sdk 코어 간 도구 계약의 안전한 상호 운용성 입증 |
+| [TypeSpec Behavior 작성 연구](./spec-governance/typespec-behavior-schema-authoring-research.md) | TypeSpec 기반 Behavior / Runtime Schema SSOT 및 XState v5/v6 프로젝션 연구 (Partial adopt) |
 | [Preview App](../apps/preview/) | 브라우저 수동 프리뷰 (자동 E2E 보증은 [playground](../apps/playground/)가 담당) |
 
 
@@ -170,6 +175,9 @@
    - **순수 모델 스펙 드리프트**: Zod 기반 순수 모델 스키마가 수정되었으나 OpenAPI/JSON Schema 아티팩트가 새로 빌드되지 않은 경우, CI 빌드에서 `oa-gen drift:check`가 실패(exit code 1)합니다. 스키마 변경 후 항상 `oa-gen generate`를 실행하여 아티팩트를 최신 상태로 동기화하십시오.
 4. **로컬 무결성 빠른 검증 명령어**:
    ```bash
+   # 로컬 스펙 Breaking Diff 및 Runtime Drift 검증
+   pnpm check:local-diff && pnpm check:local-drift
+
    # 문서 링크 및 CLI 명세 정렬 검사 (0 broken links)
    pnpm check:docs && pnpm exec tsx scripts/check-cli-spec.ts
 

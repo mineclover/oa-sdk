@@ -151,6 +151,7 @@ oa-sdk 저장소 자체에 기여하는 경우는 아래 4절(기여자·메인�
 HTTP 전송 계층 없이 브라우저 확장프로그램(MV3), Worker IPC, WebSocket, Database DTO용 순수 타입을 선언하는 가이드입니다.
 - **[멀티 티어 스키마 아키텍처 및 ttsc·Atlas 역할 분리 가이드](./schema-architecture-and-ttsc-guide.md) (★ 권장)**: Storage(Atlas), Logical ERD(DPM), API(TypeSpec), Behavior(XState v5/v6) 4계층 분리, ttsc AOT Standard Schema v1 변환, Atlas 물리 스키마 연계.
 - **[순수 타입 선언 및 제로-런타임 가드 가이드](./pure-types-and-guards.md) (★ 권장)**: HTTP 엔드포인트가 없는 순수 모델 정의 방법(TypeSpec models without ops / Zod Master Schemas), `oa-gen typegen`을 통한 순수 인터페이스 방출, `oa-gen generate:guards`를 통한 제로-eval 타입 가드(`isUser`) 생성.
+- **[TypeSpec Behavior / 런타임 데이터 스키마 작성 연구 및 지침](../spec-governance/typespec-behavior-schema-authoring-research.md)**: TypeSpec을 Behavior/FSM의 Data Schema SSOT로 사용하고 Topology/바인딩은 독립 소유하는 Partial adopt 표준 ([TypeSpec 저작 규칙 부록 9](./typespec-authoring-conventions.md#9-부록-behavior-및-런타임-데이터-스키마-작성-지침-partial-adopt) 연계).
 - **[스키마 아키텍처 및 작성 규칙](./schema-architecture-and-conventions.md)**: TypeSpec $\rightarrow$ JSON Schema 2020-12 $\rightarrow$ OAS 3.1/3.2 $\rightarrow$ Standalone AJV Type Guards 파이프라인, 비디오 트랜지션 파라미터 표준.
 - **[스키마 대수 (Schema Algebra)](./schema-algebra.md)**: 재사용 가능한 복합 모델 합성 및 fold 패턴.
 - **[스키마 어노테이션 컨벤션](./schema-annotations.md)**: 작성자 메모, 내부 메타데이터 표기 표준.
@@ -163,6 +164,7 @@ HTTP 전송 계층 없이 브라우저 확장프로그램(MV3), Worker IPC, WebS
 - **[기본 스펙 사용 기준](./basic-spec-usage.md)**: 이 저장소의 TypeSpec 스펙 원본과 생성물(Generated Artifacts)의 소유권 경계 및 파이프라인.
 - **[선언적 스펙 설정 (oa.config.ts)](./declarative-spec-configuration.md)**: 다중 프로파일(`operation-contract`, `component-bundle`), 라이프사이클 아키타입, 출력 라우팅 설정.
 - **[멀티 티어 스키마 및 ttsc·Atlas 역할 분리 가이드](./schema-architecture-and-ttsc-guide.md)**: 4계층(Storage, Logical, API, Behavior) 경계, ttsc AOT Standard Schema, Atlas 물리 DB 연계.
+- **로컬 Breaking Diff 및 Schema Drift 검출**: `pnpm check:local-diff` 및 `pnpm check:local-drift`를 통해 CI 실행 전 로컬에서 스키마 브레이킹 변경과 런타임 드리프트를 즉시 감지.
 - **[OpenAPI Governance Workflow](./use-cases/openapi-governance-workflow.md)**: target sidecar와 PR review gate(`oa-gen review-bundle`).
 - **[외부 서비스 거버넌스 템플릿](./openapi-governance-service-template.md)**: NestJS, FastAPI 등 런타임 추출 스펙의 거버넌스 파이프라인.
 
@@ -247,6 +249,10 @@ TypeSpec(`.tsp`)을 단일 정본(SSOT)으로 삼아 디스크 I/O 없이 인메
   - `spec-lens scenario` CLI(`list`, `inspect`, `preview`, `verify`, `export`), `docs/artifacts/scenarios/` 아티팩트 규격, 듀얼 프리뷰어(터미널 ASCII & 웹 UI) 및 거버넌스 컨벤션.
 - **[Ariga Atlas 물리 DB 스키마 드리프트 거버넌스 가이드](./use-cases/atlas-schema-drift-governance.md)**:
   - `atlas schema inspect --format json` 출력을 읽기 전용 카탈로그 증거로 소비하여 `@storageRef` 매핑과 물리 컬럼 간의 불일치를 CI에서 100% 정적 탐지 (Zero DB Write).
+- **[TypeSpec Behavior / 런타임 데이터 스키마 작성 연구 및 PoC](../spec-governance/typespec-behavior-schema-authoring-research.md)**:
+  - TypeSpec data shape $\rightarrow$ Draft 2020-12 $\rightarrow$ Standard Schema v1 어댑터 $\rightarrow$ XState v5(`setup.types`) 및 v6(`setup.schemas` / state-level schemas) 검증 (14/14 tests pass, Partial adopt 판정).
+- **[공유 컨텍스트 협업 하네스 계약 평가 리포트](../spec-governance/shared-context-harness-contract-evaluation.md)**:
+  - `@oa-sdk/tools` 기반 Read-Only 도구 인터페이스(MCP/CLI/REST) 및 fail-closed 보안 경계 검증 (22/22 tests pass).
 
 ---
 
