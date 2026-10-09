@@ -20,6 +20,10 @@ export interface PeerServerOptions {
   maxBodyBytes?: number | undefined
   /** Maximum number of in-flight provider calls (default: 1024). */
   maxPendingCalls?: number | undefined
+  /** Enable WebSocket signaling & packet relay server (default: false) */
+  enableRelay?: boolean | undefined
+  /** Enable Cloud Transit proxy routes at /transit/:peer/mcp (default: false) */
+  enableCloudTransit?: boolean | undefined
 }
 
 /** JSON-RPC tool call the server forwards to a provider socket. */

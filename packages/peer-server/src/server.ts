@@ -16,6 +16,8 @@ import {
   ToolCallRequestSchema,
   type RequestSchema,
 } from './request-schemas.js'
+import { attachWebSocketRelay, PeerRelayManager } from './relay/index.js'
+import { handleCloudTransitHttpRequest } from './cloud/index.js'
 
 const DEFAULT_MAX_BODY_BYTES = 1024 * 1024
 const MAX_CONFIGURED_BODY_BYTES = 16 * 1024 * 1024
@@ -89,6 +91,7 @@ export interface PeerServerInstance {
   hostname: string
   roomManager: PeerRoomManager
   store: FilePeerStore
+  relayManager?: PeerRelayManager | undefined
   start: () => Promise<{ port: number; hostname: string }>
   close: () => Promise<void>
 }
@@ -113,6 +116,7 @@ export function createPeerServer(options: PeerServerOptions = {}): PeerServerIns
   const store = new FilePeerStore(options.storePath)
   const roomManager = new PeerRoomManager()
   const homeTools = createHomeMcpTools(roomManager)
+  const relayManager = (options.enableRelay || options.enableCloudTransit) ? new PeerRelayManager() : undefined
 
   const jsonResponse = (res: ServerResponse, status: number, body: unknown) => {
     // Header values are selected by the request handler; never reflect an
@@ -144,6 +148,10 @@ export function createPeerServer(options: PeerServerOptions = {}): PeerServerIns
   })
   server.requestTimeout = 30_000
   server.headersTimeout = 10_000
+
+  const relayHandler = options.enableRelay && relayManager
+    ? attachWebSocketRelay(server, { relayManager, allowedOrigins: options.allowedOrigins, publishKey: options.publishKey })
+    : undefined
 
   async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const origin = allowedOrigin(req, options.allowedOrigins)
@@ -303,6 +311,58 @@ export function createPeerServer(options: PeerServerOptions = {}): PeerServerIns
       return
     }
 
+    // 5b. P2P Join Endpoint (/p/:id/join)
+    if (pathname.startsWith('/p/') && pathname.endsWith('/join')) {
+      if (req.method !== 'POST') {
+        jsonResponse(res, 405, { error: 'Method Not Allowed' })
+        return
+      }
+      const match = pathname.match(/^\/p\/([a-f0-9]{32})\/join$/)
+      if (!match || !relayManager) {
+        jsonResponse(res, 404, { error: 'Room not found' })
+        return
+      }
+      const roomId = match[1]!
+      const authHeader = req.headers.authorization
+      const inviteToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : (authHeader ?? '')
+      try {
+        const chunks: Buffer[] = []
+        let bodyBytes = 0
+        for await (const chunk of req) {
+          const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+          bodyBytes += buf.byteLength
+          if (bodyBytes > 1024) throw new RequestError(413, 'Request body too large')
+          chunks.push(buf)
+        }
+        const body = chunks.length > 0 ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {}
+        const clientLabel = typeof body.clientLabel === 'string' ? body.clientLabel : 'client'
+        const joined = await relayManager.claimInvitation(roomId, inviteToken, clientLabel)
+        jsonResponse(res, 201, joined)
+      } catch (err: unknown) {
+        if (err instanceof RequestError) {
+          jsonResponse(res, err.status, { error: err.message })
+          return
+        }
+        const message = err instanceof Error ? err.message : 'UNAUTHORIZED'
+        const status = message === 'UNAUTHORIZED' ? 401 : message === 'ROOM_BUSY' ? 409 : 400
+        jsonResponse(res, status, { error: message })
+      }
+      return
+    }
+
+    // 5c. Relay Room Creation (/relay/rooms)
+    if (relayManager && req.method === 'POST' && pathname === '/relay/rooms') {
+      const { room, providerToken, inviteToken } = await relayManager.createRoom()
+      jsonResponse(res, 201, {
+        id: room.state.id,
+        providerToken,
+        inviteToken,
+        descriptorUrl: `http://${hostname}:${port}/p/${room.state.id}/mcp`,
+        expiresAt: room.state.expiresAt,
+      })
+      return
+    }
+
     // 6. Home MCP Endpoint (/home/mcp)
     if (pathname === '/home/mcp') {
       if (req.method === 'GET') {
@@ -371,6 +431,19 @@ export function createPeerServer(options: PeerServerOptions = {}): PeerServerIns
       }
     }
 
+    // 7. Cloud Transit Proxy (/transit/:peer/mcp or /mcp)
+    if (options.enableCloudTransit && (pathname.startsWith('/transit/') || pathname === '/mcp')) {
+      const handled = await handleCloudTransitHttpRequest(req, res, {
+        roomManager,
+        store,
+        defaultAlias: options.defaultAlias,
+        publishKey: options.publishKey,
+        allowedOrigins: options.allowedOrigins,
+        maxBodyBytes,
+      })
+      if (handled) return
+    }
+
     jsonResponse(res, 404, { error: 'Not Found', path: pathname })
   }
 
@@ -380,6 +453,7 @@ export function createPeerServer(options: PeerServerOptions = {}): PeerServerIns
     hostname,
     roomManager,
     store,
+    relayManager,
     start: async () => {
       return new Promise((resolve, reject) => {
         const onError = (error: Error) => {
@@ -388,7 +462,9 @@ export function createPeerServer(options: PeerServerOptions = {}): PeerServerIns
         }
         const onListening = () => {
           server.off('error', onError)
-          resolve({ port, hostname })
+          const addr = server.address()
+          const boundPort = typeof addr === 'object' && addr ? addr.port : port
+          resolve({ port: boundPort, hostname })
         }
         server.once('error', onError)
         server.once('listening', onListening)
@@ -397,6 +473,8 @@ export function createPeerServer(options: PeerServerOptions = {}): PeerServerIns
     },
     close: async () => {
       roomManager.dispose()
+      if (relayHandler) await relayHandler.close()
+      else if (relayManager) relayManager.dispose()
       return new Promise((resolve, reject) => {
         if (!server.listening) {
           resolve()

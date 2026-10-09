@@ -27,15 +27,16 @@ graph TD
 
 | 패키지 | 런타임 의존성 | 제공 기능 | 핵심 인터페이스 |
 | --- | --- | --- | --- |
-| `@oa-sdk/peer-server` | `@oa-sdk/peer-transport` | 기본 포트 8787의 HTTP registry, `/p/:id/mcp` rendezvous descriptor, Home MCP 진단 도구, 로컬 peer store | `createPeerServer()`, `FilePeerStore`, `PeerRoomManager` |
-| `@oa-sdk/peer-transport` | 외부 npm 의존성 없음; Node.js API 사용 | HTTP bridge client, 주입된 전송 함수를 사용하는 3채널 패킷 추상화, 제한된 메모리 큐 | `P2pTransportChannel`, `WebMcpBridgeClient` |
+| `@oa-sdk/peer-server` | `@oa-sdk/peer-transport`, `ws` | 기본 포트 8787의 HTTP registry, `/p/:id/mcp` descriptor, Home MCP 진단 도구, 로컬 peer store, WebSocket signaling 및 패킷 중계(`@oa-sdk/peer-server/relay`), Cloud Transit Proxy(`/transit/:peer/mcp`, `@oa-sdk/peer-server/cloud`) | `createPeerServer()`, `SignalingRoom`, `PeerRelayManager`, `CloudTransitProxy`, `FilePeerStore`, `PeerRoomManager` |
+| `@oa-sdk/peer-transport` | 외부 npm 의존성 없음; Node.js 및 브라우저 API 사용 | HTTP bridge client, 주입된 전송 함수를 사용하는 3채널 패킷 추상화, 제한된 메모리 큐, WebSocket 전송 어댑터 및 Cloud Transit 클라이언트(`@oa-sdk/peer-transport/adapters`), signaling wire protocol 계약 | `P2pTransportChannel`, `WebMcpBridgeClient`, `WebSocketTransportAdapter`, `CloudTransitClient`, `parseSignalMessage` |
 | `@oa-sdk/collab-workspace` | `@oa-sdk/chunk-stream-crdt` | 인메모리 파일·라인 상태 병합, AI line/block edit, IntentLock, delta/presence 이벤트 | `WorkspaceTreeLattice`, `AiEditorActor`, `WorkspaceSyncer` |
 | `@oa-sdk/mcp-mesh` | `tools`, `peer-server`, `peer-transport`, `collab-workspace`, Commander | 도메인별 스킬과 복수 세션 등록, namespace 라우팅, 메타 스킬 준비성 검사, CLI | `SkillRegistry`, `MeshRouter`, `hydratePeerSession()` |
 | `@oa-sdk/tools` | Hono, MCP SDK, Commander, Ajv, ajv-formats 등 | MCP/HTTP/CLI adapter, JSON Schema Draft 2020-12 검증 | `defineTool()`, `createMcpServer()`, `createHttpApp()` |
 
-`P2pTransportChannel`은 WebRTC 연결이나 SDP/ICE 교환을 구현하지 않는다. 호스트 adapter가 연결 상태와
-패킷 전송 함수를 제공하고, 수신 패킷을 `receivePacket()`에 넘겨야 한다. `WorkspaceSyncer`도
-파일 watcher, 디스크 쓰기, 네트워크 구독 또는 커서 UI를 자동으로 설치하지 않는다.
+`P2pTransportChannel`은 기본적으로 네트워크 비의존 추상화이며, `@oa-sdk/peer-transport/adapters`의
+`WebSocketTransportAdapter`를 통해 WebSocket 릴레이 서버로 중계 연결하거나 사용자 정의 WebRTC DataChannel을
+연결할 수 있다. 방화벽 환경에서 P2P 직접 연결이 제한될 때는 peer-server가 duplex packet relay 역할을 수행한다.
+`WorkspaceSyncer`도 파일 watcher, 디스크 쓰기, 네트워크 구독 또는 커서 UI를 자동으로 설치하지 않는다.
 
 ## 보안·처리 경계
 

@@ -270,7 +270,7 @@ importers:
         version: 8.5.1(postcss@8.5.8)(tsx@4.23.12)(typescript@5.9.3)(yaml@2.9.1)
       vitest:
         specifier: ^4.1.4
-        version: 4.1.4(@opentelemetry/api@1.9.0)(@types/node@22.20.1)(happy-dom@20.14.5)(msw@2.13.4(@types/node@22.20.1)(typescript@5.9.3))(vite@8.0.8(@types/node@22.20.1)(esbuild@0.27.7)(tsx@4.23.12)(yaml@2.9.1))
+        version: 4.1.4(@opentelemetry/api@1.9.0)(@types/node@22.20.1)(happy-dom@20.14.5)(msw@2.13.4(@types/node@22.20.1)(typescript@5.9.3))(vite@8.0.8(@types/node@22.20.1)(esbuild@0.28.2)(tsx@4.23.12)(yaml@2.9.1))
       zod:
         specifier: ^4.6.5
         version: 4.6.5
@@ -674,10 +674,16 @@ importers:
       '@oa-sdk/peer-transport':
         specifier: workspace:*
         version: link:../peer-transport
+      ws:
+        specifier: ^8.22.0
+        version: 8.22.0
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
         version: 22.20.1
+      '@types/ws':
+        specifier: ^8.18.2
+        version: 8.18.2
       tsup:
         specifier: ^8.0.0
         version: 8.5.1(postcss@8.5.8)(tsx@4.23.12)(typescript@5.9.3)(yaml@2.9.1)
@@ -686,7 +692,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.4
-        version: 4.1.4(@opentelemetry/api@1.9.0)(@types/node@22.20.1)(happy-dom@20.14.5)(msw@2.13.4(@types/node@22.20.1)(typescript@5.9.3))(vite@8.0.8(@types/node@22.20.1)(esbuild@0.28.2)(tsx@4.23.12)(yaml@2.9.1))
+        version: 4.1.4(@opentelemetry/api@1.9.0)(@types/node@22.20.1)(happy-dom@20.14.5)(msw@2.13.4(@types/node@22.20.1)(typescript@5.9.3))(vite@8.0.8(@types/node@22.20.1)(esbuild@0.27.7)(tsx@4.23.12)(yaml@2.9.1))
 
   packages/peer-transport:
     devDependencies:
@@ -3051,6 +3057,9 @@ packages:
 
   '@types/ws@8.18.1':
     resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
+
+  '@types/ws@8.18.2':
+    resolution: {integrity: sha512-67MQl+fpWKVTT1NYdnmo3U4sc/xPo/zQBncVnI74qmQa0z/b+1g6iYqNmGCPbxO+zz2aklb08a0oHfegiVd0/w==}
 
   '@typescript/typescript-aix-ppc64@7.0.2':
     resolution: {integrity: sha512-MTKKkWB7p/0E9xi1d1tHtZ5PiLkGEMIq88pK2CubZjOsLtYTLqhgIgi6zepFa+9GHZ6h05NMCkQxGKiPXMxXtQ==}
@@ -6652,6 +6661,18 @@ packages:
       utf-8-validate:
         optional: true
 
+  ws@8.22.0:
+    resolution: {integrity: sha512-Ydggc987+RO0AnWtZ/7Wq9FtNvcrL1b/RO0ud9mWjUPgDrsAAwQSF51sm2hm1XofbU/4jkpGEsLFsZZxU+1DOg==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
   xstate@5.33.2:
     resolution: {integrity: sha512-8tC7yXgeCvpT8gKEeEje6ikJJG1wpnoLiXe+HfECW8m10ubMd3QxKOwWA8KxPJVBcLwfdRoMKYxIBGYKmo37/A==}
 
@@ -8834,6 +8855,10 @@ snapshots:
   '@types/whatwg-mimetype@3.0.2': {}
 
   '@types/ws@8.18.1':
+    dependencies:
+      '@types/node': 22.20.1
+
+  '@types/ws@8.18.2':
     dependencies:
       '@types/node': 22.20.1
 
@@ -12912,6 +12937,8 @@ snapshots:
   ws@7.5.10: {}
 
   ws@8.21.3: {}
+
+  ws@8.22.0: {}
 
   xstate@5.33.2: {}
 

@@ -1,32 +1,29 @@
 # @oa-sdk/peer-server
 
-WebMCP peer registry, HTTP bridge route와 provider room을 제공하는 Node.js 서버입니다.
+WebMCP peer registry, HTTP bridge route, WebSocket signaling relay, 그리고 Cloud Transit Proxy를 제공하는 서버 라이브러리입니다.
 전체 구성은 [WebMCP 피어링·전송·협업·메시 아키텍처](../../docs/concepts/webmcp-peering-mesh-and-collab.md)를 참조하십시오.
 
 ## 기능
 
-- 기본 포트 8787에서 `/status`, `/tools`, `/announce`, `/call`을 제공합니다.
-- `GET /p/:id/mcp`는 signaling URL과 ICE 설정을 담은 rendezvous descriptor를 반환합니다.
-  `POST`는 `426 P2P_TRANSPORT_REQUIRED`를 반환합니다.
-- `PeerRoomManager`는 호스트가 연결한 provider socket으로 RPC를 보내고 응답을 연결합니다.
-  HTTP `/call`은 provider를 최대 3.5초 기다리고, 전송 후 응답은 최대 30초 기다립니다.
-- `/home/mcp`는 서버 진단용 tool catalog와 JSON-RPC `tools/list`, `tools/call`을 처리합니다.
-- `FilePeerStore`는 기본 `~/.webmcp/peers.json`에 peer metadata와 tool catalog를 원자적으로 저장합니다.
-  저장되는 tool은 `name`, `description`, `inputSchema`만 가집니다.
-- 연결된 peer의 `GET /tools`는 `/announce`로 받은 tool member를 그대로 반환합니다(`title`,
-  `annotations`, `outputSchema`, `_meta` 등). `description`이나 `inputSchema`의 타입이 틀리면
-  announce가 400으로 거부됩니다. 타입이 틀린 `title`, `annotations`, `outputSchema`와 JSON 값이
-  아닌 그 밖의 member는 announce를 거부하지 않고 catalog에서만 뺍니다.
+- **HTTP Peering & Registry**: 기본 포트 8787에서 `/status`, `/tools`, `/announce`, `/call`을 제공합니다.
+- **Rendezvous & Descriptors**: `GET /p/:id/mcp`는 signaling URL과 ICE 설정을 담은 descriptor를 반환하며, `POST`는 `426 P2P_TRANSPORT_REQUIRED`를 반환합니다.
+- **WebSocket Signaling & Packet Relay** (`@oa-sdk/peer-server/relay`):
+  - `SignalingRoom`: 7단계 FSM (`provider-wait` -> `client-wait` -> `pending` -> `approved` -> `offered` -> `answered` -> `closed`), 48-hex 티켓 인증.
+  - `PeerRelayManager` / `attachWebSocketRelay`: Node.js `ws` 및 Edge/Cloudflare Workers (`WebSocketPair`) 호환 signaling 및 duplex packet relay 지원.
+  - 직접 WebRTC DataChannel 수립이 불가능한 방화벽 환경에서 3채널(`mcp-jsonrpc`, `crdt-delta`, `presence`) 패킷을 안전하게 중계합니다.
+- **Cloud Transit Proxy** (`@oa-sdk/peer-server/cloud`):
+  - `POST /transit/:peer/mcp` 및 `POST /mcp`를 통해 Streamable HTTP MCP JSON-RPC 2.0 요청(`initialize`, `ping`, `tools/list`, `tools/call`)을 처리하고 피어로 라우팅합니다.
+  - Cloudflare Worker 환경용 `handleCloudTransitWorker` 제공.
+- **Home MCP Endpoint**: `/home/mcp`는 서버 진단용 tool catalog와 JSON-RPC 제어를 제공합니다.
+- **FilePeerStore**: `~/.webmcp/peers.json`에 peer metadata와 tool catalog를 원자적으로 저장합니다.
 
-서버는 WebSocket upgrade handler나 SDP/ICE 교환을 구현하지 않습니다. descriptor의 `/ws` URL을
-사용하려면 호스트가 signaling adapter를 제공해야 합니다. `/announce`의 metadata 등록만으로
-실행 가능한 provider socket이 연결되지는 않습니다.
-
-## 사용
+## 사용법
 
 ```bash
 pnpm add @oa-sdk/peer-server
 ```
+
+### 1. 단일 서버에서 Peering + Relay + Cloud Transit 가동
 
 ```typescript
 import { createPeerServer } from '@oa-sdk/peer-server'
@@ -35,15 +32,31 @@ const server = createPeerServer({
   port: 8787,
   hostname: '127.0.0.1',
   publishKey: process.env.WEBMCP_PUBLISH_KEY,
+  enableRelay: true,          // WebSocket signaling & 패킷 중계 활성화
+  enableCloudTransit: true,   // /transit/:peer/mcp 엔드포인트 활성화
   allowedOrigins: ['http://localhost:3000'],
 })
 
-await server.start()
-// 종료 시: await server.close()
+const { port } = await server.start()
+console.log(`WebMCP Peer Server listening on port ${port}`)
 ```
 
-loopback 외부 listener에는 `publishKey`가 필수입니다. 키를 설정하면 HTTP 요청은
-`Authorization: Bearer <key>` 또는 `X-Peer-Publish-Key`로 인증해야 합니다. CORS preflight는
-별도로 처리합니다. 본문은 기본 1MiB, 최대 16MiB로 제한하며 상태 응답에서는 token과 invitation URL을 제거합니다.
+### 2. Edge / Cloudflare Workers 환경 배포
 
-`peer-server`는 `peer-transport`의 계약을 사용하고, `mcp-mesh`가 서버·클라이언트 API를 조합합니다.
+```typescript
+import {
+  SignalingRoom,
+  CloudTransitProxy,
+  handleCloudTransitWorker,
+} from '@oa-sdk/peer-server'
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url)
+    if (url.pathname.startsWith('/transit/')) {
+      return handleCloudTransitWorker(request, transitProxy)
+    }
+    // ...
+  }
+}
+```

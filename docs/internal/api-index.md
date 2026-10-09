@@ -1757,12 +1757,15 @@ peer registry 호출 및 deadline·session epoch·channel별 queue를 가진 P2P
 | `TransportChannelType`, `DataChannelPacket`, `TRANSPORT_CHANNELS` | `peer-transport/src/types.ts` | 채널 이름과 packet envelope 계약 |
 | `WebMcpBridgeClient` | `peer-transport/src/bridge-client.ts` | peer 조회·RPC·재시도 bridge client |
 | `ChannelListener`, `P2pChannelConfig`, `P2pTransportChannel` | `peer-transport/src/p2p-channel.ts` | P2P channel 설정·수신 listener·전송 lifecycle |
+| `PeerRole`, `SignalingPhase`, `WEBMCP_SUBPROTOCOL`, `MAX_SIGNAL_BYTES`, `MAX_RELAY_BYTES`, `DEFAULT_ROOM_TTL_MS`, `SignalMessage`, `CloudTransitCallPayload`, `CloudTransitCallResponse`, `parseSignalMessage`, `validateSdp`, `isRelayPacket` | `peer-transport/src/relay-protocol.ts` | WebMCP signaling wire protocol, SDP 검증기, 바이트 한도 및 relay 패킷 판별 |
+| `WebSocketTransportAdapterOptions`, `WebSocketTransportAdapter`, `createWebSocketTransportAdapter` | `peer-transport/src/adapters/websocket-adapter.ts` | WebSocket 릴레이 기반 P2P 채널 호스트 전송 어댑터 |
+| `CloudTransitClientConfig`, `CloudTransitClient`, `createCloudTransitClient` | `peer-transport/src/adapters/cloud-transit-client.ts` | Cloud Transit Proxy 경유 Streamable HTTP MCP 호출 클라이언트 |
 
 ---
 
 ## Peer Registry와 Signaling Server (`@oa-sdk/peer-server`)
 
-peer 저장소, room registry, home MCP 도구 및 HTTP server lifecycle을 제공한다.
+peer 저장소, room registry, home MCP 도구, WebSocket signaling/packet 중계 및 Cloud Transit Proxy를 제공한다.
 
 | Export | 정의 | 용도 |
 |---|---|---|
@@ -1771,6 +1774,9 @@ peer 저장소, room registry, home MCP 도구 및 HTTP server lifecycle을 제�
 | `PeerRoomManagerOptions`, `PeerRoomManager` | `peer-server/src/room.ts` | peer room·세션 관리 |
 | `createHomeMcpTools` | `peer-server/src/home-mcp.ts` | home MCP 도구 생성 |
 | `PeerServerInstance`, `createPeerServer` | `peer-server/src/server.ts` | peer 서버 생성과 lifecycle handle |
+| `SignalingRoomState`, `RoomDelivery`, `sha256Hex`, `randomHex`, `SignalingRoom` | `peer-server/src/relay/signaling-room.ts` | signaling room FSM, 티켓 인증, duplex packet relay 및 rendezvous descriptor |
+| `RelaySocket`, `PeerRelayManagerOptions`, `WebSocketRelayOptions`, `PeerRelayManager`, `extractTicketFromRequest`, `attachWebSocketRelay` | `peer-server/src/relay/websocket-relay.ts` | Node.js WebSocket 릴레이 서버 및 서브프로토콜/티켓 업그레이드 핸들러 |
+| `CloudTransitOptions`, `McpRpcRequest`, `McpRpcResponse`, `CloudTransitProxy`, `handleCloudTransitHttpRequest`, `handleCloudTransitWorker` | `peer-server/src/cloud/transit-proxy.ts` | Streamable HTTP MCP JSON-RPC 2.0 Cloud Transit Proxy 및 Edge/Worker 핸들러 |
 
 ---
 
