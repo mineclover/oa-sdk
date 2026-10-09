@@ -248,6 +248,7 @@ browserGenerateTypesFromSpec({
       '.',
       './apitomy',
       './drizzle',
+      './plugin',
       './spec-lens',
       './typegen',
       './typegen/browser',
