@@ -35,6 +35,24 @@ export type {
 } from './client-types.js'
 
 export {
+  BinaryCodecRegistry,
+  MessagePackAdapter,
+  messagePackAdapter,
+  encodeMessagePack,
+  decodeMessagePack,
+  ProtobufAdapter,
+  createProtobufAdapter,
+  RawBinaryAdapter,
+  createRawBinaryAdapter,
+} from './codec/index.js'
+
+export type {
+  BinaryCodecAdapter,
+  BinaryBodyInit,
+  ProtobufAdapterOptions,
+} from './codec/index.js'
+
+export {
   generateCrdtClient,
   generateCrdtClientFromParsed,
   generateCrdtHooks,

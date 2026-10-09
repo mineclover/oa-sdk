@@ -1,0 +1,9 @@
+%% --- Scenario: 스키마 변경 파급 효과 분석 (breaking-impact-analysis) ---
+stateDiagram-v2
+    [*] --> timeline: START_SCENARIO ("breaking-impact-analysis")
+    timeline --> diff: REQUEST_DIFF [require-diff-pair]
+    diff --> diff: FILTER_BREAKING_CHANGES
+    diff --> graph: SELECT_FRAGMENT_SYMBOL [require-symbol-id]
+    graph --> graph: COMPLETE_GOAL
+    graph --> diff: REQUEST_DIFF [require-diff-pair]
+    graph --> [*]: COMPLETE_GOAL (impact-assessed)

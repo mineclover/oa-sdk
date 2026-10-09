@@ -1,0 +1,14 @@
+digraph "spec-drift-triage" {
+  rankdir=LR;
+  node [shape=box, style="rounded,filled", fillcolor="#f8fafc", fontname="sans-serif"];
+  edge [fontname="sans-serif", fontsize=10];
+  __start [shape=circle, label="", style=filled, fillcolor=black, width=0.2];
+  __start -> "timeline" [label="START"];
+  "timeline" -> "diff" [label="REQUEST_DIFF\n[require-diff-pair]"];
+  "diff" -> "paths" [label="INSPECT_ENDPOINT_PROVENANCE\n[require-path-pattern]"];
+  "paths" -> "paths" [label="COMPLETE_GOAL"];
+  "paths" -> "diff" [label="REQUEST_DIFF\n[require-diff-pair]"];
+  "diff" -> "timeline" [label="SELECT_REVISION"];
+  __end_drift-resolved [shape=doublecircle, label="", style=filled, fillcolor=black, width=0.2];
+  "paths" -> __end_drift-resolved [label="GOAL: drift-resolved"];
+}

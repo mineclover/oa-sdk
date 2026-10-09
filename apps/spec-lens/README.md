@@ -46,7 +46,11 @@ pnpm exec tsx packages/spec-lens/src/cli.ts
 
 ## 대시보드 쉘 & UX 패턴
 
-- **URL SearchParams 양방향 동기화**: `view`, `base`, `head`, `revision`, `search`, `scope`, `domain` 등의 모든 상태가 쿼리 파라미터에 실시간 반영되어 딥링크 공유 및 브라우저 뒤로가기/앞으로가기 네비게이션 완벽 지원.
+- **URL SearchParams 양방향 동기화**: `view`, `base`, `head`, `revision`, `search`, `scope`, `domain`, `scenario` 등의 모든 상태가 쿼리 파라미터에 실시간 반영되어 딥링크 공유 및 브라우저 뒤로가기/앞으로가기 네비게이션 완벽 지원.
+- **유저 시나리오 네비게이션 FSM 엔진 (`?scenario=<id>`)**:
+  - `ScenarioSelector`: 사이드바 상단에서 `🌐 자유 탐색`과 4대 표준 유저 시나리오(`spec-drift-triage`, `endpoint-exploration`, `breaking-impact-analysis`, `circular-ref-diagnostic`)를 즉시 전환.
+  - `ScenarioProgressHUD`: 활성 시나리오의 페르소나, 목표 진행 상태, 완료 CTA 버튼, 원자적 되돌리기(`← 이전 단계`)를 상단 헤더 바로 실시간 안내.
+  - `ScenarioFlowModal`: 현재 시나리오의 전체 FSM 전이 행렬과 Mermaid 흐름도를 시각화하고 현재 뷰 위치 하이라이트.
 - **접이식 사이드바 (Collapsible Sidebar)**: 60px 컴팩트 아이콘 모드로 축소하여 Monaco Editor 가로 해상도 극대화.
 - **피드백 시스템**: `FeedbackContext`를 통한 인라인 비동기 `Dialog` 및 알림 `Toast` (네이티브 `alert`/`confirm` 완전 대체).
 - **다국어(i18n)**: 영어(EN) 및 한국어(KO) 1:1 완비, `localStorage` 영속화.

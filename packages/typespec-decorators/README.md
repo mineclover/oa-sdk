@@ -179,6 +179,42 @@ Known limitation: the generated CRDT router file is always a Hono WebSocket rout
 the `oa-gen init` pattern), and write the result to a file of your own, because the next
 `oa-gen generate` run overwrites the generated CRDT router file.
 
+### `@actorInput`, `@machineContext`, `@eventPayload(eventType?)`, `@behaviorRef(behaviorId)`
+Decorators for XState / Behavior runtime data shape modeling (resolving Issue #1). They are exported from
+`@oa-sdk/typespec-decorators/behavior` and the root package:
+- `@actorInput`: marks a model as an Actor Input contract (`x-oa-sdk-behavior-actor-input: true`).
+- `@machineContext`: marks a model as a Machine Context contract (`x-oa-sdk-behavior-machine-context: true`).
+- `@eventPayload(eventType?)`: marks a model as an Event Payload (`x-oa-sdk-behavior-event-payload: { eventType }`).
+- `@behaviorRef(behaviorId)`: links a model to a canonical Behavior IR artifact ID (`x-oa-sdk-behavior-ref: { behaviorId }`).
+
+These decorators specify only the **Data Shape** of state machine contracts; the FSM transitions, topology, and action execution
+remain owned by the external Behavior IR (WIREFRAME-BOOK). In production API compilation (`approved.openapi.yaml`), these
+extensions are strictly stripped or kept internal.
+
+### `@storageRef(target)` & `@storageCatalog(catalogName)`
+Decorators for linking TypeSpec models with Ariga Atlas physical database evidence without DDL mutation. Exported from
+`@oa-sdk/typespec-decorators/storage` and the root package:
+- `@storageRef(target)`: binds a model or model property to a physical table or column identifier (`x-oa-sdk-storage-ref: { target }`).
+- `@storageCatalog(catalogName)`: binds a namespace to a physical database catalog (`x-oa-sdk-storage-catalog: { catalog }`).
+
+Consumed by `@oa-sdk/dpm` and `oa-erd check` to perform static drift verification against `atlas schema inspect --format json`.
+
+## 3. Purpose-Driven Modular Subpaths
+
+To avoid schema pollution and cross-domain coupling in large projects, `@oa-sdk/typespec-decorators` provides modular entrypoints:
+
+```typespec
+// Import only the slice you need
+import "@oa-sdk/typespec-decorators/api";        // HTTP responses & @oaUseResponseComponent
+import "@oa-sdk/typespec-decorators/governance"; // @personaCapability & @pseudonymize
+import "@oa-sdk/typespec-decorators/crdt";       // @crdt & @crdtEntity
+import "@oa-sdk/typespec-decorators/behavior";   // @actorInput, @machineContext, etc.
+import "@oa-sdk/typespec-decorators/storage";    // @storageRef & @storageCatalog
+```
+
+For complete architecture details and toolchain boundary rules (including `ttsc` AOT Standard Schema compilation for XState v6), see
+the [Schema Architecture and ttsc Guide](../../docs/guides/schema-architecture-and-ttsc-guide.md).
+
 ## Maintainers
 
 Because custom TypeSpec decorators execute JavaScript, this package is included

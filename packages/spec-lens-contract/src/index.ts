@@ -13,6 +13,8 @@ export const SPEC_LENS_TYPESPEC_RESTORE_CONTRACT_VERSION =
 export const SPEC_LENS_TYPESPEC_ISOLATION_POLICY_VERSION =
   'oa-sdk.spec-lens.typespec-isolation.v2' as const
 
+export * from './scenario/index.js'
+
 export const SPEC_LENS_PROJECT_KINDS = ['definition-builder', 'typespec-bundle'] as const
 export const SPEC_LENS_SOURCE_KINDS = ['github', 'gitlab', 'local-git', 'file'] as const
 

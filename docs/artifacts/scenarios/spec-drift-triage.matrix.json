@@ -1,0 +1,183 @@
+[
+  {
+    "scenarioId": "spec-drift-triage",
+    "title": "스펙 드리프트 감지 및 원인 규명",
+    "initialView": "timeline",
+    "boundedViews": [
+      "timeline",
+      "diff",
+      "paths"
+    ],
+    "reachableViews": [
+      "timeline",
+      "diff",
+      "paths"
+    ],
+    "deadEnds": [],
+    "paths": [
+      {
+        "steps": [
+          {
+            "from": "timeline",
+            "action": "REQUEST_DIFF",
+            "to": "diff",
+            "guardIds": [
+              "require-diff-pair"
+            ],
+            "description": "드리프트 리비전과 기준 스펙 간의 Diff 화면으로 진입합니다."
+          },
+          {
+            "from": "diff",
+            "action": "INSPECT_ENDPOINT_PROVENANCE",
+            "to": "paths",
+            "guardIds": [
+              "require-path-pattern"
+            ],
+            "description": "파손된 엔드포인트 단편의 생성 및 수정 이력을 역추적합니다."
+          }
+        ],
+        "reachedGoal": "drift-resolved",
+        "isTerminal": true
+      },
+      {
+        "steps": [
+          {
+            "from": "timeline",
+            "action": "REQUEST_DIFF",
+            "to": "diff",
+            "guardIds": [
+              "require-diff-pair"
+            ],
+            "description": "드리프트 리비전과 기준 스펙 간의 Diff 화면으로 진입합니다."
+          },
+          {
+            "from": "diff",
+            "action": "INSPECT_ENDPOINT_PROVENANCE",
+            "to": "paths",
+            "guardIds": [
+              "require-path-pattern"
+            ],
+            "description": "파손된 엔드포인트 단편의 생성 및 수정 이력을 역추적합니다."
+          },
+          {
+            "from": "paths",
+            "action": "COMPLETE_GOAL",
+            "to": "paths",
+            "description": "드리프트 원인 규명 및 해결 확인 완료."
+          }
+        ],
+        "reachedGoal": "drift-resolved",
+        "isTerminal": true
+      }
+    ],
+    "terminalPaths": [
+      {
+        "steps": [
+          {
+            "from": "timeline",
+            "action": "REQUEST_DIFF",
+            "to": "diff",
+            "guardIds": [
+              "require-diff-pair"
+            ],
+            "description": "드리프트 리비전과 기준 스펙 간의 Diff 화면으로 진입합니다."
+          },
+          {
+            "from": "diff",
+            "action": "INSPECT_ENDPOINT_PROVENANCE",
+            "to": "paths",
+            "guardIds": [
+              "require-path-pattern"
+            ],
+            "description": "파손된 엔드포인트 단편의 생성 및 수정 이력을 역추적합니다."
+          }
+        ],
+        "reachedGoal": "drift-resolved",
+        "isTerminal": true
+      },
+      {
+        "steps": [
+          {
+            "from": "timeline",
+            "action": "REQUEST_DIFF",
+            "to": "diff",
+            "guardIds": [
+              "require-diff-pair"
+            ],
+            "description": "드리프트 리비전과 기준 스펙 간의 Diff 화면으로 진입합니다."
+          },
+          {
+            "from": "diff",
+            "action": "INSPECT_ENDPOINT_PROVENANCE",
+            "to": "paths",
+            "guardIds": [
+              "require-path-pattern"
+            ],
+            "description": "파손된 엔드포인트 단편의 생성 및 수정 이력을 역추적합니다."
+          },
+          {
+            "from": "paths",
+            "action": "COMPLETE_GOAL",
+            "to": "paths",
+            "description": "드리프트 원인 규명 및 해결 확인 완료."
+          }
+        ],
+        "reachedGoal": "drift-resolved",
+        "isTerminal": true
+      }
+    ],
+    "matrix": [
+      {
+        "scenarioId": "spec-drift-triage",
+        "fromView": "timeline",
+        "actionType": "REQUEST_DIFF",
+        "toView": "diff",
+        "guardIds": [
+          "require-diff-pair"
+        ],
+        "isTerminal": false,
+        "description": "드리프트 리비전과 기준 스펙 간의 Diff 화면으로 진입합니다."
+      },
+      {
+        "scenarioId": "spec-drift-triage",
+        "fromView": "diff",
+        "actionType": "INSPECT_ENDPOINT_PROVENANCE",
+        "toView": "paths",
+        "guardIds": [
+          "require-path-pattern"
+        ],
+        "isTerminal": true,
+        "description": "파손된 엔드포인트 단편의 생성 및 수정 이력을 역추적합니다."
+      },
+      {
+        "scenarioId": "spec-drift-triage",
+        "fromView": "paths",
+        "actionType": "COMPLETE_GOAL",
+        "toView": "paths",
+        "guardIds": [],
+        "isTerminal": true,
+        "description": "드리프트 원인 규명 및 해결 확인 완료."
+      },
+      {
+        "scenarioId": "spec-drift-triage",
+        "fromView": "paths",
+        "actionType": "REQUEST_DIFF",
+        "toView": "diff",
+        "guardIds": [
+          "require-diff-pair"
+        ],
+        "isTerminal": false,
+        "description": "단편 확인 후 다시 Diff 화면으로 복귀하여 잔여 변경 검토."
+      },
+      {
+        "scenarioId": "spec-drift-triage",
+        "fromView": "diff",
+        "actionType": "SELECT_REVISION",
+        "toView": "timeline",
+        "guardIds": [],
+        "isTerminal": false,
+        "description": "다른 리비전을 추가 검토하기 위해 타임라인으로 복귀합니다."
+      }
+    ]
+  }
+]

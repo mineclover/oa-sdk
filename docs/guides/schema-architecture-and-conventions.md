@@ -29,7 +29,10 @@ sourceOfTruth:
 
 oa-sdk가 해결하는 문제와 가치는 [가이드 색인](./README.md#oa-sdk가-해결하는-문제와-핵심-가치)에, 이 저장소의 production
 계약을 다루는 방법은 [기본 스펙 사용 기준](./basic-spec-usage.md)에, `oa.config.ts` 항목별 동작은
-[선언적 스펙 설정 가이드](./declarative-spec-configuration.md)에 있습니다.
+[선언적 스펙 설정 가이드](./declarative-spec-configuration.md)에 있으며,
+Storage(Atlas), Logical(DPM), API(TypeSpec), Behavior(XState) 4계층 분리와 ttsc/Atlas 연계 경계는
+[멀티 티어 스키마 및 ttsc·Atlas 가이드](./schema-architecture-and-ttsc-guide.md)에 있습니다.
+
 
 ---
 

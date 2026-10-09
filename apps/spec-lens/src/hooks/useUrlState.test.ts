@@ -75,6 +75,12 @@ describe('parseUrlState', () => {
     const state = parseUrlState('?view=paths&search=%2Fapi%2Fv1%2Fusers%2F%7Bid%7D')
     expect(state.search).toBe('/api/v1/users/{id}')
   })
+
+  it('parses scenario parameter', () => {
+    const state = parseUrlState('?view=diff&base=a&head=b&scenario=spec-drift-triage')
+    expect(state.scenario).toBe('spec-drift-triage')
+    expect(state.view).toBe('diff')
+  })
 })
 
 describe('serializeUrlState', () => {

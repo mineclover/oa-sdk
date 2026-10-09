@@ -1,0 +1,9 @@
+%% --- Scenario: 스펙 드리프트 감지 및 원인 규명 (spec-drift-triage) ---
+stateDiagram-v2
+    [*] --> timeline: START_SCENARIO ("spec-drift-triage")
+    timeline --> diff: REQUEST_DIFF [require-diff-pair]
+    diff --> paths: INSPECT_ENDPOINT_PROVENANCE [require-path-pattern]
+    paths --> paths: COMPLETE_GOAL
+    paths --> diff: REQUEST_DIFF [require-diff-pair]
+    diff --> timeline: SELECT_REVISION
+    paths --> [*]: COMPLETE_GOAL (drift-resolved)

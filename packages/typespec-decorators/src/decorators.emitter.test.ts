@@ -207,5 +207,84 @@ options:
     expect(emitted).toContain('resolution: last-write-wins')
     expect(emitted).toContain('role: tombstone')
   }, 20_000)
+
+  it('emits behavior and storage extensions through modular subpaths in TypeSpec compiler', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'oa-sdk-typespec-behavior-fixture-'))
+    tmpDirs.push(directory)
+    const nodeModules = join(directory, 'node_modules')
+    mkdirSync(join(nodeModules, '@oa-sdk'), { recursive: true })
+    symlinkSync(join(workspaceRoot, 'node_modules', '@typespec'), join(nodeModules, '@typespec'), 'dir')
+    symlinkSync(join(workspaceRoot, 'packages', 'typespec-decorators'), join(nodeModules, '@oa-sdk', 'typespec-decorators'), 'dir')
+    writeFileSync(join(directory, 'main.tsp'), `
+import "@typespec/http";
+import "@typespec/openapi";
+import "@oa-sdk/typespec-decorators";
+
+using Http;
+using OpenAPI;
+using OaSdkTypeSpec;
+
+@service(#{ title: "Behavior and Storage fixture" })
+@storageCatalog("sqlite")
+namespace BehaviorFixture;
+
+@behaviorRef("scene-player.v1")
+@actorInput
+@storageRef("player_inputs")
+model PlayerActorInput {
+  @storageRef("player_inputs.scene_id")
+  sceneId: string;
+  autoplay?: boolean;
+}
+
+@machineContext
+model PlayerContext {
+  currentTime: float64;
+  playing: boolean;
+}
+
+@eventPayload("SEEK")
+model SeekEvent {
+  type: "SEEK";
+  time: float64;
+}
+
+@route("/player")
+op getPlayer(): PlayerActorInput;
+`)
+    writeFileSync(join(directory, 'tspconfig.yaml'), `
+kind: project
+entrypoint: main.tsp
+emit:
+  - "@typespec/openapi3"
+options:
+  "@typespec/openapi3":
+    openapi-versions:
+      - 3.2.0
+`)
+
+    try {
+      execFileSync(
+        join(workspaceRoot, 'node_modules', '.bin', 'tsp'),
+        ['compile', directory, '--output-dir', join(directory, 'output')],
+        { cwd: directory, encoding: 'utf8' },
+      )
+    } catch (error) {
+      const failure = error as { stderr?: string; stdout?: string; message: string }
+      throw new Error(`${failure.message}\n${failure.stdout ?? ''}${failure.stderr ?? ''}`)
+    }
+
+    const emittedPath = join(directory, 'output', '@typespec', 'openapi3', 'openapi.yaml')
+    expect(existsSync(emittedPath)).toBe(true)
+    const emitted = readFileSync(emittedPath, 'utf8')
+    expect(emitted).toContain('x-oa-sdk-behavior-actor-input: true')
+    expect(emitted).toContain('x-oa-sdk-behavior-ref:')
+    expect(emitted).toContain('behaviorId: scene-player.v1')
+    expect(emitted).toContain('x-oa-sdk-storage-ref:')
+    expect(emitted).toContain('target: player_inputs')
+    expect(emitted).toContain('target: player_inputs.scene_id')
+    expect(emitted).toContain('x-oa-sdk-storage-catalog:')
+    expect(emitted).toContain('catalog: sqlite')
+  }, 20_000)
 })
 

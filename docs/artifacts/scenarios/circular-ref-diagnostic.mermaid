@@ -1,0 +1,8 @@
+%% --- Scenario: 순환 참조 및 고아 스키마 진단 (circular-ref-diagnostic) ---
+stateDiagram-v2
+    [*] --> graph: START_SCENARIO ("circular-ref-diagnostic")
+    graph --> graph: HIGHLIGHT_DEPENDENCY_CYCLE [require-symbol-id]
+    graph --> paths: INSPECT_ENDPOINT_PROVENANCE [require-path-pattern]
+    paths --> paths: COMPLETE_GOAL
+    paths --> graph: SELECT_FRAGMENT_SYMBOL [require-symbol-id]
+    paths --> [*]: COMPLETE_GOAL (cycle-isolated)

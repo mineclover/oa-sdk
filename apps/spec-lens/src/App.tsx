@@ -8,11 +8,19 @@ import { FragmentGraph } from './views/FragmentGraph.js'
 import { api } from './api/client.js'
 import { useUrlState, type DashboardUrlState } from './hooks/useUrlState.js'
 import { FeedbackProvider } from './components/FeedbackContext.js'
+import {
+  ScenarioProvider,
+  ScenarioProgressHUD,
+  ScenarioFlowModal,
+  ScenarioSelector,
+} from './scenario/index.js'
 
 export function App() {
   return (
     <FeedbackProvider>
-      <AppShell />
+      <ScenarioProvider>
+        <AppShell />
+      </ScenarioProvider>
     </FeedbackProvider>
   )
 }
@@ -233,6 +241,13 @@ function AppShell() {
           </div>
         )}
 
+        {/* Scenario Selection */}
+        {!collapsed && (
+          <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)' }}>
+            <ScenarioSelector />
+          </div>
+        )}
+
         {/* Nav items */}
         <div style={{ padding: 8, flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
           {NAV_ITEMS.map((item) => (
@@ -293,6 +308,8 @@ function AppShell() {
 
       {/* Main content */}
       <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <ScenarioProgressHUD />
+        <ScenarioFlowModal />
         {view === 'timeline' && <Timeline onSelectDiff={openDiff} />}
         {view === 'diff' && diffIds && (
           <DiffView baseId={diffIds.base} headId={diffIds.head} onBack={goBack} />

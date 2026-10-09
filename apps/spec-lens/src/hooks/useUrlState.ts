@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 export interface DashboardUrlState {
   view: 'timeline' | 'graph' | 'paths' | 'diff'
+  scenario?: string
   baseId?: string
   headId?: string
   revisionId?: string
@@ -18,6 +19,7 @@ export interface UseUrlStateReturn {
   setView(view: DashboardUrlState['view'], push?: boolean): void
   setDiff(base: string, head: string, push?: boolean): void
   setRevision(revisionId: string, push?: boolean): void
+  setScenario(scenarioId?: string, push?: boolean): void
   setFilters(filters: Partial<Pick<DashboardUrlState, 'search' | 'scope' | 'domain'>>, replace?: boolean): void
 }
 
@@ -27,6 +29,7 @@ export interface UseUrlStateReturn {
 export function parseUrlState(searchStr: string): DashboardUrlState {
   const p = new URLSearchParams(searchStr.startsWith('?') ? searchStr : `?${searchStr}`)
   const rawView = p.get('view')
+  const scenario = p.get('scenario') ?? undefined
   const base = p.get('base') ?? p.get('baseId') ?? undefined
   const head = p.get('head') ?? p.get('headId') ?? undefined
   const revision = p.get('revision') ?? p.get('revisionId') ?? undefined
@@ -48,6 +51,9 @@ export function parseUrlState(searchStr: string): DashboardUrlState {
 
   const result: DashboardUrlState = { view }
 
+  if (scenario) {
+    result.scenario = scenario
+  }
   if (view === 'diff' && base && head) {
     result.baseId = base
     result.headId = head
@@ -79,6 +85,9 @@ export function serializeUrlState(
   pathname = typeof window !== 'undefined' ? window.location.pathname : '',
 ): string {
   const p = new URLSearchParams()
+  if (state.scenario) {
+    p.set('scenario', state.scenario)
+  }
   if (state.view !== 'timeline') {
     p.set('view', state.view)
   }
@@ -196,6 +205,25 @@ export function useUrlState(): UseUrlStateReturn {
     }
   }, [state])
 
+  const setScenario = useCallback((scenarioId?: string, push = true) => {
+    const next: DashboardUrlState = {
+      ...state,
+      scenario: scenarioId || undefined,
+    }
+    if (!scenarioId) {
+      delete next.scenario
+    }
+    setState(next)
+    if (typeof window !== 'undefined') {
+      const url = serializeUrlState(next)
+      if (push) {
+        window.history.pushState(null, '', url)
+      } else {
+        window.history.replaceState(null, '', url)
+      }
+    }
+  }, [state])
+
   const setFilters = useCallback((
     filters: Partial<Pick<DashboardUrlState, 'search' | 'scope' | 'domain'>>,
     replace = true,
@@ -224,6 +252,7 @@ export function useUrlState(): UseUrlStateReturn {
     setView,
     setDiff,
     setRevision,
+    setScenario,
     setFilters,
   }
 }

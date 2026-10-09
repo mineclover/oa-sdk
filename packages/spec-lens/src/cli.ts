@@ -23,6 +23,7 @@ import {
 } from './domain/project.js'
 import type { SpecSourcePort } from './application/ports/spec-source.port.js'
 import { CliConfigDocumentSchema, type CliConfig } from './cli-config.js'
+import { runScenarioCli } from './scenario-cli.js'
 
 function findConfig(): CliConfig | null {
   const candidates = [
@@ -103,6 +104,12 @@ function autoDetectConfig(): CliConfig {
 }
 
 async function main() {
+  const args = process.argv.slice(2)
+  if (args[0] === 'scenario' || args[0] === 'scenarios') {
+    const handled = await runScenarioCli(args.slice(1))
+    if (handled) return
+  }
+
   const cfg = findConfig() ?? autoDetectConfig()
   const projectConfig = resolveSpecProjectConfig(cfg)
   const port = cfg.port ?? 4891

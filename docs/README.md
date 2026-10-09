@@ -30,7 +30,8 @@
 ### 🎨 1. 스키마 및 사양 작성자 경로 (Author Track)
 1. **HTTP API 선언**: [스키마 작성 가이드](./guides/schema-authoring.md), [TypeSpec 5분 퀵스타트](./guides/typespec/01-quickstart-5min.md), [기본 스펙 사용 기준](./guides/basic-spec-usage.md)
 2. **순수 데이터 모델 & DTO 선언 (Non-HTTP)**: [순수 타입 선언 및 가드 실무 가이드](./guides/pure-types-and-guards.md), [스키마 아키텍처 및 작성 규칙](./guides/schema-architecture-and-conventions.md)
-3. **선언적 스펙 설정**: [선언적 스펙 설정 (oa.config.ts)](./guides/declarative-spec-configuration.md)
+3. **멀티 티어 스키마 & 도구 분리**: [멀티 티어 스키마 및 ttsc·Atlas 역할 분리 가이드](./guides/schema-architecture-and-ttsc-guide.md)
+4. **선언적 스펙 설정**: [선언적 스펙 설정 (oa.config.ts)](./guides/declarative-spec-configuration.md)
 
 ### 🔌 2. 다운스트림 소비자 경로 (Consumer Track)
 1. **순수 타입 & 제로-런타임 가드**: [순수 타입 선언 및 가드 실무 가이드](./guides/pure-types-and-guards.md), [검증 엔진 성능 벤치마크](./benchmarks/validation-engines.md)
@@ -39,6 +40,7 @@
 4. **Mock 기반 병렬 개발 & 테스트**: [Mock 서버 사용법](./guides/mock-server-usage.md), [Mock 테스팅 유스케이스](./guides/use-cases/mock-testing.md)
 5. **WebMCP 피어링·P2P 전송·폴더 동시 편집 & 멀티 MCP 메시**: [WebMCP 피어링 및 동시 편집 아키텍처](./concepts/webmcp-peering-mesh-and-collab.md)
 6. **Cloudflare Forge SDK/CLI projection**: [Cloudflare Forge 지원](./guides/forge-support.md)
+7. **대시보드 시나리오 네비게이션 & BEHAVIOR FSM**: [유저 시나리오 주제 단위 화면 네비게이션 & BEHAVIOR FSM 엔진 가이드](./guides/scenario-navigation-fsm-engine.md)
 
 ### ⚙️ 3. CLI 및 빌드 자동화 엔지니어 경로
 1. [CLI 명령 레퍼런스](./guides/cli-command-reference.md): `oa-gen`의 모든 명령어 옵션, 전역 플래그(`--root`), 프로파일 필터링, 독립형 가드 분할(`--split`).
@@ -140,8 +142,13 @@
 | [NestJS Swagger / FastAPI Governance](./guides/use-cases/nestjs-swagger-governance.md) | NestJS Swagger / FastAPI 산출물 → oa-sdk 계약 관리 레퍼런스 |
 | [bun-graph-db projection 소비](./guides/use-cases/bun-graph-db-projections.md) | bun-graph-db OpenAPI full document/table projection → OA SDK |
 | [World Model 계약 소비](./guides/use-cases/world-model-contract-consumption.md) | World Model contract 검증과 generated client/HTTP integration 준비 |
+| [WIREFRAME-BOOK & XState v6 연동](./guides/use-cases/wireframe-xstate-behavior-integration.md) | TypeSpec data shape → ttsc AOT Standard Schema v1 합성 → XState v6 setup({ schemas }) 0KB 무의존성 연동 |
+| [유저 시나리오 FSM 네비게이션 엔진](./guides/scenario-navigation-fsm-engine.md) | Bounded Context 4대 시나리오, 0 Dead-Ends, 정적 경로 수집기 및 Spec-Lens HUD |
+| [시나리오 라이프사이클 및 아티팩트 거버넌스](./guides/scenario-lifecycle-and-artifacts.md) | 5단계 라이프사이클, spec-lens scenario CLI, 정형 아티팩트 및 듀얼 프리뷰어 |
+| [Ariga Atlas 물리 DB 드리프트 거버넌스](./guides/use-cases/atlas-schema-drift-governance.md) | Atlas migrate diff → atlas schema inspect JSON 증거 덤프 → TypeSpec @storageRef 정적 드리프트 CI 검증 |
 | [Spec-Lens Platform](./spec-lens/README.md) | OpenAPI 스펙 변경 이력 관측, 임의 커밋 비교, D3 의존성 그래프 및 웹 대시보드 (`@oa-sdk/spec-lens`, `apps/spec-lens`) |
 | [Preview App](../apps/preview/) | 브라우저 수동 프리뷰 (자동 E2E 보증은 [playground](../apps/playground/)가 담당) |
+
 
 ---
 
@@ -182,7 +189,39 @@
 
 ---
 
+## 🏛️ 정본(SSOT) 아키텍처 및 레거시/롤백 경로 격리 기준
+
+oa-sdk 모노레포는 스키마의 수명주기와 단일 진실 공급원(SSOT)을 명확히 보호하기 위해 **정본(Canonical)**과 **격리된 레거시/롤백(Isolated Legacy/Rollback)** 경로를 엄격히 분리합니다.
+
+### 1. 4계층 활성 정본 (Active Canonical SSOT)
+
+| 계층 | 정본 기술 및 도구 | 정본 산출물 위치 | 핵심 역할 |
+|---|---|---|---|
+| **1. Storage Tier** | **Ariga Atlas** | `db/schema.sql`, `atlas.hcl`, `migrations/` | 물리 DDL, SQLite/PostgreSQL/D1 마이그레이션 관리 (oa-sdk는 DDL을 소유하지 않음) |
+| **2. Logical Tier** | **oa-sdk DPM & Logical ERD** | `oa-sdk.logical-erd.v1.json`, `dpm.manifest.json` | 도메인 관계 모델, PII 가명화, 물리 DB ↔ API 스키마 간 정적 드리프트 검증 |
+| **3. API Tier** | **TypeSpec & OpenAPI 3.2** | `packages/schemas/typespec/main.tsp`, `approved.openapi.yaml` | HTTP REST API 계약의 단일 정본, 클라이언트 SDK, 라우터 핸들러 계약, Mock 서버 |
+| **4. Behavior Tier** | **WIREFRAME-BOOK & ttsc AOT** | Behavior IR, Standard Schema v1 (`~standard`) | FSM 상태 머신 토폴로지, XState v6용 0KB 무의존성 AOT 런타임 스키마 검증 |
+
+상세 가이드는 [멀티 티어 스키마 및 ttsc·Atlas 역할 분리 가이드](./guides/schema-architecture-and-ttsc-guide.md) 및 [ADR-012](./internal/architecture/012-multi-tier-schema-separation-and-ttsc-boundary.md)를 참조하십시오.
+
+### 2. 격리된 레거시 및 롤백 경로 (Isolated Legacy & Rollback Paths)
+
+> [!CAUTION] 레거시 및 롤백 경로 수정 제한
+> 아래 경로들은 과거 시스템 호환성 또는 긴급 롤백(Rollback)을 위해 보존된 격리 영역입니다. **신규 도메인 모델이나 API 기능 추가 시 이 경로를 직접 수정하거나 참조하지 마십시오.**
+
+* **Definition Builder YAML Fragments (`packages/schemas/src/fragments`, `src/targets`)**:
+  - TypeSpec 도입 이전의 프래그먼트 병합 경로입니다. 현재는 `pnpm schema:rollback-check` 테스트에서만 보존되며, 정본 API 계약 저작에는 사용되지 않습니다 ([Path Fragment Conventions](./guides/path-fragment-conventions.md), [Duplicate Review](./guides/duplicate-review.md)).
+* **수작업 4단계 Zod 파이프라인 (Manual Zod Pipeline)**:
+  - 과거 수기로 Zod $\leftrightarrow$ TS 타입을 이중 작성하던 패턴은 TypeSpec 직접 JSON Schema 및 TypeScript AST 추출로 완전 대체되었습니다.
+* **브라우저 클라이언트 런타임 Ajv 번들링 (Runtime Ajv Bundling)**:
+  - 브라우저에 거대한 Ajv 파서를 번들링하던 안티패턴은 `ttsc` 컴파일러 트랜스폼 기반의 AOT Standard Schema v1 (`~standard`) 객체 생성으로 완전 대체되었습니다.
+* **API 코드젠의 직접 SQL DDL 생성 (Direct DDL Emission)**:
+  - API 스펙으로부터 DDL을 자동 생성하던 위험한 커플링은 Ariga Atlas의 선언적 마이그레이션 및 정적 카탈로그 인스펙션(`atlas schema inspect`) 체계로 완전 분리되었습니다.
+
+---
+
 ## 🏛️ 프로젝트 관리 (SSOT)
+
 
 > 유저 가이드는 아래 SSOT를 참조합니다. 상세 정보는 여기서 유지됩니다.
 

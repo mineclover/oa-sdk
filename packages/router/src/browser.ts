@@ -87,3 +87,12 @@ export type {
   SyntheticEmptyChunk,
 } from './chunk-stream/demuxer.js'
 
+export {
+  RouterCodecRegistry,
+  negotiateResponseMediaType,
+} from './codec/router-codec.js'
+
+export type {
+  RouterCodecAdapter,
+} from './codec/router-codec.js'
+

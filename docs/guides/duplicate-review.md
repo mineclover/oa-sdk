@@ -1,8 +1,12 @@
 # Duplicate Review 가이드
 
+> [!WARNING] 격리된 레거시 / 롤백 경로 안내 (Isolated Rollback Reference)
+> 이 문서는 Definition Builder 레거시 YAML 프래그먼트의 이름 충돌 및 롤백 경로를 유지보수하기 위한 참조 문서입니다. **신규 API 계약 작성에는 사용하지 않으며**, 신규 계약은 반드시 정본(SSOT)인 [TypeSpec 작성 가이드](./schema-authoring.md) 및 [멀티 티어 스키마 가이드](./schema-architecture-and-ttsc-guide.md)를 따르십시오.
+
 `oa-gen duplicate-review`는 Definition Builder fragment의 중복 후보를 탐지하고,
 실제 target에서 생성될 이름 충돌을 검토한다. 결과를 보고 자동으로 fragment를 병합하거나
 수정하지는 않는다.
+
 
 > 외부 OpenAPI artifact만 수집하는 서비스에는 fragment가 없으므로 이 명령을 적용하지 않는다.
 

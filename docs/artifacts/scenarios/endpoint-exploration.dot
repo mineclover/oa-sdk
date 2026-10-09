@@ -1,0 +1,12 @@
+digraph "endpoint-exploration" {
+  rankdir=LR;
+  node [shape=box, style="rounded,filled", fillcolor="#f8fafc", fontname="sans-serif"];
+  edge [fontname="sans-serif", fontsize=10];
+  __start [shape=circle, label="", style=filled, fillcolor=black, width=0.2];
+  __start -> "paths" [label="START"];
+  "paths" -> "graph" [label="SELECT_FRAGMENT_SYMBOL\n[require-symbol-id]"];
+  "graph" -> "paths" [label="INSPECT_ENDPOINT_PROVENANCE\n[require-path-pattern]"];
+  "graph" -> "graph" [label="COMPLETE_GOAL"];
+  __end_contract-verified [shape=doublecircle, label="", style=filled, fillcolor=black, width=0.2];
+  "graph" -> __end_contract-verified [label="GOAL: contract-verified"];
+}

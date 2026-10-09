@@ -1,0 +1,13 @@
+digraph "circular-ref-diagnostic" {
+  rankdir=LR;
+  node [shape=box, style="rounded,filled", fillcolor="#f8fafc", fontname="sans-serif"];
+  edge [fontname="sans-serif", fontsize=10];
+  __start [shape=circle, label="", style=filled, fillcolor=black, width=0.2];
+  __start -> "graph" [label="START"];
+  "graph" -> "graph" [label="HIGHLIGHT_DEPENDENCY_CYCLE\n[require-symbol-id]"];
+  "graph" -> "paths" [label="INSPECT_ENDPOINT_PROVENANCE\n[require-path-pattern]"];
+  "paths" -> "paths" [label="COMPLETE_GOAL"];
+  "paths" -> "graph" [label="SELECT_FRAGMENT_SYMBOL\n[require-symbol-id]"];
+  __end_cycle-isolated [shape=doublecircle, label="", style=filled, fillcolor=black, width=0.2];
+  "paths" -> __end_cycle-isolated [label="GOAL: cycle-isolated"];
+}

@@ -1,8 +1,12 @@
 # Path Fragment Conventions
 
+> [!WARNING] 격리된 레거시 / 롤백 경로 안내 (Isolated Rollback Reference)
+> 이 문서는 TypeSpec 도입 이전의 Definition Builder 레거시 YAML 프래그먼트 및 롤백 경로를 유지보수하기 위한 참조 문서입니다. **신규 API 계약 작성에는 사용하지 않으며**, 신규 계약은 반드시 정본(SSOT)인 [TypeSpec 작성 가이드](./schema-authoring.md) 및 [멀티 티어 스키마 가이드](./schema-architecture-and-ttsc-guide.md)를 따르십시오.
+
 OpenAPI path를 모듈화할 때는 API URL, source identity, file path, JSON Pointer를 분리해서
 관리한다. 이 규칙은 Definition Builder fragments, target-check, provenance, review feedback
 모두에서 같은 좌표를 쓰기 위한 기준이다.
+
 
 적용 범위:
 

@@ -352,3 +352,31 @@ export type {
   StandaloneGuardGeneratorOptions,
   StandaloneGuardTarget,
 } from './standalone-guards/index.js'
+
+export {
+  extractWireSchemaFromOas,
+  Proto3TargetAdapter,
+  ProtobufCodecTargetAdapter,
+  RpcContractTargetAdapter,
+  MessagePackTargetAdapter,
+  TypeSpecWirePipeline,
+  typeSpecWirePipeline,
+} from './wire-adapter/index.js'
+export type {
+  WireSchemaModel,
+  WireModel,
+  WireField,
+  WireEnum,
+  WireEnumMember,
+  WireService,
+  WireMethod,
+  TypeSpecWireTargetAdapter,
+  WireTransformationResult,
+  ExtractorOptions,
+  Proto3AdapterOptions,
+  ProtobufCodecAdapterOptions,
+  RpcContractAdapterOptions,
+  MessagePackAdapterOptions,
+  TransformationBundle,
+} from './wire-adapter/index.js'
+

@@ -22,8 +22,35 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+
+    "./api": {
+      "typespec": "./lib/api.tsp",
+      "types": "./dist/api.d.ts",
+      "default": "./dist/api.js"
+    },
+    "./governance": {
+      "typespec": "./lib/governance.tsp",
+      "types": "./dist/governance.d.ts",
+      "default": "./dist/governance.js"
+    },
+    "./crdt": {
+      "typespec": "./lib/crdt.tsp",
+      "types": "./dist/crdt.d.ts",
+      "default": "./dist/crdt.js"
+    },
+    "./behavior": {
+      "typespec": "./lib/behavior.tsp",
+      "types": "./dist/behavior.d.ts",
+      "default": "./dist/behavior.js"
+    },
+    "./storage": {
+      "typespec": "./lib/storage.tsp",
+      "types": "./dist/storage.d.ts",
+      "default": "./dist/storage.js"
     }
   },
+
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",

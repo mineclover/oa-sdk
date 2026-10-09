@@ -1,0 +1,7 @@
+%% --- Scenario: 엔드포인트 및 타입 계약 탐색 (endpoint-exploration) ---
+stateDiagram-v2
+    [*] --> paths: START_SCENARIO ("endpoint-exploration")
+    paths --> graph: SELECT_FRAGMENT_SYMBOL [require-symbol-id]
+    graph --> paths: INSPECT_ENDPOINT_PROVENANCE [require-path-pattern]
+    graph --> graph: COMPLETE_GOAL
+    graph --> [*]: COMPLETE_GOAL (contract-verified)

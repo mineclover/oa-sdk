@@ -4,6 +4,8 @@
  * @oa-sdk/client
  */
 
+import type { BinaryCodecAdapter } from './codec/index.js'
+
 export type ClientMethodOptions = {
   signal?: AbortSignal | null
   headers?: Record<string, string>
@@ -31,6 +33,7 @@ export type ClientConfig = {
     baseDelay?: number
   }
   validate?: boolean
+  codecs?: Record<string, BinaryCodecAdapter> | readonly BinaryCodecAdapter[]
 }
 
 /** Auth middleware — HTTP Bearer token */

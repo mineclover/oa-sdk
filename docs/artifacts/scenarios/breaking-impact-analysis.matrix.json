@@ -1,0 +1,315 @@
+[
+  {
+    "scenarioId": "breaking-impact-analysis",
+    "title": "스키마 변경 파급 효과 분석",
+    "initialView": "timeline",
+    "boundedViews": [
+      "timeline",
+      "diff",
+      "graph"
+    ],
+    "reachableViews": [
+      "timeline",
+      "diff",
+      "graph"
+    ],
+    "deadEnds": [],
+    "paths": [
+      {
+        "steps": [
+          {
+            "from": "timeline",
+            "action": "REQUEST_DIFF",
+            "to": "diff",
+            "guardIds": [
+              "require-diff-pair"
+            ],
+            "description": "비교 대상 리비전 간의 변경사항 분석 화면으로 진입."
+          },
+          {
+            "from": "diff",
+            "action": "FILTER_BREAKING_CHANGES",
+            "to": "diff",
+            "description": "파괴적 변경사항(Breaking changes)만 필터링 활성화."
+          },
+          {
+            "from": "diff",
+            "action": "SELECT_FRAGMENT_SYMBOL",
+            "to": "graph",
+            "guardIds": [
+              "require-symbol-id"
+            ],
+            "description": "변경된 DTO 심볼의 다운스트림 파급 영향 그래프 탐색."
+          }
+        ],
+        "reachedGoal": "impact-assessed",
+        "isTerminal": true
+      },
+      {
+        "steps": [
+          {
+            "from": "timeline",
+            "action": "REQUEST_DIFF",
+            "to": "diff",
+            "guardIds": [
+              "require-diff-pair"
+            ],
+            "description": "비교 대상 리비전 간의 변경사항 분석 화면으로 진입."
+          },
+          {
+            "from": "diff",
+            "action": "FILTER_BREAKING_CHANGES",
+            "to": "diff",
+            "description": "파괴적 변경사항(Breaking changes)만 필터링 활성화."
+          },
+          {
+            "from": "diff",
+            "action": "SELECT_FRAGMENT_SYMBOL",
+            "to": "graph",
+            "guardIds": [
+              "require-symbol-id"
+            ],
+            "description": "변경된 DTO 심볼의 다운스트림 파급 영향 그래프 탐색."
+          },
+          {
+            "from": "graph",
+            "action": "COMPLETE_GOAL",
+            "to": "graph",
+            "description": "영향 범위 분석 리포트 산출 완료."
+          }
+        ],
+        "reachedGoal": "impact-assessed",
+        "isTerminal": true
+      },
+      {
+        "steps": [
+          {
+            "from": "timeline",
+            "action": "REQUEST_DIFF",
+            "to": "diff",
+            "guardIds": [
+              "require-diff-pair"
+            ],
+            "description": "비교 대상 리비전 간의 변경사항 분석 화면으로 진입."
+          },
+          {
+            "from": "diff",
+            "action": "SELECT_FRAGMENT_SYMBOL",
+            "to": "graph",
+            "guardIds": [
+              "require-symbol-id"
+            ],
+            "description": "변경된 DTO 심볼의 다운스트림 파급 영향 그래프 탐색."
+          }
+        ],
+        "reachedGoal": "impact-assessed",
+        "isTerminal": true
+      },
+      {
+        "steps": [
+          {
+            "from": "timeline",
+            "action": "REQUEST_DIFF",
+            "to": "diff",
+            "guardIds": [
+              "require-diff-pair"
+            ],
+            "description": "비교 대상 리비전 간의 변경사항 분석 화면으로 진입."
+          },
+          {
+            "from": "diff",
+            "action": "SELECT_FRAGMENT_SYMBOL",
+            "to": "graph",
+            "guardIds": [
+              "require-symbol-id"
+            ],
+            "description": "변경된 DTO 심볼의 다운스트림 파급 영향 그래프 탐색."
+          },
+          {
+            "from": "graph",
+            "action": "COMPLETE_GOAL",
+            "to": "graph",
+            "description": "영향 범위 분석 리포트 산출 완료."
+          }
+        ],
+        "reachedGoal": "impact-assessed",
+        "isTerminal": true
+      }
+    ],
+    "terminalPaths": [
+      {
+        "steps": [
+          {
+            "from": "timeline",
+            "action": "REQUEST_DIFF",
+            "to": "diff",
+            "guardIds": [
+              "require-diff-pair"
+            ],
+            "description": "비교 대상 리비전 간의 변경사항 분석 화면으로 진입."
+          },
+          {
+            "from": "diff",
+            "action": "FILTER_BREAKING_CHANGES",
+            "to": "diff",
+            "description": "파괴적 변경사항(Breaking changes)만 필터링 활성화."
+          },
+          {
+            "from": "diff",
+            "action": "SELECT_FRAGMENT_SYMBOL",
+            "to": "graph",
+            "guardIds": [
+              "require-symbol-id"
+            ],
+            "description": "변경된 DTO 심볼의 다운스트림 파급 영향 그래프 탐색."
+          }
+        ],
+        "reachedGoal": "impact-assessed",
+        "isTerminal": true
+      },
+      {
+        "steps": [
+          {
+            "from": "timeline",
+            "action": "REQUEST_DIFF",
+            "to": "diff",
+            "guardIds": [
+              "require-diff-pair"
+            ],
+            "description": "비교 대상 리비전 간의 변경사항 분석 화면으로 진입."
+          },
+          {
+            "from": "diff",
+            "action": "FILTER_BREAKING_CHANGES",
+            "to": "diff",
+            "description": "파괴적 변경사항(Breaking changes)만 필터링 활성화."
+          },
+          {
+            "from": "diff",
+            "action": "SELECT_FRAGMENT_SYMBOL",
+            "to": "graph",
+            "guardIds": [
+              "require-symbol-id"
+            ],
+            "description": "변경된 DTO 심볼의 다운스트림 파급 영향 그래프 탐색."
+          },
+          {
+            "from": "graph",
+            "action": "COMPLETE_GOAL",
+            "to": "graph",
+            "description": "영향 범위 분석 리포트 산출 완료."
+          }
+        ],
+        "reachedGoal": "impact-assessed",
+        "isTerminal": true
+      },
+      {
+        "steps": [
+          {
+            "from": "timeline",
+            "action": "REQUEST_DIFF",
+            "to": "diff",
+            "guardIds": [
+              "require-diff-pair"
+            ],
+            "description": "비교 대상 리비전 간의 변경사항 분석 화면으로 진입."
+          },
+          {
+            "from": "diff",
+            "action": "SELECT_FRAGMENT_SYMBOL",
+            "to": "graph",
+            "guardIds": [
+              "require-symbol-id"
+            ],
+            "description": "변경된 DTO 심볼의 다운스트림 파급 영향 그래프 탐색."
+          }
+        ],
+        "reachedGoal": "impact-assessed",
+        "isTerminal": true
+      },
+      {
+        "steps": [
+          {
+            "from": "timeline",
+            "action": "REQUEST_DIFF",
+            "to": "diff",
+            "guardIds": [
+              "require-diff-pair"
+            ],
+            "description": "비교 대상 리비전 간의 변경사항 분석 화면으로 진입."
+          },
+          {
+            "from": "diff",
+            "action": "SELECT_FRAGMENT_SYMBOL",
+            "to": "graph",
+            "guardIds": [
+              "require-symbol-id"
+            ],
+            "description": "변경된 DTO 심볼의 다운스트림 파급 영향 그래프 탐색."
+          },
+          {
+            "from": "graph",
+            "action": "COMPLETE_GOAL",
+            "to": "graph",
+            "description": "영향 범위 분석 리포트 산출 완료."
+          }
+        ],
+        "reachedGoal": "impact-assessed",
+        "isTerminal": true
+      }
+    ],
+    "matrix": [
+      {
+        "scenarioId": "breaking-impact-analysis",
+        "fromView": "timeline",
+        "actionType": "REQUEST_DIFF",
+        "toView": "diff",
+        "guardIds": [
+          "require-diff-pair"
+        ],
+        "isTerminal": false,
+        "description": "비교 대상 리비전 간의 변경사항 분석 화면으로 진입."
+      },
+      {
+        "scenarioId": "breaking-impact-analysis",
+        "fromView": "diff",
+        "actionType": "FILTER_BREAKING_CHANGES",
+        "toView": "diff",
+        "guardIds": [],
+        "isTerminal": false,
+        "description": "파괴적 변경사항(Breaking changes)만 필터링 활성화."
+      },
+      {
+        "scenarioId": "breaking-impact-analysis",
+        "fromView": "diff",
+        "actionType": "SELECT_FRAGMENT_SYMBOL",
+        "toView": "graph",
+        "guardIds": [
+          "require-symbol-id"
+        ],
+        "isTerminal": true,
+        "description": "변경된 DTO 심볼의 다운스트림 파급 영향 그래프 탐색."
+      },
+      {
+        "scenarioId": "breaking-impact-analysis",
+        "fromView": "graph",
+        "actionType": "COMPLETE_GOAL",
+        "toView": "graph",
+        "guardIds": [],
+        "isTerminal": true,
+        "description": "영향 범위 분석 리포트 산출 완료."
+      },
+      {
+        "scenarioId": "breaking-impact-analysis",
+        "fromView": "graph",
+        "actionType": "REQUEST_DIFF",
+        "toView": "diff",
+        "guardIds": [
+          "require-diff-pair"
+        ],
+        "isTerminal": false,
+        "description": "영향 확인 후 다른 변경 필드 검토를 위해 Diff로 복귀."
+      }
+    ]
+  }
+]

@@ -269,3 +269,5 @@ socket.on('message', (buffer) => {
 - HTTP API가 없어도 모델 원본 하나에서 타입과 런타임 가드를 만들 수 있습니다. 원본을 고치면 `typegen`과 `generate:guards`를 다시 실행합니다.
 - 가드는 외부 패키지를 import하지 않고 `eval`을 쓰지 않으므로 MV3 확장 프로그램 같은 제한된 환경에도 넣을 수 있습니다.
 - 다형성 유니언, 상속 모델, 정밀한 수치 제약이 필요한 엔터티는 [스키마 아키텍처 및 작성 규칙](./schema-architecture-and-conventions.md)을 참고합니다.
+- XState v6 상태 머신 런타임 스키마 검증이나 `ttsc` 컴파일러 트랜스폼을 통한 무의존성 AOT Standard Schema 생성이 필요한 경우, [멀티 티어 스키마 및 ttsc·Atlas 가이드](./schema-architecture-and-ttsc-guide.md)를 참고합니다.
+

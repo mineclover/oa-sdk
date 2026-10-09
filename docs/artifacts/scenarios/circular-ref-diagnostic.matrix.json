@@ -1,0 +1,244 @@
+[
+  {
+    "scenarioId": "circular-ref-diagnostic",
+    "title": "순환 참조 및 고아 스키마 진단",
+    "initialView": "graph",
+    "boundedViews": [
+      "graph",
+      "paths"
+    ],
+    "reachableViews": [
+      "graph",
+      "paths"
+    ],
+    "deadEnds": [],
+    "paths": [
+      {
+        "steps": [
+          {
+            "from": "graph",
+            "action": "HIGHLIGHT_DEPENDENCY_CYCLE",
+            "to": "graph",
+            "guardIds": [
+              "require-symbol-id"
+            ],
+            "description": "순환 참조를 유발하는 루트 심볼 노드와 폐곡선 하이라이트."
+          },
+          {
+            "from": "graph",
+            "action": "INSPECT_ENDPOINT_PROVENANCE",
+            "to": "paths",
+            "guardIds": [
+              "require-path-pattern"
+            ],
+            "description": "순환 참조에 연루된 엔드포인트/모델 파일의 소스 출처 및 커밋 이력 추적."
+          }
+        ],
+        "reachedGoal": "cycle-isolated",
+        "isTerminal": true
+      },
+      {
+        "steps": [
+          {
+            "from": "graph",
+            "action": "HIGHLIGHT_DEPENDENCY_CYCLE",
+            "to": "graph",
+            "guardIds": [
+              "require-symbol-id"
+            ],
+            "description": "순환 참조를 유발하는 루트 심볼 노드와 폐곡선 하이라이트."
+          },
+          {
+            "from": "graph",
+            "action": "INSPECT_ENDPOINT_PROVENANCE",
+            "to": "paths",
+            "guardIds": [
+              "require-path-pattern"
+            ],
+            "description": "순환 참조에 연루된 엔드포인트/모델 파일의 소스 출처 및 커밋 이력 추적."
+          },
+          {
+            "from": "paths",
+            "action": "COMPLETE_GOAL",
+            "to": "paths",
+            "description": "순환 참조 격리 및 리팩터링 계획 확정."
+          }
+        ],
+        "reachedGoal": "cycle-isolated",
+        "isTerminal": true
+      },
+      {
+        "steps": [
+          {
+            "from": "graph",
+            "action": "INSPECT_ENDPOINT_PROVENANCE",
+            "to": "paths",
+            "guardIds": [
+              "require-path-pattern"
+            ],
+            "description": "순환 참조에 연루된 엔드포인트/모델 파일의 소스 출처 및 커밋 이력 추적."
+          }
+        ],
+        "reachedGoal": "cycle-isolated",
+        "isTerminal": true
+      },
+      {
+        "steps": [
+          {
+            "from": "graph",
+            "action": "INSPECT_ENDPOINT_PROVENANCE",
+            "to": "paths",
+            "guardIds": [
+              "require-path-pattern"
+            ],
+            "description": "순환 참조에 연루된 엔드포인트/모델 파일의 소스 출처 및 커밋 이력 추적."
+          },
+          {
+            "from": "paths",
+            "action": "COMPLETE_GOAL",
+            "to": "paths",
+            "description": "순환 참조 격리 및 리팩터링 계획 확정."
+          }
+        ],
+        "reachedGoal": "cycle-isolated",
+        "isTerminal": true
+      }
+    ],
+    "terminalPaths": [
+      {
+        "steps": [
+          {
+            "from": "graph",
+            "action": "HIGHLIGHT_DEPENDENCY_CYCLE",
+            "to": "graph",
+            "guardIds": [
+              "require-symbol-id"
+            ],
+            "description": "순환 참조를 유발하는 루트 심볼 노드와 폐곡선 하이라이트."
+          },
+          {
+            "from": "graph",
+            "action": "INSPECT_ENDPOINT_PROVENANCE",
+            "to": "paths",
+            "guardIds": [
+              "require-path-pattern"
+            ],
+            "description": "순환 참조에 연루된 엔드포인트/모델 파일의 소스 출처 및 커밋 이력 추적."
+          }
+        ],
+        "reachedGoal": "cycle-isolated",
+        "isTerminal": true
+      },
+      {
+        "steps": [
+          {
+            "from": "graph",
+            "action": "HIGHLIGHT_DEPENDENCY_CYCLE",
+            "to": "graph",
+            "guardIds": [
+              "require-symbol-id"
+            ],
+            "description": "순환 참조를 유발하는 루트 심볼 노드와 폐곡선 하이라이트."
+          },
+          {
+            "from": "graph",
+            "action": "INSPECT_ENDPOINT_PROVENANCE",
+            "to": "paths",
+            "guardIds": [
+              "require-path-pattern"
+            ],
+            "description": "순환 참조에 연루된 엔드포인트/모델 파일의 소스 출처 및 커밋 이력 추적."
+          },
+          {
+            "from": "paths",
+            "action": "COMPLETE_GOAL",
+            "to": "paths",
+            "description": "순환 참조 격리 및 리팩터링 계획 확정."
+          }
+        ],
+        "reachedGoal": "cycle-isolated",
+        "isTerminal": true
+      },
+      {
+        "steps": [
+          {
+            "from": "graph",
+            "action": "INSPECT_ENDPOINT_PROVENANCE",
+            "to": "paths",
+            "guardIds": [
+              "require-path-pattern"
+            ],
+            "description": "순환 참조에 연루된 엔드포인트/모델 파일의 소스 출처 및 커밋 이력 추적."
+          }
+        ],
+        "reachedGoal": "cycle-isolated",
+        "isTerminal": true
+      },
+      {
+        "steps": [
+          {
+            "from": "graph",
+            "action": "INSPECT_ENDPOINT_PROVENANCE",
+            "to": "paths",
+            "guardIds": [
+              "require-path-pattern"
+            ],
+            "description": "순환 참조에 연루된 엔드포인트/모델 파일의 소스 출처 및 커밋 이력 추적."
+          },
+          {
+            "from": "paths",
+            "action": "COMPLETE_GOAL",
+            "to": "paths",
+            "description": "순환 참조 격리 및 리팩터링 계획 확정."
+          }
+        ],
+        "reachedGoal": "cycle-isolated",
+        "isTerminal": true
+      }
+    ],
+    "matrix": [
+      {
+        "scenarioId": "circular-ref-diagnostic",
+        "fromView": "graph",
+        "actionType": "HIGHLIGHT_DEPENDENCY_CYCLE",
+        "toView": "graph",
+        "guardIds": [
+          "require-symbol-id"
+        ],
+        "isTerminal": false,
+        "description": "순환 참조를 유발하는 루트 심볼 노드와 폐곡선 하이라이트."
+      },
+      {
+        "scenarioId": "circular-ref-diagnostic",
+        "fromView": "graph",
+        "actionType": "INSPECT_ENDPOINT_PROVENANCE",
+        "toView": "paths",
+        "guardIds": [
+          "require-path-pattern"
+        ],
+        "isTerminal": true,
+        "description": "순환 참조에 연루된 엔드포인트/모델 파일의 소스 출처 및 커밋 이력 추적."
+      },
+      {
+        "scenarioId": "circular-ref-diagnostic",
+        "fromView": "paths",
+        "actionType": "COMPLETE_GOAL",
+        "toView": "paths",
+        "guardIds": [],
+        "isTerminal": true,
+        "description": "순환 참조 격리 및 리팩터링 계획 확정."
+      },
+      {
+        "scenarioId": "circular-ref-diagnostic",
+        "fromView": "paths",
+        "actionType": "SELECT_FRAGMENT_SYMBOL",
+        "toView": "graph",
+        "guardIds": [
+          "require-symbol-id"
+        ],
+        "isTerminal": false,
+        "description": "추적 후 그래프로 복귀하여 폐곡선 분리 검증."
+      }
+    ]
+  }
+]

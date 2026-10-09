@@ -609,6 +609,27 @@ export function isSpecLensResponse<K extends keyof SpecLensApiResponseMap>(
 4. **Fragment Graph View (`views/FragmentGraph.tsx`)**:
    - Interactive D3 force-directed visualization with zoom controls, symbol search autocomplete, and 1-hop neighborhood focus.
 
+### 7.2 Thematic Scenario Navigation & BEHAVIOR FSM Engine (`@oa-sdk/spec-lens-contract/scenario`, `apps/spec-lens/src/scenario/`)
+Spec-Lens structures screen transitions not as flat View $\times$ Action combinations ($O(|V| \times |A|)$ state explosion), but as goal-oriented **User Scenario Topics (유저 시나리오 주제 단위 개념 추상화)**:
+
+1. **4 Standard Scenario Topics**:
+   - `spec-drift-triage` (Persona: `ApiArchitect`, Initial: `timeline` $\to$ Bounded: `timeline`, `diff`, `paths` $\to$ Terminal: `drift-resolved`)
+   - `endpoint-exploration` (Persona: `ApiConsumer`, Initial: `paths` $\to$ Bounded: `paths`, `graph` $\to$ Terminal: `contract-verified`)
+   - `breaking-impact-analysis` (Persona: `ReleaseManager`, Initial: `timeline` $\to$ Bounded: `timeline`, `diff`, `graph` $\to$ Terminal: `impact-assessed`)
+   - `circular-ref-diagnostic` (Persona: `SpecAuthor`, Initial: `graph` $\to$ Bounded: `graph`, `paths` $\to$ Terminal: `cycle-isolated`)
+2. **Pure FSM Transition Engine (`stateMachine.ts`)**:
+   - Pure transition reducer `scenarioTransitionReducer(state, action, registry)`.
+   - Enforces transition rules, evaluates parameter guards (`guardRequireDiffPair`, `guardRequirePathPattern`, `guardRequireSymbolId`).
+   - Breadcrumb provenance stack with zero-loss step-back (`STEP_BACK`) and scenario context hand-offs (`SWITCH_SCENARIO`).
+3. **Static Flow Enumerator (`flowEnumerator.ts`)**:
+   - DFS-based path reachability analyzer: verifies zero dead-ends and guarantees at least 1 reachable terminal path per scenario.
+   - Compiles flowcharts to Mermaid `stateDiagram-v2`, Graphviz DOT, and tabular transition matrices.
+4. **Context-Action React Components**:
+   - `<ScenarioProvider>`: Synchronizes machine state with browser URL search parameters (`?scenario=...`).
+   - `<ScenarioProgressHUD>`: Real-time top banner with persona badge, step provenance, terminal goal CTAs, and step-back button.
+   - `<ScenarioSelector>`: Dropdown switching between Free Exploration and 4 bounded scenarios.
+   - `<ScenarioFlowModal>`: Interactive modal displaying the scenario's transition matrix and Mermaid diagram with current view highlight.
+
 ---
 
 ## 8. Operational Recipes & Workflows

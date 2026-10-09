@@ -122,3 +122,6 @@ export type {
   SpecLensServerConfig,
   TypeSpecBundleSpecLensServerConfig,
 } from './presentation/http/server.js'
+
+export { runScenarioCli, verifyAllScenarios } from './scenario-cli.js'
+export type { ScenarioCliOptions } from './scenario-cli.js'

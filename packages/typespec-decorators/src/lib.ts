@@ -33,6 +33,24 @@ export const $lib = createTypeSpecLibrary({
         default: paramMessage`${'message'}`,
       },
     },
+    'invalid-protobuf-rule': {
+      severity: 'error',
+      messages: {
+        default: paramMessage`${'message'}`,
+      },
+    },
+    'invalid-rpc-rule': {
+      severity: 'error',
+      messages: {
+        default: paramMessage`${'message'}`,
+      },
+    },
+    'invalid-wire-format': {
+      severity: 'error',
+      messages: {
+        default: paramMessage`${'message'}`,
+      },
+    },
   },
 })
 

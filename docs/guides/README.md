@@ -125,7 +125,7 @@ oa-sdk 저장소 자체에 기여하는 경우는 아래 4절(기여자·메인�
 | 개발자 역할 | 주요 목적 | 추천 읽기 경로 |
 |---|---|---|
 | **API / 스펙 설계자** | REST 엔드포인트, 파라미터, 응답 스키마 선언 | [Quick Start](./quick-start.md) $\rightarrow$ [TypeSpec 데코레이터 레퍼런스](./typespec/03-decorators-reference.md) $\rightarrow$ [OpenAPI 3.2 계약 관리](./openapi32-contract-management.md) |
-| **데이터 모델러 (Non-HTTP)** | Chrome MV3 메시징, IPC, DB DTO, 이벤트 버스 타입 선언 | [순수 타입 선언 및 가드 실무 가이드](./pure-types-and-guards.md) $\rightarrow$ [4단계 TypeSpec-First 파이프라인](./schema-architecture-and-conventions.md) |
+| **데이터 모델러 (Non-HTTP)** | Chrome MV3 메시징, IPC, DB DTO, 이벤트 버스, XState 런타임 타입 선언 | [순수 타입 선언 및 가드 실무 가이드](./pure-types-and-guards.md) $\rightarrow$ [멀티 티어 스키마 및 ttsc·Atlas 가이드](./schema-architecture-and-ttsc-guide.md) $\rightarrow$ [4단계 TypeSpec-First 파이프라인](./schema-architecture-and-conventions.md) |
 | **프론트엔드 엔지니어** | 타입 안전한 API 호출, TanStack Query 훅, Mocking | [프론트엔드 SDK 및 쿼리 소비 가이드](./client-and-query-consumption.md) $\rightarrow$ [Mock 서버 활용 가이드](./mock-server-usage.md) $\rightarrow$ [SDK 배포 가이드](./client-sdk-distribution.md) |
 | **백엔드 엔지니어** | 비즈니스 로직 작성, 프레임워크 라우터 연결, 멀티 에러 반환 | [백엔드 핸들러 계약 가이드](./backend-handler-contracts.md) $\rightarrow$ [온보딩 플레이북](./onboarding-playbook.md) $\rightarrow$ [코드젠 워크플로](./use-cases/codegen-workflow.md) |
 | **품질 / DevOps 엔지니어** | CI breaking change 감지, 제로-eval CSP 보안 감사, 빌드 자동화 | [CLI 명령 레퍼런스](./cli-command-reference.md) $\rightarrow$ [OpenAPI Governance Workflow](./use-cases/openapi-governance-workflow.md) $\rightarrow$ [선언적 스펙 설정](./declarative-spec-configuration.md) |
@@ -146,20 +146,29 @@ oa-sdk 저장소 자체에 기여하는 경우는 아래 4절(기여자·메인�
 
 ### 1.2 순수 데이터 모델 & DTO 선언 (Non-HTTP Use Cases)
 HTTP 전송 계층 없이 브라우저 확장프로그램(MV3), Worker IPC, WebSocket, Database DTO용 순수 타입을 선언하는 가이드입니다.
+- **[멀티 티어 스키마 아키텍처 및 ttsc·Atlas 역할 분리 가이드](./schema-architecture-and-ttsc-guide.md) (★ 권장)**: Storage(Atlas), Logical ERD(DPM), API(TypeSpec), Behavior(XState v5/v6) 4계층 분리, ttsc AOT Standard Schema v1 변환, Atlas 물리 스키마 연계.
 - **[순수 타입 선언 및 제로-런타임 가드 가이드](./pure-types-and-guards.md) (★ 권장)**: HTTP 엔드포인트가 없는 순수 모델 정의 방법(TypeSpec models without ops / Zod Master Schemas), `oa-gen typegen`을 통한 순수 인터페이스 방출, `oa-gen generate:guards`를 통한 제로-eval 타입 가드(`isUser`) 생성.
 - **[스키마 아키텍처 및 작성 규칙](./schema-architecture-and-conventions.md)**: TypeSpec $\rightarrow$ JSON Schema 2020-12 $\rightarrow$ OAS 3.1/3.2 $\rightarrow$ Standalone AJV Type Guards 파이프라인, 비디오 트랜지션 파라미터 표준.
 - **[스키마 대수 (Schema Algebra)](./schema-algebra.md)**: 재사용 가능한 복합 모델 합성 및 fold 패턴.
 - **[스키마 어노테이션 컨벤션](./schema-annotations.md)**: 작성자 메모, 내부 메타데이터 표기 표준.
 - **[TypeSpec 논리 ERD 작성](./typespec-logical-erd-authoring.md)**: 비즈니스 엔터티 간 관계 모델링(비공개 유지보수 패키지 `@oa-sdk/typespec-erd`, 저장소 전용).
 
-### 1.3 스펙 거버넌스 및 변경 관리
+### 1.3 스펙 거버넌스 및 변경 관리 (정본 & 롤백 격리)
 원본을 보호하고, 기존 소비자를 깨뜨리는 변경(breaking change)을 머지 전에 드러내는 운영 가이드입니다.
-- **[기본 스펙 사용 기준](./basic-spec-usage.md)**: 이 저장소의 스펙 원본과 생성물(Generated Artifacts)의 소유권 경계 및 파이프라인.
+
+#### 1) 정본(Canonical) 거버넌스 파이프라인
+- **[기본 스펙 사용 기준](./basic-spec-usage.md)**: 이 저장소의 TypeSpec 스펙 원본과 생성물(Generated Artifacts)의 소유권 경계 및 파이프라인.
 - **[선언적 스펙 설정 (oa.config.ts)](./declarative-spec-configuration.md)**: 다중 프로파일(`operation-contract`, `component-bundle`), 라이프사이클 아키타입, 출력 라우팅 설정.
+- **[멀티 티어 스키마 및 ttsc·Atlas 역할 분리 가이드](./schema-architecture-and-ttsc-guide.md)**: 4계층(Storage, Logical, API, Behavior) 경계, ttsc AOT Standard Schema, Atlas 물리 DB 연계.
 - **[OpenAPI Governance Workflow](./use-cases/openapi-governance-workflow.md)**: target sidecar와 PR review gate(`oa-gen review-bundle`).
-- **[중복 스펙 검토 (Duplicate Review)](./duplicate-review.md)**: 프래그먼트 중복 탐지 정책 및 CI 게이트.
-- **[패스 프래그먼트 컨벤션](./path-fragment-conventions.md)**: 레거시 롤백 경로용 YAML 프래그먼트 파일시스템 계층 규칙.
 - **[외부 서비스 거버넌스 템플릿](./openapi-governance-service-template.md)**: NestJS, FastAPI 등 런타임 추출 스펙의 거버넌스 파이프라인.
+
+#### 2) 격리된 레거시 & 롤백 참조 (Isolated Legacy / Rollback References)
+> [!NOTE]
+> 아래 문서는 TypeSpec 도입 이전의 Definition Builder 레거시 YAML 프래그먼트 유지보수 및 롤백 경로 전용 참조 자료입니다. 신규 API 계약에는 사용하지 않습니다.
+- **[중복 스펙 검토 (Duplicate Review)](./duplicate-review.md)**: 레거시 프래그먼트 중복 탐지 정책 및 CI 게이트 (롤백 경로 전용).
+- **[패스 프래그먼트 컨벤션](./path-fragment-conventions.md)**: 레거시 롤백 경로용 YAML 프래그먼트 파일시스템 계층 규칙 (롤백 경로 전용).
+
 
 ---
 
@@ -209,7 +218,23 @@ HTTP 전송 계층 없이 브라우저 확장프로그램(MV3), Worker IPC, WebS
   - `x-fern-*`/`x-forge-*` operation projection 및 command별 OpenAPI Overlay 생성.
   - pagination, SSE `itemSchema`, direct/envelope response runtime의 target별 제한 진단.
 
+### 2.6 행위 런타임, 시나리오 FSM 및 멀티 티어 스키마 연동 (XState v6, Spec-Lens, Atlas)
+- **[멀티 티어 스키마 및 ttsc·Atlas 역할 분리 가이드](./schema-architecture-and-ttsc-guide.md)**:
+  - 4개 티어(Tier 1 API Wire, Tier 2 Physical Storage, Tier 3 Internal Behavior, Tier 4 CRDT)의 명확한 책임 경계와 `ttsc` AOT 컴파일러 트랜스폼 경계 표준.
+- **[WIREFRAME-BOOK & XState v6 런타임 연동 가이드](./use-cases/wireframe-xstate-behavior-integration.md)**:
+  - `@oa-sdk/typespec-decorators/behavior`로 데이터 형태 정의 $\rightarrow$ `ttsc` AOT 컴파일러 트랜스폼으로 Standard Schema v1 합성 $\rightarrow$ XState v6 `setup({ schemas })` 바인딩 (번들 0KB 증가, Zero-eval CSP).
+- **[유저 시나리오 주제 단위 화면 네비게이션 & BEHAVIOR FSM 엔진 가이드](./scenario-navigation-fsm-engine.md)**:
+  - Bounded Context 기반 4대 표준 유저 시나리오 정의 (`spec-drift-triage`, `endpoint-exploration`, `breaking-impact-analysis`, `circular-ref-diagnostic`).
+  - $O(|V| \times |A|)$ 상태 공간 폭발 방지 및 순수 FSM 리듀서 + 정적 경로 수집기(`ScenarioFlowEnumerator`).
+  - Context-Action React 계층(`ScenarioProvider`, `ScenarioProgressHUD`, `ScenarioFlowModal`, `ScenarioSelector`)과 Spec-Lens 대시보드 실전 연동.
+- **[시나리오 라이프사이클, 아티팩트 및 프리뷰어 거버넌스 가이드](./scenario-lifecycle-and-artifacts.md)**:
+  - 5단계 시나리오 라이프사이클(선언 $\rightarrow$ 정적 컴파일 $\rightarrow$ 런타임 실행 $\rightarrow$ 핸드오프 $\rightarrow$ CI 검증).
+  - `spec-lens scenario` CLI(`list`, `inspect`, `preview`, `verify`, `export`), `docs/artifacts/scenarios/` 아티팩트 규격, 듀얼 프리뷰어(터미널 ASCII & 웹 UI) 및 거버넌스 컨벤션.
+- **[Ariga Atlas 물리 DB 스키마 드리프트 거버넌스 가이드](./use-cases/atlas-schema-drift-governance.md)**:
+  - `atlas schema inspect --format json` 출력을 읽기 전용 카탈로그 증거로 소비하여 `@storageRef` 매핑과 물리 컬럼 간의 불일치를 CI에서 100% 정적 탐지 (Zero DB Write).
+
 ---
+
 
 ## 🔧 3. 저장소 안에서 실행하는 데모 (Repository Demos)
 
