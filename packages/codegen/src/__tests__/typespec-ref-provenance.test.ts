@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { OasDocument } from '@oa-sdk/parser'
 import { createTypeSpecCompatibilitySidecarFromEntries } from '../cli/lib/typespec-sidecar.js'
-import { buildTypeSpecRefProvenance } from '../cli/lib/typespec-ref-provenance.js'
+import { buildTypeSpecRefProvenance, type TypeSpecRefProvenanceEdge } from '../cli/lib/typespec-ref-provenance.js'
 
 const workspaces: string[] = []
 
@@ -214,7 +214,131 @@ model bearerAuth is BearerAuth;
       }),
     ]))
   })
+
+  it('attributes hoisted path item parameter refs to every operation of the path', () => {
+    const sourceRoot = makeSource(BOARD_SOURCE)
+    const result = buildTypeSpecRefProvenance({
+      sourceRoot,
+      restoredDocument: boardDocument({
+        get: { operationId: 'getBoard', responses: { '204': { description: 'ok' } } },
+        delete: { operationId: 'removeBoard', responses: { '204': { description: 'ok' } } },
+      }),
+      sidecar: createTypeSpecCompatibilitySidecarFromEntries([]),
+    })
+
+    expect(result.report).toMatchObject({
+      valid: true,
+      counts: { publicPointers: 3, coveredPublicPointers: 3, refNodes: 1, coveredRefNodes: 1, references: 2 },
+    })
+    expect(referenceOwners(result.artifact.edges, BOARD_ID_PARAMETER_REF)).toEqual([
+      'operation:main.tsp:getBoard',
+      'operation:main.tsp:removeBoard',
+    ])
+  })
+
+  it('keeps a hoisted parameter ref unowned when an operation of the path has no TypeSpec owner', () => {
+    const sourceRoot = makeSource(BOARD_SOURCE)
+    const result = buildTypeSpecRefProvenance({
+      sourceRoot,
+      restoredDocument: boardDocument({
+        get: { operationId: 'getBoard', responses: { '204': { description: 'ok' } } },
+        delete: { operationId: 'purgeBoard', responses: { '204': { description: 'ok' } } },
+      }),
+      sidecar: createTypeSpecCompatibilitySidecarFromEntries([]),
+    })
+
+    expect(result.report).toMatchObject({
+      valid: false,
+      counts: { refNodes: 1, coveredRefNodes: 0, references: 0 },
+    })
+    expect(result.report.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'typespec-provenance/missing-public-owner', pointer: '#/paths/~1boards~1{boardId}/delete' }),
+      expect.objectContaining({ code: 'typespec-provenance/missing-ref-owner', pointer: BOARD_ID_PARAMETER_REF }),
+    ]))
+    expect(referenceOwners(result.artifact.edges, BOARD_ID_PARAMETER_REF)).toEqual([])
+  })
+
+  it('attributes a hoisted parameter ref of a single-operation path to that operation', () => {
+    const sourceRoot = makeSource(BOARD_SOURCE)
+    const result = buildTypeSpecRefProvenance({
+      sourceRoot,
+      restoredDocument: boardDocument({
+        get: { operationId: 'getBoard', responses: { '204': { description: 'ok' } } },
+      }),
+      sidecar: createTypeSpecCompatibilitySidecarFromEntries([]),
+    })
+
+    expect(result.report).toMatchObject({
+      valid: true,
+      counts: { refNodes: 1, coveredRefNodes: 1, references: 1 },
+    })
+    expect(referenceOwners(result.artifact.edges, BOARD_ID_PARAMETER_REF)).toEqual(['operation:main.tsp:getBoard'])
+  })
+
+  it('keeps the operation declaration as hoisted parameter owner when a sidecar restore targets the operation pointer', () => {
+    const sourceRoot = makeSource(`
+scalar BoardId extends string;
+
+@route("/boards/{boardId}")
+@get
+@extension("x-oa-sdk-operation-examples", #{})
+op getBoard(@path boardId: BoardId): void;
+`)
+    const sidecar = createTypeSpecCompatibilitySidecarFromEntries([{
+      kind: 'parameter-examples',
+      pointer: '#/paths/~1boards~1{boardId}/get/x-oa-sdk-operation-examples/parameters/boardId',
+      target: { path: '/boards/{boardId}', method: 'get', name: 'boardId', in: 'path' },
+      value: { example: 'board-1' },
+    }])
+    const result = buildTypeSpecRefProvenance({
+      sourceRoot,
+      restoredDocument: boardDocument({
+        get: { operationId: 'getBoard', responses: { '204': { description: 'ok' } } },
+      }),
+      sidecar,
+    })
+
+    expect(result.report.valid).toBe(true)
+    expect(result.artifact.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'restores', outputPointer: '#/paths/~1boards~1{boardId}/get', restoreFamily: 'x-oa-sdk-operation-examples' }),
+    ]))
+    expect(referenceOwners(result.artifact.edges, BOARD_ID_PARAMETER_REF)).toEqual(['operation:main.tsp:getBoard'])
+  })
 })
+
+const BOARD_SOURCE = `
+scalar BoardId extends string;
+
+@route("/boards/{boardId}")
+@get
+op getBoard(@path boardId: BoardId): void;
+
+@route("/boards/{boardId}")
+@delete
+op removeBoard(@path boardId: BoardId): void;
+`
+
+const BOARD_ID_PARAMETER_REF = '#/paths/~1boards~1{boardId}/parameters/0/schema/$ref'
+
+/** A restored document whose `/boards/{boardId}` path item carries the hoisted `boardId` parameter. */
+function boardDocument(operations: Record<string, unknown>): OasDocument {
+  return document({
+    paths: {
+      '/boards/{boardId}': {
+        parameters: [{ name: 'boardId', in: 'path', required: true, schema: { $ref: '#/components/schemas/BoardId' } }],
+        ...operations,
+      },
+    },
+    components: { schemas: { BoardId: { type: 'string' } } },
+  })
+}
+
+function referenceOwners(edges: TypeSpecRefProvenanceEdge[], outputPointer: string): string[] {
+  return edges
+    .filter(edge => edge.kind === 'references' && edge.outputPointer === outputPointer)
+    .map(edge => edge.declarationId)
+    .sort()
+}
 
 function makeSource(content: string): string {
   const workspace = mkdtempSync(join(tmpdir(), 'oa-sdk-typespec-ref-provenance-'))

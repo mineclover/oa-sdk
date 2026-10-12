@@ -139,12 +139,17 @@ export function buildTypeSpecRefProvenance(input: {
     operationsById.set(key, current)
   }
   const outputOperations = listOutputOperations(input.restoredDocument)
+  // Kept apart from `pointerOwners`: a sidecar restore that targets the
+  // operation pointer itself replaces that entry below, but must not change
+  // which operation declaration owns the path item's shared parameters.
+  const operationOwners = new Map<string, string>()
   for (const output of outputOperations) {
     const candidates = operationsById.get(output.operationId) ?? []
     if (candidates.length === 1) {
       const declaration = candidates[0]!
       addEdge(edges, { kind: 'emits', declarationId: declaration.id, outputPointer: output.pointer })
       pointerOwners.set(output.pointer, declaration.id)
+      operationOwners.set(output.pointer, declaration.id)
     } else if (candidates.length > 1) {
       diagnostics.push({
         code: 'typespec-provenance/ambiguous-operation',
@@ -187,10 +192,16 @@ export function buildTypeSpecRefProvenance(input: {
     })
   }
 
+  const pathParameterOwners = listPathParameterOwners(input.restoredDocument, operationOwners)
+  const findRefOwners = (pointer: string): readonly string[] => {
+    const owner = findOwner(pointer, pointerOwners)
+    return owner ? [owner] : findPathParameterOwners(pointer, pathParameterOwners)
+  }
+
   const refGraph = resolveRefGraph(input.restoredDocument)
   for (const node of refGraph.nodes) {
-    const owner = findOwner(node.sourcePointer, pointerOwners)
-    if (!owner) {
+    const owners = findRefOwners(node.sourcePointer)
+    if (owners.length === 0) {
       diagnostics.push({
         code: 'typespec-provenance/missing-ref-owner',
         pointer: node.sourcePointer,
@@ -198,12 +209,14 @@ export function buildTypeSpecRefProvenance(input: {
       })
       continue
     }
-    addEdge(edges, {
-      kind: 'references',
-      declarationId: owner,
-      outputPointer: node.sourcePointer,
-      targetRef: node.ref,
-    })
+    for (const owner of owners) {
+      addEdge(edges, {
+        kind: 'references',
+        declarationId: owner,
+        outputPointer: node.sourcePointer,
+        targetRef: node.ref,
+      })
+    }
     if (!node.resolved) {
       diagnostics.push({
         code: 'typespec-provenance/unresolved-ref',
@@ -245,7 +258,7 @@ export function buildTypeSpecRefProvenance(input: {
     exclusions: [],
   }
   const coveredPublicPointers = publicPointers.filter(pointer => Boolean(findOwner(pointer, pointerOwners))).length
-  const coveredRefNodes = refGraph.nodes.filter(node => Boolean(findOwner(node.sourcePointer, pointerOwners))).length
+  const coveredRefNodes = refGraph.nodes.filter(node => findRefOwners(node.sourcePointer).length > 0).length
   const report: TypeSpecRefProvenanceReport = {
     schemaVersion: 'oa-sdk.typespec-ref-provenance-report.v1',
     counts: {
@@ -444,6 +457,33 @@ function listPublicPointers(document: OasDocument): string[] {
   return pointers.sort()
 }
 
+/**
+ * Owners of each Path Item `parameters` array, keyed by
+ * `#/paths/<path>/parameters`. OpenAPI applies Path Item parameters to every
+ * operation of the path, and OA's restored-document normalization
+ * (`hoistCommonPathParameters` in `typespec-bundle-check.ts`, not the TypeSpec
+ * emitter) moves a path parameter there only when every operation of the path
+ * declares it identically. A `$ref` inside that array is therefore no
+ * descendant of an operation pointer, yet each operation of the path declared
+ * it, so it belongs to all of their declarations. The rule fails closed per
+ * path item: a path item without operations, or with any operation that has no
+ * TypeSpec owner, gets no entry and its parameter refs stay unowned.
+ */
+function listPathParameterOwners(document: OasDocument, operationOwners: ReadonlyMap<string, string>): Map<string, string[]> {
+  const documentRecord = document as unknown as Record<string, unknown>
+  const paths = isRecord(documentRecord.paths) ? documentRecord.paths : {}
+  const result = new Map<string, string[]>()
+  for (const [path, pathValue] of Object.entries(paths)) {
+    if (!isRecord(pathValue) || !Array.isArray(pathValue.parameters)) continue
+    const pathPointer = `#/paths/${escapeJsonPointerToken(path)}`
+    const methods = Object.keys(pathValue).filter(method => HTTP_METHODS.has(method) && isRecord(pathValue[method]))
+    const owners = methods.flatMap(method => operationOwners.get(`${pathPointer}/${method}`) ?? [])
+    if (methods.length === 0 || owners.length !== methods.length) continue
+    result.set(`${pathPointer}/parameters`, [...new Set(owners)].sort())
+  }
+  return result
+}
+
 function sidecarTargetPointer(entry: TypeSpecCompatibilitySidecarEntry): string {
   const target = entry.target as Record<string, unknown>
   if (entry.kind === 'root-info') return '#/info'
@@ -470,6 +510,13 @@ function findOwner(pointer: string, owners: Map<string, string>): string | undef
   return [...owners.entries()]
     .filter(([candidate]) => pointer === candidate || pointer.startsWith(`${candidate}/`))
     .sort(([left], [right]) => right.length - left.length)[0]?.[1]
+}
+
+function findPathParameterOwners(pointer: string, owners: ReadonlyMap<string, readonly string[]>): readonly string[] {
+  // An escaped path token never contains `/`, so the first segment after
+  // `#/paths/` is the whole path key.
+  const match = /^#\/paths\/[^/]+\/parameters(?=\/|$)/.exec(pointer)
+  return match ? owners.get(match[0]) ?? [] : []
 }
 
 function hasPointer(document: unknown, pointer: string): boolean {
