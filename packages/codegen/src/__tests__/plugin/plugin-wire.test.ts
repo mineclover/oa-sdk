@@ -1,3 +1,7 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
+import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 import type { OasDocument } from '@oa-sdk/parser'
 import { createPluginContext } from '../../plugin/context.js'
@@ -180,6 +184,48 @@ describe('pluginWire', () => {
     expect(file).toBeDefined()
     expect(file?.content).toContain('ServerHandlers')
     expect(file?.content).toContain('Client')
+  })
+
+  it('assembles protobuf codecs and RPC clients into one module that type-checks', async () => {
+    const context = createPluginContext({
+      entrypoint: '/project/main.tsp',
+      outputDir: '/project/dist',
+      document: createSampleOasDoc(),
+      config: { input: 'main.tsp' },
+    })
+    await pluginWire({ codecs: ['protobuf', 'rpc-contract'], typesFile: './types.js' }).generate!(context)
+
+    const directory = mkdtempSync(join(tmpdir(), 'oa-sdk-wire-module-'))
+    try {
+      writeFileSync(join(directory, 'wire.ts'), context.getFile('wire.ts')!.content)
+      writeFileSync(join(directory, 'types.ts'), [
+        'export interface TelemetryMetric { sensorId: string; timestamp: number; value: number; tags?: string[] }',
+        'export interface TelemetryAck { success: boolean; processedCount: number }',
+      ].join('\n'))
+      writeFileSync(join(directory, 'usage.ts'), [
+        "import { getGeneratedProtobufCodecs, TelemetryServiceRpcClient } from './wire.js'",
+        "const client = new TelemetryServiceRpcClient({ baseUrl: 'https://t.test', codecs: getGeneratedProtobufCodecs() })",
+        "export const ack = client.submitTelemetry({ sensorId: 's', timestamp: 1, value: 2 })",
+      ].join('\n'))
+      const clientIndex = resolve(import.meta.dirname, '../../../../client/src/index.ts')
+      const program = ts.createProgram([join(directory, 'wire.ts'), join(directory, 'usage.ts')], {
+        strict: true,
+        noEmit: true,
+        skipLibCheck: true,
+        module: ts.ModuleKind.ESNext,
+        moduleResolution: ts.ModuleResolutionKind.Bundler,
+        target: ts.ScriptTarget.ES2022,
+        lib: ['lib.es2022.d.ts', 'lib.dom.d.ts'],
+        types: [],
+        paths: { '@oa-sdk/client': [clientIndex] },
+      })
+      const diagnostics = ts.getPreEmitDiagnostics(program, program.getSourceFile(join(directory, 'wire.ts')))
+        .concat(ts.getPreEmitDiagnostics(program, program.getSourceFile(join(directory, 'usage.ts'))))
+        .map(diagnostic => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))
+      expect(diagnostics).toEqual([])
+    } finally {
+      rmSync(directory, { recursive: true, force: true })
+    }
   })
 
   it('supports custom output path and resolves relative imports to types file', async () => {

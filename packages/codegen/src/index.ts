@@ -353,6 +353,9 @@ export type {
   StandaloneGuardTarget,
 } from './standalone-guards/index.js'
 
+export { generateRpcModule } from './rpc/generate-rpc-module.js'
+export type { RpcModuleOptions } from './rpc/generate-rpc-module.js'
+
 export {
   extractWireSchemaFromOas,
   Proto3TargetAdapter,
@@ -370,6 +373,11 @@ export type {
   WireEnumMember,
   WireService,
   WireMethod,
+  WireFieldKind,
+  WireMapValue,
+  WireParameter,
+  WireParameterLocation,
+  WirePayload,
   TypeSpecWireTargetAdapter,
   WireTransformationResult,
   ExtractorOptions,
@@ -398,6 +406,7 @@ export {
   pluginTanstackQuery,
   pluginRouter,
   pluginWire,
+  pluginRpc,
   TspPluginError,
   TspPluginCycleError,
   TspPluginMissingDependencyError,
@@ -428,6 +437,7 @@ export type {
   PluginTanstackQueryOptions,
   PluginRouterOptions,
   PluginWireOptions,
+  PluginRpcOptions,
   TspIntrospectedParameter,
   TspIntrospectedResponse,
   TspIntrospectedOperation,

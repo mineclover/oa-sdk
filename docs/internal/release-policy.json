@@ -85,7 +85,8 @@
         "@oa-sdk/peer-server",
         "@oa-sdk/collab-workspace",
         "@oa-sdk/mcp-mesh",
-        "@oa-sdk/telemetry"
+        "@oa-sdk/telemetry",
+        "@oa-sdk/rpc"
       ]
     },
     "maintenance": {
@@ -136,7 +137,8 @@
     "@oa-sdk/peer-server",
     "@oa-sdk/collab-workspace",
     "@oa-sdk/mcp-mesh",
-    "@oa-sdk/telemetry"
+    "@oa-sdk/telemetry",
+    "@oa-sdk/rpc"
   ],
   "ignored": [
     "@oa-sdk/dpm",

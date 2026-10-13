@@ -17,7 +17,7 @@ release candidate의 현재 판단 입력과 source/external 책임 경계는
 
 ## Current State
 
-현재 정책 스냅샷: v5 · 4 tracks · Core Platform 11 · Downstream 13 · release-tracked 24 · ignored 11 · distribution candidates 21.
+현재 정책 스냅샷: v5 · 4 tracks · Core Platform 11 · Downstream 14 · release-tracked 25 · ignored 11 · distribution candidates 21.
 
 - Root package는 private monorepo이며 Changesets가 설치되어 있다.
 - Root monorepo와 app/reference workspace는 private이다. `pnpm release`는 `pnpm release:export`에
@@ -44,15 +44,15 @@ release candidate의 현재 판단 입력과 source/external 책임 경계는
   candidate의 실제 registry 배포는 별도 artifact repository의 승인된 workflow만 수행한다.
 - Internal dependencies는 모두 `workspace:` protocol을 사용한다. Changesets config는 내부 의존성
   bump를 `patch`로 전파한다.
-- Release policy v5는 Core Platform 11개와 Downstream Integration 13개, 총 24개 release-tracked package와
+- Release policy v5는 Core Platform 11개와 Downstream Integration 14개, 총 25개 release-tracked package와
   11개 ignored workspace를 관리한다. Release
   tracking은 제품 scope와 일치시키되, Core Platform과 Downstream Integration을 서로 다른
   architecture tier로 유지한다.
 
 ## Release-Tracked Packages
 
-아래 24개 패키지는 package-level versioning 후보로 유지한다. Core Platform 열한 패키지가
-schema/spec 관리 제품을 소유하고, Downstream Integration 열세 패키지는 그 계약의 소비 가능성을
+아래 25개 패키지는 package-level versioning 후보로 유지한다. Core Platform 열한 패키지가
+schema/spec 관리 제품을 소유하고, Downstream Integration 열네 패키지는 그 계약의 소비 가능성을
 증명한다.
 
 | Tier | Package | Current version | Role |
@@ -81,6 +81,7 @@ schema/spec 관리 제품을 소유하고, Downstream Integration 열세 패키�
 | Downstream Integration | `@oa-sdk/collab-workspace` | `0.1.0` | In-memory workspace lattice, scoped AI edits and intent locks |
 | Downstream Integration | `@oa-sdk/mcp-mesh` | `0.1.0` | Domain/session library, validated tool routing and CLI |
 | Downstream Integration | `@oa-sdk/telemetry` | `0.1.0` | Design-driven telemetry, tracking symbol registry, XState v5 inspector, and DPM pseudonymization bridge |
+| Downstream Integration | `@oa-sdk/rpc` | `0.1.0` | Private RPC runtime over the Surface IR RPC contract: typed client/server, JSON-RPC 2.0 and REST binding |
 
 ## Ignored Workspaces
 

@@ -2,6 +2,18 @@
 
 릴리스 단위가 아닌, 굵직한 surface 변경이 떨어졌을 때 한 항목으로 기록한다. 자세한 구현 상태는 [spec.md](./internal/spec.md), API 단일 소스는 [api-index.md](./internal/api-index.md), 기능↔테스트는 [feature-test-matrix.md](./internal/feature-test-matrix.md) 참조.
 
+## 2026-10-13 — TypeSpec 계약 기반 RPC와 wire 호환 Protobuf codec (`@oa-sdk/surface-ir`, `@oa-sdk/codegen`, 새 private `@oa-sdk/rpc`)
+
+TypeSpec으로 선언한 operation을 REST route 단위가 아니라 typed procedure 호출로 쓸 수 있게 했다. 사용법은
+[TypeSpec 계약을 RPC로 쓰기](./guides/typespec-rpc.md)에 있다.
+
+- **RPC contract (`@oa-sdk/surface-ir`)**: `buildRpcContract()`가 operation마다 dotted-name procedure(`@rpc` 이름 → 첫 tag camelCase + operationId), 파라미터와 body를 합친 object 입력, 성공 출력, status별 오류, REST request를 다시 만들 HTTP binding을 담은 JSON 계약 `oa-sdk.rpc-contract.v1`을 만든다. streaming operation과 이름·필드 충돌은 진단과 함께 제외한다.
+- **타입 생성 (`@oa-sdk/codegen`)**: `pluginRpc()` / `generateRpcModule()`이 `<Name>Procedures` 타입 맵과 `<name>Contract` 데이터를 방출한다.
+- **런타임 (`@oa-sdk/rpc`, private)**: `createRpcServer`의 한 handler 집합이 JSON-RPC 2.0(`createJsonRpcFetchHandler`, 메시지 채널용 `handleJsonRpc`)과 원래 REST route(`createRestFetchHandler`)를 함께 제공하고, `createRpcClient`는 `createHttpTransport`·`createJsonRpcTransport`·`createLocalTransport`로 호출한다. OpenAPI style/explode 직렬화, `RpcError` 오류 모델, Ajv 검증기(`./ajv`), 내부 예외 은닉, body 키·`__proto__`·`..` path 방어를 포함한다.
+- **Wire RPC client (`@oa-sdk/codegen`)**: `pluginWire`의 `rpc-contract`가 만드는 `<Service>RpcClient`가 path·query·header·cookie 파라미터로 route를 채우고, 선언된 media type대로 JSON 또는 `BinaryCodecAdapter`로 body를 인코딩·디코딩하며, 실패를 `WireRpcError`로 알린다. 이전에는 파라미터가 빠지고 body를 직렬화하지 않았다.
+- **Protobuf codec (`@oa-sdk/codegen`)**: 생성 codec이 생성 `.proto`와 같은 wire format을 쓴다. 중첩·반복 message, enum 번호, `map<>`, 64-bit·zigzag·fixed 타입, packed repeated, union 등의 JSON fallback을 지원하고 protobufjs와 양방향으로 검증한다. 이전에는 중첩 object가 있는 model(production 계약 예시 16개 중 7개)에서 인코딩이 throw했고 object field가 `"[object Object]"`가 됐다. production 계약 예시 기준 크기는 JSON의 45–75%다.
+- **문서·게이트**: [Spec](./internal/spec.md#typespec-계약-rpc와-바이너리-wire-), API index, feature-test-matrix(`typespec-rpc-contract-runtime`, `wire-binary-codecs`), release policy(Downstream 14개), [scope decision](./internal/platform-scope.md#typespec-contract-rpc-runtime--2026-10-12)을 갱신했다.
+
 ## 2026-10-05 — Installable onboarding: companion packages and registry specifiers (`@oa-sdk/codegen` 0.9.0, `@oa-sdk/parser` 0.4.0, `@oa-sdk/typespec-decorators` 0.3.0, `@oa-sdk/core` 0.3.1; first npm release candidates `@oa-sdk/router` 0.2.2, `@oa-sdk/client` 0.2.2, `@oa-sdk/mock-server` 0.1.4, `@oa-sdk/surface-ir` 0.1.1)
 
 `npx @oa-sdk/codegen init --yes` → 설치 → `oa-gen generate`로 이어지는 공개 온보딩 흐름이 oa-sdk 워크스페이스 밖에서도 끝까지 동작하도록 정리했다.

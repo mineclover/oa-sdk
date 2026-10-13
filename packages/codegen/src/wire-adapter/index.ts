@@ -15,6 +15,11 @@ export type {
   WireEnumMember,
   WireService,
   WireMethod,
+  WireFieldKind,
+  WireMapValue,
+  WireParameter,
+  WireParameterLocation,
+  WirePayload,
 } from './wire-schema-model.js'
 
 export type {

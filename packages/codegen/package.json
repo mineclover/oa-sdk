@@ -92,6 +92,7 @@
     "@oa-sdk/router": "workspace:*",
     "@types/node": "^22.0.0",
     "drizzle-orm": "1.0.0-beta.20",
+    "protobufjs": "^7.5.4",
     "tsup": "^8.0.0",
     "typescript": "5.9.3",
     "typia": "^12.0.2",

@@ -948,8 +948,9 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `TypeSpecWirePipeline` | `wire-adapter/typespec-wire-pipeline.ts` | TypeSpec SSOT 기반 플러그형 wire 타겟 변환 파이프라인 클래스 |
 | `typeSpecWirePipeline` | `wire-adapter/typespec-wire-pipeline.ts` | TypeSpec wire 변환 파이프라인 기본 싱글톤 인스턴스 |
 | `Proto3TargetAdapter` | `wire-adapter/adapters/proto3-target-adapter.ts` | Protocol Buffers v3 (.proto) 스키마 생성 타겟 어댑터 |
-| `ProtobufCodecTargetAdapter` | `wire-adapter/adapters/protobuf-codec-target-adapter.ts` | Zero-eval CSP 준수 순수 TypeScript Protobuf 바이너리 코덱 생성 어댑터 |
-| `RpcContractTargetAdapter` | `wire-adapter/adapters/rpc-contract-target-adapter.ts` | 양방향 RPC 서비스 핸들러 계약 및 클라이언트 SDK 생성 어댑터 |
+| `ProtobufCodecTargetAdapter` | `wire-adapter/adapters/protobuf-codec-target-adapter.ts` | Zero-eval CSP 준수 순수 TypeScript Protobuf 바이너리 코덱 생성 어댑터. `Proto3TargetAdapter`의 .proto와 같은 wire format(중첩 message, enum 번호, map, packed repeated, 64-bit, JSON fallback) |
+| `RpcContractTargetAdapter` | `wire-adapter/adapters/rpc-contract-target-adapter.ts` | 서비스 핸들러 계약과, 선언된 route·파라미터를 채우고 `BinaryCodecAdapter`로 Protobuf/MessagePack 메시지를 인코딩·디코딩하는 클라이언트(`WireRpcError`) 생성 어댑터 |
+| `generateRpcModule`, `RpcModuleOptions` | `rpc/generate-rpc-module.ts` | Surface IR RPC contract → `<Name>Procedures` 타입 맵과 `<name>Contract` 데이터 TypeScript module |
 | `MessagePackTargetAdapter` | `wire-adapter/adapters/messagepack-target-adapter.ts` | MessagePack 바이너리 통신 코덱 바인딩 생성 어댑터 |
 | `defineTspConfig()` | `plugin/config.ts` | TypeSpec SSOT 빌드 파이프라인 설정 정의 헬퍼 |
 | `validateTspConfig()` | `plugin/config.ts` | TypeSpec 설정 객체 유효성 검증 및 기본값 정규화 |
@@ -968,6 +969,7 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `pluginTanstackQuery()` | `plugin/plugins/tanstack-query.ts` | TanStack Query v5 3-Tier(Keys, Options, Hooks) 생성 플러그인 |
 | `pluginRouter()` | `plugin/plugins/router.ts` | 서버 프레임워크 핸들러 계약 및 라우터 바인딩 생성 플러그인 |
 | `pluginWire()` | `plugin/plugins/wire.ts` | Zero-eval Protobuf 및 바이너리 코덱 바인딩 생성 플러그인 |
+| `pluginRpc()` | `plugin/plugins/rpc.ts` | TypeSpec 계약의 RPC procedure 타입 맵과 contract 데이터 module 생성 플러그인 |
 | `TspPluginError` | `plugin/types.ts` | TypeSpec 플러그인 엔진 공통 에러 기본 클래스 |
 | `TspPluginCycleError` | `plugin/types.ts` | 플러그인 간 순환 의존성 감지 시 발생하는 에러 |
 | `TspPluginMissingDependencyError` | `plugin/types.ts` | 필수 선행 플러그인 누락 시 발생하는 에러 |
@@ -1157,6 +1159,9 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `WireEnumMember` | `wire-adapter/wire-schema-model.ts` | wire 열거형 멤버 메타데이터 인터페이스 |
 | `WireService` | `wire-adapter/wire-schema-model.ts` | wire RPC 서비스 메타데이터 인터페이스 |
 | `WireMethod` | `wire-adapter/wire-schema-model.ts` | wire RPC 메서드 및 스트리밍 메타데이터 인터페이스 |
+| `WireFieldKind`, `WireMapValue` | `wire-adapter/wire-schema-model.ts` | wire 필드 전송 형태(scalar·enum·message·map·json)와 map 값 타입 |
+| `WireParameter`, `WireParameterLocation` | `wire-adapter/wire-schema-model.ts` | wire RPC 메서드의 path·query·header·cookie 파라미터 (path-level 병합, 미선언 route 변수 포함) |
+| `WirePayload` | `wire-adapter/wire-schema-model.ts` | 요청 body와 성공 응답의 media type·참조 model 이름 |
 | `ExtractorOptions` | `wire-adapter/wire-schema-extractor.ts` | wire 스키마 추출 옵션 인터페이스 |
 | `Proto3AdapterOptions` | `wire-adapter/adapters/proto3-target-adapter.ts` | Proto3 스키마 생성 옵션 인터페이스 |
 | `ProtobufCodecAdapterOptions` | `wire-adapter/adapters/protobuf-codec-target-adapter.ts` | Protobuf TS 코덱 생성 옵션 인터페이스 |
@@ -1181,6 +1186,7 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `PluginTanstackQueryOptions` | `plugin/plugins/tanstack-query.ts` | TanStack Query v5 플러그인 옵션 인터페이스 |
 | `PluginRouterOptions` | `plugin/plugins/router.ts` | 서버 라우터 및 계약 플러그인 옵션 인터페이스 |
 | `PluginWireOptions` | `plugin/plugins/wire.ts` | 바이너리 코덱 바인딩 플러그인 옵션 인터페이스 |
+| `PluginRpcOptions` | `plugin/plugins/rpc.ts` | RPC module 플러그인 옵션 (출력 경로, 이름, contract 투영 옵션) |
 | `TspIntrospectedParameter` | `plugin/builder.ts` | TypeSpec 파라미터 인트로스펙션 메타데이터 |
 | `TspIntrospectedResponse` | `plugin/builder.ts` | TypeSpec 응답 및 에러 상태 인트로스펙션 메타데이터 |
 | `TspIntrospectedOperation` | `plugin/builder.ts` | TypeSpec 엔드포인트 연산 인트로스펙션 메타데이터 |
@@ -1663,6 +1669,9 @@ Target-neutral API surface IR와 Forge SDK/CLI projection·Overlay 생성.
 | `SurfaceTarget`, `SurfaceAvailability`, `SurfaceVisibility`, `SurfaceAlias`, `SurfaceArgument`, `SurfaceParamOverride`, `SurfacePagination`, `SurfaceStreaming`, `SurfaceRuntime`, `SurfaceOperation`, `SurfaceOperationOverride`, `SurfaceDiagnosticSeverity`, `SurfaceDiagnostic`, `SurfaceIr`, `SurfaceIrOptions` | `surface-ir/src/index.ts` | Surface IR 계약·런타임·진단 타입 |
 | `ForgeOperationProjection`, `ForgeCommandCatalog`, `ForgeProjection`, `ForgeOverlayBundle`, `ForgeOverlay`, `ForgeOverlayAction` | `surface-ir/src/index.ts` | Forge projection 및 Overlay 번들 계약 타입 |
 | `buildSurfaceIr`, `toForgeProjection`, `emitForgeOverlay`, `emitForgeOverlays` | `surface-ir/src/index.ts` | Surface IR 빌더와 Forge projection·Overlay 방출 함수 |
+| `RPC_CONTRACT_VERSION`, `RPC_OPERATION_EXTENSION` | `surface-ir/src/rpc-contract.ts` | RPC contract 스키마 버전과 `@rpc` decorator가 쓰는 `x-oa-sdk-rpc` 확장 이름 |
+| `RpcContract`, `RpcProcedure`, `RpcProcedureKind`, `RpcHttpBinding`, `RpcParameterBinding`, `RpcParameterLocation`, `RpcBodyBinding`, `RpcErrorResponse`, `RpcContractOptions`, `BuildRpcContractOptions` | `surface-ir/src/rpc-contract.ts` | operation을 dotted-name procedure(입력 object schema, 출력, 오류, HTTP binding)로 투영한 RPC contract 타입 |
+| `buildRpcContract`, `toRpcContract` | `surface-ir/src/rpc-contract.ts` | ParsedDocument 또는 Surface IR에서 RPC contract를 만드는 함수 |
 
 ---
 
@@ -1898,3 +1907,18 @@ TypeSpec에서 빌드한 OpenAPI 문서를 JSON·YAML package asset으로 제공
 | `OtelLikeSpan`, `OtelLikeTracer`, `OtelDispatcherOptions`, `createOtelDispatcher` | `telemetry/src/dispatcher/otel.ts` | OpenTelemetry Span 생명주기 및 이벤트 기록 디스패처 |
 | `createCompositeDispatcher` | `telemetry/src/dispatcher/composite.ts` | 다중 프로바이더 동시 브로드캐스트 합성 디스패처 |
 | `XStateInspectorOptions`, `ActorRefLike`, `SnapshotLike`, `InspectionEventLike`, `createTelemetryInspector` | `telemetry/src/xstate/inspector.ts` | XState v5의 inspect 훅에 연결되는 비침습 중앙집중식 인스펙터 팩토리 |
+
+---
+
+## TypeSpec 계약 RPC 런타임 (`@oa-sdk/rpc`)
+
+Surface IR RPC contract를 소비해 typed procedure client/server, JSON-RPC 2.0, 원래 REST route binding을 제공한다.
+
+| Export | 정의 | 용도 |
+|---|---|---|
+| `RpcContract`, `RpcProcedure`, `RpcProcedureTypes`, `RpcProcedureShape`, `UntypedProcedures`, `RpcCallOptions`, `RpcProcedureCaller`, `RpcClient`, `RpcHandler`, `RpcHandlerContext`, `RpcHandlers`, `RpcValidationIssue`, `RpcSchemaCheck`, `RpcValidator`, `RpcTransport`, `RpcTransportRequest`, `RpcHeadersInit` | `rpc/src/types.ts` | contract, dotted name 기반 client/handler 중첩 타입, validator·transport 계약 |
+| `RpcError`, `RpcErrorCode`, `RpcErrorOptions`, `isRpcError`, `toRpcError`, `statusForCode`, `codeForStatus` | `rpc/src/errors.ts` | 코드·HTTP status·payload를 가진 RPC 오류와 status 매핑 |
+| `createRpcServer`, `RpcServer`, `RpcServerOptions`, `RpcServerCallOptions`, `RpcServerCallArgs` | `rpc/src/server.ts` | handler 바인딩, 입력·출력 검증, 내부 오류 은닉 서버 |
+| `createRpcClient`, `createRpcCaller`, `createLocalTransport`, `RpcCaller`, `RpcClientOptions` | `rpc/src/client.ts` | 중첩 client, 이름 기반 caller, 같은 프로세스 transport |
+| `createHttpTransport`, `createRestFetchHandler`, `errorFromHttpResponse`, `HttpTransportOptions`, `RestFetchHandlerOptions`, `RpcFetchHandler` | `rpc/src/http.ts` | OpenAPI style/explode 직렬화로 원래 REST route를 호출·제공하는 binding |
+| `handleJsonRpc`, `createJsonRpcFetchHandler`, `createJsonRpcTransport`, `toJsonRpcError`, `fromJsonRpcError`, `JsonRpcId`, `JsonRpcRequest`, `JsonRpcResponse`, `JsonRpcErrorObject`, `JsonRpcHandleOptions`, `JsonRpcFetchHandlerOptions`, `JsonRpcTransportOptions` | `rpc/src/json-rpc.ts` | JSON-RPC 2.0 message 처리(batch·notification), HTTP endpoint와 transport |

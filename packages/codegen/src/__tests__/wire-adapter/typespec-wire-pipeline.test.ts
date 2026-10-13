@@ -167,7 +167,8 @@ describe('TypeSpec Wire Adapter Pipeline', () => {
 
       // Service rendering
       expect(code).toContain('service OrderService {')
-      expect(code).toContain('rpc GetOrder (Empty) returns (Order);')
+      // Services reference the emitted message name, not the schema name.
+      expect(code).toContain('rpc GetOrder (Empty) returns (OrderMessage);')
     })
   })
 
@@ -181,8 +182,8 @@ describe('TypeSpec Wire Adapter Pipeline', () => {
       expect(adapter.fileExtension).toBe('.ts')
 
       // Pure TypeScript binary encoders/decoders
-      expect(code).toContain('function __encodeVarint')
-      expect(code).toContain('function __decodeVarint')
+      expect(code).toContain('function __writeVarint')
+      expect(code).toContain('function __readVarint')
       expect(code).toContain('export const orderProtobufCodec: BinaryCodecAdapter<Order>')
       expect(code).toContain('export function encodeOrder(payload: Order): Uint8Array')
       expect(code).toContain('export function decodeOrder(raw: ArrayBufferLike | Uint8Array): Order')
@@ -193,7 +194,7 @@ describe('TypeSpec Wire Adapter Pipeline', () => {
     it('generates server handler contracts and client SDK interfaces', () => {
       const model = extractWireSchemaFromOas(sampleOas)
       const adapter = new RpcContractTargetAdapter()
-      const code = adapter.transform(model)
+      const code = adapter.transform(model, { typesImport: './types.js' })
 
       expect(adapter.id).toBe('rpc-contract')
       expect(adapter.fileExtension).toBe('.ts')
@@ -201,11 +202,13 @@ describe('TypeSpec Wire Adapter Pipeline', () => {
       // Server contract
       expect(code).toContain('export interface OrderServiceServerHandlers')
       expect(code).toContain('export type OrderServiceHandler')
-      expect(code).toContain('getOrder(request: void, context: TContext): Promise<Order> | Order')
+      // The undeclared {orderId} route variable still becomes a required parameter.
+      expect(code).toContain('export interface OrderServiceGetOrderParams {')
+      expect(code).toContain('getOrder(request: void, context: TContext, params: OrderServiceGetOrderParams): Promise<Order> | Order')
 
       // Client interface
       expect(code).toContain('export class OrderServiceRpcClient')
-      expect(code).toContain('async getOrder(options?: { headers?: Record<string, string>; signal?: AbortSignal }): Promise<Order>')
+      expect(code).toContain('async getOrder(params: OrderServiceGetOrderParams, options?: WireRpcCallOptions): Promise<Order>')
     })
   })
 

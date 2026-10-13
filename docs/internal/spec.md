@@ -35,6 +35,7 @@ Downstream Integration
   peer-server                 peer registry, signaling, and RPC dispatch
   collab-workspace             bounded Tree-Lattice workspace and intent locks
   mcp-mesh                    validated domain/session tool mesh and CLI
+  rpc                         RPC contract runtime: typed client/server, JSON-RPC 2.0, REST binding (private)
 
 Maintenance-only
   dpm, personas, typia-mock, logical-erd-contract, typespec-erd, ttsc-compile-fixture
@@ -410,6 +411,55 @@ Webhook 핸들러 스텁 생성.
 fetch `createClient()` + SSE `async *` generator. `OasDocument | ParsedDocument` 입력. baseUrl from servers.
 NDJSON vs SSE 스트림 분리 + `resolveServerUrl` 서버 변수 해소.
 ClientMiddleware (`onRequest`/`onResponse`/`onError`) 인터셉터. 문서화된 응답 헤더가 있으면 기존 body 반환 메서드는 유지하고 `withResponse.<operation>()`에서 `{ body, headers, response }`를 반환하며 `headers`는 `XxxResponseHeaders` 타입과 case-insensitive lookup을 사용. Webhook 페이로드 타입 생성.
+
+## TypeSpec 계약 RPC와 바이너리 wire ✅
+
+TypeSpec/OpenAPI operation을 procedure 호출로 쓰는 두 경로. 사용법은
+[TypeSpec 계약을 RPC로 쓰기](../guides/typespec-rpc.md), 범위 결정은
+[platform-scope](./platform-scope.md#typespec-contract-rpc-runtime--2026-10-12)에 둔다.
+
+```text
+.tsp ─▶ OpenAPI ─▶ ParsedDocument ─▶ buildRpcContract ─▶ RpcContract ─▶ generateRpcModule / pluginRpc
+                                      (@oa-sdk/surface-ir)    (JSON)         (<Name>Procedures + <name>Contract)
+                                                                 │
+                                                                 ▼
+                                    @oa-sdk/rpc: createRpcServer · createRpcClient · transports
+
+OpenAPI ─▶ extractWireSchemaFromOas ─▶ WireSchemaModel ─▶ Proto3TargetAdapter (.proto)
+                                                         ├▶ ProtobufCodecTargetAdapter (BinaryCodecAdapter per model)
+                                                         ├▶ MessagePackTargetAdapter
+                                                         └▶ RpcContractTargetAdapter (<Service>RpcClient, ServerHandlers)
+```
+
+### JSON procedure RPC
+
+| 구성 | 위치 | 구현 |
+|------|------|------|
+| RPC contract 투영 | `@oa-sdk/surface-ir` `buildRpcContract`, `toRpcContract` | `oa-sdk.rpc-contract.v1` JSON. Surface IR의 group/method 이름 위에 `x-oa-sdk-rpc`(`@rpc`) service/method 이름과 첫 tag camelCase 기본값을 적용한다. 입력은 파라미터와 body를 합친 object schema 하나(평범한 object body는 spread, 그 밖은 `body` 필드, `allOf` object는 평탄화), 출력은 가장 낮은 2xx schema(내용 없으면 `null`), 오류는 status별 schema, `http` binding은 method/path/style/explode/body 배치/success status를 담는다. `Accept`·`Content-Type`·`Authorization` header 파라미터는 무시. streaming(SSE·NDJSON·`@rpc` streaming)은 warning과 함께 제외, 필드 충돌·이름 오류·namespace 충돌은 error 진단과 함께 제외. `versionHash`는 contract의 sha256 |
+| 타입·contract module 생성 | `@oa-sdk/codegen` `generateRpcModule`, `pluginRpc` | `schemaToTs`로 `<Name>Procedures`(procedure별 `{ input; output }`)와 `<name>Contract: RpcContract`를 방출한다. 아직 `$ref`로 남은 component schema는 지역 type alias로 닫는다. plugin은 contract 진단을 plugin diagnostic으로 보고한다 |
+| 서버 | `@oa-sdk/rpc` `createRpcServer` | dotted name대로 중첩한 handler 바인딩, handler 누락 시 생성 오류(`allowPartial`이면 `NOT_IMPLEMENTED`), 입력 object 강제와 validator 기반 입력·출력 검증, `RpcError`가 아닌 예외는 `INTERNAL`로 숨기고 `onError`로 보고 |
+| REST binding | `createHttpTransport`, `createRestFetchHandler` | OpenAPI `style`/`explode` 직렬화·역직렬화(path `simple`/`label`/`matrix`, query `form`/`spaceDelimited`/`pipeDelimited`/`deepObject`, header, cookie, OAS 3.2 `querystring`, `content` 파라미터), schema 기반 숫자·불리언 coercion(`anyOf`/`oneOf`/`allOf` 포함), 구분자는 디코딩 전에 분리, map 형태 exploded object 지원. body는 JSON·form-urlencoded·multipart·text·binary. route는 literal 우선 매칭, 다른 method는 405 + `Allow`. body 키는 선언된 파라미터를 덮어쓰지 않고 `__proto__`는 데이터로만 정의된다. `.`/`..` path 값은 거부 |
+| JSON-RPC 2.0 | `handleJsonRpc`, `createJsonRpcFetchHandler`, `createJsonRpcTransport` | request·notification·batch, 표준 오류 코드(`-32700`/`-32600`/`-32601`/`-32602`/`-32603`), application 오류는 `-32000` + `error.data = { code, status, data }`. `createContext` 오류도 JSON-RPC 오류로 응답 |
+| 클라이언트 | `createRpcClient`, `createRpcCaller`, `createLocalTransport` | contract 경로로 만든 중첩 client와 이름 기반 caller, 선택적 입력 검증, `structuredClone`으로 격리한 같은 프로세스 transport |
+| 오류 | `RpcError`, `statusForCode`, `codeForStatus` | `code`·`status`·`data`. REST 2xx 외 응답은 body의 문자열 `code` 또는 status에서 code를 정한다 |
+| 검증기 | `@oa-sdk/rpc/ajv` `createAjvValidator` | Ajv 2020-12, `strict: false`, 기본 format 검증 끔. `#/components/schemas/*` 참조는 contract `schemas`로 해소. `ajv`는 optional peer |
+
+`@oa-sdk/rpc` root entry는 런타임 의존성이 없고 web 표준 API만 쓴다. production 계약(34 operation)은
+33 procedure로 투영된다(SSE 1개 제외, error 진단 0).
+
+### 바이너리 wire
+
+| 구성 | 위치 | 구현 |
+|------|------|------|
+| Wire model 추출 | `extractWireSchemaFromOas` | field마다 `kind`(`scalar`·`enum`·`message`·`map`·`json`)를 정한다. component enum은 `literals`를 기록하고, `additionalProperties`만 있는 object는 `map<string, V>`, union·이름 없는 object·중첩 배열은 `json`. integer format 매핑(`int8`–`int32`→`int32`, `uint8`–`uint32`→`uint32`, `uint64`, 그 밖은 `int64`), field 번호는 명시 번호와 19000–19999를 피해 자동 할당. 메서드는 path-level 병합 파라미터, 미선언 route 변수, request body·success response의 media type과 model, media type 기반 `wireFormat`(기본 `json`)을 가진다 |
+| `.proto` | `Proto3TargetAdapter` | 중첩 type은 `messageName`으로 참조(서비스 입출력 포함), `map<>`, JSON field는 `string`, 한 줄 comment, identifier 정리와 `json_name`, package 범위에서 겹치는 enum member 이름은 enum 이름 prefix |
+| Protobuf codec | `ProtobufCodecTargetAdapter` | `.proto`와 같은 wire format: 64-bit varint(음수 포함), zigzag, fixed32/64·float·double, 중첩 message와 repeated message, enum 번호, map entry, JSON fallback, packed repeated 쓰기와 packed/unpacked 읽기, unknown field skip. 범위 밖 정수·비정수·없는 enum 값은 인코딩 시 throw, 잘린 입력은 `RangeError`, map 키로 prototype 변경 불가, required 배열·map은 비어 있어도 복원. 64-bit 값은 안전 범위면 `number`, 아니면 `bigint`. `format: byte`는 wire bytes ↔ base64 문자열 |
+| Wire RPC client | `RpcContractTargetAdapter` (`pluginWire` codec `rpc-contract`) | `<Service>RpcClient`가 route를 파라미터로 채우고, 선언된 media type대로 JSON 직렬화 또는 model 이름으로 찾은 `BinaryCodecAdapter`로 인코딩·디코딩한다. codec이 없으면 요청 전 실패, 2xx 외 응답은 `WireRpcError`. `<Service>ServerHandlers`는 `(request, context, params)` |
+
+검증: protobufjs가 생성된 `.proto`로 생성 codec의 bytes를 디코딩하고, protobufjs가 쓴 bytes를 생성 codec이
+디코딩한다. production 계약의 schema 예시 16개는 모두 손실 없이 왕복하며 합계 크기가 JSON보다 작다.
+알려진 한계: Protobuf는 명시적 `null`과 field 없음, optional 빈 배열·map과 없음을 구분하지 못한다.
+바이너리 wire 서버 runtime과 streaming은 생성하지 않는다.
 
 ## `@oa-sdk/typia-mock` ✅
 

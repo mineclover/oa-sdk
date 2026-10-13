@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import type {
   CompleteParsedDocument,
   OperationEntry,
@@ -9,6 +8,7 @@ import type {
 } from '@oa-sdk/parser'
 // Browser entry: pure helpers without the root entry's TypeScript/Ajv load.
 import { escapeJsonPointerToken, unescapeJsonPointerToken } from '@oa-sdk/parser/browser'
+import { sha256, stableStringify } from './hash.js'
 
 export const SURFACE_IR_VERSION = 'oa-sdk.surface-ir.v1' as const
 
@@ -521,13 +521,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function sha256(value: string): string {
-  return createHash('sha256').update(value).digest('hex')
-}
-
-function stableStringify(value: unknown): string {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value)
-  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`
-  const record = value as Record<string, unknown>
-  return `{${Object.keys(record).sort().map(key => `${JSON.stringify(key)}:${stableStringify(record[key])}`).join(',')}}`
-}
+export {
+  RPC_CONTRACT_VERSION,
+  RPC_OPERATION_EXTENSION,
+  buildRpcContract,
+  toRpcContract,
+} from './rpc-contract.js'
+export type {
+  BuildRpcContractOptions,
+  RpcBodyBinding,
+  RpcContract,
+  RpcContractOptions,
+  RpcErrorResponse,
+  RpcHttpBinding,
+  RpcParameterBinding,
+  RpcParameterLocation,
+  RpcProcedure,
+  RpcProcedureKind,
+} from './rpc-contract.js'

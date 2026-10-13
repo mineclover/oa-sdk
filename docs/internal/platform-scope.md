@@ -80,7 +80,7 @@ archi-adr validate/render`다.
 | Tier | Workspaces | Policy |
 | --- | --- | --- |
 | Core Platform | `core`, `openapi-projection-contract`, `typespec-decorators`, `schemas`, `parser`, `surface-ir`, `codegen`, `spec-lens`, `spec-lens-contract`, `ast-sync`, `tools` (11개) | 제품 방향과 신규 기능 투자의 기본 범위 (Downstream은 `devDependencies`로만 참조 가능) |
-| Downstream Integration | `router`, `client`, `mock-server`, `chunk-stream`, `chunk-stream-crdt`, `chunk-stream-ui`, `chunk-stream-timeseries`, `chunk-stream-react`, `peer-transport`, `peer-server`, `collab-workspace`, `mcp-mesh` (12개) | Core 계약을 소비하고 end-to-end로 증명하는 release-tracked integration surface (`distributionCandidates` 승격 완료) |
+| Downstream Integration | `router`, `client`, `mock-server`, `chunk-stream`, `chunk-stream-crdt`, `chunk-stream-ui`, `chunk-stream-timeseries`, `chunk-stream-react`, `peer-transport`, `peer-server`, `collab-workspace`, `mcp-mesh`, `telemetry`, `rpc` (14개) | Core 계약을 소비하고 end-to-end로 증명하는 release-tracked integration surface (`rpc`를 제외하고 `distributionCandidates` 승격 완료) |
 | Maintenance-only | `dpm`, `personas`, `typia-mock`, `logical-erd-contract`, `typespec-erd`, `typespec-tooling`, `ttsc-compile-fixture` (7개) | security, compatibility, migration 작업만 허용하는 분리 후보 또는 승인된 독립 prototype. `@oa-sdk/typia-mock`은 Core Platform에서 TS 컴파일러 변환기 복잡도를 격리하면서 Samchon ILlmApplication 통합점을 유지하는 유지보수 경계다. |
 | Apps and references | `nestjs-ref`, `playground`, `preview`, `spec-lens-ui` (4개) | 배포 라이브러리가 아닌 검증, reference, UI workspace |
 
@@ -111,6 +111,23 @@ scope-reactivation decision을 남겨야 한다. 최소한 다음 내용을 기�
 
 결정이 없으면 non-core feature request는 착수하지 않고 backlog에도 active goal로 올리지
 않는다. 버그 수정처럼 보이는 요청도 실제로 새 capability를 추가하면 feature로 분류한다.
+
+### TypeSpec contract RPC runtime — 2026-10-12
+
+사용자가 TypeSpec으로 선언한 계약을 RPC 형태로 호출·제공하는 유틸리티 구현을 요청했다.
+계약 투영(`buildRpcContract`)은 Forge projection과 같은 Surface IR target projection이므로
+Core Platform인 `@oa-sdk/surface-ir`와 `@oa-sdk/codegen`(`pluginRpc`, `generateRpcModule`)에
+둔다. 이 결정은 그 계약을 소비하는 runtime인 새 `@oa-sdk/rpc` workspace에 대한 것이다.
+
+| Decision item | Recorded decision |
+| --- | --- |
+| User problem | TypeSpec operation을 REST route 단위로만 호출할 수 있어, 같은 계약을 typed procedure 호출(`client.users.getUserById({ id })`)이나 JSON-RPC 2.0 같은 단일 endpoint·메시지 채널 transport로 쓰려면 수작업 adapter가 필요하다. |
+| Core relation | Core 계약(Surface IR RPC contract)을 소비해 하나의 handler 집합이 JSON-RPC와 원래 REST route를 함께 처리함을 end-to-end로 증명한다. 계약의 모양은 Core가 소유하고 runtime은 결정하지 않는다. |
+| Owner | OA SDK maintainers가 runtime API, 파라미터 직렬화 호환성, downstream 테스트와 문서를 유지한다. |
+| Release/CI | Downstream Integration release-tracked private workspace로 등록하고 downstream build/test/typecheck에 포함한다. distribution candidate 승격과 publish는 별도 결정으로 미룬다. `./ajv` subpath만 optional peer `ajv`를 import한다. |
+| Location | `packages/rpc`에 둔다. 기존 `@oa-sdk/codegen` wire-adapter의 `RpcContractTargetAdapter`는 Protobuf/MessagePack 바이너리 wire client로 남기고(파라미터·codec·오류 처리 수정), JSON procedure 호출은 이 runtime이 맡는다. |
+| Exit condition | 계약 투영, client/server, JSON-RPC 2.0, REST binding, 실제 TypeSpec 컴파일에서 생성한 module의 타입 검사가 회귀 테스트로 고정된다. streaming procedure(SSE, client/bidi streaming)나 WebSocket/peer-transport adapter로 확장할 때 별도 결정을 기록한다. |
+| Boundary | unary 호출만 다룬다. streaming operation은 진단과 함께 계약에서 제외한다. 인증·rate limit·batch 최적화는 transport/server 사용자 책임이며 제공한다고 주장하지 않는다. |
 
 ### WebMCP libraries hardening — 2026-09-22
 

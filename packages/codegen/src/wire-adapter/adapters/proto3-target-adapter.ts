@@ -7,7 +7,7 @@
  */
 
 import type { TypeSpecWireTargetAdapter } from '../wire-adapter-types.js'
-import type { WireSchemaModel, WireModel, WireEnum, WireService } from '../wire-schema-model.js'
+import type { WireSchemaModel, WireModel, WireEnum, WireField, WireService } from '../wire-schema-model.js'
 
 export interface Proto3AdapterOptions {
   readonly packageName?: string | undefined
@@ -66,15 +66,17 @@ export class Proto3TargetAdapter implements TypeSpecWireTargetAdapter<string, Pr
       lines.push('')
     }
 
+    const names = new ProtoNames(model)
+
     // Enums
     for (const enm of model.enums) {
-      lines.push(...this.renderEnum(enm))
+      lines.push(...this.renderEnum(enm, names))
       lines.push('')
     }
 
     // Messages
     for (const mdl of model.models) {
-      lines.push(...this.renderModel(mdl))
+      lines.push(...this.renderModel(mdl, names))
       lines.push('')
     }
 
@@ -82,7 +84,7 @@ export class Proto3TargetAdapter implements TypeSpecWireTargetAdapter<string, Pr
     if (includeServices) {
       for (const svc of model.services) {
         if (svc.methods.length > 0) {
-          lines.push(...this.renderService(svc))
+          lines.push(...this.renderService(svc, names))
           lines.push('')
         }
       }
@@ -91,42 +93,109 @@ export class Proto3TargetAdapter implements TypeSpecWireTargetAdapter<string, Pr
     return lines.join('\n').trimEnd() + '\n'
   }
 
-  private renderEnum(enm: WireEnum): string[] {
+  private renderEnum(enm: WireEnum, names: ProtoNames): string[] {
     const lines: string[] = []
-    if (enm.doc) lines.push(`// ${enm.doc}`)
-    lines.push(`enum ${enm.name} {`)
+    if (enm.doc) lines.push(`// ${comment(enm.doc)}`)
+    lines.push(`enum ${names.type(enm.name)} {`)
     for (const mem of enm.members) {
-      const doc = mem.doc ? ` // ${mem.doc}` : ''
-      lines.push(`  ${mem.name} = ${mem.number};${doc}`)
+      const doc = mem.doc ? ` // ${comment(mem.doc)}` : ''
+      lines.push(`  ${names.enumMember(enm, mem.name)} = ${mem.number};${doc}`)
     }
     lines.push('}')
     return lines
   }
 
-  private renderModel(mdl: WireModel): string[] {
+  private renderModel(mdl: WireModel, names: ProtoNames): string[] {
     const lines: string[] = []
-    if (mdl.doc) lines.push(`// ${mdl.doc}`)
-    lines.push(`message ${mdl.messageName ?? mdl.name} {`)
+    if (mdl.doc) lines.push(`// ${comment(mdl.doc)}`)
+    lines.push(`message ${names.message(mdl.name)} {`)
     for (const field of mdl.fields) {
       const repeated = field.repeated ? 'repeated ' : ''
-      const doc = field.doc ? ` // ${field.doc}` : ''
-      lines.push(`  ${repeated}${field.type} ${field.name} = ${field.index};${doc}`)
+      const fieldName = protoIdentifier(field.name)
+      const jsonName = fieldName === field.name ? '' : ` [json_name = ${JSON.stringify(field.name)}]`
+      const notes = [field.kind === 'json' ? 'JSON-encoded value' : undefined, field.doc ? comment(field.doc) : undefined]
+        .filter(Boolean)
+        .join(' — ')
+      const doc = notes ? ` // ${notes}` : ''
+      lines.push(`  ${repeated}${names.fieldType(field)} ${fieldName} = ${field.index}${jsonName};${doc}`)
     }
     lines.push('}')
     return lines
   }
 
-  private renderService(svc: WireService): string[] {
+  private renderService(svc: WireService, names: ProtoNames): string[] {
     const lines: string[] = []
-    if (svc.doc) lines.push(`// ${svc.doc}`)
-    lines.push(`service ${svc.serviceName ?? svc.name} {`)
+    if (svc.doc) lines.push(`// ${comment(svc.doc)}`)
+    lines.push(`service ${protoIdentifier(svc.serviceName ?? svc.name)} {`)
     for (const m of svc.methods) {
-      const doc = m.doc ? `  // ${m.doc}\n` : ''
-      const input = m.streaming === 'client' || m.streaming === 'bidirectional' ? `stream ${m.inputType}` : m.inputType
-      const output = m.streaming === 'server' || m.streaming === 'bidirectional' ? `stream ${m.outputType}` : m.outputType
-      lines.push(`${doc}  rpc ${m.name} (${input}) returns (${output});`)
+      const doc = m.doc ? `  // ${comment(m.doc)}\n` : ''
+      const inputType = names.message(m.inputType)
+      const outputType = names.message(m.outputType)
+      const input = m.streaming === 'client' || m.streaming === 'bidirectional' ? `stream ${inputType}` : inputType
+      const output = m.streaming === 'server' || m.streaming === 'bidirectional' ? `stream ${outputType}` : outputType
+      lines.push(`${doc}  rpc ${protoIdentifier(m.name)} (${input}) returns (${output});`)
     }
     lines.push('}')
     return lines
   }
+}
+
+/** Keeps a comment on one line. */
+function comment(text: string): string {
+  return text.replace(/\s+/g, ' ').trim()
+}
+
+/** A valid proto identifier: letters, digits, and underscores, not starting with a digit. */
+function protoIdentifier(name: string): string {
+  const cleaned = name.replace(/[^A-Za-z0-9_]/g, '_')
+  return /^[A-Za-z_]/.test(cleaned) ? cleaned : `_${cleaned}`
+}
+
+/** Resolves model, enum, and enum member names as they appear in the schema. */
+class ProtoNames {
+  private readonly messages: ReadonlyMap<string, string>
+  private readonly enumNames: ReadonlySet<string>
+  /** Enum member names used by more than one enum; proto3 enum values share the package scope. */
+  private readonly sharedMembers: ReadonlySet<string>
+
+  constructor(model: WireSchemaModel) {
+    this.messages = new Map(model.models.map(m => [m.name, protoIdentifier(m.messageName ?? m.name)]))
+    this.enumNames = new Set(model.enums.map(e => e.name))
+    const seen = new Map<string, number>()
+    for (const enm of model.enums) {
+      for (const member of new Set(enm.members.map(m => memberIdentifier(m.name)))) {
+        seen.set(member, (seen.get(member) ?? 0) + 1)
+      }
+    }
+    this.sharedMembers = new Set([...seen].filter(([, count]) => count > 1).map(([name]) => name))
+  }
+
+  type(name: string): string {
+    return this.messages.get(name) ?? protoIdentifier(name)
+  }
+
+  message(name: string): string {
+    return name === 'Empty' ? 'Empty' : this.type(name)
+  }
+
+  enumMember(enm: WireEnum, member: string): string {
+    const identifier = memberIdentifier(member)
+    if (!this.sharedMembers.has(identifier)) return identifier
+    return `${memberIdentifier(enm.name)}_${identifier}`
+  }
+
+  fieldType(field: WireField): string {
+    const kind = field.kind ?? 'scalar'
+    if (kind === 'json') return 'string'
+    if (kind === 'map') {
+      const value = field.mapValue!
+      return `map<string, ${value.kind === 'scalar' ? value.type : this.type(value.type)}>`
+    }
+    if (kind === 'scalar' && !this.enumNames.has(field.type) && !this.messages.has(field.type)) return field.type
+    return this.type(field.type)
+  }
+}
+
+function memberIdentifier(name: string): string {
+  return protoIdentifier(name).toUpperCase()
 }

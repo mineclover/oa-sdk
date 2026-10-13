@@ -80,6 +80,43 @@ Problems are reported as diagnostics, not thrown:
 | `emitForgeOverlays(ir, document, options?)` | One OpenAPI Overlay 1.0 document per top-level command, which matches Forge's one-command-per-overlay resolution; returns `[{ name, overlay }]` |
 | `emitForgeOverlay(ir, document, options?)` | A single overlay with every operation's metadata (`options.name`, `options.version`) |
 
+## RPC contract
+
+`buildRpcContract(document, options?)` projects every operation onto an RPC procedure, a plain
+JSON object that `@oa-sdk/rpc` (typed client/server, JSON-RPC 2.0 and REST binding) and the
+`pluginRpc()` generator of `@oa-sdk/codegen` consume. `toRpcContract(ir, document, options?)` does
+the same for a Surface IR you already built. The end-to-end usage is in
+[TypeSpec 계약을 RPC로 쓰기](../../docs/guides/typespec-rpc.md).
+
+```ts
+import { buildRpcContract } from '@oa-sdk/surface-ir'
+
+const contract = buildRpcContract(parsed)
+contract.procedures['users.getUserById']
+// { name, path: ['users', 'getUserById'], operationId, kind: 'query', input, output, errors,
+//   http: { method: 'get', path: '/users/{id}', parameters: [{ field: 'id', in: 'path', required: true }],
+//           success: { status: 200, mediaType: 'application/json' } } }
+```
+
+| Part | Rule |
+|---|---|
+| Name | Group: `x-oa-sdk-rpc.serviceName` (the `@rpc` decorator), else the first tag in camelCase, else none. Method: `x-oa-sdk-rpc.methodName`, else the operationId. `groupForOperation`, `methodForOperation`, and `operationOverrides` take precedence |
+| `input` | An object schema with one field per parameter (header parameters named `Accept`, `Content-Type`, or `Authorization` are ignored, as OpenAPI specifies) plus the request body: spread when it is a plain object schema (an `allOf` of plain objects is flattened) whose properties do not collide with parameters and that is required or has no required properties; otherwise under `bodyField` (default `body`). `bodyMode: 'field'` never spreads. `additionalProperties: false` unless a spread body allows more |
+| `output` | Schema of the lowest 2xx response with content (JSON media types first); `null` without content |
+| `errors` | Non-2xx responses by status key |
+| `kind` | `query` for `GET`, `HEAD`, `QUERY`, `OPTIONS`; otherwise `mutation` |
+
+Options also take `include(operation)` to keep a subset. Operations with
+`visibility.ignored` are left out. Diagnostics:
+
+| Code | Severity | When |
+|---|---|---|
+| `rpc-contract/streaming-not-supported` | warning | An SSE / NDJSON response or `x-oa-sdk-rpc.streaming` other than `none`; the operation is skipped |
+| `rpc-contract/no-success-response` | warning | No 2xx response; the output schema is `{}` |
+| `rpc-contract/field-collision` | error | Two parameters, or a parameter and the body field, map to one input field; the operation is skipped |
+| `rpc-contract/invalid-procedure-name` | error | A name segment is empty or contains `.`; the operation is skipped |
+| `rpc-contract/namespace-conflict` | error | A procedure name is also the group of other procedures; that procedure is skipped |
+
 ## CLI
 
 `oa-gen surface` (in `@oa-sdk/codegen`) runs the same steps on an OpenAPI YAML/JSON file or a

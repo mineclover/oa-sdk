@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-01",
+  "updatedAt": "2026-10-13",
   "description": "Feature-to-test mapping for oa-sdk. Each feature lists representative automated coverage and the commands that maintain it.",
   "features": [
     {
@@ -77,6 +77,60 @@
         "pnpm --filter @oa-sdk/surface-ir test:ci",
         "pnpm --filter @oa-sdk/surface-ir typecheck",
         "pnpm --filter @oa-sdk/codegen exec vitest run src/cli/commands/__tests__/surface.test.ts --maxWorkers 1 --no-file-parallelism"
+      ]
+    },
+    {
+      "id": "typespec-rpc-contract-runtime",
+      "name": "TypeSpec contract RPC procedures",
+      "category": "projection",
+      "package": "@oa-sdk/surface-ir, @oa-sdk/codegen, @oa-sdk/rpc",
+      "description": "RPC contract projection of OpenAPI operations (dotted procedure names, merged object input, HTTP binding, diagnostics), generated procedure types and contract module, and the typed client/server runtime over JSON-RPC 2.0 and the original REST routes.",
+      "capabilities": [
+        "buildRpcContract",
+        "toRpcContract",
+        "generateRpcModule",
+        "pluginRpc",
+        "createRpcServer",
+        "createRpcClient",
+        "createHttpTransport",
+        "createRestFetchHandler",
+        "handleJsonRpc",
+        "createJsonRpcFetchHandler",
+        "createJsonRpcTransport",
+        "createAjvValidator"
+      ],
+      "testPaths": [
+        "packages/surface-ir/test/rpc-contract.test.ts",
+        "packages/rpc/test/rpc.test.ts",
+        "packages/codegen/src/__tests__/plugin/plugin-rpc.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/surface-ir test",
+        "pnpm --filter @oa-sdk/rpc test",
+        "pnpm --filter @oa-sdk/codegen test"
+      ]
+    },
+    {
+      "id": "wire-binary-codecs",
+      "name": "Binary wire codecs and wire RPC client",
+      "category": "projection",
+      "package": "@oa-sdk/codegen",
+      "description": "Wire schema extraction, proto3 schema, Protobuf codecs wire-compatible with the emitted .proto (verified against protobufjs), MessagePack codecs, and the rpc-contract service client and handler contracts of pluginWire.",
+      "capabilities": [
+        "extractWireSchemaFromOas",
+        "Proto3TargetAdapter",
+        "ProtobufCodecTargetAdapter",
+        "MessagePackTargetAdapter",
+        "RpcContractTargetAdapter",
+        "pluginWire"
+      ],
+      "testPaths": [
+        "packages/codegen/src/__tests__/wire-adapter/*.test.ts",
+        "packages/codegen/src/__tests__/plugin/plugin-wire.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/codegen test",
+        "pnpm --filter @oa-sdk/codegen typecheck"
       ]
     },
     {

@@ -371,7 +371,7 @@ describe('Generated Client Codec Integration', () => {
     writeFileSync(resolve(tmpDir, 'consumer.ts'), consumerCode)
 
     expect(() => runTsc(tmpDir)).not.toThrow()
-  })
+  }, 25_000)
 
   it('executes end-to-end with mock fetch and MessagePackAdapter', async () => {
     const code = generateClient(binarySpec)

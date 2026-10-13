@@ -455,6 +455,34 @@ builder.use(
 );
 ```
 
+#### 바이너리 RPC 클라이언트 (`rpc-contract`)
+
+`rpc-contract` codec은 서비스별 `<Service>ServerHandlers` 인터페이스와 `<Service>RpcClient`를 만든다.
+서비스와 메서드 이름은 `@rpc(#{ serviceName, methodName })`, 없으면 첫 tag와 operationId에서 온다.
+클라이언트는 선언된 route를 path·query·header·cookie 파라미터로 채우고, body와 응답은 선언된 media type에
+맞춰 처리한다. JSON은 그대로 직렬화하고, Protobuf·MessagePack 메시지는 model 이름으로 찾은 codec으로
+인코딩·디코딩한다. 요청 메시지의 codec이 없으면 요청을 보내지 않고 실패하고, 응답 메시지의 codec이 없으면
+`TypeError`로 reject된다. 2xx가 아닌 응답은 `status`와 디코딩한 `body`를
+가진 `WireRpcError`로 reject된다.
+
+```typescript
+import { getGeneratedProtobufCodecs, OrderServiceRpcClient, WireRpcError } from './src/generated/wire.js';
+
+const orders = new OrderServiceRpcClient({
+  baseUrl: 'https://api.example.com',
+  codecs: getGeneratedProtobufCodecs(), // model 이름 → codec. 여러 map을 배열로 넘길 수 있다
+});
+
+// body가 있으면 (request, params, options), 없으면 (params, options)
+const order = await orders.getOrder({ orderId: 'o-1', expand: ['items'] });
+await orders.createOrder({ id: 'draft', amount: 7 });
+```
+
+서버 핸들러는 `(request, context, params)`를 받으며, 파라미터가 없는 메서드는 `params` 인자가 없다.
+JSON 계약을 dotted-name procedure로 호출하거나 JSON-RPC 2.0으로 제공하려면 `pluginRpc`와
+[`@oa-sdk/rpc`](../../packages/rpc/README.md)를 사용한다. 두 경로의 비교, Protobuf 타입 매핑과 한계는
+[TypeSpec 계약을 RPC로 쓰기](./typespec-rpc.md)에 정리되어 있다.
+
 #### 동적 미디어 타입 협상 헬퍼
 
 ```typescript

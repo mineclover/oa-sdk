@@ -20,7 +20,7 @@ oa-sdk는 하나의 runtime SDK가 아니라 OpenAPI 계약을 작성·검증·�
 | --- | --- | --- | --- | --- |
 | `@oa-sdk/typespec-decorators` | npm | OA SDK TypeSpec 데코레이터와 표준 계약(`Ok`, `ErrorResponse`, `StandardHttpErrors` 등, `OaSdkTypeSpec` namespace). 표준 계약은 0.3.0부터 | package root, `./api`, `./governance`, `./crdt`, `./behavior`, `./storage` | [TypeSpec 작성 의존성](./cli-setup.md#typespec-작성-의존성) |
 | `@oa-sdk/parser` | npm | OpenAPI 3.2 → ParsedDocument IR, `$ref` 해석, lint/validate, RFC 6901 JSON Pointer helper(`parseJsonPointer`, `formatJsonPointer` 등) | package root, `./browser` | [parser README](../../packages/parser/README.md) |
-| `@oa-sdk/surface-ir` | 0.9.0부터 | target-neutral API surface IR와 Forge SDK/CLI projection·Overlay 생성. `@oa-sdk/codegen`의 런타임 의존성으로 함께 설치되며 `oa-gen surface`가 사용 | package root | [Cloudflare Forge 지원](./forge-support.md) |
+| `@oa-sdk/surface-ir` | 0.9.0부터 | target-neutral API surface IR와 Forge SDK/CLI projection·Overlay 생성, operation을 RPC procedure로 투영하는 RPC contract(`buildRpcContract`). `@oa-sdk/codegen`의 런타임 의존성으로 함께 설치되며 `oa-gen surface`가 사용 | package root | [Cloudflare Forge 지원](./forge-support.md), [rpc README](../../packages/rpc/README.md) |
 | `@oa-sdk/codegen` | npm | typegen, Zod 4 코드 생성, Drizzle/Zod 변환, `oa-gen` CLI(bin `oa-gen`) | package root, `./drizzle`, `./typegen`, `./typegen/browser`, `./zodgen`, `./spec-lens`, `./apitomy` | [CLI 명령 레퍼런스](./cli-command-reference.md) |
 | `@oa-sdk/core` | npm | package 공통 utility | package root, `./browser` | [API index](../internal/api-index.md) |
 | `@oa-sdk/ast-sync` | npm | V3 AST 무손실 양방향 동기화 엔진 및 Standalone Guard generator | package root, `./guards` | [API index](../internal/api-index.md) |
@@ -56,7 +56,8 @@ oa-sdk는 하나의 runtime SDK가 아니라 OpenAPI 계약을 작성·검증·�
 ## 저장소 전용 패키지 (비공개)
 
 아래 패키지는 oa-sdk 저장소 안에서만 쓴다. `@oa-sdk/schemas`, `@oa-sdk/spec-lens`, `@oa-sdk/spec-lens-contract`는
-Core Platform의 저장소 전용 패키지이고, 나머지는 비공개 유지보수 패키지(maintenance-only, 저장소 전용)다
+Core Platform의 저장소 전용 패키지이고, `@oa-sdk/rpc`는 Downstream Integration의 저장소 전용 패키지이며, 나머지는
+비공개 유지보수 패키지(maintenance-only, 저장소 전용)다
 ([Scope Tiers](../internal/platform-scope.md#scope-tiers)).
 
 | 패키지 | 배포 | 시작 역할 | 공개 entrypoint | 먼저 볼 자료 |
@@ -64,6 +65,7 @@ Core Platform의 저장소 전용 패키지이고, 나머지는 비공개 유지
 | `@oa-sdk/schemas` | 비공개 | production TypeSpec source와 generated OpenAPI artifact | package root, `./openapi.yaml`, `./openapi.json` | [기본 스펙 사용 기준](./basic-spec-usage.md) |
 | `@oa-sdk/spec-lens` | 비공개 | contract history, graph, provenance observation | package root | [TypeSpec provenance 계획](../internal/typespec-roundtrip/declaration-ref-provenance-validation-plan.md) |
 | `@oa-sdk/spec-lens-contract` | 비공개 | Spec Lens HTTP API의 browser-safe wire contract | package root | [API index](../internal/api-index.md) |
+| `@oa-sdk/rpc` | 비공개 | TypeSpec 계약의 operation을 typed RPC procedure로 호출·제공하는 runtime. JSON-RPC 2.0과 원래 REST route를 같은 handler로 처리(런타임 의존성 0개, `./ajv`만 선택적 peer `ajv`) | package root, `./ajv` | [rpc README](../../packages/rpc/README.md) |
 | `@oa-sdk/typespec-tooling` | 비공개 | TypeSpec IDE 설정 템플릿, 생산성 스니펫, 커스텀 linter 규칙 모음 | package root, `./snippets`, `./linter` | [TypeSpec IDE 설정](./typespec-ide-setup.md) |
 | `@oa-sdk/typespec-erd` | 비공개 | logical ERD TypeSpec prototype와 artifact CLI(bin `oa-erd`) | package root | [논리 ERD authoring](./typespec-logical-erd-authoring.md) |
 | `@oa-sdk/logical-erd-contract` | 비공개 | logical ERD artifact·validation·semantic diff contract | package root | [논리 ERD authoring](./typespec-logical-erd-authoring.md) |

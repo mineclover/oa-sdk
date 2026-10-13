@@ -125,6 +125,8 @@ oa-sdk 저장소 자체에 기여하는 경우는 아래 4절(기여자·메인�
                                                                                    • forge-support.md
                                                                                 6. WebMCP 프로젝션 게이트웨이 & P2P 중계
                                                                                    • webmcp-projection-and-relay-guide.md
+                                                                                7. 계약 기반 RPC (JSON-RPC · REST · Protobuf)
+                                                                                   • typespec-rpc.md
 ```
 
 | 개발자 역할 | 주요 목적 | 추천 읽기 경로 |
@@ -135,6 +137,7 @@ oa-sdk 저장소 자체에 기여하는 경우는 아래 4절(기여자·메인�
 | **백엔드 엔지니어** | 비즈니스 로직 작성, 프레임워크 라우터 연결, 멀티 에러 반환 | [백엔드 핸들러 계약 가이드](./backend-handler-contracts.md) $\rightarrow$ [온보딩 플레이북](./onboarding-playbook.md) $\rightarrow$ [코드젠 워크플로](./use-cases/codegen-workflow.md) |
 | **품질 / DevOps 엔지니어** | CI breaking change 감지, 제로-eval CSP 보안 감사, 빌드 자동화 | [CLI 명령 레퍼런스](./cli-command-reference.md) $\rightarrow$ [OpenAPI Governance Workflow](./use-cases/openapi-governance-workflow.md) $\rightarrow$ [선언적 스펙 설정](./declarative-spec-configuration.md) |
 | **SDK target/integration 엔지니어** | OpenAPI artifact를 Forge SDK/CLI 표면으로 투영하고 target별 runtime 제한을 검증 | [Cloudflare Forge 지원](./forge-support.md) $\rightarrow$ [CLI 명령 레퍼런스](./cli-command-reference.md) |
+| **RPC / 서비스 간 통신 엔지니어** | TypeSpec operation을 typed procedure로 호출·제공, JSON-RPC 2.0 endpoint, Protobuf payload와 `.proto` 공유 | [TypeSpec 계약을 RPC로 쓰기](./typespec-rpc.md) $\rightarrow$ [TypeSpec Builder Platform](./typespec-builder-platform.md) $\rightarrow$ [rpc README](../../packages/rpc/README.md) |
 | **Web / 에이전트 통합 엔지니어** | 브라우저 인-페이지 도구를 외부에 투영, WebSocket 릴레이, Cloud Transit 연동 | [WebMCP 프로젝션 가이드](./webmcp-projection-and-relay-guide.md) $\rightarrow$ [WebMCP 개념 아키텍처](../concepts/webmcp-peering-mesh-and-collab.md) |
 | **oa-sdk 저장소 기여자** | production TypeSpec 계약, 패키지 소스, 문서 변경 | [기여자 온보딩](./onboarding-playbook.md#9-oa-sdk-모노레포-기여자-온보딩) $\rightarrow$ [TypeSpec 기여 워크플로](./typespec/01-quickstart-5min.md) $\rightarrow$ [기본 스펙 사용 기준](./basic-spec-usage.md) |
 
@@ -264,6 +267,12 @@ TypeSpec(`.tsp`)을 단일 정본(SSOT)으로 삼아 디스크 I/O 없이 인메
   - `P2pTransportChannel` + `createWebSocketTransportAdapter` 기반 브라우저 Page Connector 구현 (도구 포트 개설).
   - `createCloudTransitClient` 및 `@oa-sdk/mcp-mesh`(`hydratePeerSession`)를 통한 투명한 브라우저 도구 원격 호출 및 오케스트레이션.
   - 새로고침(F5) 시 3채널 메모리 버퍼링 및 우선순위 플러시(`mcp-jsonrpc` > `crdt-delta` > `presence`), 48-hex 단일 사용 티켓 및 32-프레임 플러딩 차단 등 보안 강화.
+
+### 2.8 계약 기반 RPC (JSON-RPC 2.0 · REST binding · Protobuf)
+- **[TypeSpec 계약을 RPC로 쓰기](./typespec-rpc.md)**:
+  - `pluginRpc`로 procedure 타입과 contract를 생성하고, `@oa-sdk/rpc`의 한 handler 집합으로 JSON-RPC 2.0과 원래 REST route를 함께 제공.
+  - `createHttpTransport` / `createJsonRpcTransport` 클라이언트, `handleJsonRpc`로 메시지 채널 연동, `RpcError` 오류 모델.
+  - `pluginWire`의 Protobuf codec과 `<Service>RpcClient`: 생성된 `.proto`와 wire 호환(protobufjs 양방향 검증), JSON Schema ↔ Protobuf 매핑, 크기 비교와 한계.
 
 ---
 
