@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://specs.mineclover.io/schemas/colab-run-packet/v1.json",
+  "title": "Colab Run Packet v1",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "const": "colab-run-packet/v1"
+    },
+    "runId": {
+      "type": "string"
+    },
+    "pipelineName": {
+      "type": "string"
+    },
+    "pipelineVersion": {
+      "type": "string"
+    },
+    "stage": {
+      "type": "string"
+    },
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "entityRef": { "type": "string" },
+        "sourceRevision": { "type": "integer" },
+        "contentHash": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "snapshotId": { "type": "string" }
+      },
+      "required": ["entityRef", "sourceRevision", "contentHash"]
+    },
+    "outputs": {
+      "type": "object"
+    },
+    "checkpoints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "stage": { "type": "string" },
+          "timestamp": { "type": "string" },
+          "status": {
+            "type": "string",
+            "enum": ["ok", "warning", "error"]
+          },
+          "hash": { "type": "string" }
+        },
+        "required": ["stage", "timestamp", "status"]
+      }
+    },
+    "stagedArtifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "path": { "type": "string" },
+          "digest": { "type": "string" }
+        },
+        "required": ["name", "path", "digest"]
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "running", "completed", "failed", "stale"]
+    }
+  },
+  "required": ["runId", "pipelineName", "pipelineVersion", "stage", "inputs", "status"]
+}

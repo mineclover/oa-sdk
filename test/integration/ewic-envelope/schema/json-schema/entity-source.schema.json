@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://specs.mineclover.io/schemas/entity-source/v1.json",
+  "title": "EWIC Entity Source Envelope v1",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "const": "entity-source/v1"
+    },
+    "identity": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^ent_[a-zA-Z0-9_-]+$"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["spec", "framework", "resource", "workflow", "execution", "evidence"]
+        },
+        "namespace": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(\\.[a-z0-9]+)*$"
+        },
+        "slug": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "revisionId": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["draft", "published", "deprecated"]
+        },
+        "contentHash": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      },
+      "required": ["id", "kind", "namespace", "slug", "revision", "revisionId", "status", "contentHash"],
+      "additionalProperties": false
+    },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "ssot": {
+          "type": "object",
+          "properties": {
+            "provider": {
+              "type": "string",
+              "enum": ["google_drive", "github", "local", "nes"]
+            },
+            "fileId": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            },
+            "parentChain": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "locator": {
+              "type": "string"
+            },
+            "revision": {
+              "type": ["string", "number"]
+            }
+          },
+          "required": ["provider", "path"]
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "createdBy": {
+          "type": "string"
+        },
+        "parentRevision": {
+          "type": ["integer", "null"]
+        }
+      },
+      "required": ["ssot", "createdAt", "createdBy"]
+    },
+    "content": {
+      "type": "object"
+    },
+    "refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "uri": { "type": "string" },
+          "relation": {
+            "type": "string",
+            "enum": ["contains", "implements", "depends_on", "invokes", "reads", "writes", "produces", "references", "supersedes"]
+          },
+          "resolvedContentHash": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["asserted", "candidate", "rejected", "superseded"]
+          },
+          "metadata": { "type": "object" }
+        },
+        "required": ["uri", "relation"]
+      }
+    }
+  },
+  "required": ["$schema", "identity", "provenance", "content", "refs"]
+}

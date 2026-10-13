@@ -1,0 +1,79 @@
+{
+  "$schema": "entity-workflow-spec/v0.1",
+  "purpose": "Google Drive SSOT + Colab normalization/validation + derived graph/search/embedding artifacts",
+  "sourceEnvelope": {
+    "$schema": "entity-source/v1",
+    "identity": {
+      "id": "ent_<UUIDv7>",
+      "kind": "spec|framework|resource|workflow|execution|evidence",
+      "namespace": "project.scope",
+      "slug": "stable-human-name",
+      "revision": 1,
+      "revisionId": "ent_<UUIDv7>@1",
+      "status": "draft|published|deprecated",
+      "contentHash": "sha256:<canonical-json-hash>"
+    },
+    "provenance": {
+      "ssot": {"provider": "google_drive", "fileId": "<drive-file-id>", "path": "<canonical-path>"},
+      "createdAt": "<ISO-8601>",
+      "createdBy": "<actor>",
+      "parentRevision": null
+    },
+    "content": {},
+    "refs": []
+  },
+  "kinds": {
+    "spec": ["title", "purpose", "sections", "requirements", "invariants", "acceptanceCriteria"],
+    "framework": ["name", "version", "capabilities", "constraints", "interfaces"],
+    "resource": ["uri", "mediaType", "locator", "summary", "contentDigest", "license"],
+    "workflow": ["contract", "machine", "imports", "sideEffectsPolicy"],
+    "execution": ["workflowRef", "resolvedRefs", "inputDigest", "status", "steps", "outputs", "evidenceRefs"],
+    "evidence": ["claim", "value", "confidence", "method", "observedAt", "sourceRefs", "artifactRefs"]
+  },
+  "workflow": {
+    "machine": {
+      "schema": "xstate.v5-compatible-subset",
+      "id": "<machine-id>",
+      "version": "1.0.0",
+      "initial": "<state-id>",
+      "type": "compound|parallel|atomic|final|history",
+      "contextSchema": {},
+      "contextDefaults": {},
+      "states": {},
+      "guards": [],
+      "actions": [],
+      "invokes": [],
+      "meta": {"visual": {"layout": "elk|dagre|force", "direction": "LR"}}
+    },
+    "isolation": {
+      "namespace": "project.workflow",
+      "imports": [],
+      "allowedNamespaces": [],
+      "crossWorkflowRefsRequireContract": true,
+      "implicitTraversal": false
+    },
+    "relationPolicy": {
+      "allowed": ["contains", "implements", "depends_on", "invokes", "reads", "writes", "produces", "references", "supersedes"],
+      "crossNamespace": "explicit-import-only"
+    }
+  },
+  "derivedEnvelope": {
+    "$schema": "entity-derived/v1",
+    "entityRef": "entity://project.scope/workflow/<id>@1",
+    "sourceContentHash": "sha256:<source-hash>",
+    "pipeline": {"runId": "run_<UUIDv7>", "name": "colab-normalizer", "version": "0.1.0", "pass": "normalize|validate|extract|reconcile|embed|graph|viz"},
+    "search": {"normalizedTextHash": "sha256:<hash>", "title": "", "tags": [], "facets": [], "indexKeys": []},
+    "graph": {"node": {}, "edges": []},
+    "embeddings": [{"purpose": "semantic|search|state|transition", "model": {"provider": "", "name": "", "version": ""}, "dimensions": 0, "dtype": "float32", "metric": "cosine", "encoding": "external", "vectorRef": "", "sourceFields": [], "sourceRevision": "", "contentHash": "", "generatedAt": "", "stale": false}],
+    "viz": {"node": {}, "layout": {}, "states": {}, "edgeLabels": true}
+  },
+  "pipeline": ["ingest", "canonicalize", "validate", "resolve_refs", "compile_fsm", "graph_consistency", "reconcile_candidates", "approve_source_patch", "embed", "graph", "viz", "publish_report"],
+  "safety": {
+    "sourceIsImmutableByDefault": true,
+    "derivedKey": "sourceRevision+sourceContentHash+pipelineVersion",
+    "acceptedChangesCreateNewRevision": true,
+    "executionsAreAppendOnly": true,
+    "vectorsStoredOutsideSource": true,
+    "automaticReconciliationProducesCandidatesOnly": true
+  }
+}

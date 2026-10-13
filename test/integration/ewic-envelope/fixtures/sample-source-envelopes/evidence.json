@@ -1,0 +1,44 @@
+{
+  "$schema": "entity-source/v1",
+  "identity": {
+    "id": "ent_evidence_sample",
+    "kind": "evidence",
+    "namespace": "collab.scope",
+    "slug": "evidence-sample",
+    "revision": 1,
+    "revisionId": "ent_evidence_sample@1",
+    "status": "published",
+    "contentHash": "sha256:c6314e093121ac3be35a967612137834f5c56a6c5248d36a98b5243cc8b9a46f"
+  },
+  "provenance": {
+    "ssot": {
+      "provider": "google_drive",
+      "fileId": "file_evidence_123",
+      "path": "collab-context-harness/entities/collab.scope/evidence/ent_evidence_sample/source/r1.json",
+      "parentChain": [
+        "1h_CjCUEaOUaKzImXqbmbRS0AGkPdmkiB"
+      ],
+      "locator": "drive://file_evidence_123",
+      "revision": "1"
+    },
+    "createdAt": "2026-10-12T18:00:00.000Z",
+    "createdBy": "actor:mineclover",
+    "parentRevision": null
+  },
+  "content": {
+    "claim": "Scene player executes play transition in under 5ms",
+    "value": {
+      "transitionLatencyMs": 3.4
+    },
+    "confidence": 0.99,
+    "method": "vitest-performance-benchmark",
+    "observedAt": "2026-10-12T18:05:00.000Z",
+    "sourceRefs": [
+      "entity://collab.scope/execution/ent_run_001@1"
+    ],
+    "artifactRefs": [
+      "artifact://benchmarks/run-001.json"
+    ]
+  },
+  "refs": []
+}

@@ -1,0 +1,42 @@
+{
+  "$schema": "entity-source/v1",
+  "identity": {
+    "id": "ent_resource_sample",
+    "kind": "resource",
+    "namespace": "collab.scope",
+    "slug": "resource-sample",
+    "revision": 1,
+    "revisionId": "ent_resource_sample@1",
+    "status": "published",
+    "contentHash": "sha256:a225669b6dd96ba0e8322cf7652751d6648c84f32096f4318ff1e977fea6b228"
+  },
+  "provenance": {
+    "ssot": {
+      "provider": "google_drive",
+      "fileId": "file_resource_123",
+      "path": "collab-context-harness/entities/collab.scope/resource/ent_resource_sample/source/r1.json",
+      "parentChain": [
+        "1h_CjCUEaOUaKzImXqbmbRS0AGkPdmkiB"
+      ],
+      "locator": "drive://file_resource_123",
+      "revision": "1"
+    },
+    "createdAt": "2026-10-12T18:00:00.000Z",
+    "createdBy": "actor:mineclover",
+    "parentRevision": null
+  },
+  "content": {
+    "uri": "github.com/mineclover/oa-sdk:README.md",
+    "mediaType": "text/markdown",
+    "locator": "drive://1m0oG9fBv_ref_oa_sdk_file",
+    "summary": "OA SDK production documentation",
+    "contentDigest": "sha256:6542531b402849e7939116e0339912066f7fbb5a",
+    "fileId": "1m0oG9fBv_ref_oa_sdk_file",
+    "parentChain": [
+      "root",
+      "collab-context-harness",
+      "references"
+    ]
+  },
+  "refs": []
+}

@@ -1,0 +1,61 @@
+{
+  "$schema": "entity-source/v1",
+  "identity": {
+    "id": "ent_workflow_sample",
+    "kind": "workflow",
+    "namespace": "collab.scope",
+    "slug": "workflow-sample",
+    "revision": 1,
+    "revisionId": "ent_workflow_sample@1",
+    "status": "published",
+    "contentHash": "sha256:9fdf210fb12b81c95b3c496cc53019c0ef6a3ade65ecf2c3123c6144bc6eeafb"
+  },
+  "provenance": {
+    "ssot": {
+      "provider": "google_drive",
+      "fileId": "file_workflow_123",
+      "path": "collab-context-harness/entities/collab.scope/workflow/ent_workflow_sample/source/r1.json",
+      "parentChain": [
+        "1h_CjCUEaOUaKzImXqbmbRS0AGkPdmkiB"
+      ],
+      "locator": "drive://file_workflow_123",
+      "revision": "1"
+    },
+    "createdAt": "2026-10-12T18:00:00.000Z",
+    "createdBy": "actor:mineclover",
+    "parentRevision": null
+  },
+  "content": {
+    "machine": {
+      "schema": "xstate.v5-compatible-subset",
+      "id": "scene-player-fsm",
+      "version": "1.0.0",
+      "initial": "idle",
+      "type": "compound",
+      "states": {
+        "idle": {
+          "on": {
+            "PLAY": "playing"
+          }
+        },
+        "playing": {
+          "on": {
+            "PAUSE": "paused",
+            "STOP": "idle"
+          }
+        },
+        "paused": {
+          "on": {
+            "PLAY": "playing",
+            "STOP": "idle"
+          }
+        }
+      }
+    },
+    "imports": [
+      "scene.core"
+    ],
+    "sideEffectsPolicy": "isolated"
+  },
+  "refs": []
+}

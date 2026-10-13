@@ -1,0 +1,48 @@
+{
+  "$schema": "entity-source/v1",
+  "identity": {
+    "id": "ent_framework_sample",
+    "kind": "framework",
+    "namespace": "collab.scope",
+    "slug": "framework-sample",
+    "revision": 1,
+    "revisionId": "ent_framework_sample@1",
+    "status": "published",
+    "contentHash": "sha256:c23ff077e4a686456e25639301a5eb3a3fbe189044561f02e611aabb2435b9ce"
+  },
+  "provenance": {
+    "ssot": {
+      "provider": "google_drive",
+      "fileId": "file_framework_123",
+      "path": "collab-context-harness/entities/collab.scope/framework/ent_framework_sample/source/r1.json",
+      "parentChain": [
+        "1h_CjCUEaOUaKzImXqbmbRS0AGkPdmkiB"
+      ],
+      "locator": "drive://file_framework_123",
+      "revision": "1"
+    },
+    "createdAt": "2026-10-12T18:00:00.000Z",
+    "createdBy": "actor:mineclover",
+    "parentRevision": null
+  },
+  "content": {
+    "name": "collab-context-harness",
+    "version": "0.1.0",
+    "capabilities": [
+      "cross-project-context",
+      "read-only-governance"
+    ],
+    "constraints": [
+      "no-mutation-allowed",
+      "fail-closed-acl"
+    ],
+    "interfaces": [
+      "discussions",
+      "proposals",
+      "decisions",
+      "references",
+      "distributions"
+    ]
+  },
+  "refs": []
+}

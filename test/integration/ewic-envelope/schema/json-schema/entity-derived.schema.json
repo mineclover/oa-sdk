@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://specs.mineclover.io/schemas/entity-derived/v1.json",
+  "title": "EWIC Entity Derived Envelope v1",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "const": "entity-derived/v1"
+    },
+    "entityRef": {
+      "type": "string",
+      "pattern": "^entity://[a-z0-9.]+/.*$"
+    },
+    "sourceContentHash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "pipeline": {
+      "type": "object",
+      "properties": {
+        "runId": { "type": "string" },
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "pass": {
+          "type": "string",
+          "enum": ["normalize", "validate", "extract", "reconcile", "embed", "graph", "viz"]
+        }
+      },
+      "required": ["runId", "name", "version", "pass"],
+      "additionalProperties": false
+    },
+    "search": {
+      "type": "object",
+      "properties": {
+        "normalizedTextHash": { "type": "string" },
+        "title": { "type": "string" },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "facets": {
+          "type": ["object", "array"]
+        },
+        "indexKeys": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["normalizedTextHash", "title", "tags", "facets", "indexKeys"]
+    },
+    "graph": {
+      "type": "object",
+      "properties": {
+        "node": { "type": "object" },
+        "edges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "source": { "type": "string" },
+              "target": { "type": "string" },
+              "relation": { "type": "string" },
+              "status": {
+                "type": "string",
+                "enum": ["asserted", "candidate", "rejected", "superseded"]
+              },
+              "confidence": { "type": "number" },
+              "provenance": {}
+            },
+            "required": ["source", "target", "relation", "status"]
+          }
+        }
+      },
+      "required": ["node", "edges"]
+    },
+    "embeddings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "purpose": {
+            "type": "string",
+            "enum": ["semantic", "search", "state", "transition"]
+          },
+          "model": {
+            "type": "object",
+            "properties": {
+              "provider": { "type": "string" },
+              "name": { "type": "string" },
+              "version": { "type": "string" }
+            },
+            "required": ["provider", "name", "version"]
+          },
+          "dimensions": { "type": "integer" },
+          "dtype": { "type": "string" },
+          "metric": { "type": "string" },
+          "encoding": { "type": "string" },
+          "vectorRef": { "type": "string" },
+          "sourceFields": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "sourceRevision": { "type": ["string", "integer"] },
+          "contentHash": { "type": "string" },
+          "generatedAt": { "type": "string" },
+          "stale": { "type": "boolean" }
+        },
+        "required": ["purpose", "model", "dimensions", "dtype", "metric", "encoding", "vectorRef", "sourceFields", "sourceRevision", "contentHash", "generatedAt", "stale"]
+      }
+    },
+    "viz": {
+      "type": "object",
+      "properties": {
+        "node": { "type": "object" },
+        "layout": { "type": "object" },
+        "states": { "type": "object" },
+        "edgeLabels": { "type": "boolean" }
+      },
+      "required": ["node", "layout", "states", "edgeLabels"]
+    }
+  },
+  "required": ["$schema", "entityRef", "sourceContentHash", "pipeline", "search", "graph", "embeddings", "viz"]
+}

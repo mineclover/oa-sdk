@@ -1,0 +1,59 @@
+{
+  "$schema": "entity-source/v1",
+  "identity": {
+    "id": "ent_execution_sample",
+    "kind": "execution",
+    "namespace": "collab.scope",
+    "slug": "execution-sample",
+    "revision": 1,
+    "revisionId": "ent_execution_sample@1",
+    "status": "published",
+    "contentHash": "sha256:77a214fb0963921fd01dd5b1a78cb91c5e5071c7f54299e51eb16c35210baf53"
+  },
+  "provenance": {
+    "ssot": {
+      "provider": "google_drive",
+      "fileId": "file_execution_123",
+      "path": "collab-context-harness/entities/collab.scope/execution/ent_execution_sample/source/r1.json",
+      "parentChain": [
+        "1h_CjCUEaOUaKzImXqbmbRS0AGkPdmkiB"
+      ],
+      "locator": "drive://file_execution_123",
+      "revision": "1"
+    },
+    "createdAt": "2026-10-12T18:00:00.000Z",
+    "createdBy": "actor:mineclover",
+    "parentRevision": null
+  },
+  "content": {
+    "workflowRef": "entity://collab.scope/workflow/ent_scene_player@1",
+    "resolvedRefs": {
+      "entity://collab.scope/resource/ent_ref_oa_sdk@1": {
+        "snapshotId": "6542531b402849e7939116e0339912066f7fbb5a",
+        "contentHash": "sha256:6542531b402849e7939116e0339912066f7fbb5a"
+      }
+    },
+    "inputDigest": "sha256:a1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef0",
+    "status": "completed",
+    "steps": [
+      {
+        "stepId": "step-1",
+        "state": "idle",
+        "timestamp": "2026-10-12T18:00:00.000Z"
+      },
+      {
+        "stepId": "step-2",
+        "state": "playing",
+        "timestamp": "2026-10-12T18:00:01.000Z"
+      }
+    ],
+    "outputs": {
+      "finalState": "playing",
+      "durationMs": 1000
+    },
+    "evidenceRefs": [
+      "entity://collab.scope/evidence/ent_playback_test@1"
+    ]
+  },
+  "refs": []
+}

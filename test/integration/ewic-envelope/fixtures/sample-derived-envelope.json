@@ -1,0 +1,87 @@
+{
+  "$schema": "entity-derived/v1",
+  "entityRef": "entity://collab.scope/workflow/ent_workflow_sample@1",
+  "sourceContentHash": "sha256:9fdf210fb12b81c95b3c496cc53019c0ef6a3ade65ecf2c3123c6144bc6eeafb",
+  "pipeline": {
+    "runId": "run_019277d3-9821-789a-bc01-123456789abc",
+    "name": "colab-normalizer",
+    "version": "0.1.0",
+    "pass": "embed"
+  },
+  "search": {
+    "normalizedTextHash": "sha256:7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069",
+    "title": "Scene Player FSM",
+    "tags": [
+      "scene",
+      "player",
+      "fsm"
+    ],
+    "facets": {
+      "domain": "playback"
+    },
+    "indexKeys": [
+      "scene-player",
+      "fsm-idle",
+      "fsm-playing"
+    ]
+  },
+  "graph": {
+    "node": {
+      "id": "ent_workflow_sample",
+      "label": "Scene Player"
+    },
+    "edges": [
+      {
+        "source": "entity://collab.scope/workflow/ent_workflow_sample@1",
+        "target": "entity://collab.scope/resource/ent_resource_sample@1",
+        "relation": "reads",
+        "status": "asserted",
+        "confidence": 1
+      }
+    ]
+  },
+  "embeddings": [
+    {
+      "purpose": "semantic",
+      "model": {
+        "provider": "google",
+        "name": "gemini-embedding-001",
+        "version": "v1"
+      },
+      "dimensions": 768,
+      "dtype": "float32",
+      "metric": "cosine",
+      "encoding": "external",
+      "vectorRef": "sidecar://vectors/ent_workflow_sample.768d.bin",
+      "sourceFields": [
+        "machine.id",
+        "states"
+      ],
+      "sourceRevision": "1",
+      "contentHash": "sha256:9fdf210fb12b81c95b3c496cc53019c0ef6a3ade65ecf2c3123c6144bc6eeafb",
+      "generatedAt": "2026-10-12T18:15:00.000Z",
+      "stale": false
+    }
+  ],
+  "viz": {
+    "node": {
+      "width": 120,
+      "height": 60
+    },
+    "layout": {
+      "engine": "elk",
+      "direction": "LR"
+    },
+    "states": {
+      "idle": {
+        "x": 10,
+        "y": 10
+      },
+      "playing": {
+        "x": 150,
+        "y": 10
+      }
+    },
+    "edgeLabels": true
+  }
+}
