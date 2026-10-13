@@ -114,6 +114,9 @@ jobs:
       - name: Test application workspaces
         run: pnpm test:internal:ci
 
+      - name: Test integration harnesses (shared-context and EWIC)
+        run: pnpm test:integration
+
       # Last turbo invocation in this job. Save even when a test failed: cache
       # entries are task results addressed by their input hash and test:ci
       # writes none, so a red run still hands its builds to the next run.

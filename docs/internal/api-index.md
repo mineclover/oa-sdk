@@ -1672,6 +1672,7 @@ Target-neutral API surface IR와 Forge SDK/CLI projection·Overlay 생성.
 | `RPC_CONTRACT_VERSION`, `RPC_OPERATION_EXTENSION` | `surface-ir/src/rpc-contract.ts` | RPC contract 스키마 버전과 `@rpc` decorator가 쓰는 `x-oa-sdk-rpc` 확장 이름 |
 | `RpcContract`, `RpcProcedure`, `RpcProcedureKind`, `RpcHttpBinding`, `RpcParameterBinding`, `RpcParameterLocation`, `RpcBodyBinding`, `RpcErrorResponse`, `RpcContractOptions`, `BuildRpcContractOptions` | `surface-ir/src/rpc-contract.ts` | operation을 dotted-name procedure(입력 object schema, 출력, 오류, HTTP binding)로 투영한 RPC contract 타입 |
 | `buildRpcContract`, `toRpcContract` | `surface-ir/src/rpc-contract.ts` | ParsedDocument 또는 Surface IR에서 RPC contract를 만드는 함수 |
+| `canonicalJsonStringify`, `computeCanonicalHash`, `sha256`, `stableStringify` | `surface-ir/src/hash.ts` | RFC 8785 JSON Canonicalization Scheme (JCS) 직렬화, SHA-256 canonical hash 계산, 결정적 JSON stringify 유틸리티 |
 
 ---
 

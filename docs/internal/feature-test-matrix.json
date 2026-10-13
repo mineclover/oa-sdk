@@ -1722,6 +1722,54 @@
         "pnpm check:spec-governance",
         "pnpm check:feature-tests"
       ]
+    },
+    {
+      "id": "shared-context-harness",
+      "name": "Shared context collaboration harness",
+      "category": "interop",
+      "package": "test/integration/shared-context-harness",
+      "description": "Cross-repository collaboration management, reference registry indexing, resolution tools, and context-harness validation for shared Drive workflows.",
+      "capabilities": [
+        "bootstrap collaboration",
+        "query collaboration management",
+        "resolve references",
+        "validate collaboration context"
+      ],
+      "testPaths": [
+        "test/integration/shared-context-harness/shared-context-harness.test.ts",
+        "test/integration/shared-context-harness/tools/*.ts",
+        "test/integration/shared-context-harness/validator/*.ts",
+        "test/integration/shared-context-harness/fixtures/**"
+      ],
+      "commands": [
+        "pnpm test:integration"
+      ]
+    },
+    {
+      "id": "ewic-envelope-interop",
+      "name": "EWIC v0.1 envelope validation and interop",
+      "category": "interop",
+      "package": "@oa-sdk/surface-ir, test/integration/ewic-envelope",
+      "description": "RFC 8785 JCS canonical JSON hashing, EWIC v0.1 6-kind source and derived envelope schema validation, non-destructive Drive reference and Colab run packet adapters, execution verification, and multi-round snapshot reproducibility.",
+      "capabilities": [
+        "canonicalJsonStringify",
+        "computeCanonicalHash",
+        "ewicValidateEnvelope",
+        "ewicAdaptSourceReference",
+        "ewicVerifyExecution",
+        "snapshot reproducibility"
+      ],
+      "testPaths": [
+        "test/integration/ewic-envelope/ewic-envelope.test.ts",
+        "test/integration/ewic-envelope/canonical/*.ts",
+        "test/integration/ewic-envelope/adapters/*.ts",
+        "test/integration/ewic-envelope/validator/*.ts",
+        "test/integration/ewic-envelope/tools/*.ts",
+        "test/integration/ewic-envelope/fixtures/**"
+      ],
+      "commands": [
+        "pnpm test:integration"
+      ]
     }
   ]
 }

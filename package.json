@@ -20,6 +20,7 @@
     "test": "corepack pnpm test:core",
     "test:all": "turbo run test --concurrency=1",
     "test:e2e": "vitest run tests/e2e",
+    "test:integration": "vitest run test/integration",
     "test:core": "turbo run test --concurrency=1 --filter=@oa-sdk/core --filter=@oa-sdk/openapi-projection-contract --filter=@oa-sdk/spec-lens-contract --filter=@oa-sdk/typespec-decorators --filter=@oa-sdk/schemas --filter=@oa-sdk/parser --filter=@oa-sdk/codegen --filter=@oa-sdk/spec-lens --filter=@oa-sdk/ast-sync --filter=@oa-sdk/tools --filter=@oa-sdk/surface-ir",
     "test:core:ci": "turbo run test:ci --concurrency=1 --filter=@oa-sdk/core --filter=@oa-sdk/openapi-projection-contract --filter=@oa-sdk/spec-lens-contract --filter=@oa-sdk/typespec-decorators --filter=@oa-sdk/schemas --filter=@oa-sdk/parser --filter=@oa-sdk/codegen --filter=@oa-sdk/spec-lens --filter=@oa-sdk/ast-sync --filter=@oa-sdk/tools --filter=@oa-sdk/surface-ir",
     "test:downstream": "turbo run test --filter=@oa-sdk/router --filter=@oa-sdk/client --filter=@oa-sdk/mock-server --filter=@oa-sdk/chunk-stream --filter=@oa-sdk/chunk-stream-crdt --filter=@oa-sdk/chunk-stream-ui --filter=@oa-sdk/chunk-stream-timeseries --filter=@oa-sdk/chunk-stream-react --filter=@oa-sdk/peer-transport --filter=@oa-sdk/peer-server --filter=@oa-sdk/collab-workspace --filter=@oa-sdk/mcp-mesh --filter=@oa-sdk/telemetry --filter=@oa-sdk/rpc",

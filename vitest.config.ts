@@ -34,6 +34,8 @@ export default defineConfig({
       '@oa-sdk/router': path.resolve(__dirname, 'packages/router/src/index.ts'),
       '@oa-sdk/tools': path.resolve(__dirname, 'packages/tools/src/index.ts'),
       '@oa-sdk/collab-workspace': path.resolve(__dirname, 'packages/collab-workspace/src/index.ts'),
+      '@oa-sdk/surface-ir': path.resolve(__dirname, 'packages/surface-ir/src/index.ts'),
+      '@oa-sdk/rpc': path.resolve(__dirname, 'packages/rpc/src/index.ts'),
     },
   },
 })

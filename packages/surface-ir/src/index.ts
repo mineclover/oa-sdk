@@ -539,3 +539,10 @@ export type {
   RpcProcedure,
   RpcProcedureKind,
 } from './rpc-contract.js'
+export {
+  canonicalJsonStringify,
+  computeCanonicalHash,
+  sha256,
+  stableStringify,
+} from './hash.js'
+
