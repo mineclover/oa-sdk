@@ -133,10 +133,15 @@ export function buildTypeSpecRefProvenance(input: {
   const operations = declarations.filter((declaration): declaration is SourceDeclaration & { kind: 'operation' } => declaration.kind === 'operation')
   const operationsById = new Map<string, SourceDeclaration[]>()
   for (const operation of operations) {
-    const key = operation.operationId ?? operation.symbol
-    const current = operationsById.get(key) ?? []
-    current.push(operation)
-    operationsById.set(key, current)
+    const keys = new Set<string>([operation.operationId ?? operation.symbol])
+    if (operation.alternateOperationId) {
+      keys.add(operation.alternateOperationId)
+    }
+    for (const key of keys) {
+      const current = operationsById.get(key) ?? []
+      current.push(operation)
+      operationsById.set(key, current)
+    }
   }
   const outputOperations = listOutputOperations(input.restoredDocument)
   // Kept apart from `pointerOwners`: a sidecar restore that targets the
@@ -281,6 +286,7 @@ type SourceDeclaration = TypeSpecRefProvenanceDeclaration & {
   extensionName?: string
   restoreKey?: string
   operationId?: string
+  alternateOperationId?: string
   sourceOffset: number
   sourceEnd: number
 }
@@ -296,63 +302,84 @@ function collectDeclarations(sourceRoot: string, filePath: string): {
   const diagnostics: TypeSpecRefProvenanceDiagnostic[] = []
   const nativeSecuritySchemeDeclarationIds: string[] = []
   const relativePath = relative(sourceRoot, filePath).replaceAll('\\', '/')
-  for (const statement of ast.statements ?? []) {
-    const kind = statement.kind
-    const id = readIdentifier(statement.id)
-    const pos = typeof statement.pos === 'number' ? statement.pos : 0
-    const end = typeof statement.end === 'number' ? statement.end : pos
-    if (
-      kind !== SyntaxKind.OperationStatement
-      && kind !== SyntaxKind.ModelStatement
-      && kind !== SyntaxKind.AliasStatement
-      && kind !== SyntaxKind.ScalarStatement
-      && kind !== SyntaxKind.UnionStatement
-      && kind !== SyntaxKind.EnumStatement
-    ) continue
-    if (!id) continue
-    const source = createSourceRange(content, relativePath, pos, end)
-    if (kind !== SyntaxKind.OperationStatement) {
-      const declarationPrefix = kind === SyntaxKind.ModelStatement
-        ? 'model'
-        : kind === SyntaxKind.AliasStatement
-          ? 'alias'
-          : kind === SyntaxKind.ScalarStatement
-            ? 'scalar'
-            : kind === SyntaxKind.EnumStatement
-              ? 'enum'
-            : 'union'
-      const declarationId = `${declarationPrefix}:${relativePath}:${id}`
+
+  const visitStatements = (
+    statements: Array<Record<string, unknown>> | undefined,
+    enclosingInterface?: string,
+  ): void => {
+    for (const statement of statements ?? []) {
+      const kind = statement.kind
+      const id = readIdentifier(statement.id)
+      const pos = typeof statement.pos === 'number' ? statement.pos : 0
+      const end = typeof statement.end === 'number' ? statement.end : pos
+
+      if (kind === SyntaxKind.NamespaceStatement && Array.isArray(statement.statements)) {
+        visitStatements(statement.statements as Array<Record<string, unknown>>, enclosingInterface)
+        continue
+      }
+      if (kind === SyntaxKind.InterfaceStatement && Array.isArray(statement.operations)) {
+        visitStatements(statement.operations as Array<Record<string, unknown>>, id ?? enclosingInterface)
+        continue
+      }
+
+      if (
+        kind !== SyntaxKind.OperationStatement
+        && kind !== SyntaxKind.ModelStatement
+        && kind !== SyntaxKind.AliasStatement
+        && kind !== SyntaxKind.ScalarStatement
+        && kind !== SyntaxKind.UnionStatement
+        && kind !== SyntaxKind.EnumStatement
+      ) continue
+      if (!id) continue
+      const source = createSourceRange(content, relativePath, pos, end)
+      if (kind !== SyntaxKind.OperationStatement) {
+        const declarationPrefix = kind === SyntaxKind.ModelStatement
+          ? 'model'
+          : kind === SyntaxKind.AliasStatement
+            ? 'alias'
+            : kind === SyntaxKind.ScalarStatement
+              ? 'scalar'
+              : kind === SyntaxKind.EnumStatement
+                ? 'enum'
+              : 'union'
+        const declarationId = `${declarationPrefix}:${relativePath}:${id}`
+        declarations.push({
+          id: declarationId,
+          kind: 'model',
+          symbol: id,
+          source,
+          sourceOffset: pos,
+          sourceEnd: end,
+        })
+        if (kind === SyntaxKind.ModelStatement) {
+          const modelIs = isRecord(statement.is) ? statement.is : undefined
+          const target = modelIs && isRecord(modelIs.target) ? modelIs.target : undefined
+          const nativeModelName = target
+            ? readIdentifier(target.id) ?? readIdentifier(target)
+            : undefined
+          if (nativeModelName && NATIVE_SECURITY_SCHEME_MODELS.has(nativeModelName)) {
+            nativeSecuritySchemeDeclarationIds.push(declarationId)
+          }
+        }
+        continue
+      }
+      const body = content.slice(pos, end)
+      const explicitOperationId = readStringDecorator(body, 'operationId')
+      const defaultOperationId = enclosingInterface ? `${enclosingInterface}_${id}` : id
       declarations.push({
-        id: declarationId,
-        kind: 'model',
+        id: `operation:${relativePath}:${id}`,
+        kind: 'operation',
         symbol: id,
+        operationId: explicitOperationId ?? defaultOperationId,
+        ...(!explicitOperationId && enclosingInterface ? { alternateOperationId: id } : {}),
         source,
         sourceOffset: pos,
         sourceEnd: end,
       })
-      if (kind === SyntaxKind.ModelStatement) {
-        const modelIs = isRecord(statement.is) ? statement.is : undefined
-        const target = modelIs && isRecord(modelIs.target) ? modelIs.target : undefined
-        const nativeModelName = target
-          ? readIdentifier(target.id) ?? readIdentifier(target)
-          : undefined
-        if (nativeModelName && NATIVE_SECURITY_SCHEME_MODELS.has(nativeModelName)) {
-          nativeSecuritySchemeDeclarationIds.push(declarationId)
-        }
-      }
-      continue
     }
-    const body = content.slice(pos, end)
-    declarations.push({
-      id: `operation:${relativePath}:${id}`,
-      kind: 'operation',
-      symbol: id,
-      operationId: readStringDecorator(body, 'operationId') ?? id,
-      source,
-      sourceOffset: pos,
-      sourceEnd: end,
-    })
   }
+
+  visitStatements(ast.statements)
 
   const operationByRange = declarations.filter(declaration => declaration.kind === 'operation')
   const extensionPattern = /@extension\(\s*"(x-oa-sdk-[^"]+)"/g

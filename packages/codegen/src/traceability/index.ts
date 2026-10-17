@@ -1,0 +1,31 @@
+export {
+  SPEC_TRACEABILITY_SCHEMA_VERSION,
+  DEFAULT_TRACE_SIDECAR_FILENAME,
+  buildSpecTraceabilityGraph,
+  toTypegenProvenanceMap,
+  querySpecTrace,
+  analyzeSpecImpact,
+  serializeSpecTraceabilityGraph,
+  saveSpecTraceabilitySidecar,
+  loadSpecTraceabilitySidecar,
+  formatSpecTraceabilityHumanReport,
+} from './spec-traceability.js'
+
+export type {
+  SpecDefinitionKind,
+  SpecTraceSourceOrigin,
+  SpecTraceSourceCoordinates,
+  SpecTraceGovernanceCapabilities,
+  SpecTraceArtifactKind,
+  SpecTraceGeneratedArtifactMapping,
+  SpecTraceabilityNode,
+  SpecTraceabilityEdgeKind,
+  SpecTraceabilityEdge,
+  SpecTraceabilityDiagnosticCode,
+  SpecTraceabilityDiagnostic,
+  SpecTraceabilitySummary,
+  SpecTraceabilityGraph,
+  BuildSpecTraceabilityOptions,
+  SpecTraceQuery,
+  SpecImpactAnalysis,
+} from './spec-traceability.js'

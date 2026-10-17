@@ -18,7 +18,7 @@ oa-sdk는 하나의 runtime SDK가 아니라 OpenAPI 계약을 작성·검증·�
 
 | 패키지 | 배포 | 시작 역할 | 공개 entrypoint | 먼저 볼 자료 |
 | --- | --- | --- | --- | --- |
-| `@oa-sdk/typespec-decorators` | npm | OA SDK TypeSpec 데코레이터와 표준 계약(`Ok`, `ErrorResponse`, `StandardHttpErrors` 등, `OaSdkTypeSpec` namespace). 표준 계약은 0.3.0부터 | package root, `./api`, `./governance`, `./crdt`, `./behavior`, `./storage` | [TypeSpec 작성 의존성](./cli-setup.md#typespec-작성-의존성) |
+| `@oa-sdk/typespec-decorators` | npm | OA SDK TypeSpec 데코레이터와 표준 계약(`Ok`, `ErrorResponse`, `StandardHttpErrors` 등, `OaSdkTypeSpec` namespace). 표준 계약은 0.3.0부터 | package root, `./api`, `./governance`, `./crdt`, `./behavior`, `./storage`, `./chunk-stream` | [TypeSpec 작성 의존성](./cli-setup.md#typespec-작성-의존성) |
 | `@oa-sdk/parser` | npm | OpenAPI 3.2 → ParsedDocument IR, `$ref` 해석, lint/validate, RFC 6901 JSON Pointer helper(`parseJsonPointer`, `formatJsonPointer` 등) | package root, `./browser` | [parser README](../../packages/parser/README.md) |
 | `@oa-sdk/surface-ir` | 0.9.0부터 | target-neutral API surface IR와 Forge SDK/CLI projection·Overlay 생성, operation을 RPC procedure로 투영하는 RPC contract(`buildRpcContract`). `@oa-sdk/codegen`의 런타임 의존성으로 함께 설치되며 `oa-gen surface`가 사용 | package root | [Cloudflare Forge 지원](./forge-support.md), [rpc README](../../packages/rpc/README.md) |
 | `@oa-sdk/codegen` | npm | typegen, Zod 4 코드 생성, Drizzle/Zod 변환, `oa-gen` CLI(bin `oa-gen`) | package root, `./drizzle`, `./typegen`, `./typegen/browser`, `./zodgen`, `./spec-lens`, `./apitomy` | [CLI 명령 레퍼런스](./cli-command-reference.md) |

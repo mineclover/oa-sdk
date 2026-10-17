@@ -70,18 +70,20 @@ Storage(Atlas), Logical(DPM), API(TypeSpec), Behavior(XState) 4계층 분리와 
 | `x-schema-engine-version-hash` | 메타데이터를 뺀 문서의 결정적 hash (`sha256:...`, 키 순서는 RFC 8785) |
 | `x-schema-engine-sources` | component 이름별 원본 위치 (`kind`, `filePath`, `pointer`) |
 | `x-schema-engine-refs` | 문서 안 `$ref` 엣지 (`from`, `to`, `ref`) |
+| `x-oa-sdk-trace` / `x-samchon-evidence` | 불변 추적 ID(`trackingId`), 대체 계보(`replaces`), 요구사항(`requirements`), TypeSpec 원본 좌표(`typeSpecSource`) |
 
 명령별로 보면 다음과 같습니다. 설정 파일이 필요한 명령과 파일 경로를 받는 명령이 섞여 있습니다.
 
 | 단계 | 명령 | 결과 |
 |---|---|---|
 | 검증 | `oa-gen validate`(설정의 모든 target), `oa-gen validate --spec <파일> --require-32` | 구조·참조·린트 오류, OpenAPI 3.2 강제 |
-| 투영과 코드 생성 | `oa-gen generate` | 위 그림의 생성물 |
+| 투영과 코드 생성 | `oa-gen generate` | 위 그림의 생성물 (`.oa-trace.json` 추적성 사이드카 포함 가능) |
 | 타입 | `oa-gen typegen --spec <파일> -o <파일>` | TypeScript 타입 (설정 파일을 읽지 않음) |
 | 런타임 검증 스키마 | `oa-gen generate:zod --spec <파일> -o <경로>` | Zod 4 스키마 |
 | 가드만 | `oa-gen generate:guards --input <파일> -o <디렉터리>` | 독립형 타입 가드 |
 | mock 서버 | `oa-gen mock` | 원본을 읽어 요청을 검증하는 서버 (디스크에 생성물을 쓰지 않음) |
 | 생성물 최신 여부 | `oa-gen check-artifact` | `<id>.openapi.json`이 원본에서 다시 만든 결과와 다르면 종료 코드 1 |
+| 추적성·영향도 분석 | `oa-gen trace --spec <파일> [--impact <대상>]` | 스펙 정의 ↔ TypeSpec AST ↔ 요구사항 ↔ 생성 코드 심볼 추적 및 Blast Radius 계산 |
 | 변경 분류 | `oa-gen diff`, `oa-gen tsp diff` | `--fail-on-breaking`이면 breaking change에서 종료 코드 1 |
 | runtime drift | `oa-gen drift` | 실행 중 서버가 내보내는 OpenAPI와 관리 중인 계약의 차이 |
 | 번들 감사 | `oa-gen audit:csp --bundle <경로>` | `eval`, `new Function`, 금지된 런타임 import 검사 |

@@ -11,7 +11,14 @@
  */
 
 export { analyzeExternalSchemaRefs, generateTypes, generateTypesFromSpec } from './generate-types.js'
-export type { ExternalSchemaRefAnalysis, ExternalSchemaRefDiagnostic, ExternalSchemaRefDiagnosticCode, ExternalSchemaTypeAlias, TypegenOptions } from './generate-types.js'
+export type {
+  ExternalSchemaRefAnalysis,
+  ExternalSchemaRefDiagnostic,
+  ExternalSchemaRefDiagnosticCode,
+  ExternalSchemaTypeAlias,
+  TypegenOptions,
+  TypegenProvenanceEntry,
+} from './generate-types.js'
 export { createTypescriptAlgebra, schemaToTs, typescriptAlgebra } from './schema-to-ts.js'
 export type { SchemaToTsOptions } from './schema-to-ts.js'
 export { analyzeSchemaFidelity, projectSchemaToTs } from './schema-fidelity.js'

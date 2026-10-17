@@ -307,8 +307,16 @@ decorator별 인자, 허용 값, 진단 코드는 [패키지 README](../../../pa
 | `@oaUseResponseComponent(statusCode, componentName)` | Operation | `x-oa-sdk-operation-component-refs` |
 | `@personaCapability(...traits)` | Operation | `x-oa-sdk-persona-traits` (`packages/personas/src/traits/skill.yaml`의 표준 trait 24종만 허용) |
 | `@pseudonymize(transform, role?, pii?, relationship?)` | ModelProperty | `x-oa-sdk-dpm-projection` (`transform`: `keep`, `redact`, `mask`, `null`, `hash`, `generalize`, `relationship_token`, `polymorphic_relationship_token`) |
+| `@traceId(id)` | Model, Operation, Enum, Union, Scalar, ModelProperty | `x-oa-sdk-trace.trackingId` (파일 이동·리네이밍 불변 추적 ID) |
+| `@replaces(...replacedIds)` | Model, Operation, Enum, Union, Scalar | `x-oa-sdk-trace.replaces` (이전 정의/심볼 대체 계보) |
+| `@requirement(...requirementIds)` | Model, Operation, Enum, Union, Scalar, ModelProperty | `x-oa-sdk-trace.requirements` (외부 요구사항·컴플라이언스 ID 매핑) |
 | `@crdt(options)` | ModelProperty | `x-oa-sdk-crdt` |
 | `@crdtEntity(options)` | Model | `x-oa-sdk-crdt-entity` |
+| `@actorInput`, `@machineContext`, `@eventPayload(type?)`, `@behaviorRef(id)` | Model | `x-oa-sdk-behavior-*` (`./behavior`, XState/Behavior 런타임 데이터 형상) |
+| `@storageRef(target)`, `@storageCatalog(catalog)` | Model / ModelProperty, Namespace | `x-oa-sdk-storage-*` (`./storage`, Ariga Atlas 물리 DB 드리프트 대조) |
+| `@chunkStream(options?)` | Model, Operation, Interface | `x-oa-sdk-chunk-stream` (`./chunk-stream`, 스트리밍 프리셋·메모리 리스 정책) |
+
+`@traceId`, `@replaces`, `@requirement`가 방출하는 `x-oa-sdk-trace`와 `@samchon/typespec-evidence`(`@evidence`, `@evidenceExclude`, Heading-Form `## @evidence`)가 방출하는 `x-samchon-evidence`는 `oa-gen trace`, `oa-gen typegen`, `oa-gen generate` 실행 시 `.oa-trace.json` 매니페스트와 생성된 TypeScript 인터페이스의 JSDoc(`@oa-source`, `@oa-requirement`, `@evidence`, `## @evidence`, `@evidenceExclude`)으로 무손실 통합됩니다(`ttsc@0.33.1` / `@wrtnlabs/evidence@0.8.0` 호환).
 
 `@oaUseResponseComponent`는 참조만 기록합니다. 재사용 응답(`#/components/responses/<name>`)으로 바뀌는 곳은 bundle restore(`oa-gen tsp-bundle-check`, 저장소의 `pnpm schema:typespec-check`)뿐이고, `oa-gen mock --tsp`나 `.tsp`를 넣은 `generate`·`typegen`에는 응답이 생기지 않습니다. 일반 프로젝트에서 4xx 응답을 선언할 때는 `ErrorResponse<Status>`나 `StandardHttpErrors`를 씁니다.
 

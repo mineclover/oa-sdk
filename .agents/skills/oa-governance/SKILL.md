@@ -192,9 +192,9 @@ Running `pnpm personas:check` verifies:
 
 TypeSpec enables schema authoring with strong static typing. `@oa-sdk` provides custom emitters, native decorators, IDE LSP tooling, and AST verification utilities to maintain contract integrity across the monorepo.
 
-### 2.1 `@oa-sdk/typespec-decorators`: Response Component References, Personas & DPM
+### 2.1 `@oa-sdk/typespec-decorators`: Response Component References, Personas, DPM & Traceability
 
-The package `packages/typespec-decorators` provides native TypeSpec decorators for contract enrichment and compliance:
+The package `packages/typespec-decorators` provides native TypeSpec decorators for contract enrichment, compliance, and traceability:
 
 #### 1. Response Component References (`@oaUseResponseComponent`)
 Attaches shared response component references to TypeSpec operations:
@@ -240,12 +240,35 @@ using OaSdkTypeSpec;
 
 model UserProfile {
   id: string;
-  @pseudonymize(UserProfile.email, "hmac-sha256")
+  @pseudonymize("mask", "direct_identifier", true)
   email: string;
 }
 ```
 
 - **Target Extension**: Emits `x-oa-sdk-dpm-projection`.
+
+#### 4. End-to-End Traceability & Evidence Bridge (`@traceId`, `@replaces`, `@requirement` & `x-samchon-evidence`)
+Declares immutable tracking IDs, refactoring lineage, and external requirement links on models, operations, enums, unions, scalars, and properties (`@oa-sdk/typespec-decorators/governance`):
+
+```typespec
+import "@oa-sdk/typespec-decorators/governance";
+import "@samchon/typespec-evidence";
+using OaSdkTypeSpec;
+using Samchon.Evidence;
+
+@traceId("USR-001")
+@replaces("schema:LegacyAccount")
+@requirement("GDPR-ART-15", "SPEC-USER-001")
+@evidence("docs/requirements.md#req-user-profile", "Canonical user profile contract")
+model UserProfile {
+  id: string;
+}
+```
+
+- **Target Extensions**: Emits `x-oa-sdk-trace` (`trackingId`, `replaces`, `requirements`) and bridges `x-samchon-evidence` (`requirements`, `upstreamRequirement`, `typeSpecSource`, `excluded`, `excludeReason`).
+- **Traceability Manifest & JSDoc Provenance (`oa-gen trace` / `typegen` / `generate`)**:
+  - Merges `x-oa-sdk-trace` and `x-samchon-evidence` into `.oa-trace.json` while stripping both extensions before computing `contentHash` so pure documentation/provenance edits do not trigger false schema drift.
+  - Synthesizes `@oa-source`, `@oa-requirement`, `@evidence <target> - <reason>`, Heading-Form `## @evidence <target>` (for multi-line rationales), and `@evidenceExclude` JSDoc tags onto generated TypeScript declarations (`ttsc@0.33.1` / `@wrtnlabs/evidence@0.8.0` compatible).
 
 ### 2.2 `@oa-sdk/typespec-erd` & `@oa-sdk/logical-erd-contract`
 

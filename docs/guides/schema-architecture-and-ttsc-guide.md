@@ -1,6 +1,6 @@
 # 멀티 티어 스키마 아키텍처 및 도구별 역할 분리 가이드 (oa-sdk, ttsc, Atlas)
 
-이 문서는 oa-sdk 생태계에서 **데이터베이스(Storage), 네트워크 API(Transport), 논리 거버넌스(Logical), 런타임 행위(Behavior)**의 4계층 스키마를 어떻게 분리하여 운영하는지, 그리고 **oa-sdk 표준 도구체계, ttsc(TypeScript 컴파일러 플러그인), Atlas(데이터베이스 선언적 마이그레이션)**를 언제 어떤 목적으로 사용해야 하는지 명확한 기준을 제시합니다.
+이 문서는 oa-sdk 생태계에서 **데이터베이스(Storage), 네트워크 API(Transport), 논리 거버넌스(Logical), 런타임 행위(Behavior)**의 4계층 스키마를 어떻게 분리하여 운영하는지, 그리고 **oa-sdk 표준 도구체계, ttsc(TypeScript 컴파일러 플러그인), Atlas(데이터베이스 선언적 마이그레이션)**를 언제 어떤 목적으로 사용해야 하는지 명확한 기준을 제시합니다. (`ttsc-ex` 및 `context-action`과의 3대 워크스페이스 책임 분리 및 `.tsp` 위임 동기화 절차는 [`ttsc-ex` · `oa-sdk` · `context-action` 책임 분리 및 `.tsp` 위임 동기화 가이드](./ttsc-ex-delegation-and-sync-guide.md)를 참조하세요.)
 
 ---
 
@@ -48,7 +48,7 @@
 | **HTTP/REST API 스펙 작성 및 클라이언트/서버 생성** | **`oa-sdk` 표준 도구** (`oa-gen`, TypeSpec) | OpenAPI 3.2 준수, 라우터(Hono, Fastify, Express), TanStack Query 생성, Mock 지원 | ttsc나 DB 스키마로부터 직접 OpenAPI 역생성 |
 | **초경량 런타임 유효성 검사 (0-Cost AOT)** | **`ttsc` / Typia** | TS 타입을 컴파일 시점에 순수 JS 인라인 검사 코드로 변환하여 번들 크기 0 유지 | 브라우저 클라이언트에 Ajv나 거대한 JSON Schema 파서 번들링 |
 | **XState v6 Standard Schema 런타임 검증** | **`ttsc` AOT Standard Schema** | XState v6 `setup({ schemas })`용 표준 스키마 인터페이스를 컴파일 시점에 무의존성으로 생성 | Zod 중복 작성 및 TS ↔ Zod 드리프트 발생 |
-| **요구사항 ↔ 코드 심볼 ↔ 스키마 100% 추적성 검증** | **`ttsc` (`@ttsc/evidence`)** | 컴파일 타임에 마크다운 앵커와 코드 심볼 일치성을 강제하는 CI 게이트 | 수작업 체크리스트 또는 관리되지 않는 주석 |
+| **요구사항 ↔ 코드 심볼 ↔ 스키마 100% 추적성 검증** | **`ttsc` (`@wrtnlabs/evidence@0.8.0` / `@samchon/typespec-evidence`) + `oa-gen trace`** | 컴파일 타임 마크다운 앵커·스코프 핑거프린트(`#hash`) 검증 및 `.oa-trace.json` 역방향 영향 범위(Blast Radius) 분석 | 수작업 체크리스트 또는 관리되지 않는 주석 |
 | **데이터베이스 물리 DDL 작성, 선언적 마이그레이션** | **`Atlas` (Ariga Atlas)** | PostgreSQL, SQLite, Cloudflare D1 방언 최적화, 마이그레이션 diff 자동화 및 린팅 | TypeSpec 모델로부터 SQL DDL 자동 생성 |
 | **물리 DB 컬럼 ↔ API 계약 간 불일치(Drift) 감지** | **`Atlas` + `oa-sdk` DPM/ERD** | `atlas schema inspect` 출력을 읽기 전용 증거로 읽어 TypeSpec 모델과 정적 비교 | oa-sdk에게 DB 직접 쓰기/마이그레이션 권한 부여 |
 
@@ -155,6 +155,25 @@ model UserEntity {
   email: string;
 }
 ```
+
+### 6) 요구사항 추적성 및 불변 계약 계보 저작 시 (Governance Traceability & Evidence Bridge)
+리팩토링/파일 이동에도 보존되는 불변 추적 ID(`@traceId`), 대체 계보(`@replaces`), 요구사항 매핑(`@requirement`)과 `@samchon/typespec-evidence`의 `@evidence` 증명 체계를 함께 연결할 때 사용합니다:
+```typespec
+import "@oa-sdk/typespec-decorators/governance";
+import "@samchon/typespec-evidence";
+
+using OaSdkTypeSpec;
+using Samchon.Evidence;
+
+@traceId("TRC-USER-001")
+@replaces("schema.LegacyUser")
+@requirement("REQ-AUTH-101")
+@evidence("docs/requirements.md#req-user-account", "Canonical user account contract")
+model UserAccount {
+  id: string;
+}
+```
+> **무손실 상호운용**: `@oa-sdk/codegen`의 추적성 엔진(`buildSpecTraceabilityGraph` / `oa-gen trace`)과 타입 생성기(`generateTypes({ includeProvenanceAnnotations: true })`)는 `x-oa-sdk-trace`뿐만 아니라 `x-samchon-evidence`(`requirements`, `upstreamRequirement`, `typeSpecSource`)도 자동으로 수집하여 `.oa-trace.json`과 `@oa-source` / `@oa-requirement` JSDoc 태그로 통합 투영합니다.
 
 ---
 
@@ -349,6 +368,47 @@ export const scenePlayerMachine = setup({
    - `type: "PLAY" | "PAUSE" | "SEEK"`와 같은 이벤트 유니온은 `ttsc`가 첫 번째 프로퍼티인 `type`의 `switch` 분기문으로 최적화하여 $O(1)$ 속도로 이벤트 검증을 수행합니다.
 3. **Behavior IR와의 오너십 분리 유지**:
    - 상태 머신의 전이 흐름(Flow), 다이어그램, 계층 구조는 여전히 **WIREFRAME-BOOK(Behavior IR)**에 두고, TypeSpec과 `ttsc`는 오직 **입출력 데이터의 형태(Shape)**만을 컴파일하여 제공해야 합니다.
+
+---
+
+### 5.7 TypeSpec-Evidence ↔ oa-sdk 무손실 프로비넌스 브리지 및 Evidence v0.8.0 규약 (`ttsc@0.33.1`)
+
+`ttsc@0.33.1`, `@wrtnlabs/evidence@0.8.0`, 그리고 `@samchon/typespec-evidence`의 고도화된 파이프라인은 `@oa-sdk/codegen`의 스펙 추적성(`SpecTraceabilityGraph` / `.oa-trace.json`) 및 타입 합성기와 100% 무손실로 결합됩니다.
+
+```text
+[Markdown PRD / Spec Docs (#req-...)]
+      │
+      ▼ (@evidence / @requirement / @traceId in specs/*.tsp)
+[TypeSpec SSOT (.tsp: model, op, interface, extern dec)]
+      │
+      ├────► (1) OpenAPI 3.1 / 3.2 Emission (x-oa-sdk-trace + x-samchon-evidence)
+      │            ├─► oa-gen trace (.oa-trace.json 역방향 영향 범위 & AST 좌표 복원)
+      │            └─► oa-gen typegen / tsp-evidence synthesize (DTO 제약 JSDoc & 멀티 응답 유니온)
+      │
+      └────► (2) Non-OpenAPI Direct Emission (@samchon/typespec-evidence emitter)
+                   └─► identity.ts / aspect-storage.ts / tools.ts (@evidence JSDoc 직접 전파)
+                               │
+                               ▼
+            [@wrtnlabs/evidence@0.8.0 & ttsc@0.33.1 Gate]
+            • @evidenceReview <target> #<scope-fingerprint-hash>
+            • Heading-Form (## @evidence) & Detached evidenceFiles (evidence/**/*.md)
+            • Fast Subtree Check: evidence check --only <unit> --context
+```
+
+1. **`x-samchon-evidence` ↔ `.oa-trace.json` 양방향 호환 브리지**:
+   - `@samchon/typespec-evidence`가 OpenAPI 스키마·오퍼레이션에 주입하는 `x-samchon-evidence` 확장(`requirements`, `upstreamRequirement`, `typeSpecSource`)은 `@oa-sdk/codegen`의 `buildSpecTraceabilityGraph`와 `generateTypes({ includeProvenanceAnnotations: true })`에서 자동으로 인식됩니다.
+   - 별도의 `--typespec-root` 재파싱 없이도 `x-samchon-evidence.typeSpecSource`로부터 원본 `.tsp` 파일 경로와 라인/컬럼(`origin: 'typespec-ast'`)을 복원하며, `@evidence`의 설명문(rationale)만 수정된 경우에는 `contentHash`가 변하지 않도록 정규화됩니다.
+   - 또한 TypeSpec AST 프로비넌스 분석기(`buildTypeSpecRefProvenance`)는 최상위 선언뿐 아니라 중괄호 `namespace` 블록 및 `interface` 내부 오퍼레이션(`Interface_op` 및 단축 심볼)도 자동 귀속합니다.
+2. **필드 제약 조건(Constraints)의 스코프 핑거프린트 잠금**:
+   - `oa-gen typegen`(`schema-to-ts.ts`)과 `tsp-evidence synthesize`(`auto-synthesizer.ts`)는 프로퍼티의 `@minimum`, `@maximum`, `@minLength`, `@maxLength`, `@pattern`, `@minItems`, `@maxItems`, `@format` 제약을 생성된 TypeScript 프로퍼티 JSDoc에 보존합니다.
+   - `@wrtnlabs/evidence@0.8.0`은 이 JSDoc을 스코프 핑거프린트(`#hash`)에 포함하므로, `.tsp`에서 수치/문자열 제약 조건이 변경되면 핸들러의 `@evidenceReview ./generated/dto.ts#ModelDTO #hash`가 즉시 `graph-stale-review`를 감지하여 계약 드리프트를 차단합니다.
+3. **비-OpenAPI 산출물 및 커스텀 데코레이터(`extern dec`) 직접 증명**:
+   - OpenAPI를 경유하지 않는 분산 식별자(`@idStrategy`, `@lookupKey`, `@identityRepresentation`, `@promotableId` $\to$ `identity.ts`), 분리 저장 관점(`@entityRoot`, `@aspectOf`, `@storage` $\to$ `aspect-storage.ts`), 에이전트 도구(`@tool`, `@mcpTool`, `@webMcpTool` $\to$ `tools.ts`)는 TypeSpec 에미터가 생성 상수 및 인터페이스 JSDoc에 `@evidence` / `@evidenceExclude` / `## @evidence`를 직접 전파합니다.
+   - 데코레이터 선언 자체(`extern dec`)에도 `@evidence`를 부착하여 인프라 명세(`SPEC.md`)와의 정합성을 셀프 호스팅 게이트로 검증합니다.
+4. **주석 비대화 방지(Comment-Bloat Pruning) 및 고속 서브트리 검증**:
+   - **Heading-Form 주석**: 다문단 설명이나 체크리스트는 `## @evidence`, `## @evidenceReview`, `## @evidenceExclude` 마크다운 헤딩 형식으로 구조화합니다.
+   - **분리형 증명 문서(`evidenceFiles`) & 파일 헤더 제외**: `evidence.config.json`의 `evidenceFiles: ["evidence/**/*.md"]` (`# <unit-target>` H1 블록)와 생성 파일 상단 `@evidenceExclude`(`fileScopes` 자동 전파)를 통해 프로덕션 코드의 주석 오염을 원천 방지합니다.
+   - **고속 서브트리 피드백**: 단일 모듈 작업 시 전체 빌드 대신 `npx evidence check --only <unit> --context`를 실행하여 대상 유닛과 인접 의존성만 즉시 검증합니다.
 
 ---
 

@@ -179,6 +179,14 @@ Known limitation: the generated CRDT router file is always a Hono WebSocket rout
 the `oa-gen init` pattern), and write the result to a file of your own, because the next
 `oa-gen generate` run overwrites the generated CRDT router file.
 
+### `@traceId(id)`, `@replaces(ids...)`, `@requirement(reqIds...)`
+Traceability and lineage decorators exported from `@oa-sdk/typespec-decorators/governance` and the root package:
+- `@traceId(id)`: assigns a stable, immutable tracking identifier (`x-oa-sdk-trace.trackingId`) to a `Model`, `Operation`, `Enum`, `Union`, `Scalar`, or `ModelProperty` that survives file moves and symbol renames.
+- `@replaces(...replacedIds)`: declares one or more previous canonical definition IDs or symbol identifiers that a specification element replaces (`x-oa-sdk-trace.replaces`), enabling lossless refactoring lineage.
+- `@requirement(...requirementIds)`: links a specification element to external requirement, compliance, or issue identifiers (`x-oa-sdk-trace.requirements`, e.g. `"GDPR-ART-15"`, `"docs/requirements.md#req-user-profile"`).
+
+When paired with `@samchon/typespec-evidence` (`@evidence`, `@evidenceExclude`, Heading-Form `## @evidence`), `@oa-sdk/codegen` merges both `x-oa-sdk-trace` and `x-samchon-evidence` into `.oa-trace.json` and emits `@oa-source`, `@oa-requirement`, `@evidence`, `## @evidence`, and `@evidenceExclude` JSDoc provenance tags onto generated TypeScript types (`oa-gen typegen`, `oa-gen generate`, `oa-gen trace`).
+
 ### `@actorInput`, `@machineContext`, `@eventPayload(eventType?)`, `@behaviorRef(behaviorId)`
 Decorators for XState / Behavior runtime data shape modeling (resolving Issue #1). They are exported from
 `@oa-sdk/typespec-decorators/behavior` and the root package:
@@ -199,20 +207,24 @@ Decorators for linking TypeSpec models with Ariga Atlas physical database eviden
 
 Consumed by `@oa-sdk/dpm` and `oa-erd check` to perform static drift verification against `atlas schema inspect --format json`.
 
+### `@chunkStream(options?)`
+Declares Chunk Stream transmission parameters, presets (`realtime-crdt`, `ui-action`, `timeseries`, `replay`), and memory residency policies on a `Model`, `Operation`, or `Interface`. Exported from `@oa-sdk/typespec-decorators/chunk-stream` and the root package, emitting `x-oa-sdk-chunk-stream`.
+
 ## 3. Purpose-Driven Modular Subpaths
 
 To avoid schema pollution and cross-domain coupling in large projects, `@oa-sdk/typespec-decorators` provides modular entrypoints:
 
 ```typespec
 // Import only the slice you need
-import "@oa-sdk/typespec-decorators/api";        // HTTP responses & @oaUseResponseComponent
-import "@oa-sdk/typespec-decorators/governance"; // @personaCapability & @pseudonymize
-import "@oa-sdk/typespec-decorators/crdt";       // @crdt & @crdtEntity
-import "@oa-sdk/typespec-decorators/behavior";   // @actorInput, @machineContext, etc.
-import "@oa-sdk/typespec-decorators/storage";    // @storageRef & @storageCatalog
+import "@oa-sdk/typespec-decorators/api";          // HTTP responses & @oaUseResponseComponent
+import "@oa-sdk/typespec-decorators/governance";   // @personaCapability, @pseudonymize, @traceId, @replaces, @requirement
+import "@oa-sdk/typespec-decorators/crdt";         // @crdt & @crdtEntity
+import "@oa-sdk/typespec-decorators/behavior";     // @actorInput, @machineContext, etc.
+import "@oa-sdk/typespec-decorators/storage";      // @storageRef & @storageCatalog
+import "@oa-sdk/typespec-decorators/chunk-stream"; // @chunkStream
 ```
 
-For complete architecture details and toolchain boundary rules (including `ttsc` AOT Standard Schema compilation for XState v6), see
+For complete architecture details and toolchain boundary rules (including `ttsc@0.33.1` AOT Standard Schema compilation for XState v6 and `@wrtnlabs/evidence@0.8.0` provenance), see
 the [Schema Architecture and ttsc Guide](../../docs/guides/schema-architecture-and-ttsc-guide.md).
 
 ## Maintainers

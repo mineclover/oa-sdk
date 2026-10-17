@@ -32,6 +32,21 @@ import { pascalCase, createOperationTypeNameMap, escapeKey, formatGeneratedTs, q
 import { createHash } from 'node:crypto'
 import { basename, extname } from 'node:path'
 
+export type TypegenProvenanceEntry = {
+  /** 정식 정의 ID (예: schema.User, operation.listUsers) */
+  canonicalId?: string
+  /** 원본 스펙/TypeSpec 파일 경로 */
+  sourcePath?: string
+  /** 원본 파일 내 JSON Pointer 또는 심볼 위치 */
+  sourcePointer?: string
+  /** 불변 추적 ID (@traceId 또는 결정론적 해시) */
+  trackingId?: string
+  /** 이전 정의 ID (마이그레이션 추적용) */
+  replaces?: string
+  /** 연결된 요구사항/이슈 ID 목록 */
+  requirements?: readonly string[]
+}
+
 export type TypegenOptions = {
   /** 헤더 주석 포함 여부 (기본: true) */
   banner?: boolean
@@ -39,6 +54,10 @@ export type TypegenOptions = {
   style?: 'type' | 'interface'
   /** annotations 필드를 JSDoc에 포함 (기본: false) */
   includeAnnotations?: boolean
+  /** 스펙 출처/추적성 JSDoc 태그(@oa-pointer, @oa-source, @oa-id, @oa-trace-id 등) 포함 여부 (기본: false) */
+  includeProvenanceAnnotations?: boolean
+  /** JSON Pointer -> 출처/추적성 메타데이터 매핑 */
+  provenance?: Record<string, TypegenProvenanceEntry>
   /** OAS 파일 경로. 상대 외부 $ref 타입 생성을 위해 사용 */
   basePath?: string
   /** 생성 중 발견한 경고를 수집할 배열 */
@@ -106,6 +125,7 @@ type TypegenOperation = {
   responses: Record<string, OasResponse>
   summary?: string
   description?: string
+  [key: `x-${string}`]: unknown
 }
 
 type TypegenDocument = {
@@ -114,10 +134,166 @@ type TypegenDocument = {
   webhooks?: TypegenOperation[]
 }
 
+type RawTraceExtension = {
+  trackingId?: unknown
+  replaces?: unknown
+  requirements?: unknown
+}
+
+type RawSamchonEvidenceExtension = {
+  upstreamRequirement?: unknown
+  requirements?: unknown
+  excluded?: unknown
+  excludeReason?: unknown
+  typeSpecSource?: {
+    file?: unknown
+    symbol?: unknown
+    kind?: unknown
+  }
+}
+
+function buildProvenanceLines(
+  pointer: string,
+  target: unknown,
+  provenanceMap: Record<string, TypegenProvenanceEntry> | undefined,
+): string[] {
+  const entry = provenanceMap?.[pointer]
+  const targetRecord =
+    target && typeof target === 'object' ? (target as Record<string, unknown>) : undefined
+  const rawTrace =
+    targetRecord && 'x-oa-sdk-trace' in targetRecord
+      ? (targetRecord['x-oa-sdk-trace'] as RawTraceExtension | undefined)
+      : undefined
+  const rawSamchon =
+    targetRecord && 'x-samchon-evidence' in targetRecord
+      ? (targetRecord['x-samchon-evidence'] as RawSamchonEvidenceExtension | undefined)
+      : undefined
+
+  const lines: string[] = [`@oa-pointer ${pointer}`]
+
+  if (entry?.sourcePath) {
+    const hasSubPointer = entry.sourcePointer && entry.sourcePointer !== '#'
+    lines.push(`@oa-source ${hasSubPointer ? `${entry.sourcePath}${entry.sourcePointer}` : entry.sourcePath}`)
+  } else if (
+    rawSamchon?.typeSpecSource &&
+    typeof rawSamchon.typeSpecSource.file === 'string' &&
+    rawSamchon.typeSpecSource.file.trim().length > 0
+  ) {
+    const file = rawSamchon.typeSpecSource.file.trim()
+    const sym =
+      typeof rawSamchon.typeSpecSource.symbol === 'string' && rawSamchon.typeSpecSource.symbol.trim().length > 0
+        ? rawSamchon.typeSpecSource.symbol.trim()
+        : undefined
+    const rawKind =
+      typeof rawSamchon.typeSpecSource.kind === 'string' && rawSamchon.typeSpecSource.kind.trim().length > 0
+        ? rawSamchon.typeSpecSource.kind.trim().toLowerCase()
+        : 'model'
+    lines.push(`@oa-source ${sym ? `${file}#/${rawKind}/${sym}` : file}`)
+  }
+  if (entry?.canonicalId) {
+    lines.push(`@oa-id ${entry.canonicalId}`)
+  }
+
+  const trackingId =
+    entry?.trackingId ??
+    (typeof rawTrace?.trackingId === 'string' && rawTrace.trackingId.trim().length > 0
+      ? rawTrace.trackingId.trim()
+      : undefined)
+  if (trackingId) {
+    lines.push(`@oa-trace-id ${trackingId}`)
+  }
+
+  const replaces =
+    entry?.replaces ??
+    (typeof rawTrace?.replaces === 'string' && rawTrace.replaces.trim().length > 0
+      ? rawTrace.replaces.trim()
+      : undefined)
+  if (replaces) {
+    lines.push(`@oa-replaces ${replaces}`)
+  }
+
+  let requirements = entry?.requirements
+  if (!requirements) {
+    const collected: string[] = []
+    if (Array.isArray(rawTrace?.requirements)) {
+      for (const req of rawTrace.requirements) {
+        if (typeof req === 'string' && req.trim().length > 0) collected.push(req.trim())
+      }
+    }
+    if (typeof rawSamchon?.upstreamRequirement === 'string' && rawSamchon.upstreamRequirement.trim().length > 0) {
+      collected.push(rawSamchon.upstreamRequirement.trim())
+    }
+    if (Array.isArray(rawSamchon?.requirements)) {
+      for (const item of rawSamchon.requirements) {
+        if (typeof item === 'string' && item.trim().length > 0) {
+          collected.push(item.trim())
+        } else if (item && typeof item === 'object') {
+          const t = (item as { target?: unknown }).target
+          if (typeof t === 'string' && t.trim().length > 0) collected.push(t.trim())
+        }
+      }
+    }
+    if (collected.length > 0) {
+      requirements = Array.from(new Set(collected))
+    }
+  }
+  if (requirements && requirements.length > 0) {
+    for (const req of requirements) {
+      lines.push(`@oa-requirement ${req}`)
+    }
+  }
+
+  if (rawSamchon?.excluded === true) {
+    const excludeReason =
+      typeof rawSamchon.excludeReason === 'string' && rawSamchon.excludeReason.trim().length > 0
+        ? rawSamchon.excludeReason.trim()
+        : undefined
+    if (excludeReason && excludeReason.includes('\n')) {
+      lines.push('## @evidenceExclude')
+      lines.push(...excludeReason.split('\n'))
+    } else if (excludeReason) {
+      lines.push(`@evidenceExclude ${excludeReason}`)
+    } else {
+      lines.push('@evidenceExclude')
+    }
+  } else if (Array.isArray(rawSamchon?.requirements)) {
+    for (const item of rawSamchon.requirements) {
+      if (item && typeof item === 'object') {
+        const reqTarget =
+          typeof (item as { target?: unknown }).target === 'string'
+            ? ((item as { target: string }).target).trim()
+            : ''
+        const reqReason =
+          typeof (item as { reason?: unknown }).reason === 'string'
+            ? ((item as { reason: string }).reason).trim()
+            : ''
+        if (!reqTarget) continue
+        if (reqReason.includes('\n')) {
+          lines.push(`## @evidence ${reqTarget}`)
+          lines.push(...reqReason.split('\n'))
+        } else if (reqReason) {
+          lines.push(`@evidence ${reqTarget} - ${reqReason}`)
+        } else {
+          lines.push(`@evidence ${reqTarget}`)
+        }
+      }
+    }
+  }
+
+  return lines
+}
+
 /** ParsedDocument IR 기반 (deref 후). $ref가 해결된 상태. */
 export function generateTypes(doc: TypegenDocument, options: TypegenOptions = {}): string {
-  const { banner = true, style = 'type', includeAnnotations = false } = options
+  const {
+    banner = true,
+    style = 'type',
+    includeAnnotations = false,
+    includeProvenanceAnnotations = false,
+    provenance,
+  } = options
   const componentTypeNames = createComponentTypeNameMap(Object.keys(doc.schemas))
+  const webhookSet = new Set<TypegenOperation>(doc.webhooks ?? [])
   const operations = sortTypegenOperations([...doc.operations, ...(doc.webhooks ?? [])])
   const operationNames = createOperationTypeNameMap(operations)
   const localNestedAliases = createLocalNestedSchemaAliasMap(
@@ -149,7 +325,15 @@ export function generateTypes(doc: TypegenDocument, options: TypegenOptions = {}
   for (const [name, schema] of Object.entries(doc.schemas).sort(([left], [right]) => compareTypegenKeys(left, right))) {
     const typeName = componentTypeNames.byComponentName.get(name)!
     const tsType = schemaToTs(schema, schemaOpts)
-    if (schema.description) lines.push(...formatJSDoc(schema.description).split('\n'))
+    const pointer = `#/components/schemas/${escapeJsonPointerToken(name)}`
+    const docLines: string[] = []
+    if (schema.description) docLines.push(schema.description)
+    if (includeProvenanceAnnotations) {
+      docLines.push(...buildProvenanceLines(pointer, schema, provenance))
+    }
+    if (docLines.length > 0) {
+      lines.push(...formatJSDoc(docLines.join('\n')).split('\n'))
+    }
     if (style === 'interface' && tsType.startsWith('{')) {
       lines.push(`export interface ${typeName} ${tsType}`)
     } else {
@@ -160,7 +344,14 @@ export function generateTypes(doc: TypegenDocument, options: TypegenOptions = {}
 
   for (const alias of localNestedAliases.aliases) {
     const tsType = schemaToTs(alias.schema, schemaOpts)
-    if (alias.schema.description) lines.push(...formatJSDoc(alias.schema.description).split('\n'))
+    const docLines: string[] = []
+    if (alias.schema.description) docLines.push(alias.schema.description)
+    if (includeProvenanceAnnotations) {
+      docLines.push(...buildProvenanceLines(alias.ref, alias.schema, provenance))
+    }
+    if (docLines.length > 0) {
+      lines.push(...formatJSDoc(docLines.join('\n')).split('\n'))
+    }
     if (style === 'interface' && tsType.startsWith('{')) {
       lines.push(`export interface ${alias.aliasName} ${tsType}`)
     } else {
@@ -256,7 +447,15 @@ export function generateTypes(doc: TypegenDocument, options: TypegenOptions = {}
     if (headersType) bundleFields.push(`  responseHeaders: ${baseName}ResponseHeaders`)
     if (linksType) bundleFields.push(`  responseLinks: ${baseName}ResponseLinks`)
     if (errorType) bundleFields.push(`  error?: ${baseName}Error`)
-    lines.push(...formatJSDoc(`@oaOperation ${op.method.toUpperCase()} ${op.openApiPath}`).split('\n'))
+    const opPointer = webhookSet.has(op)
+      ? `#/webhooks/${escapeJsonPointerToken(op.openApiPath.replace(/^\/webhooks\//, ''))}/${escapeJsonPointerToken(op.method.toLowerCase())}`
+      : `#/paths/${escapeJsonPointerToken(op.openApiPath)}/${escapeJsonPointerToken(op.method.toLowerCase())}`
+    const opJsDocLines: string[] = []
+    if (includeProvenanceAnnotations) {
+      opJsDocLines.push(...buildProvenanceLines(opPointer, op, provenance))
+    }
+    opJsDocLines.push(`@oaOperation ${op.method.toUpperCase()} ${op.openApiPath}`)
+    lines.push(...formatJSDoc(opJsDocLines.join('\n')).split('\n'))
     lines.push(`export type ${baseName}Op = {\n${bundleFields.join('\n')}\n}`)
     lines.push('')
   }

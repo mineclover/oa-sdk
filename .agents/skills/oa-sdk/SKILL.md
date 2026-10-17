@@ -99,6 +99,8 @@ graph TD
     - Tier 1(순수 튜플 쿼리 키 트리 `*Keys`), Tier 2(UI 프레임워크 비종속 순수 `queryOptions`/`mutationOptions`/`infiniteQueryOptions`), Tier 3(React 훅 `use*Query`, `createApiHooks`)으로 철저히 분리하며, `JsonPrimitive<T>`로 와이어 직렬화 안전성을 강제합니다. 자동 페이지네이션 파라미터(`cursor`, `page`, `offset`) 감지 및 `getNextPageParam` 휴리스틱을 내장합니다.
 11. **요청 취소 완벽 전달 (End-to-End AbortSignal Pass-Through)**:
     - 모든 SDK 메서드와 TanStack Query 팩토리는 `signal?: AbortSignal | null`을 허용하며, `__combineSignals` 엔진을 통해 컴포넌트 언마운트 또는 쿼리 무효화 시 네트워크 전송 중인 HTTP 요청을 즉각 중단합니다.
+12. **엔드투엔드 스펙 추적성 및 Evidence 출처 증명 브리지 (`x-oa-sdk-trace` & `x-samchon-evidence`)**:
+    - `@oa-sdk/typespec-decorators`의 `@traceId`, `@replaces`, `@requirement`(`x-oa-sdk-trace`)와 `@samchon/typespec-evidence`의 `@evidence`, `@evidenceExclude`, Heading-Form `## @evidence`(`x-samchon-evidence`)를 `.oa-trace.json` 매니페스트(`oa-gen trace`) 및 생성된 TypeScript 인터페이스의 JSDoc(`@oa-source`, `@oa-requirement`, `@evidence`, `## @evidence`, `@evidenceExclude`)으로 무손실 통합합니다(`ttsc@0.33.1` / `@wrtnlabs/evidence@0.8.0` 호환). `contentHash` 계산 시에는 두 확장 메타데이터를 모두 스트리핑하여 순수 증명·문서 수정으로 인한 불필요한 해시 드리프트를 방지합니다.
 
 ---
 

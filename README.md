@@ -290,6 +290,7 @@ console.log(describeApi(parseDocument(spec)))
 | [선언적 스펙 설정 (oa.config.ts)](./docs/guides/declarative-spec-configuration.md) | 모노레포 다중 프로파일 스펙, 정적 타입 가드, 스펙 드리프트 거버넌스 설정 |
 | [CLI 명령 레퍼런스](./docs/guides/cli-command-reference.md) | 현재 `oa-gen` 명령의 목적·최소 입력·전역 `--root` 및 조건부 옵션 |
 | [스키마 아키텍처 및 작성 규칙](./docs/guides/schema-architecture-and-conventions.md) | TypeSpec SSOT 마스터 스키마, 비디오 트랜지션 다형성 파라미터 표준, 4단계 프로젝션 파이프라인, 엄격한 수치 범위 및 MV3 무런타임 가드 |
+| [`ttsc-ex` · `oa-sdk` · `context-action` 책임 분리 및 동기화 가이드](./docs/guides/ttsc-ex-delegation-and-sync-guide.md) | 3대 워크스페이스 단일 책임 분리 원칙, `.tsp` 도메인 데코레이터/코드젠 위임 매트릭스 및 자율 Pull 동기화 흐름 |
 | [테스트 인프라 (Test Infrastructure)](./docs/concepts/test-infrastructure.md) | 4계층 E2E 검증 모델(F01~F16), 스펙 신선도/드리프트 감지, 결정론적 SHA-256 해시, CSP 감사 게이트 |
 | [Spec-Lens Platform](./docs/spec-lens/README.md) | OpenAPI 스펙 변경 이력 관측, Git 타임라인, D3 의존성 그래프, 웹 대시보드 (`@oa-sdk/spec-lens`, `apps/spec-lens`) |
 | [전체 문서](./docs/README.md) | 유저 가이드 + 최적 탐색 경로 + SSOT |
@@ -302,10 +303,10 @@ console.log(describeApi(parseDocument(spec)))
 
 - **환경 설정**: [`.agents/skills.json`](.agents/skills.json) (글로벌 화이트리스트 및 로컬 스킬 마운트)
 - **도메인 모듈형 스킬**:
-  - [`oa-codegen`](.agents/skills/oa-codegen/SKILL.md): AST 양방향 동기화, Trivia 보존, Typia 태그 인터섹션 파싱, Zod/TS 어댑터
-  - [`oa-spec-lens`](.agents/skills/oa-spec-lens/SKILL.md): SQLite WAL 수명주기, 변경 관측, 심볼 그래프 쿼리, D3 시각화
-  - [`oa-schemas`](.agents/skills/oa-schemas/SKILL.md): OpenAPI 3.1/3.2 다중 도메인 조각화, `oa://` 번들링, 순환 참조 해결
-  - [`oa-runtime`](.agents/skills/oa-runtime/SKILL.md): 다운스트림 라우터 스텁, 타입드 클라이언트, 인메모리 목 서버
+  - [`oa-codegen`](.agents/skills-optional/oa-codegen/SKILL.md): AST 양방향 동기화, Trivia 보존, Typia 태그 인터섹션 파싱, Zod/TS 어댑터
+  - [`oa-spec-lens`](.agents/skills-optional/oa-spec-lens/SKILL.md): SQLite WAL 수명주기, 변경 관측, 심볼 그래프 쿼리, D3 시각화
+  - [`oa-schemas`](.agents/skills-optional/oa-schemas/SKILL.md): OpenAPI 3.1/3.2 다중 도메인 조각화, `oa://` 번들링, 순환 참조 해결
+  - [`oa-runtime`](.agents/skills-optional/oa-runtime/SKILL.md): 다운스트림 라우터 스텁, 타입드 클라이언트, 인메모리 목 서버
   - [`oa-governance`](.agents/skills/oa-governance/SKILL.md): API 페르소나 계약, DPM 패턴, Closed-by-Default 4-Tier 검증 체계
   - [`oa-sdk`](.agents/skills/oa-sdk/SKILL.md): 모노레포 루트 오케스트레이터 및 빠른 참조
 - **검증 게이트**: `@spec-platform/document-gates`의 `createAgentConfigGate`가 `pnpm check:docs`에 통합되어 CI 및 로컬에서 상시 검증됩니다.

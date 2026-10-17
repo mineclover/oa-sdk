@@ -304,6 +304,58 @@ op getBoard(@path boardId: BoardId): void;
     ]))
     expect(referenceOwners(result.artifact.edges, BOARD_ID_PARAMETER_REF)).toEqual(['operation:main.tsp:getBoard'])
   })
+
+  it('attributes declarations nested inside braced namespaces and interfaces', () => {
+    const sourceRoot = makeSource(`
+namespace Demo {
+  model User {
+    id: string;
+  }
+
+  @route("/users")
+  interface UsersApi {
+    @get list(): User[];
+  }
+}
+`)
+    const result = buildTypeSpecRefProvenance({
+      sourceRoot,
+      restoredDocument: document({
+        paths: {
+          '/users': {
+            get: {
+              operationId: 'UsersApi_list',
+              responses: {
+                '200': {
+                  description: 'ok',
+                  content: {
+                    'application/json': {
+                      schema: {
+                        type: 'array',
+                        items: { $ref: '#/components/schemas/User' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        components: { schemas: { User: { type: 'object' } } },
+      }),
+      sidecar: createTypeSpecCompatibilitySidecarFromEntries([]),
+    })
+
+    expect(result.report.valid).toBe(true)
+    expect(result.artifact.declarations).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'model:main.tsp:User', kind: 'model', symbol: 'User' }),
+      expect.objectContaining({ id: 'operation:main.tsp:list', kind: 'operation', symbol: 'list' }),
+    ]))
+    expect(result.artifact.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'emits', declarationId: 'model:main.tsp:User', outputPointer: '#/components/schemas/User' }),
+      expect.objectContaining({ kind: 'emits', declarationId: 'operation:main.tsp:list', outputPointer: '#/paths/~1users/get' }),
+    ]))
+  })
 })
 
 const BOARD_SOURCE = `

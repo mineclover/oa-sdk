@@ -66,6 +66,7 @@ export type AgentConfigGate = ValidationGate
 
 const skippedDirectories = new Set([
   '.agents',
+  '.claude',
   '.git',
   '.next',
   '.oa-cache',
