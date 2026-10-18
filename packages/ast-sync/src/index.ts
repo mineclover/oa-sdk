@@ -18,3 +18,4 @@ export * from './adapters/json-schema.js';
 export * from './guards/index.js';
 export * from './taxonomy/index.js';
 export * from './checker/index.js';
+export * from './contract-canary.js';
