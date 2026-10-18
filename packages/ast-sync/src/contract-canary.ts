@@ -89,25 +89,61 @@ export function checkImplementationContract(options: ContractCanaryOptions): Con
   let unimplementedStubCount = 0
 
   const lines = implementationSource.split(/\r?\n/)
+  let inBlockComment = false
+  let inPyDocstring: '"""' | "'''" | null = null
 
   for (let idx = 0; idx < lines.length; idx++) {
     const line = lines[idx] ?? ''
+    const trimmed = line.trim()
     const lineNumber = idx + 1
 
-    for (const stubRe of STUB_PATTERNS) {
-      if (stubRe.test(line)) {
-        unimplementedStubCount++
+    if (inBlockComment) {
+      if (trimmed.includes('*/')) {
+        inBlockComment = false
       }
+      continue
+    }
+    if (inPyDocstring) {
+      if (trimmed.includes(inPyDocstring)) {
+        inPyDocstring = null
+      }
+      continue
+    }
+    if (trimmed.startsWith('/*')) {
+      if (!trimmed.slice(2).includes('*/')) {
+        inBlockComment = true
+      }
+      continue
+    }
+    if (trimmed.startsWith('"""') || trimmed.startsWith("'''")) {
+      const delim = trimmed.slice(0, 3) as '"""' | "'''"
+      if (!trimmed.slice(3).includes(delim)) {
+        inPyDocstring = delim
+      }
+      continue
     }
 
-    for (const pat of ESCAPE_HATCH_PATTERNS) {
-      if (pat.regex.test(line)) {
-        escapeHatches.push({
-          kind: 'escape-hatch',
-          line: lineNumber,
-          snippet: line.trim(),
-          message: pat.label,
-        })
+    const isCommentLine =
+      trimmed.startsWith('//') ||
+      trimmed.startsWith('*') ||
+      (trimmed.startsWith('#') && !/#\s*type:\s*ignore\b/.test(trimmed))
+
+    if (!isCommentLine) {
+      for (const stubRe of STUB_PATTERNS) {
+        if (stubRe.test(line)) {
+          unimplementedStubCount++
+        }
+      }
+
+      for (const pat of ESCAPE_HATCH_PATTERNS) {
+        if (pat.regex.test(line)) {
+          escapeHatches.push({
+            kind: 'escape-hatch',
+            line: lineNumber,
+            snippet: trimmed,
+            message: pat.label,
+          })
+        }
       }
     }
 

@@ -36,6 +36,7 @@ import { generateGuardsCommand } from './commands/generate-guards.js'
 import { generateDrizzleCommand } from './commands/generate-drizzle.js'
 import { surface } from './commands/surface.js'
 import { trace, traceCommand } from './commands/trace.js'
+import { sketch, sketchCommand } from './commands/sketch.js'
 
 export const commands: Command[] = [
   init,
@@ -45,6 +46,7 @@ export const commands: Command[] = [
   generateGuardsCommand,
   generateDrizzleCommand,
   surface,
+  sketch,
   generate,
   typegen,
   buildSpecCommand,
@@ -91,8 +93,11 @@ export {
   generateGuardsCommand,
   generateDrizzleCommand,
   surface,
+  sketch,
+  sketchCommand,
   driftLive,
   trace,
   traceCommand,
 }
+
 

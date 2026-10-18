@@ -1526,6 +1526,67 @@ export const oaGenGovernanceManifest = {
         },
       },
     },
+    {
+      id: 'sketch',
+      kind: 'command',
+      name: 'sketch',
+      summary:
+        'TypeSpec(.tsp) 모듈 인터페이스 스케치 IR 검증(verify), 후보 비교(compare), 산출물 방출(emit: schema/openapi/mmd/stubs), 구현 계약 카나리 검사(check-contract)',
+      components: {
+        options: [
+          {
+            name: 'action',
+            type: 'string',
+            short: 'a',
+            description: '실행 액션 (verify | emit | compare | check-contract)',
+          },
+          {
+            name: 'spec',
+            type: 'string',
+            short: 's',
+            required: true,
+            description: '표준 TypeSpec(.tsp) 파일 경로 (compare 시 쉼표로 복수 지정 가능)',
+          },
+          {
+            name: 'out-dir',
+            type: 'string',
+            short: 'o',
+            description: 'emit 액션 시 산출물 출력 디렉터리',
+          },
+          {
+            name: 'domain',
+            type: 'string',
+            description: '도메인 슬러그 (기본값: .tsp 파일명)',
+          },
+          {
+            name: 'impl',
+            type: 'string',
+            description: 'check-contract 액션 시 검사할 구현 파일 경로',
+          },
+          {
+            name: 'stub',
+            type: 'string',
+            description: 'check-contract 액션 시 비교할 계약 스텁 경로',
+          },
+          {
+            name: 'format',
+            type: 'string',
+            description: '출력 포맷 (json | human)',
+          },
+        ],
+        inputs: [
+          { name: 'spec', kind: 'typespec-document', required: true, option: 'spec' },
+        ],
+        checks: [],
+        reports: [
+          { formats: ['json', 'human'], schema: 'oa-sdk.interface-sketch.v1' },
+        ],
+        exitPolicy: {
+          success: ['APPROVE'],
+          failure: ['REQUEST_CHANGES'],
+        },
+      },
+    },
   ],
 } satisfies CliCommandManifest
 
