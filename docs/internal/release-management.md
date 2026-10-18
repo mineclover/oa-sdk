@@ -71,11 +71,11 @@ schema/spec 관리 제품을 소유하고, Downstream Integration 열다섯 패�
 | Downstream Integration | `@oa-sdk/router` | `0.2.2` | Server router generation |
 | Downstream Integration | `@oa-sdk/client` | `0.2.2` | Fetch client generation |
 | Downstream Integration | `@oa-sdk/mock-server` | `0.1.4` | Mock engine with MSW and Node HTTP adapters |
-| Downstream Integration | `@oa-sdk/chunk-stream` | `0.1.0` | Universal Chunk Stream core runtime, envelope, residency leases, virtualizer |
-| Downstream Integration | `@oa-sdk/chunk-stream-crdt` | `0.1.0` | CRDT Delta Semi-Lattice, vector clocks, compaction horizon |
-| Downstream Integration | `@oa-sdk/chunk-stream-ui` | `0.1.0` | UI Action cues, ContentPort batch bridge, PlaybackBridge, Storyboard adapter |
-| Downstream Integration | `@oa-sdk/chunk-stream-timeseries` | `0.1.0` | Multi-channel time-series telemetry adapter, LTTB downsampling, decimation |
-| Downstream Integration | `@oa-sdk/chunk-stream-react` | `0.1.0` | React 18/19 hooks, playback timeline synchronization, peer awareness |
+| Downstream Integration | `@oa-sdk/chunk-stream` | `0.2.0` | Universal Chunk Stream core runtime, envelope, residency leases, virtualizer |
+| Downstream Integration | `@oa-sdk/chunk-stream-crdt` | `0.1.1` | CRDT Delta Semi-Lattice, vector clocks, compaction horizon |
+| Downstream Integration | `@oa-sdk/chunk-stream-ui` | `0.2.0` | UI Action cues, ContentPort batch bridge, PlaybackBridge, Storyboard adapter |
+| Downstream Integration | `@oa-sdk/chunk-stream-timeseries` | `0.1.1` | Multi-channel time-series telemetry adapter, LTTB downsampling, decimation |
+| Downstream Integration | `@oa-sdk/chunk-stream-react` | `0.2.0` | React 18/19 hooks, playback timeline synchronization, peer awareness |
 | Downstream Integration | `@oa-sdk/peer-transport` | `0.1.0` | Shared bridge client, packet validation, bounded reconnect queue |
 | Downstream Integration | `@oa-sdk/peer-server` | `0.1.0` | Local peer registry, authenticated HTTP dispatch and provider RPC correlation |
 | Downstream Integration | `@oa-sdk/webmcp-peer` | `0.1.0` | Unified 3-tier WebMCP peer server routing, browser provider, and external agent client SDK |
