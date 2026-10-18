@@ -809,8 +809,8 @@ describe('E2E Tier 1: Feature Coverage (Features 1–17)', () => {
   // Feature 15: Systematized Onboarding Skill
   // =========================================================================
   describe('Feature 15: Systematized Onboarding Skill', () => {
-    it('T1-F15-1: verifies .agents/skills/oa-onboarding/SKILL.md exists with YAML frontmatter', async () => {
-      const skillPath = path.resolve(REPO_ROOT, '.agents/skills/oa-onboarding/SKILL.md')
+    it('T1-F15-1: verifies .agents/skills-optional/oa-onboarding/SKILL.md exists with YAML frontmatter', async () => {
+      const skillPath = path.resolve(REPO_ROOT, '.agents/skills-optional/oa-onboarding/SKILL.md')
       expect(fsSync.existsSync(skillPath)).toBe(true)
       const content = await fs.readFile(skillPath, 'utf8')
       expect(content).toMatch(/^---\nname:\s*oa-onboarding/m)
@@ -818,7 +818,7 @@ describe('E2E Tier 1: Feature Coverage (Features 1–17)', () => {
     })
 
     it('T1-F15-2: verifies skill documents 5 Zero-Value Management Points', async () => {
-      const skillPath = path.resolve(REPO_ROOT, '.agents/skills/oa-onboarding/SKILL.md')
+      const skillPath = path.resolve(REPO_ROOT, '.agents/skills-optional/oa-onboarding/SKILL.md')
       const content = await fs.readFile(skillPath, 'utf8')
       expect(content).toContain('Sync Overhead')
       expect(content).toContain('Overwrite Dilemma')
@@ -828,7 +828,7 @@ describe('E2E Tier 1: Feature Coverage (Features 1–17)', () => {
     })
 
     it('T1-F15-3: verifies skill defines Runtime and Framework Decision Matrices', async () => {
-      const skillPath = path.resolve(REPO_ROOT, '.agents/skills/oa-onboarding/SKILL.md')
+      const skillPath = path.resolve(REPO_ROOT, '.agents/skills-optional/oa-onboarding/SKILL.md')
       const content = await fs.readFile(skillPath, 'utf8')
       expect(content).toContain('Host Runtime Engine')
       expect(content).toContain('Framework Target Profile')
@@ -837,19 +837,30 @@ describe('E2E Tier 1: Feature Coverage (Features 1–17)', () => {
     })
 
     it('T1-F15-4: verifies skill enforces Strict Runtime Isolation (Bun vs Node) invariant', async () => {
-      const skillPath = path.resolve(REPO_ROOT, '.agents/skills/oa-onboarding/SKILL.md')
+      const skillPath = path.resolve(REPO_ROOT, '.agents/skills-optional/oa-onboarding/SKILL.md')
       const content = await fs.readFile(skillPath, 'utf8')
       expect(content).toContain('Invariant 1: Strict Runtime Isolation')
       expect(content).toContain('STRICTLY PROHIBITED')
     })
 
-    it('T1-F15-5: verifies skill is registered under skills.json entries', async () => {
+    it('T1-F15-5: verifies the optional skill is closed by default and linked for Claude Code', async () => {
+      // Optional skills live outside the default registry: `.agents/skills.json` only auto-loads
+      // the core skills, and Claude Code reaches the optional one through a repo-relative symlink.
       const skillsJsonPath = path.resolve(REPO_ROOT, '.agents/skills.json')
       expect(fsSync.existsSync(skillsJsonPath)).toBe(true)
       const skillsJson = JSON.parse(await fs.readFile(skillsJsonPath, 'utf8'))
-      const paths = (skillsJson.entries ?? []).map((e: any) => e.path)
-      expect(paths).toContain('.agents/skills')
-      expect(fsSync.existsSync(path.resolve(REPO_ROOT, '.agents/skills/oa-onboarding/SKILL.md'))).toBe(true)
+      const entries: Array<{ path: string; include_only?: string[] }> = skillsJson.entries ?? []
+      const registeredOnboarding = entries.some(
+        (entry) =>
+          entry.path.startsWith('.agents/skills-optional') ||
+          (entry.path === '.agents/skills' && (entry.include_only ?? ['.*']).some((pattern) => new RegExp(pattern).test('oa-onboarding'))),
+      )
+      expect(registeredOnboarding).toBe(false)
+
+      const linkPath = path.resolve(REPO_ROOT, '.claude/skills/oa-onboarding')
+      const target = fsSync.readlinkSync(linkPath)
+      expect(path.isAbsolute(target)).toBe(false)
+      expect(fsSync.realpathSync(linkPath)).toBe(fsSync.realpathSync(path.resolve(REPO_ROOT, '.agents/skills-optional/oa-onboarding')))
     })
   })
 

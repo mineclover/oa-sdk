@@ -355,7 +355,7 @@ export default defineConfig({
 
   it('T3-20: Monorepo Governance Manifest Parity + Skill Syntax Validation', async () => {
     // 1. Check skill existence and closed-by-default governance
-    const skillPath = path.resolve(REPO_ROOT, '.agents/skills/oa-onboarding/SKILL.md')
+    const skillPath = path.resolve(REPO_ROOT, '.agents/skills-optional/oa-onboarding/SKILL.md')
     expect(fsSync.existsSync(skillPath)).toBe(true)
     const skillContent = await fs.readFile(skillPath, 'utf8')
     expect(skillContent).toContain('oa-onboarding')
