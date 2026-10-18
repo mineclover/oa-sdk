@@ -66,6 +66,33 @@ flowchart TD
   - `@oa-sdk/peer-server/relay`: `SignalingRoom` (7단계 FSM & 티켓 수락), `PeerRelayManager`, `attachWebSocketRelay`.
   - `@oa-sdk/peer-server/cloud`: `CloudTransitProxy`, `handleCloudTransitWorker`, `createCloudTransitProxy`.
 
+### 2.3 `@oa-sdk/webmcp-peer` (3-Tier 단일 통합 패키지 및 기능 의도 단위 모듈화)
+- 룸 기반 Streamable HTTP MCP 라우터(`/p/:id/mcp`), WebSocket 시그널링 데몬(`/p/:id/provider`, `/p/:id/client`), 브라우저 Provider, 외부 에이전트/CLI 세션 클라이언트를 **단일 패키지(`dependencies: {}`)**로 통합한 패키지입니다 (상세: [`packages/webmcp-peer/README.md`](../../packages/webmcp-peer/README.md)).
+- 서브패스 및 기능 의도 단위 모듈:
+  - `@oa-sdk/webmcp-peer/config`:
+    - `config/invitation.ts`: URL 정규화 및 `#invite=...` 초대 링크 파서/빌더 (`normalizePeerUrl`, `parseInvitationUrl`, `buildInvitationUrl`)
+    - `config/profile.ts`: 휴대용 피어 설정 프로필 직렬화/파싱 (`createPeerConfigProfile`, `parsePeerConfig`)
+    - `config/probe.ts`: 연결 전 `/health` 및 `/config` 프로브 (`probePeerHealth`, `fetchPeerServerConfig`)
+  - `@oa-sdk/webmcp-peer/client`:
+    - `client/catalog-hash.ts`: 순서 무관 SHA-256 도구 카탈로그 해시 및 검증 (`hashTools`, `normalizeTools`)
+    - `client/transport.ts`: Streamable HTTP MCP 및 WebSocket 클라이언트 전송 어댑터 (`normalizeServerUrl`, `websocketUrl`, `parseRoomId`)
+    - `client/session.ts`: 단일 룸 MCP JSON-RPC 세션 상태 머신 및 카탈로그 드리프트 Fail-Closed 가드 (`PeerMcpSession`, `createPeerMcpSession`)
+    - `client/service.ts`: 다중 세션 레지스트리 및 원자적 JSON 파일 카탈로그 저장소 (`PeerMcpService`, `JsonPeerMcpStore`)
+    - `client/room-lifecycle.ts`: 룸 카탈로그 탐색, 초대 조인, 승인 폴링, 룸 로테이션 (`discoverPeerCatalog`, `joinPeerRoom`, `waitForPeerApproval`, `rotatePeerRoom`)
+  - `@oa-sdk/webmcp-peer/provider`:
+    - `provider/commit-receipt.ts`: 호스트 커밋 영수증(`CommitReceipt`) 계약 및 런타임 타입 가드 (`isCommitReceipt`, `isUtcTimestamp`)
+    - `provider/ai-run-controller.ts`: 다단계 AI 실행 수명주기, 커서 궤적 및 역순 롤백 코디네이터 (`AiRunController`)
+    - `provider/ai-run-ledger.ts`: AI 오퍼레이션 멱등성 원장 및 상태 역행 차단 (`AiRunLedger`, `InMemoryAiRunLedgerStore`)
+    - `provider/peer-client.ts`: 브라우저/호스트 Provider 런타임, F5 리스 재점유, 승인 게이트, WebRTC DataChannel 프레이밍 (`WebMcpPeerClient`, `WebMcpHostAdapter`)
+  - `@oa-sdk/webmcp-peer/server`:
+    - `server/ws-upgrade.ts`: 무의존성 RFC 6455 WebSocket 핸드셰이크 및 프레이밍 (`upgradeWebSocket`)
+    - `server/durable-file.ts`: 프로세스 간 파일 잠금 및 `fsync` JSONL 헬퍼 (`withFileLockSync`, `appendDurableLineSync`, `readDurableJsonLinesSync`)
+    - `server/rate-limit.ts`: 슬라이딩 윈도우 룸 발행 속도 제한기 (`InMemoryPublishRateLimitStore`, `FilePublishRateLimitStore`, `SqlitePublishRateLimitStore`)
+    - `server/deployment-catalog.ts`: 콜드 스타트 배포 카탈로그 로더 (`loadDeploymentCatalog`, `hashDeploymentCatalog`)
+    - `server/server-config.ts`: CLI/환경변수/JSON 설정 해석 및 Origin/Host 보안 가드 (`resolvePeerServerConfig`, `isOriginAllowed`, `isHostAllowed`)
+    - `server/ledger-stores.ts`: `AiRunLedger`용 파일 및 SQLite WAL 영속 저장소 (`FileAiRunLedgerStore`, `SqliteAiRunLedgerStore`)
+    - `server/peer-server.ts`: 룸 제어 평면, Streamable HTTP MCP 라우터 및 커스텀 훅 (`WebMcpPeerServer`, `createWebMcpPeerServer`)
+
 ---
 
 ## 3. 실전 구현 레시피

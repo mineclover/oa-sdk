@@ -76,6 +76,7 @@ assert.deepEqual(configuration.candidates, [
   '@oa-sdk/chunk-stream-react',
   '@oa-sdk/peer-transport',
   '@oa-sdk/peer-server',
+  '@oa-sdk/webmcp-peer',
   '@oa-sdk/collab-workspace',
   '@oa-sdk/mcp-mesh',
   '@oa-sdk/router',

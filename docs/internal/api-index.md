@@ -902,6 +902,12 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `stringifyOpenApiYaml()` | `cli/lib/openapi-collect.ts` | normalized OpenAPI 문서를 YAML anchor 없이 stable한 YAML 문자열로 직렬화 |
 | `createOpenApiCollectReport()` | `cli/lib/openapi-collect.ts` | profile/raw/normalized/upgraded 경로와 upgrade report를 묶은 collect report payload 생성 |
 | `exportOpenApiToTypeSpec()` | `cli/lib/tsp-export.ts` | OpenAPI artifact를 TypeSpec spike source와 diagnostics report로 변환. schema/property docs, defaults, examples, deprecated, strict-object sealing, tag metadata, response headers, bearer auth를 TypeSpec source에 반영 |
+| `emitSketchArtifacts()` | `sketch-emitter/index.ts` | TypeSpec 스케치 소스 또는 `InterfaceSketchIr`에서 JSON Schema·OpenAPI·Mermaid·TypeScript/Python 계약 스텁을 한 번에 생성(`oa-gen sketch --action emit`이 사용) |
+| `buildJsonSchemaFromSketchIr()` | `sketch-emitter/index.ts` | Interface Sketch IR을 JSON Schema 2020-12(`x-evidence`, `x-oa-sdk-intent`, `x-oa-sdk-derived-from` 포함)로 변환 |
+| `buildOpenApiFromSketchIr()` | `sketch-emitter/index.ts` | Interface Sketch IR을 OpenAPI 3.1 문서로 변환(모델은 `components.schemas`, 인터페이스 operation은 `POST /<Interface>/<operation>` 경로와 `<Interface>_<operation>` operationId) |
+| `buildMermaidFromSketchIr()` | `sketch-emitter/index.ts` | Interface Sketch IR을 Mermaid `classDiagram`으로 변환 |
+| `buildTypeScriptStubFromSketchIr()` | `sketch-emitter/index.ts` | 모델·인터페이스와 `not implemented`를 던지는 `<Interface>Stub` 클래스를 담은 TypeScript 계약 스텁 생성 |
+| `buildPythonStubFromSketchIr()` | `sketch-emitter/index.ts` | dataclass 모델과 snake_case 메서드 `Protocol`을 담은 Python 계약 스텁 생성 |
 | `findArtifactCompatibility()` | `cli/lib/artifact-compatibility-policy.ts` | 이름으로 공개 artifact schema 지원·migration 정책 항목을 찾는다 |
 | `supportsArtifactSchemaVersion()` | `cli/lib/artifact-compatibility-policy.ts` | artifact의 입력 schema version이 현재 지원 창에 포함되는지 확인한다 |
 | `ARTIFACT_COMPATIBILITY_POLICY_SCHEMA_VERSION` | `cli/lib/artifact-compatibility-policy.ts` | artifact 호환성 정책 wire schema version |
@@ -1118,6 +1124,7 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `TspExportResult` | `cli/lib/tsp-export.ts` | 생성된 TypeSpec source, diagnostics report, diagnostics 목록 |
 | `TspExportReport` | `cli/lib/tsp-export.ts` | `oa-gen.tsp-export-report.v1` report payload. counts와 warning diagnostics를 포함 |
 | `TspExportDiagnostic` | `cli/lib/tsp-export.ts` | TypeSpec export 중 의미 손실 또는 미구현 mapping을 기록하는 warning diagnostic |
+| `SketchEmittedArtifacts` | `sketch-emitter/index.ts` | `emitSketchArtifacts()` 결과: 파싱한 IR, JSON Schema, OpenAPI, Mermaid, TypeScript·Python 스텁 |
 | `TspExportDiagnosticSeverity` | `cli/lib/tsp-export.ts` | 현재 TypeSpec export diagnostic severity union |
 | `OpenApiGovernanceInterface` | `cli/lib/openapi-governance-scaffold.ts` | 외부 OpenAPI 서비스용 artifact interface(`oa-gen.openapi-governance.v2`) payload 타입 |
 | `OpenApiGovernanceScaffoldOptions` | `cli/lib/openapi-governance-scaffold.ts` | scaffold root/service/profile/source-command/runtime URL/standalone oaGenCommand/typegen policy/force overwrite 옵션 |
@@ -1658,6 +1665,8 @@ EntitySpec IR과 소스 코드의 동기화, 타입 어댑터, shape 분류 및 
 | `createVirtualProgram`, `createInMemoryProgram`, `createProgramFromTsconfig`, `cleanupProgram`, `getTypeChecker` | `ast-sync/src/checker/program.ts` | 가상·tsconfig 기반 TypeScript Program 수명 관리 |
 | `getCanonicalSymbolId`, `resolveAlias`, `referencedSymbols`, `getNormalizedDeclarationId` | `ast-sync/src/checker/cycle-detector.ts` | 심볼 식별·별칭 해결·참조 조회 |
 | `SymbolCycleResult`, `cyclicSchemaIds`, `withRecursiveReference`, `markRecursiveDeclaration`, `detectCyclesWithChecker` | `ast-sync/src/checker/cycle-detector.ts` | 순환 참조 감지 및 shape 표기 |
+| `ContractCanaryOptions`, `ContractCanaryReport`, `FrictionSignal`, `FrictionSignalKind`, `checkImplementationContract` | `ast-sync/src/contract-canary.ts` | 구현 파일을 `.tsp` 계약의 operation·model 이름과 대조하고(Python은 snake_case도 인정) 시그니처 이탈·escape hatch·lock reflex·workaround 표식을 friction signal로 집계하는 구현 계약 카나리. 신호 2개 이상이면 `scrap-and-redesign-tsp`를 권고(`oa-gen sketch --action check-contract`가 사용) |
+| `DetachedEvidenceReport`, `validateDetachedEvidenceMarkdown` | `ast-sync/src/contract-canary.ts` | 분리된 근거 리뷰 Markdown(`evidence/*.md`)에 필요한 `#anchor`가 있는지 코드 펜스를 제외하고 검사 |
 
 ---
 
@@ -1700,6 +1709,8 @@ Target-neutral API surface IR와 Forge SDK/CLI projection·Overlay 생성.
 | `RPC_CONTRACT_VERSION`, `RPC_OPERATION_EXTENSION` | `surface-ir/src/rpc-contract.ts` | RPC contract 스키마 버전과 `@rpc` decorator가 쓰는 `x-oa-sdk-rpc` 확장 이름 |
 | `RpcContract`, `RpcProcedure`, `RpcProcedureKind`, `RpcHttpBinding`, `RpcParameterBinding`, `RpcParameterLocation`, `RpcBodyBinding`, `RpcErrorResponse`, `RpcContractOptions`, `BuildRpcContractOptions` | `surface-ir/src/rpc-contract.ts` | operation을 dotted-name procedure(입력 object schema, 출력, 오류, HTTP binding)로 투영한 RPC contract 타입 |
 | `buildRpcContract`, `toRpcContract` | `surface-ir/src/rpc-contract.ts` | ParsedDocument 또는 Surface IR에서 RPC contract를 만드는 함수 |
+| `INTERFACE_SKETCH_IR_VERSION`, `parseTypeSpecSketch`, `detectTypeSpecProfile`, `compareSketchCandidates` | `surface-ir/src/interface-sketch.ts` | TypeSpec(`.tsp`) 모듈 인터페이스 스케치를 Interface Sketch IR(`oa-sdk.interface-sketch-ir.v1`)로 파싱, 파일의 profile(`openapi-http`·`interface-sketch`·`hybrid`) 판별, 후보 스케치(`{ name, source }`)의 인터페이스 깊이·설계 red flag 점수 비교(`oa-gen sketch`가 사용) |
+| `InterfaceSketchIr`, `TypeSpecProfileKind`, `SketchModelIr`, `SketchFieldIr`, `SketchInterfaceIr`, `SketchOperationIr`, `SketchParamIr`, `SketchUnionOrEnumIr`, `DerivedLineageEdge`, `InterfaceDepthMetrics`, `DesignRedFlagId`, `DesignRedFlagFinding`, `SketchArenaCandidateScore`, `SketchArenaComparison` | `surface-ir/src/interface-sketch.ts` | Interface Sketch IR(모델·인터페이스·operation·union/enum, `@derivedFrom` 계보, 깊이 지표, red flag)과 후보 비교 결과 타입 |
 | `canonicalJsonStringify`, `computeCanonicalHash`, `sha256`, `stableStringify` | `surface-ir/src/hash.ts` | RFC 8785 JSON Canonicalization Scheme (JCS) 직렬화, SHA-256 canonical hash 계산, 결정적 JSON stringify 유틸리티 |
 
 ---
@@ -1900,6 +1911,7 @@ OpenAPI component, persona, DPM 및 CRDT 메타데이터를 TypeSpec에서 선�
 | `$actorInput`, `$machineContext`, `$eventPayload`, `$behaviorRef` | `typespec-decorators/src/decorators.ts` | XState / Behavior 런타임 데이터 스키마 decorator |
 | `$storageRef`, `$storageCatalog` | `typespec-decorators/src/decorators.ts` | Atlas DB 물리 카탈로그 증거 및 컬럼 바인딩 decorator |
 | `$traceId`, `$replaces`, `$requirement`, `TRACE_EXTENSION`, `VALID_TRACE_ID_PATTERN`, `VALID_REPLACES_ID_PATTERN`, `VALID_REQUIREMENT_ID_PATTERN` | `typespec-decorators/src/governance.ts`, `typespec-decorators/src/constants.ts` | 스펙 정의 불변 추적 ID, 마이그레이션 대체 ID, 요구사항 연결 데코레이터(`x-oa-sdk-trace`) 및 정규식 상수 |
+| `$evidence`, `$evidenceReview`, `$intent`, `$derivedFrom`, `extractHeadingFormEvidence`, `EVIDENCE_EXTENSION`, `INTENT_EXTENSION`, `DERIVED_FROM_EXTENSION`, `VALID_INTENT_ID_PATTERN`, `VALID_DOC_ANCHOR_PATTERN` | `typespec-decorators/src/evidence-and-intent-decorators.ts`, `typespec-decorators/src/constants.ts` | 근거 locator(`x-oa-sdk-evidence`)·분리된 근거 리뷰 문서 연결, Intent-Unit ID와 `@doc` 앵커 선언(`x-oa-sdk-intent`), `model B is A` 파생 계약 계보 선언(`x-oa-sdk-derived-from`; 모두 `x-oa-sdk-trace`에 병합), doc comment의 `## @evidence <path#anchor>` 추출 및 ID·앵커 정규식 상수 |
 | `$protobuf`, `$field`, `$rpc`, `$wireFormat` | `typespec-decorators/src/protobuf.ts` | Protocol Buffers 및 RPC wire format 데코레이터 |
 | `$chunkStream`, `CHUNK_STREAM_EXTENSION`, `CHUNK_STREAM_PRESET_BYTES`, `CHUNK_MEMORY_PRESET_BYTES`, `VALID_CHUNK_STREAM_PRESETS`, `VALID_CHUNK_MEMORY_PRESETS`, `VALID_CHUNK_STREAM_MODES` | `typespec-decorators/src/chunk-stream.ts` | 청크 스트림 프로젝션 데코레이터 및 프리셋·모드 상수 |
 | `PROTOBUF_EXTENSION`, `PROTOBUF_FIELD_EXTENSION`, `RPC_EXTENSION`, `WIRE_FORMAT_EXTENSION` | `typespec-decorators/src/constants.ts` | OpenAPI x-oa-sdk wire 확장 프로퍼티 키 |
@@ -1955,3 +1967,37 @@ Surface IR RPC contract를 소비해 typed procedure client/server, JSON-RPC 2.0
 | `createRpcClient`, `createRpcCaller`, `createLocalTransport`, `RpcCaller`, `RpcClientOptions` | `rpc/src/client.ts` | 중첩 client, 이름 기반 caller, 같은 프로세스 transport |
 | `createHttpTransport`, `createRestFetchHandler`, `errorFromHttpResponse`, `HttpTransportOptions`, `RestFetchHandlerOptions`, `RpcFetchHandler` | `rpc/src/http.ts` | OpenAPI style/explode 직렬화로 원래 REST route를 호출·제공하는 binding |
 | `handleJsonRpc`, `createJsonRpcFetchHandler`, `createJsonRpcTransport`, `toJsonRpcError`, `fromJsonRpcError`, `JsonRpcId`, `JsonRpcRequest`, `JsonRpcResponse`, `JsonRpcErrorObject`, `JsonRpcHandleOptions`, `JsonRpcFetchHandlerOptions`, `JsonRpcTransportOptions` | `rpc/src/json-rpc.ts` | JSON-RPC 2.0 message 처리(batch·notification), HTTP endpoint와 transport |
+
+---
+
+## WebMCP Peer 3-Tier Server Routing (`@oa-sdk/webmcp-peer`)
+
+룸 기반 Streamable HTTP MCP 라우터(`/p/:id/mcp`), WebSocket 시그널링 데몬(`/p/:id/provider`, `/p/:id/client`), 브라우저/호스트 Provider, 외부 에이전트/CLI 세션 클라이언트 및 초대/설정 프로필 유틸리티를 기능 의도 단위 모듈로 제공한다.
+
+| Export | 정의 | 용도 |
+|---|---|---|
+| `WEBMCP_SUBPROTOCOL`, `WEBMCP_PEER_CONFIG_TYPE`, `DEFAULT_EXTERNAL_CONSENT_PREFIX`, `WebMcpPeerConfigProfile`, `CreatePeerConfigProfileOptions`, `WebMcpParsedInvitationUrl`, `ParsedPeerConfig`, `ParsePeerConfigResult`, `PeerServerPublicConfig`, `PeerHealthState`, `PeerHealthResult`, `PeerHealthMessages`, `PeerHealthProbeOptions` | `webmcp-peer/src/config/types.ts` | 서브프로토콜·설정 프로필·초대 링크·헬스 프로브 타입 계약 |
+| `normalizePeerUrl`, `normalizePeerConfigUrl`, `isLocalPeerUrl`, `externalConsentKey`, `parseInvitationUrl`, `buildInvitationUrl` | `webmcp-peer/src/config/invitation.ts` | 피어 서버 URL 정규화, 로컬/외부 출처 판별, `#invite=...` 초대 링크 파싱·생성 |
+| `createPeerConfigProfile`, `stringifyPeerConfigProfile`, `parsePeerConfig` | `webmcp-peer/src/config/profile.ts` | 피어 설정 프로필 JSON 생성·직렬화 및 URL/JSON 유연 파싱 |
+| `probePeerHealth`, `fetchPeerServerConfig` | `webmcp-peer/src/config/probe.ts` | 연결 전 `/health` 가용성 프로브 및 `/config` 공개 설정 조회 |
+| `DEFAULT_SERVER_URL`, `PROTOCOL_VERSION`, `PeerMcpTransportMessage`, `PeerMcpTool`, `PeerMcpSessionState`, `PeerMcpCatalogSnapshot`, `PeerMcpSessionInfo`, `PeerMcpStore`, `PeerMcpTransportCallbacks`, `PeerMcpTransport`, `PeerMcpSessionOptions`, `PeerMcpRequestOptions`, `PeerMcpCallOptions`, `PeerMcpListener`, `PeerMcpCatalogListener`, `DiscoverPeerCatalogOptions`, `DiscoveredPeerCatalog`, `JoinPeerRoomOptions`, `JoinedPeerRoom`, `PeerSessionStatusOptions`, `WaitForPeerApprovalOptions`, `RotatePeerRoomOptions` | `webmcp-peer/src/client/types.ts` | 외부 에이전트/CLI MCP 세션, 카탈로그 스냅샷, 전송 어댑터 및 룸 수명주기 계약 |
+| `PeerMcpError`, `PeerMcpRpcError`, `PeerMcpCatalogChangedError`, `canonicalRpcErrorCode`, `isCatalogChangedRpcError` | `webmcp-peer/src/client/errors.ts` | 피어 MCP 클라이언트 에러 계층, JSON-RPC 에러의 정규 코드명 해석, 카탈로그 드리프트(-32010/-32027 전용) 판별 및 Fail-Closed 예외 |
+| `hashTools`, `normalizeTools` | `webmcp-peer/src/client/catalog-hash.ts` | 순서 무관 결정론적 SHA-256 도구 카탈로그 해시 및 도구 기술자 검증 |
+| `normalizeServerUrl`, `websocketUrl`, `parseRoomId` | `webmcp-peer/src/client/transport.ts` | Streamable HTTP MCP(`/p/:id/mcp`) 및 WebSocket(`/p/:id/client`) 엔드포인트·전송 어댑터 |
+| `PeerMcpSession`, `createPeerMcpSession` | `webmcp-peer/src/client/session.ts` | 단일 룸 MCP JSON-RPC 세션 상태 머신(`initialize`, `tools/list`, `tools/call`, 티켓 폐기) |
+| `PeerMcpService`, `createPeerMcpService`, `JsonPeerMcpStore`, `createJsonPeerMcpStore` | `webmcp-peer/src/client/service.ts` | 다중 피어 세션 레지스트리, 활성 세션 라우팅 및 원자적 JSON 파일 카탈로그 저장소 |
+| `discoverPeerCatalog`, `joinPeerRoom`, `getPeerSessionStatus`, `waitForPeerApproval`, `rotatePeerRoom` | `webmcp-peer/src/client/room-lifecycle.ts` | 원격 룸 카탈로그 탐색, 초대 토큰 조인, 승인 대기 폴링 및 룸 로테이션 |
+| `MCP_PROTOCOL_VERSION`, `MCP_PROTOCOL_VERSIONS`, `CommitReceipt`, `isUtcTimestamp`, `isCommitReceipt` | `webmcp-peer/src/provider/commit-receipt.ts` | 호스트 커밋 영수증(`CommitReceipt`) 판별 유니온 및 런타임 타입 가드 |
+| `AiRunPhase`, `AiRollbackStatus`, `AiRunPoint`, `AiRunStep`, `AiRunRollbackSummary`, `AiRunSnapshot`, `AiRollbackStepResult`, `AiRunController` | `webmcp-peer/src/provider/ai-run-controller.ts` | 다단계 AI 실행 수명주기, 커서 궤적 기록 및 역순 스텝 롤백 코디네이터 |
+| `AiRunReceiptStatus`, `AiRunRollbackStatus`, `AiRunLedgerDisposition`, `AiRunOperationRecord`, `AiRunLedgerWriteStatus`, `AiRunLedgerWriteResult`, `AiRunLedgerWriteOptions`, `AiRunLedgerStore`, `AiRunReceiptInput`, `AiRunRollbackInput`, `AiRunLedgerErrorCode`, `AiRunLedgerError`, `AiRunLedger`, `InMemoryAiRunLedgerStore`, `aiRunLedgerDisposition` | `webmcp-peer/src/provider/ai-run-ledger.ts` | AI 오퍼레이션 멱등성 원장, 상태 역행/충돌 검출 및 인메모리 저장소 |
+| `FRAMEBOOK_PRODUCTION_SIGNALING_URL`, `resolveDefaultSignalingUrl`, `WebMcpCrdtTransport`, `WebMcpPeerState`, `WebMcpPeerApprovalState`, `WebMcpPeerSessionInfo`, `WebMcpToolSummary`, `WebMcpWireToolDescriptor`, `toWireToolDescriptor`, `WebMcpHostServerInfo`, `WebMcpHostAdapter`, `WebMcpPeerConnectOptions`, `WebMcpPeerClientOptions` | `webmcp-peer/src/provider/types.ts` | 호스트 애플리케이션 도구 어댑터, CRDT 전송 브리지, Provider 세션 옵션 계약 및 `register`·`tools/list`·`server/discover` 공통 도구 기술자 직렬화 |
+| `WebMcpPeerClient` | `webmcp-peer/src/provider/peer-client.ts` | 브라우저/호스트 Provider 런타임(룸 생성, F5 리스 복구, 승인 게이트, WebSocket MCP 중계 및 WebRTC DataChannel 프레이밍) |
+| `PeerSocket`, `MAX_WEBSOCKET_FRAME_BYTES`, `MAX_WEBSOCKET_MESSAGE_BYTES`, `upgradeWebSocket` | `webmcp-peer/src/server/ws-upgrade.ts` | 무의존성 RFC 6455 WebSocket 업그레이드 핸드셰이크, 마스킹, 단편화 파서 및 프레이밍 |
+| `withFileLockSync`, `appendDurableLineSync`, `readDurableJsonLinesSync` | `webmcp-peer/src/server/durable-file.ts` | 프로세스 간 파일 잠금(`O_CREAT \| O_EXCL`) 및 `fsync` append-only JSONL 헬퍼 |
+| `PublishRateLimitRequest`, `PublishRateLimitDecision`, `PublishRateLimitStore`, `validatePublishRateLimitDecision`, `InMemoryPublishRateLimitStore`, `FilePublishRateLimitStore`, `SqlitePublishRateLimitStore`, `createPublishRateLimitStoreFromEnv` | `webmcp-peer/src/server/rate-limit.ts` | 룸 생성/발행 슬라이딩 윈도우 속도 제한기 및 Memory/File/SQLite 저장소 |
+| `DeploymentCatalogSnapshot`, `DeploymentCatalogInput`, `hashDeploymentCatalog`, `loadDeploymentCatalog`, `normalizeToolCatalog` | `webmcp-peer/src/server/deployment-catalog.ts` | 콜드 스타트 정적 배포 도구 카탈로그 부트스트랩, 정규 SHA-256 해시 및 클라이언트 계약과 동일한 도구 카탈로그 검증 |
+| `PeerServerConfig`, `CliParsedArgs`, `DEFAULT_ALLOWED_ORIGINS`, `DEFAULT_ALLOWED_HOSTS`, `DEFAULT_PUBLISH_RATE_LIMIT_WINDOW_MS`, `DEFAULT_PUBLISH_RATE_LIMIT_MAX`, `loadEnvFile`, `autoLoadEnvFiles`, `parseCliArgs`, `findConfigFile`, `loadConfigFile`, `resolvePeerServerConfig`, `isOriginAllowed`, `isHostAllowed` | `webmcp-peer/src/server/server-config.ts` | 서버 CLI 인자·`.env`·JSON 설정 파서 및 와일드카드 Origin/Host 허용 목록 검증기 |
+| `FileAiRunLedgerStore`, `SqliteAiRunLedgerStore` | `webmcp-peer/src/server/ledger-stores.ts` | `AiRunLedger`용 파일 JSONL 및 SQLite WAL 영속 저장소 |
+| `PeerCapability`, `ClientSessionStatus`, `ClientSessionTicket`, `PendingApprovalRequest`, `PendingMcpRequest`, `RoomEntry`, `WebMcpPeerServerOptions` | `webmcp-peer/src/server/types.ts` | 서버 룸 엔트리, 클라이언트 세션 티켓, 승인 대기열 및 커스텀 HTTP/WS 확장 훅 계약 |
+| `WebMcpPeerServer`, `createWebMcpPeerServer` | `webmcp-peer/src/server/peer-server.ts` | 룸 제어 평면, Streamable HTTP MCP 라우터(`/p/:id/mcp`), WebSocket 시그널링 중계 및 확장 훅 실행 서버 |
+
