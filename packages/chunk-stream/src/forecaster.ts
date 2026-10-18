@@ -1,4 +1,5 @@
-import type { ForecasterProfile } from "./types.js";
+import { CHUNK_PRESETS } from "./server.js";
+import type { ChunkPresetName, ForecasterProfile } from "./types.js";
 
 export const STANDARD_PROFILES: Record<string, ForecasterProfile> = {
   "ui-action@v1": {
@@ -67,7 +68,25 @@ export class ReservationForecaster {
     const profile = this.resolveProfile(format);
     return Math.round(byteLength * profile.residentMultiplier + profile.residentBase);
   }
+
+  /**
+   * Recommends optimal chunkFrames count to match the target CHUNK_PRESETS byte size.
+   */
+  recommendChunkFrames(
+    avgBytesPerFrame: number,
+    fps = 30,
+    presetOrBytes: ChunkPresetName | number = "optimal-web"
+  ): number {
+    const targetBytes =
+      typeof presetOrBytes === "number"
+        ? presetOrBytes
+        : CHUNK_PRESETS[presetOrBytes] ?? CHUNK_PRESETS["optimal-web"];
+    const perFrame = Math.max(16, avgBytesPerFrame);
+    const rawFrames = Math.floor(targetBytes / perFrame);
+    return Math.max(fps, Math.min(fps * 10, rawFrames));
+  }
 }
+
 
 /**
  * Ledger for managing memory budget allocations.

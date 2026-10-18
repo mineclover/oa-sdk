@@ -236,14 +236,39 @@ export function renderFastifyRouter(
       lines.push(`${indent}      }`)
       lines.push(`${indent}      if (resp.status) reply.status(resp.status)`)
       lines.push(`${indent}      if (resp.status === 204) return reply.status(204).send()`)
-      lines.push(`${indent}      return resp.body`)
+      lines.push(`${indent}      const b = resp.body`)
+      lines.push(`${indent}      if (b !== null && b !== undefined && typeof b === 'object' && !(typeof ReadableStream !== 'undefined' && b instanceof ReadableStream) && typeof (b as any).pipe !== 'function' && Symbol.asyncIterator in (b as any)) {`)
+      lines.push(`${indent}        const it = (b as any)[Symbol.asyncIterator]()`)
+      lines.push(`${indent}        return new ReadableStream({`)
+      lines.push(`${indent}          async pull(controller) {`)
+      lines.push(`${indent}            const { value, done } = await it.next()`)
+      lines.push(`${indent}            if (done) { controller.close() } else { controller.enqueue(typeof value === 'string' ? new TextEncoder().encode(value) : value) }`)
+      lines.push(`${indent}          },`)
+      lines.push(`${indent}          async cancel(reason) {`)
+      lines.push(`${indent}            await it.return?.(reason)`)
+      lines.push(`${indent}          }`)
+      lines.push(`${indent}        })`)
+      lines.push(`${indent}      }`)
+      lines.push(`${indent}      return b`)
       lines.push(`${indent}    }`)
       if (status === 204) {
         lines.push(`${indent}    return reply.status(204).send()`)
-      } else if (status !== 200) {
-        lines.push(`${indent}    reply.status(${status})`)
-        lines.push(`${indent}    return result`)
       } else {
+        if (status !== 200) {
+          lines.push(`${indent}    reply.status(${status})`)
+        }
+        lines.push(`${indent}    if (result !== null && result !== undefined && typeof result === 'object' && !(typeof ReadableStream !== 'undefined' && result instanceof ReadableStream) && typeof (result as any).pipe !== 'function' && Symbol.asyncIterator in (result as any)) {`)
+        lines.push(`${indent}      const it = (result as any)[Symbol.asyncIterator]()`)
+        lines.push(`${indent}      return new ReadableStream({`)
+        lines.push(`${indent}        async pull(controller) {`)
+        lines.push(`${indent}          const { value, done } = await it.next()`)
+        lines.push(`${indent}          if (done) { controller.close() } else { controller.enqueue(typeof value === 'string' ? new TextEncoder().encode(value) : value) }`)
+        lines.push(`${indent}        },`)
+        lines.push(`${indent}        async cancel(reason) {`)
+        lines.push(`${indent}          await it.return?.(reason)`)
+        lines.push(`${indent}        }`)
+        lines.push(`${indent}      })`)
+        lines.push(`${indent}    }`)
         lines.push(`${indent}    return result`)
       }
     } else {

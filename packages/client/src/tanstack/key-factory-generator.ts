@@ -185,7 +185,7 @@ export function generateKeyFactory(doc: ParsedDocument, options: KeyFactoryOptio
   if (typesImport && !isCombined) {
     const neededTypes = new Set<string>()
     for (const op of doc.operations) {
-      if (!op.operationId) continue
+      if (!op.operationId || !isQueryOperation(op)) continue
       const baseName = operationNames.get(op.operationId)!
       const pathParams = op.parameters.filter(p => p.in === 'path')
       const queryParams = op.parameters.filter(p => p.in === 'query')

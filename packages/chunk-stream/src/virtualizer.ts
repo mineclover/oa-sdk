@@ -1,4 +1,5 @@
 import { RuntimeChunkEnvelope } from "./envelope.js";
+import { MEMORY_PRESETS } from "./server.js";
 import type { PlaybackVirtualizerOptions } from "./types.js";
 
 /**
@@ -16,12 +17,14 @@ export class PlaybackVirtualizer {
 
   private currentFrame = 0;
   private seekGeneration = 0;
+  private residentBytes = 0;
   private readonly chunks = new Map<string, RuntimeChunkEnvelope>();
 
   constructor(options: PlaybackVirtualizerOptions = {}) {
     this.lookahead = options.lookaheadFrames ?? 60; // 2 seconds at 30fps
     this.retention = options.retentionFrames ?? 30; // 1 second at 30fps
-    this.maxBytes = options.maxResidentBytes ?? 64 * 1024 * 1024; // 64MB
+    const presetBytes = options.memoryPreset ? MEMORY_PRESETS[options.memoryPreset] : undefined;
+    this.maxBytes = options.maxResidentBytes ?? presetBytes ?? 64 * 1024 * 1024; // 64MB
     this.maxChunks = options.maxActiveChunks ?? 20;
     this.onEvict = options.onEvict;
     this.onTierHit = options.onTierHit;
@@ -36,18 +39,23 @@ export class PlaybackVirtualizer {
   }
 
   get totalResidentBytes(): number {
-    let sum = 0;
-    for (const chunk of this.chunks.values()) {
-      sum += chunk.residentBytes || 1024;
-    }
-    return sum;
+    return this.residentBytes;
+  }
+
+  private chunkByteSize(chunk: RuntimeChunkEnvelope): number {
+    return chunk.residentBytes || 1024;
   }
 
   /**
    * Register a chunk into active virtual memory.
    */
   admit(chunk: RuntimeChunkEnvelope): void {
+    const existing = this.chunks.get(chunk.id);
+    if (existing) {
+      this.residentBytes = Math.max(0, this.residentBytes - this.chunkByteSize(existing));
+    }
     this.chunks.set(chunk.id, chunk);
+    this.residentBytes += this.chunkByteSize(chunk);
     this.enforceBudget();
   }
 
@@ -92,6 +100,7 @@ export class PlaybackVirtualizer {
     for (const [id, chunk] of this.chunks.entries()) {
       if (chunk.toFrame < minFrame) {
         this.chunks.delete(id);
+        this.residentBytes = Math.max(0, this.residentBytes - this.chunkByteSize(chunk));
         this.onEvict?.(id, "retention");
       }
     }
@@ -101,7 +110,7 @@ export class PlaybackVirtualizer {
    * Distance-based eviction preserving the active chunk (dist = 0 is INVIOLABLE).
    */
   private pruneDistanceBased(focalFrame: number): void {
-    if (this.chunks.size <= this.maxChunks && this.totalResidentBytes <= this.maxBytes) {
+    if (this.chunks.size <= this.maxChunks && this.residentBytes <= this.maxBytes) {
       return;
     }
 
@@ -116,9 +125,11 @@ export class PlaybackVirtualizer {
       // Invariant: NEVER evict active chunk
       if (chunk.containsFrame(focalFrame)) continue;
 
-      if (this.chunks.size > this.maxChunks || this.totalResidentBytes > this.maxBytes) {
-        this.chunks.delete(chunk.id);
-        this.onEvict?.(chunk.id, "budget");
+      if (this.chunks.size > this.maxChunks || this.residentBytes > this.maxBytes) {
+        if (this.chunks.delete(chunk.id)) {
+          this.residentBytes = Math.max(0, this.residentBytes - this.chunkByteSize(chunk));
+          this.onEvict?.(chunk.id, "budget");
+        }
       }
     }
   }
@@ -129,5 +140,7 @@ export class PlaybackVirtualizer {
 
   clear(): void {
     this.chunks.clear();
+    this.residentBytes = 0;
   }
 }
+

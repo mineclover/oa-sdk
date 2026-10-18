@@ -1,6 +1,8 @@
 import {
   RuntimeChunkEnvelope,
   ResidencyController,
+  defineChunkStreamConfig,
+  defineChunkStreamServer,
   type RuntimeResourceRef,
 } from "@oa-sdk/chunk-stream";
 import type {
@@ -9,6 +11,7 @@ import type {
   JsonValue,
   PlaybackSnapshot,
   StoryboardChunkBridgeOptions,
+  StoryboardChunkServer,
   StoryboardChunkStreamOptions,
   StoryboardChunkStreamPackage,
   StoryboardDocument,
@@ -58,14 +61,23 @@ export function storyboardToChunkStream(
   doc: StoryboardDocument,
   options: StoryboardChunkStreamOptions = {}
 ): StoryboardChunkStreamPackage {
+  const config = defineChunkStreamConfig({
+    preset: options.preset,
+    targetChunkBytes: options.targetChunkBytes,
+    memoryPreset: options.memoryPreset,
+    maxResidentBytes: options.maxResidentBytes,
+    fps: options.fps,
+    payloadFormat: "ui-action@v1",
+  });
   const streamId = options.streamId ?? `stream_${doc?.id || "doc"}`;
   const revision = options.revision ?? (doc?.changeToken ? `rev_${doc.changeToken}` : "rev_1");
-  const fps = Math.max(1, Math.round(options.fps ?? 30));
+  const fps = config.fps;
   const defaultDuration = Math.max(0.5, options.defaultSlideDurationSec ?? 5.0);
 
   const envelopes: RuntimeChunkEnvelope[] = [];
   const manifestEntries: ChunkStreamManifestEntry[] = [];
   const envelopeMap = new Map<string, RuntimeChunkEnvelope>();
+  const slideEnvelopeMap = new Map<string, RuntimeChunkEnvelope>();
 
   let currentFrame = 0;
   const slides = Array.isArray(doc?.slides) ? doc.slides : [];
@@ -184,6 +196,7 @@ export function storyboardToChunkStream(
 
     envelopes.push(envelope);
     envelopeMap.set(chunkId, envelope);
+    slideEnvelopeMap.set(slide.id, envelope);
 
     manifestEntries.push({
       schemaVersion: 1,
@@ -210,19 +223,38 @@ export function storyboardToChunkStream(
     totalDurationSec,
     chunkCount: envelopes.length,
     chunks: Object.freeze(manifestEntries),
+    preset: config.preset,
+    memoryPreset: config.memoryPreset,
+    targetChunkBytes: config.targetChunkBytes,
   };
 
+  // O(log N) binary search frame lookup across ordered non-overlapping envelopes
   const frameMap = (frame: number): RuntimeChunkEnvelope | undefined => {
-    return envelopes.find((e, idx) => {
-      const isLast = idx === envelopes.length - 1;
-      return frame >= e.fromFrame && (isLast ? frame <= e.toFrame : frame < e.toFrame);
-    });
+    const len = envelopes.length;
+    if (len === 0 || frame < 0) return undefined;
+    let lo = 0;
+    let hi = len - 1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >>> 1;
+      const env = envelopes[mid]!;
+      const isLast = mid === len - 1;
+      const inUpper = isLast ? frame <= env.toFrame : frame < env.toFrame;
+      if (frame < env.fromFrame) {
+        hi = mid - 1;
+      } else if (!inUpper) {
+        lo = mid + 1;
+      } else {
+        return env;
+      }
+    }
+    return undefined;
   };
 
   return {
     manifest,
     envelopes: Object.freeze(envelopes),
     envelopeMap,
+    slideEnvelopeMap,
     frameMap,
   };
 }
@@ -238,8 +270,15 @@ export function createStoryboardChunkPlaybackBridge(
   streamPackage: StoryboardChunkStreamPackage;
   residency: ResidencyController;
 } {
+  const config = defineChunkStreamConfig({
+    preset: options.preset,
+    targetChunkBytes: options.targetChunkBytes,
+    memoryPreset: options.memoryPreset,
+    maxResidentBytes: options.maxResidentBytes,
+    fps: options.fps,
+  });
   const streamPackage = storyboardToChunkStream(doc, options);
-  const residency = new ResidencyController();
+  const residency = new ResidencyController({ maxResidentBytes: config.maxResidentBytes });
 
   const initialEnvelope = streamPackage.envelopes[0];
   const initialSnapshot: PlaybackSnapshot = {
@@ -293,3 +332,107 @@ export function createStoryboardChunkPlaybackBridge(
     residency,
   };
 }
+
+/**
+ * Declares an `@oa-sdk` Typed Chunk Stream Server for a StoryboardDocument
+ * (or a dynamic `() => StoryboardDocument` provider).
+ */
+export function defineStoryboardChunkServer(
+  docOrProvider: StoryboardDocument | (() => StoryboardDocument),
+  options: StoryboardChunkBridgeOptions = {}
+): StoryboardChunkServer {
+  const resolveDoc = (): StoryboardDocument =>
+    typeof docOrProvider === "function" ? docOrProvider() : docOrProvider;
+
+  let cachedDoc: StoryboardDocument | undefined;
+  let cachedToken: string | number | undefined;
+  let cachedBundle: ReturnType<typeof createStoryboardChunkPlaybackBridge> | undefined;
+
+  const ensureBundle = () => {
+    const doc = resolveDoc();
+    const token = doc?.changeToken;
+    if (!cachedBundle || cachedDoc !== doc || cachedToken !== token) {
+      cachedDoc = doc;
+      cachedToken = token;
+      cachedBundle = createStoryboardChunkPlaybackBridge(doc, options);
+    }
+    return cachedBundle;
+  };
+
+  const matchesStream = (streamId: string, manifestStreamId: string): boolean =>
+    streamId === manifestStreamId || streamId === "default" || streamId === "current";
+
+  const baseServer = defineChunkStreamServer<ChunkStreamManifest, PlaybackSnapshot, unknown>({
+    preset: options.preset,
+    targetChunkBytes: options.targetChunkBytes,
+    memoryPreset: options.memoryPreset,
+    maxResidentBytes: options.maxResidentBytes,
+    fps: options.fps,
+    payloadFormat: "ui-action@v1",
+    resolveManifest: (streamId) => {
+      const { streamPackage } = ensureBundle();
+      if (!matchesStream(streamId, streamPackage.manifest.streamId)) return null;
+      return streamPackage.manifest;
+    },
+    resolveChunk: (streamId, chunkId) => {
+      const { streamPackage } = ensureBundle();
+      if (!matchesStream(streamId, streamPackage.manifest.streamId)) return null;
+      return (
+        streamPackage.envelopeMap.get(chunkId) ??
+        streamPackage.slideEnvelopeMap.get(chunkId) ??
+        null
+      );
+    },
+    resolveSnapshot: (streamId, revision) => {
+      const { bridge, streamPackage } = ensureBundle();
+      if (!matchesStream(streamId, streamPackage.manifest.streamId)) return null;
+      if (revision && revision !== streamPackage.manifest.revision) return null;
+      return bridge.playback;
+    },
+    seekFrame: async (streamId, frame) => {
+      const { bridge, streamPackage } = ensureBundle();
+      if (!matchesStream(streamId, streamPackage.manifest.streamId)) return null;
+      return bridge.seek(frame);
+    },
+  });
+
+  return {
+    ...baseServer,
+    get streamPackage() {
+      return ensureBundle().streamPackage;
+    },
+    get package() {
+      return ensureBundle().streamPackage;
+    },
+    get bridge() {
+      return ensureBundle().bridge;
+    },
+    get residency() {
+      return ensureBundle().residency;
+    },
+    getManifest() {
+      return ensureBundle().streamPackage.manifest;
+    },
+    getChunk(chunkId: string) {
+      const { streamPackage } = ensureBundle();
+      return (
+        streamPackage.envelopeMap.get(chunkId) ??
+        streamPackage.slideEnvelopeMap.get(chunkId)
+      );
+    },
+    getPlaybackSnapshot() {
+      return ensureBundle().bridge.playback;
+    },
+    async seek(frame: number) {
+      return ensureBundle().bridge.seek(frame);
+    },
+    close() {
+      if (cachedBundle) {
+        cachedBundle.bridge.close();
+        cachedBundle.residency.dispose();
+        cachedBundle = undefined;
+      }
+    },
+  };
+}
+

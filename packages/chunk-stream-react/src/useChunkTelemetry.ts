@@ -16,6 +16,9 @@ export interface UseChunkTelemetryResult {
   readonly chunkCount: number;
   readonly totalDurationSec: number;
   readonly fps: number;
+  readonly preset: string;
+  readonly memoryPreset: string;
+  readonly targetChunkBytes: number;
   readonly refresh: () => void;
 }
 
@@ -46,6 +49,10 @@ export function useChunkTelemetry(options: UseChunkTelemetryOptions = {}): UseCh
     chunkCount: manifest?.chunkCount ?? 0,
     totalDurationSec: manifest?.totalDurationSec ?? 0,
     fps: manifest?.fps ?? 30,
+    preset: manifest?.preset ?? "optimal-web",
+    memoryPreset: manifest?.memoryPreset ?? "standard",
+    targetChunkBytes: manifest?.targetChunkBytes ?? 7168,
     refresh,
   };
 }
+

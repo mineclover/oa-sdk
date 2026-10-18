@@ -103,6 +103,48 @@ export interface StreamManifestEntry {
   readonly byteLength?: number | undefined;
 }
 
+export type ChunkPresetName =
+  | "ultra-low-latency"
+  | "optimal-web"
+  | "standard-buffer"
+  | "initcwnd-burst"
+  | "large-payload"
+  | "heavy-media"
+  | "bulk-data";
+
+export type MemoryPresetName = "mobile" | "standard" | "highperf";
+
+export type ChunkStreamMode = "adaptive" | "eager" | "manual";
+
+export interface ChunkStreamConfigInput {
+  readonly preset?: ChunkPresetName | undefined;
+  readonly targetChunkBytes?: number | undefined;
+  readonly memoryPreset?: MemoryPresetName | undefined;
+  readonly maxResidentBytes?: number | undefined;
+  readonly maxL1MemoryBytes?: number | undefined;
+  readonly payloadFormat?: string | undefined;
+  readonly fps?: number | undefined;
+  readonly chunkFrames?: number | undefined;
+  readonly mode?: ChunkStreamMode | undefined;
+  readonly lookaheadFrames?: number | undefined;
+  readonly retentionFrames?: number | undefined;
+}
+
+export interface ResolvedChunkStreamConfig {
+  readonly schemaVersion: 1;
+  readonly preset: ChunkPresetName;
+  readonly targetChunkBytes: number;
+  readonly memoryPreset: MemoryPresetName;
+  readonly maxResidentBytes: number;
+  readonly maxL1MemoryBytes: number;
+  readonly payloadFormat: string;
+  readonly fps: number;
+  readonly chunkFrames: number;
+  readonly mode: ChunkStreamMode;
+  readonly lookaheadFrames: number;
+  readonly retentionFrames: number;
+}
+
 export interface StreamManifest {
   readonly schemaVersion: 1;
   readonly streamId: string;
@@ -112,12 +154,16 @@ export interface StreamManifest {
   readonly totalDurationSec: number;
   readonly chunkCount: number;
   readonly chunks: readonly StreamManifestEntry[];
+  readonly preset?: ChunkPresetName | undefined;
+  readonly memoryPreset?: MemoryPresetName | undefined;
+  readonly targetChunkBytes?: number | undefined;
 }
 
 export interface PlaybackVirtualizerOptions {
   readonly lookaheadFrames?: number | undefined;
   readonly retentionFrames?: number | undefined;
   readonly maxResidentBytes?: number | undefined;
+  readonly memoryPreset?: MemoryPresetName | undefined;
   readonly maxActiveChunks?: number | undefined;
   readonly onEvict?: ((chunkId: string, reason: "retention" | "budget" | "seek") => void) | undefined;
   readonly onTierHit?: ((tier: "L1" | "L2" | "L3", chunkId: string) => void) | undefined;
@@ -125,6 +171,7 @@ export interface PlaybackVirtualizerOptions {
 
 export interface StorageTierOptions {
   readonly maxL1MemoryBytes?: number | undefined;
+  readonly memoryPreset?: MemoryPresetName | undefined;
   readonly l2DatabaseName?: string | undefined;
   readonly fetchRemoteChunk?: ((id: string, signal?: AbortSignal) => Promise<ArrayBuffer | Uint8Array | string>) | undefined;
 }
@@ -136,3 +183,4 @@ export interface ForecasterProfile {
   readonly residentBase: number;
   readonly aliases: readonly string[];
 }
+

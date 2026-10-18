@@ -17,13 +17,27 @@ export function useChunkPlayback(options: UseChunkPlaybackOptions = {}): UseChun
     onPlaybackChange,
   } = options;
 
+  const slideIndexMap = useMemo(() => {
+    const map = new Map<string, { envelope: (typeof streamPackage extends undefined ? never : NonNullable<typeof streamPackage>["envelopes"][number]); index: number }>();
+    if (!streamPackage) return map;
+    const envelopes = streamPackage.envelopes;
+    for (let i = 0; i < envelopes.length; i++) {
+      const env = envelopes[i]!;
+      const slideId = (env.state as Record<string, unknown> | undefined)?.["slideId"];
+      if (typeof slideId === "string") {
+        map.set(slideId, { envelope: env, index: i });
+      }
+    }
+    return map;
+  }, [streamPackage]);
+
   const [currentFrame, setCurrentFrame] = useState(() => {
     if (initialFrame !== undefined) return initialFrame;
     if (initialSlideId && streamPackage) {
-      const found = streamPackage.envelopes.find(
-        (env) => (env.state as Record<string, unknown> | undefined)?.["slideId"] === initialSlideId
-      );
-      if (found) return found.fromFrame;
+      const fastHit =
+        streamPackage.slideEnvelopeMap?.get(initialSlideId) ??
+        slideIndexMap.get(initialSlideId)?.envelope;
+      if (fastHit) return fastHit.fromFrame;
     }
     return 0;
   });
@@ -117,9 +131,7 @@ export function useChunkPlayback(options: UseChunkPlaybackOptions = {}): UseChun
       timerRef.current = setInterval(() => {
         if (!streamPackage || streamPackage.envelopes.length === 0) return;
         const envelopes = streamPackage.envelopes;
-        const curIdx = envelopes.findIndex(
-          (env) => (env.state as Record<string, unknown> | undefined)?.["slideId"] === currentSlideId
-        );
+        const curIdx = currentSlideId ? (slideIndexMap.get(currentSlideId)?.index ?? -1) : -1;
         const nextIdx = curIdx >= 0 && curIdx < envelopes.length - 1 ? curIdx + 1 : 0;
         const nextEnv = envelopes[nextIdx];
         if (nextEnv) {

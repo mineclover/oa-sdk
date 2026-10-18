@@ -189,4 +189,30 @@ describe("@oa-sdk/chunk-stream-ui Storyboard Adapter & PlaybackBridge", () => {
     bridge.close();
     expect(bridge.isClosed).toBe(true);
   });
+
+  it("declares a typed StoryboardChunkServer with preset config, slideEnvelopeMap, and HTTP handlers", async () => {
+    const { defineStoryboardChunkServer } = await import("../src/index.js");
+    const server = defineStoryboardChunkServer(sampleDoc, {
+      fps: 30,
+      preset: "optimal-web",
+      memoryPreset: "standard",
+    });
+
+    expect(server.config.preset).toBe("optimal-web");
+    expect(server.config.targetChunkBytes).toBe(7168);
+    expect(server.getManifest().preset).toBe("optimal-web");
+    expect(server.getChunk("slide_a")?.id).toBe("chunk_slide_a");
+
+    const snapBefore = await server.handlers.getPlaybackSnapshot({
+      params: { streamId: "stream_story_123" },
+    });
+    expect(snapBefore.status).toBe(200);
+    expect((snapBefore.body as any).frame).toBe(0);
+
+    await server.seek(90);
+    const snapAfter = server.getPlaybackSnapshot();
+    expect(snapAfter.frame).toBe(90);
+    expect(snapAfter.semanticState.slideId).toBe("slide_b");
+  });
 });
+

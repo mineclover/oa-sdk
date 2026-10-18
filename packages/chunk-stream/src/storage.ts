@@ -52,6 +52,8 @@ const StoredChunkDescriptorSchema = {
   },
 };
 
+const sharedTextDecoder = new TextDecoder();
+
 /**
  * Multi-Tier Storage Port enforcing L1 Memory -> L2 IndexedDB -> L3 Network hierarchy.
  */
@@ -60,10 +62,15 @@ export class TieredStoragePort {
   private readonly l2 = new Map<string, string>(); // In-memory double or IndexedDB backing
   private readonly fetchRemote?: ((id: string, signal?: AbortSignal) => Promise<ArrayBuffer | Uint8Array | string>) | undefined;
   private readonly maxL1Bytes: number;
+  private l1Bytes = 0;
 
   constructor(options: StorageTierOptions = {}) {
     this.maxL1Bytes = options.maxL1MemoryBytes ?? 32 * 1024 * 1024;
     this.fetchRemote = options.fetchRemoteChunk;
+  }
+
+  get currentL1Bytes(): number {
+    return this.l1Bytes;
   }
 
   hasL1(chunkId: string): boolean {
@@ -75,7 +82,21 @@ export class TieredStoragePort {
   }
 
   putL1(chunk: RuntimeChunkEnvelope): void {
+    const existing = this.l1.get(chunk.id);
+    if (existing) {
+      this.l1.delete(chunk.id);
+      this.l1Bytes = Math.max(0, this.l1Bytes - (existing.residentBytes || 1024));
+    }
+    const size = chunk.residentBytes || 1024;
+    while (this.l1.size > 0 && this.l1Bytes + size > this.maxL1Bytes) {
+      const oldestKey = this.l1.keys().next().value;
+      if (!oldestKey) break;
+      const oldest = this.l1.get(oldestKey);
+      this.l1.delete(oldestKey);
+      this.l1Bytes = Math.max(0, this.l1Bytes - (oldest?.residentBytes || 1024));
+    }
     this.l1.set(chunk.id, chunk);
+    this.l1Bytes += size;
   }
 
   putL2(chunkId: string, serializedData: string): void {
@@ -86,9 +107,11 @@ export class TieredStoragePort {
    * Resolves a chunk through strict L1 -> L2 -> L3 hierarchy.
    */
   async getChunk(chunkId: string, signal?: AbortSignal): Promise<{ chunk: RuntimeChunkEnvelope; tier: "L1" | "L2" | "L3" }> {
-    // 1. L1 Memory Lookup (0ms synchronous)
+    // 1. L1 Memory Lookup (0ms synchronous, LRU refresh)
     const l1Hit = this.l1.get(chunkId);
     if (l1Hit) {
+      this.l1.delete(chunkId);
+      this.l1.set(chunkId, l1Hit);
       return { chunk: l1Hit, tier: "L1" };
     }
 
@@ -96,7 +119,7 @@ export class TieredStoragePort {
     const l2Serialized = this.l2.get(chunkId);
     if (l2Serialized) {
       const envelope = new RuntimeChunkEnvelope(StoredChunkDescriptorSchema.parse(JSON.parse(l2Serialized)));
-      this.l1.set(chunkId, envelope); // Back-populate L1
+      this.putL1(envelope); // Back-populate L1
       return { chunk: envelope, tier: "L2" };
     }
 
@@ -106,12 +129,12 @@ export class TieredStoragePort {
     }
 
     const raw = await this.fetchRemote(chunkId, signal);
-    const text = typeof raw === "string" ? raw : new TextDecoder().decode(raw);
+    const text = typeof raw === "string" ? raw : sharedTextDecoder.decode(raw);
     const envelope = new RuntimeChunkEnvelope(StoredChunkDescriptorSchema.parse(JSON.parse(text)));
 
     // Back-populate both L2 and L1 (write-through)
     this.l2.set(chunkId, text);
-    this.l1.set(chunkId, envelope);
+    this.putL1(envelope);
 
     return { chunk: envelope, tier: "L3" };
   }
@@ -119,5 +142,7 @@ export class TieredStoragePort {
   clear(): void {
     this.l1.clear();
     this.l2.clear();
+    this.l1Bytes = 0;
   }
 }
+

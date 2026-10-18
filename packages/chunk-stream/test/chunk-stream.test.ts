@@ -221,9 +221,96 @@ describe("@oa-sdk/chunk-stream Core Engine", () => {
       stateUpdates++;
     });
 
-    await store.start();
+  await store.start();
     expect(store.getState().chunks.length).toBe(1);
     expect(stateUpdates).toBeGreaterThan(0);
     unsub();
   });
+
+  it("defineChunkStreamConfig and defineChunkStreamServer declare typed server handlers with ETag 304 and Range 206", async () => {
+    const {
+      CHUNK_PRESETS,
+      MEMORY_PRESETS,
+      defineChunkStreamConfig,
+      defineChunkStreamServer,
+    } = await import("../src/index.js");
+
+    const config = defineChunkStreamConfig({
+      preset: "optimal-web",
+      memoryPreset: "standard",
+      fps: 30,
+    });
+    expect(config.targetChunkBytes).toBe(CHUNK_PRESETS["optimal-web"]);
+    expect(config.maxResidentBytes).toBe(MEMORY_PRESETS.standard);
+
+    const sampleChunk = new RuntimeChunkEnvelope({
+      id: "chunk_0",
+      sequence: 0,
+      streamId: "demo",
+      fromFrame: 0,
+      toFrame: 30,
+      payloadFormat: "ui-action@v1",
+      data: [{ type: "ui-action@v1", name: "click" }],
+    });
+
+    const server = defineChunkStreamServer({
+      preset: "optimal-web",
+      memoryPreset: "standard",
+      fps: 30,
+      resolveManifest: (streamId) =>
+        streamId === "demo"
+          ? {
+              schemaVersion: 1,
+              streamId: "demo",
+              revision: "rev_1",
+              fps: 30,
+              totalFrames: 30,
+              totalDurationSec: 1,
+              chunkCount: 1,
+              chunks: [
+                {
+                  schemaVersion: 1,
+                  id: "chunk_0",
+                  sequence: 0,
+                  fromFrame: 0,
+                  toFrame: 30,
+                  payloadFormat: "ui-action@v1",
+                },
+              ],
+            }
+          : null,
+      resolveChunk: (streamId, chunkId) =>
+        streamId === "demo" && chunkId === "chunk_0" ? sampleChunk : null,
+      seekFrame: (streamId, frame) =>
+        streamId === "demo" ? { status: "completed", frame } : null,
+    });
+
+    const manifestRes = await server.handlers.getStreamManifest({
+      params: { streamId: "demo" },
+    });
+    expect(manifestRes.status).toBe(200);
+    expect(manifestRes.headers["x-chunk-preset"]).toBe("optimal-web");
+    expect((manifestRes.body as any).targetChunkBytes).toBe(7168);
+
+    const notModifiedRes = await server.handlers.getStreamManifest({
+      params: { streamId: "demo" },
+      headers: { "if-none-match": manifestRes.headers["etag"] },
+    });
+    expect(notModifiedRes.status).toBe(304);
+
+    const rangeRes = await server.handlers.getStreamChunk({
+      params: { streamId: "demo", chunkId: "chunk_0" },
+      headers: { range: "bytes=0-15" },
+    });
+    expect(rangeRes.status).toBe(206);
+    expect(rangeRes.headers["content-range"]).toMatch(/^bytes 0-15\/\d+$/);
+    expect((rangeRes.body as Uint8Array).byteLength).toBe(16);
+
+    const fetchSeekRes = await server.fetch(
+      new Request("http://localhost/streams/demo/seek?frame=15", { method: "GET" })
+    );
+    expect(fetchSeekRes.status).toBe(200);
+    expect(await fetchSeekRes.json()).toEqual({ status: "completed", frame: 15 });
+  });
 });
+

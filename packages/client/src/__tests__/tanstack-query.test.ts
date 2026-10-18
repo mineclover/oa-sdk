@@ -764,5 +764,87 @@ describe('TanStack Query v5 3-Tier Code Generator', () => {
       const typesImportMatches = combined.match(/from '\.\/types\.js'/g) || []
       expect(typesImportMatches).toHaveLength(1)
     })
+
+    it('imports only generated Error/Response/Body types that exist in oa-gen typegen output (no phantom 204 Response or ClientError imports)', () => {
+      const spec = sampleSpec()
+      const output = generateTanstackQuery(spec, {
+        typesImport: './types.js',
+        clientImport: './client.js',
+      })
+
+      for (const code of [output.combinedCode, output.queriesCode, output.hooksCode]) {
+        // Operations with 400/404 JSON error schemas import <Op>Error (emitted by oa-gen typegen), never <Op>ClientError
+        expect(code).toContain('ListUsersError')
+        expect(code).toContain('GetUserError')
+        expect(code).not.toContain('ClientError')
+        // Operations without 4xx/5xx error schemas must not import <Op>Error
+        expect(code).not.toContain('CreateUserError')
+        expect(code).not.toContain('DeleteUserError')
+        // 204 No Content operations must not import phantom <Op>Response types
+        expect(code).not.toContain('DeleteUserResponse')
+        expect(code).not.toContain('ResetSystemResponse')
+      }
+    })
+
+    it('imports Resolved and <Op>Body in standalone hooksCode for query operations with JSON requestBody and falls back to unknown for non-JSON requestBody', () => {
+      const spec: OasDocument = {
+        openapi: '3.2.0',
+        info: { title: 'Query Body Test', version: '1.0.0' },
+        paths: {
+          '/search': {
+            query: {
+              operationId: 'searchItems',
+              requestBody: {
+                required: true,
+                content: {
+                  'application/json': {
+                    schema: { type: 'object', properties: { filter: { type: 'string' } } },
+                  },
+                },
+              },
+              responses: {
+                '200': {
+                  description: 'OK',
+                  content: {
+                    'application/json': {
+                      schema: { type: 'array', items: { type: 'string' } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '/raw-search': {
+            query: {
+              operationId: 'rawSearch',
+              requestBody: {
+                required: true,
+                content: {
+                  'text/plain': {
+                    schema: { type: 'string' },
+                  },
+                },
+              },
+              responses: {
+                '200': { description: 'OK' },
+              },
+            },
+          },
+        },
+      }
+
+      const output = generateTanstackQuery(spec, {
+        typesImport: './types.js',
+        clientImport: './client.js',
+        keysImport: './keys.js',
+        queriesImport: './queries.js',
+      })
+
+      expect(output.hooksCode).toContain("import type { JsonPrimitive, Resolved } from '@oa-sdk/client'")
+      expect(output.hooksCode).toContain('SearchItemsBody')
+      expect(output.hooksCode).toContain('body: Resolved<SearchItemsBody>')
+      expect(output.hooksCode).not.toContain('RawSearchBody')
+      expect(output.hooksCode).toContain('body: unknown')
+    })
   })
 })

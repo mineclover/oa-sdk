@@ -53,6 +53,12 @@ function hasDocumentedSuccessResponseBody(responses: Record<string, OasResponse>
   })
 }
 
+function hasGeneratedRequestBodyType(requestBody?: OasRequestBody): boolean {
+  if (!requestBody || typeof requestBody !== 'object') return false
+  const jsonContent = requestBody.content?.['application/json']
+  return !!jsonContent && !('$ref' in jsonContent) && jsonContent.schema !== undefined
+}
+
 function hasGeneratedErrorType(responses: Record<string, OasResponse>): boolean {
   const errorCodes = Object.keys(responses).filter(k => /^[45]\d{2}$/.test(k) || k === 'default').sort()
   for (const key of errorCodes) {
@@ -91,6 +97,9 @@ export function generateHookFactory(doc: ParsedDocument, options: HookFactoryOpt
   const groups = groupOperationsByTag(doc)
 
   const hasPagination = doc.operations.some(op => detectPagination(op) !== null)
+  const hasQueryWithTypedBody = Boolean(typesImport) && doc.operations.some(
+    op => Boolean(op.operationId) && isQueryOperation(op) && hasGeneratedRequestBodyType(op.requestBody),
+  )
 
   if (!isCombined) {
     const fnImports = ['useQuery', 'useMutation']
@@ -108,7 +117,7 @@ export function generateHookFactory(doc: ParsedDocument, options: HookFactoryOpt
       typeImports.push('UseInfiniteQueryOptions', 'UseInfiniteQueryResult', 'InfiniteData')
     }
     lines.push(`import type { ${typeImports.join(', ')} } from '${queryPackage}'`)
-    lines.push(`import type { JsonPrimitive } from '@oa-sdk/client'`)
+    lines.push(`import type { ${hasQueryWithTypedBody ? 'JsonPrimitive, Resolved' : 'JsonPrimitive'} } from '@oa-sdk/client'`)
     lines.push('')
 
     if (typesImport) {
@@ -116,17 +125,21 @@ export function generateHookFactory(doc: ParsedDocument, options: HookFactoryOpt
       for (const op of doc.operations) {
         if (!op.operationId) continue
         const baseName = operationNames.get(op.operationId)!
+        const isQuery = isQueryOperation(op)
         const pathParams = op.parameters.filter(p => p.in === 'path')
         const queryParams = op.parameters.filter(p => p.in === 'query')
         const querystringParam = op.parameters.find(p => p.in === 'querystring')
         const headerParams = op.parameters.filter(p => p.in === 'header')
 
-        if (pathParams.length > 0) typeImports.add(`${baseName}PathParams`)
-        if (queryParams.length > 0) typeImports.add(`${baseName}QueryParams`)
-        if (querystringParam) typeImports.add(`${baseName}QueryString`)
-        if (headerParams.length > 0) typeImports.add(`${baseName}HeaderParams`)
+        if (isQuery) {
+          if (pathParams.length > 0) typeImports.add(`${baseName}PathParams`)
+          if (queryParams.length > 0) typeImports.add(`${baseName}QueryParams`)
+          if (querystringParam) typeImports.add(`${baseName}QueryString`)
+          if (headerParams.length > 0) typeImports.add(`${baseName}HeaderParams`)
+          if (hasGeneratedRequestBodyType(op.requestBody)) typeImports.add(`${baseName}Body`)
+        }
         if (hasGeneratedResponseType(op.responses)) typeImports.add(`${baseName}Response`)
-        if (hasGeneratedErrorType(op.responses)) typeImports.add(`${baseName}ClientError`)
+        if (hasGeneratedErrorType(op.responses)) typeImports.add(`${baseName}Error`)
       }
 
       if (typeImports.size > 0) {
@@ -182,12 +195,13 @@ export function generateHookFactory(doc: ParsedDocument, options: HookFactoryOpt
     const headerParams = op.parameters.filter(p => p.in === 'header')
     const hasBody = !!op.requestBody
     const bodyRequired = op.requestBody?.required === true
+    const hasTypedBody = hasGeneratedRequestBodyType(op.requestBody)
     const hasTypedResponse = hasGeneratedResponseType(op.responses)
     const hasResponse = hasDocumentedSuccessResponseBody(op.responses)
 
     const responseType = typesImport && hasTypedResponse ? `${baseName}Response` : 'unknown'
     const returnDataType = hasResponse ? `JsonPrimitive<${responseType}>` : 'void'
-    const errorType = typesImport && hasGeneratedErrorType(op.responses) ? `${baseName}ClientError` : 'Error'
+    const errorType = typesImport && hasGeneratedErrorType(op.responses) ? `${baseName}Error` : 'Error'
 
     if (isQuery) {
       const funcParams: string[] = [`client: ${clientName}`]
@@ -198,7 +212,7 @@ export function generateHookFactory(doc: ParsedDocument, options: HookFactoryOpt
         forwardArgs.push('params')
       }
       if (hasBody && bodyRequired) {
-        funcParams.push(`body: ${typesImport ? `Resolved<${baseName}Body>` : 'unknown'}`)
+        funcParams.push(`body: ${typesImport && hasTypedBody ? `Resolved<${baseName}Body>` : 'unknown'}`)
         forwardArgs.push('body')
       }
       if (querystringParam?.required === true) {
@@ -214,7 +228,7 @@ export function generateHookFactory(doc: ParsedDocument, options: HookFactoryOpt
         forwardArgs.push('querystring')
       }
       if (hasBody && !bodyRequired) {
-        funcParams.push(`body?: ${typesImport ? `Resolved<${baseName}Body>` : 'unknown'}`)
+        funcParams.push(`body?: ${typesImport && hasTypedBody ? `Resolved<${baseName}Body>` : 'unknown'}`)
         forwardArgs.push('body')
       }
       if (headerParams.length > 0) {
@@ -246,7 +260,7 @@ export function generateHookFactory(doc: ParsedDocument, options: HookFactoryOpt
           infiniteForwardArgs.push('params')
         }
         if (hasBody && bodyRequired) {
-          infiniteFuncParams.push(`body: ${typesImport ? `Resolved<${baseName}Body>` : 'unknown'}`)
+          infiniteFuncParams.push(`body: ${typesImport && hasTypedBody ? `Resolved<${baseName}Body>` : 'unknown'}`)
           infiniteForwardArgs.push('body')
         }
         if (querystringParam?.required === true) {
@@ -262,7 +276,7 @@ export function generateHookFactory(doc: ParsedDocument, options: HookFactoryOpt
           infiniteForwardArgs.push('querystring')
         }
         if (hasBody && !bodyRequired) {
-          infiniteFuncParams.push(`body?: ${typesImport ? `Resolved<${baseName}Body>` : 'unknown'}`)
+          infiniteFuncParams.push(`body?: ${typesImport && hasTypedBody ? `Resolved<${baseName}Body>` : 'unknown'}`)
           infiniteForwardArgs.push('body')
         }
         if (headerParams.length > 0) {
@@ -324,12 +338,13 @@ export function generateHookFactory(doc: ParsedDocument, options: HookFactoryOpt
     const headerParams = op.parameters.filter(p => p.in === 'header')
     const hasBody = !!op.requestBody
     const bodyRequired = op.requestBody?.required === true
+    const hasTypedBody = hasGeneratedRequestBodyType(op.requestBody)
     const hasTypedResponse = hasGeneratedResponseType(op.responses)
     const hasResponse = hasDocumentedSuccessResponseBody(op.responses)
 
     const responseType = typesImport && hasTypedResponse ? `${baseName}Response` : 'unknown'
     const returnDataType = hasResponse ? `JsonPrimitive<${responseType}>` : 'void'
-    const errorType = typesImport && hasGeneratedErrorType(op.responses) ? `${baseName}ClientError` : 'Error'
+    const errorType = typesImport && hasGeneratedErrorType(op.responses) ? `${baseName}Error` : 'Error'
 
     if (isQuery) {
       const boundParams: string[] = []
@@ -340,7 +355,7 @@ export function generateHookFactory(doc: ParsedDocument, options: HookFactoryOpt
         forwardArgs.push('params')
       }
       if (hasBody && bodyRequired) {
-        boundParams.push(`body: ${typesImport ? `Resolved<${baseName}Body>` : 'unknown'}`)
+        boundParams.push(`body: ${typesImport && hasTypedBody ? `Resolved<${baseName}Body>` : 'unknown'}`)
         forwardArgs.push('body')
       }
       if (querystringParam?.required === true) {
@@ -356,7 +371,7 @@ export function generateHookFactory(doc: ParsedDocument, options: HookFactoryOpt
         forwardArgs.push('querystring')
       }
       if (hasBody && !bodyRequired) {
-        boundParams.push(`body?: ${typesImport ? `Resolved<${baseName}Body>` : 'unknown'}`)
+        boundParams.push(`body?: ${typesImport && hasTypedBody ? `Resolved<${baseName}Body>` : 'unknown'}`)
         forwardArgs.push('body')
       }
       if (headerParams.length > 0) {
@@ -384,7 +399,7 @@ export function generateHookFactory(doc: ParsedDocument, options: HookFactoryOpt
           forwardInfiniteArgs.push('params')
         }
         if (hasBody && bodyRequired) {
-          boundInfiniteParams.push(`body: ${typesImport ? `Resolved<${baseName}Body>` : 'unknown'}`)
+          boundInfiniteParams.push(`body: ${typesImport && hasTypedBody ? `Resolved<${baseName}Body>` : 'unknown'}`)
           forwardInfiniteArgs.push('body')
         }
         if (querystringParam?.required === true) {
@@ -400,7 +415,7 @@ export function generateHookFactory(doc: ParsedDocument, options: HookFactoryOpt
           forwardInfiniteArgs.push('querystring')
         }
         if (hasBody && !bodyRequired) {
-          boundInfiniteParams.push(`body?: ${typesImport ? `Resolved<${baseName}Body>` : 'unknown'}`)
+          boundInfiniteParams.push(`body?: ${typesImport && hasTypedBody ? `Resolved<${baseName}Body>` : 'unknown'}`)
           forwardInfiniteArgs.push('body')
         }
         if (headerParams.length > 0) {

@@ -8,7 +8,7 @@
 import type { OasDocument, OasRequestBody, OasResponse, ParsedDocument } from '@oa-sdk/parser'
 import { assertParsedDocumentComplete, isParsedDocument, parseDocument } from '@oa-sdk/parser'
 import { createOperationTypeNameMap, formatGeneratedTs } from '@oa-sdk/core/browser'
-import { generateKeyFactory, type KeyFactoryOptions } from './key-factory-generator.js'
+import { generateKeyFactory, isQueryOperation, type KeyFactoryOptions } from './key-factory-generator.js'
 import { generateOptionsFactory, detectPagination, type OptionsFactoryOptions } from './options-factory-generator.js'
 import { generateHookFactory, type HookFactoryOptions } from './hook-factory-generator.js'
 
@@ -148,13 +148,20 @@ function generateCombinedFile(doc: ParsedDocument, options: TanstackQueryOptions
     for (const op of doc.operations) {
       if (!op.operationId) continue
       const baseName = operationNames.get(op.operationId) ?? (op.operationId.charAt(0).toUpperCase() + op.operationId.slice(1))
-      if (op.parameters.some(p => p.in === 'path')) neededTypes.add(`${baseName}PathParams`)
-      if (op.parameters.some(p => p.in === 'query')) neededTypes.add(`${baseName}QueryParams`)
-      if (op.parameters.some(p => p.in === 'querystring')) neededTypes.add(`${baseName}QueryString`)
-      if (op.parameters.some(p => p.in === 'header')) neededTypes.add(`${baseName}HeaderParams`)
-      if (hasGeneratedRequestBodyType(op.requestBody) || op.requestBody) neededTypes.add(`${baseName}Body`)
-      if (hasGeneratedResponseType(op.responses) || (op.responses && Object.keys(op.responses).length > 0)) neededTypes.add(`${baseName}Response`)
-      neededTypes.add(`${baseName}ClientError`)
+      const isQuery = isQueryOperation(op)
+      if (shouldIncludeOptions || isQuery) {
+        if (op.parameters.some(p => p.in === 'path')) neededTypes.add(`${baseName}PathParams`)
+        if (op.parameters.some(p => p.in === 'query')) neededTypes.add(`${baseName}QueryParams`)
+      }
+      if (shouldIncludeOptions || (shouldIncludeHooks && isQuery)) {
+        if (op.parameters.some(p => p.in === 'querystring')) neededTypes.add(`${baseName}QueryString`)
+        if (op.parameters.some(p => p.in === 'header')) neededTypes.add(`${baseName}HeaderParams`)
+        if (hasGeneratedRequestBodyType(op.requestBody)) neededTypes.add(`${baseName}Body`)
+      }
+      if (shouldIncludeOptions || shouldIncludeHooks) {
+        if (hasGeneratedResponseType(op.responses)) neededTypes.add(`${baseName}Response`)
+        if (hasGeneratedErrorType(op.responses)) neededTypes.add(`${baseName}Error`)
+      }
     }
     if (neededTypes.size > 0) {
       const sortedTypes = [...neededTypes].sort().join(', ')

@@ -1,4 +1,11 @@
-import type { RuntimeChunkEnvelope } from "@oa-sdk/chunk-stream";
+import type {
+  ChunkPresetName,
+  ChunkStreamTypedServer,
+  MemoryPresetName,
+  ResidencyController,
+  ResolvedChunkStreamConfig,
+  RuntimeChunkEnvelope,
+} from "@oa-sdk/chunk-stream";
 
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue =
@@ -105,12 +112,16 @@ export interface ChunkStreamManifest {
   readonly totalDurationSec: number;
   readonly chunkCount: number;
   readonly chunks: readonly ChunkStreamManifestEntry[];
+  readonly preset?: ChunkPresetName | undefined;
+  readonly memoryPreset?: MemoryPresetName | undefined;
+  readonly targetChunkBytes?: number | undefined;
 }
 
 export interface StoryboardChunkStreamPackage {
   readonly manifest: ChunkStreamManifest;
   readonly envelopes: readonly RuntimeChunkEnvelope[];
   readonly envelopeMap: ReadonlyMap<string, RuntimeChunkEnvelope>;
+  readonly slideEnvelopeMap: ReadonlyMap<string, RuntimeChunkEnvelope>;
   readonly frameMap: (frame: number) => RuntimeChunkEnvelope | undefined;
 }
 
@@ -119,9 +130,28 @@ export interface StoryboardChunkStreamOptions {
   readonly revision?: string | undefined;
   readonly fps?: number | undefined;
   readonly defaultSlideDurationSec?: number | undefined;
+  readonly preset?: ChunkPresetName | undefined;
+  readonly memoryPreset?: MemoryPresetName | undefined;
+  readonly targetChunkBytes?: number | undefined;
+  readonly maxResidentBytes?: number | undefined;
 }
 
 export interface StoryboardChunkBridgeOptions extends StoryboardChunkStreamOptions {
   readonly contentPort?: ContentPort | undefined;
   readonly onCommit?: ((snapshot: PlaybackSnapshot, envelope: RuntimeChunkEnvelope) => void) | undefined;
 }
+
+export interface StoryboardChunkServer
+  extends ChunkStreamTypedServer<ChunkStreamManifest, PlaybackSnapshot, unknown> {
+  readonly config: ResolvedChunkStreamConfig;
+  readonly streamPackage: StoryboardChunkStreamPackage;
+  readonly package: StoryboardChunkStreamPackage;
+  readonly bridge: import("./playback-bridge.js").ChunkPlaybackBridge;
+  readonly residency: ResidencyController;
+  getManifest(): ChunkStreamManifest;
+  getChunk(chunkId: string): RuntimeChunkEnvelope | undefined;
+  getPlaybackSnapshot(): PlaybackSnapshot;
+  seek(frame: number): Promise<unknown>;
+  close(): void;
+}
+

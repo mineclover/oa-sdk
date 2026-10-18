@@ -173,7 +173,7 @@ export function generateOptionsFactory(doc: ParsedDocument, options: OptionsFact
         if (headerParams.length > 0) typeImports.add(`${baseName}HeaderParams`)
         if (hasGeneratedRequestBodyType(op.requestBody)) typeImports.add(`${baseName}Body`)
         if (hasGeneratedResponseType(op.responses)) typeImports.add(`${baseName}Response`)
-        if (hasGeneratedErrorType(op.responses)) typeImports.add(`${baseName}ClientError`)
+        if (hasGeneratedErrorType(op.responses)) typeImports.add(`${baseName}Error`)
       }
 
       if (typeImports.size > 0) {
@@ -255,7 +255,7 @@ export function generateOptionsFactory(doc: ParsedDocument, options: OptionsFact
 
     const responseType = typesImport && hasTypedResponse ? `${baseName}Response` : 'unknown'
     const returnDataType = hasResponse ? `JsonPrimitive<${responseType}>` : 'void'
-    const errorType = typesImport && hasGeneratedErrorType(op.responses) ? `${baseName}ClientError` : 'Error'
+    const errorType = typesImport && hasGeneratedErrorType(op.responses) ? `${baseName}Error` : 'Error'
 
     if (isQuery) {
       // Query Options
