@@ -545,4 +545,26 @@ export {
   sha256,
   stableStringify,
 } from './hash.js'
+export {
+  INTERFACE_SKETCH_IR_VERSION,
+  compareSketchCandidates,
+  detectTypeSpecProfile,
+  parseTypeSpecSketch,
+} from './interface-sketch.js'
+export type {
+  DerivedLineageEdge,
+  DesignRedFlagFinding,
+  DesignRedFlagId,
+  InterfaceDepthMetrics,
+  InterfaceSketchIr,
+  SketchArenaCandidateScore,
+  SketchArenaComparison,
+  SketchFieldIr,
+  SketchInterfaceIr,
+  SketchModelIr,
+  SketchOperationIr,
+  SketchParamIr,
+  SketchUnionOrEnumIr,
+  TypeSpecProfileKind,
+} from './interface-sketch.js'
 
