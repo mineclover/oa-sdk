@@ -6,11 +6,28 @@ export {
 export {
   $personaCapability,
   $pseudonymize,
+  $traceId,
+  $replaces,
+  $requirement,
+  $evidence,
+  $evidenceReview,
+  $intent,
+  $derivedFrom,
+  extractHeadingFormEvidence,
   PERSONA_TRAITS_EXTENSION,
   DPM_PROJECTION_EXTENSION,
+  TRACE_EXTENSION,
+  EVIDENCE_EXTENSION,
+  INTENT_EXTENSION,
+  DERIVED_FROM_EXTENSION,
   VALID_PERSONA_TRAITS,
   VALID_DPM_TRANSFORMS,
   VALID_DPM_ROLES,
+  VALID_TRACE_ID_PATTERN,
+  VALID_REPLACES_ID_PATTERN,
+  VALID_REQUIREMENT_ID_PATTERN,
+  VALID_INTENT_ID_PATTERN,
+  VALID_DOC_ANCHOR_PATTERN,
 } from './governance.js'
 export {
   $crdt,
@@ -52,4 +69,12 @@ export {
   VALID_RPC_STREAMING,
   VALID_PROTOBUF_SCALAR_TYPES,
 } from './protobuf.js'
-
+export {
+  $chunkStream,
+  CHUNK_STREAM_EXTENSION,
+  CHUNK_STREAM_PRESET_BYTES,
+  CHUNK_MEMORY_PRESET_BYTES,
+  VALID_CHUNK_STREAM_PRESETS,
+  VALID_CHUNK_MEMORY_PRESETS,
+  VALID_CHUNK_STREAM_MODES,
+} from './chunk-stream.js'

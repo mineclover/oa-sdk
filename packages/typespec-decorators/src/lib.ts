@@ -51,7 +51,38 @@ export const $lib = createTypeSpecLibrary({
         default: paramMessage`${'message'}`,
       },
     },
+    'invalid-chunk-stream-rule': {
+      severity: 'error',
+      messages: {
+        default: paramMessage`${'message'}`,
+      },
+    },
+    'invalid-trace-rule': {
+      severity: 'error',
+      messages: {
+        default: paramMessage`${'message'}`,
+      },
+    },
+    'invalid-evidence-rule': {
+      severity: 'error',
+      messages: {
+        default: paramMessage`${'message'}`,
+      },
+    },
+    'invalid-intent-rule': {
+      severity: 'error',
+      messages: {
+        default: paramMessage`${'message'}`,
+      },
+    },
+    'invalid-derived-from-rule': {
+      severity: 'error',
+      messages: {
+        default: paramMessage`${'message'}`,
+      },
+    },
   },
 })
 
 export const { reportDiagnostic } = $lib
+

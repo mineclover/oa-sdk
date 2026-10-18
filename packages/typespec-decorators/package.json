@@ -48,8 +48,14 @@
       "typespec": "./lib/storage.tsp",
       "types": "./dist/storage.d.ts",
       "default": "./dist/storage.js"
+    },
+    "./chunk-stream": {
+      "typespec": "./lib/chunk-stream.tsp",
+      "types": "./dist/chunk-stream.d.ts",
+      "default": "./dist/chunk-stream.js"
     }
   },
+
 
   "scripts": {
     "build": "tsc -p tsconfig.json",

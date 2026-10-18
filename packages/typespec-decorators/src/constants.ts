@@ -131,3 +131,47 @@ export const PROTOBUF_FIELD_EXTENSION = 'x-oa-sdk-protobuf-field'
 export const RPC_EXTENSION = 'x-oa-sdk-rpc'
 export const WIRE_FORMAT_EXTENSION = 'x-oa-sdk-wire-format'
 
+// ── Chunk Stream Transmission & Memory Presets ──────────────────────────────
+export const CHUNK_STREAM_EXTENSION = 'x-oa-sdk-chunk-stream'
+
+export const CHUNK_STREAM_PRESET_BYTES: Readonly<Record<string, number>> = {
+  'ultra-low-latency': 1460,
+  'optimal-web': 7168,
+  'standard-buffer': 8192,
+  'initcwnd-burst': 14336,
+  'large-payload': 65536,
+  'heavy-media': 262144,
+  'bulk-data': 1048576,
+}
+
+export const VALID_CHUNK_STREAM_PRESETS: ReadonlySet<string> = new Set(
+  Object.keys(CHUNK_STREAM_PRESET_BYTES),
+)
+
+export const CHUNK_MEMORY_PRESET_BYTES: Readonly<Record<string, number>> = {
+  mobile: 64 * 1024 * 1024,
+  standard: 128 * 1024 * 1024,
+  highperf: 256 * 1024 * 1024,
+}
+
+export const VALID_CHUNK_MEMORY_PRESETS: ReadonlySet<string> = new Set(
+  Object.keys(CHUNK_MEMORY_PRESET_BYTES),
+)
+
+export const VALID_CHUNK_STREAM_MODES: ReadonlySet<string> = new Set([
+  'adaptive',
+  'eager',
+  'manual',
+])
+
+// ── Specification Traceability & Lineage (`@traceId`, `@replaces`, `@requirement`, `@evidence`, `@intent`, `@derivedFrom`) ──
+export const TRACE_EXTENSION = 'x-oa-sdk-trace'
+export const EVIDENCE_EXTENSION = 'x-oa-sdk-evidence'
+export const INTENT_EXTENSION = 'x-oa-sdk-intent'
+export const DERIVED_FROM_EXTENSION = 'x-oa-sdk-derived-from'
+export const VALID_TRACE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{1,127}$/
+export const VALID_REPLACES_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{1,255}$/
+export const VALID_REQUIREMENT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{1,127}$/
+export const VALID_INTENT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{1,127}$/
+export const VALID_DOC_ANCHOR_PATTERN = /^[^\s#]+(?:#[^\s#]+)?$/
+

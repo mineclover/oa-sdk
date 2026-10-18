@@ -2,14 +2,28 @@ import type { DecoratorContext, Diagnostic, Model, ModelProperty, Operation, Pro
 import { getExtensions, setExtension } from '@typespec/openapi'
 import { describe, expect, it } from 'vitest'
 import {
+  $chunkStream,
   $crdt,
   $crdtEntity,
+  $derivedFrom,
+  $evidence,
+  $evidenceReview,
+  $intent,
   $oaUseResponseComponent,
   $personaCapability,
   $pseudonymize,
+  $replaces,
+  $requirement,
+  $traceId,
+  CHUNK_STREAM_EXTENSION,
+  DERIVED_FROM_EXTENSION,
+  EVIDENCE_EXTENSION,
+  INTENT_EXTENSION,
+  TRACE_EXTENSION,
   VALID_DPM_ROLES,
   VALID_DPM_TRANSFORMS,
   VALID_PERSONA_TRAITS,
+  extractHeadingFormEvidence,
 } from './decorators.js'
 
 const componentRefsExtension = 'x-oa-sdk-operation-component-refs'
@@ -17,6 +31,7 @@ const personaTraitsExtension = 'x-oa-sdk-persona-traits'
 const dpmProjectionExtension = 'x-oa-sdk-dpm-projection'
 const crdtExtension = 'x-oa-sdk-crdt'
 const crdtEntityExtension = 'x-oa-sdk-crdt-entity'
+
 
 describe('$oaUseResponseComponent', () => {
   it('emits and merges only response-component references by status code', () => {
@@ -298,6 +313,175 @@ describe('$crdtEntity', () => {
     expect(getExtensions(program, model).get(crdtEntityExtension)).toBeUndefined()
   })
 })
+
+describe('$chunkStream', () => {
+  it('emits x-oa-sdk-chunk-stream with resolved preset and memoryPreset defaults', () => {
+    const program = createProgram()
+    const operation = {} as Operation
+    const context = { program, getArgumentTarget: () => undefined } as unknown as DecoratorContext
+
+    $chunkStream(context, operation, {
+      preset: 'optimal-web',
+      memoryPreset: 'standard',
+      payloadFormat: 'ui-action@v1',
+      fps: 30,
+      chunkFrames: 30,
+      mode: 'adaptive',
+    })
+
+    expect(program.diagnostics).toHaveLength(0)
+    expect(getExtensions(program, operation).get(CHUNK_STREAM_EXTENSION)).toEqual({
+      schemaVersion: 1,
+      preset: 'optimal-web',
+      targetChunkBytes: 7168,
+      memoryPreset: 'standard',
+      maxResidentBytes: 134217728,
+      payloadFormat: 'ui-action@v1',
+      fps: 30,
+      chunkFrames: 30,
+      mode: 'adaptive',
+      lookaheadFrames: 60,
+      retentionFrames: 30,
+    })
+  })
+
+  it('reports diagnostic on invalid chunk stream preset', () => {
+    const program = createProgram()
+    const operation = {} as Operation
+    const context = { program, getArgumentTarget: () => undefined } as unknown as DecoratorContext
+
+    $chunkStream(context, operation, {
+      preset: 'invalid-preset',
+    })
+
+    expect(program.diagnostics).toHaveLength(1)
+    expect(program.diagnostics[0]?.code).toContain('invalid-chunk-stream-rule')
+    expect(getExtensions(program, operation).get(CHUNK_STREAM_EXTENSION)).toBeUndefined()
+  })
+})
+
+describe('$traceId, $replaces, and $requirement', () => {
+  it('merges trackingId, replaces, and requirements into x-oa-sdk-trace', () => {
+    const program = createProgram()
+    const model = {} as Model
+    const context = { program, getArgumentTarget: () => undefined } as unknown as DecoratorContext
+
+    $traceId(context, model, 'trk_user_entity_v1')
+    $replaces(context, model, 'schema:public/users/LegacyUser', 'schema:public/users/OldUser')
+    $requirement(context, model, 'SPEC-USER-001', 'GDPR-ART-15', 'SPEC-USER-001')
+
+    expect(program.diagnostics).toHaveLength(0)
+    expect(getExtensions(program, model).get(TRACE_EXTENSION)).toEqual({
+      trackingId: 'trk_user_entity_v1',
+      replaces: ['schema:public/users/LegacyUser', 'schema:public/users/OldUser'],
+      requirements: ['GDPR-ART-15', 'SPEC-USER-001'],
+    })
+  })
+
+  it('rejects duplicate @traceId across distinct targets in the same program', () => {
+    const program = createProgram()
+    const modelA = { name: 'UserA' } as unknown as Model
+    const modelB = { name: 'UserB' } as unknown as Model
+    const context = { program, getArgumentTarget: () => undefined } as unknown as DecoratorContext
+
+    $traceId(context, modelA, 'trk_shared_001')
+    $traceId(context, modelB, 'trk_shared_001')
+
+    expect(program.diagnostics).toHaveLength(1)
+    expect(program.diagnostics[0]?.code).toBe('@oa-sdk/typespec-decorators/invalid-trace-rule')
+    expect(program.diagnostics[0]?.message).toContain('Duplicate traceId "trk_shared_001"')
+    expect(getExtensions(program, modelB).get(TRACE_EXTENSION)).toBeUndefined()
+  })
+
+  it('rejects malformed traceId, empty replaces, and invalid requirement IDs', () => {
+    const program = createProgram()
+    const operation = {} as Operation
+    const context = { program, getArgumentTarget: () => undefined } as unknown as DecoratorContext
+
+    $traceId(context, operation, '!bad id!')
+    $replaces(context, operation)
+    $requirement(context, operation, 'bad requirement spaces')
+
+    expect(program.diagnostics).toHaveLength(3)
+    expect(program.diagnostics.every(d => d.code === '@oa-sdk/typespec-decorators/invalid-trace-rule')).toBe(true)
+  })
+})
+
+describe('$evidence, $evidenceReview, $intent, $derivedFrom, and extractHeadingFormEvidence (IUD-02 / IUD-05 / IUD-07)', () => {
+  it('emits x-oa-sdk-evidence, x-oa-sdk-intent, and x-oa-sdk-derived-from and merges into x-oa-sdk-trace', () => {
+    const program = createProgram()
+    const model = {} as Model
+    const context = { program, getArgumentTarget: () => undefined } as unknown as DecoratorContext
+
+    $intent(context, model, 'INTENT-LEASE-01', 'docs/lease.md#lease-contract')
+    $derivedFrom(context, model, 'BaseLeaseContract', 'Separate read-only observer lease from writer lease')
+    $evidence(context, model, 'contracts/common.md#lease-invariants', 'REQ-LEASE-01:Verified', {
+      tier: 'tier-2',
+    })
+    $evidenceReview(context, model, 'evidence/lease-review.md#phase-d', 'Detached evidence review passed')
+
+    expect(program.diagnostics).toHaveLength(0)
+    expect(getExtensions(program, model).get(INTENT_EXTENSION)).toEqual({
+      intentId: 'INTENT-LEASE-01',
+      docAnchor: 'docs/lease.md#lease-contract',
+    })
+    expect(getExtensions(program, model).get(DERIVED_FROM_EXTENSION)).toEqual({
+      baseSymbol: 'BaseLeaseContract',
+      reason: 'Separate read-only observer lease from writer lease',
+    })
+    expect(getExtensions(program, model).get(EVIDENCE_EXTENSION)).toEqual({
+      requirements: ['REQ-LEASE-01:Verified', 'contracts/common.md#lease-invariants'],
+      tier: 'tier-2',
+      review: {
+        locator: 'evidence/lease-review.md#phase-d',
+        summary: 'Detached evidence review passed',
+      },
+    })
+    expect(getExtensions(program, model).get(TRACE_EXTENSION)).toMatchObject({
+      intent: {
+        intentId: 'INTENT-LEASE-01',
+        docAnchor: 'docs/lease.md#lease-contract',
+      },
+      derivedFrom: {
+        baseSymbol: 'BaseLeaseContract',
+        reason: 'Separate read-only observer lease from writer lease',
+      },
+    })
+  })
+
+  it('extracts Heading-Form ## @evidence locators from JSDoc comments', () => {
+    const doc = `
+      * Concise summary of the model.
+      * ## @evidence contracts/common.md#lease-invariants
+      * - [x] Verified lease expiration
+      * ## @evidence docs/CONV.md#iud-05
+    `
+    expect(extractHeadingFormEvidence(doc)).toEqual([
+      'contracts/common.md#lease-invariants',
+      'docs/CONV.md#iud-05',
+    ])
+  })
+
+  it('reports diagnostics on invalid @evidence, @intent, or @derivedFrom arguments', () => {
+    const program = createProgram()
+    const model = {} as Model
+    const context = { program, getArgumentTarget: () => undefined } as unknown as DecoratorContext
+
+    $evidence(context, model)
+    $intent(context, model, '!invalid intent!')
+    $derivedFrom(context, model, 'BaseModel', '   ')
+
+    expect(program.diagnostics).toHaveLength(3)
+    expect(program.diagnostics.map(d => d.code)).toEqual([
+      '@oa-sdk/typespec-decorators/invalid-evidence-rule',
+      '@oa-sdk/typespec-decorators/invalid-intent-rule',
+      '@oa-sdk/typespec-decorators/invalid-derived-from-rule',
+    ])
+  })
+})
+
+
+
 
 interface MockProgram extends Program {
   diagnostics: Diagnostic[]
