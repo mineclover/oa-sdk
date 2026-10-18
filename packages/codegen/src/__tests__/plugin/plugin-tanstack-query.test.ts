@@ -345,6 +345,35 @@ describe('pluginTanstackQuery', () => {
 
     const optionsFile = context.getFile('api/options.ts')
     expect(optionsFile?.content).toContain('./keys.js')
+    expect(optionsFile?.content).toContain('GetPetByIdError')
+    expect(optionsFile?.content).not.toContain('ClientError')
+  })
+
+  it('resolves relative keysImport and queriesImport when hooksOutput is in a separate subdirectory with explicit typesFile and clientFile', async () => {
+    const doc = createSampleOasDoc()
+    const context = createPluginContext({
+      entrypoint: '/project/main.tsp',
+      outputDir: '/project/dist',
+      document: doc,
+      config: { input: 'main.tsp' },
+    })
+
+    const plugin = pluginTanstackQuery({
+      split: true,
+      typesFile: '@app/types',
+      clientFile: '@app/client',
+      keysOutput: 'api/keys.ts',
+      optionsOutput: 'api/options.ts',
+      hooksOutput: 'api/react/hooks.ts',
+    })
+    await plugin.generate!(context)
+
+    const hooksFile = context.getFile('api/react/hooks.ts')
+    expect(hooksFile).toBeDefined()
+    expect(hooksFile?.content).toContain("from '../keys.js'")
+    expect(hooksFile?.content).toContain("from '../options.js'")
+    expect(hooksFile?.content).toContain('GetPetByIdError')
+    expect(hooksFile?.content).not.toContain('ClientError')
   })
 
   it('resolves relative imports between custom subdirectories correctly', async () => {

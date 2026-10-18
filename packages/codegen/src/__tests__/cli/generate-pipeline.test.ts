@@ -3,6 +3,8 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import * as fs from 'node:fs'
 import { generate } from '../../cli/commands/generate.js'
+import { resolveConfigWithDefaults, validateOaConfig } from '../../config.js'
+import { runInit } from '../../cli/lib/init/index.js'
 
 describe('CLI: oa-gen generate (Declarative Spec Pipeline)', () => {
   let tmpDir: string
@@ -331,4 +333,334 @@ export function buildProjection() {
     // New target files should exist
     expect(fs.existsSync(path.join(tmpDir, 'out/v2/v2.contract.ts'))).toBe(true)
   })
+
+  it('preserves core.router.target and emits framework router (*.router.ts) alongside handler contract', async () => {
+    const schemaEntryPath = path.join(tmpDir, 'spec-source.mjs')
+    fs.writeFileSync(
+      schemaEntryPath,
+      `
+export function buildProjection() {
+  return {
+    openApiDoc: {
+      openapi: '3.1.0',
+      info: { title: 'Router Target API', version: '1.0.0' },
+      paths: {
+        '/health': {
+          get: {
+            operationId: 'checkHealth',
+            responses: { '200': { description: 'ok' } },
+          },
+        },
+      },
+      components: { schemas: {} },
+    },
+    jsonSchemaDoc: {
+      $schema: 'https://json-schema.org/draft/2020-12/schema',
+      $defs: {},
+    },
+  }
+}
+`,
+      'utf8',
+    )
+
+    const configPath = path.join(tmpDir, 'oa.config.json')
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify(
+        {
+          specs: [{ id: 'health', profile: 'full-api-document', schemaEntry: './spec-source.mjs', outDir: './out/health' }],
+          core: {
+            contracts: { pureHandlers: true, contractName: 'HealthHandlers' },
+            router: { target: 'fastify' },
+            client: { enabled: false },
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    )
+
+    await generate.run({}, { cwd: tmpDir, projectRoot: tmpDir })
+
+    const contractPath = path.join(tmpDir, 'out/health/health.contract.ts')
+    const routerPath = path.join(tmpDir, 'out/health/health.router.ts')
+    expect(fs.existsSync(contractPath)).toBe(true)
+    expect(fs.existsSync(routerPath)).toBe(true)
+
+    const routerContent = fs.readFileSync(routerPath, 'utf8')
+    expect(routerContent).toContain('HealthHandlers')
+    expect(routerContent).toContain("from './health.contract.js'")
+  })
+
+  it('validates and resolves core.router and outputRouting.byKind.router in config', () => {
+    const resolved = resolveConfigWithDefaults({
+      archetype: 'enterprise',
+      core: {
+        router: {
+          target: 'elysia',
+          outDir: './src/routers',
+          banner: false,
+        },
+      },
+      outputRouting: {
+        byKind: {
+          router: 'src/server/{tag}.router.ts',
+        },
+      },
+      specs: [{ id: 'orders', schemaEntry: './openapi.yaml', outDir: './dist' }],
+    })
+
+    expect(resolved.core.router).toEqual({
+      target: 'elysia',
+      outDir: './src/routers',
+      banner: false,
+    })
+    expect(resolved.outputRouting?.byKind?.router).toBe('src/server/{tag}.router.ts')
+
+    const validRes = validateOaConfig({
+      core: {
+        router: { target: 'hono', outDir: './src/routers', banner: true },
+      },
+      specs: [{ id: 'orders', profile: 'full-api-document', schemaEntry: './openapi.yaml', outDir: './dist' }],
+    })
+    expect(validRes.valid).toBe(true)
+
+    const invalidRes = validateOaConfig({
+      core: {
+        router: { target: 'unknown-framework' as any, outDir: '   ', banner: 'yes' as any },
+      },
+      specs: [{ id: 'orders', profile: 'full-api-document', schemaEntry: './openapi.yaml', outDir: './dist' }],
+    })
+    expect(invalidRes.valid).toBe(false)
+    expect(invalidRes.errors.map(e => e.path)).toEqual([
+      'core.router.target',
+      'core.router.outDir',
+      'core.router.banner',
+    ])
+  })
+
+  it('emits stub-mode router without contract file when pureHandlers is false and core.router.target is set', async () => {
+    const schemaEntryPath = path.join(tmpDir, 'spec-source.mjs')
+    fs.writeFileSync(
+      schemaEntryPath,
+      `
+export function buildProjection() {
+  return {
+    openApiDoc: {
+      openapi: '3.1.0',
+      info: { title: 'Stub Router API', version: '1.0.0' },
+      paths: {
+        '/status': {
+          get: {
+            operationId: 'getStatus',
+            responses: { '200': { description: 'ok' } },
+          },
+        },
+      },
+      components: { schemas: {} },
+    },
+    jsonSchemaDoc: {
+      $schema: 'https://json-schema.org/draft/2020-12/schema',
+      $defs: {},
+    },
+  }
+}
+`,
+      'utf8',
+    )
+
+    const configPath = path.join(tmpDir, 'oa.config.json')
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify(
+        {
+          specs: [{ id: 'status', profile: 'full-api-document', schemaEntry: './spec-source.mjs', outDir: './out/status' }],
+          core: {
+            contracts: { pureHandlers: false },
+            router: { target: 'hono', outDir: './src/routers' },
+            client: { enabled: false },
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    )
+
+    await generate.run({}, { cwd: tmpDir, projectRoot: tmpDir })
+
+    const contractPath = path.join(tmpDir, 'out/status/status.contract.ts')
+    const routerPath = path.join(tmpDir, 'src/routers/status.router.ts')
+    expect(fs.existsSync(contractPath)).toBe(false)
+    expect(fs.existsSync(routerPath)).toBe(true)
+
+    const routerContent = fs.readFileSync(routerPath, 'utf8')
+    expect(routerContent).toContain('TODO: implement getStatus')
+    expect(routerContent).not.toContain('.contract.js')
+  })
+
+  it('routes contract and router via outputRouting.byKind into separate directories with relative import and manifest tracking', async () => {
+    const schemaEntryPath = path.join(tmpDir, 'spec-source.mjs')
+    fs.writeFileSync(
+      schemaEntryPath,
+      `
+export function buildProjection() {
+  return {
+    openApiDoc: {
+      openapi: '3.1.0',
+      info: { title: 'Routed Router API', version: '1.0.0' },
+      paths: {
+        '/orders': {
+          get: {
+            operationId: 'listOrders',
+            responses: { '200': { description: 'ok' } },
+          },
+        },
+      },
+      components: { schemas: {} },
+    },
+    jsonSchemaDoc: {
+      $schema: 'https://json-schema.org/draft/2020-12/schema',
+      $defs: {},
+    },
+  }
+}
+`,
+      'utf8',
+    )
+
+    const configPath = path.join(tmpDir, 'oa.config.json')
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify(
+        {
+          specs: [{ id: 'orders', profile: 'full-api-document', schemaEntry: './spec-source.mjs', outDir: './out/orders' }],
+          core: {
+            contracts: { pureHandlers: true, contractName: 'OrderHandlers' },
+            router: { target: 'elysia' },
+            client: { enabled: false },
+          },
+          outputRouting: {
+            byKind: {
+              contract: 'src/contracts/{tag}.contract.ts',
+              router: 'src/server/routers/{tag}.router.ts',
+            },
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    )
+
+    await generate.run({}, { cwd: tmpDir, projectRoot: tmpDir })
+
+    const contractPath = path.join(tmpDir, 'src/contracts/orders.contract.ts')
+    const routerPath = path.join(tmpDir, 'src/server/routers/orders.router.ts')
+    expect(fs.existsSync(contractPath)).toBe(true)
+    expect(fs.existsSync(routerPath)).toBe(true)
+
+    const routerContent = fs.readFileSync(routerPath, 'utf8')
+    expect(routerContent).toContain("from '../../contracts/orders.contract.js'")
+    expect(routerContent).toContain('OrderHandlers')
+
+    const manifest = JSON.parse(fs.readFileSync(path.join(tmpDir, '.oa-manifest.json'), 'utf8'))
+    expect(manifest.artifacts.some((a: any) => a.kind === 'router' && a.path === 'src/server/routers/orders.router.ts')).toBe(true)
+  })
+
+  it('executes full end-to-end flow from oa-gen init scaffolded oa.config.ts to oa-gen generate', async () => {
+    const scopeDir = path.join(tmpDir, 'node_modules', '@oa-sdk')
+    fs.mkdirSync(scopeDir, { recursive: true })
+    fs.symlinkSync(path.resolve(__dirname, '../../..'), path.join(scopeDir, 'codegen'), 'dir')
+
+    fs.writeFileSync(
+      path.join(tmpDir, 'package.json'),
+      JSON.stringify({ name: 'e2e-init-generate-app', dependencies: { fastify: '^4.20.0' } }, null, 2),
+      'utf8',
+    )
+    const specFile = path.join(tmpDir, 'openapi.json')
+    fs.writeFileSync(
+      specFile,
+      JSON.stringify(
+        {
+          openapi: '3.2.0',
+          info: { title: 'E2E Init Generate API', version: '1.0.0' },
+          paths: {
+            '/tasks': {
+              get: {
+                tags: ['tasks'],
+                operationId: 'listTasks',
+                responses: {
+                  '200': {
+                    description: 'Task list',
+                    content: {
+                      'application/json': {
+                        schema: {
+                          type: 'array',
+                          items: { $ref: '#/components/schemas/Task' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          components: {
+            schemas: {
+              Task: {
+                type: 'object',
+                required: ['id', 'title'],
+                properties: {
+                  id: { type: 'string' },
+                  title: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    )
+
+    const initRes = await runInit({
+      cwd: tmpDir,
+      target: 'fastify',
+      archetype: 'microservice',
+      routing: 'default',
+      spec: 'openapi.json',
+      yes: true,
+    })
+    expect(initRes.configFileCreated).toBe(true)
+
+    await generate.run({}, { cwd: tmpDir, projectRoot: tmpDir })
+
+    // Verify all scaffolded default routing artifacts for target id 'fastify-api'
+    const baseApiDir = path.join(tmpDir, 'src/api/fastify-api')
+    const contractPath = path.join(baseApiDir, 'fastify-api.contract.ts')
+    const routerPath = path.join(baseApiDir, 'fastify-api.router.ts')
+    const clientPath = path.join(baseApiDir, 'fastify-api.client.ts')
+    const keysPath = path.join(baseApiDir, 'fastify-api.keys.ts')
+    const queriesPath = path.join(baseApiDir, 'fastify-api.queries.ts')
+
+    expect(fs.existsSync(contractPath)).toBe(true)
+    expect(fs.existsSync(routerPath)).toBe(true)
+    expect(fs.existsSync(clientPath)).toBe(true)
+    expect(fs.existsSync(keysPath)).toBe(true)
+    expect(fs.existsSync(queriesPath)).toBe(true)
+
+    const routerContent = fs.readFileSync(routerPath, 'utf8')
+    expect(routerContent).toContain("from './fastify-api.contract.js'")
+    expect(routerContent).toContain('FastifyPluginAsync')
+
+    const queriesContent = fs.readFileSync(queriesPath, 'utf8')
+    expect(queriesContent).toContain("from './fastify-api.client.js'")
+    expect(queriesContent).toContain("from './fastify-api.keys.js'")
+  })
 })
+
+

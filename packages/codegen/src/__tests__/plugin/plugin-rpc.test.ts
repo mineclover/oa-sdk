@@ -155,4 +155,20 @@ const tree: ApiProcedures['getTree']['output'] = { children: [{ children: [] }] 
 export { tree }
 `)).toEqual([])
   })
+
+  it('defaults runtimeImport to public @oa-sdk/surface-ir instead of private @oa-sdk/rpc', () => {
+    const document = parseDocument({
+      openapi: '3.2.0',
+      info: { title: 'Ping', version: '1.0.0' },
+      paths: {
+        '/ping': {
+          get: { operationId: 'ping', responses: { '204': { description: 'ok' } } },
+        },
+      },
+    } as unknown as OasDocument)
+    const contract = buildRpcContract(document)
+    const source = generateRpcModule(contract)
+    expect(source).toContain("import type { RpcContract } from '@oa-sdk/surface-ir'")
+    expect(source).not.toContain("from '@oa-sdk/rpc'")
+  })
 })

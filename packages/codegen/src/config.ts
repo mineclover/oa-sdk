@@ -106,11 +106,22 @@ export interface SharedPlatformGatesConfig {
   preflightLint?: "off" | "warn" | "error" | undefined
 }
 
+export interface SharedPlatformRouterConfig {
+  /** Target web framework for router generation ("fastify" | "elysia" | "hono" | "express" | "nestjs" | "generic") */
+  target?: TargetFrameworkId | undefined
+  /** Optional directory override for generated router files */
+  outDir?: string | undefined
+  /** Whether to prepend the auto-generated banner comment. Defaults to true. */
+  banner?: boolean | undefined
+}
+
 export interface SharedPlatformCoreConfig {
   /** SSOT OpenAPI and JSON Schema dialect specifications */
   dialect?: SharedPlatformDialectConfig | undefined
   /** Pure TypeScript handler contract generation rules */
   contracts?: SharedPlatformContractsConfig | undefined
+  /** Framework router binding generation rules */
+  router?: SharedPlatformRouterConfig | undefined
   /** Typed client SDK emission and wire-format safety */
   client?: SharedPlatformClientConfig | undefined
   /** AST type generation rules */
@@ -205,6 +216,7 @@ export interface GuardTargetConfig {
  */
 export const ARTIFACT_KINDS = [
   "contract",
+  "router",
   "client",
   "queries",
   "keys",
@@ -358,7 +370,9 @@ export type CodegenConfig = OaConfig
  */
 export interface ResolvedOaConfig extends OaConfig {
   archetype: ProductLifecycleArchetype
-  core: Required<SharedPlatformCoreConfig>
+  core: Required<Omit<SharedPlatformCoreConfig, "router">> & {
+    router?: SharedPlatformRouterConfig | undefined
+  }
   product: ProductDomainConfig
   specs: ProfileTargetConfig[]
   outputRouting?: OutputRoutingConfig | undefined
@@ -434,9 +448,10 @@ export function resolveConfigWithDefaults(config: OaConfig): ResolvedOaConfig {
   const archetype = config.archetype ?? config.product?.archetype ?? "microservice"
   const defaults = getArchetypeDefaults(archetype)
 
-  const mergedCore: Required<SharedPlatformCoreConfig> = {
+  const mergedCore: ResolvedOaConfig["core"] = {
     dialect: { ...defaults.core.dialect, ...config.core?.dialect },
     contracts: { ...defaults.core.contracts, ...config.core?.contracts },
+    ...(config.core?.router !== undefined ? { router: { ...config.core.router } } : {}),
     client: { ...defaults.core.client, ...config.core?.client },
     typegen: { ...defaults.core.typegen, ...config.core?.typegen },
     gates: { ...defaults.core.gates, ...config.core?.gates },
@@ -545,6 +560,12 @@ export const sharedPlatformContractsConfigSchema = z.object({
   banner: z.boolean().optional(),
 })
 
+export const sharedPlatformRouterConfigSchema = z.object({
+  target: targetFrameworkIdSchema.optional(),
+  outDir: z.string().min(1).optional(),
+  banner: z.boolean().optional(),
+})
+
 export const sharedPlatformClientConfigSchema = z.object({
   enabled: z.boolean().optional(),
   wireFormatSafety: z.boolean().optional(),
@@ -567,6 +588,7 @@ export const sharedPlatformGatesConfigSchema = z.object({
 export const sharedPlatformCoreConfigSchema = z.object({
   dialect: sharedPlatformDialectConfigSchema.optional(),
   contracts: sharedPlatformContractsConfigSchema.optional(),
+  router: sharedPlatformRouterConfigSchema.optional(),
   client: sharedPlatformClientConfigSchema.optional(),
   typegen: sharedPlatformTypegenConfigSchema.optional(),
   gates: sharedPlatformGatesConfigSchema.optional(),
@@ -638,6 +660,7 @@ export const outputRoutingRuleSchema = z.object({
 
 export const byKindRoutingConfigSchema = z.object({
   contract: z.string().min(1).optional(),
+  router: z.string().min(1).optional(),
   client: z.string().min(1).optional(),
   queries: z.string().min(1).optional(),
   keys: z.string().min(1).optional(),
@@ -1193,6 +1216,30 @@ export function validateOaConfig(config: unknown): ConfigValidationResult {
           }
           if (c.banner !== undefined && typeof c.banner !== "boolean") {
             errors.push({ path: "core.contracts.banner", message: "banner must be a boolean" })
+          }
+        }
+      }
+
+      // router
+      if (core.router !== undefined) {
+        if (!core.router || typeof core.router !== "object" || Array.isArray(core.router)) {
+          errors.push({ path: "core.router", message: "router must be an object" })
+        } else {
+          const r = core.router as Record<string, unknown>
+          if (
+            r.target !== undefined &&
+            (typeof r.target !== "string" || !(TARGET_FRAMEWORK_IDS as readonly string[]).includes(r.target as TargetFrameworkId))
+          ) {
+            errors.push({
+              path: "core.router.target",
+              message: `target must be one of: ${TARGET_FRAMEWORK_IDS.map((t) => `'${t}'`).join(", ")} (received ${JSON.stringify(r.target)})`,
+            })
+          }
+          if (r.outDir !== undefined && (typeof r.outDir !== "string" || r.outDir.trim().length === 0)) {
+            errors.push({ path: "core.router.outDir", message: "outDir must be a non-empty string" })
+          }
+          if (r.banner !== undefined && typeof r.banner !== "boolean") {
+            errors.push({ path: "core.router.banner", message: "banner must be a boolean" })
           }
         }
       }

@@ -187,7 +187,11 @@ export function pluginTanstackQuery(
           if (mergedOpts.includeHooks !== false && output.hooksCode) {
             // Re-generate hooks if hooks-specific imports differ
             let hooksCode = output.hooksCode
-            if (typesForHooks !== typesForQueries || clientForHooks !== clientForQueries) {
+            if (
+              typesForHooks !== typesForQueries ||
+              clientForHooks !== clientForQueries ||
+              keysImportForHooks !== keysImportForQueries
+            ) {
               hooksCode = client.generateHookFactory(parsedDoc, {
                 queryPackage,
                 typesImport: typesForHooks,

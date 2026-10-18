@@ -1431,5 +1431,101 @@ export const oaGenGovernanceManifest = {
         },
       },
     },
+    {
+      id: 'trace',
+      kind: 'command',
+      name: 'trace',
+      summary: 'OpenAPI 3.2 스펙 정의의 엔드투엔드 추적성 그래프(.oa-trace.json) 생성, 다중 조건 질의 및 역방향 영향도(Blast Radius) 분석',
+      components: {
+        options: [
+          {
+            name: 'spec',
+            type: 'string',
+            short: 's',
+            required: true,
+            description: 'OpenAPI YAML/JSON 문서 경로',
+          },
+          {
+            name: 'typespec-root',
+            type: 'string',
+            description: 'TypeSpec 소스 디렉토리 루트 경로 (AST 선언 좌표 결합)',
+          },
+          {
+            name: 'provenance',
+            type: 'string',
+            description: 'build-spec --provenance로 생성된 provenance map JSON 경로',
+          },
+          {
+            name: 'manifest',
+            type: 'string',
+            description: '.oa-manifest.json 파일 경로 (생성된 코드 파일 경로 연결)',
+          },
+          {
+            name: 'symbol',
+            type: 'string',
+            description: '조회할 스펙 심볼명 또는 생성된 TypeScript 심볼명',
+          },
+          {
+            name: 'pointer',
+            type: 'string',
+            description: '조회할 OpenAPI JSON Pointer',
+          },
+          {
+            name: 'tracking-id',
+            type: 'string',
+            description: '조회할 불변 추적 ID (@traceId 또는 trk_<hash>)',
+          },
+          {
+            name: 'source',
+            type: 'string',
+            description: '조회할 원본 소스 파일 경로 필터',
+          },
+          {
+            name: 'requirement',
+            type: 'string',
+            description: '조회할 요구사항 ID (@requirement)',
+          },
+          {
+            name: 'persona',
+            type: 'string',
+            description: '조회할 페르소나 ID (@persona)',
+          },
+          {
+            name: 'impact',
+            type: 'string',
+            description: '역방향 영향도 분석(Blast Radius) 시작 대상 (쉼표로 복수 지정 가능)',
+          },
+          {
+            name: 'output',
+            type: 'string',
+            short: 'o',
+            description: '.oa-trace.json 추적성 사이드카 출력 파일 경로',
+          },
+          {
+            name: 'format',
+            type: 'string',
+            description: '출력 포맷 (human | json)',
+          },
+          {
+            name: 'verify',
+            type: 'boolean',
+            description: '추적성 무결성 검증 모드 (중복 trackingId 또는 미해소 $ref 존재 시 exit 1)',
+          },
+        ],
+        inputs: [
+          { name: 'spec', kind: 'openapi-document', required: true, option: 'spec' },
+          { name: 'provenance', kind: 'openapi-provenance', required: false, option: 'provenance' },
+        ],
+        checks: [],
+        reports: [
+          { formats: ['human', 'json'], schema: 'oa-sdk.spec-traceability.v1' },
+        ],
+        exitPolicy: {
+          success: ['APPROVE'],
+          failure: ['REQUEST_CHANGES'],
+        },
+      },
+    },
   ],
 } satisfies CliCommandManifest
+

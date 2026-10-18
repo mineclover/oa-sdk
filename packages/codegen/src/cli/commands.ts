@@ -35,6 +35,7 @@ import { generateClientCommand, packClientCommand } from './commands/generate-cl
 import { generateGuardsCommand } from './commands/generate-guards.js'
 import { generateDrizzleCommand } from './commands/generate-drizzle.js'
 import { surface } from './commands/surface.js'
+import { trace, traceCommand } from './commands/trace.js'
 
 export const commands: Command[] = [
   init,
@@ -75,6 +76,7 @@ export const commands: Command[] = [
   tspDiff,
   mock,
   auditShapeCommand,
+  trace,
 ]
 
 export {
@@ -90,4 +92,7 @@ export {
   generateDrizzleCommand,
   surface,
   driftLive,
+  trace,
+  traceCommand,
 }
+

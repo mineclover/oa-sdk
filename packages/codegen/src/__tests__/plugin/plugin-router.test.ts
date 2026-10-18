@@ -310,6 +310,8 @@ describe('pluginRouter', () => {
     const routerFile = context.getFile('router.ts')
 
     expect(contractFile?.content).toContain('export interface UserHandlers')
+    expect(contractFile?.content).toContain('MyAppContext')
+    expect(contractFile?.content).toContain('./app-context.js')
     expect(routerFile?.content).toContain('UserHandlers')
     expect(routerFile?.content).toContain('MyAppContext')
   })

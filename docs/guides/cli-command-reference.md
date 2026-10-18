@@ -91,6 +91,7 @@ node packages/codegen/dist/cli/index.js --help
 | `oa-gen review` | diff·validation·freshness를 묶어 검토할 때 | `--base <openapi> --head <openapi>` | review report; optional sidecar/behavior input |
 | `oa-gen review-bundle` | PR용 aggregate review report를 만들 때 | `--base --head --artifact` | recommendation + optional inventory/drift/provenance/parallel evidence |
 | `oa-gen parallel-evidence` | TypeSpec contract provenance와 ttsc observation을 pointer로 조인할 때 | `--typespec-provenance --ttsc-provenance` | 기본 ttsc adapter; 라이브러리에서는 다른 implementation adapter도 조합 가능 |
+| `oa-gen trace` | OpenAPI 3.2 스펙 정의의 엔드투엔드 추적성 그래프(`.oa-trace.json`) 생성, 심볼/요구사항/페르소나 다중 조건 질의 및 역방향 영향도(Blast Radius)를 분석할 때 | `--spec <openapi>` | `oa-sdk.spec-traceability.v1` 추적성 그래프 및 영향도 리포트; `--spec` (`-s`), `--typespec-root <dir>`, `--provenance <path>`, `--manifest <path>`, `--symbol <name>`, `--pointer <ptr>`, `--tracking-id <id>`, `--source <file>`, `--requirement <req>`, `--persona <id>`, `--impact <targets>`, `--output <path>` (`-o`), `--format <human\|json>`, `--verify` 지원 |
 
 ## behavior-query 조건부 옵션
 

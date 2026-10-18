@@ -156,7 +156,7 @@ export interface CompanionOutput {
 
 /** Outputs of `oa-gen generate` that companion packages produce. */
 export const GENERATE_COMPANION_OUTPUTS = {
-  contracts: { label: 'handler contracts', kinds: ['contract'] },
+  contracts: { label: 'handler contracts', kinds: ['contract', 'router'] },
   client: { label: 'client SDK', kinds: ['client'] },
   tanstack: { label: 'TanStack Query options', kinds: ['keys', 'queries'] },
   crdt: { label: 'CRDT modules', kinds: ['crdt-contract', 'crdt-router', 'crdt-client', 'crdt-hooks'] },

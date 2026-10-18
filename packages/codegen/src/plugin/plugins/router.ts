@@ -129,6 +129,8 @@ export function pluginRouter(
           typesImport: typesForContract,
           contractName,
           banner,
+          ...(mergedOpts.contextImport !== undefined ? { contextImport: mergedOpts.contextImport } : {}),
+          ...(mergedOpts.contextTypeName !== undefined ? { contextTypeName: mergedOpts.contextTypeName } : {}),
           ...(mergedOpts.basePath !== undefined ? { basePath: mergedOpts.basePath } : {}),
         }
         const contractCode = generateHandlerContract(doc, contractOptions)

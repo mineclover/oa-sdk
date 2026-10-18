@@ -18,7 +18,7 @@ import { pascalCase, quoteTypeScriptString, toTypeScriptIdentifier } from '@oa-s
 export type RpcModuleOptions = {
   /** Name prefix: `Api` emits `ApiProcedures` and `apiContract`. Default: `Api`. */
   name?: string
-  /** Module the `RpcContract` type is imported from. Default: `@oa-sdk/rpc`. */
+  /** Module the `RpcContract` type is imported from. Default: `@oa-sdk/surface-ir`. */
   runtimeImport?: string
   /** Add the auto-generated banner. Default: true. */
   banner?: boolean
@@ -30,7 +30,7 @@ export function generateRpcModule(contract: RpcContract, options: RpcModuleOptio
   const name = toTypeScriptIdentifier(pascalCase(options.name ?? 'Api'))
   const proceduresType = `${name}Procedures`
   const contractConst = `${name.charAt(0).toLowerCase()}${name.slice(1)}Contract`
-  const runtimeImport = options.runtimeImport ?? '@oa-sdk/rpc'
+  const runtimeImport = options.runtimeImport ?? '@oa-sdk/surface-ir'
   const lines: string[] = []
 
   if (options.banner !== false) {

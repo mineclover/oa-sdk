@@ -1,4 +1,4 @@
-import { resolve, relative } from 'node:path'
+import { resolve, relative, dirname } from 'node:path'
 import { existsSync } from 'node:fs'
 import { parseDocument, type OasDocument, type ParsedDocument } from '@oa-sdk/parser'
 import type { Command, CommandArgValue } from '../lib/types.js'
@@ -492,23 +492,28 @@ async function runConfigDrivenPipeline(
     specResults.push(result)
   }
 
-  // Step 2: Handler Contracts (@oa-sdk/router)
+  // Step 2: Handler Contracts & Framework Routers (@oa-sdk/router)
   const contractsConfig = resolvedConfig.core?.contracts
+  const routerConfig = resolvedConfig.core?.router
   let contractsGeneratedCount = 0
-  if (contractsConfig?.pureHandlers !== false) {
+  let routersGeneratedCount = 0
+  if (contractsConfig?.pureHandlers !== false || Boolean(routerConfig?.target)) {
     const output = GENERATE_COMPANION_OUTPUTS.contracts
+    const supportedRouterTargets = new Set(['hono', 'express', 'fastify', 'elysia'])
     for (const res of specResults) {
       const id = res.target.id
+      const rawRouterTarget = routerConfig?.target ?? res.target.target ?? resolvedConfig.product?.framework
+      const shouldEmitContract = contractsConfig?.pureHandlers !== false
+      const shouldEmitRouter = Boolean(rawRouterTarget && supportedRouterTargets.has(rawRouterTarget))
+      if (!shouldEmitContract && !shouldEmitRouter) continue
+
+      let emittedContract = false
+      let emittedRouter = false
       const generated = await generateCompanionOutput(output, ['@oa-sdk/router'], id, async () => {
         const router = await loadCompanionFor(output, '@oa-sdk/router', id)
         if (!router) return undefined
-        const contractCode = router.generateHandlerContract(parsedSpec(res), {
-          contractName: contractsConfig?.contractName ?? 'ApiHandlers',
-          banner: contractsConfig?.banner ?? true,
-          contextImport: resolvedConfig.product?.contextInjection?.importPath,
-          contextTypeName: resolvedConfig.product?.contextInjection?.typeName,
-        })
 
+        const artifacts: WriteArtifactInput[] = []
         let contractPath: string
         if (outputRouting) {
           contractPath = dispatcher.dispatch({ kind: 'contract', tag: id }).absolutePath
@@ -519,9 +524,56 @@ async function runConfigDrivenPipeline(
           contractPath = resolve(targetResolved.resolvedOutDir, `${id}.contract.ts`)
         }
 
-        return [{ path: contractPath, kind: 'contract', tag: id, content: contractCode, sourceSpec: res.openApiPath }]
+        if (shouldEmitContract) {
+          const contractCode = router.generateHandlerContract(parsedSpec(res), {
+            contractName: contractsConfig?.contractName ?? 'ApiHandlers',
+            banner: contractsConfig?.banner ?? true,
+            contextImport: resolvedConfig.product?.contextInjection?.importPath,
+            contextTypeName: resolvedConfig.product?.contextInjection?.typeName,
+          })
+          artifacts.push({ path: contractPath, kind: 'contract', tag: id, content: contractCode, sourceSpec: res.openApiPath })
+          emittedContract = true
+        }
+
+        if (shouldEmitRouter && rawRouterTarget) {
+          let routerPath: string
+          let contractImport: string
+          if (outputRouting) {
+            routerPath = dispatcher.dispatch({ kind: 'router', tag: id }).absolutePath
+            contractImport = dispatcher.resolveImport(
+              { kind: 'router', tag: id },
+              { kind: 'contract', tag: id },
+            )
+          } else if (routerConfig?.outDir) {
+            routerPath = resolve(rootDir, routerConfig.outDir, `${id}.router.ts`)
+            const rel = relative(dirname(routerPath), contractPath).replace(/\\/g, '/').replace(/\.tsx?$/, '.js')
+            contractImport = rel.startsWith('.') ? rel : `./${rel}`
+          } else {
+            const targetResolved = resolveProfileTarget(res.target, rootDir)
+            routerPath = resolve(targetResolved.resolvedOutDir, `${id}.router.ts`)
+            const rel = relative(dirname(routerPath), contractPath).replace(/\\/g, '/').replace(/\.tsx?$/, '.js')
+            contractImport = rel.startsWith('.') ? rel : `./${rel}`
+          }
+
+          const routerCode = router.generateRouter(parsedSpec(res), {
+            target: rawRouterTarget as 'hono' | 'express' | 'fastify' | 'elysia',
+            mode: shouldEmitContract ? 'contract' : 'stub',
+            contractName: contractsConfig?.contractName ?? 'ApiHandlers',
+            ...(shouldEmitContract ? { contractImport } : {}),
+            banner: routerConfig?.banner ?? contractsConfig?.banner ?? true,
+            contextImport: resolvedConfig.product?.contextInjection?.importPath,
+            contextTypeName: resolvedConfig.product?.contextInjection?.typeName,
+          })
+          artifacts.push({ path: routerPath, kind: 'router', tag: id, content: routerCode, sourceSpec: res.openApiPath })
+          emittedRouter = true
+        }
+
+        return artifacts
       })
-      if (generated) contractsGeneratedCount++
+      if (generated) {
+        if (emittedContract) contractsGeneratedCount++
+        if (emittedRouter) routersGeneratedCount++
+      }
     }
   }
 
@@ -640,8 +692,11 @@ async function runConfigDrivenPipeline(
           : resolve(targetDir, `${id}.crdt.contract.ts`)
 
         // 2. CRDT router
+        const crdtRouterTarget = resolvedConfig.core?.router?.target ?? res.target.target ?? resolvedConfig.product?.framework
         const crdtRouterCode = generateCrdtRouter(parsedSpec(res), {
-          target: ((resolvedConfig.core as any)?.router as any)?.target ?? 'hono',
+          target: (crdtRouterTarget && ['hono', 'express', 'fastify', 'elysia'].includes(crdtRouterTarget)
+            ? crdtRouterTarget
+            : 'hono') as 'hono' | 'express' | 'fastify' | 'elysia',
           contractImport: outputRouting
             ? dispatcher.resolveImport(
                 { kind: 'crdt-router', tag: id },
@@ -726,6 +781,9 @@ async function runConfigDrivenPipeline(
   console.log('================================================================================')
   console.log(`Specs Processed:     ${specResults.length}`)
   console.log(`Contracts Generated: ${contractsGeneratedCount}`)
+  if (routersGeneratedCount > 0) {
+    console.log(`Routers Generated:   ${routersGeneratedCount}`)
+  }
   console.log(`Clients Generated:   ${clientGeneratedCount}`)
   console.log(`TanStack Generated:  ${tanstackGeneratedCount}`)
   if (crdtGeneratedCount > 0) {

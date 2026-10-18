@@ -119,12 +119,12 @@ export const generateTanstackCommand: Command = {
       let keysImport: string | undefined
       let queriesImport: string | undefined
 
-      if (outputRouting) {
+      if (!outputArg && outputRouting) {
         keysPath = dispatcher.dispatch({ kind: 'keys' }).absolutePath
         queriesPath = dispatcher.dispatch({ kind: 'queries' }).absolutePath
         keysImport = dispatcher.resolveImport({ kind: 'queries' }, { kind: 'keys' })
         hooksPath = path.join(path.dirname(queriesPath), 'hooks.ts')
-        queriesImport = './queries.js'
+        queriesImport = `./${path.basename(queriesPath).replace(/\.tsx?$/, '.js')}`
       } else {
         const baseOutDir = outputArg
           ? path.resolve(rootDir, outputArg)
@@ -201,20 +201,22 @@ export const generateTanstackCommand: Command = {
       // Ensure clientImport and typesImport are properly reflected in combined mode
       if (clientImport && !content.includes(clientImport)) {
         content = content.replace(
-          /import type \{ JsonPrimitive, Resolved \} from '@oa-sdk\/client'/,
-          `import type { JsonPrimitive, Resolved } from '@oa-sdk/client'\nimport type { ApiClient } from '${clientImport}'`,
+          /import type \{ JsonPrimitive(?:, Resolved)? \} from '@oa-sdk\/client'/,
+          match => `${match}\nimport type { ApiClient } from '${clientImport}'`,
         )
       }
       if (typesImport && !content.includes(typesImport)) {
         const matches = new Set<string>()
-        for (const match of content.matchAll(/\b([A-Z][a-zA-Z0-9]*(?:PathParams|QueryParams|QueryString|HeaderParams|Body|Response|ClientError))\b/g)) {
-          matches.add(match[1]!)
+        for (const match of content.matchAll(/\b([A-Z][a-zA-Z0-9]*(?:PathParams|QueryParams|QueryString|HeaderParams|Body|Response|Error))\b/g)) {
+          if (match[1] !== 'Error' && match[1] !== 'TypeError' && match[1] !== 'SyntaxError') {
+            matches.add(match[1]!)
+          }
         }
         if (matches.size > 0) {
           const sorted = Array.from(matches).sort().join(', ')
           content = content.replace(
-            /import type \{ JsonPrimitive, Resolved \} from '@oa-sdk\/client'/,
-            `import type { JsonPrimitive, Resolved } from '@oa-sdk/client'\nimport type { ${sorted} } from '${typesImport}'`,
+            /import type \{ JsonPrimitive(?:, Resolved)? \} from '@oa-sdk\/client'/,
+            match => `${match}\nimport type { ${sorted} } from '${typesImport}'`,
           )
         }
       }

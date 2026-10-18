@@ -979,6 +979,17 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `TspProjectBuilder` | `plugin/builder.ts` | TypeSpec 프로젝트 고수준 프로그래머블 빌더 플랫폼 클래스 |
 | `createTspBuilder()` | `plugin/builder.ts` | TypeSpec 프로젝트 빌더 인스턴스 생성 팩토리 함수 |
 | `vitePluginTsp()` | `plugin/vite.ts` | TypeSpec 빌더 Vite/개발 서버 통합 플러그인 |
+| `SPEC_TRACEABILITY_SCHEMA_VERSION` | `traceability/spec-traceability.ts` | 스펙 추적성 그래프 사이드카 스키마 버전 상수 (`oa-sdk.spec-traceability.v1`) |
+| `DEFAULT_TRACE_SIDECAR_FILENAME` | `traceability/spec-traceability.ts` | 기본 추적성 사이드카 파일명 상수 (`.oa-trace.json`) |
+| `buildSpecTraceabilityGraph()` | `traceability/spec-traceability.ts` | OpenAPI 3.2 스펙과 TypeSpec AST/Definition Builder provenance/매니페스트를 결합해 엔드투엔드 추적성 그래프 생성 |
+| `toTypegenProvenanceMap()` | `traceability/spec-traceability.ts` | 추적성 그래프에서 `generateTypes`의 JSDoc provenance 옵션용 맵 추출 |
+| `querySpecTrace()` | `traceability/spec-traceability.ts` | pointer, symbol, canonicalId, trackingId, sourceFile, requirement, persona 등 다중 조건으로 추적 노드 질의 |
+| `analyzeSpecImpact()` | `traceability/spec-traceability.ts` | 스펙 정의 변경 시 역방향 `$ref` 그래프(`referencedBy`)를 따라 전이적 영향 범위(Blast Radius) 분석 |
+| `serializeSpecTraceabilityGraph()` | `traceability/spec-traceability.ts` | 추적성 그래프를 결정론적 JSON 문자열로 직렬화 |
+| `saveSpecTraceabilitySidecar()` | `traceability/spec-traceability.ts` | `.oa-trace.json` 추적성 사이드카 파일 저장 |
+| `loadSpecTraceabilitySidecar()` | `traceability/spec-traceability.ts` | `.oa-trace.json` 추적성 사이드카 파일 로드 및 스키마 버전 검증 |
+| `formatSpecTraceabilityHumanReport()` | `traceability/spec-traceability.ts` | 추적 노드 및 영향도 분석 결과를 터미널용 리포트로 포맷팅 |
+| `traceCommand` | `cli/commands/trace.ts` | `oa-gen trace` 스펙 정의 추적성 및 영향도 분석 CLI 커맨드 |
 
 ### 타입 (`@oa-sdk/codegen`)
 
@@ -1199,6 +1210,23 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `TspWatcherHandle` | `plugin/builder.ts` | TypeSpec 파일 감시 제어 핸들 인터페이스 |
 | `VitePluginTspOptions` | `plugin/vite.ts` | Vite TypeSpec 빌더 플러그인 설정 옵션 |
 | `VitePluginTspResult` | `plugin/vite.ts` | Vite 호환 플러그인 구조체 인터페이스 |
+| `TypegenProvenanceEntry` | `typegen/generate-types.ts` | 생성 TypeScript 코드 JSDoc에 주입할 스펙 출처/추적성 메타데이터 항목 |
+| `SpecDefinitionKind` | `traceability/spec-traceability.ts` | 추적 대상 스펙 정의 종류 유니언 (`schema` \| `operation` \| `webhook` \| `parameter` \| `response` \| `requestBody` \| `header` \| `link` \| `callback` \| `securityScheme`) |
+| `SpecTraceSourceOrigin` | `traceability/spec-traceability.ts` | 스펙 정의 원본 출처 종류 유니언 (`typespec-ast` \| `definition-fragment` \| `openapi-inline`) |
+| `SpecTraceSourceCoordinates` | `traceability/spec-traceability.ts` | 스펙 정의의 원본 파일·포인터·심볼·라인/컬럼 소스 좌표 |
+| `SpecTraceGovernanceCapabilities` | `traceability/spec-traceability.ts` | 스펙 정의에 결합된 persona, personaTraits, DPM projection, storageRef, behaviorRef, requirements 거버넌스 정보 |
+| `SpecTraceArtifactKind` | `traceability/spec-traceability.ts` | 추적 대상 생성 코드 산출물 종류 유니언 (`ArtifactKind \| 'types'`) |
+| `SpecTraceGeneratedArtifactMapping` | `traceability/spec-traceability.ts` | 스펙 정의로부터 파생된 생성 코드 아티팩트 종류·파일 경로·export 심볼 매핑 |
+| `SpecTraceabilityNode` | `traceability/spec-traceability.ts` | 단일 스펙 정의의 엔드투엔드 추적성 노드 |
+| `SpecTraceabilityEdgeKind` | `traceability/spec-traceability.ts` | 추적성 그래프 엣지 종류 유니언 (`references` \| `replaces` \| `emits-artifact`) |
+| `SpecTraceabilityEdge` | `traceability/spec-traceability.ts` | 추적성 그래프 내 정의 간 참조/대체/아티팩트 방출 엣지 |
+| `SpecTraceabilityDiagnosticCode` | `traceability/spec-traceability.ts` | 추적성 그래프 진단 코드 유니언 (`traceability/duplicate-tracking-id` \| `traceability/unresolved-ref` \| `traceability/unmapped-source`) |
+| `SpecTraceabilityDiagnostic` | `traceability/spec-traceability.ts` | 추적성 그래프 무결성 진단 항목 |
+| `SpecTraceabilitySummary` | `traceability/spec-traceability.ts` | 추적성 그래프 노드·엣지·출처 매핑·생성 심볼·진단 통계 요약 |
+| `SpecTraceabilityGraph` | `traceability/spec-traceability.ts` | `oa-sdk.spec-traceability.v1` 스펙 정의 추적성 그래프 사이드카 엔벨로프 |
+| `BuildSpecTraceabilityOptions` | `traceability/spec-traceability.ts` | `buildSpecTraceabilityGraph()` 입력 옵션 인터페이스 |
+| `SpecTraceQuery` | `traceability/spec-traceability.ts` | `querySpecTrace()` 다중 조건 질의 필터 인터페이스 |
+| `SpecImpactAnalysis` | `traceability/spec-traceability.ts` | `analyzeSpecImpact()` 전이적 역방향 영향도 분석(Blast Radius) 결과 인터페이스 |
 
 ### 내부 함수 (`@oa-sdk/codegen` — index 미노출)
 
@@ -1692,6 +1720,8 @@ Target-neutral API surface IR와 Forge SDK/CLI projection·Overlay 생성.
 | `STANDARD_PROFILES`, `ReservationForecaster`, `BudgetLedger` | `chunk-stream/src/forecaster.ts` | 프로파일 기반 예약 예측과 예산 추적 |
 | `retryAfterMs`, `synthesizeEmptyChunk`, `createResilientChunkReader`, `createResilientNdjsonReader` | `chunk-stream/src/reader.ts` | Retry-After 처리·빈 청크 합성·복원력 있는 청크 및 NDJSON reader |
 | `ChunkStreamStore`, `createChunkStreamStore` | `chunk-stream/src/store.ts` | 구독 가능한 청크 스트림 상태 저장소 |
+| `CHUNK_PRESETS`, `ChunkPresetName`, `MEMORY_PRESETS`, `MemoryPresetName`, `RECOMMENDED_CHUNK_BYTES`, `ChunkStreamMode`, `ChunkStreamConfigInput`, `ResolvedChunkStreamConfig`, `defineChunkStreamConfig` | `chunk-stream/src/types.ts` | 청크·메모리 프리셋 상수 및 청크 스트림 설정 정규화 빌더 |
+| `GetStreamManifestContext`, `GetStreamChunkContext`, `GetPlaybackSnapshotContext`, `SeekStreamFrameContext`, `ChunkStreamRouteResponse`, `ChunkStreamServerHandlers`, `DefineChunkStreamServerOptions`, `ChunkStreamTypedServer`, `ChunkStreamNotFoundError`, `defineChunkStreamServer` | `chunk-stream/src/server.ts` | 프레임워크 중립 청크 스트림 서버 핸들러 및 라우트 응답 헬퍼 |
 
 ---
 
@@ -1716,14 +1746,14 @@ UI action 소비, revision 기반 요청 조정, 재생 상태 및 storyboard �
 | `JsonPrimitive`, `JsonValue`, `UiAction`, `ContentPort`, `UiActionConsumeResult` | `chunk-stream-ui/src/types.ts` | JSON 값 및 UI action 소비 계약 |
 | `PlaybackCursor`, `PlaybackSnapshot` | `chunk-stream-ui/src/types.ts` | 재생 cursor와 snapshot |
 | `SlideActionTrigger`, `SlideActionEffect`, `SlideAction`, `SlideNode`, `Slide`, `StoryboardDocument` | `chunk-stream-ui/src/types.ts` | 슬라이드 action·node·storyboard 문서 계약 |
-| `ChunkStreamManifestEntry`, `ChunkStreamManifest`, `StoryboardChunkStreamPackage`, `StoryboardChunkStreamOptions`, `StoryboardChunkBridgeOptions` | `chunk-stream-ui/src/types.ts` | 청크 manifest와 storyboard 변환 옵션·산출물 |
+| `ChunkStreamManifestEntry`, `ChunkStreamManifest`, `StoryboardChunkStreamPackage`, `StoryboardChunkStreamOptions`, `StoryboardChunkBridgeOptions`, `StoryboardChunkServer` | `chunk-stream-ui/src/types.ts` | 청크 manifest와 storyboard 변환 옵션·산출물·서버 계약 |
 | `UiActionAdapter` | `chunk-stream-ui/src/ui-action.ts` | 재생 가능한 UI action adapter |
 | `RequestStatus`, `RevisionReceipt`, `BeginRequestOptions`, `RevisionRequest`, `RevisionFenceOptions`, `RevisionFence` | `chunk-stream-ui/src/revision-fence.ts` | revision fence 요청·receipt·상태 관리 |
 | `LatestRequestContext`, `LatestRequestResult`, `LatestRequestCoordinator`, `SeekRequest`, `SeekCoordinator` | `chunk-stream-ui/src/revision-fence.ts` | 최신 요청 및 seek 조정 |
 | `ChunkPlaybackLoadRequest`, `ChunkPlaybackLoadResult`, `ChunkPlaybackLoader`, `ChunkPlaybackPrepareContext`, `ChunkPlaybackConsumeContext`, `ChunkPlaybackBinding` | `chunk-stream-ui/src/playback-bridge.ts` | 청크 load·prepare·consume 계약 |
 | `ChunkPlaybackError`, `ChunkPlaybackPhase`, `ChunkPlaybackBridgeState`, `ChunkPlaybackSeekOptions`, `ChunkPlaybackSeekResult`, `ChunkPlaybackBridgeOptions` | `chunk-stream-ui/src/playback-bridge.ts` | 재생 오류·phase·상태·seek 계약 |
 | `ChunkPlaybackBridgeError`, `assertPlaybackSnapshot`, `ChunkPlaybackBridge` | `chunk-stream-ui/src/playback-bridge.ts` | snapshot 검증과 재생 bridge 실행 |
-| `assertChunkIndexBodyParity`, `storyboardToChunkStream`, `createStoryboardChunkPlaybackBridge` | `chunk-stream-ui/src/storyboard-adapter.ts` | index/body 일치 검증과 storyboard 청크·재생 bridge 변환 |
+| `assertChunkIndexBodyParity`, `storyboardToChunkStream`, `createStoryboardChunkPlaybackBridge`, `defineStoryboardChunkServer` | `chunk-stream-ui/src/storyboard-adapter.ts` | index/body 일치 검증과 storyboard 청크·재생 bridge·서버 변환 |
 
 ---
 
@@ -1869,7 +1899,9 @@ OpenAPI component, persona, DPM 및 CRDT 메타데이터를 TypeSpec에서 선�
 | `VALID_CRDT_TYPES`, `VALID_CRDT_RESOLUTIONS`, `VALID_CRDT_ENGINES`, `VALID_CRDT_ROLES`, `VALID_CRDT_COMPACTIONS` | `typespec-decorators/src/decorators.ts` | CRDT type·resolution·engine·role·compaction 허용값 |
 | `$actorInput`, `$machineContext`, `$eventPayload`, `$behaviorRef` | `typespec-decorators/src/decorators.ts` | XState / Behavior 런타임 데이터 스키마 decorator |
 | `$storageRef`, `$storageCatalog` | `typespec-decorators/src/decorators.ts` | Atlas DB 물리 카탈로그 증거 및 컬럼 바인딩 decorator |
+| `$traceId`, `$replaces`, `$requirement`, `TRACE_EXTENSION`, `VALID_TRACE_ID_PATTERN`, `VALID_REPLACES_ID_PATTERN`, `VALID_REQUIREMENT_ID_PATTERN` | `typespec-decorators/src/governance.ts`, `typespec-decorators/src/constants.ts` | 스펙 정의 불변 추적 ID, 마이그레이션 대체 ID, 요구사항 연결 데코레이터(`x-oa-sdk-trace`) 및 정규식 상수 |
 | `$protobuf`, `$field`, `$rpc`, `$wireFormat` | `typespec-decorators/src/protobuf.ts` | Protocol Buffers 및 RPC wire format 데코레이터 |
+| `$chunkStream`, `CHUNK_STREAM_EXTENSION`, `CHUNK_STREAM_PRESET_BYTES`, `CHUNK_MEMORY_PRESET_BYTES`, `VALID_CHUNK_STREAM_PRESETS`, `VALID_CHUNK_MEMORY_PRESETS`, `VALID_CHUNK_STREAM_MODES` | `typespec-decorators/src/chunk-stream.ts` | 청크 스트림 프로젝션 데코레이터 및 프리셋·모드 상수 |
 | `PROTOBUF_EXTENSION`, `PROTOBUF_FIELD_EXTENSION`, `RPC_EXTENSION`, `WIRE_FORMAT_EXTENSION` | `typespec-decorators/src/constants.ts` | OpenAPI x-oa-sdk wire 확장 프로퍼티 키 |
 | `VALID_WIRE_FORMATS`, `VALID_RPC_STREAMING`, `VALID_PROTOBUF_SCALAR_TYPES` | `typespec-decorators/src/constants.ts` | Wire format, RPC 스트리밍, Protobuf 스칼라 타입 허용값 |
 | `$lib`, `reportDiagnostic` | `typespec-decorators/src/lib.ts` | TypeSpec library와 diagnostic 보고 |

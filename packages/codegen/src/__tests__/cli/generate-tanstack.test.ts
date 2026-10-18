@@ -258,7 +258,7 @@ paths:
         outputRouting: {
           byKind: {
             keys: 'src/api/keys.ts',
-            queries: 'src/features/users/queries.ts',
+            queries: 'src/features/users/users.queries.ts',
           },
         },
       },
@@ -271,14 +271,47 @@ paths:
     )
 
     const dispatchedKeys = path.join(tmpDir, 'src/api/keys.ts')
-    const dispatchedQueries = path.join(tmpDir, 'src/features/users/queries.ts')
+    const dispatchedQueries = path.join(tmpDir, 'src/features/users/users.queries.ts')
+    const dispatchedHooks = path.join(tmpDir, 'src/features/users/hooks.ts')
 
     expect(fs.existsSync(dispatchedKeys)).toBe(true)
     expect(fs.existsSync(dispatchedQueries)).toBe(true)
+    expect(fs.existsSync(dispatchedHooks)).toBe(true)
 
     const queriesContent = fs.readFileSync(dispatchedQueries, 'utf8')
     // Dynamic relative import recalculated between separate folders
     expect(queriesContent).toContain('../../api/keys.js')
+
+    const hooksContent = fs.readFileSync(dispatchedHooks, 'utf8')
+    expect(hooksContent).toContain("from './users.queries.js'")
+  })
+
+  it('respects explicit --output directory in --split mode even when outputRouting is configured', async () => {
+    const configPath = path.join(tmpDir, 'oa.config.json')
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify({
+        product: {
+          outputRouting: {
+            byKind: {
+              keys: 'src/api/keys.ts',
+              queries: 'src/features/users/queries.ts',
+            },
+          },
+        },
+      }),
+      'utf8',
+    )
+
+    const explicitOutDir = path.join(tmpDir, 'explicit-split-out')
+    await generateTanstackCommand.run(
+      { spec: sampleSpecPath, config: configPath, output: explicitOutDir, split: true },
+      { projectRoot: tmpDir, cwd: tmpDir },
+    )
+
+    expect(fs.existsSync(path.join(explicitOutDir, 'keys.ts'))).toBe(true)
+    expect(fs.existsSync(path.join(explicitOutDir, 'queries.ts'))).toBe(true)
+    expect(fs.existsSync(path.join(explicitOutDir, 'hooks.ts'))).toBe(true)
   })
 
   it('delegates seamlessly from oa-gen generate --tanstack', async () => {
