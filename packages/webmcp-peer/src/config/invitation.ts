@@ -1,0 +1,98 @@
+import {
+  DEFAULT_EXTERNAL_CONSENT_PREFIX,
+  type WebMcpParsedInvitationUrl,
+} from "./types.js";
+
+export function normalizePeerUrl(value?: string, fallback = ""): string {
+  const trimmed = (value ?? "").trim() || fallback.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `http://${trimmed}`;
+}
+
+export function normalizePeerConfigUrl(value: string): string {
+  return normalizePeerUrl(value).replace(/\/+$/, "");
+}
+
+export function isLocalPeerUrl(value: string): boolean {
+  try {
+    const normalized = normalizePeerUrl(value);
+    const host = new URL(normalized).hostname;
+    return host === "127.0.0.1" || host === "localhost" || host === "::1" || host === "[::1]";
+  } catch {
+    return false;
+  }
+}
+
+export function isSecurePeerTransport(value: string): boolean {
+  const normalized = normalizePeerUrl(value);
+  if (!normalized) return false;
+  if (isLocalPeerUrl(normalized)) return true;
+  try {
+    return new URL(normalized).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+export function redactInvitationUrl(value: string): string {
+  const raw = value.trim();
+  if (!raw) return "";
+  const maskToken = (token: string): string => {
+    if (token.length <= 6) return "****";
+    return `${token.slice(0, 4)}...${token.slice(-2)}`;
+  };
+  return raw
+    .replace(/(#invite=)([^&\s]+)/i, (_m, prefix, token) => `${prefix}${maskToken(decodeURIComponent(token))}`)
+    .replace(/([?&]invite=)([^&#\s]+)/i, (_m, prefix, token) => `${prefix}${maskToken(decodeURIComponent(token))}`);
+}
+
+export function externalConsentKey(value: string, prefix: string = DEFAULT_EXTERNAL_CONSENT_PREFIX): string {
+  try {
+    const normalized = normalizePeerUrl(value);
+    return `${prefix}:${new URL(normalized).origin}`;
+  } catch {
+    return `${prefix}:${value}`;
+  }
+}
+
+export function parseInvitationUrl(value: string): WebMcpParsedInvitationUrl | null {
+  const raw = value.trim();
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw);
+    const match = parsed.pathname.match(/\/p\/([^/]+)(?:\/mcp)?\/?$/);
+    const roomId = match?.[1] ? decodeURIComponent(match[1]) : "";
+    const hashParams = new URLSearchParams(parsed.hash.replace(/^#/, ""));
+    const inviteToken = (hashParams.get("invite") || parsed.searchParams.get("invite") || "").trim();
+    if (!roomId || !inviteToken) return null;
+    const serverUrl = normalizePeerConfigUrl(parsed.origin);
+    const encodedRoom = encodeURIComponent(roomId);
+    return {
+      serverUrl,
+      roomId,
+      descriptorUrl: `${serverUrl}/p/${encodedRoom}`,
+      inviteToken,
+      mcpEndpoint: `${serverUrl}/p/${encodedRoom}/mcp`,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function buildInvitationUrl(input: {
+  descriptorUrl?: string;
+  serverUrl?: string;
+  roomId: string;
+  inviteToken: string;
+}): string {
+  const roomId = input.roomId.trim();
+  const inviteToken = input.inviteToken.trim();
+  if (!roomId || !inviteToken) {
+    throw new Error("roomId and inviteToken are required to build an invitation URL");
+  }
+  const baseDescriptor = input.descriptorUrl?.trim()
+    ? input.descriptorUrl.trim().replace(/#.*$/, "").replace(/\/+$/, "")
+    : `${normalizePeerConfigUrl(input.serverUrl || "http://127.0.0.1:8787")}/p/${encodeURIComponent(roomId)}`;
+  return `${baseDescriptor}#invite=${encodeURIComponent(inviteToken)}`;
+}

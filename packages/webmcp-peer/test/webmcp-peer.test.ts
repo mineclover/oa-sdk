@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   buildInvitationUrl,
@@ -8,10 +11,12 @@ import {
   probePeerHealth,
 } from "../src/config.js";
 import {
+  PeerMcpService,
   PeerMcpSession,
   discoverPeerCatalog,
   hashTools,
   joinPeerRoom,
+  normalizeTools,
   rotatePeerRoom,
   waitForPeerApproval,
 } from "../src/client.js";
@@ -20,9 +25,11 @@ import {
   AiRunLedger,
   InMemoryAiRunLedgerStore,
   WebMcpPeerClient,
+  isCommitReceipt,
   type WebMcpHostAdapter,
 } from "../src/provider.js";
 import {
+  FileAiRunLedgerStore,
   WebMcpPeerServer,
   createWebMcpPeerServer,
 } from "../src/server.js";
@@ -56,6 +63,7 @@ describe("@oa-sdk/webmcp-peer unified package", () => {
       roomId: "room-abc",
       descriptorUrl: "http://127.0.0.1:8787/p/room-abc",
       inviteToken: "token-xyz",
+      mcpEndpoint: "http://127.0.0.1:8787/p/room-abc/mcp",
     });
 
     const profile = createPeerConfigProfile({
@@ -69,7 +77,24 @@ describe("@oa-sdk/webmcp-peer unified package", () => {
     expect(reparsed?.invitationUrl).toBe(invite);
   });
 
-  it("runs end-to-end 3-tier Peer-Based Server Routing MCP (Provider -> Server -> Client)", async () => {
+  it("computes order-independent catalog hashes and validates tool descriptors", () => {
+    const toolA = {
+      name: "alpha_tool",
+      description: "Alpha",
+      inputSchema: { type: "object", properties: { a: { type: "string" } } },
+    };
+    const toolB = {
+      name: "beta_tool",
+      description: "Beta",
+      inputSchema: { type: "object", properties: { b: { type: "number" } } },
+    };
+
+    expect(hashTools([toolA, toolB])).toBe(hashTools([toolB, toolA]));
+    const normalized = normalizeTools({ tools: [toolB, toolA] });
+    expect(normalized.map((t) => t.name)).toEqual(["beta_tool", "alpha_tool"]);
+  });
+
+  it("runs end-to-end 3-tier Peer-Based Server Routing MCP (Provider -> Server -> Client & PeerMcpService)", async () => {
     const tools = [
       {
         name: "service_echo",
@@ -128,7 +153,7 @@ describe("@oa-sdk/webmcp-peer unified package", () => {
     });
     const roomId = provider.getSession().roomId!;
     expect(roomId).toMatch(/^[a-f0-9]+$/);
-    expect(invitationUrl).toContain(`/p/${roomId}#invite=`);
+    expect(invitationUrl).toContain(`/p/${roomId}/mcp#invite=`);
 
     // 3. External Agent Client redeems invitation and requests approval
     const joined = await joinPeerRoom({
@@ -142,10 +167,11 @@ describe("@oa-sdk/webmcp-peer unified package", () => {
     // Wait for provider to receive approval request and approve it
     await new Promise<void>((resolveApproved, rejectApproved) => {
       const timeout = setTimeout(() => rejectApproved(new Error("Approval request not received")), 5000);
-      const unsub = provider.subscribe((status) => {
+      let unsub: (() => void) | undefined;
+      unsub = provider.subscribe((status) => {
         if (status.approvalState === "pending" && status.approvalRequestId === joined.approvalRequestId) {
           clearTimeout(timeout);
-          unsub();
+          unsub?.();
           expect(provider.approveClient(status.approvalRequestId)).toBe(true);
           resolveApproved();
         }
@@ -162,8 +188,10 @@ describe("@oa-sdk/webmcp-peer unified package", () => {
     });
     expect(approvedStatus.state).toBe("approved");
 
-    // 4. External Agent Client invokes tools over HTTP MCP endpoint (`POST /p/:id/mcp`)
-    const session = new PeerMcpSession({
+    // 4. External Agent Client invokes tools via PeerMcpService multi-session orchestrator
+    const service = new PeerMcpService();
+    const session = await service.connect({
+      sessionId: "primary-room",
       serverUrl,
       roomId,
       roomEpoch: joined.roomEpoch,
@@ -171,17 +199,18 @@ describe("@oa-sdk/webmcp-peer unified package", () => {
       mcpEndpoint: `${serverUrl}/p/${roomId}/mcp`,
     });
 
-    await session.initialize();
+    expect(service.listSessions()).toHaveLength(1);
     const listedTools = await session.listTools();
     expect(listedTools).toHaveLength(1);
 
-    const callResult = (await session.callTool("service_echo", { text: "hello-peer" })) as {
+    const callResult = (await service.callTool("service_echo", { text: "hello-peer" })) as {
       content: Array<{ type: string; text: string }>;
       structuredContent?: { echoed?: string };
     };
     expect(JSON.stringify(callResult)).toContain("echo:hello-peer");
 
-    await session.disconnect();
+    await service.disconnect("primary-room");
+    expect(service.listSessions()).toHaveLength(0);
   });
 
   it("supports customHttpHandler plugin hook and headless HTTP approval + room rotation", async () => {
@@ -258,27 +287,48 @@ describe("@oa-sdk/webmcp-peer unified package", () => {
     expect(rotated.replacementRoomId).not.toBe(room.roomId);
   });
 
-  it("tracks AI Run Controller and AI Run Ledger operations idempotently", async () => {
+  it("tracks AI Run Controller, CommitReceipt validation, and FileAiRunLedgerStore idempotently", async () => {
     const controller = new AiRunController();
-    const started = controller.enqueue("run-1", "act-1");
+    const started = controller.begin("run-1", "act-1");
     expect(started.phase).toBe("queued");
 
-    const ledger = new AiRunLedger(new InMemoryAiRunLedgerStore());
-    const recordResult = await ledger.recordReceipt({
-      runId: "run-1",
-      actionId: "act-1",
-      stepIndex: 0,
-      receipt: {
-        status: "durable",
-        requestId: "req-1",
-        documentId: "doc-1",
-        operationId: "op-1",
-        transactionId: "tx-1",
-        replicaId: "rep-1",
-        committedAt: "2026-10-18T00:00:00.000Z",
-      },
-    });
-    expect(recordResult.status).toBe("appended");
-    expect(await ledger.list("run-1")).toHaveLength(1);
+    const receipt = {
+      status: "durable" as const,
+      requestId: "req-1",
+      documentId: "doc-1",
+      operationId: "op-1",
+      transactionId: "tx-1",
+      replicaId: "rep-1",
+      committedAt: "2026-10-18T00:00:00.000Z",
+    };
+    expect(isCommitReceipt(receipt)).toBe(true);
+    expect(isCommitReceipt({ status: "durable", requestId: "" })).toBe(false);
+
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "webmcp-peer-ledger-"));
+    try {
+      const ledgerFile = path.join(tempDir, "ledger.jsonl");
+      const fileStore = new FileAiRunLedgerStore(ledgerFile);
+      const ledger = new AiRunLedger(fileStore);
+
+      const firstWrite = await ledger.recordReceipt({
+        runId: "run-1",
+        actionId: "act-1",
+        stepIndex: 0,
+        receipt,
+      });
+      expect(firstWrite.status).toBe("appended");
+
+      const duplicateWrite = await ledger.recordReceipt({
+        runId: "run-1",
+        actionId: "act-1",
+        stepIndex: 0,
+        receipt,
+      });
+      expect(duplicateWrite.status).toBe("duplicate");
+      expect(await ledger.list("run-1")).toHaveLength(1);
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
   });
 });
+

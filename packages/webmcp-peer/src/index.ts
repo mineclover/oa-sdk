@@ -1,11 +1,11 @@
 /**
  * @oa-sdk/webmcp-peer
  *
- * Unified 3-Tier Peer-Based Server Routing MCP Library:
- * - `./config`   : Browser & Host URL/Invitation/Config profile utilities
- * - `./client`   : External Agent / CLI MCP session & room-join client
- * - `./provider` : Browser / Host WebMCP provider, F5 room lease, AI Run Ledger
- * - `./server`   : Zero-dependency HTTP MCP router, WebSocket signaling relay, and rate limiter
+ * Unified 3-Tier Peer-Based Server Routing MCP Library organized by functional intent:
+ * - `./config`   : URL normalization, invitation link parsing/building, profile creation, and `/health` / `/config` probing
+ * - `./client`   : External Agent / CLI MCP session, catalog drift guard, multi-session registry, and room lifecycle
+ * - `./provider` : Browser / Host WebMCP provider, F5 room lease reclaim, CommitReceipt guard, AI Run Controller & Ledger
+ * - `./server`   : Zero-dependency RFC 6455 WebSocket upgrader, HTTP MCP router, deployment catalog, and rate limiter
  */
 
 // 1. Config utilities (`./config`)
@@ -25,12 +25,16 @@ export {
   probePeerHealth,
   fetchPeerServerConfig,
   type WebMcpPeerConfigProfile,
+  type CreatePeerConfigProfileOptions,
   type WebMcpParsedInvitationUrl,
+  type ParsedPeerConfig,
+  type ParsePeerConfigResult,
+  type PeerServerPublicConfig,
   type PeerHealthState,
   type PeerHealthResult,
   type PeerHealthMessages,
   type PeerHealthProbeOptions,
-} from './config.js';
+} from "./config.js";
 
 // 2. External Agent / CLI Client (`./client`)
 export {
@@ -39,10 +43,16 @@ export {
   PeerMcpError,
   PeerMcpRpcError,
   PeerMcpCatalogChangedError,
+  canonicalRpcErrorCode,
+  isCatalogChangedRpcError,
   PeerMcpSession,
+  createPeerMcpSession,
   PeerMcpService,
+  createPeerMcpService,
   JsonPeerMcpStore,
+  createJsonPeerMcpStore,
   hashTools,
+  normalizeTools,
   discoverPeerCatalog,
   joinPeerRoom,
   getPeerSessionStatus,
@@ -50,10 +60,7 @@ export {
   rotatePeerRoom,
   normalizeServerUrl,
   websocketUrl,
-  normalizePeerUrl as normalizeClientPeerUrl,
-  parseInvitationUrl as parseClientInvitationUrl,
-  parsePeerConfig as parseClientPeerConfig,
-  createPeerConfigProfile as createClientPeerConfigProfile,
+  parseRoomId,
   type PeerMcpTransportMessage,
   type PeerMcpTool,
   type PeerMcpSessionState,
@@ -67,12 +74,6 @@ export {
   type PeerMcpCallOptions,
   type PeerMcpListener,
   type PeerMcpCatalogListener,
-  type ParsedInvitationUrl as ParsedClientInvitationUrl,
-  type PeerConfigProfile as ClientPeerConfigProfile,
-  type CreatePeerConfigProfileOptions,
-  type ParsedPeerConfig,
-  type ParsePeerConfigResult,
-  type PeerServerPublicConfig,
   type DiscoverPeerCatalogOptions,
   type DiscoveredPeerCatalog,
   type JoinPeerRoomOptions,
@@ -80,9 +81,7 @@ export {
   type PeerSessionStatusOptions,
   type WaitForPeerApprovalOptions,
   type RotatePeerRoomOptions,
-  type ClientPeerHealthResult,
-  type ClientPeerHealthProbeOptions,
-} from './client.js';
+} from "./client.js";
 
 // 3. Browser / Host Provider (`./provider`)
 export {
@@ -122,11 +121,13 @@ export {
   type WebMcpPeerApprovalState,
   type WebMcpPeerSessionInfo,
   type WebMcpToolSummary,
+  type WebMcpWireToolDescriptor,
+  toWireToolDescriptor,
   type WebMcpHostServerInfo,
   type WebMcpHostAdapter,
   type WebMcpPeerConnectOptions,
   type WebMcpPeerClientOptions,
-} from './provider.js';
+} from "./provider.js";
 
 // 4. Node.js Signaling & HTTP MCP Router Server (`./server`)
 export {
@@ -145,6 +146,7 @@ export {
   validatePublishRateLimitDecision,
   loadDeploymentCatalog,
   hashDeploymentCatalog,
+  normalizeToolCatalog,
   resolvePeerServerConfig,
   isOriginAllowed,
   isHostAllowed,
@@ -174,4 +176,4 @@ export {
   type PendingMcpRequest,
   type RoomEntry,
   type WebMcpPeerServerOptions,
-} from './server.js';
+} from "./server.js";
