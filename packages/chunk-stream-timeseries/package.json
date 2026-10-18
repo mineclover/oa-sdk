@@ -1,6 +1,6 @@
 {
   "name": "@oa-sdk/chunk-stream-timeseries",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Multi-channel time-series telemetry adapter, LTTB downsampling, and decimation for Chunk Stream runtime",
   "private": false,
   "type": "module",
