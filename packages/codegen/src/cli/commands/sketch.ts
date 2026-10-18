@@ -9,7 +9,6 @@
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
-import { checkImplementationContract } from '@oa-sdk/ast-sync'
 import { compareSketchCandidates, parseTypeSpecSketch } from '@oa-sdk/surface-ir'
 import { emitSketchArtifacts } from '../../sketch-emitter/index.js'
 import { optStr, str } from '../lib/args.js'
@@ -86,10 +85,6 @@ export const sketch: Command = {
       type: 'string',
       description: 'check-contract 액션 시 검사할 구현 파일 경로 (implementation.ts 또는 implementation.py)',
     },
-    stub: {
-      type: 'string',
-      description: 'check-contract 액션 시 비교할 계약 스텁 경로 (미지정 시 .tsp에서 자동 생성)',
-    },
     format: {
       type: 'string',
       default: 'json',
@@ -110,7 +105,7 @@ export const sketch: Command = {
       }
       const candidates = specPaths.map((filePath) => ({
         name: basename(filePath, '.tsp'),
-        sourceText: readFileSync(filePath, 'utf-8'),
+        source: readFileSync(filePath, 'utf-8'),
       }))
       const result = compareSketchCandidates(candidates)
       if (format === 'json') {
@@ -194,6 +189,8 @@ export const sketch: Command = {
       }
       const implSource = readFileSync(implPath, 'utf-8')
       const language: 'typescript' | 'python' = implPath.endsWith('.py') ? 'python' : 'typescript'
+      // Command-scoped: @oa-sdk/ast-sync loads the TypeScript compiler, which must not load at CLI startup.
+      const { checkImplementationContract } = await import('@oa-sdk/ast-sync')
       const ir = parseTypeSpecSketch(tspSource, specPath)
       const contractedOperations = ir.interfaces.flatMap((iface) =>
         iface.operations.map((op) => op.name),

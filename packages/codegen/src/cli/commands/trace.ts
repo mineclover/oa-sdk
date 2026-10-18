@@ -3,14 +3,7 @@ import { resolve } from 'node:path'
 import { parse as parseYaml } from 'yaml'
 import type { OasDocument } from '@oa-sdk/parser'
 import type { OaManifest } from '../../routing/index.js'
-import {
-  analyzeSpecImpact,
-  buildSpecTraceabilityGraph,
-  formatSpecTraceabilityHumanReport,
-  querySpecTrace,
-  saveSpecTraceabilitySidecar,
-  type SpecTraceQuery,
-} from '../../traceability/index.js'
+import type { SpecTraceQuery } from '../../traceability/index.js'
 import { bool, optStr, str } from '../lib/args.js'
 import { CliExitError } from '../lib/errors.js'
 import { parseBuildSpecProvenanceMap } from '../lib/provenance-report.js'
@@ -83,6 +76,14 @@ export const trace: Command = {
     },
   },
   async run(args) {
+    // Command-scoped: traceability reaches the TypeSpec compiler, which must not load at CLI startup.
+    const {
+      analyzeSpecImpact,
+      buildSpecTraceabilityGraph,
+      formatSpecTraceabilityHumanReport,
+      querySpecTrace,
+      saveSpecTraceabilitySidecar,
+    } = await import('../../traceability/index.js')
     const root = process.cwd()
     const specArg = str(args, 'spec')
     const specPath = resolve(root, specArg)
