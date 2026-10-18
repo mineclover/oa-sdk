@@ -9,6 +9,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 import { commands as oaGenCommands } from '../packages/codegen/src/cli/commands.js'
 import { oaGenGovernanceManifest } from '../packages/codegen/src/cli/spec/oa-gen-governance.js'
+import { CLI_CHECK_KINDS, CLI_INPUT_KINDS } from '../packages/codegen/src/cli/spec/ecs.js'
 import { OA_SDK_ARTIFACT_COMPATIBILITY_POLICY_V1 } from '../packages/codegen/src/cli/lib/artifact-compatibility-policy.js'
 import { REF_PROJECTION_ARTIFACT_SCHEMA_V1 } from '../packages/codegen/src/cli/lib/ref-projection-artifact-schema.js'
 import type { Command } from '../packages/codegen/src/cli/lib/types.js'
@@ -117,6 +118,8 @@ function main(): void {
   const issues: string[] = []
   if (!existsSync(schemaPath)) {
     issues.push(`missing schema: ${relative(root, schemaPath)}`)
+  } else {
+    compareSchemaEnums(readAnyJson(schemaPath), issues)
   }
 
   let commandCount = 0
@@ -227,6 +230,34 @@ function compareTsCommandImplementation(
     if (manifestCommandNames.has(implementationName)) continue
     if (undocumentedOaGenCommands.has(implementationName)) continue
     issues.push(`oa-gen:${implementationName}: command is missing from governance manifest`)
+  }
+}
+
+/**
+ * The published JSON schema lists the allowed input and check kinds for non-TypeScript readers.
+ * It must match the TypeScript lists exactly, otherwise a manifest that compiles can still fail
+ * validation against its own published schema.
+ */
+function compareSchemaEnums(schema: unknown, issues: string[]): void {
+  const defs = (schema as { $defs?: Record<string, any> }).$defs ?? {}
+  const mirrors = [
+    { label: 'input.kind', actual: defs.input?.properties?.kind?.enum, expected: CLI_INPUT_KINDS },
+    { label: 'command.components.checks', actual: defs.command?.properties?.components?.properties?.checks?.items?.enum, expected: CLI_CHECK_KINDS },
+  ]
+  for (const { label, actual, expected } of mirrors) {
+    if (!Array.isArray(actual)) {
+      issues.push(`${relative(root, schemaPath)}: ${label} enum is missing`)
+      continue
+    }
+    const missing = expected.filter(value => !actual.includes(value))
+    const extra = actual.filter((value: unknown) => !(expected as readonly unknown[]).includes(value))
+    if (missing.length > 0 || extra.length > 0) {
+      issues.push(
+        `${relative(root, schemaPath)}: ${label} enum drifted from spec/ecs.ts`
+          + (missing.length > 0 ? ` (missing: ${missing.join(', ')})` : '')
+          + (extra.length > 0 ? ` (unknown: ${extra.join(', ')})` : ''),
+      )
+    }
   }
 }
 

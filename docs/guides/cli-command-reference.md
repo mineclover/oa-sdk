@@ -76,6 +76,7 @@ node packages/codegen/dist/cli/index.js --help
 | `oa-gen tsp-restore` | emitted OpenAPI에 compatibility sidecar를 다시 적용할 때 | `--spec <emitted> --sidecar <sidecar>` | restored OpenAPI와 stability report |
 | `oa-gen tsp-bundle-check` | authored/generated TypeSpec bundle의 compile/restore/diff를 검사할 때 | 없음 (기본 authored fixture 사용 가능) | bundle report; 필요하면 `--project`, `--manifest`, `--sidecar`, `--expected`로 입력을 지정하고 `--fail-on-breaking`으로 expected diff gate를 켠다 |
 | `oa-gen tsp-scaffold` | TypeSpec operation 및 DTO 모델 스캐폴딩을 생성·주입할 때 | `--route <path>` | TypeSpec code generation; `--method`, `--operation-id`, `--domain`, `--file`, `--output`, `--crud`, `--envelope`, `--resource` 지원 |
+| `oa-gen sketch` | TypeSpec(`.tsp`) 모듈 인터페이스 스케치를 IR로 검증하거나, 후보 스케치를 비교하거나, 스케치에서 산출물·구현 스텁을 만들고 구현이 계약을 지키는지 확인할 때 | `--spec <tsp\|dir>` | `--action <verify\|compare\|emit\|check-contract>` (`-a`, 기본 `verify`)에 따라 Interface Sketch IR(`oa-sdk.interface-sketch.v1`), 후보 비교 결과, 5종 산출물, 구현 계약 카나리 리포트; `--out-dir` (`-o`), `--domain`, `--impl`, `--format <json\|human>` 지원. [sketch 명세](#sketch) |
 | `oa-gen reference-check` | Apitomy와 OA SDK 진단을 비권위적 비교로 확인할 때 | `--spec <openapi>` | markdown/JSON comparison; 계약 권위는 바꾸지 않음 |
 | `oa-gen scaffold-governance` | 외부 서비스에 독립 CLI·CI baseline governance scaffold를 만들 때 | `--root <dir> --service <name>` | config/script/docs/GitHub workflow; `--profile`, `--oa-gen-command`, `--oa-gen-setup-command`, `--typegen-policy` 선택 |
 | `oa-gen inventory` | OpenAPI path, operation, component, security surface를 요약할 때 | `--spec <openapi>` | markdown/JSON inventory |
@@ -500,6 +501,21 @@ oa-gen tsp-scaffold --route /orders --crud --envelope --auth none --file ./main.
 # 단일 POST 엔드포인트 코드를 stdout으로 출력
 oa-gen tsp-scaffold --route /articles --method post --operation-id createArticle
 ```
+
+## sketch
+
+`oa-gen sketch`는 TypeSpec(`.tsp`)으로 쓴 모듈 인터페이스 스케치를 `@oa-sdk/surface-ir`의 Interface Sketch IR로 읽어 네 가지 액션을 수행한다. 모든 액션은 `--format json`(기본)이면 결과를 JSON으로, `--format human`이면 한 줄 요약을 stdout에 출력한다.
+
+| 액션 (`--action`, `-a`) | `--spec` (`-s`) | 하는 일 | 종료 코드 |
+| --- | --- | --- | --- |
+| `verify` (기본) | `.tsp` 파일 또는 디렉터리 | `parseTypeSpecSketch`로 IR을 만들어 namespace, profile, 인터페이스 깊이(`depthMetrics`), 설계 red flag를 출력한다 | 파일이 없으면 1 |
+| `compare` | 쉼표로 구분한 2개 이상의 `.tsp` 경로, 또는 디렉터리(그 안의 `candidates/` 하위 디렉터리가 있으면 그곳) | `compareSketchCandidates`로 후보(파일명이 후보 이름)를 점수화해 `recommendedWinner`를 고른다 | 후보가 2개 미만이면 1 |
+| `emit` | `.tsp` 파일 또는 디렉터리 | `--out-dir`(기본: 스펙과 같은 디렉터리)에 `<domain>.schema.json`, `<domain>.openapi.json`, `<domain>.mmd`, `sketch_stub.ts`, `sketch_stub.py`를 쓴다 | 파일이 없으면 1 |
+| `check-contract` | `.tsp` 파일 또는 디렉터리 | `--impl <file>`(`.py`면 Python, 그 외 TypeScript)을 스펙의 operation·model 이름과 대조하는 구현 계약 카나리(`checkImplementationContract`)를 실행한다. Python 구현은 operation 이름을 snake_case로도 찾는다 | 계약 위반이 있거나 scrap 기준(friction signal 2개 이상)을 넘으면 1 |
+
+- `--spec`이 디렉터리이면 `<디렉터리명>.tsp`를, 없으면 이름순 첫 `.tsp` 파일을 쓴다.
+- `--domain`은 산출물 파일명과 IR 도메인 슬러그이며 기본값은 `.tsp` 파일명이다.
+- 계약의 기준은 항상 `--spec`의 `.tsp`다. `emit`으로 만든 `sketch_stub.*`는 구현의 출발점일 뿐이며 `check-contract`의 입력이 아니다.
 
 ## TypeSpec ↔ TypeScript evidence 예시
 

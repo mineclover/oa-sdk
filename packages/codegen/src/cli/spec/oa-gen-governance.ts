@@ -1545,13 +1545,13 @@ export const oaGenGovernanceManifest = {
             type: 'string',
             short: 's',
             required: true,
-            description: '표준 TypeSpec(.tsp) 파일 경로 (compare 시 쉼표로 복수 지정 가능)',
+            description: '표준 TypeSpec(.tsp) 파일 또는 스케치 디렉터리 경로 (compare 시 쉼표로 복수 지정 가능)',
           },
           {
             name: 'out-dir',
             type: 'string',
             short: 'o',
-            description: 'emit 액션 시 산출물 출력 디렉터리',
+            description: 'emit 액션 시 산출물(.schema.json, .openapi.json, .mmd, sketch_stub.{ts,py}) 출력 디렉터리',
           },
           {
             name: 'domain',
@@ -1561,12 +1561,7 @@ export const oaGenGovernanceManifest = {
           {
             name: 'impl',
             type: 'string',
-            description: 'check-contract 액션 시 검사할 구현 파일 경로',
-          },
-          {
-            name: 'stub',
-            type: 'string',
-            description: 'check-contract 액션 시 비교할 계약 스텁 경로',
+            description: 'check-contract 액션 시 검사할 구현 파일 경로 (implementation.ts 또는 implementation.py)',
           },
           {
             name: 'format',
