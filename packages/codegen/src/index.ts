@@ -170,6 +170,19 @@ export {
 export { generateStandaloneGuards } from './standalone-guards/index.js'
 export { auditShapeCommand } from './cli/commands/audit-shape.js'
 export { auditShapeFiles } from './cli/lib/audit-shape-files.js'
+export { traceCommand } from './cli/commands/trace.js'
+export {
+  SPEC_TRACEABILITY_SCHEMA_VERSION,
+  DEFAULT_TRACE_SIDECAR_FILENAME,
+  buildSpecTraceabilityGraph,
+  toTypegenProvenanceMap,
+  querySpecTrace,
+  analyzeSpecImpact,
+  serializeSpecTraceabilityGraph,
+  saveSpecTraceabilitySidecar,
+  loadSpecTraceabilitySidecar,
+  formatSpecTraceabilityHumanReport,
+} from './traceability/index.js'
 
 export type { OasSchema } from './zod-to-schema.js'
 export type {
@@ -234,7 +247,32 @@ export type {
   ResolvedProfileTarget,
   ResolvedGuardTarget,
 } from './cli/lib/config-loader.js'
-export type { ExternalSchemaRefAnalysis, ExternalSchemaRefDiagnostic, ExternalSchemaRefDiagnosticCode, ExternalSchemaTypeAlias, TypegenOptions } from './typegen/generate-types.js'
+export type {
+  ExternalSchemaRefAnalysis,
+  ExternalSchemaRefDiagnostic,
+  ExternalSchemaRefDiagnosticCode,
+  ExternalSchemaTypeAlias,
+  TypegenOptions,
+  TypegenProvenanceEntry,
+} from './typegen/generate-types.js'
+export type {
+  SpecDefinitionKind,
+  SpecTraceSourceOrigin,
+  SpecTraceSourceCoordinates,
+  SpecTraceGovernanceCapabilities,
+  SpecTraceArtifactKind,
+  SpecTraceGeneratedArtifactMapping,
+  SpecTraceabilityNode,
+  SpecTraceabilityEdgeKind,
+  SpecTraceabilityEdge,
+  SpecTraceabilityDiagnosticCode,
+  SpecTraceabilityDiagnostic,
+  SpecTraceabilitySummary,
+  SpecTraceabilityGraph,
+  BuildSpecTraceabilityOptions,
+  SpecTraceQuery,
+  SpecImpactAnalysis,
+} from './traceability/index.js'
 export type { SchemaToTsOptions } from './typegen/schema-to-ts.js'
 export type { GenerateZodOptions, Zod4AlgebraOptions } from './zodgen/index.js'
 export type {
@@ -451,4 +489,14 @@ export type {
   VitePluginTspOptions,
   VitePluginTspResult,
 } from './plugin/index.js'
+
+export {
+  buildJsonSchemaFromSketchIr,
+  buildMermaidFromSketchIr,
+  buildOpenApiFromSketchIr,
+  buildPythonStubFromSketchIr,
+  buildTypeScriptStubFromSketchIr,
+  emitSketchArtifacts,
+} from './sketch-emitter/index.js'
+export type { SketchEmittedArtifacts } from './sketch-emitter/index.js'
 

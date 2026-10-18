@@ -1,1 +1,1 @@
-export * from '@oa-sdk/ast-sync';
+export * from '@oa-sdk/ast-sync'
