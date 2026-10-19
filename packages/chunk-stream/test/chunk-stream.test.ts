@@ -11,6 +11,8 @@ import {
   synthesizeEmptyChunk,
   createResilientChunkReader,
   createChunkStreamStore,
+  defineChunkStreamConfig,
+  defineChunkStreamServer,
 } from "../src/index.js";
 
 describe("@oa-sdk/chunk-stream Core Engine", () => {
@@ -166,6 +168,29 @@ describe("@oa-sdk/chunk-stream Core Engine", () => {
     await expect(storage.getChunk("stored")).rejects.toThrow("cannot exceed toFrame");
   });
 
+  it("TieredStoragePort: memoryPreset sizes the L1 budget like defineChunkStreamConfig", () => {
+    const MiB = 1024 * 1024;
+    const chunk = (id: string) =>
+      new RuntimeChunkEnvelope({ id, sequence: 0, fromFrame: 0, toFrame: 1, residentBytes: 20 * MiB });
+    const fill = (storage: TieredStoragePort) => {
+      for (const id of ["c0", "c1", "c2", "c3"]) storage.putL1(chunk(id));
+      return ["c0", "c1", "c2", "c3"].filter((id) => storage.hasL1(id));
+    };
+
+    // highperf resolves maxL1MemoryBytes to 128 MiB, so all four 20 MiB chunks stay resident.
+    expect(defineChunkStreamConfig({ memoryPreset: "highperf" }).maxL1MemoryBytes).toBe(128 * MiB);
+    const highperf = new TieredStoragePort({ memoryPreset: "highperf" });
+    expect(fill(highperf)).toEqual(["c0", "c1", "c2", "c3"]);
+    expect(highperf.currentL1Bytes).toBe(80 * MiB);
+
+    // An explicit maxL1MemoryBytes still wins over the preset.
+    const explicit = new TieredStoragePort({ memoryPreset: "highperf", maxL1MemoryBytes: 40 * MiB });
+    expect(fill(explicit)).toEqual(["c2", "c3"]);
+
+    // Without either option the default 32 MiB budget keeps only the newest chunk.
+    expect(fill(new TieredStoragePort())).toEqual(["c3"]);
+  });
+
   it("ReservationForecaster and BudgetLedger manage allocation headroom", () => {
     const forecaster = new ReservationForecaster();
     const peak = forecaster.forecastPeakBytes(1000, "ui-action@v1");
@@ -311,6 +336,152 @@ describe("@oa-sdk/chunk-stream Core Engine", () => {
     );
     expect(fetchSeekRes.status).toBe(200);
     expect(await fetchSeekRes.json()).toEqual({ status: "completed", frame: 15 });
+
+    // Range responses through fetch() carry exactly the requested slice of the chunk bytes.
+    const fullChunk = new Uint8Array(await (await server.fetch(new Request("http://localhost/streams/demo/chunks/chunk_0"))).arrayBuffer());
+    const fetchRangeRes = await server.fetch(
+      new Request("http://localhost/streams/demo/chunks/chunk_0", { headers: { range: "bytes=4-11" } })
+    );
+    expect(fetchRangeRes.status).toBe(206);
+    expect(new Uint8Array(await fetchRangeRes.arrayBuffer())).toEqual(fullChunk.subarray(4, 12));
+  });
+});
+
+describe("defineChunkStreamServer fetch() request validation", () => {
+  const manifestFor = (streamId: string) => ({
+    schemaVersion: 1 as const,
+    streamId,
+    revision: "rev_1",
+    fps: 30,
+    totalFrames: 0,
+    totalDurationSec: 0,
+    chunkCount: 0,
+    chunks: [],
+  });
+
+  function createServer() {
+    const resolveManifest = vi.fn((streamId: string) => manifestFor(streamId));
+    const resolveChunk = vi.fn((_streamId: string, chunkId: string) => ({ id: chunkId }));
+    const resolveSnapshot = vi.fn((streamId: string) => ({ streamId }));
+    const seekFrame = vi.fn((streamId: string, frame: number) => ({ streamId, frame }));
+    const server = defineChunkStreamServer({ resolveManifest, resolveChunk, resolveSnapshot, seekFrame });
+    return { server, resolveManifest, resolveChunk, resolveSnapshot, seekFrame };
+  }
+
+  it("answers malformed percent-encoding with 400 instead of rejecting", async () => {
+    const { server, resolveManifest, resolveChunk, resolveSnapshot, seekFrame } = createServer();
+    for (const [method, path] of [
+      ["GET", "/streams/%E0%A4%A/manifest"],
+      ["GET", "/streams/demo/chunks/%E0%A4%A"],
+      ["GET", "/streams/%E0%A4%A/chunks/c0.json"],
+      ["GET", "/playback/%E0%A4%A/snapshot"],
+      ["POST", "/streams/%E0%A4%A/seek"],
+    ] as const) {
+      const res = await server.fetch(new Request(`http://localhost${path}`, { method }));
+      expect(res.status, path).toBe(400);
+      expect(await res.json()).toEqual({
+        code: "BAD_REQUEST",
+        message: "Malformed percent-encoding in request path",
+      });
+    }
+    expect(resolveManifest).not.toHaveBeenCalled();
+    expect(resolveChunk).not.toHaveBeenCalled();
+    expect(resolveSnapshot).not.toHaveBeenCalled();
+    expect(seekFrame).not.toHaveBeenCalled();
+  });
+
+  it("decodes each path segment separately so encoded slashes stay inside ids", async () => {
+    const { server, resolveManifest, resolveChunk } = createServer();
+
+    const manifestRes = await server.fetch(new Request("http://localhost/streams/a%2Fb/manifest"));
+    expect(manifestRes.status).toBe(200);
+    expect(resolveManifest).toHaveBeenLastCalledWith("a/b");
+
+    await server.fetch(new Request("http://localhost/streams/a%20b/manifest"));
+    expect(resolveManifest).toHaveBeenLastCalledWith("a b");
+
+    const chunkRes = await server.fetch(new Request("http://localhost/streams/s%2F1/chunks/c%2F0.json"));
+    expect(chunkRes.status).toBe(200);
+    expect(resolveChunk).toHaveBeenLastCalledWith("s/1", "c/0");
+
+    const missing = await server.fetch(new Request("http://localhost/streams/a%2Fb/unknown"));
+    expect(missing.status).toBe(404);
+    expect(await missing.json()).toEqual({
+      code: "NOT_FOUND",
+      message: "Route not found: /streams/a%2Fb/unknown",
+    });
+  });
+
+  it("seeks only to non-negative integer frames given as numbers or decimal strings", async () => {
+    const { server, seekFrame } = createServer();
+    const seek = (init: { query?: string; body?: string; method?: "GET" | "POST" }) =>
+      server.fetch(
+        new Request(`http://localhost/streams/demo/seek${init.query ?? ""}`, {
+          method: init.method ?? (init.body === undefined ? "GET" : "POST"),
+          ...(init.body === undefined ? {} : { body: init.body }),
+        })
+      );
+
+    const accepted: Array<[Parameters<typeof seek>[0], number]> = [
+      [{ body: JSON.stringify({ frame: 12 }) }, 12],
+      [{ body: JSON.stringify({ frame: "12" }) }, 12],
+      [{ query: "?frame=7", body: JSON.stringify({ frame: 9 }) }, 9],
+      [{ query: "?frame=7", method: "POST" }, 7],
+      [{ query: "?frame=7", body: "{}" }, 7],
+      [{ query: "?frame=15" }, 15],
+      [{}, 0],
+    ];
+    for (const [init, frame] of accepted) {
+      seekFrame.mockClear();
+      const res = await seek(init);
+      expect(res.status, JSON.stringify(init)).toBe(200);
+      expect(await res.json()).toEqual({ streamId: "demo", frame });
+      expect(seekFrame).toHaveBeenCalledWith("demo", frame);
+    }
+
+    seekFrame.mockClear();
+    const rejected: Array<Parameters<typeof seek>[0]> = [
+      { query: "?frame=abc" },
+      { query: "?frame=-5" },
+      { query: "?frame=1.5" },
+      { query: "?frame=" },
+      { query: "?frame=99999999999999999999" },
+      { body: JSON.stringify({ frame: "x" }) },
+      { body: JSON.stringify({ frame: -1 }) },
+      { body: JSON.stringify({ frame: 2.5 }) },
+      { body: JSON.stringify({ frame: null }) },
+      { body: JSON.stringify([12]) },
+      { body: "notjson" },
+      { query: "?frame=3", body: "notjson" },
+    ];
+    for (const init of rejected) {
+      const res = await seek(init);
+      expect(res.status, JSON.stringify(init)).toBe(400);
+      expect(await res.json()).toMatchObject({ code: "BAD_REQUEST" });
+    }
+    expect(seekFrame).not.toHaveBeenCalled();
+  });
+
+  it("seekStreamFrame handler rejects invalid frames before calling seekFrame", async () => {
+    const { server, seekFrame } = createServer();
+    const invalid = await server.handlers.seekStreamFrame({
+      params: { streamId: "demo" },
+      query: { frame: "abc" },
+    });
+    expect(invalid.status).toBe(400);
+    expect(invalid.body).toEqual({
+      code: "BAD_REQUEST",
+      message: "Invalid seek frame for stream 'demo': expected a non-negative integer",
+    });
+    expect(seekFrame).not.toHaveBeenCalled();
+
+    const valid = await server.handlers.seekStreamFrame({
+      params: { streamId: "demo" },
+      body: { frame: "42" },
+      query: { frame: 3 },
+    });
+    expect(valid.status).toBe(200);
+    expect(seekFrame).toHaveBeenCalledWith("demo", 42);
   });
 });
 

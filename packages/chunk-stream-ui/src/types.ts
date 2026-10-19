@@ -152,6 +152,11 @@ export interface StoryboardChunkServer
   getChunk(chunkId: string): RuntimeChunkEnvelope | undefined;
   getPlaybackSnapshot(): PlaybackSnapshot;
   seek(frame: number): Promise<unknown>;
+  /**
+   * Terminal: closes and disposes the playback bundle. Afterwards the HTTP
+   * handlers and `fetch` answer `404`, `bridge` is the closed bridge, and
+   * `seek()` resolves as `failed` with `E_CLOSED`. Calling it again is a no-op.
+   */
   close(): void;
 }
 
