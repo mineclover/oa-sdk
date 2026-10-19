@@ -1,9 +1,52 @@
 import { normalizePeerConfigUrl } from "./invitation.js";
+import { isJsonObject, parseJsonObject, readResponseText, type PeerJsonSchema } from "./json.js";
 import type {
   PeerHealthProbeOptions,
   PeerHealthResult,
   PeerServerPublicConfig,
 } from "./types.js";
+
+const PUBLIC_CONFIG_STRING_FIELDS = [
+  "type",
+  "serverUrl",
+  "protocol",
+  "mcpEndpointTemplate",
+  "clientEndpointTemplate",
+  "roomEndpoint",
+] as const;
+
+/**
+ * The public `GET /config` document. Every declared member is optional, but a member that is
+ * present must have its declared type, so callers can trust `config.roomEndpoint` to be a string
+ * and `config.defaults.roomTtlMs` to be a number. Undeclared members pass through unchanged.
+ */
+const PeerServerPublicConfigSchema: PeerJsonSchema<PeerServerPublicConfig> = {
+  parse(value) {
+    if (!isJsonObject(value)) throw new TypeError("Peer server config must be a JSON object");
+    for (const field of PUBLIC_CONFIG_STRING_FIELDS) {
+      if (value[field] !== undefined && typeof value[field] !== "string") {
+        throw new TypeError(`Peer server config field ${field} must be a string`);
+      }
+    }
+    if (value.version !== undefined && (typeof value.version !== "number" || !Number.isFinite(value.version))) {
+      throw new TypeError("Peer server config field version must be a number");
+    }
+    const defaults = value.defaults;
+    if (defaults !== undefined) {
+      if (!isJsonObject(defaults)) throw new TypeError("Peer server config field defaults must be an object");
+      if (defaults.approvalRequired !== undefined && typeof defaults.approvalRequired !== "boolean") {
+        throw new TypeError("Peer server config field defaults.approvalRequired must be a boolean");
+      }
+      if (
+        defaults.roomTtlMs !== undefined &&
+        (typeof defaults.roomTtlMs !== "number" || !Number.isFinite(defaults.roomTtlMs))
+      ) {
+        throw new TypeError("Peer server config field defaults.roomTtlMs must be a number");
+      }
+    }
+    return value;
+  },
+};
 
 /**
  * Check the peer's public health route before creating a room. This is kept
@@ -58,7 +101,7 @@ export async function probePeerHealth(value: string, options: PeerHealthProbeOpt
       }, timeoutMs);
     });
     const response = await Promise.race([request, timeout]);
-    const body = await response.json().catch(() => null) as Record<string, unknown> | null;
+    const body = parseJsonObject(await readResponseText(response));
     if (!response.ok) {
       return {
         ok: false,
@@ -71,7 +114,7 @@ export async function probePeerHealth(value: string, options: PeerHealthProbeOpt
             : `피어 서버가 HTTP ${response.status}로 응답했습니다. 서버 상태와 주소를 확인하세요.`,
       };
     }
-    if (body?.status !== "healthy") {
+    if (body.status !== "healthy") {
       return {
         ok: false,
         state: "unhealthy",
@@ -113,6 +156,12 @@ export async function probePeerHealth(value: string, options: PeerHealthProbeOpt
   }
 }
 
+/**
+ * Read the peer's public `GET /config` document. Failures are reported by rejecting: an empty URL,
+ * a missing `fetch`, a timeout, a non-2xx response (with the server's `error` text when present),
+ * and a body that is not a valid config document. A `signal` that is already aborted rejects with
+ * its reason (an `AbortError` by default) before any request is sent.
+ */
 export async function fetchPeerServerConfig(
   value: string,
   options: Omit<PeerHealthProbeOptions, "messages"> = {},
@@ -126,6 +175,9 @@ export async function fetchPeerServerConfig(
   const controller = typeof AbortController !== "undefined" ? new AbortController() : undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const onExternalAbort = () => controller?.abort();
+  // A signal that is already aborted never fires "abort", so a superseded lookup must be refused
+  // before any request is sent (it would otherwise resolve and overwrite a newer endpoint's config).
+  options.signal?.throwIfAborted();
   options.signal?.addEventListener("abort", onExternalAbort, { once: true });
   try {
     const request = fetchImpl(`${base}/config`, {
@@ -140,11 +192,16 @@ export async function fetchPeerServerConfig(
       }, timeoutMs);
     });
     const response = await Promise.race([request, timeout]);
-    const body = await response.json().catch(() => ({})) as PeerServerPublicConfig;
+    const text = await readResponseText(response);
     if (!response.ok) {
-      throw new Error(typeof body?.error === "string" ? body.error : `HTTP ${response.status}`);
+      const body = parseJsonObject(text);
+      throw new Error(typeof body.error === "string" ? body.error : `HTTP ${response.status}`);
     }
-    return body;
+    try {
+      return PeerServerPublicConfigSchema.parse(JSON.parse(text));
+    } catch {
+      throw new Error("피어 서버 설정 응답 형식이 올바르지 않습니다. 호환되는 Framebook peer 서버를 사용하세요.");
+    }
   } finally {
     if (timer !== undefined) clearTimeout(timer);
     options.signal?.removeEventListener("abort", onExternalAbort);

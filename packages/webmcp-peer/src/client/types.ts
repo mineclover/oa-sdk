@@ -5,6 +5,33 @@ export const PACKAGE_VERSION = "0.1.0";
 
 export type PeerMcpTransportMessage = Record<string, unknown> | string;
 
+/** A JSON-RPC 2.0 response envelope as received from the peer; `result` and `error` are unvalidated. */
+export interface PeerMcpRpcResponse {
+  jsonrpc: "2.0";
+  id?: string | number | null;
+  result?: unknown;
+  error?: unknown;
+  [key: string]: unknown;
+}
+
+/** One MCP content block (`text`, `image`, `audio`, `resource_link`, `resource`, ...). */
+export interface PeerMcpContentBlock {
+  type: string;
+  [key: string]: unknown;
+}
+
+/**
+ * The validated `result` of a `tools/call`. `content` (when present) holds MCP content blocks,
+ * `structuredContent` (when present) is a JSON object, and `isError` (when present) is a boolean.
+ * Other members (for example the provider's legacy `data` mirror) pass through unvalidated.
+ */
+export interface PeerMcpCallToolResult {
+  content?: PeerMcpContentBlock[];
+  structuredContent?: Record<string, unknown>;
+  isError?: boolean;
+  [key: string]: unknown;
+}
+
 export interface PeerMcpTool {
   name: string;
   title?: string;
@@ -55,6 +82,14 @@ export interface PeerMcpSessionInfo {
   toolsCount: number;
 }
 
+/** The tool catalog cache a session persists through its `storage` (see `JsonPeerMcpStore`). */
+export interface PeerMcpCatalogCache {
+  cachedTools: PeerMcpTool[];
+  catalogVersion: number | string;
+  catalogHash?: string;
+  updatedAt: string | null;
+}
+
 export interface PeerMcpStore {
   load(): unknown;
   save(value: unknown): void;
@@ -81,6 +116,8 @@ export interface PeerMcpTransport {
 
 export interface PeerMcpSessionOptions {
   serverUrl?: string;
+  /** fetch used by the Streamable HTTP transport and by `revoke()`; defaults to `globalThis.fetch`. */
+  fetchImpl?: typeof fetch;
   roomId?: string;
   roomEpoch?: number;
   descriptorUrl?: string;
@@ -148,7 +185,8 @@ export interface JoinPeerRoomOptions {
   fetchImpl?: typeof fetch;
 }
 
-export interface JoinedPeerRoom {
+/** The client ticket the relay issues from `POST /p/:id/join`. */
+export interface PeerClientTicket {
   roomId: string;
   roomEpoch: number;
   clientToken: string;
@@ -160,10 +198,14 @@ export interface JoinedPeerRoom {
   approvalState: string;
   state: string;
   approvalRequestId?: string;
+  [key: string]: unknown;
+}
+
+/** A redeemed invitation: the relay's client ticket plus the endpoints the client derived for the room. */
+export interface JoinedPeerRoom extends PeerClientTicket {
   serverUrl: string;
   wsUrl: string;
   mcpEndpoint: string;
-  [key: string]: unknown;
 }
 
 export interface PeerSessionStatusOptions {

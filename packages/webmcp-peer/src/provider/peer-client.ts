@@ -1,5 +1,8 @@
+import { isJsonObject, JsonObjectSchema, parseJsonObject, readResponseText } from "../config/json.js";
+import { PEER_RELAY_MAX_CATALOG_BYTES, utf8ByteLength } from "../config/limits.js";
 import {
   AiRunController,
+  AiRunLimitExceededError,
   type AiRollbackStepResult,
   type AiRunPoint,
   type AiRunSnapshot,
@@ -32,6 +35,131 @@ import {
   type WebMcpPeerSessionInfo,
   type WebMcpPeerState,
 } from "./types.js";
+import {
+  RELAY_MAX_MESSAGE_BYTES,
+  encodeRelayMcpReply,
+  errorMessage,
+  hostPayload,
+  interpretHostResult,
+  isAiRunPhase,
+  nonEmptyString,
+  readAiTrace,
+  rpcRequestId,
+  toolErrorResult,
+  traceRunId,
+  traceStepIndex,
+  type JsonRpcId,
+  type ProviderRpcResponse,
+} from "./tool-call.js";
+import {
+  DataChannelChunkSchema,
+  PeerRoomDescriptorSchema,
+  ProviderFrameSchema,
+  SavedRoomLeaseSchema,
+  type PeerRoomDescriptor,
+  type ProviderFrame,
+} from "./wire-schemas.js";
+
+const CATALOG_INVALID_ERROR = "CATALOG_INVALID";
+const CATALOG_TOO_LARGE_ERROR = "CATALOG_TOO_LARGE";
+/** The JSON-RPC error the relay itself answers a catalog request with when the room has no catalog. */
+const CATALOG_UNAVAILABLE_RPC_ERROR = { code: -32090, message: "CATALOG_UNAVAILABLE" } as const;
+
+/** True for a session error that reports a catalog the relay will not serve. */
+function isCatalogError(error: string | null): boolean {
+  return error !== null && (error.startsWith(CATALOG_INVALID_ERROR) || error.startsWith(CATALOG_TOO_LARGE_ERROR));
+}
+
+/** Which channel a JSON-RPC request reached the provider on. */
+type McpRequestChannel = "relay" | "data-channel";
+
+/**
+ * The last `register` frame the provider sent to one relay room, kept as sent. The relay serves
+ * the catalog it last accepted from the provider, and it keeps a room's catalog while the provider
+ * reconnects, so this is the catalog the relay holds for that room unless it refused this frame.
+ */
+interface RegisteredCatalog {
+  readonly serverUrl: string;
+  readonly roomId: string;
+  readonly registerSeq: number;
+  /** The serialized `register` frame. */
+  readonly frame: string;
+  /**
+   * Why the relay refused the frame (its CATALOG_INVALID or CATALOG_TOO_LARGE rejection), when it
+   * did. The relay then still serves an older catalog, which the provider does not know.
+   */
+  refusal?: string;
+}
+
+/**
+ * Sends one frame on the relay signaling socket; every frame the provider sends there goes through
+ * here. The relay closes a socket that sends a message over its limit (close code 1009), and a
+ * closed provider socket drops every agent of the room. Some frames echo values an agent chose (an
+ * answer repeats the offer's `requestId`), so the serialized frame is measured instead of being
+ * assumed small: a frame over {@link RELAY_MAX_MESSAGE_BYTES} is not sent, with a warning. Returns
+ * whether the frame was handed to the socket.
+ */
+function sendRelayFrame(ws: WebSocket, frame: string | Record<string, unknown>, label: string): boolean {
+  const text = typeof frame === "string" ? frame : JSON.stringify(frame);
+  const bytes = utf8ByteLength(text);
+  if (bytes > RELAY_MAX_MESSAGE_BYTES) {
+    console.warn(
+      `[WebMCP] The ${bytes}-byte ${label} frame exceeds the relay's ${RELAY_MAX_MESSAGE_BYTES}-byte message limit; it was not sent.`,
+    );
+    return false;
+  }
+  try {
+    ws.send(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Parses one signaling frame; anything that is not a JSON object with a string `type` is ignored. */
+function parseProviderFrame(data: unknown): ProviderFrame | null {
+  if (typeof data !== "string") return null;
+  try {
+    return ProviderFrameSchema.parse(JSON.parse(data));
+  } catch {
+    return null;
+  }
+}
+
+/** Parses a relay room descriptor, reporting any malformed one under `invalidCode`. */
+function readRoomDescriptor(text: string, invalidCode: string): PeerRoomDescriptor {
+  try {
+    return PeerRoomDescriptorSchema.parse(JSON.parse(text));
+  } catch {
+    throw new Error(invalidCode);
+  }
+}
+
+const HOST_ADAPTER_METHODS = [
+  "listTools",
+  "invoke",
+  "getStatus",
+  "setWriteEnabled",
+  "toggleWrite",
+  "getContext",
+  "getServerInfo",
+  "getUndoToolName",
+] as const;
+
+/** An object whose adapter members, where present, are functions. */
+function isHostAdapter(value: unknown): value is WebMcpHostAdapter {
+  return (
+    isJsonObject(value) &&
+    HOST_ADAPTER_METHODS.every((member) => value[member] === undefined || typeof value[member] === "function")
+  );
+}
+
+/** The adapter a host page exposes as `globalThis.Framebook.webMCP` instead of passing it in. */
+function globalHostAdapter(): WebMcpHostAdapter | undefined {
+  const framebook: unknown = Reflect.get(globalThis, "Framebook");
+  const adapter = isJsonObject(framebook) ? framebook.webMCP : undefined;
+  return isHostAdapter(adapter) ? adapter : undefined;
+}
 
 export class WebMcpPeerClient {
   private static instance?: WebMcpPeerClient;
@@ -64,7 +192,7 @@ export class WebMcpPeerClient {
   private readonly aiRuns = new AiRunController();
   private readonly aiRunSelections = new Map<string, { slideId: string; nodeIds: string[] }>();
   private aiRunLedger?: AiRunLedger;
-  private expiryTimer?: any;
+  private expiryTimer?: ReturnType<typeof setTimeout>;
   private lastConnectOptions?: WebMcpPeerConnectOptions;
 
   private ws?: WebSocket;
@@ -72,8 +200,8 @@ export class WebMcpPeerClient {
   private pc?: RTCPeerConnection;
   private dataChannel?: RTCDataChannel;
   private listeners = new Set<(session: WebMcpPeerSessionInfo) => void>();
-  private pingTimer?: any;
-  private reconnectTimer?: any;
+  private pingTimer?: ReturnType<typeof setInterval>;
+  private reconnectTimer?: ReturnType<typeof setTimeout>;
   private reconnectAttempts = 0;
 
   private activeTransport?: WebMcpCrdtTransport;
@@ -81,6 +209,13 @@ export class WebMcpPeerClient {
   private detachTransportCarrier?: () => void;
 
   private frameSeq = 0;
+  /**
+   * The `registerSeq` of the latest catalog sync: the last `register` frame sent, or one withheld
+   * as too large. The relay echoes it in a rejection, so a rejection of an older catalog is told apart.
+   */
+  private registerSeq = 0;
+  /** The last catalog sent to a relay room; relay-forwarded catalog requests are answered from it. */
+  private registeredCatalog?: RegisteredCatalog;
   private framePending = new Map<number, { total: number; parts: string[]; received: number }>();
   private hostAdapter?: WebMcpHostAdapter;
   private shouldSuppressAutoReconnect: (location: { search?: string; pathname?: string }) => boolean;
@@ -89,6 +224,13 @@ export class WebMcpPeerClient {
     this.hostAdapter = options.hostAdapter;
     this.shouldSuppressAutoReconnect =
       options.shouldSuppressAutoReconnect ?? defaultShouldSuppressAutoReconnect;
+    // The controller evicts idle runs at its run limit; drop the selection state of any run it no
+    // longer tracks so the map stays bounded by the controller.
+    this.aiRuns.subscribe(() => {
+      for (const runId of this.aiRunSelections.keys()) {
+        if (!this.aiRuns.get(runId)) this.aiRunSelections.delete(runId);
+      }
+    });
   }
 
   static getShared(): WebMcpPeerClient {
@@ -117,29 +259,113 @@ export class WebMcpPeerClient {
   /**
    * Broadcasts the latest host tool catalog (`type: 'register'`) over the active
    * provider signaling socket and updates local session listeners in real time.
+   * Call it whenever the host catalog changes: agents behind the relay (over HTTP, and a WebSocket
+   * agent's tools/list and server/discover) are served the catalog last sent this way; only a
+   * DataChannel agent lists the live host catalog. Returns false when no catalog was sent: no open
+   * socket, a host `listTools` that threw, or a catalog withheld as CATALOG_TOO_LARGE.
    */
   syncTools(): boolean {
     const ws = this.ws;
-    let sent = false;
-    if (ws && ws.readyState === 1) {
-      try {
-        const rawTools = this.resolveHostAdapter()?.listTools?.() || [];
-        ws.send(
-          JSON.stringify({
-            type: "register",
-            alias: this.alias,
-            tools: rawTools.map(toWireToolDescriptor),
-          }),
-        );
-        sent = true;
-      } catch {}
-    }
-    this.notify();
+    const errorBefore = this.error;
+    const sent = ws !== undefined && ws.readyState === 1 && this.sendRegister(ws);
+    // sendRegister notifies a session error it changed; otherwise only the tool count may differ.
+    if (this.error === errorBefore) this.notify();
     return sent;
   }
 
+  /**
+   * Sends the host catalog as a `register` frame stamped with a new `registerSeq`. The relay never
+   * acknowledges an accepted catalog and answers a rejected one with a CATALOG_INVALID or
+   * CATALOG_TOO_LARGE error frame that echoes the frame's `registerSeq` (see
+   * {@link handleRelayError}), so a previous rejection is cleared once a new catalog is on its way
+   * and a rejection of that catalog sets it again.
+   *
+   * A frame over {@link PEER_RELAY_MAX_CATALOG_BYTES} is withheld: the relay could not announce it
+   * and list it to WebSocket agents within its message limit, and a frame over the limit itself
+   * would make it close this socket (dropping every agent of the room) on every auto-reconnect.
+   * The session error is CATALOG_TOO_LARGE and the socket stays open, but the relay is not told:
+   * it keeps announcing and serving the last catalog it accepted from this provider, agents are not
+   * told that catalog is stale, and a call to a tool the host added since is answered TOOL_NOT_FOUND
+   * (a room that never had a catalog answers tools/list with CATALOG_UNAVAILABLE). This lasts until
+   * a catalog that fits is synced.
+   *
+   * The relay passes a WebSocket agent's tools/list and server/discover to the provider and takes
+   * the tools of the reply as a catalog announcement, so those requests are answered from the last
+   * frame sent here (see {@link relayCatalogTools}), never from the live host catalog: a withheld
+   * catalog cannot reach the relay or its agents that way either.
+   *
+   * Subscribers are notified of every change this makes to the session error.
+   */
+  private sendRegister(ws: WebSocket): boolean {
+    let frame: string;
+    let toolCount: number;
+    const registerSeq = this.registerSeq + 1;
+    try {
+      const rawTools = this.resolveHostAdapter()?.listTools?.() || [];
+      toolCount = rawTools.length;
+      frame = JSON.stringify({
+        type: "register",
+        alias: this.alias,
+        registerSeq,
+        tools: rawTools.map(toWireToolDescriptor),
+      });
+    } catch {
+      return false;
+    }
+    // From here on this is the latest catalog, sent or withheld: a rejection of an older one is stale.
+    this.registerSeq = registerSeq;
+    const bytes = utf8ByteLength(frame);
+    if (bytes > PEER_RELAY_MAX_CATALOG_BYTES) {
+      const tools = `${toolCount} tool${toolCount === 1 ? "" : "s"}`;
+      this.setSessionError(
+        `${CATALOG_TOO_LARGE_ERROR}: the register frame for ${tools} is ${bytes} bytes, ` +
+          `over the relay protocol's ${PEER_RELAY_MAX_CATALOG_BYTES}-byte catalog limit`,
+      );
+      console.warn(`[WebMCP] ${this.error}; the catalog was not sent.`);
+      return false;
+    }
+    if (!sendRelayFrame(ws, frame, "register")) return false;
+    if (this.roomId !== null) {
+      this.registeredCatalog = { serverUrl: this.serverUrl, roomId: this.roomId, registerSeq, frame };
+    }
+    if (isCatalogError(this.error)) this.setSessionError(null);
+    return true;
+  }
+
+  /**
+   * The tools to answer a relay-forwarded tools/list or server/discover with: those of the last
+   * `register` frame sent to the current room, which is the catalog the relay holds. The relay
+   * takes the tools of that reply as a catalog announcement, so answering with the live host
+   * catalog would hand it a catalog withheld as too large: the relay would adopt it, or (over its
+   * announcement limit) refuse it and forward it unstamped, so the agent would hold a catalog the
+   * relay does not and every tools/call would fail with CATALOG_CHANGED.
+   *
+   * There is nothing to answer with when no frame was sent to this room, or the relay refused the
+   * last one; the request is then answered CATALOG_UNAVAILABLE, with the reason, as the relay
+   * itself answers a request for a catalog it does not have.
+   */
+  private relayCatalogTools(): { tools: unknown } | { unavailable: string } {
+    const registered = this.registeredCatalog;
+    if (!registered || registered.roomId !== this.roomId || registered.serverUrl !== this.serverUrl) {
+      const error = this.error;
+      return {
+        unavailable:
+          error !== null && isCatalogError(error) ? error : "the provider has not registered a tool catalog with this relay room",
+      };
+    }
+    if (registered.refusal !== undefined) return { unavailable: registered.refusal };
+    return { tools: JsonObjectSchema.parse(JSON.parse(registered.frame)).tools };
+  }
+
+  /** Sets the session error, notifying subscribers when it changed. */
+  private setSessionError(error: string | null): void {
+    if (this.error === error) return;
+    this.error = error;
+    this.notify();
+  }
+
   private resolveHostAdapter(): WebMcpHostAdapter | undefined {
-    return this.hostAdapter ?? (globalThis as any).Framebook?.webMCP;
+    return this.hostAdapter ?? globalHostAdapter();
   }
 
   getSession(): WebMcpPeerSessionInfo {
@@ -195,47 +421,25 @@ export class WebMcpPeerClient {
   private readSavedRoomLease(serverUrl = this.serverUrl): SavedRoomLease | null {
     try {
       if (typeof window === "undefined") return null;
-      const raw = localStorage.getItem(this.leaseStorageKey(serverUrl));
+      const key = this.leaseStorageKey(serverUrl);
+      const raw = localStorage.getItem(key);
       if (!raw) return null;
-      const parsed = JSON.parse(raw) as Partial<SavedRoomLease>;
-      const parsedRoomEpoch = parsed.roomEpoch;
-      if (
-        typeof parsed.serverUrl !== "string" ||
-        typeof parsed.roomId !== "string" ||
-        typeof parsed.leaseToken !== "string" ||
-        !parsed.leaseToken ||
-        !Number.isSafeInteger(parsedRoomEpoch) ||
-        (parsedRoomEpoch as number) < 0 ||
-        typeof parsed.expiresAt !== "number" ||
-        !Number.isFinite(parsed.expiresAt)
-      ) {
+      const lease = SavedRoomLeaseSchema.parse(JSON.parse(raw));
+      if (lease.expiresAt <= Date.now()) {
+        localStorage.removeItem(key);
         return null;
       }
-      if (parsed.expiresAt <= Date.now()) {
-        localStorage.removeItem(this.leaseStorageKey(serverUrl));
-        return null;
-      }
-      return parsed as SavedRoomLease;
+      return lease;
     } catch {
       return null;
     }
   }
 
-  private saveRoomLease(serverUrl: string, descriptor: Record<string, unknown>): void {
-    const leaseToken = typeof descriptor.reconnectToken === "string" ? descriptor.reconnectToken : "";
-    const roomId =
-      typeof descriptor.roomId === "string"
-        ? descriptor.roomId
-        : typeof descriptor.id === "string"
-          ? descriptor.id
-          : "";
-    const roomEpoch = typeof descriptor.roomEpoch === "number" ? descriptor.roomEpoch : -1;
-    const expiresAt =
-      typeof descriptor.reconnectTokenExpiresAt === "number"
-        ? descriptor.reconnectTokenExpiresAt
-        : typeof descriptor.expiresAt === "number"
-          ? descriptor.expiresAt
-          : 0;
+  private saveRoomLease(serverUrl: string, descriptor: PeerRoomDescriptor): void {
+    const leaseToken = descriptor.reconnectToken ?? "";
+    const roomId = descriptor.id;
+    const roomEpoch = descriptor.roomEpoch ?? -1;
+    const expiresAt = descriptor.reconnectTokenExpiresAt ?? descriptor.expiresAt ?? 0;
     if (!leaseToken || !roomId || !Number.isSafeInteger(roomEpoch) || roomEpoch < 0 || expiresAt <= Date.now()) {
       return;
     }
@@ -249,7 +453,7 @@ export class WebMcpPeerClient {
           roomEpoch,
           leaseToken,
           expiresAt,
-          ...(typeof descriptor.alias === "string" ? { alias: descriptor.alias } : {}),
+          ...(descriptor.alias !== undefined ? { alias: descriptor.alias } : {}),
         } satisfies SavedRoomLease),
       );
     } catch {}
@@ -318,10 +522,13 @@ export class WebMcpPeerClient {
           { context: { ...context, requestId } },
           { expectedHistoryTransactionId: transactionId },
         );
-        if (result?.ok && result?.receipt?.status && result.receipt.status !== "outcome-unknown") {
+        const payload = hostPayload(result);
+        const receipt = isJsonObject(payload.receipt) ? payload.receipt : undefined;
+        const error = isJsonObject(payload.error) ? payload.error : undefined;
+        if (payload.ok && receipt?.status && receipt.status !== "outcome-unknown") {
           return "rolled-back" as const;
         }
-        return result?.error?.code === "OUTCOME_UNKNOWN" || result?.receipt?.status === "outcome-unknown"
+        return error?.code === "OUTCOME_UNKNOWN" || receipt?.status === "outcome-unknown"
           ? ("outcome-unknown" as const)
           : ("failed" as const);
       });
@@ -363,41 +570,82 @@ export class WebMcpPeerClient {
     this.notify();
   }
 
+  /**
+   * Reconnects from the settings a previous `connect()` saved, reclaiming the saved room lease.
+   * Resolves false when auto-reconnect is suppressed, nothing is saved, or the connect failed.
+   */
   async autoReconnectIfSaved(): Promise<boolean> {
+    return (await this.attemptAutoReconnect()) === "connected";
+  }
+
+  /** The connect options a previous `connect()` saved, or null when auto-reconnect must not run. */
+  private readAutoReconnectOptions(): WebMcpPeerConnectOptions | null {
+    if (typeof window === "undefined" || this.shouldSuppressAutoReconnect(window.location ?? {})) return null;
+    if (localStorage.getItem("webmcp:auto-reconnect") === "false") return null;
+    const serverUrl = localStorage.getItem("webmcp:server-url");
+    if (!serverUrl) return null;
+    return {
+      serverUrl,
+      alias: localStorage.getItem("webmcp:peer-alias") || this.alias,
+      publishKey: localStorage.getItem("webmcp:publish-key") || "local-development-only",
+      autoReconnect: true,
+      enableWrite: localStorage.getItem("webmcp:write-enabled") !== "false",
+      enableCrdt: localStorage.getItem("webmcp:crdt-enabled") === "true",
+      reclaimLease: true,
+    };
+  }
+
+  /**
+   * One auto-reconnect attempt: "skipped" when auto-reconnect is suppressed or nothing is saved,
+   * "failed" when the connect itself failed, "connected" otherwise.
+   */
+  private async attemptAutoReconnect(): Promise<"connected" | "skipped" | "failed"> {
+    let options: WebMcpPeerConnectOptions | null;
     try {
-      if (typeof window === "undefined" || this.shouldSuppressAutoReconnect(window.location ?? {})) {
-        return false;
-      }
-      const auto = localStorage.getItem("webmcp:auto-reconnect");
-      if (auto === "false") return false;
-
-      const serverUrl = localStorage.getItem("webmcp:server-url");
-      if (!serverUrl) return false;
-
-      const alias = localStorage.getItem("webmcp:peer-alias") || this.alias;
-      const publishKey = localStorage.getItem("webmcp:publish-key") || "local-development-only";
-      const savedCrdt = localStorage.getItem("webmcp:crdt-enabled") === "true";
-
-      const savedWrite = localStorage.getItem("webmcp:write-enabled");
-      if (savedWrite !== "false") {
-        this.setWriteEnabled(true);
-      }
-
-      console.log(`[WebMCP] Auto-reconnecting peer '${alias}' to ${serverUrl}...`);
-      await this.connect({
-        serverUrl,
-        alias,
-        publishKey,
-        autoReconnect: true,
-        enableWrite: savedWrite !== "false",
-        enableCrdt: savedCrdt,
-        reclaimLease: true,
-      });
-      return true;
-    } catch (err: any) {
-      console.warn("[WebMCP] Auto-reconnect failed or skipped:", err.message);
-      return false;
+      options = this.readAutoReconnectOptions();
+    } catch (error) {
+      console.warn("[WebMCP] Auto-reconnect skipped:", errorMessage(error, "storage unavailable"));
+      return "skipped";
     }
+    if (!options) return "skipped";
+    if (options.enableWrite) this.setWriteEnabled(true);
+    console.log(`[WebMCP] Auto-reconnecting peer '${options.alias}' to ${options.serverUrl}...`);
+    try {
+      await this.connect(options);
+      return "connected";
+    } catch (error) {
+      console.warn("[WebMCP] Auto-reconnect failed:", errorMessage(error, "connect failed"));
+      return "failed";
+    }
+  }
+
+  /**
+   * Schedules the next auto-reconnect attempt with exponential backoff (1 s, 1.5 s, 2.25 s, ...,
+   * capped at 15 s). A failed attempt schedules the next one, so the provider keeps retrying while
+   * the relay is unreachable; a successful attempt resets the backoff when the relay sends `ready`.
+   */
+  private scheduleAutoReconnect(): void {
+    if (!this.autoReconnect || this.approvalState === "expired" || this.state === "idle") return;
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectAttempts += 1;
+    const attempts = this.reconnectAttempts;
+    const delay = Math.min(1000 * Math.pow(1.5, attempts - 1), 15000);
+    console.log(`[WebMCP] WebSocket disconnected. Scheduling auto-reconnect in ${Math.round(delay)}ms...`);
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = undefined;
+      void this.runScheduledReconnect(attempts);
+    }, delay);
+  }
+
+  private async runScheduledReconnect(attempts: number): Promise<void> {
+    const outcome = await this.attemptAutoReconnect();
+    // Retry only a genuine connect failure. A skipped attempt (auto-reconnect turned off, nothing
+    // saved), a manual disconnect ("idle") or a newer connect that superseded this one (it owns
+    // the state, or has already scheduled its own retry) must not restart the loop.
+    if (outcome !== "failed" || this.state !== "error" || !this.autoReconnect || this.reconnectTimer) return;
+    // connect() -> disconnect() reset the counter; restore it so the backoff keeps growing.
+    this.reconnectAttempts = attempts;
+    this.scheduleAutoReconnect();
   }
 
   subscribe(listener: (session: WebMcpPeerSessionInfo) => void): () => void {
@@ -415,6 +663,12 @@ export class WebMcpPeerClient {
     }
   }
 
+  /**
+   * Creates a relay room (or, with `reclaimLease`, reclaims the saved one) and attaches the
+   * provider socket. Resolves to the invitation URL to hand to an agent
+   * (`<descriptorUrl>#invite=<token>`); the full session state is available from `getSession()`
+   * and `subscribe()`.
+   */
   async connect(options: WebMcpPeerConnectOptions): Promise<string> {
     this.disconnect();
     const generation = ++this.connectionGeneration;
@@ -495,18 +749,18 @@ export class WebMcpPeerClient {
             `Cloudflare 에지 연결 오류 (${res.status}): 시그널링 서버 및 터널 라우팅 상태를 확인하세요.`,
           );
         }
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || `HTTP ${res.status}: Failed to create signaling room`);
+        const errData = parseJsonObject(await readResponseText(res));
+        throw new Error(nonEmptyString(errData.error) ?? `HTTP ${res.status}: Failed to create signaling room`);
       }
 
-      const created = await res.json();
+      const created = readRoomDescriptor(await readResponseText(res), "INVALID_ROOM_DESCRIPTOR");
       if (generation !== this.connectionGeneration) throw new Error("PEER_SESSION_SUPERSEDED");
       return this.attachCreatedRoom(created, options, generation);
-    } catch (err: any) {
+    } catch (err) {
       if (generation !== this.connectionGeneration) throw err;
       this.state = "error";
-      const raw = err.message || "Connection failed";
-      if (raw.includes("Failed to fetch") || err.name === "TypeError") {
+      const raw = errorMessage(err, "Connection failed");
+      if (raw.includes("Failed to fetch") || (err instanceof Error && err.name === "TypeError")) {
         this.error = `시그널링 서버 연결 실패 (${this.serverUrl}): 서버가 응답하지 않습니다. 포트(8787) 및 네트워크를 확인하세요.`;
       } else if (raw.includes("520") || raw.includes("521") || raw.includes("522") || raw.includes("524")) {
         this.error = `Cloudflare 에지 연결 오류: ${raw}`;
@@ -533,23 +787,16 @@ export class WebMcpPeerClient {
       });
       if (generation !== this.connectionGeneration) throw new Error("PEER_SESSION_SUPERSEDED");
       if (response.ok) {
-        const reclaimed = await response.json();
-        if (
-          !reclaimed ||
-          typeof reclaimed.providerToken !== "string" ||
-          typeof reclaimed.descriptorUrl !== "string"
-        ) {
-          throw new Error("INVALID_RECLAIMED_ROOM_DESCRIPTOR");
-        }
+        const reclaimed = readRoomDescriptor(await readResponseText(response), "INVALID_RECLAIMED_ROOM_DESCRIPTOR");
         return this.attachCreatedRoom(reclaimed, options, generation);
       }
       if (response.status === 409) {
-        const body = await response.json().catch(() => ({}));
-        if (body?.error === "ROOM_PROVIDER_ACTIVE" && attempt < 3) {
+        const body = parseJsonObject(await readResponseText(response));
+        if (body.error === "ROOM_PROVIDER_ACTIVE" && attempt < 3) {
           await new Promise((resolve) => setTimeout(resolve, 100 * (attempt + 1)));
           continue;
         }
-        if (body?.error === "ROOM_PROVIDER_ACTIVE") throw new Error("ROOM_PROVIDER_ACTIVE");
+        if (body.error === "ROOM_PROVIDER_ACTIVE") throw new Error("ROOM_PROVIDER_ACTIVE");
       }
       if (response.status === 401 || response.status === 404 || response.status === 410) {
         this.clearSavedRoomLease(this.serverUrl);
@@ -560,33 +807,22 @@ export class WebMcpPeerClient {
   }
 
   private async attachCreatedRoom(
-    created: any,
+    created: PeerRoomDescriptor,
     options: WebMcpPeerConnectOptions,
     generation: number,
   ): Promise<string> {
     if (generation !== this.connectionGeneration) throw new Error("PEER_SESSION_SUPERSEDED");
-    if (
-      !created ||
-      typeof created.id !== "string" ||
-      typeof created.providerToken !== "string" ||
-      typeof created.descriptorUrl !== "string"
-    ) {
-      throw new Error("INVALID_ROOM_DESCRIPTOR");
-    }
     this.roomId = created.id;
     this.providerToken = created.providerToken;
     this.saveRoomLease(this.serverUrl, created);
-    this.roomEpoch = typeof created.roomEpoch === "number" ? created.roomEpoch : null;
-    this.crdtCapabilityEnabled =
-      options.enableCrdt === true &&
-      Array.isArray(created.capabilities) &&
-      created.capabilities.includes("mcp-crdt");
+    this.roomEpoch = created.roomEpoch ?? null;
+    this.crdtCapabilityEnabled = options.enableCrdt === true && (created.capabilities?.includes("mcp-crdt") ?? false);
     if (!this.carrierSessionId) this.carrierSessionId = `carrier-${this.replicaId}-${generation}`;
     this.bindActiveTransport();
     this.invitationUrl = `${created.descriptorUrl}#invite=${created.inviteToken}`;
-    const serverExpiry = Number(created.expiresAt);
+    const serverExpiry = created.expiresAt;
     this.expiresAt =
-      Number.isFinite(serverExpiry) && serverExpiry > Date.now() ? serverExpiry : Date.now() + 30 * 60000;
+      serverExpiry !== undefined && serverExpiry > Date.now() ? serverExpiry : Date.now() + 30 * 60000;
     this.approvalState = "none";
     this.scheduleExpiry(generation, this.expiresAt);
 
@@ -597,28 +833,24 @@ export class WebMcpPeerClient {
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("Signaling connection timeout")), 10000);
       ws.onmessage = (event) => {
-        try {
-          const m = JSON.parse(event.data);
-          if (m.type === "ready") {
-            clearTimeout(timer);
-            this.state = "waiting";
-            this.connectedAt = null;
-            this.reconnectAttempts = 0;
-            this.startKeepalive(ws);
-            this.notify();
-            try {
-              const rawTools = this.resolveHostAdapter()?.listTools?.() || [];
-              ws.send(
-                JSON.stringify({
-                  type: "register",
-                  alias: this.alias,
-                  tools: rawTools.map(toWireToolDescriptor),
-                }),
-              );
-            } catch {}
-            resolve();
-          }
-        } catch {}
+        if (parseProviderFrame(event.data)?.type !== "ready") return;
+        clearTimeout(timer);
+        if (generation !== this.connectionGeneration) {
+          reject(new Error("PEER_SESSION_SUPERSEDED"));
+          return;
+        }
+        this.state = "waiting";
+        this.connectedAt = null;
+        this.reconnectAttempts = 0;
+        this.startKeepalive(ws);
+        this.notify();
+        // Notifies on its own when it changes the session error (a withheld catalog).
+        this.sendRegister(ws);
+        // Install the steady-state handlers before the next frame is read: the relay follows
+        // `ready` with approval frames (pending re-sends, restored approvals) that can arrive in
+        // the same network read, before a promise continuation would run.
+        this.listenSignaling(ws, created.id, created.providerToken, options.iceServers, generation);
+        resolve();
       };
       ws.onerror = () => {
         clearTimeout(timer);
@@ -632,7 +864,6 @@ export class WebMcpPeerClient {
       };
     });
 
-    this.listenSignaling(ws, created.id, created.providerToken, options.iceServers, generation);
     return this.invitationUrl || "";
   }
 
@@ -648,23 +879,42 @@ export class WebMcpPeerClient {
     ws.onmessage = async (event) => {
       try {
         if (generation !== this.connectionGeneration) return;
-        const msg = JSON.parse(event.data);
-        if (!msg || typeof msg.type !== "string") return;
+        const msg = parseProviderFrame(event.data);
+        if (!msg) return;
 
         if (msg.type === "pong") return;
 
+        if (msg.type === "error") {
+          this.handleRelayError(msg);
+          return;
+        }
+
         if (msg.type === "mcp" && msg.message) {
-          const rpcRes = await this.handleMcpRpc(msg.message);
+          const rpcRes = await this.answerMcpRpc(msg.message, generation, "relay");
           if (rpcRes && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: "mcp", message: rpcRes }));
+            // A reply over the relay's message limit would make it close this socket and drop
+            // every agent of the room; it is answered with RESULT_TOO_LARGE instead.
+            const reply = encodeRelayMcpReply(msg.message, rpcRes);
+            if (reply.oversizeBytes !== undefined) {
+              console.warn(
+                `[WebMCP] A ${reply.oversizeBytes}-byte reply exceeds the relay's message limit; ` +
+                  (reply.frame !== undefined ? "answered RESULT_TOO_LARGE instead." : "dropped it."),
+              );
+            }
+            if (reply.frame !== undefined) sendRelayFrame(ws, reply.frame, "mcp reply");
           }
           return;
         }
 
+        if (msg.type === "approval.restored") {
+          this.restoreApprovedSession(msg);
+          return;
+        }
+
         if (msg.type === "approval.request") {
-          const payload = msg.payload && typeof msg.payload === "object" ? msg.payload : msg;
-          activeRequestId = String(payload.requestId || msg.requestId || "");
-          this.clientLabel = payload.clientLabel || "AI Agent";
+          const payload = isJsonObject(msg.payload) ? msg.payload : msg;
+          activeRequestId = nonEmptyString(payload.requestId) ?? nonEmptyString(msg.requestId) ?? "";
+          this.clientLabel = nonEmptyString(payload.clientLabel) ?? "AI Agent";
           this.approvalRequestId = activeRequestId || null;
           this.approvalSessionId =
             typeof payload.sessionId === "string"
@@ -689,7 +939,8 @@ export class WebMcpPeerClient {
 
         if (msg.type === "approval.approved") {
           if (this.approvalState !== "approved") return;
-          this.setupPeerConnection(ws, msg.requestId || activeRequestId, iceServers, generation);
+          this.setupPeerConnection(ws, nonEmptyString(msg.requestId) ?? activeRequestId, iceServers, generation);
+          return;
         }
 
         if (msg.type === "approval.rejected") {
@@ -722,11 +973,13 @@ export class WebMcpPeerClient {
 
         if (msg.type === "offer") {
           if (this.approvalState !== "approved") return;
+          const offerRequestId = nonEmptyString(msg.requestId) ?? activeRequestId;
           if (!this.pc) {
-            this.setupPeerConnection(ws, msg.requestId || activeRequestId, iceServers, generation);
+            this.setupPeerConnection(ws, offerRequestId, iceServers, generation);
           }
-          const pc = this.pc!;
-          await pc.setRemoteDescription({ type: "offer", sdp: msg.sdp });
+          const pc = this.pc;
+          if (!pc) return;
+          await pc.setRemoteDescription({ type: "offer", sdp: typeof msg.sdp === "string" ? msg.sdp : undefined });
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
 
@@ -743,15 +996,21 @@ export class WebMcpPeerClient {
             });
           }
 
-          ws.send(
-            JSON.stringify({
-              type: "answer",
-              requestId: msg.requestId || activeRequestId,
-              sdp: pc.localDescription?.sdp || answer.sdp,
-            }),
+          const answered = sendRelayFrame(
+            ws,
+            { type: "answer", requestId: offerRequestId, sdp: pc.localDescription?.sdp || answer.sdp },
+            "answer",
           );
+          if (!answered && this.pc === pc) {
+            // The answer was not sent (the offer's requestId takes it over the relay's limit, or the
+            // socket refused it), so drop the half-negotiated connection: a later offer starts afresh.
+            this.pc = undefined;
+            try {
+              pc.close();
+            } catch {}
+          }
         }
-      } catch (err: any) {
+      } catch (err) {
         console.error("[WebMCP] Signaling error:", err);
       }
     };
@@ -764,24 +1023,67 @@ export class WebMcpPeerClient {
         this.state = "disconnected";
         this.notify();
       }
-      if (this.autoReconnect && this.approvalState !== "expired" && this.state !== "idle") {
-        this.reconnectAttempts++;
-        const delay = Math.min(1000 * Math.pow(1.5, this.reconnectAttempts - 1), 15000);
-        console.log(`[WebMCP] WebSocket disconnected. Scheduling auto-reconnect in ${Math.round(delay)}ms...`);
-        this.reconnectTimer = setTimeout(() => {
-          void this.autoReconnectIfSaved();
-        }, delay);
-      }
+      this.scheduleAutoReconnect();
     };
+  }
+
+  /**
+   * Relay error frames. A CATALOG_INVALID or CATALOG_TOO_LARGE reply means the relay refused a
+   * `register` and agents still see the previous (or no) catalog, so it is surfaced as the session
+   * error. The relay echoes the refused frame's `registerSeq`: the refusal of a catalog older than
+   * the latest one is stale (the relay may well have accepted the newer catalog, which it never
+   * acknowledges) and is ignored. A refusal without `registerSeq`, from a relay that predates it,
+   * is taken to answer the latest catalog.
+   *
+   * A refusal of the last frame sent is recorded on {@link registeredCatalog} even when a newer
+   * catalog was withheld since (the session error then stays the withheld catalog's): the relay
+   * does not hold the refused catalog, so relay-forwarded catalog requests are not answered with it.
+   */
+  private handleRelayError(frame: ProviderFrame): void {
+    const message = nonEmptyString(frame.message) ?? "";
+    if (message === CATALOG_INVALID_ERROR || message === CATALOG_TOO_LARGE_ERROR) {
+      const refusal = `${message}: ${nonEmptyString(frame.reason) ?? "relay rejected the tool catalog"}`;
+      const registered = this.registeredCatalog;
+      if (registered && (frame.registerSeq === undefined || frame.registerSeq === registered.registerSeq)) {
+        registered.refusal = refusal;
+      }
+      if (frame.registerSeq !== undefined && frame.registerSeq !== this.registerSeq) return;
+      this.setSessionError(refusal);
+      return;
+    }
+    console.warn("[WebMCP] Relay error:", frame.code, message || frame);
+  }
+
+  /**
+   * `approval.restored`: the relay reattached this provider (F5 / auto-reconnect lease reclaim)
+   * and reports a client ticket it already approved. Only the relay can vouch for that, so the
+   * provider adopts it instead of refusing the still-approved agent with CLIENT_APPROVAL_REQUIRED.
+   */
+  private restoreApprovedSession(frame: ProviderFrame): void {
+    const payload = isJsonObject(frame.payload) ? frame.payload : frame;
+    const sessionId = nonEmptyString(payload.sessionId) ?? nonEmptyString(frame.sessionId);
+    const roomEpoch = typeof payload.roomEpoch === "number" ? payload.roomEpoch : frame.roomEpoch;
+    const roomId = payload.roomId ?? frame.roomId;
+    const expiresAt = typeof payload.expiresAt === "number" ? payload.expiresAt : undefined;
+    if (!sessionId || this.roomEpoch === null || roomEpoch !== this.roomEpoch) return;
+    if (roomId !== undefined && roomId !== this.roomId) return;
+    if (expiresAt !== undefined && expiresAt <= Date.now()) return;
+    this.clientLabel = nonEmptyString(payload.clientLabel) ?? this.clientLabel ?? "AI Agent";
+    this.approvalSessionId = sessionId;
+    this.carrierSessionId = sessionId;
+    this.bindActiveTransport();
+    this.approvalRoomEpoch = this.roomEpoch;
+    this.approvalEnvelope = true;
+    this.approvalRequestId = null;
+    this.approvalState = "approved";
+    this.notify();
   }
 
   private startKeepalive(ws: WebSocket): void {
     this.stopKeepalive();
     this.pingTimer = setInterval(() => {
       if (ws && ws.readyState === WebSocket.OPEN) {
-        try {
-          ws.send(JSON.stringify({ type: "ping", timestamp: Date.now() }));
-        } catch {}
+        sendRelayFrame(ws, { type: "ping", timestamp: Date.now() }, "ping");
       } else {
         this.stopKeepalive();
       }
@@ -898,7 +1200,7 @@ export class WebMcpPeerClient {
     channel: RTCDataChannel,
     ws: WebSocket,
     requestId: string,
-    rawData: string,
+    rawData: unknown,
     generation = this.connectionGeneration,
   ): void {
     if (
@@ -908,24 +1210,14 @@ export class WebMcpPeerClient {
     ) {
       return;
     }
+    if (typeof rawData !== "string") return;
     try {
-      const frame = JSON.parse(rawData);
-      if (!frame || frame.v !== 1) return;
-      if (
-        !Number.isSafeInteger(frame.id) ||
-        !Number.isSafeInteger(frame.total) ||
-        frame.total <= 0 ||
-        frame.total > 512
-      ) {
-        return;
-      }
-      if (!Number.isSafeInteger(frame.index) || frame.index < 0 || frame.index >= frame.total) return;
-      if (typeof frame.data !== "string" || frame.data.length > 16384) return;
+      const frame = DataChannelChunkSchema.parse(JSON.parse(rawData));
 
       let pending = this.framePending.get(frame.id);
-      if (!pending) {
-        if (this.framePending.size > 50) this.framePending.clear();
-        pending = { total: frame.total, parts: new Array(frame.total), received: 0 };
+      if (!pending || pending.total !== frame.total) {
+        if (!pending && this.framePending.size > 50) this.framePending.clear();
+        pending = { total: frame.total, parts: new Array<string>(frame.total), received: 0 };
         this.framePending.set(frame.id, pending);
       }
 
@@ -937,7 +1229,7 @@ export class WebMcpPeerClient {
       if (pending.received === pending.total) {
         this.framePending.delete(frame.id);
         const fullText = pending.parts.join("");
-        const msg = JSON.parse(fullText);
+        const msg = ProviderFrameSchema.parse(JSON.parse(fullText));
         void this.handlePeerMessage(channel, ws, requestId, msg, generation).catch((error) => {
           console.warn("[WebMCP] peer message handling failed:", error);
         });
@@ -951,10 +1243,9 @@ export class WebMcpPeerClient {
     channel: RTCDataChannel,
     ws: WebSocket,
     requestId: string,
-    msg: any,
+    msg: ProviderFrame,
     generation = this.connectionGeneration,
   ): Promise<void> {
-    if (!msg || typeof msg.type !== "string") return;
     if (generation !== this.connectionGeneration || this.dataChannel !== channel) return;
     if (this.approvalState !== "approved" && msg.type !== "hello") return;
 
@@ -993,7 +1284,8 @@ export class WebMcpPeerClient {
       try {
         if (ws.readyState === WebSocket.OPEN) {
           this.signalingReleased = true;
-          ws.send(JSON.stringify({ type: "release", requestId }));
+          // The DataChannel carries the session from here on, so the socket closes either way.
+          sendRelayFrame(ws, { type: "release", requestId }, "release");
           ws.close();
         }
       } catch {}
@@ -1007,17 +1299,14 @@ export class WebMcpPeerClient {
 
     if (msg.type === "mcp" && msg.message) {
       const rpc = msg.message;
-      if (this.activeTransport && rpc.method === "tools/call") {
+      if (this.activeTransport && isJsonObject(rpc) && rpc.method === "tools/call") {
+        const params = isJsonObject(rpc.params) ? rpc.params : {};
         try {
-          this.introduceRemotePeer(
-            this.activeTransport,
-            rpc.params?.arguments,
-            rpc.params?._meta?.framebook?.aiTrace,
-          );
+          this.introduceRemotePeer(this.activeTransport, params.arguments, readAiTrace(params._meta));
         } catch {}
       }
 
-      const rpcRes = await this.handleMcpRpc(rpc, generation);
+      const rpcRes = await this.answerMcpRpc(rpc, generation, "data-channel");
       if (rpcRes) {
         await this.sendFrame(channel, {
           type: "mcp",
@@ -1027,27 +1316,63 @@ export class WebMcpPeerClient {
     }
   }
 
-  private async handleMcpRpc(rpc: any, generation = this.connectionGeneration): Promise<any> {
-    if (!rpc || rpc.jsonrpc !== "2.0") return null;
-    const id = rpc.id;
+  /** {@link handleMcpRpc}, except that an unexpected exception still answers the request. */
+  private async answerMcpRpc(
+    rpc: unknown,
+    generation: number,
+    channel: McpRequestChannel,
+  ): Promise<ProviderRpcResponse | null> {
+    try {
+      return await this.handleMcpRpc(rpc, generation, channel);
+    } catch (error) {
+      console.error("[WebMCP] MCP request handling failed:", error);
+      const id = rpcRequestId(rpc);
+      return id === undefined ? null : { jsonrpc: "2.0", id, error: { code: -32603, message: "Internal error" } };
+    }
+  }
+
+  /**
+   * Answers one JSON-RPC request. tools/list and server/discover list the live host catalog to a
+   * DataChannel agent, which talks to the provider directly; on the relay socket they list the
+   * catalog the relay holds (see {@link relayCatalogTools}), since the relay takes their tools as a
+   * catalog announcement.
+   */
+  private async handleMcpRpc(
+    rpc: unknown,
+    generation: number,
+    channel: McpRequestChannel,
+  ): Promise<ProviderRpcResponse | null> {
+    if (!isJsonObject(rpc) || rpc.jsonrpc !== "2.0") return null;
+    if (rpc.id === undefined) return null;
+    const id = rpcRequestId(rpc);
+    if (id === undefined) {
+      return { jsonrpc: "2.0", id: null, error: { code: -32600, message: "Invalid Request" } };
+    }
     if (generation !== this.connectionGeneration) {
       return { jsonrpc: "2.0", id, error: { code: -32008, message: "PEER_SESSION_SUPERSEDED" } };
     }
-
-    if (id === undefined) return null;
 
     if (this.approvalState !== "approved") {
       return { jsonrpc: "2.0", id, error: { code: -32003, message: "CLIENT_APPROVAL_REQUIRED" } };
     }
 
+    const method = typeof rpc.method === "string" ? rpc.method : "";
+    const params = isJsonObject(rpc.params) ? rpc.params : {};
     const webMcp = this.resolveHostAdapter();
     const serverInfo = webMcp?.getServerInfo?.() ?? {
       name: "wireframe-storyboard-toolkit",
       version: "0.4.2",
     };
 
-    if (rpc.method === "server/discover") {
-      const tools = webMcp?.listTools?.() || [];
+    if (method === "tools/list" || method === "server/discover") {
+      const catalog =
+        channel === "relay"
+          ? this.relayCatalogTools()
+          : { tools: (webMcp?.listTools?.() || []).map(toWireToolDescriptor) };
+      if ("unavailable" in catalog) {
+        return { jsonrpc: "2.0", id, error: { ...CATALOG_UNAVAILABLE_RPC_ERROR, data: { reason: catalog.unavailable } } };
+      }
+      if (method === "tools/list") return { jsonrpc: "2.0", id, result: { tools: catalog.tools } };
       return {
         jsonrpc: "2.0",
         id,
@@ -1059,12 +1384,12 @@ export class WebMcpPeerClient {
           instructions:
             serverInfo.instructions ??
             `Wireframe Storyboard Toolkit authoring and inspection tools (MCP ${MCP_PROTOCOL_VERSION} Stateless spec).`,
-          tools: tools.map(toWireToolDescriptor),
+          tools: catalog.tools,
         },
       };
     }
 
-    if (rpc.method === "initialize") {
+    if (method === "initialize") {
       return {
         jsonrpc: "2.0",
         id,
@@ -1077,180 +1402,149 @@ export class WebMcpPeerClient {
       };
     }
 
-    if (rpc.method === "ping") {
+    if (method === "ping") {
       return { jsonrpc: "2.0", id, result: {} };
     }
 
-    if (rpc.method === "tools/list") {
-      const tools = webMcp?.listTools?.() || [];
-      return {
-        jsonrpc: "2.0",
-        id,
-        result: {
-          tools: tools.map(toWireToolDescriptor),
-        },
-      };
-    }
-
-    if (rpc.method === "tools/call") {
-      const name = rpc.params?.name;
-      const args = rpc.params?.arguments || {};
-      const trace = rpc.params?._meta?.framebook?.aiTrace;
-      const runId =
-        typeof trace?.runId === "string" && trace.runId.trim() && trace.runId.trim().length <= 128
-          ? trace.runId.trim()
-          : `remote-webmcp-${this.roomId ? this.roomId.slice(0, 6) : "remote"}`;
-      const stepIndex =
-        Number.isSafeInteger(trace?.stepIndex) && trace.stepIndex >= 0 ? trace.stepIndex : 0;
-      const requestId = `rpc-${generation}-${runId}-${++this.carrierMessageSequence}`;
-      const durableRequestId =
-        args?.context && typeof args.context.requestId === "string" ? args.context.requestId : undefined;
-      if (this.aiRunLedger && durableRequestId) {
-        const previous = await this.aiRunLedger.find(runId, durableRequestId);
-        if (previous?.status === "outcome-unknown") {
-          const error = {
-            code: "RECONCILIATION_REQUIRED",
-            message: "AI write outcome is unknown; reconcile its durable receipt before retrying.",
-          };
-          return {
-            jsonrpc: "2.0",
-            id,
-            result: {
-              isError: true,
-              content: [],
-              structuredContent: { ok: false, error },
-              data: { ok: false, error },
-              error,
-            },
-          };
-        }
-        if (
-          previous?.status === "durable" ||
-          previous?.status === "replicating" ||
-          previous?.status === "replicated"
-        ) {
-          const replay = { ok: true, receipt: previous.receipt, data: { replayed: true } };
-          return {
-            jsonrpc: "2.0",
-            id,
-            result: { isError: false, content: [], structuredContent: replay, data: replay },
-          };
-        }
-      }
-      const controller = new AbortController();
-      const runSnapshot = this.aiRuns.begin(runId, typeof name === "string" ? name : "tools/call", stepIndex);
-      if (
-        runSnapshot.phase === "stopped" ||
-        runSnapshot.phase === "completed" ||
-        runSnapshot.phase === "failed" ||
-        runSnapshot.phase === "rolled-back"
-      ) {
-        const error = { code: "AI_RUN_TERMINAL", message: "This AI run is already terminal." };
-        return {
-          jsonrpc: "2.0",
-          id,
-          result: {
-            isError: true,
-            content: [],
-            structuredContent: { ok: false, error },
-            data: { ok: false, error },
-            error,
-          },
-        };
-      }
-      this.aiRuns.registerAction(runId, requestId, controller);
-      try {
-        const res = await webMcp?.invoke?.(name, args, { signal: controller.signal });
-        const isObj = typeof res === "object" && res !== null;
-        const structured = isObj ? res : { value: res };
-        const receipt = isObj ? res.receipt : undefined;
-        const operationId =
-          receipt &&
-          (receipt.status === "durable" ||
-            receipt.status === "replicating" ||
-            receipt.status === "replicated") &&
-          typeof receipt.operationId === "string" &&
-          receipt.operationId.trim()
-            ? receipt.operationId
-            : undefined;
-        const transactionId =
-          receipt && typeof receipt.transactionId === "string" && receipt.transactionId.trim()
-            ? receipt.transactionId
-            : undefined;
-        if (this.aiRunLedger && isCommitReceipt(receipt)) {
-          try {
-            await this.aiRunLedger.recordReceipt({
-              runId,
-              actionId: typeof name === "string" ? name : "tools/call",
-              stepIndex,
-              receipt,
-            });
-          } catch (error) {
-            console.warn("[WebMCP] AI run ledger rejected receipt:", error);
-          }
-        }
-        if (generation !== this.connectionGeneration || !this.aiRuns.get(runId)) {
-          return { jsonrpc: "2.0", id, error: { code: -32008, message: "OUTCOME_UNKNOWN" } };
-        }
-        this.aiRuns.settleAction(runId, requestId);
-        this.aiRuns.recordStep(runId, {
-          actionId: typeof name === "string" ? name : "tools/call",
-          stepIndex,
-          ...(operationId ? { operationId } : {}),
-          ...(transactionId ? { transactionId } : {}),
-          ...(isCommitReceipt(receipt) ? { requestId: receipt.requestId } : {}),
-        });
-        if (controller.signal.aborted) this.aiRuns.stop(runId, "stopped by host");
-        else if (isObj && "ok" in res && !res.ok) {
-          this.aiRuns.fail(runId, res.error?.message ?? "Tool call failed");
-        } else if (trace?.phase === "completed") this.aiRuns.complete(runId);
-        this.publishAiRunAwareness(this.aiRuns.get(runId)!);
-        return {
-          jsonrpc: "2.0",
-          id,
-          result: {
-            content: [],
-            structuredContent: structured,
-            data: structured,
-            isError: isObj && "ok" in res ? !res.ok : false,
-          },
-        };
-      } catch (err: any) {
-        const currentRun = this.aiRuns.get(runId);
-        if (generation === this.connectionGeneration && currentRun) {
-          this.aiRuns.settleAction(runId, requestId);
-          if (controller.signal.aborted) this.aiRuns.stop(runId, "stopped by host");
-          else this.aiRuns.fail(runId, err.message || "Tool execution error");
-          const updated = this.aiRuns.get(runId);
-          if (updated) this.publishAiRunAwareness(updated);
-        } else {
-          return { jsonrpc: "2.0", id, error: { code: -32008, message: "OUTCOME_UNKNOWN" } };
-        }
-        const errPayload = {
-          ok: false,
-          error: {
-            code: -32603,
-            message: err.message || "Tool execution error",
-          },
-        };
-        return {
-          jsonrpc: "2.0",
-          id,
-          result: {
-            isError: true,
-            content: [],
-            structuredContent: errPayload,
-            data: errPayload,
-            error: {
-              code: -32603,
-              message: err.message || "Tool execution error",
-            },
-          },
-        };
-      }
+    if (method === "tools/call") {
+      return this.handleToolCall(id, params, generation, webMcp);
     }
 
     return { jsonrpc: "2.0", id, error: { code: -32601, message: "Method not found" } };
+  }
+
+  /** The AI run that tool calls without `_meta.framebook.aiTrace.runId` share. */
+  private implicitAiRunId(): string {
+    return `remote-webmcp-${this.roomId ? this.roomId.slice(0, 6) : "remote"}`;
+  }
+
+  private async handleToolCall(
+    id: JsonRpcId,
+    params: Record<string, unknown>,
+    generation: number,
+    webMcp: WebMcpHostAdapter | undefined,
+  ): Promise<ProviderRpcResponse> {
+    const name = nonEmptyString(params.name);
+    if (!name) return { jsonrpc: "2.0", id, error: { code: -32602, message: "tools/call params are invalid" } };
+    const args = isJsonObject(params.arguments) ? params.arguments : {};
+    const trace = readAiTrace(params._meta);
+    // Calls without a trace (stock MCP clients, PeerMcpSession) all share one implicit run. A
+    // call's outcome may fail or complete only a run its caller named: failing the shared run
+    // would turn every later untraced call into AI_RUN_TERMINAL until the provider reconnects.
+    const explicitRunId = traceRunId(trace);
+    const runId = explicitRunId ?? this.implicitAiRunId();
+    const stepIndex = traceStepIndex(trace) ?? 0;
+    const requestId = `rpc-${generation}-${runId}-${++this.carrierMessageSequence}`;
+    const context = isJsonObject(args.context) ? args.context : undefined;
+    const durableRequestId = nonEmptyString(context?.requestId);
+    if (this.aiRunLedger && durableRequestId) {
+      const previous = await this.aiRunLedger.find(runId, durableRequestId);
+      if (previous?.status === "outcome-unknown") {
+        return {
+          jsonrpc: "2.0",
+          id,
+          result: toolErrorResult({
+            code: "RECONCILIATION_REQUIRED",
+            message: "AI write outcome is unknown; reconcile its durable receipt before retrying.",
+          }),
+        };
+      }
+      if (
+        previous?.status === "durable" ||
+        previous?.status === "replicating" ||
+        previous?.status === "replicated"
+      ) {
+        const replay = { ok: true, receipt: previous.receipt, data: { replayed: true } };
+        return { jsonrpc: "2.0", id, result: interpretHostResult(replay).result };
+      }
+    }
+    const controller = new AbortController();
+    let runSnapshot: AiRunSnapshot;
+    try {
+      runSnapshot = this.aiRuns.begin(runId, name, stepIndex);
+    } catch (error) {
+      // Every tracked run still has work in flight. Answer now: a throw here would leave the
+      // relayed request unanswered until the relay's own timeout.
+      return {
+        jsonrpc: "2.0",
+        id,
+        result: toolErrorResult({
+          code: error instanceof AiRunLimitExceededError ? error.code : "AI_RUN_REJECTED",
+          message: errorMessage(error, "AI run could not be started"),
+        }),
+      };
+    }
+    if (
+      runSnapshot.phase === "stopped" ||
+      runSnapshot.phase === "completed" ||
+      runSnapshot.phase === "failed" ||
+      runSnapshot.phase === "rolled-back"
+    ) {
+      return {
+        jsonrpc: "2.0",
+        id,
+        result: toolErrorResult({ code: "AI_RUN_TERMINAL", message: "This AI run is already terminal." }),
+      };
+    }
+    this.aiRuns.registerAction(runId, requestId, controller);
+    try {
+      const res = await webMcp?.invoke?.(name, args, { signal: controller.signal });
+      const outcome = interpretHostResult(res);
+      const receipt = isCommitReceipt(outcome.receipt) ? outcome.receipt : undefined;
+      if (outcome.receipt !== undefined && !receipt) {
+        console.warn(
+          "[WebMCP] Host returned an invalid CommitReceipt; ledger idempotency and rollback are skipped:",
+          outcome.receipt,
+        );
+      }
+      // Only a receipt that passes the guard may make an operation rollback-eligible.
+      const operationId =
+        receipt &&
+        (receipt.status === "durable" || receipt.status === "replicating" || receipt.status === "replicated") &&
+        typeof receipt.operationId === "string" &&
+        receipt.operationId.trim()
+          ? receipt.operationId
+          : undefined;
+      const transactionId =
+        receipt && "transactionId" in receipt && typeof receipt.transactionId === "string" && receipt.transactionId.trim()
+          ? receipt.transactionId
+          : undefined;
+      if (this.aiRunLedger && receipt) {
+        try {
+          await this.aiRunLedger.recordReceipt({ runId, actionId: name, stepIndex, receipt });
+        } catch (error) {
+          console.warn("[WebMCP] AI run ledger rejected receipt:", error);
+        }
+      }
+      if (generation !== this.connectionGeneration || !this.aiRuns.get(runId)) {
+        return { jsonrpc: "2.0", id, error: { code: -32008, message: "OUTCOME_UNKNOWN" } };
+      }
+      this.aiRuns.settleAction(runId, requestId);
+      this.aiRuns.recordStep(runId, {
+        actionId: name,
+        stepIndex,
+        ...(operationId ? { operationId } : {}),
+        ...(transactionId ? { transactionId } : {}),
+        ...(receipt ? { requestId: receipt.requestId } : {}),
+      });
+      if (controller.signal.aborted) this.aiRuns.stop(runId, "stopped by host");
+      else if (explicitRunId && outcome.failed) this.aiRuns.fail(runId, outcome.failureMessage);
+      else if (explicitRunId && trace?.phase === "completed") this.aiRuns.complete(runId);
+      const updated = this.aiRuns.get(runId);
+      if (updated) this.publishAiRunAwareness(updated);
+      return { jsonrpc: "2.0", id, result: outcome.result };
+    } catch (err) {
+      const message = errorMessage(err, "Tool execution error");
+      if (generation !== this.connectionGeneration || !this.aiRuns.get(runId)) {
+        return { jsonrpc: "2.0", id, error: { code: -32008, message: "OUTCOME_UNKNOWN" } };
+      }
+      this.aiRuns.settleAction(runId, requestId);
+      if (controller.signal.aborted) this.aiRuns.stop(runId, "stopped by host");
+      else if (explicitRunId) this.aiRuns.fail(runId, message);
+      const updated = this.aiRuns.get(runId);
+      if (updated) this.publishAiRunAwareness(updated);
+      return { jsonrpc: "2.0", id, result: toolErrorResult({ code: -32603, message }) };
+    }
   }
 
   private async sendFrame(channel: RTCDataChannel, payload: unknown): Promise<void> {
@@ -1376,8 +1670,10 @@ export class WebMcpPeerClient {
     this.activeTransport = transport;
     this.bindActiveTransport();
 
+    // Nobody awaits a carrier send, so its failure (a message JSON cannot serialize, a DataChannel
+    // that closes or overflows mid-frame) is reported here instead of as an unhandled rejection.
     this.detachTransportCarrier = transport.attachCarrier((msg) => {
-      void this.sendCrdt(msg);
+      void this.sendCrdt(msg).catch((error: unknown) => console.warn("[WebMCP] CRDT send failed:", error));
     });
 
     const crdtListener = (msg: unknown) => {
@@ -1417,56 +1713,40 @@ export class WebMcpPeerClient {
     }
   }
 
-  private introduceRemotePeer(transport: WebMcpCrdtTransport, toolArgs?: any, trace?: any): void {
+  private introduceRemotePeer(transport: WebMcpCrdtTransport, toolArgs?: unknown, traceInput?: unknown): void {
     if (this.roomEpoch !== null && !this.crdtCapabilityEnabled) return;
+    const args = isJsonObject(toolArgs) ? toolArgs : {};
+    const trace = isJsonObject(traceInput) ? traceInput : {};
     const peerClientId = `webmcp-${this.roomId ? this.roomId.slice(0, 6) : "remote"}`;
-    const slideId = toolArgs?.slideId;
-    const nodeIds = toolArgs?.nodeId
-      ? [toolArgs.nodeId].filter(
-          (value: unknown): value is string => typeof value === "string" && value.length <= 128,
-        )
-      : Array.isArray(toolArgs?.nodeIds)
-        ? toolArgs.nodeIds
-            .filter((value: unknown): value is string => typeof value === "string" && value.length <= 128)
-            .slice(0, 64)
+    const isBoundedId = (value: unknown): value is string => typeof value === "string" && value.length <= 128;
+    const isCoordinate = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
+    const slideId = nonEmptyString(args.slideId);
+    const nodeIds = args.nodeId
+      ? [args.nodeId].filter(isBoundedId)
+      : Array.isArray(args.nodeIds)
+        ? args.nodeIds.filter(isBoundedId).slice(0, 64)
         : undefined;
-    const x = typeof toolArgs?.x === "number" ? toolArgs.x : undefined;
-    const y = typeof toolArgs?.y === "number" ? toolArgs.y : undefined;
-    const runId =
-      typeof trace?.runId === "string" && trace.runId.length > 0 && trace.runId.length <= 128
-        ? trace.runId
-        : `remote-${peerClientId}`;
+    const x = isCoordinate(args.x) ? args.x : undefined;
+    const y = isCoordinate(args.y) ? args.y : undefined;
+    const runId = traceRunId(trace) ?? this.implicitAiRunId();
     const actionId =
-      typeof trace?.actionId === "string" && trace.actionId.length > 0 && trace.actionId.length <= 128
+      typeof trace.actionId === "string" && trace.actionId.length > 0 && trace.actionId.length <= 128
         ? trace.actionId
         : "tools/call";
-    const stepIndex =
-      Number.isInteger(trace?.stepIndex) && trace.stepIndex >= 0 ? trace.stepIndex : 0;
-    const operationId =
-      typeof trace?.operationId === "string" && trace.operationId.length > 0
-        ? trace.operationId
-        : undefined;
-    const phase =
-      trace?.phase === "queued" ||
-      trace?.phase === "running" ||
-      trace?.phase === "paused" ||
-      trace?.phase === "stopped" ||
-      trace?.phase === "completed" ||
-      trace?.phase === "failed" ||
-      trace?.phase === "rolled-back"
-        ? trace.phase
-        : "running";
-    const rawTrail = Array.isArray(trace?.cursorTrail)
+    const stepIndex = traceStepIndex(trace) ?? 0;
+    const operationId = nonEmptyString(trace.operationId);
+    const phase = isAiRunPhase(trace.phase) ? trace.phase : "running";
+    const rawTrail: readonly unknown[] = Array.isArray(trace.cursorTrail)
       ? trace.cursorTrail
-      : Array.isArray(trace?.path)
+      : Array.isArray(trace.path)
         ? trace.path
         : [];
-    const cursorTrail = rawTrail.slice(-64).flatMap((point: any) => {
-      const pointSlide = typeof point?.slideId === "string" ? point.slideId : slideId;
-      const pointX = typeof point?.x === "number" ? point.x : undefined;
-      const pointY = typeof point?.y === "number" ? point.y : undefined;
-      const pointStep =
-        Number.isInteger(point?.stepIndex) && point.stepIndex >= 0 ? point.stepIndex : stepIndex;
+    const cursorTrail: AiRunPoint[] = rawTrail.slice(-64).flatMap((entry) => {
+      const point = isJsonObject(entry) ? entry : {};
+      const pointSlide = nonEmptyString(point.slideId) ?? slideId;
+      const pointX = isCoordinate(point.x) ? point.x : undefined;
+      const pointY = isCoordinate(point.y) ? point.y : undefined;
+      const pointStep = traceStepIndex(point) ?? stepIndex;
       if (!pointSlide || pointX === undefined || pointY === undefined) return [];
       return [
         {
@@ -1555,7 +1835,7 @@ export class WebMcpPeerClient {
     if (!requestId || this.approvalState !== "pending" || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
       return false;
     }
-    this.sendApprovalDecision(requestId, "approved");
+    if (!this.sendApprovalDecision(this.ws, requestId, "approved")) return false;
     this.approvalState = "approved";
     this.notify();
     return true;
@@ -1565,18 +1845,24 @@ export class WebMcpPeerClient {
     if (!requestId || this.approvalState !== "pending" || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
       return false;
     }
-    this.sendApprovalDecision(requestId, "rejected", "CLIENT_REJECTED");
+    if (!this.sendApprovalDecision(this.ws, requestId, "rejected", "CLIENT_REJECTED")) return false;
     this.approvalState = "revoked";
     this.approvalRequestId = null;
     this.notify();
     return true;
   }
 
-  private sendApprovalDecision(requestId: string, decision: "approved" | "rejected", reason?: string): void {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+  /** Sends the host's approval decision; false when it could not be sent (the request stays pending). */
+  private sendApprovalDecision(
+    ws: WebSocket,
+    requestId: string,
+    decision: "approved" | "rejected",
+    reason?: string,
+  ): boolean {
     const now = new Date().toISOString();
-    this.ws.send(
-      JSON.stringify({
+    return sendRelayFrame(
+      ws,
+      {
         protocol: "webmcp-peer/1",
         messageId: `approval-${requestId}-${Date.now()}`,
         type: "approval.decision",
@@ -1594,7 +1880,8 @@ export class WebMcpPeerClient {
           decidedAt: now,
           ...(reason ? { reason } : {}),
         },
-      }),
+      },
+      "approval.decision",
     );
   }
 
@@ -1624,10 +1911,10 @@ export class WebMcpPeerClient {
       }),
     });
     if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
-      throw new Error(body.error || `HTTP ${response.status}: Failed to rotate peer room`);
+      const body = parseJsonObject(await readResponseText(response));
+      throw new Error(nonEmptyString(body.error) ?? `HTTP ${response.status}: Failed to rotate peer room`);
     }
-    const replacement = await response.json();
+    const replacement = readRoomDescriptor(await readResponseText(response), "INVALID_ROOM_DESCRIPTOR");
     this.disconnect();
     const generation = ++this.connectionGeneration;
     this.roomGeneration += 1;

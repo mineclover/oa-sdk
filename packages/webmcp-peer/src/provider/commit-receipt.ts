@@ -15,14 +15,35 @@ export type CommitReceipt =
       documentId: string;
       transactionId: string;
     }
+  /**
+   * A durable commit that carries metadata only. It names no operation, so it is not
+   * rollback-eligible, and carries none of the document-commit fields.
+   */
   | {
       status: "durable";
       requestId: string;
       documentId: string;
       transactionId: string;
       committedAt: string;
-      operationId?: string;
-      replicaId?: string;
+      operationId?: never;
+      replicaId?: never;
+      partial?: never;
+      appliedCommandCount?: never;
+      requestedCommandCount?: never;
+    }
+  /**
+   * A durable document commit: it names the operation and the replica that committed it, and may
+   * report a partial application (`partial: true` requires `appliedCommandCount <
+   * requestedCommandCount`).
+   */
+  | {
+      status: "durable";
+      requestId: string;
+      documentId: string;
+      transactionId: string;
+      committedAt: string;
+      operationId: string;
+      replicaId: string;
       partial?: boolean;
       appliedCommandCount?: number;
       requestedCommandCount?: number;
@@ -106,6 +127,38 @@ function hasDurableFields(value: Record<string, unknown>): boolean {
   );
 }
 
+function isCommandCount(value: unknown): boolean {
+  return value === undefined || (typeof value === "number" && Number.isSafeInteger(value) && value >= 0);
+}
+
+/** The metadata-only `durable` member: exactly the five base keys. */
+function isDurableMetadataReceipt(value: Record<string, unknown>): boolean {
+  return (
+    hasKeys(value, ["status", "requestId", "documentId", "transactionId", "committedAt"]) &&
+    isAuthorityText(value.transactionId) &&
+    isUtcTimestamp(value.committedAt)
+  );
+}
+
+/** The document-commit `durable` member: operation and replica ids, optional partial counts. */
+function isDurableDocumentReceipt(value: Record<string, unknown>): boolean {
+  return (
+    hasKeys(
+      value,
+      ["status", "requestId", "documentId", "transactionId", "committedAt", "operationId", "replicaId"],
+      ["partial", "appliedCommandCount", "requestedCommandCount"],
+    ) &&
+    hasDurableFields(value) &&
+    (value.partial === undefined || typeof value.partial === "boolean") &&
+    isCommandCount(value.appliedCommandCount) &&
+    isCommandCount(value.requestedCommandCount) &&
+    (value.partial !== true ||
+      (typeof value.appliedCommandCount === "number" &&
+        typeof value.requestedCommandCount === "number" &&
+        value.appliedCommandCount < value.requestedCommandCount))
+  );
+}
+
 export function isCommitReceipt(value: unknown): value is CommitReceipt {
   if (!isPlainRecord(value) || !hasReceiptBase(value)) return false;
   switch (value.status) {
@@ -120,33 +173,8 @@ export function isCommitReceipt(value: unknown): value is CommitReceipt {
         hasKeys(value, ["status", "requestId", "documentId", "transactionId"]) &&
         isAuthorityText(value.transactionId)
       );
-    case "durable": {
-      const metadata =
-        hasKeys(value, ["status", "requestId", "documentId", "transactionId", "committedAt"]) &&
-        isAuthorityText(value.transactionId) &&
-        isUtcTimestamp(value.committedAt);
-      const document =
-        hasKeys(
-          value,
-          ["status", "requestId", "documentId", "transactionId", "committedAt", "operationId", "replicaId"],
-          ["partial", "appliedCommandCount", "requestedCommandCount"],
-        ) &&
-        hasDurableFields(value) &&
-        (value.partial === undefined || typeof value.partial === "boolean") &&
-        (value.appliedCommandCount === undefined ||
-          (typeof value.appliedCommandCount === "number" &&
-            Number.isSafeInteger(value.appliedCommandCount) &&
-            value.appliedCommandCount >= 0)) &&
-        (value.requestedCommandCount === undefined ||
-          (typeof value.requestedCommandCount === "number" &&
-            Number.isSafeInteger(value.requestedCommandCount) &&
-            value.requestedCommandCount >= 0)) &&
-        (value.partial !== true ||
-          (typeof value.appliedCommandCount === "number" &&
-            typeof value.requestedCommandCount === "number" &&
-            value.appliedCommandCount < value.requestedCommandCount));
-      return metadata || document;
-    }
+    case "durable":
+      return isDurableMetadataReceipt(value) || isDurableDocumentReceipt(value);
     case "replicating":
       return (
         hasKeys(value, [

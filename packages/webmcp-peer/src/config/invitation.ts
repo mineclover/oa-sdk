@@ -35,6 +35,19 @@ export function isSecurePeerTransport(value: string): boolean {
   }
 }
 
+/**
+ * Percent-decodes an invite token for masking. A token with malformed percent-encoding (which
+ * `parseInvitationUrl` still accepts, because URLSearchParams decodes leniently) is masked in its
+ * raw form instead of throwing: a redaction helper used for logging must never crash its caller.
+ */
+function decodeInviteToken(token: string): string {
+  try {
+    return decodeURIComponent(token);
+  } catch {
+    return token;
+  }
+}
+
 export function redactInvitationUrl(value: string): string {
   const raw = value.trim();
   if (!raw) return "";
@@ -43,8 +56,8 @@ export function redactInvitationUrl(value: string): string {
     return `${token.slice(0, 4)}...${token.slice(-2)}`;
   };
   return raw
-    .replace(/(#invite=)([^&\s]+)/i, (_m, prefix, token) => `${prefix}${maskToken(decodeURIComponent(token))}`)
-    .replace(/([?&]invite=)([^&#\s]+)/i, (_m, prefix, token) => `${prefix}${maskToken(decodeURIComponent(token))}`);
+    .replace(/(#invite=)([^&\s]+)/i, (_m, prefix, token) => `${prefix}${maskToken(decodeInviteToken(token))}`)
+    .replace(/([?&]invite=)([^&#\s]+)/i, (_m, prefix, token) => `${prefix}${maskToken(decodeInviteToken(token))}`);
 }
 
 export function externalConsentKey(value: string, prefix: string = DEFAULT_EXTERNAL_CONSENT_PREFIX): string {

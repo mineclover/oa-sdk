@@ -1,8 +1,6 @@
 import {
   existsSync,
   mkdirSync,
-  readFileSync,
-  truncateSync,
 } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname } from "node:path";
@@ -17,7 +15,9 @@ import {
 import {
   appendDurableLineSync,
   readDurableJsonLinesSync,
+  truncateUnterminatedTailSync,
   withFileLockSync,
+  type DurableJsonRowSchema,
 } from "./durable-file.js";
 
 const require = createRequire(import.meta.url);
@@ -26,10 +26,6 @@ type AiRunLedgerConflict = { readonly status: "conflict"; readonly entry?: AiRun
 
 function ledgerKey(runId: string, requestId: string): string {
   return `${runId}\u0000${requestId}`;
-}
-
-function cloneLedger<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
 }
 
 function canonicalLedgerJson(value: unknown): string {
@@ -74,6 +70,19 @@ function assertLedgerEntry(value: unknown): asserts value is AiRunOperationRecor
   if (!validLedgerEntry(value)) throw new Error("AI_RUN_LEDGER_ENTRY_INVALID");
 }
 
+/** Named validator for a persisted ledger row (a JSONL line or a SQLite `entry_json`). */
+const AiRunOperationRecordSchema: DurableJsonRowSchema<AiRunOperationRecord> = {
+  parse(value) {
+    assertLedgerEntry(value);
+    return value;
+  },
+};
+
+/** A detached JSON copy of a ledger row, so callers never share state with the store. */
+function cloneLedger(entry: AiRunOperationRecord): AiRunOperationRecord {
+  return AiRunOperationRecordSchema.parse(JSON.parse(JSON.stringify(entry)));
+}
+
 const ledgerStatusRanks = { rejected: 0, committed: 1, durable: 2, replicating: 3, replicated: 4, "outcome-unknown": -1 };
 
 function canReplaceLedger(existing: AiRunOperationRecord, entry: AiRunOperationRecord, options: AiRunLedgerWriteOptions): boolean {
@@ -90,28 +99,27 @@ function canReplaceLedger(existing: AiRunOperationRecord, entry: AiRunOperationR
   return ledgerStatusRanks[entry.status] >= ledgerStatusRanks[existing.status];
 }
 
+/**
+ * Committed ledger rows. An unterminated final segment is a torn append (the row and its newline
+ * are written together), never acknowledged to its caller, so it is not a row: reads skip it and
+ * the next append truncates it. Corrupt or empty interior rows still throw.
+ */
 function ledgerRowsFromFile(filePath: string): Map<string, AiRunOperationRecord> {
   if (!existsSync(filePath)) return new Map();
-  const rows = readDurableJsonLinesSync<AiRunOperationRecord>(filePath, "AI_RUN_LEDGER_FILE_CORRUPT");
+  const rows = readDurableJsonLinesSync(filePath, "AI_RUN_LEDGER_FILE_CORRUPT", AiRunOperationRecordSchema, { ignoreUnterminatedTail: true });
   const result = new Map<string, AiRunOperationRecord>();
-  for (const row of rows) {
-    assertLedgerEntry(row);
-    result.set(ledgerKey(row.runId, row.requestId), row);
-  }
+  for (const row of rows) result.set(ledgerKey(row.runId, row.requestId), row);
   return result;
-}
-
-function recoverTornFinalLedgerRow(filePath: string): void {
-  if (!existsSync(filePath)) return;
-  const raw = readFileSync(filePath, "utf8");
-  if (raw.length > 0 && !raw.endsWith("\n")) truncateSync(filePath, raw.lastIndexOf("\n") + 1);
 }
 
 export class FileAiRunLedgerStore implements AiRunLedgerStore {
   constructor(readonly filePath: string) {}
 
   find(runId: string, requestId: string): AiRunOperationRecord | null {
-    return withFileLockSync(this.filePath, () => cloneLedger(ledgerRowsFromFile(this.filePath).get(ledgerKey(runId, requestId)) ?? null));
+    return withFileLockSync(this.filePath, () => {
+      const row = ledgerRowsFromFile(this.filePath).get(ledgerKey(runId, requestId));
+      return row ? cloneLedger(row) : null;
+    });
   }
 
   list(runId: string): readonly AiRunOperationRecord[] {
@@ -123,6 +131,8 @@ export class FileAiRunLedgerStore implements AiRunLedgerStore {
   appendIdempotent(entry: AiRunOperationRecord, options: AiRunLedgerWriteOptions = {}): AiRunLedgerWriteResult | AiRunLedgerConflict {
     assertLedgerEntry(entry);
     return withFileLockSync(this.filePath, () => {
+      // Repair a torn tail first, so neither the read below nor the append lands on a partial row.
+      truncateUnterminatedTailSync(this.filePath);
       const rows = ledgerRowsFromFile(this.filePath);
       const existing = rows.get(ledgerKey(entry.runId, entry.requestId));
       const duplicateOperation = entry.operationId && [...rows.values()].find(row =>
@@ -136,7 +146,6 @@ export class FileAiRunLedgerStore implements AiRunLedgerStore {
       if (options.expectedEntry && !existing) return { status: "conflict" };
       if (existing && !canReplaceLedger(existing, entry, options)) return { status: "conflict", entry: cloneLedger(existing) };
       mkdirSync(dirname(this.filePath), { recursive: true });
-      recoverTornFinalLedgerRow(this.filePath);
       appendDurableLineSync(this.filePath, `${JSON.stringify(entry)}\n`);
       return { status: existing ? "updated" : "appended", entry: cloneLedger(entry) };
     });
@@ -164,14 +173,14 @@ function openLedgerDatabase(filePath: string): SqliteLedgerDb {
 }
 
 function ledgerRowEntry(row: SqliteLedgerRow): AiRunOperationRecord {
+  let entry: AiRunOperationRecord;
   try {
-    const entry = JSON.parse(row.entry_json) as AiRunOperationRecord;
-    if (entry.runId !== row.run_id || entry.requestId !== row.request_id) throw new Error();
-    assertLedgerEntry(entry);
-    return entry;
-  } catch {
-    throw new Error("AI_RUN_LEDGER_SQLITE_CORRUPT");
+    entry = AiRunOperationRecordSchema.parse(JSON.parse(row.entry_json));
+  } catch (error) {
+    throw new Error("AI_RUN_LEDGER_SQLITE_CORRUPT", { cause: error });
   }
+  if (entry.runId !== row.run_id || entry.requestId !== row.request_id) throw new Error("AI_RUN_LEDGER_SQLITE_CORRUPT");
+  return entry;
 }
 
 export class SqliteAiRunLedgerStore implements AiRunLedgerStore {

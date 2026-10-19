@@ -39,6 +39,19 @@ export interface PendingMcpRequest {
   id: string | number;
   wireId: string | number;
   includeCatalogMeta?: boolean;
+  /**
+   * True for an agent's `tools/list` without a `cursor` and its `server/discover`: the result lists
+   * the provider's whole catalog, which the relay adopts. When the relay refuses that catalog, or
+   * the provider answers with an error, the relay answers from its own catalog instead, as its HTTP
+   * route would. No other reply, such as a `tools/call` result or a page of a paginated listing,
+   * can change the room catalog.
+   */
+  listsCatalog?: boolean;
+  /**
+   * For a `server/discover`: the MCP protocol version the relay negotiated from the request, which
+   * a discover result the relay answers itself carries.
+   */
+  protocolVersion?: string;
 }
 
 export interface RoomEntry {
@@ -88,6 +101,26 @@ export interface WebMcpPeerServerOptions {
   publishRateLimitStore?: PublishRateLimitStore;
   mcpRequestTimeoutMs?: number;
   roomSweepIntervalMs?: number;
+  /**
+   * Upper bound for a room's `ttlMs` on `POST /p` and `POST /p/:id/rotate` (default 24 hours,
+   * clamped to `[60_000, 365 days]`). Larger requested TTLs are clamped, so every room expires and
+   * is eventually swept.
+   */
+  maxRoomTtlMs?: number;
+  /**
+   * CLI arguments to resolve (`--port`, `--host`, `--config`, `--publish-key`, ...). Default: none.
+   * The embedded server never reads `process.argv` on its own; a CLI entry point opts in with
+   * `argv: process.argv.slice(2)`. When given, CLI flags take precedence over these options.
+   */
+  argv?: readonly string[];
+  /**
+   * Load `.env.local` / `.env` from `cwd` and up to three parent directories into `process.env`
+   * (existing variables are never overwritten) before resolving the configuration. Default: `false`,
+   * so constructing a server never mutates the host process environment.
+   */
+  loadEnvFiles?: boolean;
+  /** Directory used to resolve config files, `.env` files and relative paths. Default: `process.cwd()`. */
+  cwd?: string;
   deploymentCatalog?: DeploymentCatalogInput;
   serverName?: string;
   serverVersion?: string;

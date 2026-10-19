@@ -2,9 +2,12 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { PeerMcpError } from "./errors.js";
+import { PeerMcpCatalogCacheSchema } from "./schemas.js";
 import { PeerMcpSession } from "./session.js";
 import type {
   PeerMcpCallOptions,
+  PeerMcpCallToolResult,
+  PeerMcpCatalogCache,
   PeerMcpCatalogSnapshot,
   PeerMcpSessionInfo,
   PeerMcpSessionOptions,
@@ -75,7 +78,7 @@ export class PeerMcpService {
     name: string,
     args: Record<string, unknown> = {},
     options: PeerMcpCallOptions & { sessionId?: string } = {},
-  ): Promise<any> {
+  ): Promise<PeerMcpCallToolResult> {
     const session = this.getSession(options.sessionId ?? this.activeSessionId);
     if (!session) throw new PeerMcpError("No active peer MCP session", "SESSION_NOT_FOUND");
     await session.connect();
@@ -83,6 +86,11 @@ export class PeerMcpService {
   }
 }
 
+/**
+ * Atomic JSON file store for a session's tool catalog cache (`PeerMcpSessionOptions.storage`).
+ * `load()` returns the cache only when the file holds a valid catalog; a missing, corrupt or
+ * stale-shaped file yields undefined so the session falls back to a live `tools/list`.
+ */
 export class JsonPeerMcpStore implements PeerMcpStore {
   filePath: string;
 
@@ -90,10 +98,10 @@ export class JsonPeerMcpStore implements PeerMcpStore {
     this.filePath = filePath;
   }
 
-  load(): unknown {
+  load(): PeerMcpCatalogCache | undefined {
     if (!this.filePath) return undefined;
     try {
-      return JSON.parse(fs.readFileSync(this.filePath, "utf8"));
+      return PeerMcpCatalogCacheSchema.parse(JSON.parse(fs.readFileSync(this.filePath, "utf8")));
     } catch {
       return undefined;
     }

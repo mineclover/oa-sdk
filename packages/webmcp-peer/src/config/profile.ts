@@ -3,6 +3,7 @@ import {
   normalizePeerConfigUrl,
   parseInvitationUrl,
 } from "./invitation.js";
+import { isJsonObject, type PeerJsonSchema } from "./json.js";
 import {
   WEBMCP_PEER_CONFIG_TYPE,
   type CreatePeerConfigProfileOptions,
@@ -64,6 +65,36 @@ export function createPeerConfigProfile(
   };
 }
 
+/** The members of a pasted JSON peer config document that `parsePeerConfig` reads. */
+interface PeerConfigDocument {
+  readonly invitationUrl?: string;
+  readonly serverUrl?: string;
+  readonly roomId?: string;
+  readonly alias?: string;
+}
+
+/**
+ * A pasted peer config (`createPeerConfigProfile` output or a hand-written subset). It must be a
+ * JSON object; an optional member with the wrong type is dropped rather than rejecting the whole
+ * document, and string members are trimmed.
+ */
+const PeerConfigDocumentSchema: PeerJsonSchema<PeerConfigDocument> = {
+  parse(value) {
+    if (!isJsonObject(value)) throw new TypeError("Peer config must be a JSON object");
+    const text = (member: unknown): string | undefined => (typeof member === "string" ? member.trim() : undefined);
+    const invitationUrl = text(value.invitationUrl);
+    const serverUrl = text(value.serverUrl);
+    const roomId = text(value.roomId);
+    const alias = text(value.alias);
+    return {
+      ...(invitationUrl !== undefined ? { invitationUrl } : {}),
+      ...(serverUrl !== undefined ? { serverUrl } : {}),
+      ...(roomId !== undefined ? { roomId } : {}),
+      ...(alias ? { alias } : {}),
+    };
+  },
+};
+
 export function stringifyPeerConfigProfile(input: CreatePeerConfigProfileOptions = {}): string {
   return JSON.stringify(createPeerConfigProfile(input), null, 2);
 }
@@ -72,12 +103,7 @@ export function parsePeerConfig(value: string): ParsePeerConfigResult {
   const raw = value.trim();
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    if (!parsed || typeof parsed !== "object") return null;
-    const invitationUrl = typeof parsed.invitationUrl === "string" ? parsed.invitationUrl.trim() : undefined;
-    const serverUrl = typeof parsed.serverUrl === "string" ? parsed.serverUrl.trim() : undefined;
-    const explicitRoomId = typeof parsed.roomId === "string" ? parsed.roomId.trim() : undefined;
-    const alias = typeof parsed.alias === "string" && parsed.alias.trim() ? parsed.alias.trim() : undefined;
+    const { invitationUrl, serverUrl, roomId: explicitRoomId, alias } = PeerConfigDocumentSchema.parse(JSON.parse(raw));
     if (!serverUrl && !invitationUrl) return null;
     const parsedInvitation = invitationUrl ? parseInvitationUrl(invitationUrl) : null;
     const fromInvitation = invitationUrl ? new URL(invitationUrl) : null;

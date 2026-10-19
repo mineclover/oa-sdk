@@ -191,7 +191,7 @@ async function main(): Promise<void> {
   const activeRuns = provider.getAiRuns();
   const recordedEntries = activeRuns[0] ? await runLedger.list(activeRuns[0].runId) : [];
   console.log(
-    `[6/7] MCP tools/call (todo_add)    -> added="${parsedPayload.added?.title}", receipt=${receipt.status} (${receipt.transactionId}), ledgerEntries=${recordedEntries.length}`,
+    `[6/7] MCP tools/call (todo_add)    -> added="${parsedPayload.added?.title}", receipt=${receipt.status} (${"transactionId" in receipt ? receipt.transactionId : "no transaction"}), ledgerEntries=${recordedEntries.length}`,
   );
 
   // Call Read Tool (todo_list)

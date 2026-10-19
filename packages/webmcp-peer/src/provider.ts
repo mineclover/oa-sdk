@@ -8,6 +8,7 @@ export {
 
 export {
   AiRunController,
+  AiRunLimitExceededError,
   type AiRunPhase,
   type AiRollbackStatus,
   type AiRunPoint,

@@ -2,13 +2,24 @@ export {
   upgradeWebSocket,
   MAX_WEBSOCKET_FRAME_BYTES,
   MAX_WEBSOCKET_MESSAGE_BYTES,
+  MAX_WEBSOCKET_MESSAGE_FRAGMENTS,
+  MAX_WEBSOCKET_OUTBOUND_BUFFER_BYTES,
+  MIN_WEBSOCKET_OUTBOUND_BUFFER_BYTES,
+  WEBSOCKET_CLOSE_TIMEOUT_MS,
+  WEBSOCKET_CLOSE_TRY_AGAIN_LATER,
+  WEBSOCKET_STALLED_OUTBOUND_TIMEOUT_MS,
   type PeerSocket,
+  type PeerSendResult,
+  type UpgradeWebSocketOptions,
 } from "./server/ws-upgrade.js";
 
 export {
   withFileLockSync,
   appendDurableLineSync,
   readDurableJsonLinesSync,
+  truncateUnterminatedTailSync,
+  type DurableJsonRowSchema,
+  type ReadDurableJsonLinesOptions,
 } from "./server/durable-file.js";
 
 export {

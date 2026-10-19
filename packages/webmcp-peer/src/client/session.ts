@@ -1,5 +1,11 @@
 import { randomUUID } from "node:crypto";
 import {
+  isJsonObject,
+  JsonObjectSchema,
+  parseJsonObject,
+  readResponseText,
+} from "../config/json.js";
+import {
   extractCatalogVersion,
   hashTools,
   normalizeTools,
@@ -12,6 +18,12 @@ import {
   PeerMcpRpcError,
 } from "./errors.js";
 import {
+  PeerMcpCallToolResultSchema,
+  PeerMcpCatalogCacheSchema,
+  PeerSessionStatusSchema,
+} from "./schemas.js";
+import {
+  asCatalogVersion,
   asNonEmptyString,
   createHttpTransport,
   createWebSocketTransport,
@@ -24,10 +36,12 @@ import {
   PACKAGE_VERSION,
   PROTOCOL_VERSION,
   type PeerMcpCallOptions,
+  type PeerMcpCallToolResult,
   type PeerMcpCatalogListener,
   type PeerMcpCatalogSnapshot,
   type PeerMcpListener,
   type PeerMcpRequestOptions,
+  type PeerMcpRpcResponse,
   type PeerMcpSessionInfo,
   type PeerMcpSessionOptions,
   type PeerMcpSessionState,
@@ -42,35 +56,45 @@ function readEnv(name: string): string | undefined {
   return typeof process !== "undefined" ? process.env?.[name] : undefined;
 }
 
-function isRpcResponse(value: unknown): value is Record<string, unknown> {
-  if (!value || typeof value !== "object") return false;
-  const obj = value as Record<string, unknown>;
-  return obj.jsonrpc === "2.0" && (obj.id !== undefined || obj.result !== undefined || obj.error !== undefined);
+function isRpcResponse(value: unknown): value is PeerMcpRpcResponse {
+  if (!isJsonObject(value)) return false;
+  return value.jsonrpc === "2.0" && (value.id !== undefined || value.result !== undefined || value.error !== undefined);
 }
 
 function unwrapMessage(value: unknown): Record<string, unknown> | undefined {
   if (typeof value === "string") {
     try {
-      return JSON.parse(value) as Record<string, unknown>;
+      return JsonObjectSchema.parse(JSON.parse(value));
     } catch {
       return undefined;
     }
   }
-  if (value && typeof value === "object") {
-    const obj = value as Record<string, unknown>;
-    if ("data" in obj && !obj.jsonrpc && !obj.type) {
-      return unwrapMessage(obj.data);
+  if (isJsonObject(value)) {
+    if ("data" in value && !value.jsonrpc && !value.type) {
+      return unwrapMessage(value.data);
     }
-    return obj;
+    return value;
   }
   return undefined;
 }
 
 interface PendingRpcEntry {
-  resolve: (value: any) => void;
+  resolve: (value: PeerMcpRpcResponse) => void;
   reject: (error: unknown) => void;
   timer: ReturnType<typeof setTimeout>;
   method: string;
+}
+
+/** First delay before a retryable refusal (e.g. PROVIDER_BUSY) is retried. */
+const RETRY_INITIAL_DELAY_MS = 100;
+/** Longest delay between retries of a retryable refusal. */
+const RETRY_MAX_DELAY_MS = 2_000;
+
+/** True for a JSON-RPC error the relay marks retryable (`data.retryable: true`): nothing was forwarded. */
+function isRetryableRpcError(error: unknown): boolean {
+  if (!(error instanceof PeerMcpRpcError) || !isJsonObject(error.rpcError)) return false;
+  const data = error.rpcError.data;
+  return isJsonObject(data) && data.retryable === true;
 }
 
 export class PeerMcpSession {
@@ -85,6 +109,7 @@ export class PeerMcpSession {
   WebSocketImpl: unknown;
   transportFactory?: PeerMcpSessionOptions["transportFactory"];
   transport?: PeerMcpTransport;
+  fetchImpl?: typeof fetch;
   state: PeerMcpSessionState;
   sessionId?: string;
   roomEpoch?: number;
@@ -108,6 +133,12 @@ export class PeerMcpSession {
   storage?: PeerMcpStore;
   #readyResolve?: () => void;
   #readyReject?: (error: unknown) => void;
+  /**
+   * True when `sessionId` names the relay's session for this client ticket: it came from the
+   * caller (the `sessionId` returned by `joinPeerRoom`) or from the relay's WebSocket `ready` frame.
+   * A session id the client invented for itself is not known to the relay.
+   */
+  #sessionBound: boolean;
 
   constructor(options: PeerMcpSessionOptions = {}) {
     this.serverUrl = normalizeServerUrl(
@@ -131,8 +162,10 @@ export class PeerMcpSession {
     this.WebSocketImpl = options.WebSocket ?? globalThis.WebSocket;
     this.transportFactory = options.transportFactory;
     this.transport = options.transport;
+    this.fetchImpl = options.fetchImpl;
     this.state = "idle";
     this.sessionId = asNonEmptyString(options.sessionId);
+    this.#sessionBound = this.sessionId !== undefined;
     this.roomEpoch = Number.isSafeInteger(options.roomEpoch) ? options.roomEpoch : undefined;
     this.runtimeEpoch = asNonEmptyString(options.runtimeEpoch) || randomUUID();
     this.connectedAt = null;
@@ -233,19 +266,15 @@ export class PeerMcpSession {
 
   restoreCatalog(): void {
     try {
-      const value = (typeof this.storage?.load === "function" ? this.storage.load() : undefined) as
-        | Record<string, unknown>
-        | undefined;
-      if (!value || !Array.isArray(value.cachedTools)) return;
-      const cachedTools = normalizeTools({ result: { tools: value.cachedTools } });
-      const computedHash = hashTools(cachedTools);
-      const hash = value.catalogHash === computedHash ? (value.catalogHash as string) : computedHash;
+      if (typeof this.storage?.load !== "function") return;
+      const value = PeerMcpCatalogCacheSchema.parse(this.storage.load());
+      // The hash is always recomputed: a cache cannot vouch for a catalog it did not hash correctly.
       this.catalog = {
-        cachedTools,
-        catalogVersion: (value.catalogVersion as number | string) ?? 0,
-        catalogHash: hash,
+        cachedTools: value.cachedTools,
+        catalogVersion: value.catalogVersion,
+        catalogHash: hashTools(value.cachedTools),
         source: "peer",
-        updatedAt: (value.updatedAt as string | null) ?? null,
+        updatedAt: value.updatedAt,
       };
     } catch {
       // A stale cache must never prevent a fresh peer session from connecting.
@@ -265,16 +294,30 @@ export class PeerMcpSession {
     } catch {}
   }
 
+  /**
+   * Connects the transport and waits for the peer's `ready` frame. Concurrent callers (including
+   * `request()` calls made while a connect is in flight) share one connect attempt.
+   */
   async connect(): Promise<PeerMcpSessionInfo> {
     if (this.state === "connected") return this.getSessionInfo();
     if (this.connectPromise) return this.connectPromise;
     if (!this.roomId && !this.wsUrl && !this.mcpEndpoint && !this.transport && !this.transportFactory) {
       throw new PeerMcpError("A peer roomId, wsUrl, mcpEndpoint, or transport is required", "ROOM_ID_REQUIRED");
     }
-    this.connectPromise = this.#connectImpl().finally(() => {
-      this.connectPromise = null;
+    // Publish the in-flight promise before the connect starts: transports deliver `ready` (and
+    // listeners run) synchronously inside #connectImpl, and a request issued from there must join
+    // this attempt instead of starting a second one.
+    let settle!: { resolve: (info: PeerMcpSessionInfo) => void; reject: (error: unknown) => void };
+    const attempt = new Promise<PeerMcpSessionInfo>((resolve, reject) => {
+      settle = { resolve, reject };
     });
-    return this.connectPromise;
+    this.connectPromise = attempt;
+    this.#connectImpl()
+      .then(settle.resolve, settle.reject)
+      .finally(() => {
+        if (this.connectPromise === attempt) this.connectPromise = null;
+      });
+    return attempt;
   }
 
   async #connectImpl(): Promise<PeerMcpSessionInfo> {
@@ -303,7 +346,7 @@ export class PeerMcpSession {
         }
         transport.onMessage = transport.onMessage || callbacks.onMessage;
       } else if (this.mcpEndpoint) {
-        transport = createHttpTransport(this.mcpEndpoint, globalThis.fetch, callbacks, this.clientToken);
+        transport = createHttpTransport(this.mcpEndpoint, this.fetchImpl ?? globalThis.fetch, callbacks, this.clientToken);
       } else {
         transport = createWebSocketTransport(url, protocols, this.WebSocketImpl, callbacks);
       }
@@ -379,8 +422,15 @@ export class PeerMcpSession {
       if (!this.roomId && typeof value.roomId === "string" && value.roomId.trim()) {
         this.roomId = value.roomId.trim();
       }
-      if (Number.isSafeInteger(value.roomEpoch)) {
-        this.roomEpoch = value.roomEpoch as number;
+      if (typeof value.roomEpoch === "number" && Number.isSafeInteger(value.roomEpoch)) {
+        this.roomEpoch = value.roomEpoch;
+      }
+      // The relay names the session its client ticket belongs to; that id (not one the client
+      // invented) is what session-scoped routes such as revoke bind to.
+      const readySessionId = asNonEmptyString(value.sessionId);
+      if (readySessionId) {
+        this.sessionId = readySessionId;
+        this.#sessionBound = true;
       }
       this.#markOpen();
       this.readySeen = true;
@@ -389,9 +439,7 @@ export class PeerMcpSession {
       return;
     }
     if (value.type === "ping") {
-      try {
-        this.transport?.send?.({ type: "pong", timestamp: Date.now() });
-      } catch {}
+      this.#sendUnawaited({ type: "pong", timestamp: Date.now() });
       return;
     }
     if (value.type === "pong") {
@@ -437,11 +485,7 @@ export class PeerMcpSession {
       return;
     }
     if (value.type === "register" && Array.isArray(value.tools)) {
-      this.#replaceCatalog(
-        value.tools,
-        value.catalogVersion as number | string | undefined,
-        value.catalogHash as string | undefined,
-      );
+      this.#replaceCatalog(value.tools, asCatalogVersion(value.catalogVersion), asNonEmptyString(value.catalogHash));
       return;
     }
     if (value.type === "catalogChanged" || value.type === "catalog.changed") {
@@ -464,7 +508,7 @@ export class PeerMcpSession {
     }
     const rpc = value.type === "mcp" && value.message ? unwrapMessage(value.message) : value;
     if (rpc?.method === "notifications/tools/list_changed") {
-      const params = (rpc.params ?? {}) as Record<string, unknown>;
+      const params = isJsonObject(rpc.params) ? rpc.params : {};
       for (const listener of this.catalogListeners) {
         try {
           listener({ type: "catalogChanged", ...params, snapshot: this.getCatalogSnapshot() });
@@ -477,9 +521,22 @@ export class PeerMcpSession {
       if (!pending) return;
       this.pending.delete(String(rpc.id));
       clearTimeout(pending.timer);
-      if (rpc.error) pending.reject(new PeerMcpRpcError(rpc.error as Record<string, unknown>, rpc));
+      if (rpc.error) pending.reject(new PeerMcpRpcError(isJsonObject(rpc.error) ? rpc.error : undefined, rpc));
       else pending.resolve(rpc);
     }
+  }
+
+  /**
+   * Sends a frame no call waits for (a pong). A transport's send may fail by throwing or, when it
+   * is asynchronous (the HTTP transport, a custom transport or transportFactory), by rejecting;
+   * either failure is dropped, as an unhandled rejection would by default terminate the agent
+   * process. A transport that is really broken reports it through onError or onClose.
+   */
+  #sendUnawaited(message: PeerMcpTransportMessage): void {
+    try {
+      const sent = this.transport?.send?.(message);
+      if (sent !== undefined) void Promise.resolve(sent).catch(() => {});
+    } catch {}
   }
 
   #handleTransportError(error: unknown): void {
@@ -499,33 +556,92 @@ export class PeerMcpSession {
     this.notify();
   }
 
+  /** Requests sleeping before a retry: not in `pending`, but ended by the same events. */
+  readonly #retryWaits = new Set<{ timer: ReturnType<typeof setTimeout>; reject: (error: unknown) => void }>();
+
   #rejectPending(error: unknown): void {
     for (const pending of this.pending.values()) {
       clearTimeout(pending.timer);
       pending.reject(error);
     }
     this.pending.clear();
+    // A request waiting to retry ends with the same error instead of reconnecting the session.
+    for (const wait of this.#retryWaits) {
+      clearTimeout(wait.timer);
+      wait.reject(error);
+    }
+    this.#retryWaits.clear();
   }
 
+  #waitBeforeRetry(delayMs: number): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const wait = {
+        timer: setTimeout(() => {
+          this.#retryWaits.delete(wait);
+          resolve();
+        }, delayMs),
+        reject,
+      };
+      this.#retryWaits.add(wait);
+    });
+  }
+
+  /**
+   * Sends one JSON-RPC request and resolves with its response.
+   *
+   * A request the relay refuses as retryable (`data.retryable: true`, e.g. PROVIDER_BUSY while the
+   * provider is not reading) reached nobody, so it is sent again with exponential backoff
+   * ({@link RETRY_INITIAL_DELAY_MS} doubling up to {@link RETRY_MAX_DELAY_MS}) for as long as the
+   * request's own timeout allows; the last refusal is then reported.
+   */
   async request(
     method: string,
     params: Record<string, unknown> = {},
     options: PeerMcpRequestOptions = {},
-  ): Promise<any> {
-    if (this.state !== "connected" && this.state !== "connecting") await this.connect();
+  ): Promise<PeerMcpRpcResponse> {
+    const id = options.id ?? `${this.sessionId || "peer"}-${++this.nextRequestId}`;
+    const timeoutMs = Number.isFinite(options.timeoutMs) ? Math.max(1, options.timeoutMs!) : this.requestTimeoutMs;
+    const deadline = Date.now() + timeoutMs;
+    let delayMs = RETRY_INITIAL_DELAY_MS;
+    for (;;) {
+      try {
+        return await this.#requestOnce(method, params, options, id, Math.max(1, deadline - Date.now()));
+      } catch (error) {
+        if (!isRetryableRpcError(error) || deadline - Date.now() <= delayMs) throw error;
+        // disconnect(), a transport error or close rejects this wait like a pending request.
+        await this.#waitBeforeRetry(delayMs);
+        delayMs = Math.min(delayMs * 2, RETRY_MAX_DELAY_MS);
+      }
+    }
+  }
+
+  async #requestOnce(
+    method: string,
+    params: Record<string, unknown>,
+    options: PeerMcpRequestOptions,
+    id: string | number,
+    timeoutMs: number,
+  ): Promise<PeerMcpRpcResponse> {
+    // A request made while a connect is in flight waits for that connect (connect() returns the
+    // in-flight attempt) instead of writing to a transport that is not open yet.
+    if (this.state !== "connected") await this.connect();
     if (!this.transport || typeof this.transport.send !== "function") {
       throw new PeerMcpError("Peer transport is not connected", "NOT_CONNECTED");
     }
-    const id = options.id ?? `${this.sessionId || "peer"}-${++this.nextRequestId}`;
     const rpc = { jsonrpc: "2.0", id, method, params };
-    const timeoutMs = Number.isFinite(options.timeoutMs) ? Math.max(1, options.timeoutMs!) : this.requestTimeoutMs;
-    const promise = new Promise<any>((resolve, reject) => {
+    const promise = new Promise<PeerMcpRpcResponse>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(String(id));
         reject(new PeerMcpError(`Peer MCP request timed out: ${method}`, "REQUEST_TIMEOUT", { method, id }));
       }, timeoutMs);
       this.pending.set(String(id), { resolve, reject, timer, method });
     });
+    // The caller only gets this promise once the send below has finished, which for the HTTP
+    // transport is the whole POST. A timeout, disconnect() or transport error rejects the pending
+    // entry meanwhile, and without a handler that rejection would be reported as unhandled (by
+    // default fatal to the agent process). This marks it handled; the promise returned below still
+    // rejects for the caller.
+    promise.catch(() => {});
     try {
       const envelope: PeerMcpTransportMessage =
         options.raw === true || this.transport.raw === true ? rpc : { type: "mcp", message: rpc };
@@ -541,13 +657,34 @@ export class PeerMcpSession {
     return promise;
   }
 
-  async initialize(): Promise<Record<string, unknown>> {
-    const response = await this.request("initialize", {
+  #initializeParams(): Record<string, unknown> {
+    return {
       protocolVersion: this.protocolVersion,
       capabilities: {},
       clientInfo: { name: "framebook-cli", version: PACKAGE_VERSION },
-    });
+    };
+  }
+
+  async initialize(): Promise<Record<string, unknown>> {
+    const response = await this.request("initialize", this.#initializeParams());
+    if (!isJsonObject(response.result)) {
+      throw new PeerMcpError("Peer initialize response has no result object", "INVALID_RESPONSE", response);
+    }
+    this.#adoptRoomEpoch(response.result._meta);
     return response.result;
+  }
+
+  /**
+   * Adopts the relay's `roomEpoch` from response metadata. The Streamable HTTP transport has no
+   * `ready` frame carrying it, and session-scoped routes (revoke) must echo the epoch.
+   */
+  #adoptRoomEpoch(meta: unknown): void {
+    if (!isJsonObject(meta)) return;
+    const roomId = this.roomId ?? parseRoomId(this.mcpEndpoint);
+    if (typeof meta.roomId === "string" && roomId !== undefined && meta.roomId !== roomId) return;
+    if (typeof meta.roomEpoch === "number" && Number.isSafeInteger(meta.roomEpoch) && meta.roomEpoch >= 0) {
+      this.roomEpoch = meta.roomEpoch;
+    }
   }
 
   async listTools(options: { cursor?: string } = {}): Promise<PeerMcpTool[]> {
@@ -561,11 +698,13 @@ export class PeerMcpSession {
       },
     });
     const tools = normalizeTools(response);
-    const metadata = response.result?._meta ?? response._meta ?? {};
+    const result = isJsonObject(response.result) ? response.result : {};
+    const metadata = isJsonObject(result._meta) ? result._meta : isJsonObject(response._meta) ? response._meta : {};
+    this.#adoptRoomEpoch(metadata);
     this.#replaceCatalog(
       tools,
-      response.result?.catalogVersion ?? metadata.catalogVersion,
-      response.result?.catalogHash ?? metadata.catalogHash,
+      asCatalogVersion(result.catalogVersion ?? metadata.catalogVersion),
+      asNonEmptyString(result.catalogHash ?? metadata.catalogHash),
     );
     return this.getCachedTools();
   }
@@ -582,7 +721,7 @@ export class PeerMcpSession {
     name: string,
     args: Record<string, unknown> = {},
     options: PeerMcpCallOptions = {},
-  ): Promise<any> {
+  ): Promise<PeerMcpCallToolResult> {
     const toolName = asNonEmptyString(name);
     if (!toolName) throw new PeerMcpError("Tool name is required", "TOOL_NAME_REQUIRED");
     if (!this.catalog.cachedTools.length && options.refresh !== false) await this.refreshCatalog();
@@ -603,9 +742,9 @@ export class PeerMcpSession {
         catalogHash: this.catalog.catalogHash,
       },
     };
+    let response: PeerMcpRpcResponse;
     try {
-      const response = await this.request("tools/call", params, options);
-      return response.result;
+      response = await this.request("tools/call", params, options);
     } catch (error) {
       if (error instanceof PeerMcpRpcError && isCatalogChangedRpcError(error.rpcError)) {
         await this.refreshCatalog();
@@ -616,6 +755,15 @@ export class PeerMcpSession {
         throw changed;
       }
       throw error;
+    }
+    try {
+      return PeerMcpCallToolResultSchema.parse(response.result);
+    } catch (error) {
+      throw new PeerMcpError(
+        `Peer tools/call returned an invalid result: ${error instanceof Error ? error.message : String(error)}`,
+        "INVALID_TOOL_RESULT",
+        response,
+      );
     }
   }
 
@@ -666,42 +814,116 @@ export class PeerMcpSession {
     return this.getSessionInfo();
   }
 
+  /**
+   * Revokes this client's ticket on the relay, then disconnects. The relay identifies the ticket by
+   * the bearer `clientToken` and accepts the request only when it names the ticket's room
+   * (`roomId` + the current `roomEpoch`) and, on the session-scoped route, its session id:
+   * - `roomId` comes from the options, the WebSocket `ready` frame, or the `/p/:id/mcp` endpoint;
+   * - `roomEpoch` comes from the options, the `ready` frame, or `initialize`/`tools/list` metadata.
+   *   When none of those supplied it yet, it is learned before revoking: from the session status
+   *   route when the relay's session id is known, otherwise from a metadata-only `initialize` POST
+   *   to the room's MCP endpoint, which the relay answers for a ticket in any approval state;
+   * - a session id the relay never issued (one the client invented for itself) is not sent; the
+   *   bearer-only route `/p/:id/session/revoke` is used instead.
+   */
   async revoke(reason = "client-request"): Promise<Record<string, unknown>> {
     if (!this.clientToken) {
       throw new PeerMcpError("A client ticket is required to revoke the peer session", "CLIENT_TOKEN_REQUIRED");
     }
-    if (!this.sessionId) {
-      throw new PeerMcpError("A session id is required to revoke the peer session", "SESSION_REQUIRED");
-    }
-    const endpoint = this.mcpEndpoint
-      ? this.mcpEndpoint.replace(/\/mcp\/?$/, `/sessions/${encodeURIComponent(this.sessionId || "")}/revoke`)
-      : this.roomId
-        ? `${this.serverUrl.replace(/\/+$/, "")}/p/${encodeURIComponent(this.roomId)}/sessions/${encodeURIComponent(this.sessionId || "")}/revoke`
+    const fetchImpl = this.fetchImpl ?? globalThis.fetch;
+    const roomId = this.roomId ?? parseRoomId(this.mcpEndpoint);
+    const sessionId = this.#sessionBound ? this.sessionId : undefined;
+    const sessionPath = sessionId ? `/sessions/${encodeURIComponent(sessionId)}` : "/session";
+    const roomBase = this.mcpEndpoint
+      ? this.mcpEndpoint.replace(/\/mcp\/?$/, "")
+      : roomId
+        ? `${this.serverUrl.replace(/\/+$/, "")}/p/${encodeURIComponent(roomId)}`
         : undefined;
-    if (!endpoint || typeof globalThis.fetch !== "function") {
+    if (!roomBase || typeof fetchImpl !== "function") {
       throw new PeerMcpError("A server URL or MCP endpoint is required to revoke the peer session", "TRANSPORT_UNAVAILABLE");
     }
-    const response = await globalThis.fetch(endpoint, {
+    const roomEpoch = this.roomEpoch ?? (await this.#learnRoomEpoch(fetchImpl, roomBase, sessionId));
+    const response = await fetchImpl(`${roomBase}${sessionPath}/revoke`, {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${this.clientToken}` },
       body: JSON.stringify({
-        sessionId: this.sessionId,
-        roomId: this.roomId,
-        roomEpoch: this.roomEpoch,
+        ...(sessionId ? { sessionId } : {}),
+        roomId,
+        roomEpoch,
         reason,
         requestedAt: new Date().toISOString(),
       }),
     });
-    const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+    const body = parseJsonObject(await readResponseText(response));
     if (!response.ok) {
       throw new PeerMcpError(
-        (typeof body?.error === "string" ? body.error : undefined) || `HTTP ${response.status}: peer session revoke failed`,
-        (typeof body?.code === "string" ? body.code : undefined) || "SESSION_REVOKE_FAILED",
+        (typeof body.error === "string" ? body.error : undefined) || `HTTP ${response.status}: peer session revoke failed`,
+        (typeof body.code === "string" ? body.code : undefined) || "SESSION_REVOKE_FAILED",
         body,
       );
     }
     await this.disconnect();
     return body;
+  }
+
+  /**
+   * Learns the relay's room epoch for {@link revoke} when no frame or response supplied it yet:
+   * from the session status route when the relay's session id is known, otherwise (or when that
+   * route cannot be read) from a metadata-only `initialize` POST to the room's MCP endpoint.
+   * Undefined when neither answers; the relay then rejects the revoke with its binding error.
+   */
+  async #learnRoomEpoch(fetchImpl: typeof fetch, roomBase: string, sessionId: string | undefined): Promise<number | undefined> {
+    if (sessionId) {
+      const fromStatus = await this.#readStatusRoomEpoch(fetchImpl, `${roomBase}/sessions/${encodeURIComponent(sessionId)}`);
+      if (fromStatus !== undefined) return fromStatus;
+    }
+    return this.#readInitializeRoomEpoch(fetchImpl, this.mcpEndpoint ?? `${roomBase}/mcp`);
+  }
+
+  /** Reads the room epoch from `GET .../sessions/:sessionId`; undefined when it cannot be read. */
+  async #readStatusRoomEpoch(fetchImpl: typeof fetch, statusUrl: string): Promise<number | undefined> {
+    try {
+      const response = await fetchImpl(statusUrl, {
+        method: "GET",
+        headers: { accept: "application/json", authorization: `Bearer ${this.clientToken}` },
+      });
+      if (!response.ok) return undefined;
+      const status = PeerSessionStatusSchema.parse(JSON.parse(await readResponseText(response)));
+      if (status.roomEpoch !== undefined) this.roomEpoch = status.roomEpoch;
+      return status.roomEpoch;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Reads the room epoch from the `_meta` of an `initialize` POSTed straight to the room's MCP
+   * endpoint (independent of this session's transport); undefined when it cannot be read.
+   */
+  async #readInitializeRoomEpoch(fetchImpl: typeof fetch, endpoint: string): Promise<number | undefined> {
+    try {
+      const response = await fetchImpl(endpoint, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json",
+          "user-agent": `framebook-peer-mcp-client/${PACKAGE_VERSION}`,
+          authorization: `Bearer ${this.clientToken}`,
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: `${this.sessionId || "peer"}-${++this.nextRequestId}`,
+          method: "initialize",
+          params: this.#initializeParams(),
+        }),
+      });
+      if (!response.ok) return undefined;
+      const body = JsonObjectSchema.parse(JSON.parse(await readResponseText(response)));
+      if (isJsonObject(body.result)) this.#adoptRoomEpoch(body.result._meta);
+      return this.roomEpoch;
+    } catch {
+      return undefined;
+    }
   }
 }
 

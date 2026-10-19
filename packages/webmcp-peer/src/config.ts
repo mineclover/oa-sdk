@@ -35,3 +35,10 @@ export {
   probePeerHealth,
   fetchPeerServerConfig,
 } from "./config/probe.js";
+
+export {
+  PEER_RELAY_MAX_MESSAGE_BYTES,
+  PEER_RELAY_MAX_REQUEST_BYTES,
+  PEER_RELAY_MAX_CATALOG_BYTES,
+  PEER_RELAY_MAX_ANNOUNCEMENT_BYTES,
+} from "./config/limits.js";

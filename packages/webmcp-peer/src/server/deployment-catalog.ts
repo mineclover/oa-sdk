@@ -27,13 +27,34 @@ function stableCatalogValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stableCatalogValue);
   if (!isCatalogRecord(value)) return value;
   return Object.keys(value).sort().reduce<Record<string, unknown>>((result, key) => {
-    result[key] = stableCatalogValue(value[key]);
+    // defineProperty, not assignment: an own `__proto__` key (JSON.parse creates one) would
+    // otherwise set the prototype and drop out of the hash.
+    Object.defineProperty(result, key, { value: stableCatalogValue(value[key]), enumerable: true, writable: true, configurable: true });
     return result;
   }, {});
 }
 
-export function hashDeploymentCatalog(tools: readonly Record<string, unknown>[]): string {
-  const ordered = [...tools].sort((left, right) => String(left.name ?? "").localeCompare(String(right.name ?? "")));
+function catalogToolName(tool: unknown): string {
+  return isCatalogRecord(tool) ? String(tool.name ?? "") : "";
+}
+
+/**
+ * Orders tool names by UTF-16 code units. `localeCompare` follows the process/browser locale
+ * (Danish sorts `aa` after `z`, Czech sorts `ch` after `h`) and treats canonically equivalent or
+ * soft-hyphenated names as equal, so it cannot back a hash that every runtime must reproduce.
+ */
+function compareToolNames(left: unknown, right: unknown): number {
+  const leftName = catalogToolName(left);
+  const rightName = catalogToolName(right);
+  return leftName < rightName ? -1 : leftName > rightName ? 1 : 0;
+}
+
+/**
+ * Deterministic, order- and locale-independent SHA-256 of a tool catalog: tools sorted by name
+ * (code-unit order), object keys sorted recursively. The relay's room catalog hash uses it too.
+ */
+export function hashDeploymentCatalog(tools: readonly unknown[]): string {
+  const ordered = [...tools].sort(compareToolNames);
   return createHash("sha256").update(JSON.stringify(stableCatalogValue(ordered))).digest("hex");
 }
 
@@ -60,6 +81,20 @@ export function normalizeToolCatalog(value: unknown): Record<string, unknown>[] 
   }
   return tools;
 }
+
+/**
+ * Named validator for a deployment catalog artifact (`api/webmcp-tools.json`): a JSON object whose
+ * `tools` (default `[]`) are then checked by `normalizeToolCatalog`, with `catalogVersion` default 1.
+ */
+const DeploymentCatalogFileSchema = {
+  parse(value: unknown): DeploymentCatalogInput {
+    if (!isCatalogRecord(value)) throw new TypeError("DEPLOYMENT_CATALOG_FILE_INVALID");
+    return {
+      tools: Array.isArray(value.tools) ? value.tools : [],
+      catalogVersion: typeof value.catalogVersion === "number" ? value.catalogVersion : 1,
+    };
+  },
+};
 
 function buildCatalogSnapshot(input: DeploymentCatalogInput, source: DeploymentCatalogSnapshot["source"]): DeploymentCatalogSnapshot {
   const tools = normalizeToolCatalog(input.tools) ?? [];
@@ -91,12 +126,7 @@ export function loadDeploymentCatalog(injected?: DeploymentCatalogInput): Deploy
   for (const filePath of candidates) {
     if (!existsSync(filePath)) continue;
     try {
-      const parsed: unknown = JSON.parse(readFileSync(filePath, "utf8"));
-      if (!isCatalogRecord(parsed)) continue;
-      const result = buildCatalogSnapshot({
-        tools: Array.isArray(parsed.tools) ? parsed.tools : [],
-        catalogVersion: typeof parsed.catalogVersion === "number" ? parsed.catalogVersion : 1,
-      }, "deployment");
+      const result = buildCatalogSnapshot(DeploymentCatalogFileSchema.parse(JSON.parse(readFileSync(filePath, "utf8"))), "deployment");
       if (result.tools.length > 0) return result;
     } catch {
       // Malformed deployment artifact must not become an executable fallback.

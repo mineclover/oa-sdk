@@ -90,6 +90,14 @@ export function validatePublishRateLimitDecision(
   };
 }
 
+/** Bucket count above which the in-memory store prunes expired windows, then evicts the oldest. */
+const MAX_IN_MEMORY_BUCKETS = 4096;
+
+/**
+ * Fixed-window counters (each window is anchored at the first request per key), so up to about
+ * `2 * max` requests can pass across a window boundary. The bucket map is bounded: past
+ * `MAX_IN_MEMORY_BUCKETS` keys, expired windows are pruned and then the oldest windows evicted.
+ */
 export class InMemoryPublishRateLimitStore implements PublishRateLimitStore {
   private readonly buckets = new Map<string, RateLimitBucket>();
 
@@ -98,13 +106,20 @@ export class InMemoryPublishRateLimitStore implements PublishRateLimitStore {
     if (request.max === 0) {
       return { allowed: true, retryAfterMs: 0, remaining: Number.POSITIVE_INFINITY };
     }
-    if (this.buckets.size > 4096) {
+    if (this.buckets.size >= MAX_IN_MEMORY_BUCKETS && !this.buckets.has(request.key)) {
       for (const [key, bucket] of this.buckets) {
         if (request.nowMs - bucket.windowStartedAt >= request.windowMs) this.buckets.delete(key);
+      }
+      // Map iteration follows insertion order and a window restart re-inserts its key, so the
+      // first keys are the ones with the oldest windows.
+      for (const key of this.buckets.keys()) {
+        if (this.buckets.size < MAX_IN_MEMORY_BUCKETS) break;
+        this.buckets.delete(key);
       }
     }
     const current = this.buckets.get(request.key);
     if (!current || request.nowMs - current.windowStartedAt >= request.windowMs) {
+      this.buckets.delete(request.key);
       this.buckets.set(request.key, { windowStartedAt: request.nowMs, count: 1 });
       return {
         allowed: true,
@@ -125,25 +140,38 @@ interface PersistedRateLimitState {
   buckets: Record<string, RateLimitBucket>;
 }
 
-function readRateLimitState(filePath: string): PersistedRateLimitState {
-  if (!existsSync(filePath)) return { buckets: {} };
-  try {
-    const parsed = JSON.parse(readFileSync(filePath, "utf8")) as PersistedRateLimitState;
-    if (!parsed || typeof parsed !== "object" || !parsed.buckets || typeof parsed.buckets !== "object") {
-      throw new Error("PUBLISH_RATE_LIMIT_STATE_INVALID");
-    }
-    const buckets: Record<string, RateLimitBucket> = {};
-    for (const [key, value] of Object.entries(parsed.buckets)) {
-      if (!value || !Number.isFinite(value.windowStartedAt) || !Number.isFinite(value.count)
-        || value.windowStartedAt < 0 || value.count < 0) {
-        throw new Error("PUBLISH_RATE_LIMIT_STATE_INVALID");
+function isStateRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isValidCounter(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+/** Named validator for the File store's persisted `{ buckets: { [key]: { windowStartedAt, count } } }`. */
+const PersistedRateLimitStateSchema = {
+  parse(value: unknown): PersistedRateLimitState {
+    if (!isStateRecord(value) || !isStateRecord(value.buckets)) throw new TypeError("PUBLISH_RATE_LIMIT_STATE_INVALID");
+    const buckets: Record<string, RateLimitBucket> = Object.create(null);
+    for (const [key, bucket] of Object.entries(value.buckets)) {
+      if (!isStateRecord(bucket) || !isValidCounter(bucket.windowStartedAt) || !isValidCounter(bucket.count)) {
+        throw new TypeError("PUBLISH_RATE_LIMIT_STATE_INVALID");
       }
-      buckets[key] = { windowStartedAt: value.windowStartedAt, count: value.count };
+      buckets[key] = { windowStartedAt: bucket.windowStartedAt, count: bucket.count };
     }
     return { buckets };
+  },
+};
+
+function readRateLimitState(filePath: string): PersistedRateLimitState {
+  if (!existsSync(filePath)) return { buckets: Object.create(null) };
+  try {
+    return PersistedRateLimitStateSchema.parse(JSON.parse(readFileSync(filePath, "utf8")));
   } catch (error) {
-    if (error instanceof Error && error.message === "PUBLISH_RATE_LIMIT_STATE_INVALID") throw error;
-    throw new Error("PUBLISH_RATE_LIMIT_STATE_UNREADABLE");
+    if (error instanceof TypeError && error.message === "PUBLISH_RATE_LIMIT_STATE_INVALID") {
+      throw new Error("PUBLISH_RATE_LIMIT_STATE_INVALID", { cause: error });
+    }
+    throw new Error("PUBLISH_RATE_LIMIT_STATE_UNREADABLE", { cause: error });
   }
 }
 
@@ -224,6 +252,8 @@ export class SqlitePublishRateLimitStore implements PublishRateLimitStore {
         window_started_at INTEGER NOT NULL,
         request_count INTEGER NOT NULL
       );
+      CREATE INDEX IF NOT EXISTS publish_rate_limit_window_started_at
+        ON publish_rate_limit(window_started_at);
     `);
   }
 
@@ -234,6 +264,8 @@ export class SqlitePublishRateLimitStore implements PublishRateLimitStore {
     if (request.max === 0) return { allowed: true, retryAfterMs: 0, remaining: Number.POSITIVE_INFINITY };
     this.db.exec("BEGIN IMMEDIATE");
     try {
+      // Expired windows are dead state; dropping them keeps the table bounded by active keys.
+      this.db.prepare("DELETE FROM publish_rate_limit WHERE window_started_at <= ?").run(request.nowMs - request.windowMs);
       const row = this.db.prepare("SELECT window_started_at, request_count FROM publish_rate_limit WHERE bucket_key = ?").get(request.key);
       const startedAt = typeof row?.window_started_at === "number" ? row.window_started_at : undefined;
       const count = typeof row?.request_count === "number" ? row.request_count : undefined;

@@ -1,3 +1,5 @@
+import { parseJsonObject, readResponseText } from "../config/json.js";
+import { PEER_RELAY_MAX_REQUEST_BYTES, utf8ByteLength } from "../config/limits.js";
 import { PeerMcpError } from "./errors.js";
 import {
   DEFAULT_SERVER_URL,
@@ -9,6 +11,13 @@ import {
 
 export function asNonEmptyString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+/** A catalog version as the relay sends it: a finite number or a non-empty string. */
+export function asCatalogVersion(value: unknown): number | string | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) return value;
+  return undefined;
 }
 
 export function normalizeServerUrl(value?: string): string {
@@ -30,6 +39,23 @@ export function parseRoomId(value?: string): string | undefined {
     return match?.[1] || undefined;
   } catch {
     return raw.replace(/^\/p\//, "").replace(/\/mcp\/?$/, "");
+  }
+}
+
+/**
+ * Throws REQUEST_TOO_LARGE for a request over the relay's request limit
+ * (`PEER_RELAY_MAX_REQUEST_BYTES`). The relay would refuse it anyway (HTTP 413, or a JSON-RPC error
+ * over WebSocket; past the message limit it would close the WebSocket and fail every pending
+ * request of the session), so it is refused before it is sent and only its own caller sees it.
+ */
+function assertWithinRelayLimit(serialized: string): void {
+  const bytes = utf8ByteLength(serialized);
+  if (bytes > PEER_RELAY_MAX_REQUEST_BYTES) {
+    throw new PeerMcpError(
+      `Peer MCP request is ${bytes} bytes, over the relay's ${PEER_RELAY_MAX_REQUEST_BYTES}-byte request limit`,
+      "REQUEST_TOO_LARGE",
+      { bytes, limitBytes: PEER_RELAY_MAX_REQUEST_BYTES },
+    );
   }
 }
 
@@ -74,7 +100,9 @@ export function createWebSocketTransport(
       if (!opened && socket.readyState !== undefined && socket.readyState !== 1) {
         throw new PeerMcpError("WebSocket is not open", "TRANSPORT_NOT_OPEN");
       }
-      socket.send(typeof value === "string" ? value : JSON.stringify(value));
+      const serialized = typeof value === "string" ? value : JSON.stringify(value);
+      assertWithinRelayLimit(serialized);
+      socket.send(serialized);
     },
     close() {
       try {
@@ -100,6 +128,8 @@ export function createHttpTransport(
     async send(value: PeerMcpTransportMessage) {
       const valObj = typeof value === "object" && value !== null ? (value as Record<string, unknown>) : undefined;
       const rpc = (valObj?.type === "mcp" && valObj.message ? valObj.message : value) as Record<string, unknown>;
+      const body = JSON.stringify(rpc);
+      assertWithinRelayLimit(body);
       const response = await fetchImpl(url, {
         method: "POST",
         headers: {
@@ -108,16 +138,16 @@ export function createHttpTransport(
           "user-agent": `framebook-peer-mcp-client/${PACKAGE_VERSION}`,
           ...(clientToken ? { authorization: `Bearer ${clientToken}` } : {}),
         },
-        body: JSON.stringify(rpc),
+        body,
       });
-      const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-      if (!response.ok && body?.jsonrpc === "2.0" && body.error && typeof body.error === "object") {
+      const responseBody = parseJsonObject(await readResponseText(response));
+      if (!response.ok && responseBody?.jsonrpc === "2.0" && responseBody.error && typeof responseBody.error === "object") {
         // Keep the canonical JSON-RPC error (e.g. -32010 CATALOG_CHANGED on HTTP 409) so callers can
         // tell catalog drift from auth/room failures instead of seeing an opaque HTTP status.
         callbacks.onMessage?.({
-          ...body,
-          id: body.id ?? rpc?.id,
-          error: { ...(body.error as Record<string, unknown>), httpStatus: response.status },
+          ...responseBody,
+          id: responseBody.id ?? rpc?.id,
+          error: { ...(responseBody.error as Record<string, unknown>), httpStatus: response.status },
         });
         return;
       }
@@ -127,12 +157,12 @@ export function createHttpTransport(
           id: rpc?.id,
           error: {
             code: `HTTP_${response.status}`,
-            message: (typeof body?.error === "string" ? body.error : undefined) || response.statusText || "MCP endpoint failed",
+            message: (typeof responseBody?.error === "string" ? responseBody.error : undefined) || response.statusText || "MCP endpoint failed",
           },
         });
         return;
       }
-      callbacks.onMessage?.(body);
+      callbacks.onMessage?.(responseBody);
     },
     close() {},
   };

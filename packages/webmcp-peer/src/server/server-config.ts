@@ -98,7 +98,7 @@ export function autoLoadEnvFiles(startDir: string = process.cwd()): void {
   }
 }
 
-export function parseCliArgs(args: string[]): CliParsedArgs {
+export function parseCliArgs(args: readonly string[]): CliParsedArgs {
   const parsed: CliParsedArgs = {};
   const originList: string[] = [];
   const hostList: string[] = [];
@@ -210,41 +210,53 @@ export function findConfigFile(explicitPath?: string, cwd: string = process.cwd(
   return undefined;
 }
 
-export function loadConfigFile(filePath: string): Partial<PeerServerConfig> {
-  try {
-    const content = readFileSync(filePath, "utf8");
-    const json = JSON.parse(content);
-    if (typeof json !== "object" || json === null) return {};
+function isConfigRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
+function stringList(value: unknown[]): string[] {
+  return value.filter((item): item is string => typeof item === "string");
+}
+
+/**
+ * Named validator for a peer-server JSON config file. It returns only the recognised, well-typed
+ * fields; a document that is not an object contributes nothing, and an empty or non-string
+ * `publishKey` / `publishKeyOwner` throws.
+ */
+const PeerServerConfigFileSchema = {
+  parse(value: unknown): Partial<PeerServerConfig> {
+    if (!isConfigRecord(value)) return {};
     const res: Partial<PeerServerConfig> = {};
-    if (typeof json.port === "number") res.port = json.port;
-    if (typeof json.host === "string") res.host = json.host;
-    if (Array.isArray(json.allowedOrigins)) {
-      res.allowedOrigins = json.allowedOrigins.filter((s: unknown): s is string => typeof s === "string");
-    }
-    if (Array.isArray(json.allowedHosts)) {
-      res.allowedHosts = json.allowedHosts.filter((s: unknown): s is string => typeof s === "string");
-    }
-    if (typeof json.journalPath === "string") res.journalPath = json.journalPath;
-    if (json.publishKey !== undefined && (typeof json.publishKey !== "string" || !json.publishKey.trim())) {
+    if (typeof value.port === "number") res.port = value.port;
+    if (typeof value.host === "string") res.host = value.host;
+    if (Array.isArray(value.allowedOrigins)) res.allowedOrigins = stringList(value.allowedOrigins);
+    if (Array.isArray(value.allowedHosts)) res.allowedHosts = stringList(value.allowedHosts);
+    if (typeof value.journalPath === "string") res.journalPath = value.journalPath;
+    if (value.publishKey !== undefined && (typeof value.publishKey !== "string" || !value.publishKey.trim())) {
       throw new Error("PUBLISH_KEY_CONFIG_INVALID");
     }
-    if (typeof json.publishKey === "string") res.publishKey = json.publishKey;
-    if (json.publishKeyOwner !== undefined && (typeof json.publishKeyOwner !== "string" || !json.publishKeyOwner.trim())) {
+    if (typeof value.publishKey === "string") res.publishKey = value.publishKey;
+    if (value.publishKeyOwner !== undefined && (typeof value.publishKeyOwner !== "string" || !value.publishKeyOwner.trim())) {
       throw new Error("PUBLISH_OWNER_CONFIG_INVALID");
     }
-    if (typeof json.publishKeyOwner === "string") res.publishKeyOwner = json.publishKeyOwner;
-    if (typeof json.publishOwner === "string") res.publishKeyOwner = json.publishOwner;
-    const rateLimit = json.publishRateLimit ?? json.rateLimit;
-    if (rateLimit && typeof rateLimit === "object" && !Array.isArray(rateLimit)) {
+    if (typeof value.publishKeyOwner === "string") res.publishKeyOwner = value.publishKeyOwner;
+    if (typeof value.publishOwner === "string") res.publishKeyOwner = value.publishOwner;
+    const rateLimit = value.publishRateLimit ?? value.rateLimit;
+    if (isConfigRecord(rateLimit)) {
       if (typeof rateLimit.windowMs === "number") res.publishRateLimitWindowMs = rateLimit.windowMs;
       if (typeof rateLimit.max === "number") res.publishRateLimitMax = rateLimit.max;
     }
-    if (typeof json.publishRateLimitWindowMs === "number") res.publishRateLimitWindowMs = json.publishRateLimitWindowMs;
-    if (typeof json.publishRateLimitMax === "number") res.publishRateLimitMax = json.publishRateLimitMax;
-    if (typeof json.publishRateLimitPath === "string") res.publishRateLimitPath = json.publishRateLimitPath;
-    if (typeof json.rateLimitPath === "string") res.publishRateLimitPath = json.rateLimitPath;
+    if (typeof value.publishRateLimitWindowMs === "number") res.publishRateLimitWindowMs = value.publishRateLimitWindowMs;
+    if (typeof value.publishRateLimitMax === "number") res.publishRateLimitMax = value.publishRateLimitMax;
+    if (typeof value.publishRateLimitPath === "string") res.publishRateLimitPath = value.publishRateLimitPath;
+    if (typeof value.rateLimitPath === "string") res.publishRateLimitPath = value.rateLimitPath;
     return res;
+  },
+};
+
+export function loadConfigFile(filePath: string): Partial<PeerServerConfig> {
+  try {
+    return PeerServerConfigFileSchema.parse(JSON.parse(readFileSync(filePath, "utf8")));
   } catch (error) {
     if (error instanceof Error && error.message.startsWith("PUBLISH_")) throw error;
     const detail = error instanceof Error && error.message ? `: ${error.message}` : "";
@@ -252,6 +264,19 @@ export function loadConfigFile(filePath: string): Partial<PeerServerConfig> {
   }
 }
 
+export interface ResolvePeerServerConfigOptions {
+  /**
+   * Load `.env.local` / `.env` from `cwd` and its parents into `process.env` first. Default `true`
+   * for direct callers; `WebMcpPeerServer` passes `false` unless its `loadEnvFiles` option is set.
+   */
+  readonly loadEnvFiles?: boolean;
+}
+
+/**
+ * Resolves the peer-server configuration. Precedence per field: CLI flags (`argv`) > `options` >
+ * JSON config file > environment variables > defaults. `argv` defaults to `process.argv.slice(2)`
+ * for CLI entry points; `WebMcpPeerServer` passes only the `argv` it was given (none by default).
+ */
 export function resolvePeerServerConfig(
   options: {
     port?: number;
@@ -266,10 +291,11 @@ export function resolvePeerServerConfig(
     publishRateLimitMax?: number;
     publishRateLimitPath?: string;
   } = {},
-  argv: string[] = process.argv.slice(2),
+  argv: readonly string[] = process.argv.slice(2),
   cwd: string = process.cwd(),
+  { loadEnvFiles = true }: ResolvePeerServerConfigOptions = {},
 ): PeerServerConfig {
-  autoLoadEnvFiles(cwd);
+  if (loadEnvFiles) autoLoadEnvFiles(cwd);
   const cli = parseCliArgs(argv);
 
   const explicitConfigPath = cli.configPath ?? options.configPath ?? process.env.PEER_SERVER_CONFIG;

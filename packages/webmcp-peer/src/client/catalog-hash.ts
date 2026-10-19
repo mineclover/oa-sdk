@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
+import { isJsonObject } from "../config/json.js";
 import { PeerMcpError } from "./errors.js";
+import { asCatalogVersion } from "./transport.js";
 import type { PeerMcpTool } from "./types.js";
 
 function stableValue(value: unknown): unknown {
@@ -7,7 +9,9 @@ function stableValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stableValue);
   const record = value as Record<string, unknown>;
   return Object.keys(record).sort().reduce<Record<string, unknown>>((result, key) => {
-    result[key] = stableValue(record[key]);
+    // defineProperty, not assignment: an own `__proto__` key (JSON.parse creates one) would
+    // otherwise set the prototype and drop out of the hash, as it would in the relay's hash.
+    Object.defineProperty(result, key, { value: stableValue(record[key]), enumerable: true, writable: true, configurable: true });
     return result;
   }, {});
 }
@@ -16,10 +20,29 @@ export function stableStringify(value: unknown): string {
   return JSON.stringify(stableValue(value));
 }
 
+function catalogToolName(tool: unknown): string {
+  return isJsonObject(tool) ? String(tool.name ?? "") : "";
+}
+
+/**
+ * Orders tools by name in UTF-16 code-unit order, as the relay's `hashDeploymentCatalog` does.
+ * `localeCompare` follows the runtime locale (Danish sorts `aa` after `z`), so a hash built on it
+ * would differ between machines and from the relay's `catalogHash`.
+ */
+function compareToolNames(left: unknown, right: unknown): number {
+  const leftName = catalogToolName(left);
+  const rightName = catalogToolName(right);
+  return leftName < rightName ? -1 : leftName > rightName ? 1 : 0;
+}
+
+/**
+ * Order- and locale-independent SHA-256 of a tool catalog: tools sorted by name in code-unit
+ * order, object keys sorted recursively. It equals the relay's `catalogHash` for the same tools
+ * (`hashDeploymentCatalog` in `./server`), so a cached or locally computed hash can be compared
+ * with the one the relay reports.
+ */
 export function hashTools(tools: readonly PeerMcpTool[] | unknown): string {
-  const canonicalTools = Array.isArray(tools)
-    ? tools.slice().sort((left, right) => String(left?.name ?? "").localeCompare(String(right?.name ?? "")))
-    : tools;
+  const canonicalTools = Array.isArray(tools) ? [...tools].sort(compareToolNames) : tools;
   return createHash("sha256").update(stableStringify(canonicalTools)).digest("hex");
 }
 
@@ -32,9 +55,8 @@ export function extractCatalogVersion(
   const result = (response?.result ?? {}) as Record<string, unknown>;
   const resultMeta = (result._meta ?? {}) as Record<string, unknown>;
   const respMeta = (response?._meta ?? {}) as Record<string, unknown>;
-  const candidate = result.catalogVersion ?? resultMeta.catalogVersion ?? respMeta.catalogVersion;
-  if (typeof candidate === "number" && Number.isFinite(candidate)) return candidate;
-  if (typeof candidate === "string" && candidate.trim()) return candidate;
+  const candidate = asCatalogVersion(result.catalogVersion ?? resultMeta.catalogVersion ?? respMeta.catalogVersion);
+  if (candidate !== undefined) return candidate;
   if (previousHash !== nextHash) {
     return typeof previousVersion === "number" ? previousVersion + 1 : 1;
   }

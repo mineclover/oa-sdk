@@ -18,7 +18,7 @@ flowchart LR
   end
 
   subgraph ServerTier ["2. Signaling & MCP Router (@oa-sdk/webmcp-peer/server)"]
-    PeerServer["WebMcpPeerServer<br/>(/p, /p/:id/mcp, /p/:id/join, /p/:id/approve)"]
+    PeerServer["WebMcpPeerServer<br/>(/p, /p/:id/mcp, /p/:id/join, /p/:id/approval/:requestId)"]
     CatalogBoot["DeploymentCatalog & RateLimitStore<br/>(Memory / File / SQLite)"]
     LedgerPersist["FileAiRunLedgerStore / SqliteAiRunLedgerStore"]
   end
@@ -32,7 +32,7 @@ flowchart LR
   PeerClient <--> AiLifecycle
   PeerClient <-->|"WS /p/:id/provider (webmcp-peer.v1)"| PeerServer
   PeerServer <--> CatalogBoot
-  PeerServer <--> LedgerPersist
+  AiLifecycle -.->|"AiRunLedgerStore (wired by a Node.js host)"| LedgerPersist
   RoomJoin <-->|"HTTP /p/:id/join & /sessions/:sid"| PeerServer
   McpSession <-->|"Streamable HTTP /p/:id/mcp or WS /p/:id/client"| PeerServer
 ```
@@ -46,44 +46,46 @@ flowchart LR
 | Functional Intent Module | Key Exports | Responsibility |
 | :--- | :--- | :--- |
 | `src/config/types.ts` | `WEBMCP_SUBPROTOCOL`, `WEBMCP_PEER_CONFIG_TYPE`, `DEFAULT_EXTERNAL_CONSENT_PREFIX`, `WebMcpPeerConfigProfile`, `WebMcpParsedInvitationUrl`, `PeerHealthResult`, `PeerHealthProbeOptions` | Wire protocol constants, profile contracts, and health check types |
-| `src/config/invitation.ts` | `normalizePeerUrl`, `normalizePeerConfigUrl`, `isLocalPeerUrl`, `externalConsentKey`, `parseInvitationUrl`, `buildInvitationUrl` | Origin normalization, local/external host detection, and `#invite=...` URL parsing/building |
+| `src/config/invitation.ts` | `normalizePeerUrl`, `normalizePeerConfigUrl`, `isLocalPeerUrl`, `isSecurePeerTransport`, `redactInvitationUrl`, `externalConsentKey`, `parseInvitationUrl`, `buildInvitationUrl` | Origin normalization, local/external host detection, secure-transport check (https or loopback), invite-token redaction for logs (never throws, even on malformed percent-encoding), and `#invite=...` URL parsing/building |
 | `src/config/profile.ts` | `createPeerConfigProfile`, `stringifyPeerConfigProfile`, `parsePeerConfig` | Portable JSON peer configuration profile creation and flexible URL/JSON parsing |
-| `src/config/probe.ts` | `probePeerHealth`, `fetchPeerServerConfig` | Pre-connection `/health` liveness probing and `/config` discovery with timeout & abort support |
+| `src/config/limits.ts` | `PEER_RELAY_MAX_MESSAGE_BYTES`, `PEER_RELAY_MAX_REQUEST_BYTES`, `PEER_RELAY_MAX_CATALOG_BYTES`, `PEER_RELAY_MAX_ANNOUNCEMENT_BYTES` | The relay protocol's size limits, shared by the server, provider, and client tiers: one message is at most 256 KiB of UTF-8 JSON in either direction (one frame or fragmented); an agent request at most 255 KiB as sent (the relay's `from`/`sessionId` stamp and wire-id rewrite always fit in the rest); a provider `register` frame at most 252 KiB; a catalog announcement the relay accepts (stamped with `catalogVersion`/`catalogHash`) at most 254 KiB, so its `tools/list` reply always fits |
+| `src/config/probe.ts` | `probePeerHealth`, `fetchPeerServerConfig` | Pre-connection `/health` liveness probing and `/config` discovery with timeout & abort support (an already-aborted `signal` is refused before any request; a malformed `/config` document rejects) |
 
 ### 2.2 `@oa-sdk/webmcp-peer/client` — External AI Agent & CLI Client
 
 | Functional Intent Module | Key Exports | Responsibility |
 | :--- | :--- | :--- |
-| `src/client/types.ts` | `DEFAULT_SERVER_URL`, `PROTOCOL_VERSION`, `PeerMcpTool`, `PeerMcpCatalogSnapshot`, `PeerMcpSessionInfo`, `PeerMcpSessionOptions`, `PeerMcpCallOptions` | Client session state, tool catalog snapshot, and transport interface contracts |
+| `src/client/types.ts` | `DEFAULT_SERVER_URL`, `PROTOCOL_VERSION`, `PeerMcpTool`, `PeerMcpCatalogSnapshot`, `PeerMcpSessionInfo`, `PeerMcpSessionOptions`, `PeerMcpCallOptions`, `PeerMcpRpcResponse`, `PeerMcpCallToolResult`, `PeerClientTicket`, `PeerMcpCatalogCache` | Client session state, tool catalog snapshot, validated response shapes, and transport interface contracts |
 | `src/client/errors.ts` | `PeerMcpError`, `PeerMcpRpcError`, `PeerMcpCatalogChangedError`, `canonicalRpcErrorCode`, `isCatalogChangedRpcError` | Structured RPC error hierarchy, canonical error names for numeric JSON-RPC errors, and fail-closed catalog drift detection (-32010 / -32027 only) |
-| `src/client/catalog-hash.ts` | `hashTools`, `normalizeTools` | Order-independent SHA-256 tool catalog hashing and descriptor validation |
-| `src/client/transport.ts` | `normalizeServerUrl`, `websocketUrl`, `parseRoomId` | Streamable HTTP (`/p/:id/mcp`) and WebSocket (`/p/:id/client`) transport adapters |
-| `src/client/session.ts` | `PeerMcpSession`, `createPeerMcpSession` | Single-room MCP JSON-RPC session (`initialize`, `tools/list`, `tools/call`, catalog drift guard, ticket revocation) |
+| `src/client/catalog-hash.ts` | `hashTools`, `normalizeTools` | Order- and locale-independent SHA-256 tool catalog hashing (tools in UTF-16 code-unit name order, identical to the relay's `hashDeploymentCatalog`) and descriptor validation |
+| `src/client/transport.ts` | `normalizeServerUrl`, `websocketUrl`, `parseRoomId` | Streamable HTTP (`/p/:id/mcp`) and WebSocket (`/p/:id/client`) transport adapters. Both refuse a request over `PEER_RELAY_MAX_REQUEST_BYTES` before sending it (`PeerMcpError` code `REQUEST_TOO_LARGE`, `details` `{ bytes, limitBytes }`); only that call fails |
+| `src/client/session.ts` | `PeerMcpSession`, `createPeerMcpSession` | Single-room MCP JSON-RPC session (`initialize`, `tools/list`, `tools/call`, catalog drift guard, ticket revocation). Requests made while a connect is in flight wait for that connect. A request the relay refuses as retryable (`data.retryable: true`, e.g. `PROVIDER_BUSY`) reached nobody and is retried with backoff (100 ms doubling to 2 s) within the request's own timeout |
 | `src/client/service.ts` | `PeerMcpService`, `createPeerMcpService`, `JsonPeerMcpStore`, `createJsonPeerMcpStore` | Multi-session registry, active-session routing, and atomic JSON file catalog cache |
-| `src/client/room-lifecycle.ts` | `discoverPeerCatalog`, `joinPeerRoom`, `getPeerSessionStatus`, `waitForPeerApproval`, `rotatePeerRoom` | Room catalog discovery, invitation token exchange, approval polling, and room rotation |
+| `src/client/room-lifecycle.ts` | `discoverPeerCatalog`, `joinPeerRoom`, `getPeerSessionStatus`, `waitForPeerApproval`, `rotatePeerRoom` | Room catalog discovery (`/mcp/catalog`, or `initialize` + `tools/list` on a room's `/p/:id/mcp` with the client ticket as bearer token), invitation token exchange, approval polling, and room rotation |
 
 ### 2.3 `@oa-sdk/webmcp-peer/provider` — Browser / Host Provider & AI Run Lifecycle
 
 | Functional Intent Module | Key Exports | Responsibility |
 | :--- | :--- | :--- |
-| `src/provider/commit-receipt.ts` | `MCP_PROTOCOL_VERSION`, `MCP_PROTOCOL_VERSIONS`, `CommitReceipt`, `isCommitReceipt`, `isUtcTimestamp` | Authority commit receipt union (`rejected`, `committed`, `durable`, `replicating`, `replicated`, `outcome-unknown`) and runtime type guards |
-| `src/provider/ai-run-controller.ts` | `AiRunController`, `AiRunPhase`, `AiRunStep`, `AiRunPoint`, `AiRunSnapshot`, `AiRunRollbackSummary` | Multi-step AI execution lifecycle (`queued` $\rightarrow$ `running` $\rightarrow$ `completed`/`rolled-back`), cursor trajectory tracking, and reverse-order rollback coordinator |
+| `src/provider/commit-receipt.ts` | `MCP_PROTOCOL_VERSION`, `MCP_PROTOCOL_VERSIONS`, `CommitReceipt`, `isCommitReceipt`, `isUtcTimestamp` | Authority commit receipt union (`rejected`, `committed`, `durable`, `replicating`, `replicated`, `outcome-unknown`) and runtime type guards. A `durable` receipt is either metadata-only (the five base keys) or a document commit with both `operationId` and `replicaId`; the type and the guard accept exactly those two shapes |
+| `src/provider/ai-run-controller.ts` | `AiRunController`, `AiRunLimitExceededError`, `AiRunPhase`, `AiRunStep`, `AiRunPoint`, `AiRunSnapshot`, `AiRunRollbackSummary` | Multi-step AI execution lifecycle (`queued` $\rightarrow$ `running` $\rightarrow$ `completed`/`rolled-back`), cursor trajectory tracking, and reverse-order rollback coordinator. At most 128 runs are tracked: a new run evicts the oldest terminal run, else the oldest idle one; runs with work in flight are never evicted, and `begin` throws `AiRunLimitExceededError` when all 128 are busy (the provider answers such a call with `AI_RUN_LIMIT_EXCEEDED`) |
 | `src/provider/ai-run-ledger.ts` | `AiRunLedger`, `InMemoryAiRunLedgerStore`, `AiRunLedgerError`, `aiRunLedgerDisposition`, `AiRunOperationRecord`, `AiRunLedgerStore` | Idempotent AI operation ledger preventing duplicate mutations or status regressions |
 | `src/provider/types.ts` | `WebMcpHostAdapter`, `WebMcpCrdtTransport`, `WebMcpPeerSessionInfo`, `WebMcpPeerConnectOptions`, `WebMcpPeerClientOptions`, `resolveDefaultSignalingUrl`, `toWireToolDescriptor` | Host application tool adapter contract, CRDT carrier envelope guard, session metadata types, and the single tool-descriptor serialization used on every channel |
-| `src/provider/peer-client.ts` | `WebMcpPeerClient` | Browser/Host provider runtime: room creation (`POST /p`), F5 session lease reclaim (`reclaimLease`), interactive approval gate, WebSocket MCP relay, and chunked WebRTC DataChannel framing |
+| `src/provider/peer-client.ts` | `WebMcpPeerClient` | Browser/Host provider runtime: room creation (`POST /p`), F5 session lease reclaim (`reclaimLease`) with auto-reconnect backoff, interactive approval gate, WebSocket MCP relay (every frame it sends is checked against the relay's message limit: an oversized reply becomes `RESULT_TOO_LARGE`, a `register` catalog over `PEER_RELAY_MAX_CATALOG_BYTES` is withheld with `CATALOG_TOO_LARGE`), and chunked WebRTC DataChannel framing |
 
 ### 2.4 `@oa-sdk/webmcp-peer/server` — Room-Based HTTP MCP Router & Signaling Server
 
 | Functional Intent Module | Key Exports | Responsibility |
 | :--- | :--- | :--- |
-| `src/server/ws-upgrade.ts` | `upgradeWebSocket`, `PeerSocket`, `MAX_WEBSOCKET_FRAME_BYTES`, `MAX_WEBSOCKET_MESSAGE_BYTES` | Zero-dependency RFC 6455 WebSocket handshake, masking, ping/pong, and message fragmentation |
-| `src/server/durable-file.ts` | `withFileLockSync`, `appendDurableLineSync`, `readDurableJsonLinesSync` | Cross-process advisory lockfile (`O_CREAT \| O_EXCL`) and `fsync` append-only JSONL helpers |
-| `src/server/rate-limit.ts` | `InMemoryPublishRateLimitStore`, `FilePublishRateLimitStore`, `SqlitePublishRateLimitStore`, `createPublishRateLimitStoreFromEnv`, `validatePublishRateLimitDecision` | Sliding-window room publish rate limiter across Memory, File, and `node:sqlite` |
+| `src/server/ws-upgrade.ts` | `upgradeWebSocket`, `PeerSocket`, `PeerSendResult`, `UpgradeWebSocketOptions`, `MAX_WEBSOCKET_FRAME_BYTES`, `MAX_WEBSOCKET_MESSAGE_BYTES`, `MAX_WEBSOCKET_MESSAGE_FRAGMENTS`, `MAX_WEBSOCKET_OUTBOUND_BUFFER_BYTES`, `MIN_WEBSOCKET_OUTBOUND_BUFFER_BYTES`, `WEBSOCKET_CLOSE_TIMEOUT_MS`, `WEBSOCKET_STALLED_OUTBOUND_TIMEOUT_MS`, `WEBSOCKET_CLOSE_TRY_AGAIN_LATER` | Zero-dependency RFC 6455 WebSocket handshake and streaming frame parser. A message may be up to `MAX_WEBSOCKET_MESSAGE_BYTES` (256 KiB) in one frame (`MAX_WEBSOCKET_FRAME_BYTES` equals it) or in at most 1024 frames (`MAX_WEBSOCKET_MESSAGE_FRAGMENTS`); a larger inbound message is refused from its frame header, before its payload is buffered, with close code 1009. Protocol violations close with 1002, binary data with 1003, invalid UTF-8 with 1007, and an exception in the owner's `onText` with 1011. `PeerSocket.send` returns `'sent'`, `'too-large'` (over the message limit), `'busy'` (the peer's outbound queue would pass `MAX_WEBSOCKET_OUTBOUND_BUFFER_BYTES`, 1 MiB) or `'closed'`; for `'too-large'` and `'busy'` nothing is queued and the socket stays open. A pong that would not fit is dropped. A peer whose queue stays full for `WEBSOCKET_STALLED_OUTBOUND_TIMEOUT_MS` (30 s) after a refused send is closed with 1013 (`WEBSOCKET_CLOSE_TRY_AGAIN_LATER`); that is the only close a full queue causes. `PeerSocket.close(code?)` sends the given close code (default 1000). `onClose` runs once, as soon as the socket stops; a peer that does not answer the relay's close is destroyed after `WEBSOCKET_CLOSE_TIMEOUT_MS` (5 s). The optional sixth argument (`UpgradeWebSocketOptions`) sets `closeTimeoutMs`, `stalledOutboundTimeoutMs` and `maxOutboundBufferBytes` |
+| `src/server/durable-file.ts` | `withFileLockSync`, `appendDurableLineSync`, `readDurableJsonLinesSync`, `truncateUnterminatedTailSync`, `DurableJsonRowSchema`, `ReadDurableJsonLinesOptions` | Cross-process advisory lockfile (`O_CREAT \| O_EXCL`) and `fsync` append-only JSONL helpers: every row is validated by a caller-supplied row schema, and a torn final row (an append interrupted before its newline) can be skipped on read and truncated on byte offsets before the next append |
+| `src/server/rate-limit.ts` | `InMemoryPublishRateLimitStore`, `FilePublishRateLimitStore`, `SqlitePublishRateLimitStore`, `createPublishRateLimitStoreFromEnv`, `validatePublishRateLimitDecision` | Fixed-window room publish rate limiter (each window is anchored at the first request per key, so up to about 2x `publishRateLimitMax` can pass across a window boundary) across Memory, File, and `node:sqlite`; expired windows are pruned and the in-memory store is bounded |
 | `src/server/deployment-catalog.ts` | `loadDeploymentCatalog`, `hashDeploymentCatalog`, `normalizeToolCatalog`, `DeploymentCatalogSnapshot`, `DeploymentCatalogInput` | Cold-start static tool catalog bootstrap before a live browser provider connects, and the shared tool-catalog validator |
-| `src/server/server-config.ts` | `resolvePeerServerConfig`, `parseCliArgs`, `loadConfigFile`, `loadEnvFile`, `autoLoadEnvFiles`, `isOriginAllowed`, `isHostAllowed` | CLI flag, `.env`, and JSON config resolution with wildcard Origin and Host header guards |
-| `src/server/ledger-stores.ts` | `FileAiRunLedgerStore`, `SqliteAiRunLedgerStore` | Crash-safe JSONL and SQLite WAL persistence backends for `AiRunLedger` |
+| `src/server/server-config.ts` | `resolvePeerServerConfig`, `parseCliArgs`, `loadConfigFile`, `loadEnvFile`, `autoLoadEnvFiles`, `isOriginAllowed`, `isHostAllowed` | CLI flag, `.env`, and JSON config resolution with wildcard Origin and Host header guards. `WebMcpPeerServer` resolves CLI flags and loads `.env` files only when asked (`argv`, `loadEnvFiles` options); direct `resolvePeerServerConfig` callers keep `process.argv` and `.env` loading by default |
+| `src/server/ledger-stores.ts` | `FileAiRunLedgerStore`, `SqliteAiRunLedgerStore` | Crash-safe JSONL and SQLite WAL persistence backends for `AiRunLedger`, wired by the host (the server exposes no ledger endpoint). The JSONL store never reads a torn final row and repairs it before the next append |
 | `src/server/types.ts` | `RoomEntry`, `ClientSessionTicket`, `PendingApprovalRequest`, `WebMcpPeerServerOptions`, `PeerCapability` | Server room state machine contracts and custom HTTP/WebSocket extension hooks |
-| `src/server/peer-server.ts` | `WebMcpPeerServer`, `createWebMcpPeerServer` | Room lifecycle control plane, Streamable HTTP MCP router (`/p/:id/mcp`), WebSocket signaling relay, and `/ai-runs/ledger` endpoint |
+| `src/server/wire-schemas.ts` | (internal) `JsonObjectBodySchema`, `PeerFrameSchema` | Named runtime validators for HTTP JSON bodies and WebSocket frames before the relay relies on their shape |
+| `src/server/peer-server.ts` | `WebMcpPeerServer`, `createWebMcpPeerServer` | Room lifecycle control plane, Streamable HTTP MCP router (`/p/:id/mcp`), WebSocket signaling relay, and custom HTTP/WS extension hooks |
 
 ---
 
@@ -112,6 +114,20 @@ const port = await server.listen()
 console.log(`Peer MCP Server listening on http://127.0.0.1:${port}`)
 ```
 
+Server behaviour worth knowing when embedding or operating the relay:
+
+- **Configuration is explicit.** The constructor never parses `process.argv` and never loads `.env` files into `process.env`. A standalone CLI entry point opts in with `createWebMcpPeerServer({ argv: process.argv.slice(2), loadEnvFiles: true })`; CLI flags then take precedence over the options (`cwd` sets where config and `.env` files are looked up). Environment variables that are already set (`PORT`, `HOST`, `FRAMEBOOK_PUBLISH_KEY`, ...) are still read, after explicit options and the JSON config file.
+- **Endpoints.** `POST /p` (create a room), `POST /p/:id/join`, `POST /p/:id/approval/:requestId` (provider decision), `GET /p/:id/sessions/:sessionId`, `POST /p/:id/session/revoke` and `POST /p/:id/sessions/:sessionId/revoke`, `POST /p/:id/rotate`, `POST /p/:id/reclaim`, `GET|POST /p/:id/mcp`, `GET /p/:id/mcp/tools`, `GET /mcp/catalog[/:hash]`, `GET /config`, `GET /health`, and the `/p/:id/provider` / `/p/:id/client` WebSockets.
+- **Request bodies.** JSON-body endpoints (`POST /p`, `/join`, `/approval/:requestId`, `/session/revoke`, `/sessions/:sessionId/revoke`, `/rotate`, `/reclaim`) answer a body over 64 KiB with HTTP 413 `{ error: "BODY_TOO_LARGE" }` and one that is not valid UTF-8 or not a JSON object with 400 `INVALID_JSON_BODY` (`POST /p/:id/mcp` answers ill-formed UTF-8 with 400 `PARSE_ERROR`), without acting; an empty body means `{}`, and a request aborted mid-body is not acted on. Oversized bodies are read to their end and discarded (up to 16 times the limit) so the error response reaches the client. If a `customHttpHandler` reads a request body and then returns `false`, the endpoint answers 500 `BODY_CONSUMED` instead of acting on a partial body. State-changing endpoints check the room again once the body has arrived, so a rotation or reclaim that happens meanwhile makes the slower request fail.
+- **Upgrade hooks.** An awaiting `customUpgradeHandler` may outlive its client: the relay guards the raw socket before awaiting the hook, so a client that resets meanwhile cannot crash the process, and a socket that is gone when the hook returns is destroyed rather than attached.
+- **Room TTL.** `ttlMs` on `POST /p` and `POST /p/:id/rotate` is clamped to `[60 s, maxRoomTtlMs]` (option, default 24 h; advertised in `GET /config` as `defaults.maxRoomTtlMs`), so every room expires and is swept.
+- **Publish rate limit.** With a publish key, every failed `POST /p` attempt (missing or wrong key) from one address shares one bucket, so key guessing is throttled at `publishRateLimitMax` attempts per window regardless of the keys tried, while the valid key keeps its own quota.
+- **In-flight MCP calls.** An HTTP `tools/call` waiting on the provider is always answered: `ROOM_ROTATED` (-32057, with `data.replacementRoomId`), `SESSION_INVALID` (-32001) after a provider revoke-all, `ROOM_EXPIRED` (-32056) when the sweeper expires the room, `PROVIDER_DISCONNECTED`, or `MCP_REQUEST_TIMEOUT`. An agent that disconnects releases its pending slot immediately.
+- **Client signaling.** A client socket can relay only `mcp` requests and, once approved, `offer` frames. The relay stamps every frame it forwards to the provider (`mcp` envelopes from WebSocket and HTTP agents, and offers) with `from: "client"` and the authoritative `sessionId`, overwriting whatever the agent put there. An offer the relay cannot forward is answered with `{ type: "offer.refused", requestId, error }` (`PROVIDER_BUSY`, `REQUEST_TOO_LARGE` or `PROVIDER_UNAVAILABLE`). Relay control frames (`session.*`, `room.*`, `approval.*`, `register`, ...) sent by a client are dropped, and frames that are not JSON objects with a string `type` are ignored on both sockets.
+- **Provider reattach.** When a provider socket attaches to a room it already served (`POST /p/:id/reclaim` after a page reload, or auto-reconnect), the relay follows `ready` with the room's approval state, oldest event first: an `approval.restored` frame (`payload: { sessionId, roomId, roomEpoch, clientLabel, capabilities, approvedAt, expiresAt }`) for every approved, unexpired client and the pending `approval.request` for every client still waiting. An approved agent therefore keeps working without a new approval, and the room reports `active` again. Rooms created with `approvalRequired: false` replay nothing.
+- **Revocation.** Revoke responses report `alreadyRevoked: false` for the first revocation and `true` (with the original `revokedAt`) for a repeat.
+- **Catalog hash.** `catalogHash` is SHA-256 over the tools sorted by name in UTF-16 code-unit order with object keys sorted recursively (`hashDeploymentCatalog`), so it does not depend on the runtime locale.
+
 ### 3.2 Connect a Browser / Host App Provider (`@oa-sdk/webmcp-peer/provider`)
 
 ```ts
@@ -137,13 +153,46 @@ const provider = new WebMcpPeerClient({
   },
 })
 
-const session = await provider.connect({
+// connect() resolves to the invitation URL (`<descriptorUrl>#invite=<token>`).
+const invitationUrl = await provider.connect({
   serverUrl: 'http://127.0.0.1:8787',
   alias: 'my-workspace',
   autoReconnect: true,
 })
-console.log('Share invitation URL with AI agent:', session.invitationUrl)
+console.log('Share invitation URL with AI agent:', invitationUrl)
+
+// Full session state (room, approval state, errors such as CATALOG_INVALID) via getSession()/subscribe().
+// Admitting an agent is the user's decision: ask once per approval request (`askUser` is your own UI).
+const asked = new Set<string>()
+provider.subscribe(async (session) => {
+  const requestId = session.approvalRequestId
+  if (session.approvalState !== 'pending' || !requestId || asked.has(requestId)) return
+  asked.add(requestId)
+  const allowed = await askUser(`Allow ${session.clientLabel ?? 'an AI agent'} to use this workspace?`)
+  if (allowed) provider.approveClient(requestId)
+  else provider.rejectClient(requestId)
+})
 ```
+
+`hostAdapter.invoke` may return either shape; the agent always receives an MCP `CallToolResult`:
+
+- an MCP `CallToolResult` (`{ content: [...], structuredContent?, isError? }`) is forwarded as is, and `isError: true` marks the call failed;
+- any other value is the payload: it becomes `structuredContent` (wrapped as `{ value }` when it is not a JSON object), a legacy `data` mirror, and a JSON `text` block, and `{ ok: false }` marks the call failed. The `text` block repeats the payload only when its JSON is at most 16 KiB; a larger payload gets a short `text` block that points at `structuredContent`.
+
+Every relay message must fit `PEER_RELAY_MAX_MESSAGE_BYTES` (256 KiB of UTF-8 JSON), whether it is sent as one WebSocket frame, as browsers and Node do, or fragmented. The relay closes a socket that sends more (close code 1009), and a closed provider socket drops every agent of the room, so every frame the provider sends on the relay socket is measured first (a frame over the limit is not sent and is logged with `console.warn`). The relay, in turn, never closes or detaches the provider because of agent traffic:
+
+- A `tools/call` result that does not fit is answered with `isError: true` and error code `RESULT_TOO_LARGE` (the tool did run; only its result is lost), and any other oversized reply with the JSON-RPC error `RESULT_TOO_LARGE`. Return large data by reference (a resource link or an id the agent can page through) rather than inline.
+- A host catalog whose `register` frame is over `PEER_RELAY_MAX_CATALOG_BYTES` (256 KiB - 4 KiB) is withheld: `syncTools()` returns `false`, `getSession().error` becomes `CATALOG_TOO_LARGE: the register frame for N tools is B bytes, ...`, and the socket stays open. The relay is not told: it keeps announcing and serving the last catalog it accepted from this provider (if any), to HTTP and WebSocket agents alike, so calls to those tools keep working and a tool the host added since gets `TOOL_NOT_FOUND`. A room that never had a catalog answers `CATALOG_UNAVAILABLE`. The error clears, and subscribers are notified, when a catalog that fits is synced.
+- The relay accepts a catalog only if its announcement fits `PEER_RELAY_MAX_ANNOUNCEMENT_BYTES` (256 KiB - 2 KiB) and refuses a larger one with `{ type: "error", code: -32602, message: "CATALOG_TOO_LARGE", limitBytes, reason, registerSeq }`, keeping its previous catalog. Every `register` frame carries an increasing `registerSeq`, which the relay echoes in `CATALOG_INVALID`/`CATALOG_TOO_LARGE` rejections; the provider ignores a rejection of a catalog it has since replaced.
+- A WebSocket agent's `tools/list` and `server/discover` are answered with the catalog the relay holds: the provider answers them from the last `register` frame it sent to the room (never from a withheld catalog), and the relay never passes on a catalog it refused. HTTP and WebSocket agents therefore see the same catalog.
+- Agents get `REQUEST_TOO_LARGE` for a request over `PEER_RELAY_MAX_REQUEST_BYTES` (256 KiB - 1 KiB, measured on what the agent sends and on that request as `JSON.stringify` writes it, which is what the relay forwards; the two are equal for clients that serialize with `JSON.stringify`): the client refuses it before sending (`PeerMcpError`, `details` `{ bytes, limitBytes }`), an HTTP `POST /p/:id/mcp` body over it is answered with HTTP 413, and a WebSocket request over it with a JSON-RPC error. Every request within the limit is forwarded, whatever stamp or wire-id rewrite the relay adds. A reply the relay can no longer fit for a WebSocket agent becomes `RESULT_TOO_LARGE`. If the provider socket is already closing, the agent gets `PROVIDER_UNAVAILABLE`.
+- When the provider is not reading fast enough (its 1 MiB outbound queue is full, for example while a browser tab runs a long synchronous tool), the relay does not queue the request and answers `{ code: -32001, message: "PROVIDER_BUSY", data: { retryable: true } }` (HTTP 503 with `Retry-After: 1`). Nothing was forwarded, so `PeerMcpSession` retries it with backoff within the request's timeout. The provider stays attached; only a queue that stays full for 30 s closes it.
+- An agent WebSocket that falls behind on frames it asked for (replies to its requests, `approval.pending`, `approval.approved` and `ready`, `offer.refused`) is never closed for it and loses none of them: they wait in order and go out as the agent reads, and meanwhile the relay reads nothing more from that agent. Waiting frames count toward its 64 pending requests. Frames it did not ask for (catalog announcements, `notifications/tools/list_changed`, provider signaling) are skipped for an agent that is behind; it learns of a catalog change through `CATALOG_CHANGED` on its next call.
+- The relay also bounds what one agent can hold: JSON-RPC request ids are at most 1 KiB of JSON (`REQUEST_ID_TOO_LARGE`, -32600), an agent WebSocket has at most 64 requests waiting for the provider (`TOO_MANY_PENDING_REQUESTS`, -32087), a client ticket holds at most 4 WebSockets (opening a fifth closes the oldest), and a `/join` `clientLabel` is trimmed to 256 characters. A pending ticket's `approval.request` goes to each provider socket once (on creation and on attach), not again on every request. A provider WebSocket that attaches with the room's provider token replaces and closes the previous one.
+
+A payload `receipt` that passes `isCommitReceipt` is recorded in the AI run ledger; an invalid one is logged and never made rollback-eligible. Tool calls without `_meta.framebook.aiTrace.runId` share one implicit AI run, which a failed call does not end (only a run the agent named is failed or completed by a call's outcome).
+
+When the provider WebSocket drops, auto-reconnect reclaims the saved room lease with exponential backoff (1 s, 1.5 s, 2.25 s, ... capped at 15 s) until it succeeds or `disconnect()` is called. On reattach the relay re-sends pending approval requests, and the provider adopts every client ticket the relay reports as still approved in an `approval.restored` frame (`{ type: "approval.restored", roomId, roomEpoch, sessionId, payload: { sessionId, roomId, roomEpoch, clientLabel, capabilities, approvedAt, expiresAt } }`), so an approved agent keeps working without a new approval.
 
 ### 3.3 Join and Call Tools from an External Agent / CLI (`@oa-sdk/webmcp-peer/client`)
 
@@ -180,16 +229,24 @@ const session = new PeerMcpSession({
 await session.connect()
 await session.initialize()
 const tools = await session.listTools()
+// A validated MCP CallToolResult: { content?, structuredContent?, isError?, ... }
 const result = await session.callTool(tools[0].name, {})
-await session.disconnect()
+if (result.isError) console.error(result.content)
+
+// 4. Leave the room: revoke() binds to the room/epoch/session learned while connected, and asks
+//    the relay for the room epoch first when it is not known yet
+//    (or disconnect() to keep the ticket for later).
+await session.revoke()
 ```
+
+`discoverPeerCatalog({ invitationUrl, clientToken })` (or `{ serverUrl, roomId, clientToken }`, or `{ mcpEndpoint, clientToken }`) reads a room's catalog without keeping a session open; `{ serverUrl }` alone reads the deployment catalog (`/mcp/catalog`). Every helper and `PeerMcpSession` accept `fetchImpl` for tests and custom runtimes.
 
 ### 3.4 Tool Catalog Contract (Provider ↔ Relay ↔ Client)
 
 세 계층은 하나의 도구 카탈로그 계약을 공유하며, 어긋나면 `catalogVersion`/`catalogHash`가 계층마다 달라집니다.
 
-- **Provider**는 `register` 프레임, `tools/list`, `server/discover`에 모두 `toWireToolDescriptor()`로 만든 동일한 기술자(`name`, `title`, `description`, `inputSchema`, `outputSchema`, `annotations`)를 보냅니다. 호스트가 `inputSchema`를 생략하면 `{ type: "object", properties: {} }`로 채웁니다.
-- **Relay**는 `normalizeToolCatalog()`로 카탈로그를 검증합니다: 도구 128개 이하, 공백 없는 고유 이름(256자 이하), 모든 도구에 `type: "object"`인 `inputSchema`. 위반한 `register`는 카탈로그 전체를 거부하고 Provider에 `{ type: "error", code: -32602, message: "CATALOG_INVALID" }`를 돌려주며, 클라이언트에는 전달하지 않습니다. 받아들인 카탈로그는 Relay의 `catalogVersion`/`catalogHash`를 붙여 알립니다. 정적 배포 카탈로그(`deploymentCatalog`)도 같은 규칙을 따르므로 `inputSchema`가 없는 도구가 있으면 비어 있는 카탈로그가 됩니다.
+- **Provider**는 `register` 프레임, `tools/list`, `server/discover`에 모두 `toWireToolDescriptor()`로 만든 동일한 기술자(`name`, `title`, `description`, `inputSchema`, `outputSchema`, `annotations`)를 보냅니다. 호스트가 `inputSchema`를 생략하면 `{ type: "object", properties: {} }`로 채웁니다. Relay가 `CATALOG_INVALID`로 거부하면 `getSession().error`가 `CATALOG_INVALID: <reason>`이 되고(구독자에게 통지), 다음 `syncTools()`가 새 카탈로그를 보낼 때 지워집니다. 직렬화한 `register` 프레임이 `PEER_RELAY_MAX_CATALOG_BYTES`(256 KiB - 4 KiB)를 넘으면 보내지 않고 `CATALOG_TOO_LARGE: <크기>`를 남기며, 같은 방식으로 지워집니다. 모든 `register` 프레임은 증가하는 `registerSeq`를 담고, Provider는 이미 다른 카탈로그로 바꾼 뒤 도착한 거부를 무시합니다. 세션 오류가 바뀔 때마다(연결·자동 재연결 중 포함) 구독자에게 통지합니다. Relay가 전달한 `tools/list`·`server/discover`에는 마지막으로 보낸 `register` 프레임의 카탈로그로 답합니다.
+- **Relay**는 `normalizeToolCatalog()`로 카탈로그를 검증합니다: 도구 128개 이하, 공백 없는 고유 이름(256자 이하), 모든 도구에 `type: "object"`인 `inputSchema`. 위반한 `register`는 카탈로그 전체를 거부하고 Provider에 `{ type: "error", code: -32602, message: "CATALOG_INVALID" }`를 돌려주며, 클라이언트에는 전달하지 않습니다. 바뀐 카탈로그만 Relay의 `catalogVersion`/`catalogHash`를 붙여 알리며, 해시가 같은 `register`는 조용히 받아들입니다. 그렇게 붙인 알림이 `PEER_RELAY_MAX_ANNOUNCEMENT_BYTES`(256 KiB - 2 KiB)를 넘을 카탈로그는 `{ type: "error", code: -32602, message: "CATALOG_TOO_LARGE", limitBytes, reason, registerSeq }`로 거부하고 기존 카탈로그를 유지합니다. 거부 frame은 `register`의 `registerSeq`를 그대로 돌려줍니다. Provider의 `tools/list` 결과에 담긴 카탈로그도 같은 기준을 통과할 때만 Relay 카탈로그를 바꿉니다. 정적 배포 카탈로그(`deploymentCatalog`)도 같은 규칙을 따르므로 `inputSchema`가 없는 도구가 있으면 비어 있는 카탈로그가 됩니다.
 - **Client**(`PeerMcpSession`)는 검증할 수 없는 카탈로그 프레임을 버리고 마지막으로 검증된 카탈로그를 유지합니다. `CATALOG_CHANGED`(-32010)와 `SOURCE_CHANGED`(-32027)만 카탈로그 드리프트로 취급하며(`isCatalogChangedRpcError`), HTTP 전송은 서버의 JSON-RPC 오류 코드를 그대로 전달합니다(`error.code`는 `SESSION_INVALID` 같은 정규 이름, `rpcError.httpStatus`에 HTTP 상태).
 
 ---
