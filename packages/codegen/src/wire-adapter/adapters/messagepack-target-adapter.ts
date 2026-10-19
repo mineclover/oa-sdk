@@ -3,12 +3,17 @@
  *
  * Emits TypeScript MessagePack binary codec bindings for WireSchemaModel messages,
  * backed by @oa-sdk/client's zero-dependency pure TypeScript MessagePack implementation.
+ * Type positions use the names `types.ts` declares; `getGeneratedMessagePackCodecs()` is keyed by
+ * component name.
  *
  * @oa-sdk/codegen
  */
 
+import { quoteTypeScriptString } from '@oa-sdk/core/browser'
+import { formatJSDoc } from '../../typegen/jsdoc.js'
 import type { TypeSpecWireTargetAdapter } from '../wire-adapter-types.js'
 import type { WireSchemaModel } from '../wire-schema-model.js'
+import { lowerFirst, wireTypeNames } from '../wire-type-names.js'
 
 export interface MessagePackAdapterOptions {
   readonly typesImport?: string | undefined
@@ -22,6 +27,9 @@ export class MessagePackTargetAdapter implements TypeSpecWireTargetAdapter<strin
 
   transform(model: WireSchemaModel, options: MessagePackAdapterOptions = {}): string {
     const lines: string[] = []
+    const typeNames = wireTypeNames(model)
+    const typeName = (name: string): string => typeNames.get(name) ?? name
+    const codecName = (name: string): string => `${lowerFirst(typeName(name))}MessagePackCodec`
 
     lines.push('// Auto-generated MessagePack Binary Codecs from TypeSpec SSOT.')
     lines.push('// @oa-sdk/codegen MessagePackTargetAdapter')
@@ -29,17 +37,17 @@ export class MessagePackTargetAdapter implements TypeSpecWireTargetAdapter<strin
     lines.push("import { messagePackAdapter, type BinaryCodecAdapter } from '@oa-sdk/client'")
 
     if (options.typesImport) {
-      const typeNames = model.models.map(m => m.name)
-      if (typeNames.length > 0) {
-        lines.push(`import type { ${typeNames.join(', ')} } from '${options.typesImport}'`)
+      const importNames = model.models.map(m => typeName(m.name))
+      if (importNames.length > 0) {
+        lines.push(`import type { ${importNames.join(', ')} } from ${quoteTypeScriptString(options.typesImport)}`)
       }
     }
     lines.push('')
 
     for (const mdl of model.models) {
-      const camel = mdl.name.replace(/^[A-Z]/, c => c.toLowerCase())
-      lines.push(`/** MessagePack codec for ${mdl.name} */`)
-      lines.push(`export const ${camel}MessagePackCodec: BinaryCodecAdapter<${mdl.name}> = messagePackAdapter as BinaryCodecAdapter<${mdl.name}>`)
+      const type = typeName(mdl.name)
+      lines.push(formatJSDoc(`MessagePack codec for ${mdl.name}`))
+      lines.push(`export const ${codecName(mdl.name)}: BinaryCodecAdapter<${type}> = messagePackAdapter as BinaryCodecAdapter<${type}>`)
       lines.push('')
     }
 
@@ -47,8 +55,7 @@ export class MessagePackTargetAdapter implements TypeSpecWireTargetAdapter<strin
     lines.push('export function getGeneratedMessagePackCodecs(): Record<string, BinaryCodecAdapter<any>> {')
     lines.push('  return {')
     for (const mdl of model.models) {
-      const camel = mdl.name.replace(/^[A-Z]/, c => c.toLowerCase())
-      lines.push(`    ${JSON.stringify(mdl.name)}: ${camel}MessagePackCodec,`)
+      lines.push(`    ${JSON.stringify(mdl.name)}: ${codecName(mdl.name)},`)
     }
     lines.push('  }')
     lines.push('}')

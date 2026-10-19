@@ -1,4 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
+import { afterAll, describe, it, expect } from 'vitest'
 import {
   TypeSpecWirePipeline,
   typeSpecWirePipeline,
@@ -268,4 +271,92 @@ describe('TypeSpec Wire Adapter Pipeline', () => {
       expect(parsed.serviceCount).toBe(1)
     })
   })
+})
+
+describe('Default wire service and method names', () => {
+  // TypeSpec names interface operations `Interface_op` and gives them no tag.
+  const interfaceOas = {
+    openapi: '3.1.0',
+    info: { title: 'Order Service', version: '1.0.0' },
+    paths: {
+      '/widgets': { get: { operationId: 'Widgets_list', responses: { '200': { description: 'ok' } } } },
+      '/widgets/{id}': { get: { operationId: 'Widgets_read', responses: { '200': { description: 'ok' } } } },
+      '/items': { get: { operationId: 'listItems', tags: ['order_items'], responses: { '200': { description: 'ok' } } } },
+    },
+    components: { schemas: {} },
+  }
+
+  it('PascalCases operationIds, tags, and the title across underscores', () => {
+    const model = extractWireSchemaFromOas(interfaceOas)
+    expect(model.services.map(service => [service.name, service.methods.map(method => method.name)])).toEqual([
+      ['OrderServiceService', ['WidgetsList', 'WidgetsRead']],
+      ['OrderItemsService', ['ListItems']],
+    ])
+
+    const proto = new Proto3TargetAdapter().transform(model)
+    expect(proto).toContain('rpc WidgetsList (Empty) returns (Empty);')
+    const rpc = new RpcContractTargetAdapter().transform(model)
+    expect(rpc).toContain('async widgetsList(options?: WireRpcCallOptions): Promise<void>')
+    expect(rpc).toContain("const method = 'OrderServiceService.WidgetsList'")
+  })
+})
+
+describe('Proto3TargetAdapter constructor options', () => {
+  it('honors emitEmptyMessage given to the constructor', () => {
+    const model = { name: 'x', package: 'x.v1', models: [], enums: [], services: [] }
+    expect(new Proto3TargetAdapter({ emitEmptyMessage: true }).transform(model)).toContain('message Empty {}')
+    expect(new Proto3TargetAdapter().transform(model, { emitEmptyMessage: true })).toContain('message Empty {}')
+    expect(new Proto3TargetAdapter().transform(model)).not.toContain('message Empty {}')
+  })
+})
+
+describe('TypeSpecWirePipeline TypeSpec input', () => {
+  const workspaceRoot = resolve(import.meta.dirname, '../../../../..')
+  const root = mkdtempSync(join(tmpdir(), 'oa-sdk-wire-pipeline-input-'))
+  mkdirSync(join(root, 'node_modules'))
+  symlinkSync(join(workspaceRoot, 'node_modules', '@typespec'), join(root, 'node_modules', '@typespec'), 'dir')
+
+  afterAll(() => rmSync(root, { recursive: true, force: true }))
+
+  const source = `import "@typespec/http";
+using Http;
+
+@service(#{ title: "Shop" })
+namespace Shop;
+
+model Resource { id: string; createdAt: utcDateTime; }
+model Order extends Resource { amount: int32; }
+
+interface Orders {
+  @get @route("/orders/{id}") read(@path id: string): Order;
+}
+`
+
+  /** Writes `main.tsp` under a directory whose name holds a word the old source check looked for. */
+  const fixture = (directory: string): string => {
+    mkdirSync(join(root, directory), { recursive: true })
+    const path = join(root, directory, 'main.tsp')
+    writeFileSync(path, source)
+    return path
+  }
+
+  it.each(['models', 'order-service', 'namespace'])('compiles a path under %s/ as a file', async directory => {
+    const model = await new TypeSpecWirePipeline().extractModel(fixture(directory))
+    // `extends` keeps the inherited fields in the wire message.
+    expect(model.models.find(m => m.name === 'Order')?.fields.map(f => f.name)).toEqual(['id', 'createdAt', 'amount'])
+    expect(model.services.flatMap(service => service.methods.map(method => [method.name, method.outputType]))).toEqual([['OrdersRead', 'Order']])
+  }, 120_000)
+
+  it('compiles one-line source without a model, namespace, or service keyword', async () => {
+    const model = await new TypeSpecWirePipeline().extractModel('op ping(): void;')
+    expect(model.services.flatMap(service => service.methods.map(method => method.name))).toEqual(['Ping'])
+  }, 120_000)
+
+  it('takes the input kind as given with the explicit methods', async () => {
+    const pipeline = new TypeSpecWirePipeline()
+    const fromFile = await pipeline.extractModelFromFile(fixture('explicit'))
+    expect(fromFile.models.map(m => m.name)).toEqual(['Resource', 'Order'])
+    const fromSource = await pipeline.extractModelFromSource('model Pet { name: string; }')
+    expect(fromSource.models.map(m => m.name)).toEqual(['Pet'])
+  }, 120_000)
 })

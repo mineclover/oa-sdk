@@ -28,7 +28,7 @@ import { ProtobufCodecTargetAdapter } from './adapters/protobuf-codec-target-ada
 import { RpcContractTargetAdapter } from './adapters/rpc-contract-target-adapter.js'
 import { MessagePackTargetAdapter } from './adapters/messagepack-target-adapter.js'
 import { compileTypeSpecInMemory } from '../cli/lib/typespec-mock-compiler.js'
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -42,7 +42,7 @@ export interface TransformationBundle {
 }
 
 export class TypeSpecWirePipeline {
-  private readonly adapters = new Map<string, TypeSpecWireTargetAdapter<any, any>>()
+  private readonly adapters = new Map<string, TypeSpecWireTargetAdapter>()
 
   constructor(registerDefaults = true) {
     if (registerDefaults) {
@@ -54,18 +54,20 @@ export class TypeSpecWirePipeline {
   }
 
   /**
-   * Registers a pluggable target adapter.
+   * Registers a pluggable target adapter. Any adapter qualifies: `transform` is a method, so its
+   * options parameter is checked bivariantly.
    */
-  registerAdapter(adapter: TypeSpecWireTargetAdapter<any, any>): this {
+  registerAdapter(adapter: TypeSpecWireTargetAdapter): this {
     this.adapters.set(adapter.id, adapter)
     return this
   }
 
   /**
-   * Retrieves an adapter by its ID.
+   * Retrieves an adapter by its ID. The type arguments are not checked, like `transform<TOutput>`:
+   * pass the output and options types of the adapter registered under `id`.
    */
-  getAdapter(id: string): TypeSpecWireTargetAdapter<any, any> | undefined {
-    return this.adapters.get(id)
+  getAdapter<TOutput = unknown, TOptions = unknown>(id: string): TypeSpecWireTargetAdapter<TOutput, TOptions> | undefined {
+    return this.adapters.get(id) as TypeSpecWireTargetAdapter<TOutput, TOptions> | undefined
   }
 
   /**
@@ -83,37 +85,35 @@ export class TypeSpecWirePipeline {
   }
 
   /**
-   * Extracts canonical WireSchemaModel from TypeSpec source code, file path, or OAS Document.
+   * Extracts the canonical WireSchemaModel from an OAS document, a TypeSpec file path, or TypeSpec
+   * source text.
+   *
+   * A string is taken as a path when it has no line break, `;`, or brace and either ends in `.tsp`
+   * or names an existing file or directory; anything else is compiled as source. Use
+   * `extractModelFromFile` or `extractModelFromSource` when the input kind is known.
    */
   async extractModel(input: string | OasDocument): Promise<WireSchemaModel> {
-    if (typeof input === 'object' && input !== null) {
-      return extractWireSchemaFromOas(input)
+    if (typeof input !== 'string') return extractWireSchemaFromOas(input)
+    return isTypeSpecPath(input) ? this.extractModelFromFile(input.trim()) : this.extractModelFromSource(input)
+  }
+
+  /** Compiles a TypeSpec entry file (or project directory) and extracts its WireSchemaModel. */
+  async extractModelFromFile(path: string): Promise<WireSchemaModel> {
+    const compilation = await compileTypeSpecInMemory(path)
+    return extractWireSchemaFromOas(compilation.document)
+  }
+
+  /** Compiles TypeSpec source text as a temporary `main.tsp` and extracts its WireSchemaModel. */
+  async extractModelFromSource(source: string): Promise<WireSchemaModel> {
+    const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-wire-pipeline-'))
+    try {
+      const tspPath = join(tmp, 'main.tsp')
+      writeFileSync(tspPath, source, 'utf8')
+      const compilation = await compileTypeSpecInMemory(tspPath)
+      return extractWireSchemaFromOas(compilation.document)
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
     }
-
-    // Input is a string: could be raw .tsp source or path
-    const trimmed = input.trim()
-    const isSource = trimmed.includes('namespace') || trimmed.includes('model') || trimmed.includes('service')
-
-    let oasDoc: OasDocument
-
-    if (isSource) {
-      // Compile raw TypeSpec source in a temporary directory
-      const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-wire-pipeline-'))
-      try {
-        const tspPath = join(tmp, 'main.tsp')
-        writeFileSync(tspPath, input, 'utf8')
-        const compilation = await compileTypeSpecInMemory(tspPath)
-        oasDoc = compilation.document
-      } finally {
-        rmSync(tmp, { recursive: true, force: true })
-      }
-    } else {
-      // Input is a file path
-      const compilation = await compileTypeSpecInMemory(input)
-      oasDoc = compilation.document
-    }
-
-    return extractWireSchemaFromOas(oasDoc)
   }
 
   /**
@@ -168,6 +168,16 @@ export class TypeSpecWirePipeline {
       customArtifacts,
     }
   }
+}
+
+/**
+ * Whether a string names a TypeSpec file rather than holding source. Source always has a statement
+ * terminator, a brace, or several lines; a path has none of them and ends in `.tsp` or exists.
+ */
+function isTypeSpecPath(input: string): boolean {
+  const candidate = input.trim()
+  if (candidate === '' || /[\r\n;{}]/.test(candidate)) return false
+  return /\.tsp$/i.test(candidate) || existsSync(candidate)
 }
 
 /** Pre-instantiated singleton pipeline for convenient top-level usage */
