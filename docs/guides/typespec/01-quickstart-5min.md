@@ -35,7 +35,7 @@ tested:
 
 ## 0. 준비
 
-이 저장소를 빌드·테스트하려면 Node.js 24 이상과 pnpm 10.30.3이 필요합니다. 저장소 루트에서 의존성을 설치하고 CLI와 동반 패키지를 빌드합니다. `oa-gen mock`은 빌드된 `@oa-sdk/mock-server`를 불러옵니다.
+이 저장소를 빌드·테스트하려면 Node.js 24 이상과 pnpm 11.28.6이 필요합니다. 저장소 루트에서 의존성을 설치하고 CLI와 동반 패키지를 빌드합니다. `oa-gen mock`은 빌드된 `@oa-sdk/mock-server`를 불러옵니다.
 
 ```bash
 pnpm install --frozen-lockfile

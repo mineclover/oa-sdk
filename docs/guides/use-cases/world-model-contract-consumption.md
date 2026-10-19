@@ -43,7 +43,7 @@ storage, transaction 완료 시점은 연동 대상 runtime의 정본에서 확�
 
 ## 시작 전 조건
 
-- 이 저장소를 빌드·테스트하려면 Node.js 24 이상과 pnpm 10.30.3(루트 `packageManager`)이 필요하다.
+- 이 저장소를 빌드·테스트하려면 Node.js 24 이상과 pnpm 11.28.6(루트 `packageManager`)이 필요하다.
 - 저장소 의존성을 설치하고 `pnpm build:core`를 한 번 실행한 상태여야 한다. 이는 TypeSpec
   validation과 CLI가 요구하는 workspace dependency closure를 materialize한다.
 - contract를 변경하는 경우에는 [TypeSpec Authoring Conventions](../typespec-authoring-conventions.md)의 승인 흐름을 따라야 한다.

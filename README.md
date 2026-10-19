@@ -159,7 +159,7 @@ source scripts/use-node-version.sh stable # Node.js 24 LTS
 source scripts/use-node-version.sh node26 # Node.js 26 Current compatibility
 ```
 
-패키지 매니저는 `packageManager`에 고정된 pnpm 10.30.3을 사용합니다.
+패키지 매니저는 `packageManager`에 고정된 pnpm 11.28.6을 사용합니다.
 
 Root의 `pnpm build`, `pnpm test`, `pnpm typecheck`는 Core Platform만 검증한다. 전체
 monorepo 검증은 각각 `build:all`, `test:all`, `typecheck:all`을 사용하고, 경계별 검증은

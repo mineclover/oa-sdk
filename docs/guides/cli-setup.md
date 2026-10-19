@@ -227,7 +227,7 @@ npx oa-gen generate --root ./apps/web-service
 
 이 가이드는 다른 프로젝트에서 `oa-sdk` 공개 패키지를 쓰는 사용자를 위한 것입니다.
 
-`oa-sdk` 소스 모노레포(비공개) 자체에 기여하거나, TypeSpec 프로덕션 계약을 직접 수정·승인하고, 내부 통합 빌드(`pnpm build:core`, `pnpm build:downstream`)를 실행하려는 기여자는 Node.js 24 이상과 pnpm 10.30.3이 필요합니다. 저장소 루트에서는 `oa-gen`이 PATH에 없으므로 `pnpm --filter @oa-sdk/codegen build` 후 `node packages/codegen/dist/cli/index.js <명령>`으로 실행합니다. 자세한 내용은 다음 문서를 참고하세요:
+`oa-sdk` 소스 모노레포(비공개) 자체에 기여하거나, TypeSpec 프로덕션 계약을 직접 수정·승인하고, 내부 통합 빌드(`pnpm build:core`, `pnpm build:downstream`)를 실행하려는 기여자는 Node.js 24 이상과 pnpm 11.28.6이 필요합니다. 저장소 루트에서는 `oa-gen`이 PATH에 없으므로 `pnpm --filter @oa-sdk/codegen build` 후 `node packages/codegen/dist/cli/index.js <명령>`으로 실행합니다. 자세한 내용은 다음 문서를 참고하세요:
 
 👉 [oa-sdk 모노레포 기여자 온보딩 가이드](./onboarding-playbook.md#9-oa-sdk-모노레포-기여자-온보딩)
 

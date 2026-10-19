@@ -53,7 +53,7 @@ scope-reactivation decision이 필요하다. Markdown editor와 GitLab agent ope
 기준으로 한다. Node.js 26 Current 호환성 lane은 TypeScript 7.0.2와 `ttsc` 0.26.0으로 Core
 TypeScript source와 생성 선언을 no-emit으로 검사한다. Current 릴리스는 운영
 build/declaration emission을 대체하지 않으며 `.nvmrc.latest`로 선택하는 선행 호환성 검증 lane이다.
-`packageManager`는 pnpm 10.30.3으로 고정하고, Corepack으로 실행한다. Node 타입 의존성은 지원
+`packageManager`는 pnpm 11.28.6으로 고정하고, Corepack으로 실행한다. Node 타입 의존성은 지원
 baseline과 맞춘다.
 
 ---

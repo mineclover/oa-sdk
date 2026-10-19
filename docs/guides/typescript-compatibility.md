@@ -25,7 +25,7 @@ rest describes the lanes used to build and test this repository.
   [Generated declaration policy](#generated-declaration-policy)). Other compiler
   versions are not tested.
 
-Contributors who build this repository need Node.js 24 or later and pnpm 10.30.3.
+Contributors who build this repository need Node.js 24 or later and pnpm 11.28.6.
 
 ## Compatibility lanes
 

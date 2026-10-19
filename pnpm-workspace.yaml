@@ -1,3 +1,26 @@
 packages:
   - "packages/*"
   - "apps/*"
+
+# package.json#pnpm (pnpm 11은 'pnpm' 필드를 읽지 않음)
+overrides:
+  "@types/node": "^22.0.0"
+
+# .npmrc (pnpm 11은 .npmrc에서 인증/레지스트리 키만 읽음)
+autoInstallPeers: true
+shamefullyHoist: false
+strictPeerDependencies: false
+linkWorkspacePackages: true
+preferWorkspacePackages: true
+engineStrict: true
+
+# pnpm 11 strictDepBuilds 기본값(true) 대응: pnpm 10처럼 의존성 빌드 스크립트는 실행하지 않음
+# (pnpm-lock.yaml이 requiresBuild를 기록하지 않아 레지스트리 hasInstallScript 기준으로 목록 산출)
+allowBuilds:
+  "@nestjs/core": false # postinstall (opencollective 안내)
+  better-sqlite3: false # install (네이티브 애드온, node:sqlite 폴백 사용)
+  core-js: false # postinstall (후원 안내)
+  esbuild: false # postinstall (바이너리 검증, 플랫폼 패키지로 대체됨)
+  fsevents: false # install (node-gyp, macOS 선택 의존성)
+  msw: false # postinstall (service worker 복사)
+  protobufjs: false # postinstall (버전 스킴 안내)

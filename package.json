@@ -6,9 +6,9 @@
   "description": "OpenAPI 3.2 management monorepo — modular schemas, codegen bridge, mock server",
   "engines": {
     "node": ">=24.0.0 || >=26.0.0",
-    "pnpm": ">=9.0.0"
+    "pnpm": ">=11.28.6 <12"
   },
-  "packageManager": "pnpm@10.30.3",
+  "packageManager": "pnpm@11.28.6",
   "scripts": {
     "build": "corepack pnpm build:core",
     "build:all": "turbo run build",
@@ -122,10 +122,5 @@
     "typescript": "5.9.3",
     "vitest": "^4.1.4",
     "yaml": "^2.8.3"
-  },
-  "pnpm": {
-    "overrides": {
-      "@types/node": "^22.0.0"
-    }
   }
 }
