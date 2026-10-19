@@ -56,10 +56,13 @@ const ROOM_METADATA_RETAIN_MS = 24 * 60 * 60_000;
 /** The default size limit of a JSON request body (`readJsonBody`) outside the MCP endpoint. */
 const MAX_JSON_BODY_BYTES = 64 * 1024;
 /**
- * The largest JSON-RPC request id the relay accepts, as UTF-8 bytes of its JSON text. Every reply
- * echoes the id, so with this bound the `tools/list` reply for any catalog the relay accepts (an
- * announcement of at most PEER_RELAY_MAX_ANNOUNCEMENT_BYTES) fits the relay message limit, and a
- * pending request holds at most this much of it.
+ * The largest identifier an agent gives the relay that the answer repeats, as UTF-8 bytes of its
+ * JSON text: a JSON-RPC request id, and the `requestId` of an `offer` (the provider's `answer` and
+ * `release` frames repeat it). Every reply echoes the id, so with this bound the `tools/list` reply
+ * for any catalog the relay accepts (an announcement of at most PEER_RELAY_MAX_ANNOUNCEMENT_BYTES)
+ * fits the relay message limit, a pending request holds at most this much of it, and the provider's
+ * answer to an offer fits beside its SDP. A longer one is refused up front (REQUEST_ID_TOO_LARGE)
+ * rather than forwarded for an answer that could never be sent.
  */
 const MAX_RPC_ID_BYTES = 1024;
 /**
@@ -74,6 +77,17 @@ const MAX_PENDING_REQUESTS_PER_SOCKET = 64;
  * relay has not yet seen close).
  */
 const MAX_CLIENT_SOCKETS_PER_TICKET = 4;
+/**
+ * How many `register` frames that change nothing the relay evaluates for one room at once: those
+ * it refuses (CATALOG_INVALID, CATALOG_TOO_LARGE) and those that carry the catalog the room already
+ * holds. Evaluating a catalog (normalizing, hashing and measuring it) costs far more than receiving
+ * it, so a provider that kept sending such frames would otherwise spend relay CPU at the rate it
+ * sends. One more is allowed every REGISTER_EVALUATION_INTERVAL_MS, up to this many; a frame that
+ * changes the catalog is evaluated whenever one is allowed and uses none (see `receiveRegister`).
+ */
+const REGISTER_EVALUATION_BURST = 8;
+/** How often one more `register` evaluation is allowed once REGISTER_EVALUATION_BURST is used up. */
+const REGISTER_EVALUATION_INTERVAL_MS = 1_000;
 
 /**
  * Non-MCP frame types a client socket may relay to the provider. Every other type is dropped, so
@@ -113,7 +127,10 @@ const RESULT_TOO_LARGE_ERROR: RpcErrorBody = {
   message: 'RESULT_TOO_LARGE',
   data: { limitBytes: MAX_WEBSOCKET_MESSAGE_BYTES },
 };
-/** A request whose id is over MAX_RPC_ID_BYTES. It is answered with id null: the id is not echoed. */
+/**
+ * A request whose id, or an offer whose requestId, is over MAX_RPC_ID_BYTES. The id is not echoed:
+ * the request is answered with id null, the offer's `offer.refused` has no requestId.
+ */
 const REQUEST_ID_TOO_LARGE_ERROR: RpcErrorBody = {
   code: -32600,
   message: 'REQUEST_ID_TOO_LARGE',
@@ -141,6 +158,35 @@ type ProviderCatalogOutcome =
   | { kind: 'invalid' }
   | { kind: 'too-large'; announcementBytes: number };
 
+/** The outcome of a `register` frame that took no new catalog: what the provider is answered. */
+type IdleCatalogOutcome = Exclude<ProviderCatalogOutcome, { kind: 'accepted' }>;
+
+/** A `register` frame from a room's provider socket (see `WebMcpPeerServer.receiveRegister`). */
+interface ProviderRegister {
+  /** Everything the frame announces: the frame without its `registerSeq`. */
+  readonly frame: Record<string, unknown>;
+  /** The provider's numbering of the frame, echoed in a refusal when it is a number. */
+  readonly registerSeq: unknown;
+  /** SHA-256 of `frame` as JSON: frames with the same fingerprint announce the same thing. */
+  readonly fingerprint: string;
+  readonly sender: PeerSocket;
+}
+
+/** What the relay keeps about one room's `register` frames (see `WebMcpPeerServer.receiveRegister`). */
+interface RegisterState {
+  /** Evaluations of frames that change nothing allowed now, refilling continuously (so fractional). */
+  tokens: number;
+  /** When `tokens` was brought up to date, in `performance.now()` milliseconds. */
+  updatedAt: number;
+  /**
+   * The last frame evaluated, the room catalog it left (version and hash), and its outcome, which a
+   * frame with the same fingerprint gets again while the room catalog is still that one.
+   */
+  last?: { fingerprint: string; catalogVersion: number; catalogHash: string; outcome: IdleCatalogOutcome };
+  /** The latest frame waiting for an evaluation to be allowed, and the timer that evaluates it. */
+  waiting?: { register: ProviderRegister; timer: ReturnType<typeof setTimeout> };
+}
+
 /** A JSON-RPC response a provider sent, as `isRpcResponse` validates it. */
 type RpcResponse = { jsonrpc: '2.0'; id: string | number; result?: unknown; error?: unknown };
 
@@ -161,6 +207,11 @@ function decodeUtf8Body(body: Buffer): string {
 function exceedsRequestLimit(text: string, frame: unknown): boolean {
   return utf8ByteLength(text) > PEER_RELAY_MAX_REQUEST_BYTES
     || utf8ByteLength(JSON.stringify(frame)) > PEER_RELAY_MAX_REQUEST_BYTES;
+}
+
+/** True for a string identifier whose JSON text is over MAX_RPC_ID_BYTES (a number id never is). */
+function isOversizedEchoedId(id: unknown): boolean {
+  return typeof id === 'string' && utf8ByteLength(JSON.stringify(id)) > MAX_RPC_ID_BYTES;
 }
 
 function unforwardedRpcError(sent: Exclude<PeerSendResult, 'sent'>): RpcErrorBody {
@@ -349,6 +400,8 @@ export class WebMcpPeerServer {
   private readonly approvalDeliveries = new WeakMap<PendingApprovalRequest, PeerSocket>();
   /** The outbox of every agent WebSocket the relay accepted (see `replyToAgent`). */
   private readonly agentOutboxes = new WeakMap<PeerSocket, AgentOutbox>();
+  /** What the relay keeps about each room's `register` frames (see `receiveRegister`). */
+  private readonly registerStates = new WeakMap<RoomEntry, RegisterState>();
 
   constructor(options: WebMcpPeerServerOptions = {}) {
     // An embedded server never reads the host process's argv or mutates its environment from
@@ -610,7 +663,7 @@ export class WebMcpPeerServer {
 
   /** True for a string id whose JSON text is over MAX_RPC_ID_BYTES (a number id never is). */
   protected isOversizedRpcId(id: unknown): boolean {
-    return typeof id === 'string' && utf8ByteLength(JSON.stringify(id)) > MAX_RPC_ID_BYTES;
+    return isOversizedEchoedId(id);
   }
 
   protected isRpcResponse(value: unknown): value is RpcResponse {
@@ -782,6 +835,96 @@ export class WebMcpPeerServer {
     if (unchanged) return { kind: 'unchanged' };
     this.replaceNormalizedCatalog(entry, tools, hash);
     return { kind: 'accepted', announcement };
+  }
+
+  /**
+   * Takes a `register` frame (`msg`) from the room's provider socket `sender`. Only a catalog the
+   * relay accepts is announced, stamped with the authoritative version/hash so agents never derive a
+   * catalog the relay would reject; a refused one is answered with CATALOG_INVALID or
+   * CATALOG_TOO_LARGE, echoing the frame's `registerSeq` (which matches the refusal to the frame it
+   * answers and is not passed on to agents); a frame with the catalog the room already holds is not
+   * announced again (see `acceptProviderCatalog`).
+   *
+   * Evaluating a frame is what costs, so a provider cannot make the relay spend CPU at the rate it
+   * sends frames that change nothing:
+   * - a frame that announces exactly what the last evaluated one did (all fields but `registerSeq`),
+   *   while the room catalog is still the one that frame left, is not evaluated again: it gets the
+   *   same answer, under its own `registerSeq`;
+   * - frames that change nothing are evaluated at most REGISTER_EVALUATION_BURST at once, then one
+   *   per REGISTER_EVALUATION_INTERVAL_MS. A frame that arrives while none is allowed waits until one
+   *   is, and the provider's next frame replaces it unevaluated, so the latest catalog a provider
+   *   sends is always evaluated (it only waits longer for the answer) and nothing is refused for it.
+   */
+  private receiveRegister(entry: RoomEntry, sender: PeerSocket, msg: Record<string, unknown>): void {
+    const { registerSeq, ...frame } = msg;
+    let state = this.registerStates.get(entry);
+    if (!state) {
+      state = { tokens: REGISTER_EVALUATION_BURST, updatedAt: performance.now() };
+      this.registerStates.set(entry, state);
+    }
+    this.dropWaitingRegister(entry);
+    const fingerprint = createHash('sha256').update(JSON.stringify(frame)).digest('hex');
+    this.processRegister(entry, state, { frame, registerSeq, fingerprint, sender });
+  }
+
+  /** Drops the `register` frame waiting for an evaluation in `entry`, or only one `sender` sent. */
+  private dropWaitingRegister(entry: RoomEntry, sender?: PeerSocket): void {
+    const state = this.registerStates.get(entry);
+    if (!state?.waiting || (sender && state.waiting.register.sender !== sender)) return;
+    clearTimeout(state.waiting.timer);
+    state.waiting = undefined;
+  }
+
+  /** Answers `register` from the last evaluation, evaluates it, or makes it wait (see `receiveRegister`). */
+  private processRegister(entry: RoomEntry, state: RegisterState, register: ProviderRegister): void {
+    const last = state.last;
+    if (last && last.fingerprint === register.fingerprint
+      && last.catalogVersion === entry.catalogVersion && last.catalogHash === entry.catalogHash) {
+      this.answerRegister(register, last.outcome);
+      return;
+    }
+    const now = performance.now();
+    state.tokens = Math.min(REGISTER_EVALUATION_BURST, state.tokens + (now - state.updatedAt) / REGISTER_EVALUATION_INTERVAL_MS);
+    state.updatedAt = now;
+    if (state.tokens < 1) {
+      const timer = setTimeout(() => {
+        state.waiting = undefined;
+        // Only the room's attached provider socket speaks for it, as for a frame it sends now.
+        if (entry.providerSocket !== register.sender || entry.expiresAt <= Date.now()) return;
+        try {
+          this.processRegister(entry, state, register);
+        } catch { /* a frame the relay cannot evaluate is ignored, as when it arrives */ }
+      }, Math.ceil((1 - state.tokens) * REGISTER_EVALUATION_INTERVAL_MS));
+      timer.unref?.();
+      state.waiting = { register, timer };
+      return;
+    }
+    // A frame that takes a new catalog gives its evaluation back; one that changes nothing, or whose
+    // evaluation throws, keeps it used.
+    state.tokens -= 1;
+    const outcome = this.acceptProviderCatalog(entry, register.frame.tools, register.frame);
+    if (outcome.kind === 'accepted') state.tokens += 1;
+    const idle: IdleCatalogOutcome = outcome.kind === 'accepted' ? { kind: 'unchanged' } : outcome;
+    state.last = { fingerprint: register.fingerprint, catalogVersion: entry.catalogVersion, catalogHash: entry.catalogHash, outcome: idle };
+    if (outcome.kind === 'accepted') this.broadcastToAgents(entry, outcome.announcement);
+    else this.answerRegister(register, outcome);
+  }
+
+  /**
+   * Tells the provider why the relay refused its `register` frame; a frame with the catalog the room
+   * holds gets no answer. Sent with `send` alone, like the relay's other answers to the provider.
+   */
+  private answerRegister(register: ProviderRegister, outcome: IdleCatalogOutcome): void {
+    const echo = typeof register.registerSeq === 'number' ? { registerSeq: register.registerSeq } : {};
+    if (outcome.kind === 'invalid') {
+      register.sender.send({ type: 'error', code: -32602, message: 'CATALOG_INVALID', reason: 'register.tools must be at most 128 uniquely named tools with an object inputSchema', ...echo });
+    } else if (outcome.kind === 'too-large') {
+      register.sender.send({
+        type: 'error', code: -32602, message: 'CATALOG_TOO_LARGE', limitBytes: PEER_RELAY_MAX_ANNOUNCEMENT_BYTES,
+        reason: `the catalog announcement is ${outcome.announcementBytes} bytes, over the relay's ${PEER_RELAY_MAX_ANNOUNCEMENT_BYTES}-byte announcement limit`,
+        ...echo,
+      });
+    }
   }
 
   /**
@@ -2400,29 +2543,7 @@ export class WebMcpPeerServer {
                 return;
               }
               if (msg.type === 'register') {
-                // Only a catalog the relay accepted is announced, stamped with the authoritative
-                // version/hash so clients never derive a catalog the server would reject. The
-                // provider's `registerSeq` matches a rejection to the frame it answers; it is echoed
-                // in the error frame and not passed on to agents.
-                const { registerSeq, ...frame } = msg;
-                const echo = typeof registerSeq === 'number' ? { registerSeq } : {};
-                const outcome = this.acceptProviderCatalog(entry, frame.tools, frame);
-                if (outcome.kind === 'invalid') {
-                  peer.send({ type: 'error', code: -32602, message: 'CATALOG_INVALID', reason: 'register.tools must be at most 128 uniquely named tools with an object inputSchema', ...echo });
-                  return;
-                }
-                if (outcome.kind === 'too-large') {
-                  peer.send({
-                    type: 'error', code: -32602, message: 'CATALOG_TOO_LARGE', limitBytes: PEER_RELAY_MAX_ANNOUNCEMENT_BYTES,
-                    reason: `the catalog announcement is ${outcome.announcementBytes} bytes, over the relay's ${PEER_RELAY_MAX_ANNOUNCEMENT_BYTES}-byte announcement limit`,
-                    ...echo,
-                  });
-                  return;
-                }
-                // An unchanged catalog is not announced again: every agent already holds it (or
-                // lists it), and a repeated announcement only multiplies what the relay sends.
-                // An agent that is behind skips the announcement (see replaceNormalizedCatalog).
-                if (outcome.kind === 'accepted') this.broadcastToAgents(entry, outcome.announcement);
+                this.receiveRegister(entry, peer, msg);
                 return;
               }
               if (msg.type === 'mcp' && this.isRpcResponse(msg.message)) {
@@ -2445,6 +2566,7 @@ export class WebMcpPeerServer {
             } catch { /* malformed frames ignored */ }
           },
           () => {
+            this.dropWaitingRegister(entry, peer);
             if (entry.providerSocket === peer) {
               entry.providerSocket = undefined;
               this.failPendingForProvider(entry);
@@ -2607,6 +2729,13 @@ export class WebMcpPeerServer {
               // Only approved clients relay signaling, and only the allow-listed types. The relay
               // stamps the origin and the authoritative sessionId, so a client cannot forge either.
               if (clientTicket.status !== 'approved' || !CLIENT_SIGNALING_FRAME_TYPES.has(msg.type)) return;
+              // The provider answers an offer under its requestId, so one over MAX_RPC_ID_BYTES would
+              // be forwarded for an answer the provider cannot fit in a relay message. It is refused
+              // as a request with such an id is, without echoing the id.
+              if (isOversizedEchoedId(msg.requestId)) {
+                this.replyToAgent(peer, { type: `${msg.type}.refused`, error: REQUEST_ID_TOO_LARGE_ERROR });
+                return;
+              }
               // An offer is forwarded on the agent's behalf like a request, under the same limit.
               const sent = exceedsRequestLimit(text, msg)
                 ? 'too-large'

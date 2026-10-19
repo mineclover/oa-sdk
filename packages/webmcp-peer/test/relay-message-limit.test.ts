@@ -17,9 +17,10 @@
 //     closed gets PROVIDER_UNAVAILABLE and frees the room for a reclaim; a replaced provider socket
 //     is closed, a socket whose client left during a customUpgradeHandler is never attached, and a
 //     client that resets its connection meanwhile cannot crash the relay,
-//   - what one agent can make the relay hold or send is bounded: request ids (1 KiB), pending
-//     requests per socket (64), client sockets per ticket (4), no re-announced catalogs, one
-//     approval request per provider socket, and clientLabels of at most 256 code points,
+//   - what one agent can make the relay hold or send is bounded: request ids and offer requestIds
+//     (1 KiB, since the answer repeats them), pending requests per socket (64), client sockets per
+//     ticket (4), no re-announced catalogs, one approval request per provider socket, and
+//     clientLabels of at most 256 code points,
 //   - every mcp frame forwarded to the provider carries the relay's from/sessionId stamps,
 //   - inbound frames are limited with RFC 6455 close codes (1009, 1003, 1002, 1000),
 //   - the agent client refuses an oversized request before sending it.
@@ -1768,6 +1769,28 @@ describe("what one agent can make the relay hold", { timeout: 20_000 }, () => {
       { type: "mcp", message: { jsonrpc: "2.0", id: null, error: REQUEST_ID_TOO_LARGE } },
     ]);
     expect(provider.frames.filter((frame) => frame.type === "mcp").map((frame) => frame.message.id)).toEqual(fitting);
+  });
+
+  it("refuses an offer whose requestId is over 1 KiB of JSON without echoing or forwarding it, since the provider's answer repeats it", async () => {
+    const relay = await startRelay(servers, { deploymentCatalog: { tools: [] } });
+    const room = await createRoom(relay.base);
+    const provider = await openProvider(relay, room, sockets);
+    const joined = await joinRoom(relay.base, room);
+    const agent = await openClient(relay, room, joined, sockets);
+    const offers = (socket: { frames: Frame[] }) => socket.frames.filter((frame) => frame.type === "offer");
+    // Measured as a request id is: UTF-8 bytes of its JSON text.
+    const fitting = [idOfJsonBytes(MAX_ID_BYTES), "é".repeat(511)];
+    const oversized = [idOfJsonBytes(MAX_ID_BYTES + 1), "é".repeat(512)];
+
+    for (const requestId of [...oversized, ...fitting]) agent.send({ type: "offer", sdp: "v=0", requestId });
+    await until(() => offers(provider).length, (count) => count === fitting.length, "fitting offers forwarded", 5000);
+    await flush(agent, "agent socket still open");
+    await flush(provider, "provider socket still open");
+    expect(agent.frames.filter((frame) => frame.type === "offer.refused")).toEqual([
+      { type: "offer.refused", error: REQUEST_ID_TOO_LARGE },
+      { type: "offer.refused", error: REQUEST_ID_TOO_LARGE },
+    ]);
+    expect(offers(provider)).toEqual(fitting.map((requestId) => ({ type: "offer", sdp: "v=0", requestId, from: "client", sessionId: joined.sessionId })));
   });
 
   it("lets an agent socket have at most 64 requests waiting for the provider", async () => {

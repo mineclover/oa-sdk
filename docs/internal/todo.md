@@ -52,14 +52,14 @@ boundaries를 확인했다. 현재 production source의 기준은 TypeSpec valid
 2026-10-19 안정화 pass([최근 완료](#x-2026-10-19-시스템-안정화-pass))에서 고치지 않고 남긴 항목이다.
 
 ### [ ] WebMCP relay 남은 강화 항목
-배경: 2026-10-19 relay 메시지 상한 작업([최근 완료](#x-webmcp-relay-메시지-상한과-register-크기)) 뒤에 남은 작은 항목이다.
+배경: 2026-10-19 relay 메시지 상한 작업([최근 완료](#x-webmcp-relay-메시지-상한과-register-크기)) 뒤에 남은 작은 항목이다. 1·2·4는 2026-10-20에 고쳤고([changelog](../changelog.md)), 3·5는 결정을 기다린다.
 작업:
-1. provider `register` frame에 rate limit을 두거나 직전 frame과 같으면 정규화·hash를 건너뛴다. 지금은 provider token을 가진 쪽이 거부되는 `register`를 반복해 relay CPU를 쓸 수 있다.
-2. 승인된 agent의 `offer` `requestId`처럼 provider가 되돌려 주는 식별자를 relay에서 짧게 제한한다. 지금은 provider가 상한을 넘는 `answer`를 보내지 않으므로 room은 안전하지만 그 offer는 응답을 받지 못한다.
-3. `PeerMcpSession`이 socket당 진행 중 요청을 relay 상한(64)에 맞춰 queue하도록 할지 결정한다. 지금은 65번째 요청이 `TOO_MANY_PENDING_REQUESTS`로 실패한다.
-4. `upgradeWebSocket`이 호출 시점에 이미 FIN을 받은(`readableEnded`) socket도 파기된 socket처럼 다루게 한다. `WebMcpPeerServer`는 직접 확인하지만 다른 호출자는 보호받지 못한다.
-5. `examples/live-demo/host-provider.js`의 `register`에도 `registerSeq`를 넣어 SDK와 같은 거부 매칭을 보여 줄지 결정한다.
-완료 기준: 각 항목이 구현되거나 결정이 문서화되고, 구현한 항목은 회귀 테스트가 있다.
+1. 완료 (2026-10-20): relay는 room마다 마지막으로 평가한 `register` frame의 fingerprint(`registerSeq`를 뺀 frame의 SHA-256)와 그 frame이 남긴 room catalog(version·hash)를 기억한다. 같은 frame은 room catalog가 그대로인 동안 다시 정규화·hash하지 않고 같은 답(거부면 그 frame의 `registerSeq`를 담은 같은 거부)을 돌려준다. catalog를 바꾸지 않는 frame(거부되거나 이미 가진 catalog)은 room마다 한 번에 8개(`REGISTER_EVALUATION_BURST`), 그 뒤로 초당 1개까지만 평가하고, 그 사이에 온 frame은 기다리다가 provider의 다음 `register`로 바뀐다. 마지막 frame은 늦게라도 항상 평가되므로 rate 때문에 거부하는 새 오류가 없고 provider SDK는 바뀌지 않는다. budget은 room에 속해 provider socket을 바꿔도 초기화되지 않는다. 테스트: `server-register-evaluation.test.ts`.
+2. 완료 (2026-10-20): relay는 `requestId`가 JSON 1 KiB(`MAX_RPC_ID_BYTES`, JSON-RPC id와 같은 상한)를 넘는 offer를 전달하지 않고 `{ type: "offer.refused", error: REQUEST_ID_TOO_LARGE }`(id는 되돌려 주지 않음)로 답한다. provider의 `answer`·`release`가 그 id를 되풀이한다. 테스트: `relay-message-limit.test.ts`. provider 쪽 방어(상한을 넘는 `answer`를 보내지 않음)는 그 bound가 없는 relay를 가정한 `provider-register-limit.test.ts`가 계속 확인한다.
+3. 결정 대기: `PeerMcpSession`이 socket당 진행 중 요청을 relay 상한(64)에 맞춰 queue하도록 할지 결정한다. 지금은 65번째 요청이 `TOO_MANY_PENDING_REQUESTS`로 실패한다. 권고: WebSocket transport에서 queue한다. 상한은 relay의 자원 bound일 뿐 agent의 잘못을 알리는 신호가 아니고, client는 자기 `pending` 수로 넘을지를 정확히 안다(relay가 세는 요청은 client가 아직 답을 받지 못한 요청의 부분집합이다). 그래서 `Promise.all`로 64개 넘게 부르는 앱마다 limiter를 다시 만들게 할 이유가 없다. 상수는 `src/config/limits.ts`로 옮겨 relay와 client가 공유하고, queue에서 기다린 시간도 요청 timeout에 넣으며, `disconnect()`·transport 종료는 기다리는 요청도 reject한다. HTTP transport는 이 상한이 없으므로 그대로 둔다.
+4. 완료 (2026-10-20): `upgradeWebSocket`은 호출 시점에 파기됐거나, peer가 이미 FIN을 보냈거나(`readableEnded`), 더 쓸 수 없는 socket에 101을 보내지 않고 파기하며, `send`는 곧바로 `'closed'`를 돌려주고 `onClose`는 반환 뒤 한 번 실행된다. 테스트: `server-ws-frames.test.ts`.
+5. 결정 대기: `examples/live-demo/host-provider.js`의 `register`에도 `registerSeq`를 넣어 SDK와 같은 거부 매칭을 보여 줄지 결정한다. 권고: 넣는다. 1번 이후 relay는 기다리는 동안 대체된 frame에는 답하지 않으므로 거부를 보낸 순서로 frame에 맞출 수 없고, `registerSeq`가 거부를 frame에 맞추는 유일한 방법이다. 데모의 catalog는 늘 유효해 실제 거부는 드물지만, 예제가 SDK와 같은 protocol을 보여 주는 비용은 counter 하나와 wire log 한 줄이다. 넣으면 거부를 `registerSeq`로 맞추는 경로를 `live-demo.e2e.test.ts`에 추가한다.
+완료 기준: 각 항목이 구현되거나 결정이 문서화되고, 구현한 항목은 회귀 테스트가 있다. 남은 것은 3·5의 결정과, 결정에 따른 구현·테스트다.
 
 ### [ ] `@traceId` trackingId를 공유하는 OpenAPI variant (설계 결정 필요)
 배경: `x-oa-sdk-trace.trackingId`는 선언한 type과 그 mutator clone에 붙는다. 그래서 한 OpenAPI 문서 안에서 `@typespec/openapi3`의 visibility variant(`WidgetCreate`, `WidgetUpdate`)와 `MergePatchUpdate<T>` variant(`WidgetMergePatchUpdate`, 참조된 model의 `PartMergePatchUpdate`)가 원본과 같은 id를 갖고, `oa-gen trace --verify`가 `traceability/duplicate-tracking-id`를 보고한다. decorator 시점에는 merge-patch clone과 versioned snapshot clone을 구분할 수 없다. 이 한계는 [`packages/typespec-decorators/README.md`](../../packages/typespec-decorators/README.md)에 적혀 있다. 이 repo에는 `@traceId`와 `MergePatchUpdate`·`@versioned`를 함께 쓰는 `.tsp`가 없어 CI gate는 영향을 받지 않는다.

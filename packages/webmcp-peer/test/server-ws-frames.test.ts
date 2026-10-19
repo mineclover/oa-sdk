@@ -11,8 +11,8 @@
 // outbound bound is refused with 'busy' and a pong is dropped, and the socket takes messages again
 // once the peer reads. Only a peer that reads nothing for the stalled-queue timeout after a frame was
 // refused is closed, with 1013. onClose runs exactly once, as soon as the socket stops (also for a
-// socket already destroyed at the upgrade), never before upgradeWebSocket returns; a peer that never
-// hangs up is destroyed after the close timeout. Both timeouts must be valid timer delays. Node's
+// socket already destroyed, ended by its peer or unwritable at the upgrade, which is destroyed), never
+// before upgradeWebSocket returns; a peer that never hangs up is destroyed after the close timeout. Both timeouts must be valid timer delays. Node's
 // global WebSocket stands in for a browser (one frame per message); a raw node:net client writes exact
 // frames by hand for byte-exact limits, fragmentation, read boundaries, protocol violations and a peer
 // that stops reading; an in-memory Duplex makes byte-exact queue sizes, partial reads, head ordering
@@ -1591,6 +1591,89 @@ describe("upgrade edge cases", () => {
     await settle();
     expect(upgraded!.closeCalls).toBe(1);
     expect(upgraded!.calledBeforeReturn).toBe(false);
+  });
+
+  it.each<[string, (socket: Duplex) => Promise<void>]>([
+    [
+      "the peer already ended its side (readableEnded)",
+      async (socket) => {
+        socket.push(null);
+        socket.resume();
+        await once(socket, "end");
+      },
+    ],
+    [
+      "its writable side already ended",
+      async (socket) => {
+        socket.end();
+        await settle();
+      },
+    ],
+  ])("stops and destroys a socket that is gone but not destroyed before the upgrade (%s)", async (_label, end) => {
+    const { socket, written } = memorySocket();
+    await end(socket);
+    expect(socket.destroyed).toBe(false);
+
+    // head holds a complete message, which a socket that is gone must not deliver.
+    const relay = upgradeMemory(socket, frame("hello", { opcode: OPCODE.text }));
+    expect(relay.closeCalls).toBe(0);
+    expect(relay.peer.send({ type: "ready" })).toBe("closed");
+    expect(socket.destroyed).toBe(true);
+
+    await settle();
+    expect(relay.closeCalls).toBe(1);
+    expect(relay.calledBeforeReturn).toBe(false);
+    expect(relay.texts).toEqual([]);
+    // No 101 was written to it.
+    expect(written).toEqual([]);
+  });
+
+  it("calls onClose once and destroys the socket when an upgrade handler that awaits gets one whose client already sent FIN", async () => {
+    let peer: (MemoryPeer & { readableEndedAtUpgrade: boolean }) | undefined;
+    let serverSocketClosed = false;
+    const server = createServer();
+    servers.push(server);
+    server.on("upgrade", (req, socket: Duplex, head: Buffer) => {
+      serverSockets.add(socket);
+      socket.on("error", () => {});
+      socket.once("close", () => {
+        serverSocketClosed = true;
+      });
+      // Like a customUpgradeHandler that reads the socket while it awaits: the client's FIN comes
+      // first, so the 'end' event that stops a live WebSocket has fired before the upgrade.
+      socket.once("end", () => {
+        let returned = false;
+        const state = { texts: [] as string[], closeCalls: 0, calledBeforeReturn: false, readableEndedAtUpgrade: socket.readableEnded };
+        const upgraded = upgradeWebSocket(req, socket, head, (text) => state.texts.push(text), () => {
+          if (!returned) state.calledBeforeReturn = true;
+          state.closeCalls += 1;
+        });
+        returned = true;
+        peer = Object.assign(state, { peer: upgraded });
+      });
+      socket.resume();
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+    const client = connect({ port: (server.address() as AddressInfo).port, host: "127.0.0.1" });
+    const received: Buffer[] = [];
+    client.on("data", (chunk: Buffer) => received.push(chunk));
+    client.on("error", () => {});
+    cleanups.push(() => client.destroy());
+    client.end(
+      "GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+        + `Sec-WebSocket-Key: ${randomBytes(16).toString("base64")}\r\nSec-WebSocket-Version: 13\r\n\r\n`,
+    );
+
+    const upgraded = await until(() => peer, (value) => value !== undefined, "upgrade of the ended socket", WAIT_MS);
+    expect(upgraded!.readableEndedAtUpgrade).toBe(true);
+    expect(upgraded!.peer.send({ type: "ready" })).toBe("closed");
+    await until(() => upgraded!.closeCalls, (calls) => calls > 0, "onClose for the ended socket", WAIT_MS);
+    await until(() => serverSocketClosed, Boolean, "the relay destroyed the half-open socket", WAIT_MS);
+    await settle();
+    expect(upgraded!.closeCalls).toBe(1);
+    expect(upgraded!.calledBeforeReturn).toBe(false);
+    // The client was never told the upgrade succeeded.
+    expect(Buffer.concat(received).toString("latin1")).not.toMatch(/^HTTP\/1\.1 101 /);
   });
 
   it.each<[string, number]>([

@@ -259,10 +259,11 @@ interface InboundFrame {
  *
  * `onClose` runs exactly once, as soon as the socket stops from the relay's side: the relay closes
  * it (`close(code)`, a refused inbound frame or a stalled outbound queue), the peer sends a close
- * frame, the peer ends TCP without one, or the connection errors or closes, including before this call (a socket
- * already destroyed when an upgrade handler that awaited gets to it). Owners can drop the socket
- * then; they need not wait for TCP. Neither `onText` nor `onClose` runs before this function has
- * returned the PeerSocket.
+ * frame, the peer ends TCP without one, or the connection errors or closes, including before this
+ * call: a socket that an upgrade handler that awaited gets already destroyed, already ended by the
+ * peer (`readableEnded`) or no longer writable is not answered, is destroyed, and stops (`send`
+ * returns `closed` at once). Owners can drop the socket then; they need not wait for TCP. Neither
+ * `onText` nor `onClose` runs before this function has returned the PeerSocket.
  */
 export function upgradeWebSocket(
   req: IncomingMessage,
@@ -324,9 +325,14 @@ export function upgradeWebSocket(
     if (!error) clearStallTimer();
   };
 
-  // A socket the peer already reset (while an upgrade handler awaited) has nothing to answer.
-  const destroyedAtUpgrade = socket.destroyed;
-  if (!destroyedAtUpgrade) {
+  // A socket that is already gone (while an upgrade handler awaited) has nothing to answer: one the
+  // peer reset, one whose end the peer already sent (its 'end' event, which stops a live socket,
+  // has fired and will not fire again, so it would stay half-open), or one that can no longer be
+  // written. It is destroyed, as a live socket is when its peer ends it.
+  const goneAtUpgrade = socket.destroyed || socket.readableEnded || !socket.writable;
+  if (goneAtUpgrade) {
+    socket.destroy();
+  } else {
     socket.write(
       `HTTP/1.1 101 Switching Protocols\r\n` +
       `Upgrade: websocket\r\n` +
@@ -354,7 +360,7 @@ export function upgradeWebSocket(
    * read of the socket, so whichever runs first, the deferred parse or the first 'data' event,
    * parses them first.
    */
-  let pendingHead: Buffer | undefined = head.length && !destroyedAtUpgrade ? head : undefined;
+  let pendingHead: Buffer | undefined = head.length && !goneAtUpgrade ? head : undefined;
 
   const writable = () => !stopped && !socket.destroyed && socket.writable;
 
@@ -620,9 +626,9 @@ export function upgradeWebSocket(
     if (closeTimer) clearTimeout(closeTimer);
     stop();
   });
-  // Deferred, so the owner holds the PeerSocket before onText or onClose runs. A socket destroyed
-  // before this call may have emitted 'close' already, which no listener above saw.
-  if (destroyedAtUpgrade) queueMicrotask(stop);
+  // Deferred, so the owner holds the PeerSocket before onText or onClose runs. A socket gone before
+  // this call may have emitted 'end' or 'close' already, which no listener above saw.
+  if (goneAtUpgrade) queueMicrotask(stop);
   else if (pendingHead) queueMicrotask(parseHead);
 
   return {

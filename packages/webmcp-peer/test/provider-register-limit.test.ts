@@ -42,7 +42,7 @@ import {
   type Frame,
   type RpcReply,
 } from "./provider-fakes.js";
-import { openRecordingSocket, startRelay, until, type Relay } from "./server-test-helpers.js";
+import { startRelay, until, type Relay } from "./server-test-helpers.js";
 
 /** The relay message limit and the provider's catalog budget, spelled out. */
 const LIMIT = 256 * 1024;
@@ -51,12 +51,10 @@ const ALIAS = "register-limit";
 
 const servers: WebMcpPeerServer[] = [];
 const providers: WebMcpPeerClient[] = [];
-const sockets: WebSocket[] = [];
 const sessions: PeerMcpSession[] = [];
 
 afterEach(async () => {
   for (const session of sessions.splice(0)) await session.disconnect().catch(() => {});
-  for (const socket of sockets.splice(0)) socket.close();
   for (const provider of providers.splice(0)) provider.disconnect();
   for (const server of servers.splice(0)) await server.close();
   vi.useRealTimers();
@@ -505,21 +503,23 @@ describe("every frame the provider sends on the relay socket fits the message li
     vi.stubGlobal("RTCPeerConnection", FakePeerConnection);
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    const rig = await relayRig(smallCatalog());
-    await until(rig.catalog, (value) => value.status === 200, "catalog", 5000);
-    const providerEntry = rig.relay.server.rooms.get(rig.roomId)!;
-    const providerSocket = providerEntry.providerSocket;
-    expect(providerSocket).toBeDefined();
-    const agent = await openRecordingSocket(`${rig.relay.wsBase}/p/${rig.roomId}/client`, rig.joined.clientToken, sockets);
-    await agent.waitFor((frame) => frame.type === "ready", "agent ready");
+    // This package's relay refuses an offer whose requestId is over 1 KiB of JSON, so the offer is
+    // delivered as a relay without that bound would forward it.
+    const relay = new FakeRelay();
+    installRelay(relay);
+    const host = provider(smallCatalog());
+    await host.connect({ serverUrl: relay.base, alias: ALIAS });
+    await approve(host, relay.latest, relay.roomId);
+    const socket = relay.latest;
+    const stamp = { from: "client", sessionId: "peer-session-agent" };
 
     // The offer itself fits, and so does the copy the relay forwards with its stamps; the answer
     // repeats the requestId next to the provider's SDP and does not.
     const requestId = "r".repeat(LIMIT - 2048);
-    const offer = { type: "offer", sdp: "v=0 big-offer", requestId };
+    const offer = { type: "offer", sdp: "v=0 big-offer", requestId, ...stamp };
     expect(bytes(offer)).toBeLessThan(LIMIT - 1024);
     expect(bytes({ type: "answer", requestId, sdp: answerSdp })).toBeGreaterThan(LIMIT);
-    agent.send(offer);
+    socket.deliver(offer);
 
     await until(
       () => warn.mock.calls.some(([message]) => typeof message === "string" && /-byte answer frame exceeds the relay's/.test(message)),
@@ -530,16 +530,15 @@ describe("every frame the provider sends on the relay socket fits the message li
     const offered = FakePeerConnection.instances.find((pc) => pc.remoteDescription?.sdp === "v=0 big-offer");
     expect(offered?.closed).toBe(true);
 
-    // The provider socket survived: the provider still answers tools/call through the relay.
-    expect((await rig.callTool(1, "small")).result).toMatchObject({ isError: false, structuredContent: { ok: true, tool: "small" } });
-    expect(rig.relay.server.rooms.get(rig.roomId)?.providerSocket).toBe(providerSocket);
-    expect(rig.host.getSession()).toMatchObject({ state: "waiting", approvalState: "approved" });
-    expect(rig.providerSocket().readyState).toBe(WebSocket.OPEN);
-    expect(agent.frames.filter((frame) => frame.type === "answer")).toEqual([]);
+    // The provider socket survived, still approved, and sent nothing over the limit.
+    expect(socket.readyState).toBe(FakeRelaySocket.OPEN);
+    expect(host.getSession()).toMatchObject({ state: "waiting", approvalState: "approved" });
+    expect(socket.sent.filter((frame) => frame.type === "answer")).toEqual([]);
+    expect(socket.sent.every((frame) => bytes(frame) <= LIMIT)).toBe(true);
 
     // An offer that can be answered starts a fresh peer connection and gets its answer.
-    agent.send({ type: "offer", sdp: "v=0 ok-offer", requestId: "r-ok" });
-    const answer = await agent.waitFor((frame) => frame.type === "answer", "answer to the second offer", 5000);
+    socket.deliver({ type: "offer", sdp: "v=0 ok-offer", requestId: "r-ok", ...stamp });
+    const answer = await until(() => socket.sent.find((frame) => frame.type === "answer"), (frame) => frame !== undefined, "answer to the second offer", 5000);
     expect(answer).toMatchObject({ type: "answer", requestId: "r-ok", sdp: answerSdp });
     const answered = FakePeerConnection.instances.find((pc) => pc.remoteDescription?.sdp === "v=0 ok-offer");
     expect(answered).toBeDefined();

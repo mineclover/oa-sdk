@@ -2,6 +2,14 @@
 
 릴리스 단위가 아닌, 굵직한 surface 변경이 떨어졌을 때 한 항목으로 기록한다. 자세한 구현 상태는 [spec.md](./internal/spec.md), API 단일 소스는 [api-index.md](./internal/api-index.md), 기능↔테스트는 [feature-test-matrix.md](./internal/feature-test-matrix.md) 참조.
 
+## 2026-10-20 — WebMCP relay 남은 강화: `register` 평가 상한, offer `requestId` 상한, 이미 끝난 socket의 upgrade (`@oa-sdk/webmcp-peer`)
+
+2026-10-19 relay 메시지 상한 작업 뒤에 남긴 [강화 항목](./internal/todo.md#--webmcp-relay-남은-강화-항목) 중 셋을 고쳤다. protocol과 provider·client SDK는 바뀌지 않는다.
+
+- **동작 변경: `register` 평가 상한**: relay는 room마다 마지막으로 평가한 `register` frame(`registerSeq`를 뺀 frame의 SHA-256)과 그 frame이 남긴 room catalog(version·hash)를 기억한다. 같은 frame이 다시 오면 room catalog가 그대로인 동안 정규화·hash·크기 측정을 하지 않고 같은 답(거부면 새 frame의 `registerSeq`를 담은 같은 거부, 아니면 답 없음)을 돌려준다. catalog를 바꾸지 않는 frame(`CATALOG_INVALID`·`CATALOG_TOO_LARGE`로 거부되거나 room이 이미 가진 catalog)은 room마다 한 번에 8개, 그 뒤로 초당 1개까지만 평가한다. 그 사이에 온 frame은 기다리고 provider의 다음 `register`가 그것을 대신하므로, 마지막 frame은 늦게라도 항상 평가되고 속도 때문에 거부되지 않는다. budget은 room에 속해 provider socket을 바꿔도 초기화되지 않는다. 이전에는 provider token을 가진 쪽이 거부되거나 아무것도 바꾸지 않는 `register`를 반복해 보낸 만큼 relay CPU를 쓸 수 있었다.
+- **동작 변경: offer `requestId` 상한**: relay는 `requestId`가 JSON 1 KiB(JSON-RPC id와 같은 상한)를 넘는 승인된 agent의 offer를 provider에 전달하지 않고 `{ type: "offer.refused", error: REQUEST_ID_TOO_LARGE }`로 답한다(id는 되돌려 주지 않는다). provider의 `answer`·`release` frame이 그 id를 되풀이하므로, 이전에는 그런 offer가 전달되고도 provider가 상한을 넘는 답을 보내지 않아 응답을 받지 못했다.
+- **정확성: 이미 끝난 socket의 upgrade**: `upgradeWebSocket`은 호출 시점에 파기됐거나, peer가 이미 FIN을 보냈거나(`readableEnded`), 더 쓸 수 없는 socket에 101을 보내지 않고 socket을 파기하며, `send`는 곧바로 `'closed'`를 돌려주고 `onClose`는 호출이 반환된 뒤 한 번 실행된다. 이전에는 `'end'` event가 이미 지나간 socket이 half-open으로 남아 `onClose`가 불리지 않았다. `WebMcpPeerServer`는 직접 확인했지만 다른 호출자는 보호받지 못했다.
+
 ## 2026-10-19 — 안정화: relay·transit 보안, HMAC 가명화, 컴파일되지 않던 생성 코드 수정 (`@oa-sdk/peer-server`, `@oa-sdk/peer-transport`, `@oa-sdk/webmcp-peer`, `@oa-sdk/telemetry`, `@oa-sdk/codegen`, `@oa-sdk/typespec-decorators`, `@oa-sdk/surface-ir`, `@oa-sdk/client`, `@oa-sdk/router`, `@oa-sdk/chunk-stream`, `@oa-sdk/chunk-stream-ui`, `@oa-sdk/ast-sync`; private `@oa-sdk/rpc`, `@oa-sdk/spec-lens-contract`, `@oa-sdk/spec-lens`)
 
 전수 코드 리뷰에서 확인된 결함 146건을 대상으로 한 안정화 패스다. 보안 결함, 문서대로 컴파일·동작하지 않던 생성 코드와 런타임, 없는 API를 안내하던 문서를 고쳤다. **동작 변경** 항목은 업그레이드할 때 호출 코드, 설정, 저장해 둔 값(가명 token, catalog hash, 생성된 `.proto`)을 바꿔야 할 수 있다. 패키지별 bump 의도는 `.changeset/`에 있다.
