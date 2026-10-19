@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-19",
+  "updatedAt": "2026-10-20",
   "description": "Feature-to-test mapping for oa-sdk. Each feature lists representative automated coverage and the commands that maintain it.",
   "features": [
     {
@@ -1718,6 +1718,162 @@
       "commands": [
         "pnpm --filter @oa-sdk/webmcp-peer test",
         "pnpm --filter @oa-sdk/webmcp-peer typecheck"
+      ]
+    },
+    {
+      "id": "telemetry-runtime",
+      "name": "Design-driven telemetry, DPM pseudonymization, and dispatchers",
+      "category": "downstream-security",
+      "package": "@oa-sdk/telemetry",
+      "description": "Design-driven telemetry runtime: TrackSymbol grammar and registry, the telemetry envelope builder, the DPM pseudonymization adapter with keyed HMAC-SHA-256 tokens (sensitive and identifier key handling, object graph safety), the isomorphic SHA-256 and HMAC-SHA-256 primitives checked against FIPS 180-4, RFC 4231, and node:crypto, GTM/Sentry/OTel/composite dispatchers with reserved keys and failure isolation, and the XState v5 inspector that never breaks the machine it observes.",
+      "capabilities": [
+        "parseTrackSymbol, formatTrackSymbol, isValidTrackSymbol",
+        "SymbolRegistry",
+        "createTelemetryEnvelope",
+        "createDpmTelemetryAdapter keyed HMAC-SHA-256 tokenizer",
+        "sensitive and identifier key sanitization, object graph safety",
+        "sha256 and createHmacSha256 test vectors (FIPS 180-4, RFC 4231)",
+        "createGtmDispatcher, createSentryDispatcher, createOtelDispatcher",
+        "createCompositeDispatcher failure isolation and span fan-out",
+        "setGlobalTelemetryIdentity",
+        "createTelemetryInspector (XState v5) failure isolation"
+      ],
+      "testPaths": [
+        "packages/telemetry/test/*.test.ts",
+        "packages/telemetry/test/support/*.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/telemetry test",
+        "pnpm --filter @oa-sdk/telemetry typecheck"
+      ]
+    },
+    {
+      "id": "chunk-stream-runtime",
+      "name": "Chunk Stream runtime packages and @chunkStream decorator",
+      "category": "runtime-generation",
+      "package": "@oa-sdk/chunk-stream, @oa-sdk/chunk-stream-crdt, @oa-sdk/chunk-stream-react, @oa-sdk/chunk-stream-timeseries, @oa-sdk/chunk-stream-ui, @oa-sdk/typespec-decorators",
+      "description": "Chunk Stream runtime and adapters: the core engine (residency leases, playback virtualizer) with defineChunkStreamServer request validation, CRDT delta-state merge laws and vector clocks, React playback hooks, time-series LTTB downsampling and decimation, UI action adapters with revision fences and the storyboard playback bridge, and the @chunkStream TypeSpec decorator whose resolved config stays in parity with defineChunkStreamConfig (preset defaults, explicit byte overrides, Numeric option values).",
+      "capabilities": [
+        "defineChunkStreamConfig",
+        "defineChunkStreamServer request validation",
+        "ResidencyController",
+        "PlaybackVirtualizer",
+        "CrdtDeltaAdapter and mergeVectorClocks",
+        "useChunkPlayback",
+        "TimeSeriesAdapter and largestTriangleThreeBuckets",
+        "UiActionAdapter and RevisionFence",
+        "ChunkPlaybackBridge",
+        "@chunkStream resolved config parity with defineChunkStreamConfig"
+      ],
+      "testPaths": [
+        "packages/chunk-stream/test/*.test.ts",
+        "packages/chunk-stream-crdt/test/*.test.ts",
+        "packages/chunk-stream-react/test/*.test.ts",
+        "packages/chunk-stream-timeseries/test/*.test.ts",
+        "packages/chunk-stream-ui/test/*.test.ts",
+        "packages/typespec-decorators/src/chunk-stream.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/chunk-stream test",
+        "pnpm --filter @oa-sdk/chunk-stream-crdt test",
+        "pnpm --filter @oa-sdk/chunk-stream-react test",
+        "pnpm --filter @oa-sdk/chunk-stream-timeseries test",
+        "pnpm --filter @oa-sdk/chunk-stream-ui test",
+        "pnpm --filter @oa-sdk/typespec-decorators test",
+        "pnpm --filter @oa-sdk/chunk-stream typecheck",
+        "pnpm --filter @oa-sdk/chunk-stream-crdt typecheck",
+        "pnpm --filter @oa-sdk/chunk-stream-react typecheck",
+        "pnpm --filter @oa-sdk/chunk-stream-timeseries typecheck",
+        "pnpm --filter @oa-sdk/chunk-stream-ui typecheck"
+      ]
+    },
+    {
+      "id": "spec-traceability-governance",
+      "name": "Spec traceability graph and @traceId governance decorators",
+      "category": "governance",
+      "package": "@oa-sdk/codegen, @oa-sdk/typespec-decorators",
+      "description": "SpecTraceabilityEngine and oa-gen trace (traceability graph with $ref edges, governance capabilities and artifact symbol mappings, TypeSpec AST source coordinates, multi-criteria queries, reverse-dependency impact, JSDoc provenance, .oa-trace.json sidecar shape validation, duplicate trackingId detection under --verify), the TypeSpec governance decorators ($traceId ownership and uniqueness through the compiler, @@traceId augments on copied members and mutator clones, @traceId in the emitted OpenAPI document), and TypeSpec is/extends copies passing the trace gate without duplicate ids.",
+      "capabilities": [
+        "buildSpecTraceabilityGraph",
+        "oa-gen trace --verify",
+        ".oa-trace.json sidecar load, save, and shape rejection",
+        "reverse-dependency impact analysis",
+        "duplicate trackingId diagnostics",
+        "$traceId ownership and uniqueness",
+        "@@traceId augment on copied members",
+        "@traceId on mutator clones",
+        "@traceId in the emitted OpenAPI document",
+        "TypeSpec copies through the trace gate"
+      ],
+      "testPaths": [
+        "packages/codegen/src/__tests__/traceability/*.test.ts",
+        "packages/typespec-decorators/src/governance*.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/codegen test",
+        "pnpm --filter @oa-sdk/typespec-decorators test",
+        "pnpm --filter @oa-sdk/codegen typecheck",
+        "pnpm --filter @oa-sdk/typespec-decorators typecheck"
+      ]
+    },
+    {
+      "id": "typespec-plugin-pipeline",
+      "name": "TypeSpec plugin pipeline",
+      "category": "codegen",
+      "package": "@oa-sdk/codegen",
+      "description": "TypeSpec SSOT plugin pipeline outside the rpc and wire plugins, which keep their own rows: TspProjectBuilder and createTspBuilder, the in-memory compiler, the plugin context and virtual file system, the topological plugin sorter, runTspPluginPipeline lifecycle, config validation, dry-run and output-directory clean safety, vitePluginTsp, and the shipped pluginTypescript, pluginClient/pluginSdk, pluginRouter, and pluginTanstackQuery output, with tiered E2E scenarios over petstore, storefront, edge-case, and reserved-name fixtures and a gate that type-checks the output of every shipped plugin together.",
+      "capabilities": [
+        "createTspBuilder",
+        "runTspPluginPipeline",
+        "topological plugin sorting and cycle rejection",
+        "in-memory TypeSpec compilation without disk writes",
+        "virtual file system context and output-directory clean safety",
+        "vitePluginTsp",
+        "pluginTypescript",
+        "pluginClient and pluginSdk",
+        "pluginRouter",
+        "pluginTanstackQuery",
+        "multi-status error unions",
+        "shipped plugin output type-checks together"
+      ],
+      "testPaths": [
+        "packages/codegen/src/__tests__/plugin/*.test.ts",
+        "packages/codegen/src/__tests__/plugin/helpers/*.ts",
+        "test/e2e/typespec-plugin/**/*.test.ts",
+        "test/e2e/typespec-plugin/fixtures/**"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/codegen test",
+        "pnpm --filter @oa-sdk/codegen typecheck",
+        "pnpm test:e2e:typespec-plugin"
+      ]
+    },
+    {
+      "id": "spec-lens-scenario-navigation",
+      "name": "Spec-Lens scenario navigation",
+      "category": "ui",
+      "package": "@oa-sdk/spec-lens-ui",
+      "description": "Spec-Lens UI scenario navigation: ScenarioProvider keeps the scenario FSM, the ?scenario= URL state, and the rendered view equal; deep-link initialization, browser-back reconciliation over steps that wrote no history entry, goal reachability through the UI handlers, intent and shell view resolution, selection helpers, rejection of sidebar navigation the scenario does not permit, and the ScenarioFlowModal transition matrix and Mermaid diagram.",
+      "capabilities": [
+        "initialMachineStateFromUrl",
+        "machineUrlPatch and machineMatchesUrl",
+        "reconcileMachineWithUrl",
+        "resolveScenarioIntents",
+        "resolveShellView",
+        "availableGoalsFor",
+        "ScenarioProvider FSM, URL, and view consistency",
+        "AppShell scenario wiring (deep link, browser back, blocked navigation)",
+        "ScenarioFlowModal"
+      ],
+      "testPaths": [
+        "apps/spec-lens/src/App.test.tsx",
+        "apps/spec-lens/src/scenario/navigation.test.ts",
+        "apps/spec-lens/src/scenario/scenario.test.tsx",
+        "apps/spec-lens/src/scenario/views/ScenarioFlowModal.test.tsx"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/spec-lens-ui test",
+        "pnpm --filter @oa-sdk/spec-lens-ui typecheck"
       ]
     },
     {

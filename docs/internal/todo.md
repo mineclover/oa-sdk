@@ -85,16 +85,6 @@ boundaries를 확인했다. 현재 production source의 기준은 TypeSpec valid
 작업: vue·svelte에서 `--tier hooks`를 거부할지, framework별 hook 생성기를 둘지 결정하고 CLI 도움말과 [CLI command reference](../guides/cli-command-reference.md)를 맞춘다.
 완료 기준: vue·svelte target의 `--tier hooks` 결과가 해당 패키지에 대해 type-check되거나, 명확한 오류로 거부된다.
 
-### [ ] Feature-test matrix에 없는 영역
-배경: [feature-test-matrix.json](./feature-test-matrix.json)에 row가 없어 이번 pass에 추가한 회귀 테스트 일부가 matrix에 연결되지 않는다.
-- `@oa-sdk/telemetry`: `packages/telemetry/test/*.test.ts`(새 `hmac-sha256.test.ts` 포함)
-- chunk-stream 계열 5개 package와 `@chunkStream` decorator: 새 `packages/typespec-decorators/src/chunk-stream.test.ts`
-- spec traceability와 governance decorator: `packages/codegen/src/__tests__/traceability/*.test.ts`(새 `typespec-trace-id-copies.test.ts`), `packages/typespec-decorators/src/governance*.test.ts`
-- TypeSpec plugin pipeline 중 rpc·wire 밖의 부분: `packages/codegen/src/__tests__/plugin/*.test.ts`, `test/e2e/typespec-plugin/**`(새 `tier3-combinations/shipped-plugins-typecheck.test.ts`)
-- Spec-Lens UI scenario navigation: 새 `apps/spec-lens/src/App.test.tsx`, `scenario/navigation.test.ts`, `scenario/views/ScenarioFlowModal.test.tsx`
-작업: 영역마다 feature row를 추가하고 [feature-test-matrix.md](./feature-test-matrix.md)에 대표 테스트를 적은 뒤 `pnpm check:feature-tests`를 실행한다.
-완료 기준: 이번 pass의 새 테스트 파일이 모두 matrix row에 연결된다.
-
 ## spec-lens 잔여 항목
 
 ### [x] RefreshTimeline 병렬 revision 처리
@@ -318,6 +308,17 @@ REST vs bare-clone 결정: REST API 방식 유지. 이유는 (1) 4 케이스 모
 ---
 
 ## 최근 완료
+
+### [x] Feature-test matrix에 없는 영역
+배경: [feature-test-matrix.json](./feature-test-matrix.json)에 row가 없어 이번 pass에 추가한 회귀 테스트 일부가 matrix에 연결되지 않는다.
+- `@oa-sdk/telemetry`: `packages/telemetry/test/*.test.ts`(새 `hmac-sha256.test.ts` 포함)
+- chunk-stream 계열 5개 package와 `@chunkStream` decorator: 새 `packages/typespec-decorators/src/chunk-stream.test.ts`
+- spec traceability와 governance decorator: `packages/codegen/src/__tests__/traceability/*.test.ts`(새 `typespec-trace-id-copies.test.ts`), `packages/typespec-decorators/src/governance*.test.ts`
+- TypeSpec plugin pipeline 중 rpc·wire 밖의 부분: `packages/codegen/src/__tests__/plugin/*.test.ts`, `test/e2e/typespec-plugin/**`(새 `tier3-combinations/shipped-plugins-typecheck.test.ts`)
+- Spec-Lens UI scenario navigation: 새 `apps/spec-lens/src/App.test.tsx`, `scenario/navigation.test.ts`, `scenario/views/ScenarioFlowModal.test.tsx`
+작업: 영역마다 feature row를 추가하고 [feature-test-matrix.md](./feature-test-matrix.md)에 대표 테스트를 적은 뒤 `pnpm check:feature-tests`를 실행한다.
+완료 (2026-10-20): `feature-test-matrix.json`에 `telemetry-runtime`, `chunk-stream-runtime`, `spec-traceability-governance`, `typespec-plugin-pipeline`, `spec-lens-scenario-navigation` row 5개를 추가하고 `feature-test-matrix.md`에 같은 순서로 대표 테스트를 적음. `typespec-plugin-pipeline`의 plugin glob은 `plugin-rpc`·`plugin-wire` 테스트도 매칭하지만 그 기능의 소유 row는 기존 `typespec-rpc-contract-runtime`, `wire-binary-codecs`로 유지한다.
+완료 기준: 이번 pass의 새 테스트 파일이 모두 matrix row에 연결된다.
 
 ### [x] WebMCP relay 남은 강화 항목
 배경: 2026-10-19 relay 메시지 상한 작업([최근 완료](#x-webmcp-relay-메시지-상한과-register-크기)) 뒤에 남은 다섯 항목이다.
