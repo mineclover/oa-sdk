@@ -34,22 +34,113 @@
   "boundaryBudgets": [
     {
       "rule": "boundary:any",
-      "maximum": 183,
+      "maximum": 134,
       "owner": "OA SDK maintainers",
       "remediation": "Replace explicit any with a narrow generic, unknown plus validation, or a modeled protocol type."
     },
     {
       "rule": "boundary:double-assertion",
-      "maximum": 38,
+      "maximum": 27,
       "owner": "OA SDK maintainers",
       "remediation": "Remove the double assertion or validate the value before crossing the boundary."
     },
     {
       "rule": "boundary:unvalidated-deserialize",
-      "maximum": 121,
+      "maximum": 118,
       "owner": "OA SDK maintainers",
       "remediation": "Parse deserialized data through a named schema validator before treating it as a domain type."
     }
   ],
-  "allowlist": []
+  "allowlist": [
+    {
+      "id": "rpc-http-codec-decode-primitive",
+      "rule": "boundary:unvalidated-deserialize",
+      "filePath": "packages/rpc/src/http-codec.ts",
+      "boundaryId": "type-boundary:9a8bb2ca51cd675ab8cac15907cae917",
+      "owner": "OA SDK maintainers",
+      "reason": "Detector false positive: `decode(raw)` for a primitive value calls the decodeDelimited `decode: (value: string) => string` option (decodeComponent, decodeForm or identity), a string-to-string percent-decoder. Nothing is deserialized and no type is asserted; the value is coerced by the schema resolver next.",
+      "expiresOn": "2027-04-30"
+    },
+    {
+      "id": "rpc-http-codec-decode-array-item",
+      "rule": "boundary:unvalidated-deserialize",
+      "filePath": "packages/rpc/src/http-codec.ts",
+      "boundaryId": "type-boundary:2d4978f1748a7046388d7872456c1a9d",
+      "owner": "OA SDK maintainers",
+      "reason": "Detector false positive: `decode(item)` for an array item calls the decodeDelimited `decode: (value: string) => string` option (decodeComponent, decodeForm or identity), a string-to-string percent-decoder. Nothing is deserialized and no type is asserted; the value is coerced by the schema resolver next.",
+      "expiresOn": "2027-04-30"
+    },
+    {
+      "id": "rpc-http-codec-decode-object-key",
+      "rule": "boundary:unvalidated-deserialize",
+      "filePath": "packages/rpc/src/http-codec.ts",
+      "boundaryId": "type-boundary:0ccf4c57e9de277700b678b54477f3fa",
+      "owner": "OA SDK maintainers",
+      "reason": "Detector false positive: `decode(rawKey)` for an object key calls the decodeDelimited `decode: (value: string) => string` option (decodeComponent, decodeForm or identity), a string-to-string percent-decoder. Nothing is deserialized and no type is asserted; the value is coerced by the schema resolver next.",
+      "expiresOn": "2027-04-30"
+    },
+    {
+      "id": "rpc-http-codec-decode-object-value",
+      "rule": "boundary:unvalidated-deserialize",
+      "filePath": "packages/rpc/src/http-codec.ts",
+      "boundaryId": "type-boundary:556039551e6903db856fbe0527ebc63e",
+      "owner": "OA SDK maintainers",
+      "reason": "Detector false positive: `decode(rawValue)` for an object value calls the decodeDelimited `decode: (value: string) => string` option (decodeComponent, decodeForm or identity), a string-to-string percent-decoder. Nothing is deserialized and no type is asserted; the value is coerced by the schema resolver next.",
+      "expiresOn": "2027-04-30"
+    },
+    {
+      "id": "rpc-http-codec-read-body-json",
+      "rule": "boundary:unvalidated-deserialize",
+      "filePath": "packages/rpc/src/http-codec.ts",
+      "boundaryId": "type-boundary:4aef80db96ae842d47d8c10f7b2136fc",
+      "owner": "OA SDK maintainers",
+      "reason": "Detector false positive (syntactic): readBody is the generic media-type body codec and returns the JSON.parse result typed `unknown` (syntax errors become PARSE_ERROR). It asserts no domain type; every consumer checks the shape it relies on (decodeInput requires a non-array object for spread bodies, errorFromHttpResponse reads fields through typeof guards, RpcServer.call validates the assembled input against the procedure schema). A validator at this layer could only check 'is a JSON value', which JSON.parse already guarantees.",
+      "expiresOn": "2027-04-30"
+    },
+    {
+      "id": "rpc-http-codec-parse-content-json",
+      "rule": "boundary:unvalidated-deserialize",
+      "filePath": "packages/rpc/src/http-codec.ts",
+      "boundaryId": "type-boundary:5c12db24185057c2478ebde016c4664c",
+      "owner": "OA SDK maintainers",
+      "reason": "Detector false positive (syntactic): parseContent decodes a content-based (application/json) parameter and returns it typed `unknown` (syntax errors become BAD_REQUEST). No domain type is asserted; RpcServer.call validates the call input it is placed into against the procedure input schema.",
+      "expiresOn": "2027-04-30"
+    },
+    {
+      "id": "client-messagepack-text-decoder",
+      "rule": "boundary:unvalidated-deserialize",
+      "filePath": "packages/client/src/codec/adapters/messagepack-adapter.ts",
+      "boundaryId": "type-boundary:5bf261656d6775c1a11f1c421c8291c8",
+      "owner": "OA SDK maintainers",
+      "reason": "Detector false positive: `textDecoder.decode(slice)` in readString is a TextDecoder turning the UTF-8 bytes of a MessagePack str (length bounds-checked by take(size)) into a plain JS string. No structured value is produced.",
+      "expiresOn": "2027-04-30"
+    },
+    {
+      "id": "chunk-stream-storage-text-decoder",
+      "rule": "boundary:unvalidated-deserialize",
+      "filePath": "packages/chunk-stream/src/storage.ts",
+      "boundaryId": "type-boundary:c96be9558a438ad68fd2e23a0fcb6aae",
+      "owner": "OA SDK maintainers",
+      "reason": "Detector false positive: `sharedTextDecoder.decode(raw)` turns L3 fetch bytes into a plain string; the next statement parses it with StoredChunkDescriptorSchema.parse(JSON.parse(text)), which the detector counts as validated.",
+      "expiresOn": "2027-04-30"
+    },
+    {
+      "id": "chunk-stream-reader-text-decoder",
+      "rule": "boundary:unvalidated-deserialize",
+      "filePath": "packages/chunk-stream/src/reader.ts",
+      "boundaryId": "type-boundary:45aec2bc7ceb28dca5c95151a3630361",
+      "owner": "OA SDK maintainers",
+      "reason": "Detector false positive: `decoder.decode(value, { stream: true })` is a streaming TextDecoder appending ReadableStream<Uint8Array> bytes to the NDJSON line buffer string. No structured value is produced at this call.",
+      "expiresOn": "2027-04-30"
+    },
+    {
+      "id": "webmcp-ws-upgrade-strict-utf8",
+      "rule": "boundary:unvalidated-deserialize",
+      "filePath": "packages/webmcp-peer/src/server/ws-upgrade.ts",
+      "boundaryId": "type-boundary:4b9bff78d38c7ff16a4aa370e359f678",
+      "owner": "OA SDK maintainers",
+      "reason": "Detector false positive: `strictUtf8.decode(...)` is a fatal TextDecoder that turns an assembled WebSocket text message into a JS string and throws on invalid UTF-8 (the relay then closes with 1007). It produces a plain string, not structured data; every frame parsed from that string goes through PeerFrameSchema.parse(JSON.parse(text)) in peer-server.ts.",
+      "expiresOn": "2027-04-30"
+    }
+  ]
 }
