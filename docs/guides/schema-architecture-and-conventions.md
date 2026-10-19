@@ -52,15 +52,17 @@ Storage(Atlas), Logical(DPM), API(TypeSpec), Behavior(XState) 4계층 분리와 
 <id>.schema.json    JSON Schema 2020-12 ($defs)
      │
      ├─ guards 설정             → 독립형 타입 가드 is<Name>() + .d.ts
-     ├─ @oa-sdk/router          → 핸들러 계약 <id>.contract.ts
+     ├─ @oa-sdk/router          → 핸들러 계약 <id>.contract.ts, 대상 프레임워크가 있으면 라우터 <id>.router.ts
      ├─ @oa-sdk/client          → fetch 클라이언트 <id>.client.ts, TanStack Query <id>.keys.ts·<id>.queries.ts
      └─ x-oa-sdk-crdt-entity    → CRDT 모듈 4개 (스펙에 있을 때만)
 ```
 
 `@oa-sdk/router`, `@oa-sdk/client`는 `oa-gen`이 실행 중 불러오는 동반 패키지(companion package)입니다. 없을 때의 동작은
 [선언적 스펙 설정 가이드](./declarative-spec-configuration.md#명시적-요청과-암시적-기본값-동반-패키지)에 있습니다.
-`oa-gen generate`는 프레임워크 라우터 파일을 만들지 않습니다. Fastify·Express·Hono·Elysia 라우터 코드가 필요하면 빌드
-스크립트에서 `@oa-sdk/router`의 `generateRouter()`를 호출합니다.
+`oa-gen generate`는 대상 프레임워크(`core.router.target`, 없으면 `specs[].target`, 그다음 `product.framework`)가
+`hono`·`express`·`fastify`·`elysia`이면 계약 옆에 라우터(`<id>.router.ts`)도 만들고, 실행할 때마다 다시 씁니다. 빌드
+스크립트에서 `@oa-sdk/router`의 `generateRouter()`로 라우터를 직접 만들 때는 `core.router.target`을 `generic`으로 두어
+끄거나 다른 경로에 씁니다([선언적 스펙 설정 가이드 2.2절](./declarative-spec-configuration.md#22-서버-쪽-생성물의-범위)).
 
 `oa-gen generate`는 `<id>.openapi.json`에 다음 메타데이터를 붙입니다(`@oa-sdk/openapi-projection-contract`의 상수).
 
@@ -77,13 +79,13 @@ Storage(Atlas), Logical(DPM), API(TypeSpec), Behavior(XState) 4계층 분리와 
 | 단계 | 명령 | 결과 |
 |---|---|---|
 | 검증 | `oa-gen validate`(설정의 모든 target), `oa-gen validate --spec <파일> --require-32` | 구조·참조·린트 오류, OpenAPI 3.2 강제 |
-| 투영과 코드 생성 | `oa-gen generate` | 위 그림의 생성물 (`.oa-trace.json` 추적성 사이드카 포함 가능) |
+| 투영과 코드 생성 | `oa-gen generate` | 위 그림의 생성물 (`.oa-trace.json`은 쓰지 않음) |
 | 타입 | `oa-gen typegen --spec <파일> -o <파일>` | TypeScript 타입 (설정 파일을 읽지 않음) |
 | 런타임 검증 스키마 | `oa-gen generate:zod --spec <파일> -o <경로>` | Zod 4 스키마 |
 | 가드만 | `oa-gen generate:guards --input <파일> -o <디렉터리>` | 독립형 타입 가드 |
 | mock 서버 | `oa-gen mock` | 원본을 읽어 요청을 검증하는 서버 (디스크에 생성물을 쓰지 않음) |
 | 생성물 최신 여부 | `oa-gen check-artifact` | `<id>.openapi.json`이 원본에서 다시 만든 결과와 다르면 종료 코드 1 |
-| 추적성·영향도 분석 | `oa-gen trace --spec <파일> [--impact <대상>]` | 스펙 정의 ↔ TypeSpec AST ↔ 요구사항 ↔ 생성 코드 심볼 추적 및 Blast Radius 계산 |
+| 추적성·영향도 분석 | `oa-gen trace --spec <파일> [--impact <대상>] [-o .oa-trace.json]` | 스펙 정의 ↔ TypeSpec AST ↔ 요구사항 ↔ 생성 코드 심볼 추적 및 Blast Radius 계산. `.oa-trace.json` 추적성 사이드카는 `-o`(`--output`)를 준 이 명령만 씁니다 |
 | 변경 분류 | `oa-gen diff`, `oa-gen tsp diff` | `--fail-on-breaking`이면 breaking change에서 종료 코드 1 |
 | runtime drift | `oa-gen drift` | 실행 중 서버가 내보내는 OpenAPI와 관리 중인 계약의 차이 |
 | 번들 감사 | `oa-gen audit:csp --bundle <경로>` | `eval`, `new Function`, 금지된 런타임 import 검사 |

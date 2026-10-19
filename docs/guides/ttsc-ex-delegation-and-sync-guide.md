@@ -28,7 +28,7 @@ flowchart LR
 
     subgraph OASDK ["2. oa-sdk (.tsp 도메인 데코레이터 & 코드 생성 SSOT)"]
         O1["@oa-sdk/typespec-decorators\n• ./api, ./governance, ./crdt\n• ./behavior, ./storage, ./chunk-stream\n• [위임] ./identity, ./layout, ./tools"]
-        O2["@oa-sdk/codegen (oa-gen)\n• OpenAPI 3.1/3.2 프로젝션\n• types.ts / 핸들러 계약 / CRDT / 가드 생성\n• .oa-trace.json & @evidence JSDoc 합성"]
+        O2["@oa-sdk/codegen (oa-gen)\n• OpenAPI 3.1/3.2 프로젝션\n• types.ts / 핸들러 계약 / CRDT / 가드 생성\n• .oa-trace.json (oa-gen trace -o만 씀)\n• @evidence JSDoc (includeProvenanceAnnotations: true일 때만)"]
     end
 
     subgraph CA ["3. context-action (프론트엔드 상태·인텐트 & 레이아웃)"]
@@ -44,7 +44,7 @@ flowchart LR
 | :--- | :--- | :--- |
 | **TypeSpec 데코레이터** | 도메인·아키텍처·거버넌스 데코레이터 전종 (`@oa-sdk/typespec-decorators`의 `./api`, `./governance`, `./crdt`, `./behavior`, `./storage`, `./chunk-stream` 및 위임 대상 `./identity`, `./layout`, `./tools`) | 순수 증명 데코레이터 (`@evidence`, `@evidenceExclude`, Heading-Form `## @evidence`) |
 | **OpenAPI 확장** | `x-oa-sdk-*` 버전드 확장 발행 및 `x-samchon-evidence` 수신·통합 | `x-samchon-evidence` (`requirements`, `upstreamRequirement`, `typeSpecSource`, `excluded`, `excludeReason`) 주입 |
-| **TypeScript 코드 생성** | `oa-gen typegen`, `oa-gen generate`, `oa-gen trace`를 통한 DTO/인터페이스, 라우터 핸들러 계약, `.oa-trace.json`, 그리고 JSDoc 출처 증명(`@oa-source`, `@oa-requirement`, `@evidence`, `## @evidence`, `@evidenceExclude`) 합성 | 코드 생성기가 만든 TypeScript 산출물에 대한 `evidence check` 및 `@evidenceReview #hash` 스코프 핑거프린트 검증 |
+| **TypeScript 코드 생성** | `oa-gen typegen`·`oa-gen generate`를 통한 DTO/인터페이스와 라우터 핸들러 계약, `oa-gen trace -o .oa-trace.json`(이 파일을 쓰는 유일한 명령)을 통한 `.oa-trace.json`, 그리고 `generateTypes` / `generateTypesFromSpec` 라이브러리 호출에 `includeProvenanceAnnotations: true`를 줄 때만 붙는 JSDoc 출처 증명(`@oa-source`, `@oa-requirement`, `@evidence`, `## @evidence`, `@evidenceExclude`) 합성. `oa-gen typegen`과 `oa-gen generate`는 이 옵션을 넘기지 않으므로 출력에 출처 태그가 없습니다 | 코드 생성기가 만든 TypeScript 산출물에 대한 `evidence check` 및 `@evidenceReview #hash` 스코프 핑거프린트 검증 |
 
 ---
 
@@ -55,7 +55,7 @@ flowchart LR
 | 영역 | `oa-sdk` 반영 파일 | 반영 내용 |
 | :--- | :--- | :--- |
 | **`x-samchon-evidence` 추적성 브리지** | [`packages/codegen/src/traceability/spec-traceability.ts`](../../packages/codegen/src/traceability/spec-traceability.ts) | `x-oa-sdk-trace`와 `x-samchon-evidence`를 `.oa-trace.json`으로 병합하고, `contentHash` 계산 시 두 확장을 모두 스트리핑하여 순수 증명 수정 시 해시 드리프트 방지 |
-| **생성 TS JSDoc 증명 합성 (`ttsc@0.33.1` 호환)** | [`packages/codegen/src/typegen/generate-types.ts`](../../packages/codegen/src/typegen/generate-types.ts) | `@oa-source`, `@oa-requirement`와 함께 단일 라인 `@evidence <target> - <reason>`, 멀티라인 Heading-Form `## @evidence <target>`, `@evidenceExclude` 자동 방출 |
+| **생성 TS JSDoc 증명 합성 (`ttsc@0.33.1` 호환)** | [`packages/codegen/src/typegen/generate-types.ts`](../../packages/codegen/src/typegen/generate-types.ts) | `@oa-source`, `@oa-requirement`와 함께 단일 라인 `@evidence <target> - <reason>`, 멀티라인 Heading-Form `## @evidence <target>`, `@evidenceExclude` 방출. `includeProvenanceAnnotations: true`를 준 `generateTypes` / `generateTypesFromSpec` 호출에서만 붙고, `oa-gen typegen`·`oa-gen generate` 출력에는 없음 |
 | **중첩 TypeSpec AST 선언 좌표 추출** | [`packages/codegen/src/cli/lib/typespec-ref-provenance.ts`](../../packages/codegen/src/cli/lib/typespec-ref-provenance.ts) | 중괄호 `namespace { ... }` 및 `interface { op ... }` 내부 선언의 AST 소스 좌표를 재귀적으로 수집 |
 | **추적성 데코레이터 (`./governance`)** | [`packages/typespec-decorators/lib/governance.tsp`](../../packages/typespec-decorators/lib/governance.tsp) | `@traceId`, `@replaces`, `@requirement` 데코레이터 제공 및 문서화([`README.md`](../../packages/typespec-decorators/README.md)) |
 

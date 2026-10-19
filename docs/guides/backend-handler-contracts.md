@@ -2,7 +2,7 @@
 
 API 계약에서 만든 핸들러 계약(handler contract)에 맞춰 비즈니스 로직을 구현하고, Fastify·Hono·Express·Elysia 라우터에 연결하는 방법을 설명합니다. 이 문서는 `@oa-sdk/codegen` 0.9.0과 `@oa-sdk/router` 0.2.2 기준입니다.
 
-- `oa-gen generate`는 서버 쪽에 프레임워크와 무관한 핸들러 계약(`<id>.contract.ts`)만 생성합니다. Fastify·Express·Hono·Elysia 라우터 코드가 필요하면 빌드 스크립트에서 `@oa-sdk/router`의 `generateRouter()`를 호출해 파일로 씁니다. `oa-gen` 명령으로는 라우터 파일을 만들지 않습니다.
+- `oa-gen generate`는 서버 쪽에 프레임워크와 무관한 핸들러 계약(`<id>.contract.ts`)을 만들고, 대상 프레임워크가 Fastify·Express·Hono·Elysia 중 하나로 정해지면 그 프레임워크용 라우터(`<id>.router.ts`)도 만듭니다(3.2절). 이 계약과 라우터에는 요청·응답 타입이 없습니다. 타입이 있는 계약과 라우터가 필요하면 빌드 스크립트에서 `@oa-sdk/router`의 `generateHandlerContract()`와 `generateRouter()`를 호출해 파일로 씁니다(3.1절).
 - 생성기는 구현 파일을 쓰지 않으므로, 계약과 라우터를 다시 생성해도 구현 코드는 그대로입니다.
 
 ---
@@ -21,8 +21,8 @@ API 계약에서 만든 핸들러 계약(handler contract)에 맞춰 비즈니�
 └──────────────────┬───────────────────┘
                    │ 연결
 ┌──────────────────▼───────────────────┐
-│ 3. 라우터 (api.hono.ts 등)              │ ◄── generateRouter() 스크립트 (생성물)
-│    createRouter(handlers) / apiRouter  │
+│ 3. 라우터 (api.hono.ts 등)              │ ◄── generateRouter() 또는 oa-gen generate
+│    createRouter(handlers) / apiRouter  │     (생성물, 직접 수정하지 않음)
 └──────────────────────────────────────┘
 ```
 
@@ -35,7 +35,7 @@ npm install --save-dev @oa-sdk/codegen @oa-sdk/router
 npm install hono   # 또는 fastify, express, elysia: 생성된 라우터가 import하는 프레임워크
 ```
 
-`@oa-sdk/router`는 `oa-gen generate`가 핸들러 계약을 만들 때 불러오는 동반 패키지(companion package)이고, 빌드 스크립트에서 직접 import하는 라이브러리입니다([동반 패키지](./cli-setup.md#동반-패키지-companion-packages)). `@oa-sdk/router`는 `@oa-sdk/codegen` 0.9.0 릴리스에서 처음 npm에 배포됩니다. 이 릴리스 전에는 npm에서 설치할 수 없습니다. 설치할 수 있는 버전은 [변경 이력](../changelog.md)에서 확인합니다.
+`@oa-sdk/router`는 `oa-gen generate`가 핸들러 계약과 라우터를 만들 때 불러오는 동반 패키지(companion package)이고, 빌드 스크립트에서 직접 import하는 라이브러리입니다([동반 패키지](./cli-setup.md#동반-패키지-companion-packages)). `@oa-sdk/router`는 `@oa-sdk/codegen` 0.9.0 릴리스에서 처음 npm에 배포됩니다. 이 릴리스 전에는 npm에서 설치할 수 없습니다. 설치할 수 있는 버전은 [변경 이력](../changelog.md)에서 확인합니다.
 
 ---
 
@@ -67,6 +67,7 @@ writeFileSync(
 
 - 스크립트는 YAML을 읽으려고 `yaml` 패키지를 씁니다(`npm install --save-dev yaml`). JSON 문서라면 `JSON.parse`로 충분합니다.
 - `contractImport`를 주면 라우터가 계약의 `ApiHandlers` 타입에 묶입니다(`mode: 'contract'`). 옵션 전체는 [`@oa-sdk/router` README](../../packages/router/README.md)를 봅니다.
+- `oa.config.ts`로 `oa-gen generate`도 실행하는 프로젝트에서는 `oa-gen generate`가 타입 없는 계약과, 대상 프레임워크가 정해져 있으면 라우터(`<id>.router.ts`)를 따로 한 벌 더 씁니다(3.2절). 스크립트로 라우터를 만들면 `oa.config.ts`에 `core.router.target: 'generic'`을 지정해 `oa-gen generate`의 라우터 생성을 끕니다. `generic`은 설정 검증을 통과하지만 라우터를 만드는 대상이 아니며, `specs[].target`과 `product.framework`보다 먼저 적용됩니다. 스크립트가 계약도 만들면 `core.contracts.pureHandlers: false`도 지정합니다. 스펙의 `components.schemas`에 CRDT 확장(`x-oa-sdk-crdt-entity`, `x-oa-sdk-crdt`)이 있으면 CRDT 라우터도 `core.router.target`을 따르므로, `generic`을 지정하면 CRDT 라우터는 Hono용으로 만들어집니다.
 
 생성되는 계약은 다음과 같습니다(일부). `HandlerResponse`, `StreamingBody`, `StreamingResponse` 타입은 계약 파일 안에 정의되므로 `@oa-sdk/router`를 런타임에 import하지 않습니다.
 
@@ -105,7 +106,15 @@ export interface ApiHandlers<TContext = unknown> {
 
 `oa.config.ts`를 쓰는 프로젝트에서는 `oa-gen generate`가 spec target마다 `<id>.contract.ts`를 씁니다. 위치는 `outputRouting`이 있으면 그 패턴(`oa-gen init` 기본값은 `src/api/<id>/<id>.contract.ts`), 없으면 `core.contracts.outDir` 또는 spec target의 `outDir`입니다.
 
-이 경로의 계약은 타입이 없습니다. `oa-gen generate`는 계약에 타입 import를 넘기지 않으므로 `params: Record<string, string>`, `body: unknown`, `HandlerResponse<unknown>`이 됩니다. 요청·응답 타입이 필요하면 3.1절의 스크립트를 씁니다. 같은 프로젝트에서 계약이 두 벌 생기지 않도록, 스크립트를 쓸 때는 `oa.config.ts`의 `core.contracts.pureHandlers`를 `false`로 둡니다.
+대상 프레임워크가 `hono`, `express`, `fastify`, `elysia` 중 하나이면 같은 실행에서 라우터 `<id>.router.ts`도 씁니다.
+
+- 대상: `core.router.target`, 없으면 `specs[].target`, 그것도 없으면 `product.framework`. `generic`·`nestjs`이거나 셋 다 없으면 라우터를 만들지 않습니다.
+- 위치: `outputRouting`이 있으면 kind `router`의 경로(`oa-gen init` 기본값은 `src/api/<id>/<id>.router.ts`), 없으면 `core.router.outDir` 또는 spec target의 `outDir`.
+- 형태: 생성된 계약 모듈을 import하는 계약 모드(`mode: 'contract'`)이고, export 이름은 5절과 같습니다(`createRouter`, Fastify는 `apiRouter`).
+
+`oa-gen init`은 `specs[].target`과 `product.framework`를 모두 쓰므로, Hono·Express·Fastify·Elysia 대상으로 `init`한 프로젝트는 기본으로 라우터를 받습니다. 계약과 라우터는 `oa-gen generate`를 실행할 때마다 다시 쓰므로 직접 고치지 않습니다. `core.contracts.pureHandlers: false`일 때의 스텁 모드 라우터 등 전체 규칙은 [선언적 스펙 설정 2.2절](./declarative-spec-configuration.md#22-서버-쪽-생성물의-범위)을 봅니다.
+
+이 경로의 계약은 타입이 없습니다. `oa-gen generate`는 계약과 라우터에 타입 import를 넘기지 않으므로 `params: Record<string, string>`, `body: unknown`, `HandlerResponse<unknown>`이 되고, 라우터도 이 계약에 묶입니다. 요청·응답 타입이 필요하면 3.1절의 스크립트를 씁니다. 같은 프로젝트에서 계약과 라우터가 두 벌 생기지 않도록, 스크립트를 쓸 때는 `oa.config.ts`에 `core.contracts.pureHandlers: false`와 `core.router.target: 'generic'`을 지정합니다(3.1절).
 
 ---
 
@@ -167,7 +176,7 @@ export const handlers: ApiHandlers = {
 
 ## 5. 라우터 연결
 
-생성된 라우터의 export 이름은 프레임워크마다 다릅니다.
+생성된 라우터의 export 이름은 프레임워크마다 다릅니다. 아래 예제는 3.1절 스크립트가 쓴 `api.<framework>.ts`를 import합니다. `oa-gen generate`가 쓴 라우터(3.2절)도 export 이름이 같으므로 import 경로만 `./<id>.router.js`로 바꿉니다.
 
 ### Hono
 
@@ -271,7 +280,7 @@ async updateUser({ params, query, headers, body }) {
 
 `oa-gen init --target <framework> --yes`는 `oa.config.ts`와 `package.json`(스크립트, `devDependencies`)만 씁니다(`--archetype enterprise`는 계약 기준선 `openapi.baseline.yaml`도). 계약, 라우터, 서버 진입점 파일은 만들지 않습니다.
 
-- `init`이 추가하는 `generate` 스크립트(`oa-gen generate`)는 라우터 파일을 만들지 않습니다. 결과는 3.2절의 타입 없는 계약, 클라이언트, TanStack Query 코드이며, 라우터 코드는 위처럼 빌드 스크립트에서 `generateRouter()`로 씁니다.
+- `init`이 추가하는 `generate` 스크립트(`oa-gen generate`)는 3.2절의 타입 없는 계약, 클라이언트, TanStack Query 코드를 만들고, Hono·Express·Fastify·Elysia 대상이면 라우터(`--routing default`에서는 `src/api/<id>/<id>.router.ts`)도 만듭니다. `nestjs`·`generic` 대상은 라우터를 받지 않습니다.
 - 프레임워크 대상의 `dev`·`build` 스크립트(`tsx watch src/server.ts`, `tsc`)는 사용자가 `src/server.ts`와 `tsconfig.json`을 만든다고 전제합니다.
 
-라우터가 필요하면 3.1절의 스크립트를 `package.json`에 등록해 씁니다.
+요청·응답 타입이 있는 계약과 라우터가 필요하면 3.1절의 스크립트를 `package.json`에 등록하고, 3.1절처럼 `oa-gen generate`의 계약·라우터 생성을 끕니다.

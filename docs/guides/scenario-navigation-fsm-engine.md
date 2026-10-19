@@ -114,16 +114,23 @@ stateDiagram-v2
 
 ## 5. UI 계층 연동 (Context-Action Architecture)
 
-`apps/spec-lens/src/scenario/`에 구현된 Context-Action 레이어는 기존 자유 탐색(Free Exploration) 모드와 완벽하게 하이브리드로 동작합니다:
+`apps/spec-lens/src/scenario/`에 구현된 Context-Action 레이어는 자유 탐색(Free Exploration) 모드와 시나리오 모드를 같은 경로로 처리합니다. 모든 화면 이동은 `ScenarioProvider`의 `dispatch`를 거쳐 FSM 리듀서(`scenarioTransitionReducer`)로 들어갑니다. 자유 탐색 모드에서는 리듀서가 그대로 허용하고, 시나리오 안에서는 현재 뷰에서 허용된 전이만 화면을 바꿉니다. 시나리오 안에서 대시보드 셸은 `machineState.currentView`를 렌더링하므로 렌더링 뷰, FSM 뷰, URL은 항상 같습니다.
 
 1. **`ScenarioSelector`**:
-   - 사이드바 상단에서 사용자가 `🌐 자유 탐색` 또는 `🎯 시나리오 주제`를 드롭다운으로 선택합니다.
+   - 사이드바 상단에서 사용자가 `🌐 자유 탐색` 또는 `🎯 시나리오 주제`를 드롭다운으로 선택합니다. 시나리오는 자신의 `initialView`에서 시작합니다(`START_SCENARIO`).
 2. **`ScenarioProgressHUD`**:
-   - 시나리오가 활성화되면 메인 화면 최상단에 페르소나 뱃지, 현재 단계(Step N), 목표 달성 CTA 버튼, 이전 단계 복귀(Step Back), 흐름도 보기 버튼이 노출됩니다.
+   - 시나리오가 활성화되면 메인 화면 최상단에 페르소나 뱃지, 현재 단계(Step N: 뷰), 다음 단계 버튼, 목표 달성 CTA 버튼, 이전 단계 복귀(`← 이전 단계`, `STEP_BACK`), 흐름도 보기, 시나리오 종료 버튼이 노출됩니다.
+   - **다음 단계 버튼**: 현재 뷰에서 나가는 전이 규칙(`COMPLETE_GOAL`, `START_SCENARIO`, `SWITCH_SCENARIO` 제외)마다 버튼 하나를 그립니다(`resolveScenarioIntents`). 페이로드는 현재 뷰가 게시한 선택(`publishSelection`)에서 가져오고, 없으면 머신 컨텍스트의 마지막 값으로 채웁니다. Diff 항목은 JSON Pointer에서 경로(`/paths/...`) 또는 컴포넌트 심볼(`/components/<kind>/<name>`)을, Path Provenance 행은 경로와 canonical ID를, Fragment Graph 노드는 심볼 ID와 이름을 게시합니다. Timeline의 리비전 비교는 버튼 없이 `REQUEST_DIFF`를 바로 보냅니다. 페이로드가 없거나 가드가 거절할 단계(`evaluateTransitionGuards`로 미리 검사)는 비활성화되고 사유가 버튼 툴팁에 표시됩니다.
+   - **목표 CTA**: 목표의 `targetView`가 현재 뷰인 완료 목표를 `COMPLETE_GOAL`로 완료합니다.
+   - **이전 단계**: `← 이전 단계`(그리고 Diff 화면의 뒤로 버튼)는 `STEP_BACK`을 보냅니다. 리듀서는 직전 브레드크럼의 뷰와 시나리오를 복원하고, 그 단계가 리비전 쌍을 기록한 diff 단계이면 `baseId`/`headId`도 그 쌍으로 복원합니다. 브라우저 뒤로가기도 같은 `STEP_BACK`으로 되돌리므로, 어느 뒤로가기를 쓰든 같은 단계는 같은 뷰와 리비전 쌍으로 렌더링됩니다.
+   - **거절 사유**: 리듀서가 거절한 마지막 전이(예: 시나리오 안에서 허용되지 않은 사이드바 이동 `NAVIGATE_VIEW`)의 사유를 다음 전이가 성공할 때까지 표시합니다. 시나리오를 종료하면 자유롭게 이동할 수 있습니다.
 3. **`ScenarioFlowModal`**:
    - 사용자가 언제든지 클릭하여 현재 시나리오의 전체 FSM 전이 행렬과 Mermaid 다이어그램을 조회하고, 현재 위치한 뷰를 하이라이트로 확인할 수 있습니다.
 4. **URL 동기화 (`useUrlState.ts`)**:
-   - `?scenario=spec-drift-triage` 쿼리 파라미터와 양방향 동기화되어 새로고침 및 딥링크가 완벽히 보존됩니다.
+   - **공유 URL 스토어**: `useUrlState()`는 창(window)마다 하나뿐인 스토어(`getUrlStateStore`)를 `useSyncExternalStore`로 구독합니다. `ScenarioProvider`와 대시보드 셸을 포함한 모든 소비자가 같은 URL 상태를 보며, `popstate`(뒤로가기/앞으로가기)는 구독자가 있는 동안 한 번만 처리됩니다.
+   - **전이 하나 = 히스토리 항목 하나**: `update(patch, mode)`는 항상 최신 상태 위에 패치를 적용(`applyUrlStatePatch`)하고 히스토리를 한 번만 씁니다(`push` 또는 `replace`). 성공한 전이는 머신이 소유한 필드(`scenario`, `view`, diff이면 `base`/`head`)를 한 패치로 씁니다(`machineUrlPatch`). URL이 바뀌지 않는 갱신(예: `COMPLETE_GOAL`, `FILTER_BREAKING_CHANGES` 같은 자기 전이)은 히스토리 항목을 추가하지 않습니다.
+   - **딥링크 초기 뷰**: `?scenario=<id>`의 `view`가 시나리오의 `boundedViews` 안에 있으면 그 뷰에서, 아니면 시나리오의 `initialView`에서 시작하고 URL을 그 뷰로 교체(`replaceState`)합니다. 알 수 없는 시나리오 ID는 URL에서 제거됩니다. diff 딥링크의 `base`/`head`와 딥링크의 `revision`, `search`는 컨텍스트 초기값(`baseId`/`headId`, `revisionId`, `pathPattern`)이 됩니다.
+   - **뒤로가기/앞으로가기**: 머신이 쓰지 않은 URL 변경은 `reconcileMachineWithUrl`이 판정합니다. 시나리오 안에서 URL이 직전 히스토리 항목(현재 URL과 다른, 가장 가까운 이전 브레드크럼의 URL)과 같으면 브라우저 뒤로가기로 보고, 그 단계까지 `STEP_BACK`으로 되돌립니다. 히스토리 항목을 남기지 않은 단계(목표 완료, URL을 유지한 자기 전이)는 함께 건너뛰고, `SWITCH_SCENARIO` 이전 시나리오로도 같은 방식으로 돌아갑니다. diff 단계끼리는 브레드크럼에 기록된 `baseId`/`headId`로 구분하고, 되돌아간 diff 단계의 리비전 쌍은 `STEP_BACK` 자체가 복원합니다(HUD의 `← 이전 단계`와 같은 결과). 다른 `scenario=`로 바뀐 URL은 그 시나리오를 시작하고, `scenario=`가 사라지면 자유 탐색으로 돌아갑니다. 그 밖의 이동(앞으로가기, 직전 항목을 넘는 이동, 직접 고친 뷰)은 FSM이 허용하는 전이가 아니므로 URL을 현재 단계로 교체(`replaceState`)합니다. 자유 탐색 모드에서는 머신이 URL을 그대로 따릅니다.
 
 ---
 
@@ -132,6 +139,9 @@ stateDiagram-v2
 * **100% 경로 커버리지 테스트**: `packages/spec-lens-contract/src/scenario.test.ts`
   - 4대 표준 시나리오의 도달 가능성 및 고아 뷰(0 Dead Ends) 검증.
   - 가드 실패 시 전이 거절 및 컨텍스트 보존 검증.
-  - 브레드크럼 스택 기반 `STEP_BACK` 및 시나리오 간 `SWITCH_SCENARIO` 핸드오프 검증.
-* **UI 통합 테스트**: `apps/spec-lens/src/scenario/scenario.test.tsx`
-  - 기본 모드와 시나리오 활성화 모드의 정적 마크업 및 모달 렌더링 검증.
+  - 브레드크럼 스택 기반 `STEP_BACK` 및 시나리오 간 `SWITCH_SCENARIO` 핸드오프 검증, diff 단계 브레드크럼의 리비전 쌍 기록과 `STEP_BACK`의 리비전 쌍 복원 검증, 기록되는 브레드크럼 필드가 `scenario.tsp`의 `ScenarioStepProvenance`에 모두 선언되어 있는지 검증.
+* **UI 통합 테스트**:
+  - `apps/spec-lens/src/App.test.tsx`: 실제 대시보드 셸, `ScenarioProvider`, HUD, URL 스토어를 마운트한 상호작용 테스트. 4대 시나리오를 선택기부터 목표 CTA까지 UI로 구동하고, 딥링크 초기 뷰와 URL 교체, 브라우저 뒤로가기(목표 완료와 `FILTER_BREAKING_CHANGES` 뒤 포함, `replaceState` 없음), HUD·Diff·브라우저 뒤로가기가 같은 diff 단계를 같은 리비전 쌍으로 렌더링하는지, 허용되지 않은 사이드바 이동의 거절, 자유 탐색 모드의 이동을 검증합니다.
+  - `apps/spec-lens/src/scenario/navigation.test.ts`: 머신·URL·렌더링 뷰를 잇는 순수 함수(`machineUrlPatch`, `reconcileMachineWithUrl`, `resolveScenarioIntents`, `resolveShellView`, 선택 헬퍼)와 모든 시나리오의 터미널 경로 구동, 히스토리 항목을 남기지 않은 단계를 건너뛰는 뒤로가기 판정을 검증합니다.
+  - `apps/spec-lens/src/scenario/views/ScenarioFlowModal.test.tsx`: 열린 모달의 대화상자, 전이 행렬, Mermaid 흐름도, 현재 뷰 하이라이트 렌더링을 검증합니다.
+  - `apps/spec-lens/src/scenario/scenario.test.tsx`는 자유 탐색 모드의 기본 마크업, 닫힌 모달이 렌더링되지 않음, `ScenarioProvider` 단위의 딥링크와 공유 URL 스토어 구동을 검증합니다. `apps/spec-lens/src/hooks/useUrlState.test.ts`는 URL 스토어(공유, 단일 히스토리 항목, no-op 생략, `popstate`)를 검증합니다.

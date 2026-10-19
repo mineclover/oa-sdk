@@ -138,11 +138,13 @@ Backend HTTP adapter와 browser UI가 공유하는 의존성이 적은 wire 계�
 | `DefinitionBuilderServerConfig`, `TypeSpecBundleServerConfig`, `SpecServerConfig` | `spec-lens-contract/src/index.ts` | project kind별 server 설정 |
 | `SpecLensApiResponseMap`, `SpecLensApiError` | `spec-lens-contract/src/index.ts` | endpoint 응답 map과 API 오류 |
 | `isSpecLensProjectKind`, `isSpecSourceKind`, `isSpecLensResponse` | `spec-lens-contract/src/index.ts` | project kind·source kind·HTTP 응답 runtime guard |
-| `DashboardView`, `ScenarioTopicId`, `ScenarioPersona`, `ScenarioGuardEvaluationResult`, `ScenarioGuard`, `ScenarioTerminalGoal`, `ScenarioTransitionRule`, `ScenarioTopicDefinition`, `LensBehaviorAction`, `ScenarioStepProvenance`, `ScenarioMachineContext`, `FlowStep`, `FlowPath`, `FlowMatrixRow`, `FlowEnumerationResult` | `spec-lens-contract/src/index.ts` | 유저 시나리오 주제 및 FSM 네비게이션 타입 |
-| `SPEC_DRIFT_TRIAGE_SCENARIO`, `ENDPOINT_EXPLORATION_SCENARIO`, `BREAKING_IMPACT_ANALYSIS_SCENARIO`, `CIRCULAR_REF_DIAGNOSTIC_SCENARIO`, `DEFAULT_SCENARIOS`, `ScenarioRegistry` | `spec-lens-contract/src/index.ts` | 4대 표준 시나리오 정의 및 시나리오 레지스트리 |
-| `guardRequireDiffPair`, `guardRequirePathPattern`, `guardRequireSymbolId` | `spec-lens-contract/src/index.ts` | 시나리오 전이 가드 함수 |
-| `createInitialScenarioState`, `scenarioTransitionReducer`, `ScenarioTransitionResult` | `spec-lens-contract/src/index.ts` | 순수 FSM 상태 머신 초기화 및 전이 리듀서 |
-| `ScenarioFlowEnumerator` | `spec-lens-contract/src/index.ts` | 시나리오 정적 경로 분석 및 Mermaid/DOT 다이어그램 생성기 |
+| `DashboardView`, `ScenarioTopicId`, `ScenarioPersona`, `ScenarioGuardEvaluationResult`, `ScenarioGuard`, `ScenarioTerminalGoal`, `ScenarioTransitionRule`, `ScenarioTopicDefinition`, `LensBehaviorAction`, `ScenarioStepProvenance`, `ScenarioMachineContext`, `FlowStep`, `FlowPath`, `FlowMatrixRow`, `FlowEnumerationResult` | `spec-lens-contract/src/scenario/types.ts` | 유저 시나리오 주제 및 FSM 네비게이션 타입. `ScenarioStepProvenance`는 `diff` 단계이고 context에 두 id가 모두 있을 때만 그 단계가 보여 준 revision 쌍(`baseId`/`headId`, 선택)을 기록한다 |
+| `SPEC_DRIFT_TRIAGE_SCENARIO`, `ENDPOINT_EXPLORATION_SCENARIO`, `BREAKING_IMPACT_ANALYSIS_SCENARIO`, `CIRCULAR_REF_DIAGNOSTIC_SCENARIO`, `DEFAULT_SCENARIOS`, `ScenarioRegistry` | `spec-lens-contract/src/scenario/definitions.ts` | 4대 표준 시나리오 정의 및 시나리오 레지스트리. payload를 가진 전이(재진입 포함)는 짝이 되는 context transform으로 payload를 context에 기록한다 |
+| `guardRequireDiffPair`, `guardRequirePathPattern`, `guardRequireSymbolId` | `spec-lens-contract/src/scenario/definitions.ts` | 시나리오 전이 가드 함수 |
+| `ScenarioContextTransform`, `applyDiffPair`, `applyPathPattern`, `applySelectedSymbol`, `applyRevision`, `applyBreakingFilter` | `spec-lens-contract/src/scenario/definitions.ts` | 가드가 검증한 action payload를 machine context(`baseId`/`headId`, `pathPattern`, `selectedSymbol`, `revisionId`, `onlyBreaking`)에 반영하는 표준 `transformContext` |
+| `createInitialScenarioState`, `scenarioTransitionReducer`, `ScenarioTransitionResult` | `spec-lens-contract/src/scenario/stateMachine.ts` | 순수 FSM 상태 머신 초기화 및 전이 리듀서. `createInitialScenarioState(scenario?, requestedView?, seedContext?)`는 `ScenarioTopicDefinition`을 받으면 `boundedViews` 밖의 view를 시나리오 `initialView`로 바꾼다. `STEP_BACK`은 이전 단계의 view·scenario로 돌아가고, 그 단계가 revision 쌍을 기록한 `diff` 단계면 `baseId`/`headId`도 그 쌍으로 되돌린다(다른 context 필드와 `completedGoals`는 유지) |
+| `resolveScenarioInitialView`, `evaluateTransitionGuards`, `ScenarioGuardCheck` | `spec-lens-contract/src/scenario/stateMachine.ts` | 시나리오 시작 view 해석(정의가 있으면 `boundedViews` 안의 요청 view만 허용, 없으면 요청 view 또는 `timeline`)과 전이 규칙 `guardIds`의 순차 평가. 첫 실패에서 멈추며 선언되지 않은 guard ID는 fail-closed. UI가 전이 수락 여부를 미리 확인할 때 사용 |
+| `ScenarioFlowEnumerator` | `spec-lens-contract/src/scenario/flowEnumerator.ts` | 시나리오 정적 경로 분석 및 Mermaid/DOT 다이어그램 생성기 |
 
 ---
 
@@ -902,7 +904,7 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `stringifyOpenApiYaml()` | `cli/lib/openapi-collect.ts` | normalized OpenAPI 문서를 YAML anchor 없이 stable한 YAML 문자열로 직렬화 |
 | `createOpenApiCollectReport()` | `cli/lib/openapi-collect.ts` | profile/raw/normalized/upgraded 경로와 upgrade report를 묶은 collect report payload 생성 |
 | `exportOpenApiToTypeSpec()` | `cli/lib/tsp-export.ts` | OpenAPI artifact를 TypeSpec spike source와 diagnostics report로 변환. schema/property docs, defaults, examples, deprecated, strict-object sealing, tag metadata, response headers, bearer auth를 TypeSpec source에 반영 |
-| `emitSketchArtifacts()` | `sketch-emitter/index.ts` | TypeSpec 스케치 소스 또는 `InterfaceSketchIr`에서 JSON Schema·OpenAPI·Mermaid·TypeScript/Python 계약 스텁을 한 번에 생성(`oa-gen sketch --action emit`이 사용) |
+| `emitSketchArtifacts()` | `sketch-emitter/index.ts` | TypeSpec 스케치 소스 또는 `InterfaceSketchIr`에서 JSON Schema·OpenAPI·Mermaid·TypeScript/Python 계약 스텁을 한 번에 생성(`oa-gen sketch --action emit`이 사용). 이전 릴리스의 v1 IR(`oa-sdk.interface-sketch-ir.v1`)은 v2로 올려서 쓰고(member는 `{ name }`, `diagnostics`는 빈 배열) 그 밖의 `schemaVersion`은 throw. v1 타입 `InterfaceSketchIrV1`·`INTERFACE_SKETCH_IR_V1_VERSION`은 `sketch-emitter/index.ts`에만 있고 root에서 export하지 않는다 |
 | `buildJsonSchemaFromSketchIr()` | `sketch-emitter/index.ts` | Interface Sketch IR을 JSON Schema 2020-12(`x-evidence`, `x-oa-sdk-intent`, `x-oa-sdk-derived-from` 포함)로 변환 |
 | `buildOpenApiFromSketchIr()` | `sketch-emitter/index.ts` | Interface Sketch IR을 OpenAPI 3.1 문서로 변환(모델은 `components.schemas`, 인터페이스 operation은 `POST /<Interface>/<operation>` 경로와 `<Interface>_<operation>` operationId) |
 | `buildMermaidFromSketchIr()` | `sketch-emitter/index.ts` | Interface Sketch IR을 Mermaid `classDiagram`으로 변환 |
@@ -951,6 +953,8 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `auditShapeCommand` | `cli/commands/audit-shape.ts` | TypeScript AST 타입 형태 분류 및 TypeSpec/OpenAPI 투영 가능성 진단 감사 CLI 커맨드 |
 | `auditShapeFiles()` | `cli/lib/audit-shape-files.ts` | 지정된 경로 내 TypeScript 소스 파일들의 타입 형태를 감사하여 진단 리포트 생성 |
 | `extractWireSchemaFromOas()` | `wire-adapter/wire-schema-extractor.ts` | TypeSpec/OAS 스펙에서 canonical WireSchemaModel IR 추출 및 1-based 자동 인덱싱 fallback |
+| `emptyMessageName()` | `wire-adapter/proto-identifiers.ts` | `WireMethod.inputType`/`outputType`에서 "메시지 없음"을 나타내는 빈 메시지 이름. model·enum·service가 그 이름(component, messageName, Protobuf 식별자)을 쓰지 않으면 `Empty`, 쓰면 `Empty2`, `Empty3`, ... 중 첫 빈 이름. 커스텀 어댑터는 리터럴 `Empty` 대신 이 값과 비교 |
+| `isProtobufMessage()` | `wire-adapter/wire-schema-model.ts` | `WireModel`이 `.proto` message와 Protobuf 코덱을 갖는 message인지 판별(`kind` 미지정은 `message`) |
 | `TypeSpecWirePipeline` | `wire-adapter/typespec-wire-pipeline.ts` | TypeSpec SSOT 기반 플러그형 wire 타겟 변환 파이프라인 클래스 |
 | `typeSpecWirePipeline` | `wire-adapter/typespec-wire-pipeline.ts` | TypeSpec wire 변환 파이프라인 기본 싱글톤 인스턴스 |
 | `Proto3TargetAdapter` | `wire-adapter/adapters/proto3-target-adapter.ts` | Protocol Buffers v3 (.proto) 스키마 생성 타겟 어댑터 |
@@ -993,7 +997,7 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `analyzeSpecImpact()` | `traceability/spec-traceability.ts` | 스펙 정의 변경 시 역방향 `$ref` 그래프(`referencedBy`)를 따라 전이적 영향 범위(Blast Radius) 분석 |
 | `serializeSpecTraceabilityGraph()` | `traceability/spec-traceability.ts` | 추적성 그래프를 결정론적 JSON 문자열로 직렬화 |
 | `saveSpecTraceabilitySidecar()` | `traceability/spec-traceability.ts` | `.oa-trace.json` 추적성 사이드카 파일 저장 |
-| `loadSpecTraceabilitySidecar()` | `traceability/spec-traceability.ts` | `.oa-trace.json` 추적성 사이드카 파일 로드 및 스키마 버전 검증 |
+| `loadSpecTraceabilitySidecar()` | `traceability/spec-traceability.ts` | `.oa-trace.json` 추적성 사이드카 파일 로드. 스키마 버전만이 아니라 문서 전체를 검증하며, JSON 오류나 형태 위반은 파일 경로를 담은 `Error`로 보고 |
 | `formatSpecTraceabilityHumanReport()` | `traceability/spec-traceability.ts` | 추적 노드 및 영향도 분석 결과를 터미널용 리포트로 포맷팅 |
 | `traceCommand` | `cli/commands/trace.ts` | `oa-gen trace` 스펙 정의 추적성 및 영향도 분석 CLI 커맨드 |
 
@@ -1176,8 +1180,10 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `WireEnum` | `wire-adapter/wire-schema-model.ts` | wire 열거형 메타데이터 인터페이스 |
 | `WireEnumMember` | `wire-adapter/wire-schema-model.ts` | wire 열거형 멤버 메타데이터 인터페이스 |
 | `WireService` | `wire-adapter/wire-schema-model.ts` | wire RPC 서비스 메타데이터 인터페이스 |
-| `WireMethod` | `wire-adapter/wire-schema-model.ts` | wire RPC 메서드 및 스트리밍 메타데이터 인터페이스 |
+| `WireMethod` | `wire-adapter/wire-schema-model.ts` | wire RPC 메서드 및 스트리밍 메타데이터 인터페이스. 메시지 payload가 없는 쪽의 `inputType`/`outputType`은 `emptyMessageName()` 값 |
 | `WireFieldKind`, `WireMapValue` | `wire-adapter/wire-schema-model.ts` | wire 필드 전송 형태(scalar·enum·message·map·json)와 map 값 타입 |
+| `WireModelKind` | `wire-adapter/wire-schema-model.ts` | component object의 wire 형태 `'message' \| 'object'`. `object`는 map-only·free-form·`oneOf`/`anyOf`/`not` 합성처럼 Protobuf message로 나를 수 없는 object로, `.proto` message와 Protobuf 코덱 없이 TypeScript 타입과 MessagePack 코덱만 가진다 |
+| `WireNameScope` | `wire-adapter/proto-identifiers.ts` | `emptyMessageName()`이 이름 충돌을 확인하는 wire model 부분(`models`, `enums`, `services`의 `name`/`serviceName`) |
 | `WireParameter`, `WireParameterLocation` | `wire-adapter/wire-schema-model.ts` | wire RPC 메서드의 path·query·header·cookie 파라미터 (path-level 병합, 미선언 route 변수 포함) |
 | `WirePayload` | `wire-adapter/wire-schema-model.ts` | 요청 body와 성공 응답의 media type·참조 model 이름 |
 | `ExtractorOptions` | `wire-adapter/wire-schema-extractor.ts` | wire 스키마 추출 옵션 인터페이스 |
@@ -1197,11 +1203,11 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `TypeSpecCompilerOptions` | `plugin/compiler.ts` | 인메모리 TypeSpec 컴파일러 옵션 인터페이스 |
 | `TypeSpecCompilerResult` | `plugin/compiler.ts` | 인메모리 컴파일 결과 (Program, Document, routesCount) |
 | `CreatePluginContextOptions` | `plugin/context.ts` | 플러그인 컨텍스트 생성 옵션 인터페이스 |
-| `RunTspPluginPipelineOptions` | `plugin/runner.ts` | 파이프라인 러너 실행 오버라이드 옵션 인터페이스 |
+| `RunTspPluginPipelineOptions` | `plugin/runner.ts` | 파이프라인 러너 실행 오버라이드 옵션 인터페이스(`oldProgram`은 증분 컴파일 힌트일 뿐 재컴파일을 대체하지 않음) |
 | `TspPipelineResult` | `plugin/runner.ts` | 파이프라인 실행 결과 요약 인터페이스 |
 | `PluginTypescriptOptions` | `plugin/plugins/typescript.ts` | TypeScript 모델 플러그인 옵션 인터페이스 |
 | `PluginClientOptions` | `plugin/plugins/client.ts` | openapi-ts 클라이언트 SDK 플러그인 옵션 인터페이스 |
-| `PluginTanstackQueryOptions` | `plugin/plugins/tanstack-query.ts` | TanStack Query v5 플러그인 옵션 인터페이스 |
+| `PluginTanstackQueryOptions` | `plugin/plugins/tanstack-query.ts` | TanStack Query v5 플러그인 옵션 인터페이스. `clientAdapter`(기본: pluginClient가 실행됐고 `clientFile`이 없으면 true)·`adapterOutput`(기본 `api-client.ts`)으로 pluginClient SDK 위의 operation-method adapter 생성을 제어 |
 | `PluginRouterOptions` | `plugin/plugins/router.ts` | 서버 라우터 및 계약 플러그인 옵션 인터페이스 |
 | `PluginWireOptions` | `plugin/plugins/wire.ts` | 바이너리 코덱 바인딩 플러그인 옵션 인터페이스 |
 | `PluginRpcOptions` | `plugin/plugins/rpc.ts` | RPC module 플러그인 옵션 (출력 경로, 이름, contract 투영 옵션) |
@@ -1212,16 +1218,16 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `TspIntrospectedModel` | `plugin/builder.ts` | TypeSpec 모델 스키마 인트로스펙션 메타데이터 |
 | `TspIntrospectionReport` | `plugin/builder.ts` | TypeSpec 프로젝트 전체 종합 인트로스펙션 리포트 |
 | `CreateTspBuilderOptions` | `plugin/builder.ts` | TspProjectBuilder 초기화 옵션 |
-| `TspWatchEvent` | `plugin/builder.ts` | TypeSpec 감시 이벤트 페이로드 |
+| `TspWatchEvent` | `plugin/builder.ts` | TypeSpec 감시 이벤트 페이로드(재빌드 결과 `result`, 재빌드가 throw한 `error`) |
 | `TspWatchOptions` | `plugin/builder.ts` | TypeSpec 빌더 감시 모드 옵션 |
 | `TspWatcherHandle` | `plugin/builder.ts` | TypeSpec 파일 감시 제어 핸들 인터페이스 |
 | `VitePluginTspOptions` | `plugin/vite.ts` | Vite TypeSpec 빌더 플러그인 설정 옵션 |
-| `VitePluginTspResult` | `plugin/vite.ts` | Vite 호환 플러그인 구조체 인터페이스 |
+| `VitePluginTspResult` | `plugin/vite.ts` | Vite 호환 플러그인 구조체 인터페이스(`configResolved`, `buildStart`, `configureServer`, `closeBundle`) |
 | `TypegenProvenanceEntry` | `typegen/generate-types.ts` | 생성 TypeScript 코드 JSDoc에 주입할 스펙 출처/추적성 메타데이터 항목 |
 | `SpecDefinitionKind` | `traceability/spec-traceability.ts` | 추적 대상 스펙 정의 종류 유니언 (`schema` \| `operation` \| `webhook` \| `parameter` \| `response` \| `requestBody` \| `header` \| `link` \| `callback` \| `securityScheme`) |
 | `SpecTraceSourceOrigin` | `traceability/spec-traceability.ts` | 스펙 정의 원본 출처 종류 유니언 (`typespec-ast` \| `definition-fragment` \| `openapi-inline`) |
 | `SpecTraceSourceCoordinates` | `traceability/spec-traceability.ts` | 스펙 정의의 원본 파일·포인터·심볼·라인/컬럼 소스 좌표 |
-| `SpecTraceGovernanceCapabilities` | `traceability/spec-traceability.ts` | 스펙 정의에 결합된 persona, personaTraits, DPM projection, storageRef, behaviorRef, requirements 거버넌스 정보 |
+| `SpecTraceGovernanceCapabilities` | `traceability/spec-traceability.ts` | 스펙 정의에 결합된 personas(`x-persona`의 단일 id 또는 id 배열을 정렬·중복 제거, `persona`는 첫 항목만 담는 deprecated 필드), personaTraits, DPM projection, storageRef, behaviorRef, requirements 거버넌스 정보. dpmProjection·storageRef·behaviorRef는 문자열과 decorator 객체 확장 형태를 모두 읽는다 |
 | `SpecTraceArtifactKind` | `traceability/spec-traceability.ts` | 추적 대상 생성 코드 산출물 종류 유니언 (`ArtifactKind \| 'types'`) |
 | `SpecTraceGeneratedArtifactMapping` | `traceability/spec-traceability.ts` | 스펙 정의로부터 파생된 생성 코드 아티팩트 종류·파일 경로·export 심볼 매핑 |
 | `SpecTraceabilityNode` | `traceability/spec-traceability.ts` | 단일 스펙 정의의 엔드투엔드 추적성 노드 |
@@ -1231,9 +1237,28 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `SpecTraceabilityDiagnostic` | `traceability/spec-traceability.ts` | 추적성 그래프 무결성 진단 항목 |
 | `SpecTraceabilitySummary` | `traceability/spec-traceability.ts` | 추적성 그래프 노드·엣지·출처 매핑·생성 심볼·진단 통계 요약 |
 | `SpecTraceabilityGraph` | `traceability/spec-traceability.ts` | `oa-sdk.spec-traceability.v1` 스펙 정의 추적성 그래프 사이드카 엔벨로프 |
-| `BuildSpecTraceabilityOptions` | `traceability/spec-traceability.ts` | `buildSpecTraceabilityGraph()` 입력 옵션 인터페이스 |
+| `BuildSpecTraceabilityOptions` | `traceability/spec-traceability.ts` | `buildSpecTraceabilityGraph()` 입력 옵션 인터페이스. `manifest`는 `OaManifest` 또는 그래프가 읽는 `artifacts[].path`·`artifacts[].kind`만 담은 `SpecTraceManifest`(`traceability/trace-inputs.ts`, root 미노출) |
 | `SpecTraceQuery` | `traceability/spec-traceability.ts` | `querySpecTrace()` 다중 조건 질의 필터 인터페이스 |
 | `SpecImpactAnalysis` | `traceability/spec-traceability.ts` | `analyzeSpecImpact()` 전이적 역방향 영향도 분석(Blast Radius) 결과 인터페이스 |
+
+### `@oa-sdk/codegen/plugin` 전용 export (root 미노출)
+
+아래 이름은 `@oa-sdk/codegen/plugin` subpath(`plugin/index.ts`)에서만 export하며 root entry(`@oa-sdk/codegen`)는 재노출하지 않는다. 그 밖의 plugin API는 위 root 표에 있다.
+
+| 함수/타입 | 파일 | 용도 |
+|------|------|------|
+| `readClientSdkManifest()` | `plugin/plugins/client.ts` | 같은 파이프라인에서 pluginClient가 게시한 `ClientSdkManifest`를 형태 검증 후 읽음. pluginClient가 실행되지 않았거나 값의 형태가 다르면 `undefined` |
+| `CLIENT_SDK_MANIFEST_KEY`, `ClientSdkManifest` | `plugin/plugins/client.ts` | plugin data key `'client:sdk'`와 그 값: 생성된 client 모듈 경로, transport class 이름, `clientClass`·`standalone` 여부, standalone 함수가 생성된 operation 목록 |
+| `RenderedClientOperation` | `plugin/client-renderer/openapi-ts-client.ts` | 생성된 standalone 함수 하나의 operationId·method·path·타입 이름 base·함수 이름과 path/query/header/body/성공 응답 유무. 선언할 수 없는 함수 이름(예약어, client 모듈이 선언하는 이름, 다른 operation의 이름)은 `_`(이어서 `_2`, ...) 접미사로 escape(`delete_`). `plugin/plugins/client.ts`가 재노출 |
+| `absolutizeTspInput()` | `plugin/compiler.ts` | 상대 경로 문자열, 상대 `tspDir`, `tspDir`(없으면 `cwd`) 기준 `entrypoint`를 `cwd`에 대해 절대화. 러너와 빌더가 같은 파일을 해석하도록 공유 |
+| `TypeSpecCompilationError` | `plugin/compiler.ts` | TypeSpec program에 오류가 있을 때 `compileTypeSpecInMemory()`가 던지는 `Error & { diagnostics }` 타입 |
+| `isTspPluginEntry()` | `plugin/config.ts` | 플러그인 객체(문자열 `name`), `[plugin, options]` 튜플, falsy placeholder(`false`·`null`·`undefined`) 판별. 그 밖의 항목은 파이프라인이 무시 |
+| `DEFAULT_GENERATED_BANNER` | `plugin/context.ts` | 플러그인이 banner를 정하지 않을 때 `//` 줄 주석을 쓰는 파일(JS/TS, `.proto`, `.jsonc`)에만 붙는 기본 banner |
+| `VitePluginTspResolvedConfig`, `VitePluginTspDevServer`, `VitePluginTspErrorPayload` | `plugin/vite.ts` | 플러그인이 읽는 Vite resolved config(`command`, 상대 TypeSpec 경로의 기준 `root`)와 dev server(logger, ws) 부분집합, error overlay payload |
+| `ClientModule` | `plugin/plugins/tanstack-query.ts` | `pluginTanstackQuery`의 `clientModule` 주입용 `typeof import('@oa-sdk/client')` |
+| `RouterModule` | `plugin/plugins/router.ts` | `pluginRouter`의 `routerModule` 주입용 `typeof import('@oa-sdk/router')` |
+| `SurfaceIr`, `SurfaceIR` | `plugin/types.ts` | `@oa-sdk/surface-ir` `SurfaceIr` 재노출과 대문자 별칭 |
+| `WireCodecKind` | `plugin/plugins/wire.ts` | pluginWire 코덱 선택값 `'protobuf' \| 'msgpack' \| 'proto3' \| 'rpc-contract' \| 'raw-binary'`(`raw-binary`는 예약값으로 바인딩 없이 `WIRE_CODEC_NOT_IMPLEMENTED` 경고) |
 
 ### 내부 함수 (`@oa-sdk/codegen` — index 미노출)
 
@@ -1665,7 +1690,7 @@ EntitySpec IR과 소스 코드의 동기화, 타입 어댑터, shape 분류 및 
 | `createVirtualProgram`, `createInMemoryProgram`, `createProgramFromTsconfig`, `cleanupProgram`, `getTypeChecker` | `ast-sync/src/checker/program.ts` | 가상·tsconfig 기반 TypeScript Program 수명 관리 |
 | `getCanonicalSymbolId`, `resolveAlias`, `referencedSymbols`, `getNormalizedDeclarationId` | `ast-sync/src/checker/cycle-detector.ts` | 심볼 식별·별칭 해결·참조 조회 |
 | `SymbolCycleResult`, `cyclicSchemaIds`, `withRecursiveReference`, `markRecursiveDeclaration`, `detectCyclesWithChecker` | `ast-sync/src/checker/cycle-detector.ts` | 순환 참조 감지 및 shape 표기 |
-| `ContractCanaryOptions`, `ContractCanaryReport`, `FrictionSignal`, `FrictionSignalKind`, `checkImplementationContract` | `ast-sync/src/contract-canary.ts` | 구현 파일을 `.tsp` 계약의 operation·model 이름과 대조하고(Python은 snake_case도 인정) 시그니처 이탈·escape hatch·lock reflex·workaround 표식을 friction signal로 집계하는 구현 계약 카나리. 신호 2개 이상이면 `scrap-and-redesign-tsp`를 권고(`oa-gen sketch --action check-contract`가 사용) |
+| `ContractCanaryOptions`, `ContractCanaryReport`, `FrictionSignal`, `FrictionSignalKind`, `checkImplementationContract` | `ast-sync/src/contract-canary.ts` | 구현 파일을 `.tsp` 계약의 operation·model 이름과 대조하고(operation은 snake_case도 인정) 시그니처 이탈·escape hatch·lock reflex·workaround 표식을 friction signal로 집계하는 구현 계약 카나리. 신호 2개 이상이면 `scrap-and-redesign-tsp`를 권고(`oa-gen sketch --action check-contract`가 사용). 소스는 `language`(또는 `auto` 감지)의 규칙으로 읽어 주석·문자열을 코드로 보지 않으며, 계약 이름은 파일이 그 이름을 binding할 때만 센다. operation은 TypeScript의 function·method·accessor·class field·interface/type-literal member·object-literal key·변수·값 re-export, Python의 `def`나 logical statement가 대입·annotation하는 이름이고, model은 선언 또는 import binding·re-export·namespace 한정 import(`Stub.Order`, 예: emit된 `sketch_stub`)다. 호출부·property 읽기·parameter(타입과 기본값 포함)·keyword argument는 binding이 아니다 |
 | `DetachedEvidenceReport`, `validateDetachedEvidenceMarkdown` | `ast-sync/src/contract-canary.ts` | 분리된 근거 리뷰 Markdown(`evidence/*.md`)에 필요한 `#anchor`가 있는지 코드 펜스를 제외하고 검사 |
 
 ---
@@ -1709,9 +1734,10 @@ Target-neutral API surface IR와 Forge SDK/CLI projection·Overlay 생성.
 | `RPC_CONTRACT_VERSION`, `RPC_OPERATION_EXTENSION` | `surface-ir/src/rpc-contract.ts` | RPC contract 스키마 버전과 `@rpc` decorator가 쓰는 `x-oa-sdk-rpc` 확장 이름 |
 | `RpcContract`, `RpcProcedure`, `RpcProcedureKind`, `RpcHttpBinding`, `RpcParameterBinding`, `RpcParameterLocation`, `RpcBodyBinding`, `RpcErrorResponse`, `RpcContractOptions`, `BuildRpcContractOptions` | `surface-ir/src/rpc-contract.ts` | operation을 dotted-name procedure(입력 object schema, 출력, 오류, HTTP binding)로 투영한 RPC contract 타입 |
 | `buildRpcContract`, `toRpcContract` | `surface-ir/src/rpc-contract.ts` | ParsedDocument 또는 Surface IR에서 RPC contract를 만드는 함수 |
-| `INTERFACE_SKETCH_IR_VERSION`, `parseTypeSpecSketch`, `detectTypeSpecProfile`, `compareSketchCandidates` | `surface-ir/src/interface-sketch.ts` | TypeSpec(`.tsp`) 모듈 인터페이스 스케치를 Interface Sketch IR(`oa-sdk.interface-sketch-ir.v1`)로 파싱, 파일의 profile(`openapi-http`·`interface-sketch`·`hybrid`) 판별, 후보 스케치(`{ name, source }`)의 인터페이스 깊이·설계 red flag 점수 비교(`oa-gen sketch`가 사용) |
-| `InterfaceSketchIr`, `TypeSpecProfileKind`, `SketchModelIr`, `SketchFieldIr`, `SketchInterfaceIr`, `SketchOperationIr`, `SketchParamIr`, `SketchUnionOrEnumIr`, `DerivedLineageEdge`, `InterfaceDepthMetrics`, `DesignRedFlagId`, `DesignRedFlagFinding`, `SketchArenaCandidateScore`, `SketchArenaComparison` | `surface-ir/src/interface-sketch.ts` | Interface Sketch IR(모델·인터페이스·operation·union/enum, `@derivedFrom` 계보, 깊이 지표, red flag)과 후보 비교 결과 타입 |
-| `canonicalJsonStringify`, `computeCanonicalHash`, `sha256`, `stableStringify` | `surface-ir/src/hash.ts` | RFC 8785 JSON Canonicalization Scheme (JCS) 직렬화, SHA-256 canonical hash 계산, 결정적 JSON stringify 유틸리티 |
+| `INTERFACE_SKETCH_IR_VERSION`, `parseTypeSpecSketch`, `detectTypeSpecProfile`, `compareSketchCandidates` | `surface-ir/src/interface-sketch.ts` | TypeSpec(`.tsp`) 모듈 인터페이스 스케치를 Interface Sketch IR(`oa-sdk.interface-sketch-ir.v2`)로 파싱, 파일의 profile(`openapi-http`·`interface-sketch`·`hybrid`) 판별, 후보 스케치(`{ name, source }`)의 인터페이스 깊이·설계 red flag 점수 비교(`oa-gen sketch`가 사용) |
+| `InterfaceSketchIr`, `TypeSpecProfileKind`, `SketchModelIr`, `SketchFieldIr`, `SketchInterfaceIr`, `SketchOperationIr`, `SketchParamIr`, `SketchUnionOrEnumIr`, `SketchVariantIr`, `DerivedLineageEdge`, `InterfaceDepthMetrics`, `DesignRedFlagId`, `DesignRedFlagFinding`, `SketchArenaCandidateScore`, `SketchArenaComparison` | `surface-ir/src/interface-sketch.ts` | Interface Sketch IR(모델·인터페이스·operation·union/enum, `@derivedFrom` 계보, 깊이 지표, red flag, 진단)과 후보 비교 결과 타입. v2에서 `SketchUnionOrEnumIr.members`(`SketchVariantIr`: `:` 앞의 member 이름과 뒤의 값 원문)와 `InterfaceSketchIr.diagnostics`가 필수가 됐고, `SketchModelIr`은 선택 `templateParameters`와 `extends`·`is` 모두를 template 인자째 담는 `baseModel`을 가진다 |
+| `SketchDiagnostic`, `SketchDiagnosticCode` | `surface-ir/src/interface-sketch-scanner.ts` | 파서가 읽거나 해석하지 못한 구성의 진단(`severity`, `sketch/*` code, 1-based line·column, 선택 `symbol`). `error`는 IR에서 선언이 빠졌거나 불완전할 수 있다는 뜻. `interface-sketch.ts`가 재노출 |
+| `canonicalJsonStringify`, `computeCanonicalHash`, `sha256`, `stableStringify` | `surface-ir/src/hash.ts` | RFC 8785 JSON Canonicalization Scheme (JCS) 직렬화, SHA-256 canonical hash 계산, 결정적 JSON stringify 유틸리티. RFC 8785 표현이 없는 입력(NaN/Infinity, bigint, lone surrogate, `toJSON` 없는 Map·Set·class instance, 최상위 undefined/function/symbol)은 `canonicalJsonStringify`/`computeCanonicalHash`가 `TypeError`로 거부 |
 
 ---
 
@@ -1727,12 +1753,13 @@ Target-neutral API surface IR와 Forge SDK/CLI projection·Overlay 생성.
 | `assertNoPrototypePoisoning`, `RuntimeChunkEnvelope`, `createRuntimeEnvelope` | `chunk-stream/src/envelope.ts` | prototype 오염 검증과 런타임 envelope 생성 |
 | `ResidencyControllerOptions`, `ResidencyController` | `chunk-stream/src/residency.ts` | 메모리 residency 수명 관리 |
 | `PlaybackVirtualizer` | `chunk-stream/src/virtualizer.ts` | 재생 위치에 맞춘 청크 가상화 |
-| `TieredStoragePort` | `chunk-stream/src/storage.ts` | 계층형 청크 저장소 |
+| `TieredStoragePort` | `chunk-stream/src/storage.ts` | 계층형 청크 저장소. `StorageTierOptions.memoryPreset`을 주면 L1 한도는 `defineChunkStreamConfig`와 같이 프리셋의 50%(명시한 `maxL1MemoryBytes`가 우선) |
 | `STANDARD_PROFILES`, `ReservationForecaster`, `BudgetLedger` | `chunk-stream/src/forecaster.ts` | 프로파일 기반 예약 예측과 예산 추적 |
 | `retryAfterMs`, `synthesizeEmptyChunk`, `createResilientChunkReader`, `createResilientNdjsonReader` | `chunk-stream/src/reader.ts` | Retry-After 처리·빈 청크 합성·복원력 있는 청크 및 NDJSON reader |
 | `ChunkStreamStore`, `createChunkStreamStore` | `chunk-stream/src/store.ts` | 구독 가능한 청크 스트림 상태 저장소 |
-| `CHUNK_PRESETS`, `ChunkPresetName`, `MEMORY_PRESETS`, `MemoryPresetName`, `RECOMMENDED_CHUNK_BYTES`, `ChunkStreamMode`, `ChunkStreamConfigInput`, `ResolvedChunkStreamConfig`, `defineChunkStreamConfig` | `chunk-stream/src/types.ts` | 청크·메모리 프리셋 상수 및 청크 스트림 설정 정규화 빌더 |
-| `GetStreamManifestContext`, `GetStreamChunkContext`, `GetPlaybackSnapshotContext`, `SeekStreamFrameContext`, `ChunkStreamRouteResponse`, `ChunkStreamServerHandlers`, `DefineChunkStreamServerOptions`, `ChunkStreamTypedServer`, `ChunkStreamNotFoundError`, `defineChunkStreamServer` | `chunk-stream/src/server.ts` | 프레임워크 중립 청크 스트림 서버 핸들러 및 라우트 응답 헬퍼 |
+| `ChunkPresetName`, `MemoryPresetName`, `ChunkStreamMode`, `ChunkStreamConfigInput`, `ResolvedChunkStreamConfig` | `chunk-stream/src/types.ts` | 청크·메모리 프리셋 이름 및 청크 스트림 설정 타입 |
+| `CHUNK_PRESETS`, `MEMORY_PRESETS`, `RECOMMENDED_CHUNK_BYTES`, `defineChunkStreamConfig` | `chunk-stream/src/server.ts` | 청크·메모리 프리셋 상수 및 청크 스트림 설정 정규화 빌더 |
+| `GetStreamManifestContext`, `GetStreamChunkContext`, `GetPlaybackSnapshotContext`, `SeekStreamFrameContext`, `ChunkStreamRouteResponse`, `ChunkStreamServerHandlers`, `DefineChunkStreamServerOptions`, `ChunkStreamTypedServer`, `ChunkStreamNotFoundError`, `ChunkStreamBadRequestError`, `defineChunkStreamServer` | `chunk-stream/src/server.ts` | 프레임워크 중립 청크 스트림 서버 핸들러 및 라우트 응답 헬퍼. `fetch()`는 path segment를 하나씩 decode하고, 잘못된 percent-encoding, 음이 아닌 safe integer(number 또는 10진 문자열)가 아닌 seek frame, `frame`이 number·string인 JSON object가 아닌 비어 있지 않은 POST seek body를 400 `BAD_REQUEST`(`ChunkStreamBadRequestError`)로 응답 |
 
 ---
 
@@ -1808,9 +1835,9 @@ peer registry 호출 및 deadline·session epoch·channel별 queue를 가진 P2P
 | `TransportChannelType`, `DataChannelPacket`, `TRANSPORT_CHANNELS` | `peer-transport/src/types.ts` | 채널 이름과 packet envelope 계약 |
 | `WebMcpBridgeClient` | `peer-transport/src/bridge-client.ts` | peer 조회·RPC·재시도 bridge client |
 | `ChannelListener`, `P2pChannelConfig`, `P2pTransportChannel` | `peer-transport/src/p2p-channel.ts` | P2P channel 설정·수신 listener·전송 lifecycle |
-| `PeerRole`, `SignalingPhase`, `WEBMCP_SUBPROTOCOL`, `MAX_SIGNAL_BYTES`, `MAX_RELAY_BYTES`, `DEFAULT_ROOM_TTL_MS`, `SignalMessage`, `CloudTransitCallPayload`, `CloudTransitCallResponse`, `parseSignalMessage`, `validateSdp`, `isRelayPacket` | `peer-transport/src/relay-protocol.ts` | WebMCP signaling wire protocol, SDP 검증기, 바이트 한도 및 relay 패킷 판별 |
+| `PeerRole`, `SignalingPhase`, `WEBMCP_SUBPROTOCOL`, `MAX_SIGNAL_BYTES`, `MAX_RELAY_BYTES`, `DEFAULT_ROOM_TTL_MS`, `SignalMessage`, `CloudTransitCallPayload`, `CloudTransitCallResponse`, `parseSignalMessage`, `validateSdp`, `isRelayPacket` | `peer-transport/src/relay-protocol.ts` | WebMCP signaling wire protocol, SDP 검증기, 바이트 한도 및 relay 패킷 판별. `parseSignalMessage`는 envelope를 다시 만들어 알 수 없는 member를 버리고, 크기 한도를 파싱한 `type`으로 정하며(relay는 `MAX_RELAY_BYTES`, 그 밖은 `MAX_SIGNAL_BYTES`), 형태 위반은 `TypeError`로 거부. `decision`·`approved`는 선택 `allowedTools`를 운반 |
 | `WebSocketTransportAdapterOptions`, `WebSocketTransportAdapter`, `createWebSocketTransportAdapter` | `peer-transport/src/adapters/websocket-adapter.ts` | WebSocket 릴레이 기반 P2P 채널 호스트 전송 어댑터 |
-| `CloudTransitClientConfig`, `CloudTransitClient`, `createCloudTransitClient` | `peer-transport/src/adapters/cloud-transit-client.ts` | Cloud Transit Proxy 경유 Streamable HTTP MCP 호출 클라이언트 |
+| `CloudTransitClientConfig`, `CloudTransitTool`, `CloudTransitListToolsOptions`, `CloudTransitClient`, `createCloudTransitClient` | `peer-transport/src/adapters/cloud-transit-client.ts` | Cloud Transit Proxy 경유 Streamable HTTP MCP 호출 클라이언트. 모든 메서드가 `POST /transit/:peer/mcp` JSON-RPC만 사용하며 `listTools(peerAlias?, options?)`는 `tools/list`로 `CloudTransitTool[]`을 반환(`signal`·`timeoutMs` 옵션) |
 
 ---
 
@@ -1821,13 +1848,16 @@ peer 저장소, room registry, home MCP 도구, WebSocket signaling/packet 중�
 | Export | 정의 | 용도 |
 |---|---|---|
 | `PeerServerOptions`, `SignalingToolCallMessage`, `SignalingPeerSocket`, `SignalingRoomEntry`, `PeerStoreData` | `peer-server/src/types.ts` | 서버·signaling peer(provider로 전달되는 tool call 메시지 포함)·room·영속 저장소 계약 |
-| `FilePeerStore`, `isSafeAlias` | `peer-server/src/store.ts` | 파일 기반 peer 저장과 alias 검증 |
-| `PeerRoomManagerOptions`, `PeerRoomManager` | `peer-server/src/room.ts` | peer room·세션 관리 |
+| `FilePeerStore` | `peer-server/src/store.ts` | 파일 기반 peer 저장 |
+| `isSafeAlias` | `peer-server/src/peer-record.ts` | peer alias 검증. `store.ts`가 재노출 |
+| `PeerRoomManagerOptions`, `PeerRoomManager` | `peer-server/src/room.ts` | peer room·세션 관리. `@oa-sdk/peer-server/cloud` subpath(`cloud/index.ts`)도 재노출 |
 | `createHomeMcpTools` | `peer-server/src/home-mcp.ts` | home MCP 도구 생성 |
 | `PeerServerInstance`, `createPeerServer` | `peer-server/src/server.ts` | peer 서버 생성과 lifecycle handle |
-| `SignalingRoomState`, `RoomDelivery`, `sha256Hex`, `randomHex`, `SignalingRoom` | `peer-server/src/relay/signaling-room.ts` | signaling room FSM, 티켓 인증, duplex packet relay 및 rendezvous descriptor |
-| `RelaySocket`, `PeerRelayManagerOptions`, `WebSocketRelayOptions`, `PeerRelayManager`, `extractTicketFromRequest`, `attachWebSocketRelay` | `peer-server/src/relay/websocket-relay.ts` | Node.js WebSocket 릴레이 서버 및 서브프로토콜/티켓 업그레이드 핸들러 |
-| `CloudTransitOptions`, `McpRpcRequest`, `McpRpcResponse`, `CloudTransitProxy`, `handleCloudTransitHttpRequest`, `handleCloudTransitWorker` | `peer-server/src/cloud/transit-proxy.ts` | Streamable HTTP MCP JSON-RPC 2.0 Cloud Transit Proxy 및 Edge/Worker 핸들러 |
+| `MAX_SIGNAL_FRAMES`, `SIGNALING_WINDOW_MS`, `SignalingRoomOptions`, `SignalingRoomState`, `RoomDelivery`, `sha256Hex`, `randomHex`, `SignalingRoom` | `peer-server/src/relay/signaling-room.ts` | signaling room FSM, 티켓 인증, duplex packet relay 및 rendezvous descriptor. room당 signaling frame 총량(`MAX_SIGNAL_FRAMES`)과 승인 뒤 offer/answer/release 시간(`SIGNALING_WINDOW_MS`) 한도, relay 세션 idle·최대 수명 옵션(`SignalingRoomOptions`; `SignalingRoom.create(ttlMs?, now?, options?)`) |
+| `DEFAULT_RELAY_IDLE_TIMEOUT_MS`, `DEFAULT_RELAY_MAX_SESSION_MS` | `peer-server/src/relay/session-limits.ts` | 승인된 relay 세션의 기본 idle 한도(5분, relay frame마다 갱신)와 최대 수명(24시간). 내부 모듈이며 `relay/signaling-room.ts`가 재노출 |
+| `RelaySocket`, `PeerRelayManagerOptions`, `RelayTransitBinder`, `WebSocketRelayOptions`, `PeerRelayManager`, `extractTicketFromRequest`, `attachWebSocketRelay` | `peer-server/src/relay/websocket-relay.ts` | Node.js WebSocket 릴레이 서버 및 서브프로토콜/티켓 업그레이드 핸들러. `RelayTransitBinder`는 provider upgrade의 `alias=`를 Cloud Transit alias에 묶는 hook(`WebSocketRelayOptions.transitBridge`; 없으면 alias를 지정한 upgrade는 400). 시간 옵션이 범위를 벗어나면 생성 시 `RangeError` |
+| `RelayTransitBridge` | `peer-server/src/transit-bridge.ts` | Cloud Transit ↔ WebSocket relay alias 바인딩. relay room의 client 쪽을 가상 client로 맡아 Cloud Transit tool call을 provider에 `mcp-jsonrpc` relay packet으로 전달 |
+| `CloudTransitOptions`, `McpRpcRequest`, `McpRpcResponse`, `CloudTransitProxy`, `handleCloudTransitHttpRequest`, `handleCloudTransitWorker` | `peer-server/src/cloud/transit-proxy.ts` | Streamable HTTP MCP JSON-RPC 2.0 Cloud Transit Proxy 및 Edge/Worker 핸들러. 두 핸들러 모두 `publishKey`(없으면 401)와 `allowedOrigins`(기본 loopback origin만, 아니면 403)를 적용 |
 
 ---
 
@@ -1910,13 +1940,23 @@ OpenAPI component, persona, DPM 및 CRDT 메타데이터를 TypeSpec에서 선�
 | `VALID_CRDT_TYPES`, `VALID_CRDT_RESOLUTIONS`, `VALID_CRDT_ENGINES`, `VALID_CRDT_ROLES`, `VALID_CRDT_COMPACTIONS` | `typespec-decorators/src/decorators.ts` | CRDT type·resolution·engine·role·compaction 허용값 |
 | `$actorInput`, `$machineContext`, `$eventPayload`, `$behaviorRef` | `typespec-decorators/src/decorators.ts` | XState / Behavior 런타임 데이터 스키마 decorator |
 | `$storageRef`, `$storageCatalog` | `typespec-decorators/src/decorators.ts` | Atlas DB 물리 카탈로그 증거 및 컬럼 바인딩 decorator |
-| `$traceId`, `$replaces`, `$requirement`, `TRACE_EXTENSION`, `VALID_TRACE_ID_PATTERN`, `VALID_REPLACES_ID_PATTERN`, `VALID_REQUIREMENT_ID_PATTERN` | `typespec-decorators/src/governance.ts`, `typespec-decorators/src/constants.ts` | 스펙 정의 불변 추적 ID, 마이그레이션 대체 ID, 요구사항 연결 데코레이터(`x-oa-sdk-trace`) 및 정규식 상수 |
+| `$traceId`, `$replaces`, `$requirement`, `TRACE_EXTENSION`, `VALID_TRACE_ID_PATTERN`, `VALID_REPLACES_ID_PATTERN`, `VALID_REQUIREMENT_ID_PATTERN` | `typespec-decorators/src/governance.ts`, `typespec-decorators/src/constants.ts` | 스펙 정의 불변 추적 ID, 마이그레이션 대체 ID, 요구사항 연결 데코레이터(`x-oa-sdk-trace`) 및 정규식 상수. `@traceId`의 `trackingId`는 decorator를 적용한 선언과 TypeSpec mutation engine이 만든 그 clone(versioned snapshot, `MergePatchUpdate<T>` variant)에만 붙고, `is` 복사·`interface extends` clone·spread 복사·template instance 같은 파생 타입에는 붙지 않는다 |
 | `$evidence`, `$evidenceReview`, `$intent`, `$derivedFrom`, `extractHeadingFormEvidence`, `EVIDENCE_EXTENSION`, `INTENT_EXTENSION`, `DERIVED_FROM_EXTENSION`, `VALID_INTENT_ID_PATTERN`, `VALID_DOC_ANCHOR_PATTERN` | `typespec-decorators/src/evidence-and-intent-decorators.ts`, `typespec-decorators/src/constants.ts` | 근거 locator(`x-oa-sdk-evidence`)·분리된 근거 리뷰 문서 연결, Intent-Unit ID와 `@doc` 앵커 선언(`x-oa-sdk-intent`), `model B is A` 파생 계약 계보 선언(`x-oa-sdk-derived-from`; 모두 `x-oa-sdk-trace`에 병합), doc comment의 `## @evidence <path#anchor>` 추출 및 ID·앵커 정규식 상수 |
 | `$protobuf`, `$field`, `$rpc`, `$wireFormat` | `typespec-decorators/src/protobuf.ts` | Protocol Buffers 및 RPC wire format 데코레이터 |
 | `$chunkStream`, `CHUNK_STREAM_EXTENSION`, `CHUNK_STREAM_PRESET_BYTES`, `CHUNK_MEMORY_PRESET_BYTES`, `VALID_CHUNK_STREAM_PRESETS`, `VALID_CHUNK_MEMORY_PRESETS`, `VALID_CHUNK_STREAM_MODES` | `typespec-decorators/src/chunk-stream.ts` | 청크 스트림 프로젝션 데코레이터 및 프리셋·모드 상수 |
 | `PROTOBUF_EXTENSION`, `PROTOBUF_FIELD_EXTENSION`, `RPC_EXTENSION`, `WIRE_FORMAT_EXTENSION` | `typespec-decorators/src/constants.ts` | OpenAPI x-oa-sdk wire 확장 프로퍼티 키 |
 | `VALID_WIRE_FORMATS`, `VALID_RPC_STREAMING`, `VALID_PROTOBUF_SCALAR_TYPES` | `typespec-decorators/src/constants.ts` | Wire format, RPC 스트리밍, Protobuf 스칼라 타입 허용값 |
 | `$lib`, `reportDiagnostic` | `typespec-decorators/src/lib.ts` | TypeSpec library와 diagnostic 보고 |
+
+### Atlas 스키마 drift 검사 (`@oa-sdk/typespec-decorators/governance` subpath 전용)
+
+decorator가 없는 JavaScript 전용 governance 검사다. `./governance` subpath(`src/governance.ts`)가 `src/storage-drift.ts`에서 재노출하며 root entry와 별도 `./storage-drift` subpath는 제공하지 않는다.
+
+| Export | 정의 | 용도 |
+|---|---|---|
+| `verifyAtlasSchemaDrift` | `typespec-decorators/src/storage-drift.ts` | 호출자가 작성한 storage mapping(논리 entity, 물리 table·column, 기대 논리 타입)을 `atlas schema inspect --format '{{ json . }}'` 읽기 전용 snapshot과 비교. table·column 누락은 error, 호환되지 않는 타입은 warning(`passed`에 영향 없음). DB 접속·DDL 생성·TypeSpec 소스 읽기를 하지 않는다 |
+| `AtlasSchemaInspectOutputSchema`, `StorageDriftSchema` | `typespec-decorators/src/storage-drift.ts` | 디스크에서 읽은 Atlas snapshot을 검증기에 넘기기 전 검사하는 named validator(형태 위반은 필드를 지목하는 `TypeError`)와 그 계약 |
+| `AtlasSchemaInspectOutput`, `AtlasTable`, `AtlasColumn`, `StorageMapping`, `DriftIssue`, `AtlasDriftReport` | `typespec-decorators/src/storage-drift.ts` | Atlas inspect snapshot, storage mapping, drift issue(`missing-table` \| `missing-column` \| `type-mismatch`)와 보고서 타입 |
 
 ---
 
@@ -1941,17 +1981,17 @@ TypeSpec에서 빌드한 OpenAPI 문서를 JSON·YAML package asset으로 제공
 | `SymbolLayer`, `PiiLevel`, `KpiDimension`, `ParsedTrackSymbol`, `SymbolRoutingConfig`, `SymbolDefinition` | `telemetry/src/symbols/types.ts` | 추적 심볼 문법 계층, PII 처리 등급, KPI 차원, 라우팅 메타데이터 계약 |
 | `TRACK_SYMBOL_REGEX`, `isValidTrackSymbol`, `parseTrackSymbol`, `formatTrackSymbol` | `telemetry/src/symbols/grammar.ts` | 추적 심볼 정규식 및 파싱/포맷/유효성 검증 함수 |
 | `SymbolRegistryOptions`, `SymbolRegistry`, `createSymbolRegistry` | `telemetry/src/symbols/registry.ts` | 닫힌 심볼 카탈로그 레지스트리 및 등록/조회 팩토리 |
-| `TelemetryContext`, `TelemetryEnvironment`, `TelemetryEnvelope` | `telemetry/src/envelope/types.ts` | 실행 컨텍스트(W3C Trace), 환경, 표준 텔레메트리 엔벨로프 계약 |
+| `TelemetryContext`, `TelemetryContextInput`, `TelemetryEnvironment`, `TelemetryEnvelope` | `telemetry/src/envelope/types.ts` | 실행 컨텍스트(W3C Trace 형식 id, actor별 `actorSessionId` 포함), 호출자가 넘기는 context 입력(`undefined` 필드는 기본값을 지우지 않음), 환경, 표준 텔레메트리 엔벨로프 계약 |
 | `generateTraceId`, `generateSpanId`, `CreateEnvelopeOptions`, `createTelemetryEnvelope` | `telemetry/src/envelope/builder.ts` | W3C 분산 추적 ID 생성 및 엔벨로프 합성 빌더 |
 | `TelemetryIdentity`, `setGlobalTelemetryIdentity`, `getGlobalTelemetryIdentity`, `clearGlobalTelemetryIdentity`, `subscribeTelemetryIdentity` | `telemetry/src/identity/identity.ts` | 전역/세션 사용자 식별자 및 가명 토큰 바인딩/구독 |
 | `DpmTokenOptions`, `DpmTelemetryAdapterOptions`, `DpmTelemetryAdapter` | `telemetry/src/dpm/types.ts` | DPM 가명화 옵션 및 어댑터 인터페이스 |
-| `createDpmTelemetryAdapter` | `telemetry/src/dpm/adapter.ts` | PII 민감키 마스킹 및 관계 보존 결정론적 가명화 토큰 어댑터 팩토리 |
+| `DEFAULT_SENSITIVE_KEYS`, `DEFAULT_PII_KEYS`, `TelemetryConfigError`, `createDpmTelemetryAdapter` | `telemetry/src/dpm/adapter.ts` | 기본 민감키 목록(모든 PII 등급에서 마스킹), 기본 식별자 키 → entity namespace 매핑, 안전한 출력을 만들 수 없는 설정(빈 `tokenKey` 등)의 오류, 그리고 민감키 마스킹과 HMAC-SHA-256 keyed 결정론적 토큰(`dpm_tok_<entity>_<32 hex>`)으로 관계를 보존하는 가명화 어댑터 팩토리. `tokenKey`를 생략하면 인스턴스별 임의 키를 쓴다 |
 | `TelemetryDispatcher` | `telemetry/src/dispatcher/types.ts` | 다중 프로바이더 텔레메트리 디스패처 공통 인터페이스 |
-| `GtmDispatcherOptions`, `createGtmDispatcher` | `telemetry/src/dispatcher/gtm.ts` | Google Tag Manager dataLayer 푸시 및 GA4 이벤트 포맷팅 디스패처 |
-| `SentryLikeClient`, `SentryDispatcherOptions`, `createSentryDispatcher` | `telemetry/src/dispatcher/sentry.ts` | Sentry Breadcrumbs 누적, Context 갱신 및 Exception 캡처 디스패처 |
-| `OtelLikeSpan`, `OtelLikeTracer`, `OtelDispatcherOptions`, `createOtelDispatcher` | `telemetry/src/dispatcher/otel.ts` | OpenTelemetry Span 생명주기 및 이벤트 기록 디스패처 |
+| `GtmDataLayerLike`, `GtmDispatcherOptions`, `createGtmDispatcher` | `telemetry/src/dispatcher/gtm.ts` | Google Tag Manager dataLayer 푸시 및 GA4 이벤트 포맷팅 디스패처(`dataLayer`는 GTM식 `push`를 가진 값) |
+| `SentryLikeClient`, `SentryLikeScope`, `SentryDispatcherOptions`, `createSentryDispatcher` | `telemetry/src/dispatcher/sentry.ts` | Sentry Breadcrumbs 누적, Context 갱신 및 Exception 캡처 디스패처(`SentryLikeScope`는 `withScope` callback이 쓰는 Scope 부분집합) |
+| `OtelAttributeValue`, `OtelAttributes`, `OtelException`, `OtelLikeSpan`, `OtelLikeTracer`, `OtelDispatcherOptions`, `createOtelDispatcher` | `telemetry/src/dispatcher/otel.ts` | OpenTelemetry Span 생명주기 및 이벤트 기록 디스패처. attribute·exception 타입은 `@opentelemetry/api`의 `AttributeValue`·`Attributes`·`Exception`과 같은 형태라 실제 `Tracer`/`Span`을 그대로 넘길 수 있고, OTel이 표현할 수 없는 attribute 값은 버린다 |
 | `createCompositeDispatcher` | `telemetry/src/dispatcher/composite.ts` | 다중 프로바이더 동시 브로드캐스트 합성 디스패처 |
-| `XStateInspectorOptions`, `ActorRefLike`, `SnapshotLike`, `InspectionEventLike`, `createTelemetryInspector` | `telemetry/src/xstate/inspector.ts` | XState v5의 inspect 훅에 연결되는 비침습 중앙집중식 인스펙터 팩토리 |
+| `XStateInspectorOptions`, `ActorRefLike`, `SnapshotLike`, `InspectionEventLike`, `createTelemetryInspector` | `telemetry/src/xstate/inspector.ts` | XState v5의 inspect 훅에 연결되는 비침습 중앙집중식 인스펙터 팩토리. XState로 throw하지 않으며 실패는 `onError`(없으면 비동기 rethrow)로 보고 |
 
 ---
 
@@ -1977,27 +2017,28 @@ Surface IR RPC contract를 소비해 typed procedure client/server, JSON-RPC 2.0
 | Export | 정의 | 용도 |
 |---|---|---|
 | `WEBMCP_SUBPROTOCOL`, `WEBMCP_PEER_CONFIG_TYPE`, `DEFAULT_EXTERNAL_CONSENT_PREFIX`, `WebMcpPeerConfigProfile`, `CreatePeerConfigProfileOptions`, `WebMcpParsedInvitationUrl`, `ParsedPeerConfig`, `ParsePeerConfigResult`, `PeerServerPublicConfig`, `PeerHealthState`, `PeerHealthResult`, `PeerHealthMessages`, `PeerHealthProbeOptions` | `webmcp-peer/src/config/types.ts` | 서브프로토콜·설정 프로필·초대 링크·헬스 프로브 타입 계약 |
-| `normalizePeerUrl`, `normalizePeerConfigUrl`, `isLocalPeerUrl`, `externalConsentKey`, `parseInvitationUrl`, `buildInvitationUrl` | `webmcp-peer/src/config/invitation.ts` | 피어 서버 URL 정규화, 로컬/외부 출처 판별, `#invite=...` 초대 링크 파싱·생성 |
+| `normalizePeerUrl`, `normalizePeerConfigUrl`, `isLocalPeerUrl`, `isSecurePeerTransport`, `redactInvitationUrl`, `externalConsentKey`, `parseInvitationUrl`, `buildInvitationUrl` | `webmcp-peer/src/config/invitation.ts` | 피어 서버 URL 정규화, 로컬/외부 출처 판별, 안전한 전송(loopback 또는 `https:`) 판별, 로그용 초대 토큰 마스킹, `#invite=...` 초대 링크 파싱·생성 |
 | `createPeerConfigProfile`, `stringifyPeerConfigProfile`, `parsePeerConfig` | `webmcp-peer/src/config/profile.ts` | 피어 설정 프로필 JSON 생성·직렬화 및 URL/JSON 유연 파싱 |
+| `PEER_RELAY_MAX_MESSAGE_BYTES`, `PEER_RELAY_MAX_REQUEST_BYTES`, `PEER_RELAY_MAX_CATALOG_BYTES`, `PEER_RELAY_MAX_ANNOUNCEMENT_BYTES` | `webmcp-peer/src/config/limits.ts` | relay 프로토콜의 크기 상한. 메시지 하나는 UTF-8 JSON 256 KiB(양방향, 단일 frame 또는 단편화), agent 요청은 보낸 그대로 메시지 상한 - 1 KiB(relay의 `from`/`sessionId` stamp와 wire id 재작성이 항상 남은 1 KiB에 들어간다), provider `register` frame은 메시지 상한 - 4 KiB, relay가 받는 catalog 알림(`catalogVersion`/`catalogHash` 포함)은 메시지 상한 - 2 KiB. server·provider·client가 공유한다 |
 | `probePeerHealth`, `fetchPeerServerConfig` | `webmcp-peer/src/config/probe.ts` | 연결 전 `/health` 가용성 프로브 및 `/config` 공개 설정 조회 |
-| `DEFAULT_SERVER_URL`, `PROTOCOL_VERSION`, `PeerMcpTransportMessage`, `PeerMcpTool`, `PeerMcpSessionState`, `PeerMcpCatalogSnapshot`, `PeerMcpSessionInfo`, `PeerMcpStore`, `PeerMcpTransportCallbacks`, `PeerMcpTransport`, `PeerMcpSessionOptions`, `PeerMcpRequestOptions`, `PeerMcpCallOptions`, `PeerMcpListener`, `PeerMcpCatalogListener`, `DiscoverPeerCatalogOptions`, `DiscoveredPeerCatalog`, `JoinPeerRoomOptions`, `JoinedPeerRoom`, `PeerSessionStatusOptions`, `WaitForPeerApprovalOptions`, `RotatePeerRoomOptions` | `webmcp-peer/src/client/types.ts` | 외부 에이전트/CLI MCP 세션, 카탈로그 스냅샷, 전송 어댑터 및 룸 수명주기 계약 |
+| `DEFAULT_SERVER_URL`, `PROTOCOL_VERSION`, `PeerMcpTransportMessage`, `PeerMcpRpcResponse`, `PeerMcpContentBlock`, `PeerMcpCallToolResult`, `PeerMcpCatalogCache`, `PeerMcpTool`, `PeerMcpSessionState`, `PeerMcpCatalogSnapshot`, `PeerMcpSessionInfo`, `PeerMcpStore`, `PeerMcpTransportCallbacks`, `PeerMcpTransport`, `PeerMcpSessionOptions`, `PeerMcpRequestOptions`, `PeerMcpCallOptions`, `PeerMcpListener`, `PeerMcpCatalogListener`, `DiscoverPeerCatalogOptions`, `DiscoveredPeerCatalog`, `JoinPeerRoomOptions`, `PeerClientTicket`, `JoinedPeerRoom`, `PeerSessionStatusOptions`, `WaitForPeerApprovalOptions`, `RotatePeerRoomOptions` | `webmcp-peer/src/client/types.ts` | 외부 에이전트/CLI MCP 세션, 카탈로그 스냅샷, 전송 어댑터 및 룸 수명주기 계약. JSON-RPC 응답 envelope(`request()` 반환), 검증된 `tools/call` 결과와 MCP content block, 세션이 영속하는 카탈로그 캐시, `POST /p/:id/join`이 발급하는 client ticket(`JoinedPeerRoom`이 확장) 포함 |
 | `PeerMcpError`, `PeerMcpRpcError`, `PeerMcpCatalogChangedError`, `canonicalRpcErrorCode`, `isCatalogChangedRpcError` | `webmcp-peer/src/client/errors.ts` | 피어 MCP 클라이언트 에러 계층, JSON-RPC 에러의 정규 코드명 해석, 카탈로그 드리프트(-32010/-32027 전용) 판별 및 Fail-Closed 예외 |
-| `hashTools`, `normalizeTools` | `webmcp-peer/src/client/catalog-hash.ts` | 순서 무관 결정론적 SHA-256 도구 카탈로그 해시 및 도구 기술자 검증 |
-| `normalizeServerUrl`, `websocketUrl`, `parseRoomId` | `webmcp-peer/src/client/transport.ts` | Streamable HTTP MCP(`/p/:id/mcp`) 및 WebSocket(`/p/:id/client`) 엔드포인트·전송 어댑터 |
+| `hashTools`, `normalizeTools` | `webmcp-peer/src/client/catalog-hash.ts` | 입력 순서·locale과 무관한 결정론적 SHA-256 도구 카탈로그 해시(도구 이름의 UTF-16 code unit 순서, relay `catalogHash`와 동일) 및 도구 기술자 검증 |
+| `normalizeServerUrl`, `websocketUrl`, `parseRoomId` | `webmcp-peer/src/client/transport.ts` | Streamable HTTP MCP(`/p/:id/mcp`) 및 WebSocket(`/p/:id/client`) 엔드포인트·전송 어댑터. 메시지 상한을 넘는 요청은 보내기 전에 `REQUEST_TOO_LARGE`로 거부 |
 | `PeerMcpSession`, `createPeerMcpSession` | `webmcp-peer/src/client/session.ts` | 단일 룸 MCP JSON-RPC 세션 상태 머신(`initialize`, `tools/list`, `tools/call`, 티켓 폐기) |
 | `PeerMcpService`, `createPeerMcpService`, `JsonPeerMcpStore`, `createJsonPeerMcpStore` | `webmcp-peer/src/client/service.ts` | 다중 피어 세션 레지스트리, 활성 세션 라우팅 및 원자적 JSON 파일 카탈로그 저장소 |
 | `discoverPeerCatalog`, `joinPeerRoom`, `getPeerSessionStatus`, `waitForPeerApproval`, `rotatePeerRoom` | `webmcp-peer/src/client/room-lifecycle.ts` | 원격 룸 카탈로그 탐색, 초대 토큰 조인, 승인 대기 폴링 및 룸 로테이션 |
 | `MCP_PROTOCOL_VERSION`, `MCP_PROTOCOL_VERSIONS`, `CommitReceipt`, `isUtcTimestamp`, `isCommitReceipt` | `webmcp-peer/src/provider/commit-receipt.ts` | 호스트 커밋 영수증(`CommitReceipt`) 판별 유니온 및 런타임 타입 가드 |
-| `AiRunPhase`, `AiRollbackStatus`, `AiRunPoint`, `AiRunStep`, `AiRunRollbackSummary`, `AiRunSnapshot`, `AiRollbackStepResult`, `AiRunController` | `webmcp-peer/src/provider/ai-run-controller.ts` | 다단계 AI 실행 수명주기, 커서 궤적 기록 및 역순 스텝 롤백 코디네이터 |
+| `AiRunPhase`, `AiRollbackStatus`, `AiRunPoint`, `AiRunStep`, `AiRunRollbackSummary`, `AiRunSnapshot`, `AiRollbackStepResult`, `AiRunController`, `AiRunLimitExceededError` | `webmcp-peer/src/provider/ai-run-controller.ts` | 다단계 AI 실행 수명주기, 커서 궤적 기록 및 역순 스텝 롤백 코디네이터. 추적하는 run은 최대 128개이며 `begin`은 terminal run, 이어서 가장 오래된 idle run을 축출하고, 모두 진행 중이면 `AiRunLimitExceededError`(`AI_RUN_LIMIT_EXCEEDED`)를 던진다 |
 | `AiRunReceiptStatus`, `AiRunRollbackStatus`, `AiRunLedgerDisposition`, `AiRunOperationRecord`, `AiRunLedgerWriteStatus`, `AiRunLedgerWriteResult`, `AiRunLedgerWriteOptions`, `AiRunLedgerStore`, `AiRunReceiptInput`, `AiRunRollbackInput`, `AiRunLedgerErrorCode`, `AiRunLedgerError`, `AiRunLedger`, `InMemoryAiRunLedgerStore`, `aiRunLedgerDisposition` | `webmcp-peer/src/provider/ai-run-ledger.ts` | AI 오퍼레이션 멱등성 원장, 상태 역행/충돌 검출 및 인메모리 저장소 |
 | `FRAMEBOOK_PRODUCTION_SIGNALING_URL`, `resolveDefaultSignalingUrl`, `WebMcpCrdtTransport`, `WebMcpPeerState`, `WebMcpPeerApprovalState`, `WebMcpPeerSessionInfo`, `WebMcpToolSummary`, `WebMcpWireToolDescriptor`, `toWireToolDescriptor`, `WebMcpHostServerInfo`, `WebMcpHostAdapter`, `WebMcpPeerConnectOptions`, `WebMcpPeerClientOptions` | `webmcp-peer/src/provider/types.ts` | 호스트 애플리케이션 도구 어댑터, CRDT 전송 브리지, Provider 세션 옵션 계약 및 `register`·`tools/list`·`server/discover` 공통 도구 기술자 직렬화 |
-| `WebMcpPeerClient` | `webmcp-peer/src/provider/peer-client.ts` | 브라우저/호스트 Provider 런타임(룸 생성, F5 리스 복구, 승인 게이트, WebSocket MCP 중계 및 WebRTC DataChannel 프레이밍) |
-| `PeerSocket`, `MAX_WEBSOCKET_FRAME_BYTES`, `MAX_WEBSOCKET_MESSAGE_BYTES`, `upgradeWebSocket` | `webmcp-peer/src/server/ws-upgrade.ts` | 무의존성 RFC 6455 WebSocket 업그레이드 핸드셰이크, 마스킹, 단편화 파서 및 프레이밍 |
-| `withFileLockSync`, `appendDurableLineSync`, `readDurableJsonLinesSync` | `webmcp-peer/src/server/durable-file.ts` | 프로세스 간 파일 잠금(`O_CREAT \| O_EXCL`) 및 `fsync` append-only JSONL 헬퍼 |
-| `PublishRateLimitRequest`, `PublishRateLimitDecision`, `PublishRateLimitStore`, `validatePublishRateLimitDecision`, `InMemoryPublishRateLimitStore`, `FilePublishRateLimitStore`, `SqlitePublishRateLimitStore`, `createPublishRateLimitStoreFromEnv` | `webmcp-peer/src/server/rate-limit.ts` | 룸 생성/발행 슬라이딩 윈도우 속도 제한기 및 Memory/File/SQLite 저장소 |
-| `DeploymentCatalogSnapshot`, `DeploymentCatalogInput`, `hashDeploymentCatalog`, `loadDeploymentCatalog`, `normalizeToolCatalog` | `webmcp-peer/src/server/deployment-catalog.ts` | 콜드 스타트 정적 배포 도구 카탈로그 부트스트랩, 정규 SHA-256 해시 및 클라이언트 계약과 동일한 도구 카탈로그 검증 |
-| `PeerServerConfig`, `CliParsedArgs`, `DEFAULT_ALLOWED_ORIGINS`, `DEFAULT_ALLOWED_HOSTS`, `DEFAULT_PUBLISH_RATE_LIMIT_WINDOW_MS`, `DEFAULT_PUBLISH_RATE_LIMIT_MAX`, `loadEnvFile`, `autoLoadEnvFiles`, `parseCliArgs`, `findConfigFile`, `loadConfigFile`, `resolvePeerServerConfig`, `isOriginAllowed`, `isHostAllowed` | `webmcp-peer/src/server/server-config.ts` | 서버 CLI 인자·`.env`·JSON 설정 파서 및 와일드카드 Origin/Host 허용 목록 검증기 |
+| `WebMcpPeerClient` | `webmcp-peer/src/provider/peer-client.ts` | 브라우저/호스트 Provider 런타임(룸 생성, F5 리스 복구, 승인 게이트, WebSocket MCP 중계 및 WebRTC DataChannel 프레이밍). 메시지 상한을 넘는 응답은 `RESULT_TOO_LARGE`로, 넘는 `register` catalog는 보내지 않고 `CATALOG_TOO_LARGE`로 보고 |
+| `PeerSocket`, `PeerSendResult`, `UpgradeWebSocketOptions`, `MAX_WEBSOCKET_FRAME_BYTES`, `MAX_WEBSOCKET_MESSAGE_BYTES`, `MAX_WEBSOCKET_MESSAGE_FRAGMENTS`, `MAX_WEBSOCKET_OUTBOUND_BUFFER_BYTES`, `MIN_WEBSOCKET_OUTBOUND_BUFFER_BYTES`, `WEBSOCKET_CLOSE_TIMEOUT_MS`, `WEBSOCKET_STALLED_OUTBOUND_TIMEOUT_MS`, `WEBSOCKET_CLOSE_TRY_AGAIN_LATER`, `upgradeWebSocket` | `webmcp-peer/src/server/ws-upgrade.ts` | 무의존성 RFC 6455 WebSocket 업그레이드 핸드셰이크, 마스킹, streaming 단편화 파서 및 프레이밍. 메시지는 단일 frame(`MAX_WEBSOCKET_FRAME_BYTES` = `MAX_WEBSOCKET_MESSAGE_BYTES` = 256 KiB) 또는 최대 1024 frame(`MAX_WEBSOCKET_MESSAGE_FRAGMENTS`)으로 받고, 넘으면 payload를 버퍼링하기 전에 close code 1009로 닫는다. 프로토콜 위반은 1002, 텍스트가 아닌 data는 1003, 유효하지 않은 UTF-8은 1007, owner `onText` 예외는 1011. `PeerSocket.send`는 `'sent' \| 'too-large' \| 'busy' \| 'closed'`(`PeerSendResult`)를 돌려준다. 메시지 상한을 넘거나(`too-large`) 송신 queue가 `MAX_WEBSOCKET_OUTBOUND_BUFFER_BYTES`(1 MiB)를 넘을(`busy`) 메시지는 queue에 넣지 않고 socket도 닫지 않으며, 들어가지 않는 pong은 버린다. 거부 뒤 queue가 `WEBSOCKET_STALLED_OUTBOUND_TIMEOUT_MS`(30초) 동안 비지 않는 peer만 1013(`WEBSOCKET_CLOSE_TRY_AGAIN_LATER`)으로 닫는다. `PeerSocket.close(code?)`는 주어진 close code를 보낸다(기본 1000). relay가 닫은 뒤 peer가 끊지 않으면 `WEBSOCKET_CLOSE_TIMEOUT_MS`(5초) 뒤 socket을 파기하고, `onClose`는 socket이 멈추는 즉시 한 번 호출된다. `UpgradeWebSocketOptions`(6번째 인자)로 `closeTimeoutMs`·`stalledOutboundTimeoutMs`·`maxOutboundBufferBytes`를 바꾼다 |
+| `withFileLockSync`, `appendDurableLineSync`, `readDurableJsonLinesSync`, `truncateUnterminatedTailSync`, `DurableJsonRowSchema`, `ReadDurableJsonLinesOptions` | `webmcp-peer/src/server/durable-file.ts` | 프로세스 간 파일 잠금(`O_CREAT \| O_EXCL`) 및 `fsync` append-only JSONL 헬퍼. `readDurableJsonLinesSync(filePath, errorCode, schema, options?)`는 모든 row를 `DurableJsonRowSchema`로 검증하고(실패는 `<errorCode>: row N`) `ignoreUnterminatedTail`로 끝나지 않은 마지막 row를 건너뛸 수 있다. `truncateUnterminatedTailSync`는 중단된 append가 남긴 마지막 row 조각을 잘라낸다 |
+| `PublishRateLimitRequest`, `PublishRateLimitDecision`, `PublishRateLimitStore`, `validatePublishRateLimitDecision`, `InMemoryPublishRateLimitStore`, `FilePublishRateLimitStore`, `SqlitePublishRateLimitStore`, `createPublishRateLimitStoreFromEnv` | `webmcp-peer/src/server/rate-limit.ts` | 룸 생성/발행 고정 윈도우(키별 첫 요청 기준, 윈도우 경계에서 최대 약 2배 허용) 속도 제한기 및 Memory/File/SQLite 저장소 |
+| `DeploymentCatalogSnapshot`, `DeploymentCatalogInput`, `hashDeploymentCatalog`, `loadDeploymentCatalog`, `normalizeToolCatalog` | `webmcp-peer/src/server/deployment-catalog.ts` | 콜드 스타트 정적 배포 도구 카탈로그 부트스트랩, 정규 SHA-256 해시(도구 이름의 UTF-16 code unit 순서) 및 클라이언트 계약과 동일한 도구 카탈로그 검증 |
+| `PeerServerConfig`, `CliParsedArgs`, `DEFAULT_ALLOWED_ORIGINS`, `DEFAULT_ALLOWED_HOSTS`, `DEFAULT_PUBLISH_RATE_LIMIT_WINDOW_MS`, `DEFAULT_PUBLISH_RATE_LIMIT_MAX`, `loadEnvFile`, `autoLoadEnvFiles`, `parseCliArgs`, `findConfigFile`, `loadConfigFile`, `resolvePeerServerConfig`, `isOriginAllowed`, `isHostAllowed` | `webmcp-peer/src/server/server-config.ts` | 서버 CLI 인자·`.env`·JSON 설정 파서 및 와일드카드 Origin/Host 허용 목록 검증기. `resolvePeerServerConfig(options?, argv?, cwd?, { loadEnvFiles }?)`의 네 번째 인자로 `.env` 자동 로드를 끌 수 있다(기본 true) |
 | `FileAiRunLedgerStore`, `SqliteAiRunLedgerStore` | `webmcp-peer/src/server/ledger-stores.ts` | `AiRunLedger`용 파일 JSONL 및 SQLite WAL 영속 저장소 |
-| `PeerCapability`, `ClientSessionStatus`, `ClientSessionTicket`, `PendingApprovalRequest`, `PendingMcpRequest`, `RoomEntry`, `WebMcpPeerServerOptions` | `webmcp-peer/src/server/types.ts` | 서버 룸 엔트리, 클라이언트 세션 티켓, 승인 대기열 및 커스텀 HTTP/WS 확장 훅 계약 |
+| `PeerCapability`, `ClientSessionStatus`, `ClientSessionTicket`, `PendingApprovalRequest`, `PendingMcpRequest`, `RoomEntry`, `WebMcpPeerServerOptions` | `webmcp-peer/src/server/types.ts` | 서버 룸 엔트리, 클라이언트 세션 티켓, 승인 대기열 및 커스텀 HTTP/WS 확장 훅 계약. `WebMcpPeerServerOptions`의 `maxRoomTtlMs`(기본 24시간, `[60s, 365d]`로 clamp)는 룸 TTL 상한이고, 내장 서버는 `argv`·`loadEnvFiles`를 지정할 때만 CLI 인자와 `.env`를 읽으며 `cwd`는 설정·`.env`·상대 경로의 기준 |
 | `WebMcpPeerServer`, `createWebMcpPeerServer` | `webmcp-peer/src/server/peer-server.ts` | 룸 제어 평면, Streamable HTTP MCP 라우터(`/p/:id/mcp`), WebSocket 시그널링 중계 및 확장 훅 실행 서버 |
 

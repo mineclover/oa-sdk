@@ -68,6 +68,22 @@ procedure 이름은 `[group, method].join('.')`이다.
 위 예시는 `todoItems.TodoItems_list`, `todoItems.TodoItems_get`, `TodoService.Create`가 된다. operationId가
 길면 TypeSpec `@operationId("list")`나 `@rpc(#{ methodName: "list" })`로 다듬는다.
 
+`@rpc`와 `@wireFormat`은 interface에도 붙일 수 있다. interface의 `serviceName`·`streaming`과 wire format은
+그 interface의 모든 operation에 들어가고, operation에 직접 붙인 값이 이긴다. `methodName`은 operation 하나의
+이름이라 interface에 쓰면 `invalid-rpc-rule` 오류다. `@protobuf`는 model 전용이며 interface에 붙이면
+`invalid-protobuf-rule` 오류다.
+
+```typespec
+@route("/widgets")
+@rpc(#{ serviceName: "WidgetService" })
+@wireFormat("protobuf")
+interface Widgets {
+  @get list(): Widget[];                                  // WidgetService, protobuf
+  @get @route("/{id}") @rpc(#{ methodName: "Read" })
+  read(@path id: string): Widget;                         // WidgetService.Read, protobuf
+}
+```
+
 ---
 
 ## 2. JSON procedure RPC
@@ -207,7 +223,8 @@ await rpc.TodoService.Create({ title: 'write docs' }, { signal })
 
 ### 2.5 오류
 
-모든 실패는 `RpcError`(`code`, `status`, `data`)로 reject된다.
+실패는 `RpcError`(`code`, `status`, `data`)로 reject된다. 예외는 `signal`로 취소한 호출이다. 이 호출은 중단된
+`fetch`의 오류, 즉 signal의 reason(기본값은 `AbortError`)으로 reject되며, 응답 body를 읽는 중에 취소해도 같다.
 
 | 출처 | `code` | `status` | `data` |
 | --- | --- | --- | --- |
@@ -215,7 +232,7 @@ await rpc.TodoService.Create({ title: 'write docs' }, { signal })
 | 입력 검증 실패 | `INVALID_INPUT` | 400 | `{ code, message, issues: [{ path, message }] }` |
 | 없는 procedure | `PROCEDURE_NOT_FOUND` | 404 | — |
 | REST 응답이 2xx가 아님 | body의 문자열 `code`, 없으면 status에서 (`NOT_FOUND`, `CONFLICT`, … 또는 `HTTP_<status>`) | 응답 status | 응답 body |
-| 네트워크 실패, 응답을 읽을 수 없음 | `TRANSPORT` | 502 | — |
+| 네트워크 실패, 읽을 수 없는 응답, JSON-RPC가 아닌 응답 (다른 요청 id에 답한 응답 포함) | `TRANSPORT` | 네트워크 실패는 502, 응답을 받았지만 읽을 수 없거나 JSON-RPC가 아니면 그 HTTP 응답 status | — |
 
 JSON-RPC에서는 protocol 오류가 표준 코드(`-32700`, `-32600`, `-32601`, `-32602`, `-32603`)를 쓰고,
 application 오류는 `-32000`에 `error.data = { code, status, data }`를 담아 클라이언트가 같은 `RpcError`를
@@ -254,8 +271,15 @@ const order = await orders.getOrder({ orderId: 'o-1', expand: ['items'] })
 await orders.createOrder({ id: 'draft', amount: 7 })
 ```
 
-- 서비스·메서드 이름은 `@rpc(#{ serviceName, methodName })`, 없으면 첫 tag + `Service`와 operationId의 PascalCase.
-- 클라이언트는 선언된 route를 path·query·header·cookie 파라미터로 채운다. path-level 파라미터와 선언되지 않은 route 변수도 포함하며, `.`·`..` path 값은 거부한다.
+- 서비스·메서드 이름은 `@rpc(#{ serviceName, methodName })`, 없으면 첫 tag + `Service`와 operationId의 PascalCase다.
+  PascalCase는 `_`·`-`·공백을 지우고 그 다음 글자를 대문자로 만든다: `TodoItems_list` → `TodoItemsList`
+  (클라이언트 메서드 `todoItemsList()`), `"Todo Items"` → `TodoItemsService`. tag도 없으면 `@service` title을
+  package 이름으로 바꾼 것의 PascalCase + `Service`다 (`"Todo Service"` → `todo_service` → `TodoServiceService`).
+- 생성된 TypeScript는 `types.ts`와 같은 타입 이름을 쓴다. 하위 namespace의 `Inventory.Widget`는 `InventoryWidget`이고,
+  정리한 이름이 겹치면 `types.ts`처럼 숫자를 붙인다. `getGeneratedProtobufCodecs()` 같은 codec map의 key는
+  component 이름(`'Inventory.Widget'`) 그대로다.
+- 클라이언트는 선언된 route를 path·query·header·cookie 파라미터로 채운다. path-level 파라미터와 선언되지 않은 route 변수도 포함한다.
+  빈 path 값(`''`, 빈 배열)과 `.`·`..`은 다른 route를 호출하게 되므로 요청을 보내기 전에 `TypeError`로 거부한다.
 - body와 응답은 선언된 media type을 따른다. JSON은 그대로 직렬화하고, Protobuf·MessagePack 메시지는 model 이름으로 찾은 codec으로 인코딩·디코딩한다. 요청 메시지의 codec이 없으면 요청을 보내지 않고 실패하고, 응답 메시지의 codec이 없으면 `TypeError`로 reject된다.
 - 2xx가 아닌 응답은 `WireRpcError`(`method`, `status`, 디코딩한 `body`)로 reject된다.
 - 서버 쪽은 `<Service>ServerHandlers<TContext>` 인터페이스만 생성한다. handler는 `(request, context, params)`를 받으며 파라미터가 없는 메서드에는 `params`가 없다. HTTP mount와 codec 적용은 서버 코드가 맡는다.
@@ -279,21 +303,42 @@ bytes를 읽고 쓸 수 있으며, protobufjs와 양방향으로 검증한다.
 | `boolean` | `bool` | `boolean` |
 | component enum | `enum` (값 순서가 member 번호) | 원래 JSON 값 |
 | component object | 중첩 `message` | object |
+| `allOf`로 합친 component object (TypeSpec `extends`) | 상속 field를 앞에 둔 하나의 `message` | object |
 | 배열 | `repeated` (숫자·enum은 packed) | 배열 |
-| `additionalProperties`만 있는 object | `map<string, V>` | `Record<string, V>` |
-| union, 이름 없는 object, 중첩 배열 등 | `string` (JSON 텍스트) | 원래 값 |
+| `additionalProperties`만 있는 object, inline이든 component 참조든 (`Record<string>` 등) | `map<string, V>` | `Record<string, V>` |
+| union, 이름 없는 object, free-form object (`Record<unknown>`), `oneOf`·`anyOf`·`not`이 있는 object, 중첩 배열 등 | `string` (JSON 텍스트) | 원래 값 |
 
 `x-oa-sdk-protobuf-field`(TypeSpec `@field(n, #{ type })`)로 field 번호와 `sint32`·`sint64`·`fixed32`·
 `fixed64`·`sfixed32`·`sfixed64` 같은 scalar를 지정할 수 있다. 번호를 지정하지 않은 field는 지정된 번호와
-예약 범위 19000–19999를 피해 선언 순서대로 받는다. **배포된 schema에서는 field 번호를 바꾸지 않는다.**
-새 field는 끝에 추가하고, 지운 번호는 다시 쓰지 않는다.
+예약 범위 19000–19999를 피해 선언 순서대로 받는다. 상속한 field가 먼저 오므로 base model에 field를 더하면
+파생 model의 자동 번호가 밀린다. 상속 관계에서는 번호를 지정해 둔다. **배포된 schema에서는 field 번호를
+바꾸지 않는다.** 새 field는 끝에 추가하고, 지운 번호는 다시 쓰지 않는다.
+
+한 model 안에서 (상속한 field 포함) 같은 번호를 두 번 쓰면 TypeSpec 컴파일이 `invalid-protobuf-rule`로 실패한다.
+상속한 property를 파생 model이 다시 선언하면 (literal로 좁힌 discriminator 등) 그 선언이 상속한 field를 대신하므로,
+같은 번호를 다시 써도 되고 다른 번호를 쓰면 원래 번호는 비게 된다.
+decorator를 거치지 않은 OpenAPI 입력에서는 `extractWireSchemaFromOas`가 같은 번호나 범위를 벗어난 번호에서 throw한다.
+
+map-only·free-form object component는 `.proto` message도 Protobuf codec도 없다. TypeScript 타입과 MessagePack
+codec은 그대로 생긴다. body나 응답이 없거나, 이런 component나 enum·scalar를 body나 응답으로 쓰는 메서드는
+`schema.proto`에서 빈 message를 쓴다. 빈 message의 이름은 `Empty`이고, 이미 그 이름을 쓰는 model·enum·service가
+있으면 (`model Empty {}` 등) `Empty2`, `Empty3`, … 중 처음 비는 이름이다. 사용자 `Empty` model은 자기 이름(또는
+`messageName`)과 field를 그대로 쓴다. 추출한 wire model의 `WireMethod.inputType`·`outputType`도 빈 message를 이 이름으로
+가리킨다.
+
+이런 body를 Protobuf media type으로 보낼 때, map-only·free-form object body와 문자열이 아닌 enum·scalar body는
+인코딩할 codec이 없으므로 클라이언트가 요청을 보내기 전에 실패한다. 문자열 enum·scalar body는 그 텍스트가 그대로
+body로 간다.
 
 범위를 벗어난 정수, 정수가 아닌 값, enum에 없는 값은 인코딩할 때 throw한다. 알 수 없는 field는 건너뛰고,
 잘린 입력은 `RangeError`로 실패한다.
 
 ### 3.2 Protobuf가 구분하지 못하는 값
 
-- 명시적 `null`과 field 없음은 같은 bytes가 된다. 디코딩하면 field가 없다.
+- 명시적 `null`과 field 없음은 같은 bytes가 된다. optional field는 디코딩하면 없다.
+- 표준 proto3 encoder(Go, Java, protobuf-es 등)는 기본값(`0`, `''`, `false`, 빈 bytes, 첫 enum 값)인 scalar·enum을
+  보내지 않는다. required scalar·enum field는 디코딩할 때 이 기본값으로 채운다. 그래서 required이면서 nullable인
+  scalar를 `null`로 보내면 기본값으로 돌아온다.
 - optional 빈 배열·map은 없음으로 돌아온다. required 배열·map은 빈 값으로 돌아온다.
 - `float`는 32-bit로 반올림된다.
 

@@ -47,6 +47,74 @@ artifact 경로는 현재 rollback/reference evidence로 유지한다.
 `.builder/local-parity-api.3.1.yaml` compatibility, downstream compatibility report, rollback-safe script
 boundaries를 확인했다. 현재 production source의 기준은 TypeSpec validation이다.
 
+## 2026-10-19 안정화 후속
+
+2026-10-19 안정화 pass([최근 완료](#x-2026-10-19-시스템-안정화-pass))에서 고치지 않고 남긴 항목이다.
+
+### [ ] WebMCP relay 남은 강화 항목
+배경: 2026-10-19 relay 메시지 상한 작업([최근 완료](#x-webmcp-relay-메시지-상한과-register-크기)) 뒤에 남은 작은 항목이다.
+작업:
+1. provider `register` frame에 rate limit을 두거나 직전 frame과 같으면 정규화·hash를 건너뛴다. 지금은 provider token을 가진 쪽이 거부되는 `register`를 반복해 relay CPU를 쓸 수 있다.
+2. 승인된 agent의 `offer` `requestId`처럼 provider가 되돌려 주는 식별자를 relay에서 짧게 제한한다. 지금은 provider가 상한을 넘는 `answer`를 보내지 않으므로 room은 안전하지만 그 offer는 응답을 받지 못한다.
+3. `PeerMcpSession`이 socket당 진행 중 요청을 relay 상한(64)에 맞춰 queue하도록 할지 결정한다. 지금은 65번째 요청이 `TOO_MANY_PENDING_REQUESTS`로 실패한다.
+4. `upgradeWebSocket`이 호출 시점에 이미 FIN을 받은(`readableEnded`) socket도 파기된 socket처럼 다루게 한다. `WebMcpPeerServer`는 직접 확인하지만 다른 호출자는 보호받지 못한다.
+5. `examples/live-demo/host-provider.js`의 `register`에도 `registerSeq`를 넣어 SDK와 같은 거부 매칭을 보여 줄지 결정한다.
+완료 기준: 각 항목이 구현되거나 결정이 문서화되고, 구현한 항목은 회귀 테스트가 있다.
+
+### [ ] `@traceId` trackingId를 공유하는 OpenAPI variant (설계 결정 필요)
+배경: `x-oa-sdk-trace.trackingId`는 선언한 type과 그 mutator clone에 붙는다. 그래서 한 OpenAPI 문서 안에서 `@typespec/openapi3`의 visibility variant(`WidgetCreate`, `WidgetUpdate`)와 `MergePatchUpdate<T>` variant(`WidgetMergePatchUpdate`, 참조된 model의 `PartMergePatchUpdate`)가 원본과 같은 id를 갖고, `oa-gen trace --verify`가 `traceability/duplicate-tracking-id`를 보고한다. decorator 시점에는 merge-patch clone과 versioned snapshot clone을 구분할 수 없다. 이 한계는 [`packages/typespec-decorators/README.md`](../../packages/typespec-decorators/README.md)에 적혀 있다. 이 repo에는 `@traceId`와 `MergePatchUpdate`·`@versioned`를 함께 쓰는 `.tsp`가 없어 CI gate는 영향을 받지 않는다.
+작업:
+1. 같은 선언에서 나온 variant가 id를 공유하는 것을 허용할지, variant별 id를 파생할지 결정한다.
+2. 공유를 허용하면 `packages/codegen/src/traceability/spec-traceability.ts`의 duplicate grouping이 TypeSpec provenance가 같은 선언으로 해소되는 중복 explicit id를 받아들이게 한다.
+완료 기준: `@traceId`를 visibility·`MergePatchUpdate` variant와 함께 쓰는 fixture에서 `oa-gen trace --verify`가 결정한 정책대로 동작하는 테스트가 있다.
+
+### [ ] 공유 type과 파생 scalar로 퍼지는 `@traceId`
+배경: TypeSpec은 `interface B extends A`가 복제한 operation의 `parameters`와 `op b is a`·`model B is A`의 익명 body·return·property type을 복제하지 않고 공유한다. 그래서 그런 type의 member에 붙인 `@traceId`가 파생된 모든 operation·schema 아래에 나타난다. inline parameter와 property는 trace graph node가 아니라 `oa-gen trace --verify`도 이를 보고하지 않는다. 또 `@typespec/openapi3`는 `scalar B extends A`의 schema를 A의 extension과 함께 만들어 두 schema가 같은 trackingId를 갖고, `oa-gen trace --verify`가 `traceability/duplicate-tracking-id`를 보고한다. 두 경우 모두 이번 pass 전부터 있었고, [`packages/typespec-decorators/README.md`](../../packages/typespec-decorators/README.md)와 `lib/governance.tsp`에 known limit으로 적었다.
+작업:
+1. id를 가진 parameters model이나 익명 type이 둘 이상의 concrete operation·model에서 도달 가능하면 `$onValidate`에서 진단할지 결정한다(`operationsByParameters`가 공유 관계를 이미 안다).
+2. 파생 scalar는 trace 쪽에서 base scalar provenance로 중복을 해소할지, decorator가 경고할지 결정한다.
+완료 기준: 두 경우의 fixture에서 결정한 정책대로 진단하거나 `oa-gen trace --verify`가 통과하는 테스트가 있다.
+
+### [ ] root-level operationId `client`와 `client.ts`의 `ClientResponse` 충돌
+배경: `pluginClient`는 예약어나 `client.ts`가 선언하는 binding과 겹치는 함수 이름에 `_`를 붙이므로 root-level operation `client`의 함수는 `client_`가 된다. 하지만 type 이름은 escape하지 않는다. 성공 응답이 있으면 `client.ts`가 types 파일에서 import하는 `ClientResponse`가 `client.ts`의 generic helper `ClientResponse<...>` 선언과 충돌하고, 성공 응답이 없으면 fallback `export type ClientResponse = void`가 같은 helper와 중복된다.
+작업: typegen 또는 client renderer가 `client.ts` helper type 이름(`RequestParameters`, `RequestOptions`, `KnownErrorStatus`, `ClientResult`, `ClientResponse`, `ErrorUnion`, `ErrorStatusResult`, `ClientConfig`)을 예약하거나 import를 alias한다.
+완료 기준: root-level `client` operation이 있는 fixture의 생성 types 파일과 `client.ts`가 함께 type-check된다.
+
+### [ ] `@oa-sdk/client` TanStack `TError`에 transport 오류 포함
+배경: `packages/client/src/tanstack/options-factory-generator.ts`와 `hook-factory-generator.ts`는 error model이 있으면 query·mutation error 타입을 `<Op>Error`로만 둔다. 실제로 reject될 수 있는 네트워크 오류, abort, `ApiClientResponseError`는 `TError`에 없다. 지금은 [client and query consumption](../guides/client-and-query-consumption.md) 가이드가 `instanceof`로 좁히는 방법을 안내한다.
+작업: `TError`를 `<Op>Error | Error`로 넓힐지 결정하고, 넓히면 두 생성기, 생성 결과 테스트, 가이드를 함께 바꾼다.
+완료 기준: 생성된 query·mutation option과 hook의 error 타입이 transport 오류를 포함하고, consumer narrowing 예제가 type-check된다.
+
+### [ ] `ScenarioMachineContext.customData`의 TypeSpec 정의
+배경: `packages/spec-lens-contract/src/scenario/types.ts`의 `ScenarioMachineContext`에는 `customData?: Record<string, unknown>`이 있지만 `scenario.tsp`의 `model ScenarioMachineContext`에는 없다. 이번 pass 전부터 있던 TS·TypeSpec drift다.
+작업: `scenario.tsp`에 `customData?: Record<unknown>;`(필요하면 `@doc`)을 추가할지, TS field를 없앨지 결정한다.
+완료 기준: 두 정의의 field 집합이 같다.
+
+### [ ] ast-sync에 남은 type boundary
+배경: 이번 pass의 대상 밖이라 그대로 둔 boundary다. `packages/ast-sync/src/adapters/json-schema.ts`의 `read()`·`patch()`와 `adapters/typia.ts`의 `default` tag 값은 `JSON.parse` 결과를 검증 없이 쓴다. `checker/cycle-detector.ts`(TypeScript `symbol.id`, `__tempDir`), `checker/program.ts`(`__tempDir`), `guards/generator.ts`(Ajv·standalone default export, format validator)에는 명시적 `any`가 남아 있다.
+작업: `JSON.parse` 결과를 이름 있는 validator로 검증하고, `any` 접근을 modeled type이나 guard로 바꾼다.
+완료 기준: `pnpm type-registry:check`의 boundary evidence에 이 파일들이 나오지 않는다.
+
+### [ ] `oa-gen generate:tanstack --tier hooks`의 vue·svelte hook
+배경: `packages/codegen/src/cli/commands/generate-tanstack.ts`는 `--tier hooks`이면 `--framework vue|svelte`에서도 `includeHooks`를 켠다. `@oa-sdk/client`의 hook 생성기는 React 형식의 `use*` hook을 만들기 때문에, 그 출력이 `@tanstack/vue-query`·`@tanstack/svelte-query`를 import하면서 React 전용 API 형태를 쓴다. 이번 pass 전부터 있던 동작이며 문서에 없다.
+작업: vue·svelte에서 `--tier hooks`를 거부할지, framework별 hook 생성기를 둘지 결정하고 CLI 도움말과 [CLI command reference](../guides/cli-command-reference.md)를 맞춘다.
+완료 기준: vue·svelte target의 `--tier hooks` 결과가 해당 패키지에 대해 type-check되거나, 명확한 오류로 거부된다.
+
+### [ ] `pluginClient({ clientName })` 이름 검증
+배경: `pluginClient`는 operation 함수 이름이 생성 module이 참조하는 global(`fetch`, `Response`, `Headers` 등)과 module binding을 가리지 않도록 escape하지만, 사용자가 준 `clientName`은 검증하지 않는다. `clientName: 'Response'`는 global `Response`를 가리는 class를 선언한다.
+작업: `clientName`을 식별자·예약어·참조 global 기준으로 검증하고 충돌하면 진단과 함께 실패시킨다.
+완료 기준: 충돌하는 `clientName`이 명확한 오류로 거부되는 테스트가 있다.
+
+### [ ] Feature-test matrix에 없는 영역
+배경: [feature-test-matrix.json](./feature-test-matrix.json)에 row가 없어 이번 pass에 추가한 회귀 테스트 일부가 matrix에 연결되지 않는다.
+- `@oa-sdk/telemetry`: `packages/telemetry/test/*.test.ts`(새 `hmac-sha256.test.ts` 포함)
+- chunk-stream 계열 5개 package와 `@chunkStream` decorator: 새 `packages/typespec-decorators/src/chunk-stream.test.ts`
+- spec traceability와 governance decorator: `packages/codegen/src/__tests__/traceability/*.test.ts`(새 `typespec-trace-id-copies.test.ts`), `packages/typespec-decorators/src/governance*.test.ts`
+- TypeSpec plugin pipeline 중 rpc·wire 밖의 부분: `packages/codegen/src/__tests__/plugin/*.test.ts`, `test/e2e/typespec-plugin/**`(새 `tier3-combinations/shipped-plugins-typecheck.test.ts`)
+- Spec-Lens UI scenario navigation: 새 `apps/spec-lens/src/App.test.tsx`, `scenario/navigation.test.ts`, `scenario/views/ScenarioFlowModal.test.tsx`
+작업: 영역마다 feature row를 추가하고 [feature-test-matrix.md](./feature-test-matrix.md)에 대표 테스트를 적은 뒤 `pnpm check:feature-tests`를 실행한다.
+완료 기준: 이번 pass의 새 테스트 파일이 모두 matrix row에 연결된다.
+
 ## spec-lens 잔여 항목
 
 ### [x] RefreshTimeline 병렬 revision 처리
@@ -270,6 +338,17 @@ REST vs bare-clone 결정: REST API 방식 유지. 이유는 (1) 4 케이스 모
 ---
 
 ## 최근 완료
+
+### [x] WebMCP relay 메시지 상한과 `register` 크기
+배경: relay는 fragment로 나눈 message를 256 KiB까지 받았지만 frame 하나가 128 KiB를 넘으면 socket을 닫았다. 브라우저와 Node WebSocket client는 message를 frame 하나로 보내므로 실제 상한은 128 KiB였고, provider socket이 닫히면 room의 모든 agent가 끊겼다. provider는 `register` 크기를 확인하지 않아 큰 catalog가 auto-reconnect 아래에서 ready → register → close를 반복할 수 있었다.
+결정과 완료 (2026-10-19): 상한은 하나다. relay 메시지는 단일 frame이든 단편화든 양방향 모두 `PEER_RELAY_MAX_MESSAGE_BYTES`(256 KiB)이고(`MAX_WEBSOCKET_FRAME_BYTES` = `MAX_WEBSOCKET_MESSAGE_BYTES`), relay는 받은 쪽에서 넘는 message에 RFC 6455 close code 1009로 socket을 닫는다. 대신 relay는 남의 message 때문에 받는 쪽 socket을 닫지 않는다. `PeerSocket.send`가 `'sent' | 'too-large' | 'busy' | 'closed'`를 돌려주고, relay는 보낸 쪽에 `REQUEST_TOO_LARGE`(HTTP 413)·`RESULT_TOO_LARGE`·재시도 가능한 `PROVIDER_BUSY`(HTTP 503)·`PROVIDER_UNAVAILABLE`로 답하며 agent traffic 때문에 provider를 끊지 않는다. agent 요청 상한은 보낸 그대로 `PEER_RELAY_MAX_REQUEST_BYTES`(256 KiB - 1 KiB)로, relay의 stamp와 wire id 재작성을 항상 담는다. `PeerMcpSession`은 `PROVIDER_BUSY`를 요청 timeout 안에서 재시도한다. provider는 relay 소켓으로 보내는 모든 frame을 미리 재고, `PEER_RELAY_MAX_CATALOG_BYTES`(256 KiB - 4 KiB)를 넘는 `register`를 보내지 않으며 `CATALOG_TOO_LARGE`를 남긴다. relay는 알림이 `PEER_RELAY_MAX_ANNOUNCEMENT_BYTES`(256 KiB - 2 KiB)를 넘는 catalog를 거부하고, 거부는 `registerSeq`로 해당 `register`에 매칭된다. 같은 작업에서 relay WebSocket codec을 streaming parser로 다시 썼고(fragment 수 상한, 1002/1003/1007/1011 close code, 송신 queue 상한 1 MiB에서 닫지 않는 `'busy'`와 30초 정체 뒤 1013, 반쯤 닫힌 socket 파기와 close timeout, 한 번만 호출되는 `onClose`), agent가 요청한 응답을 늦게 읽는 agent에게도 순서대로 전달하는 outbox, 전달하는 모든 `mcp` envelope의 `from`/`sessionId` stamp, WebSocket `tools/list`의 relay catalog fallback, async upgrade hook 중 연결 reset으로 process가 죽던 문제를 더했으며, HTTP body를 끝까지 읽어 버려 413·`BODY_TOO_LARGE`가 실제로 도착하게 했으며, 크기를 넘거나 JSON object가 아닌 body로 approval·revoke·rotate가 실행되던 문제, request id·socket당 pending·ticket당 socket 상한, catalog hash의 `__proto__` 누락, client의 unhandled rejection을 함께 고쳤다. 동작은 [webmcp-peer README](../../packages/webmcp-peer/README.md)와 [changelog](../changelog.md)에 있다.
+검증: `packages/webmcp-peer`의 `tsc --noEmit`과 vitest 전체(22 file)가 통과하고, 새 테스트(`server-ws-frames`, `relay-message-limit`, `relay-backpressure`, `server-http-body`, `provider-register-limit`, `client-request-limit`, `client-busy-retry`)는 이전 코드에서 실패함을 확인했다.
+
+### [x] 2026-10-19 시스템 안정화 pass
+배경: 전수 코드 리뷰에서 확인한 결함 146건(F001–F146)을 10개 cluster로 나눠 고쳤다. cluster는 TypeSpec plugin(`@oa-sdk/codegen/plugin`), codegen governance(trace·sketch·storage drift·`@traceId`), 바이너리 wire, webmcp-peer client·provider, webmcp-peer server, peer-server·peer-transport·mcp-mesh, telemetry, chunk-stream, rpc·router·client codec, Spec-Lens scenario·EWIC interop이다.
+완료 (2026-10-19): 134건은 수정했고, 11건은 cluster 소유 파일 안에서 부분 수정한 뒤 다른 파일의 잔여분을 central 정리와 후속 cluster 작업으로 마무리했으며, 1건(F064, api-index 위치)은 문서 정리로 분류했다. 신규 테스트 파일 34개와 기존 suite 보강으로 회귀를 고정했다. `@oa-sdk/telemetry`, `@oa-sdk/webmcp-peer`, `@oa-sdk/peer-server`, `@oa-sdk/peer-transport`, `@oa-sdk/typespec-decorators`에는 Type Registry boundary evidence(명시적 `any`, 이중 assertion, 미검증 deserialize)가 남지 않았다. Type Registry gate는 명시적 `any` 249 → 134, 이중 assertion 37 → 27, 미검증 deserialize 175 → 118로 줄었고, budget을 그 값으로 낮췄다. 남은 detector false positive 9건(string→string percent-decoder `decode`, `TextDecoder.decode`, `unknown`을 돌려주는 generic JSON body codec)은 owner·만료일(2027-04-30)과 함께 [type-registry-policy.json](./type-registry-policy.json) allowlist에 올렸고, baseline은 review 후 `pnpm type-registry:write`로 갱신했다. `test/e2e/typespec-plugin`은 root script `pnpm test:e2e:typespec-plugin`으로 CI에 연결했다. `tests/e2e/output-routing-tanstack`이 2026-10-18 skill 재배치 뒤에도 옛 `.agents/skills/` 경로를 보던 것을 `.agents/skills-optional/`로 맞췄다. 동작 변경과 API 변경은 [changelog 2026-10-19 항목](../changelog.md)에, 구현 현황은 [spec.md](./spec.md)의 TypeSpec 계약 RPC와 바이너리 wire 절에, 새 테스트 등록은 [feature-test-matrix.md](./feature-test-matrix.md)(새 `webmcp-peer-routing` row 포함)에 반영했다.
+검증 (2026-10-19 working tree): `build:all`(35 task), `build:scripts`, `typecheck:all`(56 task), `test:core:ci`, `test:downstream:ci`, `test:maintenance:ci`, `test:internal:ci`, `test:integration`, `test:e2e:typespec-plugin`, `test:e2e`가 통과한다. CI gate인 `type-registry:check`, `check:docs`·`test:docs-gates`, `check:cli-spec`, `check:api-index`·`test:api-index`, `check:codegen-boundaries`, `check:feature-tests`, `check:spec-governance`, `check:workspace-scope`(release policy·preflight), `check:dpm-surface`, codegen `smoke:pack`, schema validate(Spectral·Redocly·`--require-32`)·schemas test·freshness·rollback·`schema:downstream-check`, browser runtime smoke, `bench:parser`, public runtime smoke(Node 24·26), `check:ts7`, NestJS·FastAPI reference governance(`openapi-governance.sh ci`)도 통과한다.
+잔여: 고치지 않은 후속은 [2026-10-19 안정화 후속](#2026-10-19-안정화-후속)에 둔다.
 
 ### [x] Links 응답 관계 메타데이터
 성공 응답의 Link Object를 typegen `XxxResponseLinks` 타입과 Op bundle `responseLinks` 필드로 생성한다.

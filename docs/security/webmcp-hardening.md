@@ -1,12 +1,13 @@
 # WebMCP 통신·인증·데이터 처리 보안 감사
 
-2026-09-22 기준으로 `peer-server`, `peer-transport`, `collab-workspace`, `mcp-mesh`,
+2026-09-22 기준(relay·Cloud Transit 행은 2026-10-19 갱신)으로 `peer-server`, `peer-transport`, `collab-workspace`, `mcp-mesh`,
 `tools`의 구현된 경계와 운영 가정을 기록한다. 아래 검증은 저장소의 회귀 테스트를 가리키며,
 실제 WebRTC 연결이나 다중 프로세스 환경의 인증·전달 보증을 뜻하지 않는다.
 
 | 영역 | 확인된 위험 | 구현된 조치 | 회귀 테스트 |
 | --- | --- | --- | --- |
 | peer-server 인증·입력 | endpoint의 원격 무인증 노출, 큰 본문, pending RPC 누적 | loopback 외 listener의 `publishKey` 강제, Bearer/X-Peer-Publish-Key 비교, origin 정책, 기본 1MiB/최대 16MiB 본문, pending call 상한·timeout | [HTTP 경계](../../packages/peer-server/test/peer-server.test.ts), [room/store](../../packages/peer-server/test/room-store.test.ts) |
+| peer-server relay·Cloud Transit | 잘못된 Host로 인한 프로세스 종료, 승인 전 relay packet 전달, 위조 control signal, 무제한 relay 세션, standalone transit 무인증 노출 | 업그레이드 Host 파싱 실패를 400으로 거절, `POST /p/:id/join`은 publishKey 대신 room invite token으로 인증, WebSocket 업그레이드는 room별 단일 사용 ticket으로 인증, 승인 전 packet은 `RELAY_NOT_APPROVED`, 역할에 맞지 않는 signal은 `FORBIDDEN_SIGNAL`, 승인 시 `allowedTools` 강제, relay idle/최대 세션 시간 제한, standalone transit handler의 `publishKey`(401)·`allowedOrigins`(403, 기본 loopback) 강제 | [relay hardening](../../packages/peer-server/test/relay-server-hardening.test.ts), [signaling session](../../packages/peer-server/test/signaling-room-session.test.ts), [transit access](../../packages/peer-server/test/transit-access.test.ts) |
 | peer store | 손상·동시 갱신, 파일 권한·prototype key 위험 | schema 검사, 프로세스 내 per-path mutation queue, temp+rename 저장, 디렉터리 0700/파일 0600, token 응답 redaction | [store integrity/concurrency](../../packages/peer-server/test/room-store.test.ts) |
 | bridge transport | redirect, 큰 응답, 임의 재시도, 인증 누락 | redirect 거부, 4MiB 응답 크기 검사, Bearer 전달, `503 PEER_UNAVAILABLE`만 재시도, AbortSignal 결합 | [bridge auth/retry](../../packages/peer-transport/test/peer-transport.test.ts) |
 | packet channel | 큰 패킷·replay, 무제한 큐, 멈춘 sender, listener 예외 | 채널별 bounded queue, deadline, sender timeout, 선택적 heartbeat 송신, session epoch/sequence 검사, listener error hook | [packet boundary/queue/heartbeat](../../packages/peer-transport/test/peer-transport.test.ts) |

@@ -27,7 +27,7 @@ flowchart TD
   subgraph GatewayLayer ["프로젝션 게이트웨이 (Projection Gateway) - @oa-sdk/peer-server"]
     HTTP_Bridge["HTTP Bridge & Registry<br/>(:8787 /status, /tools, /announce)"]
     Cloud_Transit["Cloud Transit Proxy<br/>(:8787 /transit/:peer/mcp)"]
-    WS_Relay["WebSocket Signaling & Relay<br/>(:8787/ws)"]
+    WS_Relay["WebSocket Signaling & Relay<br/>(:8787 /p/:roomId/:role, /ws?room=&role=)"]
   end
 
   subgraph BrowserLayer ["브라우저 웹 애플리케이션 (Browser Page) - @oa-sdk/peer-transport"]
@@ -39,13 +39,15 @@ flowchart TD
 
   Agent -->|Streamable HTTP MCP| Cloud_Transit
   Mesh -->|Hydrated Tool Call| Cloud_Transit
-  Cloud_Transit <-->|In-Memory RPC Dispatch| WS_Relay
+  Cloud_Transit <-->|"alias 바인딩 In-Memory RPC Dispatch<br/>(RelayTransitBridge)"| WS_Relay
   HTTP_Bridge <-->|Peer Catalog Discovery| Agent
-  WS_Relay <-->|Duplex WebSocket Relay| Connector
+  WS_Relay <-->|"Duplex WebSocket Relay<br/>(provider ?alias=)"| Connector
   Connector <--> P2P_Chan
   P2P_Chan <--> Priority_Queue
   P2P_Chan <--> Local_Agent
 ```
+
+`Cloud_Transit ↔ WS_Relay` 경로는 `createPeerServer({ enableRelay: true, enableCloudTransit: true })`에서만 활성화됩니다. Provider(페이지 커넥터)가 릴레이 룸에 `alias=<피어 alias>` 쿼리를 붙여 접속하면 서버의 `RelayTransitBridge`가 그 룸의 client 측(가상 client)을 맡고, `/transit/:peer/mcp`·`/call`로 들어온 `tools/call`을 `mcp-jsonrpc` relay 패킷으로 provider에 전달한 뒤 provider의 JSON-RPC 응답으로 호출을 완료합니다. 같은 alias를 새 룸이 바인딩하면(예: 페이지 새로고침) 이전 룸은 `TRANSIT_ALIAS_REBOUND`로 종료됩니다. relay 프레임(`{type:'relay', packet}`)이 `MAX_RELAY_BYTES`를 넘는 호출은 그 호출만 `PAYLOAD_TOO_LARGE`로 실패하고(`/call`은 413, `/transit/:peer/mcp`는 `isError` 결과) provider의 relay 세션은 그대로 유지됩니다. 기본 `maxBodyBytes`(1 MiB)는 `MAX_RELAY_BYTES`와 같으므로 본문 상한에 가까운 인자는 relay 봉투 때문에 이 상한에 걸릴 수 있습니다. 프로세스 내부 provider는 `server.roomManager.setProviderSocket`/`handleProviderMessage`로 직접 연결할 수도 있습니다.
 
 ---
 
@@ -62,9 +64,9 @@ flowchart TD
 ### 2.2 `@oa-sdk/peer-server` (Node.js 22+ 및 Edge/Workers)
 - HTTP 피어 레지스트리, 랑데부 디스크립터, WebSocket 시그널링/패킷 중계, Cloud Transit 프록시를 제공합니다.
 - 서브패스:
-  - `@oa-sdk/peer-server`: `createPeerServer()`, `FilePeerStore`.
-  - `@oa-sdk/peer-server/relay`: `SignalingRoom` (7단계 FSM & 티켓 수락), `PeerRelayManager`, `attachWebSocketRelay`.
-  - `@oa-sdk/peer-server/cloud`: `CloudTransitProxy`, `handleCloudTransitWorker`, `createCloudTransitProxy`.
+  - `@oa-sdk/peer-server`: `createPeerServer()`, `FilePeerStore`, `RelayTransitBridge` (릴레이 provider ↔ Cloud Transit 바인딩).
+  - `@oa-sdk/peer-server/relay`: `SignalingRoom` (7단계 FSM & 티켓 수락), `PeerRelayManager`, `attachWebSocketRelay`, `MAX_SIGNAL_FRAMES`.
+  - `@oa-sdk/peer-server/cloud`: `CloudTransitProxy`, `handleCloudTransitHttpRequest`, `handleCloudTransitWorker`.
 
 ### 2.3 `@oa-sdk/webmcp-peer` (3-Tier 단일 통합 패키지 및 기능 의도 단위 모듈화)
 - 룸 기반 Streamable HTTP MCP 라우터(`/p/:id/mcp`), WebSocket 시그널링 데몬(`/p/:id/provider`, `/p/:id/client`), 브라우저 Provider, 외부 에이전트/CLI 세션 클라이언트를 **단일 패키지(`dependencies: {}`)**로 통합한 패키지입니다 (상세: [`packages/webmcp-peer/README.md`](../../packages/webmcp-peer/README.md)).
@@ -86,12 +88,12 @@ flowchart TD
     - `provider/peer-client.ts`: 브라우저/호스트 Provider 런타임, F5 리스 재점유, 승인 게이트, WebRTC DataChannel 프레이밍 (`WebMcpPeerClient`, `WebMcpHostAdapter`)
   - `@oa-sdk/webmcp-peer/server`:
     - `server/ws-upgrade.ts`: 무의존성 RFC 6455 WebSocket 핸드셰이크 및 프레이밍 (`upgradeWebSocket`)
-    - `server/durable-file.ts`: 프로세스 간 파일 잠금 및 `fsync` JSONL 헬퍼 (`withFileLockSync`, `appendDurableLineSync`, `readDurableJsonLinesSync`)
-    - `server/rate-limit.ts`: 슬라이딩 윈도우 룸 발행 속도 제한기 (`InMemoryPublishRateLimitStore`, `FilePublishRateLimitStore`, `SqlitePublishRateLimitStore`)
+    - `server/durable-file.ts`: 프로세스 간 파일 잠금 및 `fsync` JSONL 헬퍼 (`withFileLockSync`, `appendDurableLineSync`, `readDurableJsonLinesSync`, `truncateUnterminatedTailSync`). `readDurableJsonLinesSync(filePath, errorCode, schema, options)`는 모든 행을 행 스키마(`DurableJsonRowSchema`)로 검증하고, `ignoreUnterminatedTail: true`이면 개행으로 끝나지 않은 마지막 조각(완료되지 않은 append)을 건너뜁니다. `truncateUnterminatedTailSync(filePath)`는 마지막 개행 뒤에 남은 찢어진 마지막 행을 바이트 오프셋 기준으로 잘라 내고(앞선 행의 멀티바이트 UTF-8은 자르지 않음), 잘라 냈으면 `true`를 반환합니다. 이 함수는 잠금을 직접 잡지 않으므로 호출자가 반드시 `withFileLockSync` 안에서, 다음 append 전에 호출해야 합니다. 잠금 없이 호출하면 다른 프로세스가 그 순간 append 중인 행을 잘라 낼 수 있습니다.
+    - `server/rate-limit.ts`: 룸 발행(`POST /p`) 속도 제한기 (`InMemoryPublishRateLimitStore`, `FilePublishRateLimitStore`, `SqlitePublishRateLimitStore`, `createPublishRateLimitStoreFromEnv`). 세 저장소 모두 키별 **고정 윈도우**(키의 첫 요청 시각에 고정)이므로 윈도우 경계를 사이에 두고 최대 약 `2 × max`건이 통과할 수 있습니다. 버킷 키는 `원격 주소 + 발행 키 해시`(발행 키를 설정하지 않았으면 `anonymous`)이며, 발행 키 인증에 실패한 시도는 주소마다 하나의 `unauthenticated` 버킷을 공유합니다(틀린 키를 바꿔 가며 새 버킷을 얻을 수 없음).
     - `server/deployment-catalog.ts`: 콜드 스타트 배포 카탈로그 로더 (`loadDeploymentCatalog`, `hashDeploymentCatalog`)
-    - `server/server-config.ts`: CLI/환경변수/JSON 설정 해석 및 Origin/Host 보안 가드 (`resolvePeerServerConfig`, `isOriginAllowed`, `isHostAllowed`)
+    - `server/server-config.ts`: CLI/환경변수/JSON 설정 해석 및 Origin/Host 보안 가드 (`resolvePeerServerConfig`, `isOriginAllowed`, `isHostAllowed`). `resolvePeerServerConfig`를 직접 호출하면 `argv` 기본값은 `process.argv.slice(2)`이고, `.env.local`/`.env`를 `process.env`로 읽어 들입니다(`loadEnvFiles` 기본 `true`).
     - `server/ledger-stores.ts`: `AiRunLedger`용 파일 및 SQLite WAL 영속 저장소 (`FileAiRunLedgerStore`, `SqliteAiRunLedgerStore`)
-    - `server/peer-server.ts`: 룸 제어 평면, Streamable HTTP MCP 라우터 및 커스텀 훅 (`WebMcpPeerServer`, `createWebMcpPeerServer`)
+    - `server/peer-server.ts`: 룸 제어 평면, Streamable HTTP MCP 라우터 및 커스텀 훅 (`WebMcpPeerServer`, `createWebMcpPeerServer`). 임베드된 `WebMcpPeerServer`는 CLI 플래그를 명시적인 `argv` 옵션에서만 읽고(기본값 없음), `.env` 파일은 `loadEnvFiles: true`일 때만 로드합니다. 프로세스 환경 변수는 그대로 적용되며, CLI 진입점은 `argv: process.argv.slice(2)`로 옵트인합니다.
 
 ---
 
@@ -109,7 +111,7 @@ import { createPeerServer } from '@oa-sdk/peer-server'
 const peerServer = createPeerServer({
   port: 8787,
   hostname: '127.0.0.1',
-  enableRelay: true,          // WebSocket 시그널링 및 P2P 패킷 중계 활성화 (/ws)
+  enableRelay: true,          // WebSocket 시그널링 및 P2P 패킷 중계 활성화 (/p/:roomId/:role, /ws?room=&role=)
   enableCloudTransit: true,   // Streamable HTTP MCP 경유 엔드포인트 활성화 (/transit/:peer/mcp)
   allowedOrigins: ['http://localhost:5173', 'http://127.0.0.1:4173'],
 })
@@ -117,13 +119,13 @@ const peerServer = createPeerServer({
 const { port } = await peerServer.start()
 console.log(`[WebMCP Gateway] Listening at http://127.0.0.1:${port}`)
 console.log(`[WebMCP Gateway] Cloud Transit endpoint: http://127.0.0.1:${port}/transit/:peer/mcp`)
-console.log(`[WebMCP Gateway] WebSocket Relay endpoint: ws://127.0.0.1:${port}/ws`)
+console.log(`[WebMCP Gateway] WebSocket Relay endpoint: ws://127.0.0.1:${port}/p/:roomId/:role (룸은 POST /relay/rooms로 생성)`)
 ```
 
 ---
 
 ### [레시피 2] 브라우저 Page Connector 구현 (`src/integration/webmcp-connector.ts`)
-브라우저 애플리케이션이 로드될 때 게이트웨이의 WebSocket 릴레이에 연결하여 도구 포트를 개설합니다.
+브라우저 애플리케이션이 로드될 때 릴레이 룸을 만들고, provider 역할로 접속하면서 `alias`를 바인딩하여 Cloud Transit 호출을 받습니다. 릴레이 업그레이드는 룸 ID와 역할(`provider`/`client`)이 모두 필요하며(`/p/:roomId/:role` 또는 `/ws?room=:roomId&role=:role`), 둘 중 하나라도 없으면 `400`으로 거절됩니다. 어댑터에는 `role` 옵션이 없고 역할은 URL로 지정합니다.
 
 ```typescript
 // src/integration/webmcp-connector.ts
@@ -131,70 +133,74 @@ import { P2pTransportChannel } from '@oa-sdk/peer-transport'
 import { createWebSocketTransportAdapter } from '@oa-sdk/peer-transport/adapters'
 
 export interface PageConnectorOptions {
-  gatewayUrl: string // 예: 'ws://127.0.0.1:8787/ws'
-  roomId: string
-  clientTicket: string
+  gatewayUrl: string // 예: 'http://127.0.0.1:8787'
+  alias: string      // Cloud Transit에서 호출할 피어 alias (예: 'wireframe-storyboard')
   localAgent: {
-    listTools: () => Array<{ name: string; description?: string; inputSchema: object }>
+    listTools: () => Array<{ name: string; description?: string; inputSchema: Record<string, unknown> }>
     invoke: (name: string, input?: Record<string, unknown>) => Promise<unknown>
   }
 }
 
+interface ToolCallRequest {
+  id: number
+  method: string
+  params: { name: string; arguments?: Record<string, unknown> }
+}
+
 export async function attachPageToGateway(options: PageConnectorOptions) {
-  // 1. 브라우저용 3-채널 전송 레이어 생성
+  // 1. 릴레이 룸 생성 (publishKey가 설정된 게이트웨이는 X-Peer-Publish-Key 헤더가 필요)
+  const created = await fetch(`${options.gatewayUrl}/relay/rooms`, { method: 'POST' })
+  const { id: roomId, providerToken } = await created.json() as { id: string; providerToken: string }
+
+  // 2. 브라우저용 3-채널 전송 레이어 생성
   const channel = new P2pTransportChannel({
     peerId: 'browser-page-host',
-    alias: 'wireframe-storyboard',
-  })
-
-  // 2. 게이트웨이 WebSocket 릴레이 어댑터 바인딩
-  const adapter = createWebSocketTransportAdapter(channel, {
-    url: `${options.gatewayUrl}?room=${options.roomId}`,
-    tokenOrTicket: options.clientTicket,
-    role: 'provider', // 도구를 제공하는 Provider 역할
-    autoReconnect: true,
+    alias: options.alias,
   })
 
   // 3. mcp-jsonrpc 채널로 수신된 도구 호출 처리
+  //    어댑터는 릴레이의 'approved' 신호 전에 도착한 relay 패킷을 버리므로, 승인 전 호출은 여기에 도달하지 않습니다.
   channel.on('mcp-jsonrpc', async (packet) => {
-    const { id, method, params } = packet.payload
-
-    if (method === 'tools/list') {
-      const tools = options.localAgent.listTools()
+    const { id, method, params } = packet.payload as ToolCallRequest
+    if (method !== 'tools/call') return
+    try {
+      const toolResult = await options.localAgent.invoke(params.name, params.arguments)
+      await channel.send('mcp-jsonrpc', { jsonrpc: '2.0', id, result: toolResult })
+    } catch (err: unknown) {
+      // MCP 규약: 애플리케이션 레벨 실패는 isError: true 및 content 반환
       await channel.send('mcp-jsonrpc', {
         jsonrpc: '2.0',
         id,
-        result: { tools },
+        result: {
+          isError: true,
+          content: [{ type: 'text', text: err instanceof Error ? err.message : String(err) }],
+        },
       })
-      return
-    }
-
-    if (method === 'tools/call') {
-      try {
-        const toolResult = await options.localAgent.invoke(params.name, params.arguments)
-        await channel.send('mcp-jsonrpc', {
-          jsonrpc: '2.0',
-          id,
-          result: toolResult,
-        })
-      } catch (err: any) {
-        // MCP 규약: 애플리케이션 레벨 실패는 isError: true 및 content 반환
-        await channel.send('mcp-jsonrpc', {
-          jsonrpc: '2.0',
-          id,
-          result: {
-            isError: true,
-            content: [{ type: 'text', text: err?.message || String(err) }],
-          },
-        })
-      }
     }
   })
 
+  // 4. Provider 역할로 접속하며 alias를 Cloud Transit에 바인딩
+  const relayBase = options.gatewayUrl.replace(/^http/, 'ws')
+  const adapter = createWebSocketTransportAdapter(channel, {
+    url: `${relayBase}/p/${roomId}/provider?alias=${encodeURIComponent(options.alias)}`,
+    tokenOrTicket: providerToken,
+  })
+  // 'ready'(티켓 수락)에서 resolve되고, 이어지는 'approved'에서 채널이 개통되어 버퍼된 패킷이 플러시됩니다.
   await adapter.connect()
-  return { channel, adapter }
+
+  // 5. 도구 카탈로그 공지: Cloud Transit의 tools/list와 GET /tools가 이 카탈로그를 반환합니다.
+  await fetch(`${options.gatewayUrl}/announce`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ alias: options.alias, cachedTools: options.localAgent.listTools() }),
+  })
+
+  return { channel, adapter, roomId }
 }
 ```
+
+- `alias` 바인딩은 게이트웨이가 `enableRelay`와 `enableCloudTransit`을 모두 켰을 때만 허용되며, 아니면 업그레이드가 `400`으로 거절됩니다. 바인딩된 룸은 즉시 승인 상태가 되고 초대(`POST /p/:id/join`)는 `409 ROOM_BUSY`로 거절됩니다.
+- 실제 원격 client(에이전트)와 1:1로 중계할 때는 `alias` 없이 접속하고, `onSignal`에서 `request`를 받아 `sendSignal({ type: 'decision', requestId, allow: true, allowedTools: [...] })`로 승인합니다. 릴레이는 승인 전 relay 패킷을 `RELAY_NOT_APPROVED`로 거절하고, `allowedTools` 밖의 client `tools/call`은 provider에 전달하지 않고 JSON-RPC 오류(`-32602`, `TOOL_NOT_ALLOWED`)로 응답합니다.
 
 ---
 
@@ -221,7 +227,7 @@ const result = await client.callTool({
   args: { title: '01_사용자_온보딩_화면' },
 })
 
-if (result.status === 'ok') {
+if (result.status === 'success') {
   console.log('Page created successfully:', result.result)
 } else {
   console.error('Failed to create page in browser:', result.error)
@@ -235,10 +241,11 @@ if (result.status === 'ok') {
 
 ```typescript
 // agent-orchestrator.ts
-import { SkillRegistry, hydratePeerSession } from '@oa-sdk/mcp-mesh'
+import { SkillRegistry, MeshRouter } from '@oa-sdk/mcp-mesh'
 import { createCloudTransitClient } from '@oa-sdk/peer-transport/adapters'
 
 const registry = new SkillRegistry()
+const router = new MeshRouter(registry)
 
 // WST 브라우저 도구 수화
 const wstClient = createCloudTransitClient({
@@ -246,18 +253,20 @@ const wstClient = createCloudTransitClient({
   peerAlias: 'wireframe-storyboard',
 })
 
-await hydratePeerSession(
+// SkillRegistry#hydratePeerSession은 동기 메서드입니다. alias에서 정규 domain을 만들며
+// (-local/-cloud/-relay/-tab-N 등의 접미사는 제거), 도구 카탈로그는 피어 레코드의 cachedTools로 전달합니다.
+registry.hydratePeerSession(
   {
+    alias: 'wireframe-storyboard',
     id: 'wst-session-01',
-    domain: 'wireframe',
-    transport: 'cloud-transit',
+    status: 'connected',
+    cachedTools: await wstClient.listTools(),
   },
   wstClient,
-  { registry, prefix: 'wst' }
 )
 
-// 이제 LLM 에이전트는 'wst_storyboard_page_create' 형태로 도구를 조회하고 실행할 수 있습니다.
-const res = await registry.dispatch('wst_storyboard_page_create', { title: 'Home' })
+// 도구는 '{domain}__{tool}' 형태로 노출되며, 한 domain에만 있는 도구는 bare 이름으로도 호출할 수 있습니다.
+const res = await router.dispatchTool('wireframe-storyboard__storyboard_page_create', { title: 'Home' })
 ```
 
 ---
@@ -270,10 +279,10 @@ const res = await registry.dispatch('wst_storyboard_page_create', { title: 'Home
 [연결 단절 감지 (F5 등)]
          │
          ▼
-[송신 요청 큐 적재 (In-Memory Queue, bounded by maxQueuePerChannel)]
+[송신 요청 큐 적재 (In-Memory Queue, bounded by bufferLimit: 전 채널 합산, 기본 1000)]
          │
          ▼
-[WebSocket 재연결 수립 (setConnectionState('connected'))]
+[릴레이 재연결 및 'approved' 수신 (setConnectionState(true, sendHandler))]
          │
          ▼
 [엄격한 채널 우선순위 순차 플러시]
@@ -283,7 +292,14 @@ const res = await registry.dispatch('wst_storyboard_page_create', { title: 'Home
 ```
 
 - **데드라인 만료 처리**: 기본 5,000ms(`DEFAULT_PACKET_DEADLINE_MS`)를 초과한 패킷은 자동 폐기되어 메모리 누수를 방지합니다.
-- **큐 오버플로 방어**: 채널별 최대 큐 크기(`maxQueuePerChannel = 256`) 초과 시 `presence` $\to$ `crdt-delta` $\to$ `mcp-jsonrpc` 순으로 기존 패킷을 드롭하여 RPC 채널의 무결성을 최우선 보호합니다.
+- **큐 오버플로 방어**: 큐 한도는 채널별이 아니라 전 채널 합산 `bufferLimit` 하나입니다(`P2pChannelConfig.bufferLimit`, 기본 1000, 0~100000 정수, 0이면 버퍼링 끔). 버퍼된 패킷 총수가 한도에 이르면 `presence` $\to$ `crdt-delta` $\to$ `mcp-jsonrpc` 순으로 가장 오래된 패킷을 드롭하여 RPC 채널의 무결성을 최우선 보호합니다.
+
+### 4.1 릴레이 세션 수명
+
+- **티켓은 1회용**입니다. 소켓이 끊기면 룸이 종료되므로(`PEER_LEFT_BEFORE_HANDOFF`) 같은 티켓으로는 다시 붙을 수 없고, 새 룸을 만들어야 합니다. `WebSocketTransportAdapter`는 `closed`/`released` 신호나 1000·1008 종료 코드 뒤에는 재연결하지 않으며, 비정상 단절(예: 1006)에서만 `maxReconnectAttempts` 한도 안에서 재연결합니다. `disconnect()`/`dispose()` 뒤에는 재연결하지 않습니다.
+- **승인 전**: 룸 TTL(기본 5분, `DEFAULT_ROOM_TTL_MS`)이 적용됩니다.
+- **승인 후 시그널링**: offer/answer/release 프레임은 승인 시점부터 60초(`SIGNALING_WINDOW_MS`) 안에 끝나야 하며, 그 뒤에 도착한 시그널링 프레임은 룸 전체를 `ROOM_EXPIRED`로 종료합니다(양쪽 피어 모두 `{type:'closed'}`를 받습니다).
+- **승인 후 relay 패킷**: 별도 수명을 가집니다. 양방향 relay 프레임마다 갱신되는 유휴 한도(`relayIdleTimeoutMs`, 기본 5분, 0이면 끔)와 하드 한도(`relayMaxSessionMs`, 기본 24시간)를 넘으면 `RELAY_EXPIRED`로 종료됩니다. 장시간 유휴 세션은 `heartbeatIntervalMs`로 presence 하트비트를 보내 유지합니다. Cloud Transit에 바인딩된 룸에는 유휴 한도가 적용되지 않습니다(호출이 외부 에이전트에서 오기 때문). 두 값은 `createPeerServer`/`PeerRelayManager` 옵션으로 조정하며, 범위를 벗어난 값(`relayIdleTimeoutMs`는 0..2^31-1 정수, `relayMaxSessionMs`는 1..2^31-1 정수)은 룸 생성 시가 아니라 `createPeerServer`/`new PeerRelayManager` 호출 시점에 `RangeError`를 던집니다.
 
 ---
 
@@ -291,11 +307,12 @@ const res = await registry.dispatch('wst_storyboard_page_create', { title: 'Home
 
 | 위협 요소 | 방어 메커니즘 | 동작 규약 |
 | :--- | :--- | :--- |
-| **티켓 재전송 공격 (Ticket Replay)** | 48-hex 단일 사용 토큰(One-Time Token) | Provider 또는 Client가 이미 수락한 티켓으로 재접속 시도시 `409 ROOM_BUSY` 반환 및 연결 거절 |
-| **시그널링 플러딩 공격 (Signaling Flood)** | 세션당 최대 32 프레임 상한 (`MAX_SIGNAL_FRAMES`) | 32회를 초과하여 시그널링 메시지를 전송하는 소켓은 즉시 룸에서 퇴출 및 강제 종료 |
+| **티켓 재전송 공격 (Ticket Replay)** | 48-hex 단일 사용 토큰(One-Time Token) | 이미 사용된 초대 토큰으로 `POST /p/:id/join` 재시도 시 `409 ROOM_BUSY`; 이미 붙은 티켓으로 WebSocket 재접속 시 `{type:'closed'}`(`ALREADY_ATTACHED`/`WRONG_PHASE`/`NOT_FOUND`) 후 1008 종료 |
+| **시그널링 위조·플러딩 (Signaling Forgery/Flood)** | 릴레이 전용 신호 차단 + 룸당 최대 32 시그널링 프레임 (`MAX_SIGNAL_FRAMES`, `@oa-sdk/peer-server/relay`) | 피어가 보낸 `ready`/`request`/`approved`/`released`/`closed`는 전달하지 않고 `FORBIDDEN_SIGNAL`로 즉시 종료; 단계에 맞지 않는 프레임은 `WRONG_PHASE`로 종료; 32회를 넘는 시그널링 프레임은 `SIGNAL_LIMIT`로 종료 |
+| **승인 전 도구 호출** | 승인 게이트 + `allowedTools` | `approved` 전 relay 패킷은 `RELAY_NOT_APPROVED`로 거절; decision의 `allowedTools`는 `approved` 신호로 양측에 전달되고, 범위 밖 client `tools/call`은 JSON-RPC 오류로 응답 |
 | **대용량 페이로드 DoS** | 와이어 바이트 상한 검증 | 시그널링 메시지 64KB(`MAX_SIGNAL_BYTES`), 중계 릴레이 패킷 1MB(`MAX_RELAY_BYTES`) 초과 시 소켓 종료 |
 | **불법 교차 출처 공격** | `allowedOrigins` Origin 화이트리스트 | 허가되지 않은 도메인에서 브라우저 WebSocket 접속 시 핸드셰이크 단계에서 차단 |
-| **원격 무단 실행 방지** | Loopback 외부 `publishKey` 필수 강제 | 외부 인터페이스(`0.0.0.0`) 바인딩 시 `publishKey`가 없으면 서버 시작 거부 (Fail-Closed) |
+| **원격 무단 실행 방지** | Loopback 외부 `publishKey` 필수 강제 | 외부 인터페이스(`0.0.0.0`) 바인딩 시 `publishKey`가 없으면 서버 시작 거부 (Fail-Closed). `publishKey`는 `POST /p/:id/join`을 제외한 모든 HTTP 요청에 필요하며(초대 조인은 룸 초대 토큰이 자격), WebSocket 업그레이드는 룸 티켓으로 인가됩니다. 독립 실행 `handleCloudTransitHttpRequest`/`handleCloudTransitWorker`도 `publishKey`(401)와 `allowedOrigins`(403, 미설정 시 loopback 오리진만)를 강제합니다 |
 
 ---
 
@@ -304,16 +321,16 @@ const res = await registry.dispatch('wst_storyboard_page_create', { title: 'Home
 구현된 게이트웨이와 브라우저 어댑터의 동작 무결성을 모노레포 환경에서 검증합니다.
 
 ```bash
-# 1. peer-transport 3개 테스트 스위트 (34개 테스트)
+# 1. peer-transport 5개 테스트 스위트 (55개 테스트)
 pnpm --filter @oa-sdk/peer-transport test
 
-# 2. peer-server E2E 릴레이 라이프사이클 포함 5개 스위트 (36개 테스트)
+# 2. peer-server E2E 릴레이 라이프사이클 포함 8개 스위트 (74개 테스트)
 pnpm --filter @oa-sdk/peer-server test
 
 # 3. mcp-mesh 세션 수화 및 도메인 바인딩 (17개 테스트)
 pnpm --filter @oa-sdk/mcp-mesh test
 
-# 4. 전체 87개 테스트 동시 검증
+# 4. 전체 146개 테스트 동시 검증
 pnpm --filter @oa-sdk/peer-transport --filter @oa-sdk/peer-server --filter @oa-sdk/mcp-mesh test
 ```
 
@@ -324,14 +341,14 @@ pnpm --filter @oa-sdk/peer-transport --filter @oa-sdk/peer-server --filter @oa-s
 실제 프로덕션 환경 및 대규모 모노레포(예: `wireframe-storyboard-toolkit`, `scene-platform`)에 게이트웨이를 도입하는 과정에서 마주치기 쉬운 8대 함정과 구체적인 해결 패턴입니다.
 
 ### [Gotcha 1] `enableCloudTransit: true` 및 `enableRelay: true` 플래그 누락
-- **현상**: `createPeerServer({ port: 8787 })` 구동 후 `POST /transit/:peer/mcp` 호출 시 `404 Not Found` 또는 WebSocket `/ws` 접속 시 핸드셰이크 거절.
+- **현상**: `createPeerServer({ port: 8787 })` 구동 후 `POST /transit/:peer/mcp` 호출 시 `404 Not Found` 또는 WebSocket 릴레이(`/p/:roomId/:role`) 접속 시 핸드셰이크 실패.
 - **원인**: 보안상 기본값이 `false`로 설정되어 있어 명시적으로 켜지 않으면 라우트가 마운트되지 않습니다.
 - **해결책**:
   ```typescript
   // 올바른 설정
   const peerServer = createPeerServer({
     port: 8787,
-    enableRelay: true,          // WebSocket 시그널링 & 패킷 릴레이 (/ws)
+    enableRelay: true,          // WebSocket 시그널링 & 패킷 릴레이 (/p/:roomId/:role, /ws?room=&role=)
     enableCloudTransit: true,   // Cloud Transit 프록시 (/transit/:peer/mcp)
   })
   ```
@@ -340,7 +357,7 @@ pnpm --filter @oa-sdk/peer-transport --filter @oa-sdk/peer-server --filter @oa-s
 
 ### [Gotcha 2] 동적 에페머럴 포트(`port: 0`) 바인딩 시점 및 포트 획득
 - **현상**: 테스트나 다중 인스턴스 환경에서 `port: 0`을 전달했으나 `peerServer.port`가 여전히 `0`이라 클라이언트가 연결하지 못함 (`ECONNREFUSED`).
-- **원인**: 생성 시점에는 소켓 바인딩이 완료되지 않으며, `peerServer.port` 프로퍼티는 초기 요청 포트(0)를 보유합니다.
+- **원인**: 생성 시점에는 소켓 바인딩이 완료되지 않으며, `peerServer.port` 프로퍼티는 초기 요청 포트(0)를 보유합니다. 서버가 응답에 담는 URL(`/relay/rooms`의 `descriptorUrl`, `/p/:id/mcp`의 `signaling`)은 실제 바인딩된 포트를 사용합니다.
 - **해결책**:
   ```typescript
   // 반드시 await server.start()를 호출하고 반환된 port 또는 server.address().port를 사용

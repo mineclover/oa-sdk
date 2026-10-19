@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-13",
+  "updatedAt": "2026-10-19",
   "description": "Feature-to-test mapping for oa-sdk. Each feature lists representative automated coverage and the commands that maintain it.",
   "features": [
     {
@@ -84,7 +84,7 @@
       "name": "TypeSpec contract RPC procedures",
       "category": "projection",
       "package": "@oa-sdk/surface-ir, @oa-sdk/codegen, @oa-sdk/rpc",
-      "description": "RPC contract projection of OpenAPI operations (dotted procedure names, merged object input, HTTP binding, diagnostics), generated procedure types and contract module, and the typed client/server runtime over JSON-RPC 2.0 and the original REST routes.",
+      "description": "RPC contract projection of OpenAPI operations (dotted procedure names, merged object input, HTTP binding, diagnostics), generated procedure types and contract module, and the typed client/server runtime over JSON-RPC 2.0 and the original REST routes, including wire hardening: empty and dot-segment path values, responses JSON cannot represent, strict JSON-RPC response validation, cancellation, and binary values under Ajv.",
       "capabilities": [
         "buildRpcContract",
         "toRpcContract",
@@ -97,16 +97,22 @@
         "handleJsonRpc",
         "createJsonRpcFetchHandler",
         "createJsonRpcTransport",
-        "createAjvValidator"
+        "createAjvValidator",
+        "empty and dot-segment path value rejection",
+        "INTERNAL answers for results JSON cannot represent",
+        "strict JSON-RPC response validation",
+        "format: binary values under createAjvValidator"
       ],
       "testPaths": [
         "packages/surface-ir/test/rpc-contract.test.ts",
         "packages/rpc/test/rpc.test.ts",
+        "packages/rpc/test/wire-hardening.test.ts",
         "packages/codegen/src/__tests__/plugin/plugin-rpc.test.ts"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/surface-ir test",
         "pnpm --filter @oa-sdk/rpc test",
+        "pnpm --filter @oa-sdk/rpc typecheck",
         "pnpm --filter @oa-sdk/codegen test"
       ]
     },
@@ -114,23 +120,29 @@
       "id": "wire-binary-codecs",
       "name": "Binary wire codecs and wire RPC client",
       "category": "projection",
-      "package": "@oa-sdk/codegen",
-      "description": "Wire schema extraction, proto3 schema, Protobuf codecs wire-compatible with the emitted .proto (verified against protobufjs), MessagePack codecs, and the rpc-contract service client and handler contracts of pluginWire.",
+      "package": "@oa-sdk/codegen, @oa-sdk/typespec-decorators",
+      "description": "Wire schema extraction, proto3 schema, Protobuf codecs wire-compatible with the emitted .proto (verified against protobufjs), MessagePack codecs, the rpc-contract service client and handler contracts of pluginWire, TypeScript names that match types.ts, and the TypeSpec @protobuf/@field/@rpc/@wireFormat decorators that feed the wire model.",
       "capabilities": [
         "extractWireSchemaFromOas",
         "Proto3TargetAdapter",
         "ProtobufCodecTargetAdapter",
         "MessagePackTargetAdapter",
         "RpcContractTargetAdapter",
-        "pluginWire"
+        "pluginWire",
+        "emptyMessageName",
+        "types.ts-aligned wire TypeScript names",
+        "@field number validation and @rpc/@wireFormat interface propagation"
       ],
       "testPaths": [
         "packages/codegen/src/__tests__/wire-adapter/*.test.ts",
-        "packages/codegen/src/__tests__/plugin/plugin-wire.test.ts"
+        "packages/codegen/src/__tests__/plugin/plugin-wire.test.ts",
+        "packages/typespec-decorators/src/protobuf.test.ts",
+        "packages/typespec-decorators/src/protobuf.emitter.test.ts"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/codegen test",
-        "pnpm --filter @oa-sdk/codegen typecheck"
+        "pnpm --filter @oa-sdk/codegen typecheck",
+        "pnpm --filter @oa-sdk/typespec-decorators test"
       ]
     },
     {
@@ -1404,13 +1416,16 @@
       "name": "Router generation",
       "category": "runtime-generation",
       "package": "@oa-sdk/router",
-      "description": "OpenAPI to Hono/Express router stubs, typed response/body hints, security hints, webhooks, and edge cases.",
+      "description": "OpenAPI to Hono/Express router stubs, typed response/body hints, security hints, webhooks, response media type negotiation, null-body statuses, and edge cases.",
       "capabilities": [
         "Hono stubs",
         "Express stubs",
         "typed response helpers",
         "security hints",
-        "webhook stubs"
+        "webhook stubs",
+        "RFC 9110 Accept negotiation (negotiateResponseMediaType)",
+        "204/205/304 null-body responses in the Hono contract router",
+        "raw binary request bodies in legacy stubs"
       ],
       "testPaths": [
         "packages/router/src/__tests__/*.test.ts",
@@ -1426,13 +1441,14 @@
       "name": "Client SDK generation",
       "category": "runtime-generation",
       "package": "@oa-sdk/client",
-      "description": "OpenAPI to fetch client generation, middleware, withResponse helpers, SSE, NDJSON/SSE streaming, and execution checks.",
+      "description": "OpenAPI to fetch client generation, middleware, withResponse helpers, SSE, NDJSON/SSE streaming, the MessagePack binary codec, and execution checks.",
       "capabilities": [
         "fetch client generation",
         "middleware hooks",
         "typed headers",
         "SSE client",
-        "stream handling"
+        "stream handling",
+        "MessagePack codec (bigint, toJSON, strict decoding, own map keys)"
       ],
       "testPaths": [
         "packages/client/src/__tests__/*.test.ts",
@@ -1642,11 +1658,14 @@
       "name": "WebMCP peering, mesh, and collaborative workspace",
       "category": "downstream-security",
       "package": "@oa-sdk/peer-server, @oa-sdk/peer-transport, @oa-sdk/collab-workspace, @oa-sdk/mcp-mesh, @oa-sdk/tools",
-      "description": "Authenticated peer bridge and signaling, bounded packet transport, validated mesh routing, scoped CRDT editing, and MCP/HTTP tool boundaries.",
+      "description": "Authenticated peer bridge and signaling, relay approval gate and session limits, Cloud Transit access policy, bounded packet transport, validated mesh routing, scoped CRDT editing, and MCP/HTTP tool boundaries.",
       "capabilities": [
         "peer authentication and origin policy",
         "bounded request and packet processing",
         "peer RPC correlation and retry behavior",
+        "relay approval gate, allow-listed tools, and relay session limits",
+        "Cloud Transit publishKey/allowedOrigins policy and JSON-RPC tools/list",
+        "WebSocket transport adapter ready/approved lifecycle",
         "validated domain/session tool routing",
         "CRDT path and lock validation",
         "MCP and HTTP schema/auth boundaries"
@@ -1669,6 +1688,36 @@
         "pnpm --filter @oa-sdk/collab-workspace typecheck",
         "pnpm --filter @oa-sdk/mcp-mesh typecheck",
         "pnpm --filter @oa-sdk/tools typecheck"
+      ]
+    },
+    {
+      "id": "webmcp-peer-routing",
+      "name": "WebMCP peer room routing, browser provider, and agent client",
+      "category": "downstream-security",
+      "package": "@oa-sdk/webmcp-peer",
+      "description": "Three-tier peer MCP routing: the room router and WebSocket signaling/relay server, the browser provider, and the external agent client. Covers room leases, TTL bounds, rotation and revocation, the client approval gate and its restore on provider reattach, Streamable HTTP (/p/:id/mcp) and WebSocket (/p/:id/client) paths, catalog hash parity and drift fail-closed, MCP CallToolResult replies within the relay frame limit, reconnect backoff, publish rate limits, and durable AI run ledgers.",
+      "capabilities": [
+        "provider -> room router -> agent client routing (PeerMcpService)",
+        "room lease, TTL clamp, rotation, and session revocation",
+        "client approval gate and approval.restored replay on provider reattach",
+        "catalog hash parity between the relay, hashTools, and the live demo",
+        "catalog drift fail-closed (CATALOG_CHANGED, CATALOG_INVALID)",
+        "MCP Streamable HTTP protocol version negotiation",
+        "MCP CallToolResult replies and RESULT_TOO_LARGE",
+        "provider auto-reconnect backoff",
+        "forged signaling frame rejection",
+        "publish rate limiting",
+        "durable AI run ledger torn-row recovery",
+        "embedded server argv/.env opt-in"
+      ],
+      "testPaths": [
+        "packages/webmcp-peer/test/*.test.ts",
+        "packages/webmcp-peer/test/provider-fakes.ts",
+        "packages/webmcp-peer/test/server-test-helpers.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/webmcp-peer test",
+        "pnpm --filter @oa-sdk/webmcp-peer typecheck"
       ]
     },
     {
