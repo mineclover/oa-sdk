@@ -45,7 +45,13 @@ import {
   type PeerSocket,
 } from "./ws-upgrade.js";
 import { isBodyConsumedError, readBoundedBody, type BoundedBody } from "./http-body.js";
-import { PEER_RELAY_MAX_ANNOUNCEMENT_BYTES, PEER_RELAY_MAX_REQUEST_BYTES, utf8ByteLength } from "../config/limits.js";
+import {
+  PEER_RELAY_MAX_ANNOUNCEMENT_BYTES,
+  PEER_RELAY_MAX_PENDING_REQUESTS,
+  PEER_RELAY_MAX_REQUEST_BYTES,
+  PEER_RELAY_MAX_REQUEST_ID_BYTES,
+  utf8ByteLength,
+} from "../config/limits.js";
 
 /** Default upper bound for a room's `ttlMs` (24 hours); see `WebMcpPeerServerOptions.maxRoomTtlMs`. */
 const DEFAULT_MAX_ROOM_TTL_MS = 24 * 60 * 60 * 1000;
@@ -64,12 +70,13 @@ const MAX_JSON_BODY_BYTES = 64 * 1024;
  * answer to an offer fits beside its SDP. A longer one is refused up front (REQUEST_ID_TOO_LARGE)
  * rather than forwarded for an answer that could never be sent.
  */
-const MAX_RPC_ID_BYTES = 1024;
+const MAX_RPC_ID_BYTES = PEER_RELAY_MAX_REQUEST_ID_BYTES;
 /**
  * The most requests one agent WebSocket may have waiting at a time, for the provider or for the
- * agent to read their replies (see `AgentOutbox`).
+ * agent to read their replies (see `AgentOutbox`): PEER_RELAY_MAX_PENDING_REQUESTS, which the agent
+ * client keeps to by queueing its own requests.
  */
-const MAX_PENDING_REQUESTS_PER_SOCKET = 64;
+const MAX_PENDING_REQUESTS_PER_SOCKET = PEER_RELAY_MAX_PENDING_REQUESTS;
 /**
  * The most client WebSockets one client ticket holds open. Every socket of a room receives each
  * catalog announcement and notification, so this bounds what one agent can make the relay send. A

@@ -80,7 +80,7 @@
             <span class="card-title">실시간 MCP 도구 표면 (Dynamic Tool Surface)</span>
             <span id="provider-tool-count" class="badge purple">활성 도구 0개</span>
           </div>
-          <p class="hint">팩을 토글하면 Provider WebSocket이 <code>{ type: "register", tools }</code>를 즉시 전송하고, 서버가 catalogVersion/catalogHash를 갱신해 에이전트로 푸시합니다.</p>
+          <p class="hint">팩을 토글하면 Provider WebSocket이 <code>{ type: "register", registerSeq, tools }</code>를 즉시 전송하고, 서버가 catalogVersion/catalogHash를 갱신해 에이전트로 푸시합니다.</p>
           <div id="pack-grid" class="pack-grid"></div>
           <div class="row-inputs">
             <input type="text" id="custom-tool-name" aria-label="커스텀 도구 이름" value="custom_export_pdf" />

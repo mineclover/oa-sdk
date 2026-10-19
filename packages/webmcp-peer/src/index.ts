@@ -30,6 +30,7 @@ export {
   PEER_RELAY_MAX_REQUEST_BYTES,
   PEER_RELAY_MAX_CATALOG_BYTES,
   PEER_RELAY_MAX_ANNOUNCEMENT_BYTES,
+  PEER_RELAY_MAX_PENDING_REQUESTS,
   type WebMcpPeerConfigProfile,
   type CreatePeerConfigProfileOptions,
   type WebMcpParsedInvitationUrl,

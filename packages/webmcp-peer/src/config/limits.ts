@@ -45,6 +45,25 @@ export const PEER_RELAY_MAX_CATALOG_BYTES = PEER_RELAY_MAX_MESSAGE_BYTES - 4 * 1
  */
 export const PEER_RELAY_MAX_ANNOUNCEMENT_BYTES = PEER_RELAY_MAX_MESSAGE_BYTES - 2 * 1024;
 
+/**
+ * The longest identifier an agent may give the relay that its answer repeats, in UTF-8 bytes of
+ * the identifier's JSON text: a JSON-RPC request id, and an `offer`'s `requestId`. The relay refuses
+ * a longer one with REQUEST_ID_TOO_LARGE, without echoing it (a request is answered with id null),
+ * and `PeerMcpSession` refuses one before sending it over a relay socket. Internal to the package:
+ * the server and client tiers share it.
+ */
+export const PEER_RELAY_MAX_REQUEST_ID_BYTES = 1024;
+
+/**
+ * The most JSON-RPC requests one agent WebSocket may have in flight through the relay: waiting for
+ * the provider, or answered and waiting for the agent to read the answer. The relay refuses one more
+ * with TOO_MANY_PENDING_REQUESTS (-32087), so `PeerMcpSession` never sends one more: past this many
+ * unanswered requests on a relay socket, a request waits for an earlier one to be answered. A
+ * request the agent counts as in flight (sent and not yet answered) always includes every one the
+ * relay counts, so the agent's count reaching the limit is the earliest the relay's can.
+ */
+export const PEER_RELAY_MAX_PENDING_REQUESTS = 64;
+
 const utf8 = new TextEncoder();
 
 /** The UTF-8 byte length of a string, as the relay measures a message. */

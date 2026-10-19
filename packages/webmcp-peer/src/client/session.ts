@@ -5,6 +5,7 @@ import {
   parseJsonObject,
   readResponseText,
 } from "../config/json.js";
+import { PEER_RELAY_MAX_PENDING_REQUESTS } from "../config/limits.js";
 import {
   extractCatalogVersion,
   hashTools,
@@ -25,6 +26,7 @@ import {
 import {
   asCatalogVersion,
   asNonEmptyString,
+  assertWithinRelayIdLimit,
   createHttpTransport,
   createWebSocketTransport,
   normalizeServerUrl,
@@ -83,6 +85,13 @@ interface PendingRpcEntry {
   reject: (error: unknown) => void;
   timer: ReturnType<typeof setTimeout>;
   method: string;
+}
+
+/** A request waiting for a relay-socket slot (see `PeerMcpSession.#takeSlot`). */
+interface SlotWaiter {
+  grant: () => void;
+  reject: (error: unknown) => void;
+  timer: ReturnType<typeof setTimeout>;
 }
 
 /** First delay before a retryable refusal (e.g. PROVIDER_BUSY) is retried. */
@@ -517,6 +526,9 @@ export class PeerMcpSession {
       return;
     }
     if (isRpcResponse(rpc)) {
+      // The relay has answered, so it no longer counts the request, whether or not anyone still
+      // waits for the answer.
+      this.#releaseSlot(String(rpc.id));
       const pending = this.pending.get(String(rpc.id));
       if (!pending) return;
       this.pending.delete(String(rpc.id));
@@ -558,8 +570,19 @@ export class PeerMcpSession {
 
   /** Requests sleeping before a retry: not in `pending`, but ended by the same events. */
   readonly #retryWaits = new Set<{ timer: ReturnType<typeof setTimeout>; reject: (error: unknown) => void }>();
+  /**
+   * The ids of the requests holding a slot of the relay socket (see `#takeSlot`): sent and not yet
+   * answered by the relay, including requests whose caller stopped waiting at their timeout.
+   */
+  readonly #heldSlots = new Set<string>();
+  /** Requests waiting for a slot of the relay socket, oldest first. */
+  readonly #slotWaiters: SlotWaiter[] = [];
 
   #rejectPending(error: unknown): void {
+    // A request waiting for a slot ends with the same error; the requests holding one are ended
+    // below, with the connection that counted them.
+    for (const waiter of this.#slotWaiters.splice(0)) waiter.reject(error);
+    this.#heldSlots.clear();
     for (const pending of this.pending.values()) {
       clearTimeout(pending.timer);
       pending.reject(error);
@@ -571,6 +594,56 @@ export class PeerMcpSession {
       wait.reject(error);
     }
     this.#retryWaits.clear();
+  }
+
+  /**
+   * Takes a slot of the relay socket for request `id`, unless the transport is `raw` (the Streamable
+   * HTTP one, which answers each request on its own POST, so the relay bounds nothing per socket).
+   *
+   * The relay refuses a request past PEER_RELAY_MAX_PENDING_REQUESTS in flight on one agent
+   * WebSocket (TOO_MANY_PENDING_REQUESTS). It counts a request until it has answered it, which it
+   * always does (with the provider's reply or its own error, at the latest when its own request
+   * timeout passes), so a slot is held until the answer arrives: even after the caller stopped
+   * waiting at a shorter timeout, the relay may still count the request. Past that many, a request
+   * waits for a slot, behind every request already waiting, and is sent once an earlier one has been
+   * answered. The wait counts toward its timeout (`timeoutMs`), which ends it with REQUEST_TIMEOUT
+   * as for a request that was sent; whatever ends the pending requests (`disconnect()`, a transport
+   * error or close) ends it too. Returns a promise only when the request has to wait.
+   */
+  #takeSlot(method: string, id: string | number, timeoutMs: number): Promise<void> | undefined {
+    if (this.transport?.raw === true) return undefined;
+    const key = String(id);
+    if (this.#heldSlots.size < PEER_RELAY_MAX_PENDING_REQUESTS && this.#slotWaiters.length === 0) {
+      this.#heldSlots.add(key);
+      return undefined;
+    }
+    return new Promise<void>((resolve, reject) => {
+      const waiter: SlotWaiter = {
+        grant: () => {
+          clearTimeout(waiter.timer);
+          this.#heldSlots.add(key);
+          resolve();
+        },
+        reject: (error) => {
+          clearTimeout(waiter.timer);
+          reject(error);
+        },
+        timer: setTimeout(() => {
+          const index = this.#slotWaiters.indexOf(waiter);
+          if (index >= 0) this.#slotWaiters.splice(index, 1);
+          reject(new PeerMcpError(`Peer MCP request timed out: ${method}`, "REQUEST_TIMEOUT", { method, id }));
+        }, timeoutMs),
+      };
+      this.#slotWaiters.push(waiter);
+    });
+  }
+
+  /** Gives back the slot request `key` holds, if any, and lets the oldest waiting requests take the free ones. */
+  #releaseSlot(key: string): void {
+    if (!this.#heldSlots.delete(key)) return;
+    while (this.#heldSlots.size < PEER_RELAY_MAX_PENDING_REQUESTS && this.#slotWaiters.length > 0) {
+      this.#slotWaiters.shift()!.grant();
+    }
   }
 
   #waitBeforeRetry(delayMs: number): Promise<void> {
@@ -588,6 +661,12 @@ export class PeerMcpSession {
 
   /**
    * Sends one JSON-RPC request and resolves with its response.
+   *
+   * Over a relay socket at most PEER_RELAY_MAX_PENDING_REQUESTS requests are in flight at once, the
+   * relay's limit per agent WebSocket: a request past them waits, in order, until an earlier one has
+   * been answered, within its own timeout (see `#takeSlot`). Its id must be at most
+   * `PEER_RELAY_MAX_REQUEST_ID_BYTES` of JSON there (REQUEST_ID_TOO_LARGE), since the relay answers a
+   * longer one without it.
    *
    * A request the relay refuses as retryable (`data.retryable: true`, e.g. PROVIDER_BUSY while the
    * provider is not reading) reached nobody, so it is sent again with exponential backoff
@@ -628,12 +707,23 @@ export class PeerMcpSession {
     if (!this.transport || typeof this.transport.send !== "function") {
       throw new PeerMcpError("Peer transport is not connected", "NOT_CONNECTED");
     }
+    const deadline = Date.now() + timeoutMs;
+    if (this.transport.raw !== true) assertWithinRelayIdLimit(id);
+    const waitForSlot = this.#takeSlot(method, id, timeoutMs);
+    if (waitForSlot) {
+      await waitForSlot;
+      if (!this.transport || typeof this.transport.send !== "function") {
+        this.#releaseSlot(String(id));
+        throw new PeerMcpError("Peer transport is not connected", "NOT_CONNECTED");
+      }
+    }
+    const transport = this.transport;
     const rpc = { jsonrpc: "2.0", id, method, params };
     const promise = new Promise<PeerMcpRpcResponse>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(String(id));
         reject(new PeerMcpError(`Peer MCP request timed out: ${method}`, "REQUEST_TIMEOUT", { method, id }));
-      }, timeoutMs);
+      }, Math.max(1, deadline - Date.now()));
       this.pending.set(String(id), { resolve, reject, timer, method });
     });
     // The caller only gets this promise once the send below has finished, which for the HTTP
@@ -644,9 +734,11 @@ export class PeerMcpSession {
     promise.catch(() => {});
     try {
       const envelope: PeerMcpTransportMessage =
-        options.raw === true || this.transport.raw === true ? rpc : { type: "mcp", message: rpc };
-      await this.transport.send(envelope);
+        options.raw === true || transport.raw === true ? rpc : { type: "mcp", message: rpc };
+      await transport.send(envelope);
     } catch (error) {
+      // Nothing reached the relay, so it does not count the request.
+      this.#releaseSlot(String(id));
       const pending = this.pending.get(String(id));
       if (pending) {
         clearTimeout(pending.timer);

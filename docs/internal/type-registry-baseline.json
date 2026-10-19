@@ -68863,9 +68863,9 @@
         "kind": "class",
         "qualifiedName": "@oa-sdk/webmcp-peer:src/client/session.ts#PeerMcpSession",
         "runtime": "neutral",
-        "semanticHash": "4f9c1af67f93cacb43521e768b8ad2a4bf2cc403c2ce011cbe93f9f99f5fc778",
-        "shapeHash": "4b5b2e3d0ad9face9ffefaf1a40b32adaed94926eb7d53cf21f382e3a3452c24",
-        "syntaxHash": "1217e307ac84c2c1e739bcfb15d59e5208295519ef1cfafe1d2c25c3eb6df984"
+        "semanticHash": "5008ca8f39862c508f352f166d2b57e772e0982833d75110e56045f42b044fde",
+        "shapeHash": "709c9aae6e5468549c110fa69c3ebf0df442db1936fca4848e736621083555b9",
+        "syntaxHash": "fbc89f5990283a08fee907ce3dc193180bfbb5042a9833c2be3e9a14a46e8a84"
       },
       {
         "filePath": "packages/webmcp-peer/src/client/session.ts",
@@ -68886,6 +68886,16 @@
         "semanticHash": "f116d66fcbdf04e0d9538515d2f90b4fbb308c8a69f3b2e1b496fea544f58f7a",
         "shapeHash": "b21b906226a0bd83d49786e50416a99b8d4a921e6f83580b39d9933f0397247b",
         "syntaxHash": "894423d53fb6d1d3d3bf86fe810ad6411e7ae4dc3005f0efc488981f5da7042d"
+      },
+      {
+        "filePath": "packages/webmcp-peer/src/client/session.ts",
+        "identity": "packages/webmcp-peer/src/client/session.ts#src/client/session.ts#neutral#@oa-sdk/webmcp-peer:src/client/session.ts#SlotWaiter#interface",
+        "kind": "interface",
+        "qualifiedName": "@oa-sdk/webmcp-peer:src/client/session.ts#SlotWaiter",
+        "runtime": "neutral",
+        "semanticHash": "1b4a1321baec8ddfe29dbdfbec82057b53c0e80d8e7801fe83418c86c6a9f3b6",
+        "shapeHash": "6dd49f280cc61be5ae66b2e7deecd96d7789739fbadf5b819219c86a83927d8f",
+        "syntaxHash": "61b242afdca58330549af420fba286c84d1d5cbc6464650a21feda08f96f4a2c"
       },
       {
         "filePath": "packages/webmcp-peer/src/client/session.ts",
@@ -68916,6 +68926,16 @@
         "semanticHash": "6831c53b5a5b66435db0c45c0e13b48d02ca798e21ba7ef7e3c09c2134559eaa",
         "shapeHash": "e9fbf6600fd5489b308456f9e1b9926a9134a3a8279563c3207461d0244ab445",
         "syntaxHash": "4ed10a1187c71afbc55428707733c0171c468cd550035c4b64612cce9b982330"
+      },
+      {
+        "filePath": "packages/webmcp-peer/src/client/transport.ts",
+        "identity": "packages/webmcp-peer/src/client/transport.ts#src/client/transport.ts#neutral#@oa-sdk/webmcp-peer:src/client/transport.ts#assertWithinRelayIdLimit#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/webmcp-peer:src/client/transport.ts#assertWithinRelayIdLimit",
+        "runtime": "neutral",
+        "semanticHash": "f5c50fb072390f909f2c02436e629176e8b7cfa8616ad33e119e7338abd10931",
+        "shapeHash": "d264ce6d9d529ed7eafcb669e2bad57c9889a87d77d6f6589a3ed1b3192b4f54",
+        "syntaxHash": "4c1d4cf4310b633c76b35736d631793e9aa72997ce39a6e338916ff93b26fb17"
       },
       {
         "filePath": "packages/webmcp-peer/src/client/transport.ts",
@@ -71768,7 +71788,7 @@
         "syntaxHash": "72032187d0b6d97c3a4b7a1c122ce8d52ed6e1bc07732458e12e40e7ae190982"
       }
     ],
-    "digest": "02863b5ce0a1c586dd1ec8c019649adfee02a0f0d2b992aff2e37b26731c3f51",
+    "digest": "7ef911c994d1b9cc1c8b244333235a066ebfc97ca0495deb3701a8917e842438",
     "publicSurfaces": [
       {
         "exportKey": "./guards",
@@ -75678,6 +75698,7 @@
           "PEER_RELAY_MAX_ANNOUNCEMENT_BYTES:mixed",
           "PEER_RELAY_MAX_CATALOG_BYTES:mixed",
           "PEER_RELAY_MAX_MESSAGE_BYTES:mixed",
+          "PEER_RELAY_MAX_PENDING_REQUESTS:mixed",
           "PEER_RELAY_MAX_REQUEST_BYTES:mixed",
           "ParsePeerConfigResult:type",
           "ParsedPeerConfig:type",
@@ -75705,7 +75726,7 @@
           "stringifyPeerConfigProfile:mixed"
         ],
         "filePath": "packages/webmcp-peer/src/config.ts",
-        "hash": "5ecf33f1ce9bbc49e68d35a91c20e0906367952d15e4a864898e5855e6dba5b2",
+        "hash": "c1336a2c436393cd6b58f4a22e3425fe21ad6a34bd6722f273cdb5a400ae9cdd",
         "packageName": "@oa-sdk/webmcp-peer",
         "runtime": "neutral"
       },
@@ -75885,6 +75906,7 @@
           "PEER_RELAY_MAX_ANNOUNCEMENT_BYTES:mixed",
           "PEER_RELAY_MAX_CATALOG_BYTES:mixed",
           "PEER_RELAY_MAX_MESSAGE_BYTES:mixed",
+          "PEER_RELAY_MAX_PENDING_REQUESTS:mixed",
           "PEER_RELAY_MAX_REQUEST_BYTES:mixed",
           "PROTOCOL_VERSION:mixed",
           "ParsePeerConfigResult:type",
@@ -76008,7 +76030,7 @@
           "withFileLockSync:mixed"
         ],
         "filePath": "packages/webmcp-peer/src/index.ts",
-        "hash": "7bf932fbfb91c090e452c1c796825e91e886a094190efa8ca6d7a9b0dd6a146b",
+        "hash": "5e33824755b5a5d6b8ae8f6cf591b238e70329f4d8cdfc534fefe7701eef984b",
         "packageName": "@oa-sdk/webmcp-peer",
         "runtime": "neutral"
       }
@@ -84599,14 +84621,14 @@
       "role": "authority"
     },
     {
-      "contentHash": "38f562be08317bed3b473acc86f3d585da1bd58fa543a4a96df0c13db6473374",
+      "contentHash": "f0a1e93618da6a6b75aabfc0ff5d747fc1c8a8ed2678877b3a6e42097ef531a5",
       "filePath": "packages/webmcp-peer/src/client/session.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/webmcp-peer",
       "role": "authority"
     },
     {
-      "contentHash": "a1d22dccf231f29078bf92a7e20d1bae2e0269385d7426f2ab3045b298bbb9db",
+      "contentHash": "10ba394d7738a5bc84d0cf876b5132fa7a933c9673023c33a4c7f384d89d8f34",
       "filePath": "packages/webmcp-peer/src/client/transport.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/webmcp-peer",
@@ -84620,7 +84642,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "18ebc3edcb67b011695a942cb279c4fb8abb358fdbdc98a9ff8f80d33938bfd5",
+      "contentHash": "4d10e314c9c4f543f2988d87011e268a4bd1d7743810743b5391d5dedcf254db",
       "filePath": "packages/webmcp-peer/src/config.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/webmcp-peer",
@@ -84641,7 +84663,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "f562ac55c6dc02dc854f61f6a4a683e4ce0e18339ee3dfa3886b817ffb471a92",
+      "contentHash": "b15d1c7fb63b640a8695d227f3d567e69d10aaca327d6386269dd90790291043",
       "filePath": "packages/webmcp-peer/src/config/limits.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/webmcp-peer",
@@ -84669,7 +84691,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "a1646e6617e122dcfb66f5c5de8a104a5fec666d1a83c33749eb3a9ebc9c56d6",
+      "contentHash": "244a157a0d892bad7f88765694c7dd0973223d6a4c32e0019dcdd0a9c738c765",
       "filePath": "packages/webmcp-peer/src/index.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/webmcp-peer",
@@ -84767,7 +84789,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "e3076256c1be5f9a3d2447b5fec439ee38ae98cd8084d4b9c262f2fb3af97967",
+      "contentHash": "3e3a896d105ba35c75325d37df68022728bf82ddf5f920565bbf06cdf25f74f1",
       "filePath": "packages/webmcp-peer/src/server/peer-server.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/webmcp-peer",

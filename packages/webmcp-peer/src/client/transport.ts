@@ -1,5 +1,5 @@
 import { parseJsonObject, readResponseText } from "../config/json.js";
-import { PEER_RELAY_MAX_REQUEST_BYTES, utf8ByteLength } from "../config/limits.js";
+import { PEER_RELAY_MAX_REQUEST_BYTES, PEER_RELAY_MAX_REQUEST_ID_BYTES, utf8ByteLength } from "../config/limits.js";
 import { PeerMcpError } from "./errors.js";
 import {
   DEFAULT_SERVER_URL,
@@ -55,6 +55,23 @@ function assertWithinRelayLimit(serialized: string): void {
       `Peer MCP request is ${bytes} bytes, over the relay's ${PEER_RELAY_MAX_REQUEST_BYTES}-byte request limit`,
       "REQUEST_TOO_LARGE",
       { bytes, limitBytes: PEER_RELAY_MAX_REQUEST_BYTES },
+    );
+  }
+}
+
+/**
+ * Throws REQUEST_ID_TOO_LARGE for a request id whose JSON text is over the relay's id limit
+ * (`PEER_RELAY_MAX_REQUEST_ID_BYTES`). Over a relay socket the relay answers such a request with id
+ * null, which cannot be matched to the request, so it is refused before it is sent.
+ */
+export function assertWithinRelayIdLimit(id: string | number): void {
+  if (typeof id !== "string") return;
+  const bytes = utf8ByteLength(JSON.stringify(id));
+  if (bytes > PEER_RELAY_MAX_REQUEST_ID_BYTES) {
+    throw new PeerMcpError(
+      `Peer MCP request id is ${bytes} bytes of JSON, over the relay's ${PEER_RELAY_MAX_REQUEST_ID_BYTES}-byte id limit`,
+      "REQUEST_ID_TOO_LARGE",
+      { bytes, limitBytes: PEER_RELAY_MAX_REQUEST_ID_BYTES },
     );
   }
 }

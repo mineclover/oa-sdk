@@ -16,8 +16,16 @@ export function createHostProvider({ origin, host, alias = "live-demo-host", onE
     room: null, // { id, roomEpoch, providerToken, inviteToken, invitationUrl, inviteConsumed }
     connected: false,
     pendingApproval: null, // { requestId, sessionId, roomEpoch, clientLabel }
+    catalogRefusal: null, // why the relay refused the latest register frame, e.g. "CATALOG_INVALID: ..."
   };
   let ws = null;
+  /**
+   * The `registerSeq` of the latest register frame sent, as the SDK provider numbers them. The relay
+   * echoes it in a CATALOG_INVALID / CATALOG_TOO_LARGE refusal; it may answer a repeated frame from
+   * its last answer and never answers a frame the next one replaced while it waited, so the number,
+   * not the order of the answers, says which frame a refusal is for.
+   */
+  let registerSeq = 0;
 
   const wire = (route, title, payload, tone = "info") => onEvent({ type: "wire", route, title, payload, tone });
   const changed = () => onEvent({ type: "provider" });
@@ -30,9 +38,15 @@ export function createHostProvider({ origin, host, alias = "live-demo-host", onE
 
   /** Broadcasts the host's current tool surface; the relay re-hashes it and pushes list_changed. */
   function broadcastCatalog(reason) {
-    const frame = { type: "register", alias, tools: host.listTools() };
+    const frame = { type: "register", alias, registerSeq: registerSeq + 1, tools: host.listTools() };
     if (!send(frame)) return false;
-    wire("Tier 1 → Tier 2", `WS register · ${reason} (${frame.tools.length} tools)`, frame, "purple");
+    registerSeq = frame.registerSeq;
+    // A refusal of an earlier frame no longer describes the catalog on its way.
+    if (state.catalogRefusal !== null) {
+      state.catalogRefusal = null;
+      changed();
+    }
+    wire("Tier 1 → Tier 2", `WS register #${frame.registerSeq} · ${reason} (${frame.tools.length} tools)`, frame, "purple");
     return true;
   }
 
@@ -106,6 +120,21 @@ export function createHostProvider({ origin, host, alias = "live-demo-host", onE
         wire("Tier 2 → Tier 1", `WS room.rotated → ${String(frame.rotatedTo).slice(0, 10)}…`, frame, "warn");
         return;
       case "error":
+        if ((frame.message === "CATALOG_INVALID" || frame.message === "CATALOG_TOO_LARGE") && typeof frame.registerSeq === "number") {
+          // Only a refusal of the latest frame matters: the relay still serves its previous catalog.
+          const latest = frame.registerSeq === registerSeq;
+          if (latest) {
+            state.catalogRefusal = `${frame.message}: ${frame.reason ?? "the relay refused the tool catalog"}`;
+            changed();
+          }
+          wire(
+            "Tier 2 → Tier 1",
+            `WS ${frame.message} · register #${frame.registerSeq}${latest ? "" : ` (이미 #${registerSeq}로 대체됨, 무시)`}`,
+            frame,
+            latest ? "err" : "warn",
+          );
+          return;
+        }
         wire("Tier 2 → Tier 1", `WS error ${frame.message}`, frame, "err");
         return;
       case "mcp":
@@ -257,6 +286,7 @@ export function createHostProvider({ origin, host, alias = "live-demo-host", onE
   function reset() {
     close();
     state.room = null;
+    state.catalogRefusal = null;
     changed();
   }
 

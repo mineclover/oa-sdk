@@ -128,6 +128,46 @@ describe("live demo — catalog integrity", () => {
     expect(await computeCatalogHash(tampered)).not.toBe(server.catalogHash);
   });
 
+  it("numbers every register frame and matches a relay refusal to the latest one by its registerSeq", async () => {
+    const rig = await createRig();
+    await rig.provider.createRoom();
+    const roomId = rig.provider.state.room.id;
+    const hostToolNames = rig.host.listTools().map((tool: { name: string }) => tool.name);
+    // The relay holds the host surface once it has taken register #1.
+    let accepted = await roomCatalog(rig, roomId);
+    for (const deadline = Date.now() + 5000; ; accepted = await roomCatalog(rig, roomId)) {
+      if (accepted.tools.map((tool) => tool.name).join() === hostToolNames.join()) break;
+      if (Date.now() > deadline) throw new Error("the relay never took register #1");
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    const registers = () => rig.events.filter((event) => event.title?.startsWith("WS register #"));
+    const refusals = () => rig.events.filter((event) => event.title?.startsWith("WS CATALOG_INVALID"));
+    expect(registers().map((event) => event.title)).toEqual([expect.stringMatching(/^WS register #1 · /)]);
+
+    // A host surface that names one tool twice is refused, and the refusal names that frame.
+    const listTools = rig.host.listTools;
+    rig.host.listTools = () => {
+      const tools = listTools();
+      return [...tools, tools[0]];
+    };
+    expect(rig.provider.broadcastCatalog("duplicate")).toBe(true);
+    await waitUntil(() => refusals().length === 1, { label: "refusal of register #2" });
+    expect(refusals()[0]).toMatchObject({ title: "WS CATALOG_INVALID · register #2", tone: "err" });
+    expect(rig.provider.state.catalogRefusal).toMatch(/^CATALOG_INVALID: /);
+
+    // The same refused surface again, at once replaced by the valid one: the refusal that arrives
+    // after the valid frame was sent names the older frame and is ignored.
+    expect(rig.provider.broadcastCatalog("duplicate again")).toBe(true);
+    rig.host.listTools = listTools;
+    expect(rig.provider.broadcastCatalog("fixed")).toBe(true);
+    expect(rig.provider.state.catalogRefusal).toBeNull();
+    await waitUntil(() => refusals().length === 2, { label: "refusal of register #3" });
+    expect(refusals()[1]).toMatchObject({ title: "WS CATALOG_INVALID · register #3 (이미 #4로 대체됨, 무시)", tone: "warn" });
+    expect(rig.provider.state.catalogRefusal).toBeNull();
+    expect(registers().map((event) => event.title)).toEqual([1, 2, 3, 4].map((seq) => expect.stringMatching(new RegExp(`^WS register #${seq} · `))));
+    expect(await roomCatalog(rig, roomId)).toMatchObject({ catalogVersion: accepted.catalogVersion, catalogHash: accepted.catalogHash });
+  });
+
   it("blocks calls locally while the relay catalog hash is unverified", async () => {
     const rig = await createRig();
     await connectApproved(rig);
