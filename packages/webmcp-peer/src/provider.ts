@@ -1,6 +1,7 @@
 export {
   MCP_PROTOCOL_VERSION,
   MCP_PROTOCOL_VERSIONS,
+  MCP_INITIALIZE_PROTOCOL_VERSIONS,
   isUtcTimestamp,
   isCommitReceipt,
   type CommitReceipt,

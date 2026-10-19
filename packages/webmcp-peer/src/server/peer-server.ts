@@ -1,7 +1,7 @@
 import http, { type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { Duplex } from "node:stream";
-import { MCP_PROTOCOL_VERSION, MCP_PROTOCOL_VERSIONS } from "../provider/commit-receipt.js";
+import { MCP_INITIALIZE_PROTOCOL_VERSIONS } from "../provider/commit-receipt.js";
 import {
   loadDeploymentCatalog,
   normalizeToolCatalog,
@@ -33,6 +33,11 @@ import {
   upgradeWebSocket,
   type PeerSocket,
 } from "./ws-upgrade.js";
+
+// Request headers a browser may send cross-origin. The MCP ones are what browser-hosted Streamable
+// HTTP clients send after `initialize`; without them every such request fails its CORS preflight.
+const BROWSER_ALLOWED_REQUEST_HEADERS = 'Content-Type, Authorization, X-Requested-With, X-Publish-Key, X-Framebook-Owner, X-Owner-Id, MCP-Protocol-Version, Mcp-Method, Mcp-Name';
+const MCP_POST_MAX_BYTES = 150_000;
 
 export class WebMcpPeerServer {
   readonly server: Server;
@@ -256,13 +261,18 @@ export class WebMcpPeerServer {
   }
 
   /**
-   * MCP version negotiation: answer with the version the client requested when the relay supports
-   * it, otherwise with the latest supported version. Standard MCP clients (e.g. the official SDK)
-   * abort the handshake when the server answers with a version they do not know.
+   * MCP `initialize` version negotiation: answer with the requested version when it is an
+   * initialize-era revision the relay supports, otherwise with the newest one (2025-11-25). Standard
+   * MCP clients (e.g. the official SDK) abort the handshake when the server answers with a version
+   * they do not know, and 2026-07-28 has no `initialize` at all.
    */
   protected negotiateProtocolVersion(params: unknown): string {
     const requested = this.isRecord(params) && typeof params.protocolVersion === 'string' ? params.protocolVersion : undefined;
-    return requested && (MCP_PROTOCOL_VERSIONS as readonly string[]).includes(requested) ? requested : MCP_PROTOCOL_VERSION;
+    return requested && this.isInitializeProtocolVersion(requested) ? requested : MCP_INITIALIZE_PROTOCOL_VERSIONS[0];
+  }
+
+  protected isInitializeProtocolVersion(version: string): boolean {
+    return (MCP_INITIALIZE_PROTOCOL_VERSIONS as readonly string[]).includes(version);
   }
 
   /** True for an MCP client asking for an SSE stream (Accept lists text/event-stream but not JSON). */
@@ -445,7 +455,7 @@ export class WebMcpPeerServer {
         const headers: Record<string, string> = { ...cacheHeaders, 'Content-Length': '0' };
         if (origin && isAllowed) {
           headers['Access-Control-Allow-Origin'] = origin;
-          headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, X-Publish-Key, X-Framebook-Owner, X-Owner-Id';
+          headers['Access-Control-Allow-Headers'] = BROWSER_ALLOWED_REQUEST_HEADERS;
         }
         res.writeHead(304, headers);
         res.end();
@@ -486,19 +496,24 @@ export class WebMcpPeerServer {
   }
 
   public sendJson(res: ServerResponse, status: number, body: unknown, origin?: string, extraHeaders?: Record<string, string>): void {
-    const isAllowed = this.isOriginAllowed(origin);
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-store',
-    };
-    if (origin && isAllowed) {
+    res.writeHead(status, this.responseHeaders(origin, { 'Content-Type': 'application/json', ...extraHeaders }));
+    res.end(JSON.stringify(body));
+  }
+
+  /** 202 Accepted for a JSON-RPC notification. Streamable HTTP requires an empty body. */
+  protected sendAccepted(res: ServerResponse, origin?: string, extraHeaders?: Record<string, string>): void {
+    res.writeHead(202, this.responseHeaders(origin, extraHeaders));
+    res.end();
+  }
+
+  protected responseHeaders(origin: string | undefined, extraHeaders?: Record<string, string>): Record<string, string> {
+    const headers: Record<string, string> = { 'Cache-Control': 'no-store' };
+    if (origin && this.isOriginAllowed(origin)) {
       headers['Access-Control-Allow-Origin'] = origin;
-      headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, X-Publish-Key, X-Framebook-Owner, X-Owner-Id';
+      headers['Access-Control-Allow-Headers'] = BROWSER_ALLOWED_REQUEST_HEADERS;
       headers['Vary'] = 'Origin';
     }
-    if (extraHeaders) Object.assign(headers, extraHeaders);
-    res.writeHead(status, headers);
-    res.end(JSON.stringify(body));
+    return extraHeaders ? Object.assign(headers, extraHeaders) : headers;
   }
 
   public constantTimeTokenEqual(left: string, right: string): boolean {
@@ -804,7 +819,7 @@ export class WebMcpPeerServer {
       res.writeHead(204, {
         'Access-Control-Allow-Origin': allowOrigin,
         'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, X-Publish-Key, X-Framebook-Owner, X-Owner-Id',
+        'Access-Control-Allow-Headers': BROWSER_ALLOWED_REQUEST_HEADERS,
         'Access-Control-Max-Age': '86400',
         Vary: 'Origin',
       });
@@ -1010,6 +1025,11 @@ export class WebMcpPeerServer {
       this.sendJson(res, 405, { jsonrpc: '2.0', id: null, error: { code: -32000, message: 'SSE_STREAM_NOT_SUPPORTED' } }, origin, { Allow: 'POST' });
       return;
     }
+    if (req.method === 'DELETE' && mcpMatch) {
+      // The relay issues no Mcp-Session-Id, so there is no session to terminate (Streamable HTTP: 405).
+      this.sendJson(res, 405, { jsonrpc: '2.0', id: null, error: { code: -32000, message: 'SESSION_TERMINATION_NOT_SUPPORTED' } }, origin, { Allow: 'GET, POST' });
+      return;
+    }
     if (req.method === 'GET' && mcpMatch) {
       const roomId = mcpMatch[1];
       const entry = this.rooms.get(roomId);
@@ -1073,17 +1093,37 @@ export class WebMcpPeerServer {
       const roomId = mcpMatch[1];
       const entry = this.rooms.get(roomId);
       const chunks: Buffer[] = [];
+      let received = 0;
       for await (const chunk of req) {
         chunks.push(chunk as Buffer);
-        if (Buffer.concat(chunks).length > 150_000) break;
+        received += (chunk as Buffer).length;
+        if (received > MCP_POST_MAX_BYTES) break;
+      }
+      if (received > MCP_POST_MAX_BYTES) {
+        // The unread rest of the body leaves the connection unusable, so it must not be kept alive.
+        this.sendJson(res, 413, { jsonrpc: '2.0', id: null, error: { code: -32600, message: 'REQUEST_TOO_LARGE', data: { maxBytes: MCP_POST_MAX_BYTES } } }, origin, { Connection: 'close' });
+        return;
       }
       let rpc: unknown;
       try { rpc = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch {
         this.sendJson(res, 400, { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'PARSE_ERROR' } }, origin);
         return;
       }
-      if (!this.isRpcRequest(rpc)) {
+      // MCP request ids must be a string or a number; a message without an id is a notification.
+      if (!this.isRpcRequest(rpc) || rpc.id === null) {
         this.sendJson(res, 400, { jsonrpc: '2.0', id: null, error: { code: -32600, message: 'INVALID_REQUEST' } }, origin);
+        return;
+      }
+      // After `initialize`, Streamable HTTP clients send the negotiated version on every request.
+      // An unsupported one is 400 (2025-11-25); a missing header is accepted. A 2026-07-28 client
+      // probing first gets this 400 and falls back to `initialize`.
+      const requestedVersion = req.headers['mcp-protocol-version'];
+      if (rpc.method !== 'initialize' && requestedVersion !== undefined
+        && (typeof requestedVersion !== 'string' || !this.isInitializeProtocolVersion(requestedVersion.trim()))) {
+        this.sendJson(res, 400, {
+          jsonrpc: '2.0', id: rpc.id ?? null,
+          error: { code: -32600, message: 'UNSUPPORTED_PROTOCOL_VERSION', data: { supported: MCP_INITIALIZE_PROTOCOL_VERSIONS, requested: requestedVersion } },
+        }, origin);
         return;
       }
       const id = rpc.id ?? null;
@@ -1122,7 +1162,10 @@ export class WebMcpPeerServer {
           jsonrpc: '2.0', id,
           result: {
             protocolVersion: this.negotiateProtocolVersion(rpc.params),
-            capabilities: { tools: { listChanged: true }, stateless: true },
+            // This endpoint has no server-to-client stream, so it never sends
+            // notifications/tools/list_changed (catalog changes reach WebSocket clients and surface
+            // here as CATALOG_CHANGED errors).
+            capabilities: { tools: { listChanged: false }, stateless: true },
             serverInfo: { name: this.serverName, version: this.serverVersion },
             tools: snapshot.tools,
             _meta: {
@@ -1153,8 +1196,7 @@ export class WebMcpPeerServer {
         return;
       }
       if (rpc.method === 'notifications/initialized') {
-        this.sendJson(res, 202, { jsonrpc: '2.0', id: null, result: {} }, origin,
-          this.mcpPostMetadataHeaders(snapshot.catalogVersion, snapshot.catalogHash));
+        this.sendAccepted(res, origin, this.mcpPostMetadataHeaders(snapshot.catalogVersion, snapshot.catalogHash));
         return;
       }
       if (rpc.method === 'server/discover') {
@@ -1231,9 +1273,10 @@ export class WebMcpPeerServer {
         this.sendJson(res, 503, { jsonrpc: '2.0', id, error: { code: -32001, message: 'PROVIDER_UNAVAILABLE' } }, origin);
         return;
       }
+      // A null id was rejected above, so here it means the message had no id: a notification.
       if (id === null) {
         entry.providerSocket.send({ type: 'mcp', message: rpc });
-        this.sendJson(res, 202, { jsonrpc: '2.0', id: null, result: {} }, origin);
+        this.sendAccepted(res, origin);
         return;
       }
       const wireId = this.allocateWireId(entry, id);
