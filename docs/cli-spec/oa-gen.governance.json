@@ -2240,7 +2240,7 @@
               "json",
               "human"
             ],
-            "schema": "oa-sdk.interface-sketch.v1"
+            "schema": "oa-sdk.interface-sketch-ir.v2"
           }
         ],
         "exitPolicy": {

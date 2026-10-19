@@ -1574,7 +1574,7 @@ export const oaGenGovernanceManifest = {
         ],
         checks: [],
         reports: [
-          { formats: ['json', 'human'], schema: 'oa-sdk.interface-sketch.v1' },
+          { formats: ['json', 'human'], schema: 'oa-sdk.interface-sketch-ir.v2' },
         ],
         exitPolicy: {
           success: ['APPROVE'],

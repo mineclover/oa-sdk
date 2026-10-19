@@ -1,12 +1,14 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { parse as parseYaml } from 'yaml'
-import type { OasDocument } from '@oa-sdk/parser'
-import type { OaManifest } from '../../routing/index.js'
 import type { SpecTraceQuery } from '../../traceability/index.js'
+import {
+  buildSpecProvenanceMapSchema,
+  SpecTraceManifestSchema,
+  TraceOpenApiDocumentSchema,
+} from '../../traceability/trace-inputs.js'
 import { bool, optStr, str } from '../lib/args.js'
 import { CliExitError } from '../lib/errors.js'
-import { parseBuildSpecProvenanceMap } from '../lib/provenance-report.js'
 import type { Command } from '../lib/types.js'
 
 export const trace: Command = {
@@ -88,23 +90,21 @@ export const trace: Command = {
     const specArg = str(args, 'spec')
     const specPath = resolve(root, specArg)
     const rawSpecText = readFileSync(specPath, 'utf-8')
-    const parsedSpec = (
-      specPath.endsWith('.json') ? JSON.parse(rawSpecText) : parseYaml(rawSpecText)
-    ) as OasDocument
+    const parsedSpec = specPath.endsWith('.json')
+      ? TraceOpenApiDocumentSchema.parse(JSON.parse(rawSpecText))
+      : TraceOpenApiDocumentSchema.parse(parseYaml(rawSpecText))
 
     const typespecRootArg = optStr(args, 'typespec-root')
     const provenanceArg = optStr(args, 'provenance')
     const manifestArg = optStr(args, 'manifest')
 
-    const provenanceMap = provenanceArg
-      ? parseBuildSpecProvenanceMap(
-          JSON.parse(readFileSync(resolve(root, provenanceArg), 'utf-8')),
-          resolve(root, provenanceArg),
-        )
+    const provenancePath = provenanceArg ? resolve(root, provenanceArg) : undefined
+    const provenanceMap = provenancePath
+      ? buildSpecProvenanceMapSchema(provenancePath).parse(JSON.parse(readFileSync(provenancePath, 'utf-8')))
       : undefined
 
     const manifest = manifestArg
-      ? (JSON.parse(readFileSync(resolve(root, manifestArg), 'utf-8')) as OaManifest)
+      ? SpecTraceManifestSchema.parse(JSON.parse(readFileSync(resolve(root, manifestArg), 'utf-8')))
       : undefined
 
     const graph = buildSpecTraceabilityGraph({

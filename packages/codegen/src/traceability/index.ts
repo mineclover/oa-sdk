@@ -29,3 +29,5 @@ export type {
   SpecTraceQuery,
   SpecImpactAnalysis,
 } from './spec-traceability.js'
+
+export type { SpecTraceManifest } from './trace-inputs.js'

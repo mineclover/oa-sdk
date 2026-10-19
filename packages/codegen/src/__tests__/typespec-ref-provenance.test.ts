@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { OasDocument } from '@oa-sdk/parser'
 import { createTypeSpecCompatibilitySidecarFromEntries } from '../cli/lib/typespec-sidecar.js'
 import { buildTypeSpecRefProvenance, type TypeSpecRefProvenanceEdge } from '../cli/lib/typespec-ref-provenance.js'
+import { buildSpecTraceabilityGraph } from '../traceability/index.js'
 
 const workspaces: string[] = []
 
@@ -349,11 +350,80 @@ namespace Demo {
     expect(result.report.valid).toBe(true)
     expect(result.artifact.declarations).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'model:main.tsp:User', kind: 'model', symbol: 'User' }),
-      expect.objectContaining({ id: 'operation:main.tsp:list', kind: 'operation', symbol: 'list' }),
+      expect.objectContaining({ id: 'operation:main.tsp:UsersApi.list', kind: 'operation', symbol: 'list' }),
     ]))
     expect(result.artifact.edges).toEqual(expect.arrayContaining([
       expect.objectContaining({ kind: 'emits', declarationId: 'model:main.tsp:User', outputPointer: '#/components/schemas/User' }),
-      expect.objectContaining({ kind: 'emits', declarationId: 'operation:main.tsp:list', outputPointer: '#/paths/~1users/get' }),
+      expect.objectContaining({ kind: 'emits', declarationId: 'operation:main.tsp:UsersApi.list', outputPointer: '#/paths/~1users/get' }),
+    ]))
+  })
+
+  it('keeps same-named operations of different interfaces apart, down to their trace source lines', () => {
+    const sourceRoot = makeSource(`namespace Demo;
+model User { id: string; }
+model Order { id: string; }
+
+@route("/users")
+interface Users {
+  @get list(): User[];
+}
+
+@route("/orders")
+interface Orders {
+  @get list(): Order[];
+}
+`)
+    const listOf = (operationId: string, schema: string) => ({
+      get: {
+        operationId,
+        responses: {
+          '200': {
+            description: 'ok',
+            content: { 'application/json': { schema: { type: 'array', items: { $ref: `#/components/schemas/${schema}` } } } },
+          },
+        },
+      },
+    })
+    const restored = document({
+      paths: { '/users': listOf('Users_list', 'User'), '/orders': listOf('Orders_list', 'Order') },
+      components: { schemas: { User: { type: 'object' }, Order: { type: 'object' } } },
+    })
+    const result = buildTypeSpecRefProvenance({
+      sourceRoot,
+      restoredDocument: restored,
+      sidecar: createTypeSpecCompatibilitySidecarFromEntries([]),
+    })
+
+    expect(result.report.valid).toBe(true)
+    const operationIds = result.artifact.declarations.filter(declaration => declaration.kind === 'operation').map(declaration => declaration.id)
+    expect(operationIds).toEqual(['operation:main.tsp:Orders.list', 'operation:main.tsp:Users.list'])
+    expect(result.artifact.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'emits', declarationId: 'operation:main.tsp:Users.list', outputPointer: '#/paths/~1users/get' }),
+      expect.objectContaining({ kind: 'emits', declarationId: 'operation:main.tsp:Orders.list', outputPointer: '#/paths/~1orders/get' }),
+    ]))
+
+    const graph = buildSpecTraceabilityGraph({ spec: restored, typespecProvenance: result.artifact })
+    expect(graph.nodes['#/paths/~1users/get']?.source).toMatchObject({ origin: 'typespec-ast', filePath: 'main.tsp', line: 7 })
+    expect(graph.nodes['#/paths/~1orders/get']?.source).toMatchObject({ origin: 'typespec-ast', filePath: 'main.tsp', line: 12 })
+  })
+
+  it('reports declarations that share an id instead of letting one overwrite the other', () => {
+    const sourceRoot = makeSource(`namespace A {
+  model User { id: string; }
+}
+namespace B {
+  model User { name: string; }
+}
+`)
+    const result = buildTypeSpecRefProvenance({
+      sourceRoot,
+      restoredDocument: document({ components: { schemas: { User: { type: 'object' } } } }),
+      sidecar: createTypeSpecCompatibilitySidecarFromEntries([]),
+    })
+
+    expect(result.report.valid).toBe(false)
+    expect(result.report.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'typespec-provenance/duplicate-declaration-id', pointer: 'model:main.tsp:User' }),
     ]))
   })
 })
