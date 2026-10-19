@@ -1,10 +1,10 @@
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, isAbsolute, resolve } from 'node:path'
+import { dirname, isAbsolute, relative, resolve, sep } from 'node:path'
 import { formatGeneratedTs } from '@oa-sdk/core'
 import type { OasDocument } from '@oa-sdk/parser'
 import type { Program } from '@typespec/compiler'
-import { compileTypeSpecInMemory } from './compiler.js'
+import { absolutizeTspInput, compileTypeSpecInMemory } from './compiler.js'
 import { validateTspConfig } from './config.js'
 import { createPluginContext } from './context.js'
 import { sortPluginEntries } from './sorter.js'
@@ -20,8 +20,13 @@ export interface RunTspPluginPipelineOptions {
   cwd?: string | undefined
   /** Pre-compiled or in-memory OpenAPI document override */
   document?: OasDocument | undefined
-  /** Pre-compiled or in-memory TypeSpec Program AST override */
+  /** Pre-compiled or in-memory TypeSpec Program AST override (used together with `document`) */
   program?: Program | unknown | undefined
+  /**
+   * Previous TypeSpec program, passed to the compiler as an incremental-compilation hint.
+   * Unlike `document`, it never replaces compilation: the input is always recompiled.
+   */
+  oldProgram?: Program | undefined
 }
 
 export interface TspPipelineResult {
@@ -57,19 +62,38 @@ function countDocumentRoutes(document: OasDocument): number {
   return count
 }
 
-function isSafeToClean(targetDir: string, rootDir: string): boolean {
-  const normTarget = resolve(targetDir)
-  const normRoot = resolve(rootDir)
-  const normTmp = resolve(tmpdir())
-  if (normTarget === '/' || normTarget === normRoot || normTarget === normTmp) return false
-  return (
-    normTarget.startsWith(normRoot + '/') ||
-    normTarget.startsWith(normTmp + '/') ||
-    normTarget.includes('dist') ||
-    normTarget.includes('generated') ||
-    normTarget.includes('tmp') ||
-    normTarget.includes('temp')
-  )
+function realPath(path: string): string {
+  const absolute = resolve(path)
+  try {
+    return realpathSync(absolute)
+  } catch {
+    // Not on disk (yet): resolve the closest existing ancestor so symlinked roots (macOS /var -> /private/var) compare equal.
+    const parent = dirname(absolute)
+    return parent === absolute ? absolute : resolve(realPath(parent), relative(parent, absolute))
+  }
+}
+
+/** Whether `child` is strictly inside `parent` (not equal to it, not outside it). */
+function isStrictDescendant(child: string, parent: string): boolean {
+  const rel = relative(parent, child)
+  return rel !== '' && rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel)
+}
+
+/**
+ * The output directory is removed recursively only when it lies strictly inside the working
+ * directory or the OS temp directory, is not the working directory or one of its ancestors,
+ * and neither is nor contains the TypeSpec entrypoint (a .tsp file or a project directory).
+ */
+function isSafeToClean(targetDir: string, rootDir: string, entrypoint: string): boolean {
+  const target = realPath(targetDir)
+  const root = realPath(rootDir)
+  if (!isStrictDescendant(target, root) && !isStrictDescendant(target, realPath(tmpdir()))) {
+    return false
+  }
+  if (target === root || isStrictDescendant(root, target)) return false
+  // Never wipe the directory that holds the TypeSpec sources (the entrypoint may be a project directory).
+  const source = realPath(entrypoint)
+  return source !== target && !isStrictDescendant(source, target)
 }
 
 /**
@@ -100,37 +124,17 @@ export async function runTspPluginPipeline(
   let entrypoint: string
   let routesCount: number
 
+  const input = absolutizeTspInput(config.input, cwd)
+
   if (options?.document) {
     document = options.document
     program = options.program
-    entrypoint = typeof config.input === 'string'
-      ? (isAbsolute(config.input) ? config.input : resolve(cwd, config.input))
-      : resolve(
-          config.input.tspDir
-            ? (isAbsolute(config.input.tspDir) ? config.input.tspDir : resolve(cwd, config.input.tspDir))
-            : cwd,
-          config.input.entrypoint,
-        )
+    entrypoint = typeof input === 'string' ? input : input.entrypoint
     routesCount = countDocumentRoutes(document)
   } else {
-    const input: TspConfig['input'] = typeof config.input === 'string'
-      ? (isAbsolute(config.input) ? config.input : resolve(cwd, config.input))
-      : {
-          ...config.input,
-          entrypoint: isAbsolute(config.input.entrypoint)
-            ? config.input.entrypoint
-            : resolve(
-                config.input.tspDir
-                  ? (isAbsolute(config.input.tspDir) ? config.input.tspDir : resolve(cwd, config.input.tspDir))
-                  : cwd,
-                config.input.entrypoint,
-              ),
-          tspDir: config.input.tspDir
-            ? (isAbsolute(config.input.tspDir) ? config.input.tspDir : resolve(cwd, config.input.tspDir))
-            : undefined,
-        }
     const compileResult = await compileTypeSpecInMemory(input, {
       openApiVersion: config.openApiVersion,
+      oldProgram: options?.oldProgram,
     })
     document = compileResult.document
     program = compileResult.program
@@ -178,8 +182,19 @@ export async function runTspPluginPipeline(
   const files = context.getFiles()
 
   if (!config.dryRun) {
-    if (config.clean && existsSync(outputDir) && isSafeToClean(outputDir, cwd)) {
-      rmSync(outputDir, { recursive: true, force: true })
+    if (config.clean && existsSync(outputDir)) {
+      if (isSafeToClean(outputDir, cwd, entrypoint)) {
+        rmSync(outputDir, { recursive: true, force: true })
+      } else {
+        context.reportDiagnostic({
+          code: 'TSP_CLEAN_SKIPPED',
+          severity: 'warning',
+          file: outputDir,
+          message: `Did not clean output directory ${outputDir}: clean only removes a directory strictly inside `
+            + `the working directory (${cwd}) or the OS temp directory that does not contain the TypeSpec sources. `
+            + 'Stale files are left in place; set clean: false to silence this warning.',
+        })
+      }
     }
 
     if (!existsSync(outputDir)) {

@@ -1,8 +1,26 @@
 import {
   type TspConfig,
   type TspConfigInput,
+  type TspPlugin,
+  type TspPluginEntry,
   TspConfigValidationError,
 } from './types.js'
+
+function isTspPlugin(value: unknown): value is TspPlugin<unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    && 'name' in value && typeof value.name === 'string'
+}
+
+/**
+ * Whether a value is a usable plugin list entry: a plugin object (with a string `name`),
+ * a `[plugin, options]` tuple, or a falsy placeholder (`false`, `null`, `undefined`).
+ * Anything else is ignored by the pipeline.
+ */
+export function isTspPluginEntry(value: unknown): value is TspPluginEntry {
+  if (value === false || value === null || value === undefined) return true
+  if (Array.isArray(value)) return value.length >= 1 && value.length <= 2 && isTspPlugin(value[0])
+  return isTspPlugin(value)
+}
 
 /**
  * Type-safe configuration helper for TypeSpec SSOT builds.
@@ -88,7 +106,9 @@ export function validateTspConfig(raw: unknown): TspConfig {
     output: normalizedOutput,
     outputDir: normalizedOutput,
     openApiVersion: (config.openApiVersion as '3.0.0' | '3.1.0' | '3.2.0' | undefined) ?? '3.2.0',
-    plugins: (config.plugins as any[]) ?? [],
+    // Entries that are neither plugins, [plugin, options] tuples nor falsy placeholders are ignored
+    // (the sorter would skip them as well); falsy placeholders are kept and skipped by the sorter.
+    plugins: Array.isArray(config.plugins) ? config.plugins.filter(isTspPluginEntry) : [],
     dryRun: Boolean(config.dryRun),
     clean: config.clean !== undefined ? Boolean(config.clean) : true,
     format: config.format !== undefined ? Boolean(config.format) : true,

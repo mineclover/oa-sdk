@@ -271,11 +271,11 @@ const builder = createTspBuilder('./api/main.tsp', {
 builder
   .use(pluginTypescript({ output: 'types.ts', typeGuards: true }))
   .use(pluginClient({ output: 'client.ts', httpClient: 'fetch' }))
-  .use(pluginTanstackQuery({ output: 'queries.ts', split: false }))
+  .use(pluginTanstackQuery({ output: 'queries.ts', split: false })) // queries.ts + the api-client.ts adapter
   .use(pluginRouter({ target: 'hono', output: 'router.ts' }))
   .use(pluginWire({ codecs: ['protobuf', 'msgpack'] }));
 
-// 3. Programmatic introspection (in-memory cached, <5ms)
+// 3. Programmatic introspection (compiled in memory once; later calls return the cached report)
 const report = await builder.introspect();
 console.log(`Routes: ${report.routesCount}, Models: ${report.models.length}`);
 
@@ -286,15 +286,59 @@ const result = await builder.build({
 });
 ```
 
+The generated TanStack Query options and hooks do not call `client.ts` directly: they take an
+operation-method client. Because `pluginClient` runs in the same pipeline, `pluginTanstackQuery`
+also emits `api-client.ts`, which `queries.ts` (and `hooks.ts` with `split: true`) import. It
+exports an `ApiClient` interface and a `createApiClient(client?)` factory whose methods forward to
+the matching `pluginClient` functions; without an argument each call uses the SDK's current default
+client. Wrap a client from `createClient(...)` and pass it to the options or hooks:
+
+```typescript
+import { QueryClient } from '@tanstack/react-query';
+import { createClient } from './src/generated/client.js';
+import { ApiClientResponseError, createApiClient } from './src/generated/api-client.js';
+// TanStack names come from the full operationId: Pets_getPetById gives petsGetPetByIdQueryOptions
+import { petsGetPetByIdQueryOptions } from './src/generated/queries.js';
+
+const apiClient = createApiClient(createClient({ baseUrl: 'https://api.example.com' }));
+const queryClient = new QueryClient();
+
+try {
+  const pet = await queryClient.fetchQuery(petsGetPetByIdQueryOptions(apiClient, { petId: 'p1' }));
+  console.log(pet);
+} catch (error) {
+  if (error instanceof ApiClientResponseError) console.error(error.status, error.body);
+}
+```
+
+Each adapter method calls its SDK function with `throwOnError: false` and resolves to the 2xx
+payload. The value a query or mutation rejects with matches the error type (`TError`) the generated
+code declares:
+
+- A failed response whose status the operation declares an `application/json` error model for (an
+  explicit 4xx/5xx response, or `default` for the statuses no other response covers) rejects with
+  the parsed error body. The generated code types the error as `<Operation>Error`, the union of
+  those models.
+- Every other failed response rejects with `ApiClientResponseError` (`status`, parsed `body`,
+  `response`): an undeclared status, a `4XX`/`5XX` range response, an empty body (with either
+  transport), and any failure of an operation that declares no error models, whose `TError` is
+  `Error`. Where the operation does declare error models, this class is not part of
+  `<Operation>Error` (nor are network errors and aborts), so narrow with `instanceof` first.
+
+`pluginTanstackQuery({ clientName })` renames the interface, the factory and the error class
+(`<clientName>`, `create<clientName>`, `<clientName>ResponseError`). Set `clientFile` to use a
+hand-written operation-method client instead of the adapter, or `clientAdapter: false` to emit no
+adapter.
+
 ### Multi-Target Plugin Matrix
 
 | Plugin | Dependencies | Default Output | Description |
 | --- | --- | --- | --- |
-| `pluginTypescript` | None | `types.ts`, `guards.ts` | TypeScript DTO models, enums (`union`/`ts`/`js`), JSDoc docstrings, and standalone zero-eval type guards |
-| `pluginClient` (`pluginSdk`) | `typescript` | `client.ts` | openapi-ts calling convention `{ path, query, body, headers }`, `{ data, error, response }` discriminated union, status-based `isErrorStatus(res, 404)` narrowing, and tree-shakeable functional endpoints |
-| `pluginTanstackQuery` | `typescript`, `client` | `queries.ts` | TanStack Query v5 3-Tier architecture: Tier 1 Keys (`*Keys`), Tier 2 Options (`queryOptions`), Tier 3 Hooks (`use*Query`) |
+| `pluginTypescript` | None | `types.ts` (`guards.ts` with `typeGuards: true`) | TypeScript DTO models, enums (`union`/`typescript`/`javascript`), JSDoc docstrings, and standalone zero-eval type guards |
+| `pluginClient` (`pluginSdk`) | `typescript` | `client.ts` | openapi-ts calling convention `{ path, query, body, headers }`, `{ data, error, response }` discriminated union, status-based `isErrorStatus(res, 404)` narrowing, and tree-shakeable functional endpoints. A short name that cannot be declared falls back to the full operationId name (`Pets_delete` exports only `petsDelete`), and a full name that cannot be declared gets a `_` suffix (root-level `delete` becomes `delete_`) |
+| `pluginTanstackQuery` | `typescript`, `client` | `queries.ts`, `api-client.ts` (`split: true`: `keys.ts`, `queries.ts`, `hooks.ts`, `api-client.ts`) | TanStack Query v5 3-Tier architecture: Tier 1 Keys (`*Keys`), Tier 2 Options (`*QueryOptions`, `*MutationOptions`, `*InfiniteQueryOptions`), Tier 3 Hooks (`use*Query`, `use*Mutation`). The options and hooks take the `ApiClient` of the generated `api-client.ts` adapter over `pluginClient` (`createApiClient(createClient(...))`); queries and mutations reject with the declared error body or an `ApiClientResponseError` |
 | `pluginRouter` | `typescript` | `api.contract.ts`, `router.ts` | Framework-independent handler contracts (`HandlerResponse<TSuccess, TErrorMap>`) and router adapters for Hono, Express, Fastify (JIT inline schema), and Bun Elysia (zero-copy) |
-| `pluginWire` | `typescript` | `wire.ts`, `schema.proto` | Zero-eval CSP-safe Protobuf and MessagePack binary codecs, Protocol Buffers v3 `.proto` schemas, and dynamic MIME negotiation (`resolveBinaryCodec`) |
+| `pluginWire` | `typescript` | `wire.ts` (`schema.proto` with the `proto3` codec) | Zero-eval CSP-safe Protobuf and MessagePack binary codecs, Protocol Buffers v3 `.proto` schemas, and dynamic MIME negotiation (`resolveBinaryCodec`) |
 
 ### Vite Integration (`vitePluginTsp`)
 
