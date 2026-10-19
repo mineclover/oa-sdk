@@ -9,7 +9,7 @@ import { dirname, join } from 'node:path'
 import { homedir } from 'node:os'
 import type { PeerStoreData } from './types.js'
 import type { WebMcpPeerRecord } from '@oa-sdk/peer-transport'
-import { PeerRecordError, isPlainRecord, parsePeerRecord } from './peer-record.js'
+import { PeerRecordError, isPlainRecord, isSafeAlias, parsePeerRecord } from './peer-record.js'
 
 const MAX_STORE_BYTES = 16 * 1024 * 1024
 const MAX_PEERS = 10_000
@@ -140,6 +140,4 @@ export class FilePeerStore {
   }
 }
 
-export function isSafeAlias(alias: unknown): alias is string {
-  return typeof alias === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(alias)
-}
+export { isSafeAlias }

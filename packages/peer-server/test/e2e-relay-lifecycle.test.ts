@@ -348,7 +348,7 @@ describe('WebMCP Relay & Cloud Transit — Comprehensive Integration & Resilienc
       expect(body.error).toBe('ROOM_BUSY')
     })
 
-    it('enforces frame limits against signaling frame floods', async () => {
+    it('cuts a signaling flood off at its first forged frame', async () => {
       activeServer = createPeerServer({ port: 0, enableRelay: true })
       const { port } = await activeServer.start()
       const { room, providerToken, inviteToken } = await activeServer.relayManager!.createRoom()
@@ -379,15 +379,18 @@ describe('WebMCP Relay & Cloud Transit — Comprehensive Integration & Resilienc
         closedReason = reason.toString('utf8')
       })
 
-      // Send signals with matching requestId until frame limit (>32) is reached
+      // 'approved' is issued by the relay only. A peer that floods it is closed
+      // at the first frame; nothing is forwarded, so the flood never reaches
+      // MAX_SIGNAL_FRAMES (that limit is covered by the SignalingRoom unit test).
       for (let i = 0; i < 35; i++) {
         try {
-          ws.send(JSON.stringify({ type: 'decision', requestId, allow: true }))
+          ws.send(JSON.stringify({ type: 'approved', requestId }))
         } catch {}
       }
 
       await expect.poll(() => closedReason.length > 0).toBe(true)
-      expect(closedReason.includes('SIGNAL_LIMIT') || closedReason.includes('WRONG_PHASE')).toBe(true)
+      expect(closedReason).toBe('FORBIDDEN_SIGNAL')
+      expect(activeServer.relayManager!.getRoom(room.state.id)).toBeUndefined()
       ws.terminate()
     })
   })

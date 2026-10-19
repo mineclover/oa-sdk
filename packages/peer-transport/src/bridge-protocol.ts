@@ -63,7 +63,8 @@ export function isSafeToolName(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0 && value.length <= 256 && !CONTROL_CHARACTERS.test(value)
 }
 
-function parseCachedTool(value: unknown): CachedTool | undefined {
+/** One tool catalog entry, or `undefined` when it has no safe name. Optional members of the wrong type are dropped. */
+export function parseCachedTool(value: unknown): CachedTool | undefined {
   if (!isRecord(value) || !isSafeToolName(value.name)) return undefined
   return {
     name: value.name,

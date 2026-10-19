@@ -170,6 +170,24 @@ export const PeerAnnouncementSchema: RequestSchema<PeerAnnouncement> = {
   },
 }
 
+/** A validated `POST /p/:roomId/join` body. */
+export interface JoinRequest {
+  clientLabel: string
+  /** The invitation, when the client sends it in the body instead of `Authorization: Bearer`. */
+  inviteToken: string | undefined
+}
+
+/** `POST /p/:roomId/join`. Both members are optional; the room checks the label and the invitation. */
+export const JoinRequestSchema: RequestSchema<JoinRequest> = {
+  parse(value) {
+    if (!isPlainRecord(value)) throw new RequestError(400, 'Join payload must be an object')
+    const { clientLabel, inviteToken } = value
+    if (clientLabel !== undefined && typeof clientLabel !== 'string') throw new RequestError(400, 'Invalid clientLabel')
+    if (inviteToken !== undefined && typeof inviteToken !== 'string') throw new RequestError(400, 'Invalid inviteToken')
+    return { clientLabel: clientLabel ?? 'client', inviteToken }
+  },
+}
+
 export type JsonRpcId = string | number | null
 
 export type HomeMcpRequest =

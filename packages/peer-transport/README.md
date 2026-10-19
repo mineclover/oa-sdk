@@ -9,8 +9,8 @@ Node.js 22 이상 및 브라우저 환경을 지원합니다.
 
 - `WebMcpBridgeClient`: 로컬 HTTP bridge의 상태, peer catalog, 도구 호출을 처리하며 읽기 작업은 로컬 peer store로 fallback할 수 있습니다.
 - `P2pTransportChannel`: `mcp-jsonrpc`, `crdt-delta`, `presence` 3개 채널을 다중화(multiplexing)하고, 연결 단절 시 메모리 버퍼링 및 재연결 후 우선순위 기반 플러시를 수행합니다.
-- `WebSocketTransportAdapter` (`@oa-sdk/peer-transport/adapters`): `P2pTransportChannel`을 WebSocket 릴레이 서버에 연결하는 호스트 어댑터로, 자동 재연결 및 릴레이 패킷 unboxing을 제공합니다.
-- `CloudTransitClient` (`@oa-sdk/peer-transport/adapters`): Cloud Transit Proxy(`/transit/:peer/mcp`)를 경유하여 방화벽/NAT 너머의 브라우저 또는 로컬 데몬 도구를 호출하는 클라이언트입니다.
+- `WebSocketTransportAdapter` (`@oa-sdk/peer-transport/adapters`): `P2pTransportChannel`을 WebSocket 릴레이 서버에 연결하는 호스트 어댑터로, 릴레이 패킷 unboxing과 비정상 단절 시 자동 재연결을 제공합니다. `connect()`는 릴레이가 티켓을 수락한 `ready`에서 resolve(거절·조기 종료 시 reject)되고, 채널은 세션이 `approved`된 뒤에만 연결 상태가 되어 승인 전 버퍼된 패킷이 그때 플러시됩니다. 승인 전 수신된 relay 패킷은 버립니다. 티켓은 1회용이므로 `closed`/`released` 신호, 1000·1008 종료, `disconnect()`/`dispose()` 뒤에는 재연결하지 않습니다.
+- `CloudTransitClient` (`@oa-sdk/peer-transport/adapters`): Cloud Transit Proxy(`/transit/:peer/mcp`)를 경유하여 방화벽/NAT 너머의 브라우저 또는 로컬 데몬 도구를 호출하는 클라이언트입니다. `callTool`과 `listTools`는 모두 JSON-RPC(`tools/call`, `tools/list`) POST이므로 `createPeerServer`, 독립 실행 `handleCloudTransitHttpRequest`, `handleCloudTransitWorker` 모두와 동작하며, 타임아웃(`timeoutMs`)과 `signal` 취소를 지원합니다(`TOOL_CALL_TIMEOUT`/`TOOL_CALL_CANCELLED`, 이미 취소된 signal은 요청을 보내지 않음).
 - `relay-protocol`: WebMCP signaling wire protocol, `SignalMessage` discriminated union, SDP 검증기 (`validateSdp`), byte bounds (`MAX_SIGNAL_BYTES = 64KB`, `MAX_RELAY_BYTES = 1MB`)를 포함합니다.
 
 ## 사용법
@@ -35,11 +35,21 @@ const result = await client.callTool({
 
 ### 2. WebSocket Transport Adapter (중계 전송)
 
+`@oa-sdk/peer-server` 릴레이는 룸 ID와 역할이 모두 있는 업그레이드만 받습니다: `ws://host:8787/p/<roomId>/<provider|client>` 또는 `ws://host:8787/ws?room=<roomId>&role=<provider|client>`. 룸은 `POST /relay/rooms`(→ `{ id, providerToken, inviteToken }`)로 만들고, provider는 `providerToken`으로, client는 `POST /p/<id>/join`(`Authorization: Bearer <inviteToken>`)이 돌려준 `clientToken`으로 접속합니다.
+
 ```typescript
 import {
   P2pTransportChannel,
   createWebSocketTransportAdapter,
 } from '@oa-sdk/peer-transport'
+
+// 초대 토큰으로 룸에 조인하여 client 티켓을 받습니다.
+const joined = await fetch(`http://127.0.0.1:8787/p/${roomId}/join`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${inviteToken}` },
+  body: JSON.stringify({ clientLabel: 'Agent CLI' }),
+})
+const { clientToken } = await joined.json()
 
 const channel = new P2pTransportChannel({
   peerId: 'client-01',
@@ -47,13 +57,14 @@ const channel = new P2pTransportChannel({
 })
 
 const adapter = createWebSocketTransportAdapter(channel, {
-  url: 'ws://127.0.0.1:8787/ws',
+  url: `ws://127.0.0.1:8787/p/${roomId}/client`,
   tokenOrTicket: clientToken,
 })
 
-await adapter.connect()
+await adapter.connect() // 릴레이가 티켓을 수락하면(ready) resolve
 
-// 패킷 전송 (직접 DataChannel이 없더라도 릴레이를 통해 전달)
+// 패킷 전송 (직접 DataChannel이 없더라도 릴레이를 통해 전달).
+// provider가 승인(approved)하기 전에는 채널 버퍼에 보관되었다가 승인 시 플러시됩니다.
 await channel.send('mcp-jsonrpc', {
   jsonrpc: '2.0',
   id: 1,

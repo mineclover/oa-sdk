@@ -51,6 +51,53 @@ describe('relay-protocol & adapters', () => {
       })
       expect(() => parseSignalMessage(hugeRelay)).toThrow('RELAY_PAYLOAD_TOO_LARGE')
     })
+
+    it('decides the 64 KiB signal cap by the parsed type, not by the frame text', () => {
+      // A control signal over 64 KiB stays too large even with a nested {"type":"relay"} member.
+      const disguised = JSON.stringify({ type: 'closed', reason: 'x'.repeat(70 * 1024), pad: { type: 'relay' } })
+      expect(() => parseSignalMessage(disguised)).toThrow('SIGNAL_TOO_LARGE')
+
+      // A relay frame between 64 KiB and 1 MiB is accepted however it is formatted.
+      const pretty = JSON.stringify({ type: 'relay', packet: { channel: 'presence', payload: 'y'.repeat(70 * 1024) } }, null, 1)
+      expect(pretty).not.toContain('"type":"relay"')
+      const relay = parseSignalMessage(pretty)
+      expect(relay.type).toBe('relay')
+    })
+
+    it('rebuilds envelopes from their validated members', () => {
+      const closed = parseSignalMessage(JSON.stringify({ type: 'closed', reason: 'DONE', pad: { type: 'relay' } }))
+      expect(closed).toEqual({ type: 'closed', reason: 'DONE' })
+
+      const approved = parseSignalMessage(JSON.stringify({ type: 'approved', requestId: 'r1', allowedTools: ['echo'], extra: 1 }))
+      expect(approved).toEqual({ type: 'approved', requestId: 'r1', allowedTools: ['echo'] })
+
+      expect(() => parseSignalMessage(JSON.stringify({ type: 'decision', requestId: 'r1', allow: true, allowedTools: 'echo' })))
+        .toThrow('BAD_ALLOWED_TOOLS')
+      expect(() => parseSignalMessage(JSON.stringify({ type: 'decision', requestId: 'r1', allow: true, allowedTools: [1] })))
+        .toThrow('BAD_ALLOWED_TOOLS')
+      expect(() => parseSignalMessage(JSON.stringify({ type: 'relay', packet: { channel: 'audio', payload: {} } })))
+        .toThrow('BAD_RELAY_PACKET')
+      expect(() => parseSignalMessage(JSON.stringify({ type: 'relay', packet: { channel: 'presence', payload: {}, seq: '1' } })))
+        .toThrow('BAD_RELAY_PACKET')
+    })
+
+    it('parses frames and measures packets without Node Buffer (browser runtimes)', async () => {
+      const channel = new P2pTransportChannel({ peerId: 'browser-1', alias: 'browser' })
+      const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'Buffer')
+      Reflect.deleteProperty(globalThis, 'Buffer')
+      try {
+        expect(typeof (globalThis as { Buffer?: unknown }).Buffer).toBe('undefined')
+        const relay = parseSignalMessage(JSON.stringify({ type: 'relay', packet: { channel: 'presence', payload: { 'ü': '한글' } } }))
+        expect(relay.type).toBe('relay')
+        expect(() => parseSignalMessage(JSON.stringify({ type: 'ready', role: 'provider', roomId: '가'.repeat(22 * 1024), requestId: null })))
+          .toThrow('SIGNAL_TOO_LARGE')
+        await expect(channel.send('presence', { cursor: 1 })).resolves.toBe(false)
+        expect(channel.bufferedCount).toBe(1)
+      } finally {
+        if (descriptor) Object.defineProperty(globalThis, 'Buffer', descriptor)
+        channel.dispose()
+      }
+    })
   })
 
   describe('2. validateSdp', () => {
@@ -101,14 +148,15 @@ describe('relay-protocol & adapters', () => {
       static CLOSED = 3
       readyState = MockWebSocket.OPEN
       sentMessages: string[] = []
-      onopen: (() => void) | null = null
       onmessage: ((event: { data: string }) => void) | null = null
       onclose: (() => void) | null = null
       onerror: ((event: unknown) => void) | null = null
 
       constructor(public url: string, public protocols?: string[]) {
+        // A relay accepts the ticket (`ready`) and then the session is approved.
         setTimeout(() => {
-          this.onopen?.()
+          this.onmessage?.({ data: JSON.stringify({ type: 'ready', role: 'client', roomId: 'room-1', requestId: 'req-1' }) })
+          this.onmessage?.({ data: JSON.stringify({ type: 'approved', requestId: 'req-1' }) })
         }, 10)
       }
 
@@ -179,16 +227,13 @@ describe('relay-protocol & adapters', () => {
 
   describe('5. CloudTransitClient', () => {
     it('executes tool call via HTTP POST /transit/:peer/mcp', async () => {
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          jsonrpc: '2.0',
-          id: 1,
-          result: {
-            content: [{ type: 'text', text: 'Created storyboard page page_1' }],
-          },
-        }),
-      })
+      const mockFetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        result: {
+          content: [{ type: 'text', text: 'Created storyboard page page_1' }],
+        },
+      })))
       vi.stubGlobal('fetch', mockFetch)
 
       const client = createCloudTransitClient({
@@ -222,17 +267,14 @@ describe('relay-protocol & adapters', () => {
     })
 
     it('handles RPC error responses gracefully', async () => {
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          jsonrpc: '2.0',
-          id: 1,
-          error: {
-            code: -32601,
-            message: 'Tool not found',
-          },
-        }),
-      })
+      const mockFetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        error: {
+          code: -32601,
+          message: 'Tool not found',
+        },
+      })))
       vi.stubGlobal('fetch', mockFetch)
 
       const client = new CloudTransitClient({
