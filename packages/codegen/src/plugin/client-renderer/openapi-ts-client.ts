@@ -6,7 +6,7 @@ import {
   toOperationMethodName,
   toTypeScriptIdentifier,
 } from '@oa-sdk/core'
-import { RESERVED_BINDING_NAMES } from '../identifiers.js'
+import { PREDEFINED_TYPE_NAMES, RESERVED_BINDING_NAMES, isIdentifierName } from '../identifiers.js'
 import {
   parseDocument,
   type OasDocument,
@@ -162,6 +162,41 @@ const REFERENCED_GLOBAL_NAMES: readonly string[] = [
 ]
 
 /**
+ * Global types the generated module names in type positions (`Promise<...>`, `Record<...>`, `RequestInit`, ...),
+ * across both transports and every option. A module-scope type declaration with one of these names would
+ * replace the global type in the whole module.
+ *
+ * The test "reserves every global type and type binding the emitted client module refers to" (plugin-client.test.ts)
+ * derives them with the TypeScript checker and fails when this list misses one or holds a name no setting refers to.
+ */
+const REFERENCED_GLOBAL_TYPE_NAMES: readonly string[] = [
+  'AbortSignal', 'Exclude', 'Extract', 'Omit', 'Parameters', 'Promise', 'Record', 'RequestInit', 'Response',
+]
+
+/** Value bindings the generated module declares besides the client class and the operation functions. */
+const MODULE_VALUE_NAMES: readonly string[] = [
+  'createClient', 'defaultClient', 'getDefaultClient', 'setDefaultClient', 'client',
+  'isErrorStatus', 'serializeHeaderValue', 'parseResponseText',
+]
+
+/** Helper types the generated module declares besides the client class and the per-operation types. */
+const MODULE_TYPE_NAMES: readonly string[] = [
+  'RequestParameters', 'RequestOptions', 'KnownErrorStatus', 'ClientResult', 'ClientResponse', 'ErrorUnion',
+  'ErrorStatusResult', 'ClientConfig',
+]
+
+/**
+ * Names the generated module binds in a nested scope where it refers to the client class: the `TData` and
+ * `TError` type parameters of RequestOptions and of the verb methods (`Parameters<Client['request']>`), and
+ * the `config` parameter of createClient (`new Client(config)`). A class named like one of them would be
+ * shadowed there, so `clientName` must not be one of them.
+ *
+ * The test "rejects every clientName the generated module cannot declare" (plugin-client.test.ts) derives these
+ * names with the TypeScript checker, for every transport and clientClass setting.
+ */
+export const CLIENT_CLASS_SCOPE_NAMES: readonly string[] = ['TData', 'TError', 'config']
+
+/**
  * Module-scope value names an operation function must not declare: the bindings the generated module
  * declares itself (exported or module-private) and {@link REFERENCED_GLOBAL_NAMES}, which a declaration
  * would shadow. The set is the same whatever the `httpClient`, `clientClass` and `standalone` settings, so
@@ -169,12 +204,43 @@ const REFERENCED_GLOBAL_NAMES: readonly string[] = [
  * {@link escapeBindingName} rejects on its own.
  */
 export function clientModuleScopeValueNames(clientName: string): ReadonlySet<string> {
-  return new Set([
-    clientName,
-    'createClient', 'defaultClient', 'getDefaultClient', 'setDefaultClient', 'client',
-    'isErrorStatus', 'serializeHeaderValue', 'parseResponseText',
-    ...REFERENCED_GLOBAL_NAMES,
-  ])
+  return new Set([clientName, ...MODULE_VALUE_NAMES, ...REFERENCED_GLOBAL_NAMES])
+}
+
+/**
+ * Module-scope type names an operation type must not take: the types the generated module declares itself
+ * (the client class and the helpers such as `ClientResponse`, exported or module-private) and
+ * {@link REFERENCED_GLOBAL_TYPE_NAMES}, which a declaration would replace. Like
+ * {@link clientModuleScopeValueNames}, the set does not depend on the other settings.
+ */
+export function clientModuleScopeTypeNames(clientName: string): ReadonlySet<string> {
+  return new Set([clientName, ...MODULE_TYPE_NAMES, ...REFERENCED_GLOBAL_TYPE_NAMES])
+}
+
+/**
+ * Explains why `clientName` cannot name the generated client class, or returns undefined when it can.
+ *
+ * The class is a module-scope value and type that the module refers to by name, so the name must be an
+ * identifier that is neither a reserved word nor a predefined type name, must not be another binding the
+ * module declares (value or type) or a global it refers to (value or type), and must not be one of the
+ * {@link CLIENT_CLASS_SCOPE_NAMES} that would shadow it where the module refers to it. Operation names
+ * never collide with it: operation functions and types that would are escaped instead.
+ */
+export function clientNameIssue(clientName: string): string | undefined {
+  const subject = `clientName ${JSON.stringify(clientName)}`
+  if (!isIdentifierName(clientName)) return `${subject} is not an identifier`
+  if (RESERVED_BINDING_NAMES.has(clientName)) return `${subject} is a reserved word`
+  if (PREDEFINED_TYPE_NAMES.has(clientName)) return `${subject} is a TypeScript predefined type name`
+  if (MODULE_VALUE_NAMES.includes(clientName) || MODULE_TYPE_NAMES.includes(clientName)) {
+    return `${subject} collides with the \`${clientName}\` that the generated client module declares`
+  }
+  if (REFERENCED_GLOBAL_NAMES.includes(clientName) || REFERENCED_GLOBAL_TYPE_NAMES.includes(clientName)) {
+    return `${subject} would shadow the global \`${clientName}\` that the generated client module refers to`
+  }
+  if (CLIENT_CLASS_SCOPE_NAMES.includes(clientName)) {
+    return `${subject} would be shadowed by the \`${clientName}\` that the generated client module binds where it refers to the client class`
+  }
+  return undefined
 }
 
 /**
@@ -186,6 +252,25 @@ function escapeBindingName(name: string, taken: ReadonlySet<string>): string {
   let candidate = `${name}_`
   for (let index = 2; taken.has(candidate); index++) candidate = `${name}_${index}`
   return candidate
+}
+
+/**
+ * Allocates the module-scope names of the per-operation types. A conventional name (`ClientResponse`) maps to
+ * itself, or to its escaped form (`ClientResponse_`, then `ClientResponse_2`, ...) when it is in `reserved` or
+ * already allocated; the same conventional name always maps to the same name, and no two map to one.
+ */
+function createTypeNameAllocator(reserved: ReadonlySet<string>): (name: string) => string {
+  const taken = new Set(reserved)
+  const allocated = new Map<string, string>()
+  return name => {
+    let local = allocated.get(name)
+    if (local === undefined) {
+      local = escapeBindingName(name, taken)
+      taken.add(local)
+      allocated.set(name, local)
+    }
+    return local
+  }
 }
 
 function shortOperationName(op: { operationId?: string | undefined; method: string; openApiPath: string }): string {
@@ -530,6 +615,9 @@ export function renderOpenApiTsClient(options: RenderClientOptions): RenderClien
     clientName = 'Client',
   } = options
 
+  const clientNameError = clientNameIssue(clientName)
+  if (clientNameError) throw new Error(`[client] ${clientNameError}`)
+
   const parsedDoc = parsed ?? parseDocument(document, [])
   const operations = normalizeOperations(parsedDoc, clientModuleScopeValueNames(clientName))
   // The standalone functions need a transport even when the public client API is not exported.
@@ -560,14 +648,28 @@ export function renderOpenApiTsClient(options: RenderClientOptions): RenderClien
     }
   }
 
-  if (typesToImport.size > 0) {
-    const sorted = Array.from(typesToImport).sort()
-    lines.push(`import type {\n  ${sorted.join(',\n  ')},\n} from '${typesFile}';`)
+  // Operation types are named after their operation (`${baseName}Response`, `${PrimaryFunction}Data`, ...).
+  // One whose conventional name is a type this module declares itself or a global type it refers to (the
+  // root-level operation `client` has `ClientResponse`, a helper below) is imported or declared under its
+  // escaped name instead (`ClientResponse_`).
+  const typeName = createTypeNameAllocator(clientModuleScopeTypeNames(clientName))
+  const importedTypes = Array.from(typesToImport).sort().map(name => ({ name, local: typeName(name) }))
+
+  if (importedTypes.length > 0) {
+    const specifiers = importedTypes.map(({ name, local }) => (local === name ? name : `${name} as ${local}`))
+    lines.push(`import type {\n  ${specifiers.join(',\n  ')},\n} from '${typesFile}';`)
     lines.push('')
   }
 
   // Re-export all schema models so client consumers can import DTOs directly
   lines.push(`export type * from '${typesFile}';`)
+  // In that re-export, the module's own declaration of an escaped import's conventional name shadows the
+  // import, so the module exports it under its local name.
+  const escapedImports = importedTypes.flatMap(({ name, local }) => (local === name ? [] : [local]))
+  if (escapedImports.length > 0) {
+    lines.push(`export type { ${escapedImports.join(', ')} };`)
+    for (const local of escapedImports) exportedSymbols.add(local)
+  }
   lines.push('')
 
   // ── Core Calling Convention Types ──
@@ -768,69 +870,79 @@ export const client = defaultClient
       // 1. Endpoint Data Interface
       const dataFields: string[] = []
       if (op.hasPathParams) {
-        dataFields.push(`  path: ${op.baseName}PathParams`)
+        dataFields.push(`  path: ${typeName(`${op.baseName}PathParams`)}`)
       }
       if (op.hasQueryParams) {
-        dataFields.push(`  query?: ${op.baseName}QueryParams | undefined`)
+        dataFields.push(`  query?: ${typeName(`${op.baseName}QueryParams`)} | undefined`)
       }
       if (op.hasHeaderParams) {
-        dataFields.push(`  headers?: ${op.baseName}HeaderParams | undefined`)
+        dataFields.push(`  headers?: ${typeName(`${op.baseName}HeaderParams`)} | undefined`)
       }
       if (op.hasBody) {
-        dataFields.push(op.isBodyRequired ? `  body: ${op.baseName}Body` : `  body?: ${op.baseName}Body | undefined`)
+        const bodyType = typeName(`${op.baseName}Body`)
+        dataFields.push(op.isBodyRequired ? `  body: ${bodyType}` : `  body?: ${bodyType} | undefined`)
       }
 
-      lines.push(`export interface ${op.primaryDataName} {
+      const primaryDataName = typeName(op.primaryDataName)
+      lines.push(`export interface ${primaryDataName} {
 ${dataFields.join('\n')}
 }
 `)
-      exportedSymbols.add(op.primaryDataName)
+      exportedSymbols.add(primaryDataName)
 
       if (op.aliasDataName) {
-        lines.push(`export type ${op.aliasDataName} = ${op.primaryDataName};\n`)
-        exportedSymbols.add(op.aliasDataName)
+        const aliasDataName = typeName(op.aliasDataName)
+        lines.push(`export type ${aliasDataName} = ${primaryDataName};\n`)
+        exportedSymbols.add(aliasDataName)
       }
 
       // 2. Response & Error Aliases
-      const respType = op.hasSuccessResponse ? `${op.baseName}Response` : 'void'
-      const errType = op.hasErrorResponse ? `${op.baseName}Error` : 'unknown'
+      const operationResponseName = typeName(`${op.baseName}Response`)
+      const operationErrorName = typeName(`${op.baseName}Error`)
+      const respType = op.hasSuccessResponse ? operationResponseName : 'void'
+      const errType = op.hasErrorResponse ? operationErrorName : 'unknown'
       const fnTypeBase = pascalCase(op.primaryFnName)
 
       // When the function's type base equals the operation type base (root-level operations, or a
       // short name shared by several operations), the `${baseName}Response/Error` names already
       // exist (imported from the types file, or declared by the fallbacks below), so aliasing
       // them again would declare a self-referential duplicate.
+      const fnResponseName = typeName(`${fnTypeBase}Response`)
+      const fnErrorName = typeName(`${fnTypeBase}Error`)
       if (fnTypeBase !== op.baseName) {
-        lines.push(`export type ${fnTypeBase}Response = ${respType};`)
-        lines.push(`export type ${fnTypeBase}Error = ${errType};`)
+        lines.push(`export type ${fnResponseName} = ${respType};`)
+        lines.push(`export type ${fnErrorName} = ${errType};`)
       }
-      exportedSymbols.add(`${fnTypeBase}Response`)
-      exportedSymbols.add(`${fnTypeBase}Error`)
+      exportedSymbols.add(fnResponseName)
+      exportedSymbols.add(fnErrorName)
 
-      const errorsMapName = `${fnTypeBase}Errors`
-      const errorUnionName = `${fnTypeBase}ErrorUnion`
+      const errorsMapName = typeName(`${fnTypeBase}Errors`)
+      const errorUnionName = typeName(`${fnTypeBase}ErrorUnion`)
 
       // The per-status map is the typegen-emitted `${baseName}ErrorByStatus`, which is derived from the
       // raw document and therefore does not depend on whether `parsed` was dereferenced.
-      lines.push(`export type ${errorsMapName} = ${op.hasErrorResponse ? `${op.baseName}ErrorByStatus` : `Record<number, ${errType}>`};`)
+      const errorsMapType = op.hasErrorResponse ? typeName(`${op.baseName}ErrorByStatus`) : `Record<number, ${errType}>`
+      lines.push(`export type ${errorsMapName} = ${errorsMapType};`)
       lines.push(`export type ${errorUnionName} = ErrorUnion<${errorsMapName}>;`)
       exportedSymbols.add(errorsMapName)
       exportedSymbols.add(errorUnionName)
 
       if (op.aliasFnName) {
-        lines.push(`export type ${pascalCase(op.aliasFnName)}Errors = ${errorsMapName};`)
-        lines.push(`export type ${pascalCase(op.aliasFnName)}ErrorUnion = ${errorUnionName};`)
-        exportedSymbols.add(`${pascalCase(op.aliasFnName)}Errors`)
-        exportedSymbols.add(`${pascalCase(op.aliasFnName)}ErrorUnion`)
+        const aliasErrorsName = typeName(`${pascalCase(op.aliasFnName)}Errors`)
+        const aliasErrorUnionName = typeName(`${pascalCase(op.aliasFnName)}ErrorUnion`)
+        lines.push(`export type ${aliasErrorsName} = ${errorsMapName};`)
+        lines.push(`export type ${aliasErrorUnionName} = ${errorUnionName};`)
+        exportedSymbols.add(aliasErrorsName)
+        exportedSymbols.add(aliasErrorUnionName)
       }
 
       if (!op.hasSuccessResponse) {
-        lines.push(`export type ${op.baseName}Response = void;`)
-        exportedSymbols.add(`${op.baseName}Response`)
+        lines.push(`export type ${operationResponseName} = void;`)
+        exportedSymbols.add(operationResponseName)
       }
       if (!op.hasErrorResponse) {
-        lines.push(`export type ${op.baseName}Error = unknown;`)
-        exportedSymbols.add(`${op.baseName}Error`)
+        lines.push(`export type ${operationErrorName} = unknown;`)
+        exportedSymbols.add(operationErrorName)
       }
 
       // 3. Standalone Function Implementation
@@ -859,8 +971,8 @@ ${dataFields.join('\n')}
         : 'request'
 
       const optArg = op.isDataRequired
-        ? `options: RequestOptions<${op.primaryDataName}>`
-        : `options?: RequestOptions<${op.primaryDataName}>`
+        ? `options: RequestOptions<${primaryDataName}>`
+        : `options?: RequestOptions<${primaryDataName}>`
 
       const verbArgs: string[] = [
         `    url: ${quoteTypeScriptString(op.openApiPath)},`,

@@ -1,5 +1,6 @@
 import type { TspPlugin, TspPluginContext } from '../types.js'
 import {
+  clientNameIssue,
   renderOpenApiTsClient,
   type RenderClientOptions,
   type RenderedClientOperation,
@@ -28,7 +29,12 @@ export interface PluginClientOptions {
    * transport configured from `baseUrl`.
    */
   clientClass?: boolean | undefined
-  /** Client class name. Default: 'Client' */
+  /**
+   * Client class name. Default: 'Client'.
+   * It must be an identifier that is not a reserved word, a TypeScript predefined type name, another name the
+   * client module declares (`createClient`, `ClientConfig`, ...) or a global it refers to (`fetch`, `Response`, ...);
+   * otherwise the plugin reports a `CLIENT_INVALID_CLIENT_NAME` error diagnostic and emits no client module.
+   */
   clientName?: string | undefined
 }
 
@@ -115,6 +121,16 @@ export function pluginClient(options: PluginClientOptions = {}): TspPlugin<Plugi
       }
 
       const clientName = merged.clientName ?? 'Client'
+      const clientNameError = clientNameIssue(clientName)
+      if (clientNameError) {
+        context.reportDiagnostic({
+          plugin: 'client',
+          code: 'CLIENT_INVALID_CLIENT_NAME',
+          severity: 'error',
+          message: `[client] ${clientNameError}; choose another clientName for the client class.`,
+        })
+        return
+      }
       const standalone = merged.standalone ?? true
       const clientClass = merged.clientClass ?? true
 

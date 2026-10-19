@@ -2,6 +2,13 @@
 
 릴리스 단위가 아닌, 굵직한 surface 변경이 떨어졌을 때 한 항목으로 기록한다. 자세한 구현 상태는 [spec.md](./internal/spec.md), API 단일 소스는 [api-index.md](./internal/api-index.md), 기능↔테스트는 [feature-test-matrix.md](./internal/feature-test-matrix.md) 참조.
 
+## 2026-10-20 — `pluginClient` operation type 이름 escape와 `clientName` 검증 (`@oa-sdk/codegen`)
+
+2026-10-19 안정화에서 남긴 `pluginClient` 후속 두 건이다. 두 변경 모두 이전에 컴파일되지 않던 생성 코드에만 영향을 준다.
+
+- **동작 변경: 생성 `client.ts`의 operation type 이름 (`@oa-sdk/codegen`)**: per-operation type(types 파일에서 import하는 `<Base>Response`·`<Base>Error` 등과 `client.ts`가 선언하는 `<Fn>Data`·`<Fn>Response`·`<Fn>Errors`·`<Fn>ErrorUnion`·fallback)의 이름이 `client.ts`가 선언하는 type(client class, `RequestParameters`, `RequestOptions`, `KnownErrorStatus`, `ClientResult`, `ClientResponse`, `ErrorUnion`, `ErrorStatusResult`, `ClientConfig`)이나 type 위치에서 참조하는 global type(`Promise`, `Record`, `Response` 등)과 같으면, 함수 이름처럼 끝에 `_`(이어서 `_2`, ...)를 붙인다. root-level operation `client`의 응답 type은 `client.ts`에서 `ClientResponse_`이다. types 파일의 `ClientResponse`를 `ClientResponse as ClientResponse_`로 import해 `export type { ClientResponse_ }`로 다시 export하고, 성공 응답이 없으면 `export type ClientResponse_ = void`를 선언한다. `ClientResponse`는 그대로 generic helper다. 이전에는 import가 helper 선언과 충돌하거나 fallback이 helper와 중복돼 `client.ts`가 컴파일되지 않았다. types 파일의 이름은 바뀌지 않는다. `clientName`과 같은 이름의 operation type(`clientName: 'ListItemsResponse'`)도 같은 규칙으로 escape된다.
+- **동작 변경: `pluginClient({ clientName })` 검증 (`@oa-sdk/codegen`)**: `clientName`이 식별자가 아니거나, 예약어나 TypeScript predefined type 이름(`string` 등)이거나, `client.ts`가 선언하는 다른 이름(`createClient`, `defaultClient`, `client`, `ClientConfig`, `ClientResponse` 등)이거나, `client.ts`가 참조하는 global(`fetch`, `Response`, `Record`, `RequestInit` 등)이거나, `client.ts`가 class를 참조하는 자리에서 묶는 이름(`TData`, `TError`, `config`)이면 `pluginClient`가 `CLIENT_INVALID_CLIENT_NAME` 오류 진단(예: `clientName "Response" would shadow the global \`Response\` that the generated client module refers to`)을 내고 `client.ts`와 `client:sdk` manifest를 만들지 않는다. 이전에는 그런 class를 선언해 global이나 helper를 가리는 코드를 생성했다. operation 함수·type과 같은 이름은 허용하고 operation 쪽 이름을 escape한다.
+
 ## 2026-10-19 — 안정화: relay·transit 보안, HMAC 가명화, 컴파일되지 않던 생성 코드 수정 (`@oa-sdk/peer-server`, `@oa-sdk/peer-transport`, `@oa-sdk/webmcp-peer`, `@oa-sdk/telemetry`, `@oa-sdk/codegen`, `@oa-sdk/typespec-decorators`, `@oa-sdk/surface-ir`, `@oa-sdk/client`, `@oa-sdk/router`, `@oa-sdk/chunk-stream`, `@oa-sdk/chunk-stream-ui`, `@oa-sdk/ast-sync`; private `@oa-sdk/rpc`, `@oa-sdk/spec-lens-contract`, `@oa-sdk/spec-lens`)
 
 전수 코드 리뷰에서 확인된 결함 146건을 대상으로 한 안정화 패스다. 보안 결함, 문서대로 컴파일·동작하지 않던 생성 코드와 런타임, 없는 API를 안내하던 문서를 고쳤다. **동작 변경** 항목은 업그레이드할 때 호출 코드, 설정, 저장해 둔 값(가명 token, catalog hash, 생성된 `.proto`)을 바꿔야 할 수 있다. 패키지별 bump 의도는 `.changeset/`에 있다.

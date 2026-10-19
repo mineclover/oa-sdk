@@ -26379,13 +26379,43 @@
       },
       {
         "filePath": "packages/codegen/src/plugin/client-renderer/openapi-ts-client.ts",
+        "identity": "packages/codegen/src/plugin/client-renderer/openapi-ts-client.ts#src/plugin/client-renderer/openapi-ts-client.ts#neutral#@oa-sdk/codegen:src/plugin/client-renderer/openapi-ts-client.ts#clientModuleScopeTypeNames#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/plugin/client-renderer/openapi-ts-client.ts#clientModuleScopeTypeNames",
+        "runtime": "neutral",
+        "semanticHash": "2b33b9a86fd3781e15e57ad652ff7a334124d91dd3fb177a667875f60cb4f94e",
+        "shapeHash": "dadea1e9da4e250429503ae9e55d4a2f822460f60f4844073a5ca1e950ec335a",
+        "syntaxHash": "8f28b9c45eb8a632c4d40d253a43909270ea7127223530bb5de9f64a35bd8241"
+      },
+      {
+        "filePath": "packages/codegen/src/plugin/client-renderer/openapi-ts-client.ts",
         "identity": "packages/codegen/src/plugin/client-renderer/openapi-ts-client.ts#src/plugin/client-renderer/openapi-ts-client.ts#neutral#@oa-sdk/codegen:src/plugin/client-renderer/openapi-ts-client.ts#clientModuleScopeValueNames#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/codegen:src/plugin/client-renderer/openapi-ts-client.ts#clientModuleScopeValueNames",
         "runtime": "neutral",
         "semanticHash": "67d7f822eeffda3f30e6af4c48601c5550dcbd2822f7fa851775abbfa4cc6965",
         "shapeHash": "dadea1e9da4e250429503ae9e55d4a2f822460f60f4844073a5ca1e950ec335a",
-        "syntaxHash": "0c7e54832bff775121d8e0ddea41eff64dec305d931e51af8af868ee0e439db7"
+        "syntaxHash": "e6e261f75cffa2e2828702605a471cd4077d863d01114f6ed9dfc7670842a003"
+      },
+      {
+        "filePath": "packages/codegen/src/plugin/client-renderer/openapi-ts-client.ts",
+        "identity": "packages/codegen/src/plugin/client-renderer/openapi-ts-client.ts#src/plugin/client-renderer/openapi-ts-client.ts#neutral#@oa-sdk/codegen:src/plugin/client-renderer/openapi-ts-client.ts#clientNameIssue#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/plugin/client-renderer/openapi-ts-client.ts#clientNameIssue",
+        "runtime": "neutral",
+        "semanticHash": "0af4894ab46eeee44a14346eecd39fc7a4caeea8f01d966f93e941e5afaa4618",
+        "shapeHash": "b21b906226a0bd83d49786e50416a99b8d4a921e6f83580b39d9933f0397247b",
+        "syntaxHash": "4e4d79c5fa4ab8ea1ccf0a1ad50e1782f803e3ba0f7fd98d943959def957ab36"
+      },
+      {
+        "filePath": "packages/codegen/src/plugin/client-renderer/openapi-ts-client.ts",
+        "identity": "packages/codegen/src/plugin/client-renderer/openapi-ts-client.ts#src/plugin/client-renderer/openapi-ts-client.ts#neutral#@oa-sdk/codegen:src/plugin/client-renderer/openapi-ts-client.ts#createTypeNameAllocator#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/plugin/client-renderer/openapi-ts-client.ts#createTypeNameAllocator",
+        "runtime": "neutral",
+        "semanticHash": "e8e1428709eda0657d9cec70b47f30fb26bb3189e36dd61e9a0abdc0530327bd",
+        "shapeHash": "985f9aca1a8fbd3b74cf34bceab35f93ba6618e745795746cd9717b19bec9914",
+        "syntaxHash": "9015a1dab462144872d483fcc4371ab8fc0c0e987539fda294cb58b2956c1f32"
       },
       {
         "filePath": "packages/codegen/src/plugin/client-renderer/openapi-ts-client.ts",
@@ -26515,7 +26545,7 @@
         "runtime": "neutral",
         "semanticHash": "856f10ac9ae2c2f24c86a8b9edf27fbcc94fc977776639941d2cdaeca3c4edc5",
         "shapeHash": "41d01fc0f3a73142c7210b0c47531d15cb3edc3173d09ba9ed57878155dbcb42",
-        "syntaxHash": "4f94319c3a19f87ea3d24717981dbb27b5898f223fb4a935e2350e926788225c"
+        "syntaxHash": "23e6cd2f65d5c60c395f21a6783ff09bfe4e9dc3162cdcb9c164adf1a80ed4b1"
       },
       {
         "filePath": "packages/codegen/src/plugin/client-renderer/openapi-ts-client.ts",
@@ -26719,6 +26749,16 @@
       },
       {
         "filePath": "packages/codegen/src/plugin/identifiers.ts",
+        "identity": "packages/codegen/src/plugin/identifiers.ts#src/plugin/identifiers.ts#neutral#@oa-sdk/codegen:src/plugin/identifiers.ts#isIdentifierName#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/plugin/identifiers.ts#isIdentifierName",
+        "runtime": "neutral",
+        "semanticHash": "4d373e8bf4e007117589c2153c87ec558cf677307eba54d7cc4150c1dc7ff57a",
+        "shapeHash": "02169437a9ea38945b33198c68fdbf8e0b48eaf9790b282a5b5c700dde3e1eea",
+        "syntaxHash": "a306547bfca6571bdc86a05b27d657c266157dfdb47564ae683a841a65fe1a54"
+      },
+      {
+        "filePath": "packages/codegen/src/plugin/identifiers.ts",
         "identity": "packages/codegen/src/plugin/identifiers.ts#src/plugin/identifiers.ts#neutral#@oa-sdk/codegen:src/plugin/identifiers.ts#renderMemberName#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/codegen:src/plugin/identifiers.ts#renderMemberName",
@@ -26765,7 +26805,7 @@
         "runtime": "neutral",
         "semanticHash": "4a0794637eedc11872f631a03c8b136f71f8ad0e9694883a5e23e2b6b8661bc6",
         "shapeHash": "af422f052ce36a81d018502fa15f7b4e04d73a8af1e54f7150fe9c82759f168a",
-        "syntaxHash": "6de176ebde094c95302017ca217280f8c44d8b277d326533778cf57c6dac2961"
+        "syntaxHash": "da9226499b972073a59fb7a1d3eab037e4781c8788fdd7a25ac349b90cb1f2d3"
       },
       {
         "filePath": "packages/codegen/src/plugin/plugins/client.ts",
@@ -71728,7 +71768,7 @@
         "syntaxHash": "72032187d0b6d97c3a4b7a1c122ce8d52ed6e1bc07732458e12e40e7ae190982"
       }
     ],
-    "digest": "598268ba661ebf00561ca53fddf5d175627caad5e4fbb9935fb8e603372e2734",
+    "digest": "5c91f63f130813a0676d8ed8b2f9fc8262081b8d581f0701e35a7477da898d31",
     "publicSurfaces": [
       {
         "exportKey": "./guards",
@@ -77979,7 +78019,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "2c3d84d5853c266790553368e5424e9d3a391263c537dda65d0e4f8949dabb15",
+      "contentHash": "2352214467c41f11ce46857448c9ebd1bb1c94a0af75a566b2689ca9664172af",
       "filePath": "packages/codegen/src/plugin/client-renderer/openapi-ts-client.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -78007,7 +78047,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "41970b36166f8b1d933fbee6830a16b07648a806eea91faa23f236cbc70f2bd3",
+      "contentHash": "be98c6c100cabc4282a354ad947bebafc6814a4acf1c2e28560f1a40ce89f2e7",
       "filePath": "packages/codegen/src/plugin/identifiers.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -78021,7 +78061,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "dad1e18a870028d5177015dff9a70d1f243446c15585636de5365528bb10a80d",
+      "contentHash": "b85bbf027f793ea8b99895d0b9682fc6e21c946b8214da40b7967294aa136627",
       "filePath": "packages/codegen/src/plugin/plugins/client.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
