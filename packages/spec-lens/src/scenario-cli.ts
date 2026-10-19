@@ -4,6 +4,7 @@ import {
   DEFAULT_SCENARIOS,
   ScenarioFlowEnumerator,
   ScenarioRegistry,
+  type FlowEnumerationResult,
   type ScenarioTopicDefinition,
   type ScenarioTopicId,
 } from '@oa-sdk/spec-lens-contract'
@@ -107,7 +108,7 @@ ${BOLD}USAGE:${RESET}
 ${BOLD}COMMANDS:${RESET}
   ${CYAN}list${RESET}                     List all registered scenario topics and reachability stats
   ${CYAN}inspect <id>${RESET}             Inspect a scenario's transition matrix, guards, and paths
-  ${CYAN}verify${RESET}                   Run static verification on all scenarios (0 dead-ends check)
+  ${CYAN}verify${RESET}                   Run static verification on all scenarios (dead-ends, reachability, bounds, guards)
   ${CYAN}preview <id>${RESET}             Display terminal ASCII/ANSI flowchart preview
   ${CYAN}export [options]${RESET}         Export flowcharts to Mermaid, DOT, JSON, or Markdown
     ${DIM}--format <fmt>${RESET}       mermaid | dot | json | markdown (default: markdown)
@@ -164,6 +165,51 @@ function printScenarioInspection(scenario: ScenarioTopicDefinition, log: (msg: s
   log(`└───────────────┴───────────────────────────────┴───────────────┴──────────────────────┴───────────┘\n`)
 }
 
+/**
+ * Static checks every scenario must pass. Set-based, so views reached outside
+ * `boundedViews` can never mask an unreachable bounded view, and every check
+ * mirrors a way the runtime reducer would fail or strand the user.
+ */
+function collectScenarioErrors(
+  s: ScenarioTopicDefinition,
+  analysis: FlowEnumerationResult,
+): string[] {
+  const errors: string[] = []
+  const bounded = new Set(s.boundedViews)
+  const reachable = new Set(analysis.reachableViews)
+
+  if (!bounded.has(s.initialView)) {
+    errors.push(`Initial view "${s.initialView}" is not in boundedViews`)
+  }
+  if (analysis.deadEnds.length > 0) {
+    errors.push(`Dead-end views detected: ${analysis.deadEnds.join(', ')}`)
+  }
+  if (analysis.terminalPaths.length === 0) {
+    errors.push(`No reachable terminal path to any goal`)
+  }
+  const unreachable = s.boundedViews.filter(v => !reachable.has(v))
+  if (unreachable.length > 0) {
+    errors.push(`Unreachable declared bounded views: ${unreachable.join(', ')}`)
+  }
+  // Transition endpoints inside boundedViews also keep every reachable view bounded.
+  const outOfBounds = [...new Set(s.transitions.flatMap(t => [t.fromView, t.toView]))].filter(v => !bounded.has(v))
+  if (outOfBounds.length > 0) {
+    errors.push(`Transitions reference views outside boundedViews: ${outOfBounds.join(', ')}`)
+  }
+  const badGoals = s.terminalGoals.filter(g => !bounded.has(g.targetView))
+  if (badGoals.length > 0) {
+    errors.push(`Terminal goals target views outside boundedViews: ${badGoals.map(g => `${g.id}->${g.targetView}`).join(', ')}`)
+  }
+  const declaredGuards = s.guards ?? {}
+  const undeclared = [...new Set(s.transitions.flatMap(t => t.guardIds ?? []))].filter(
+    id => !Object.hasOwn(declaredGuards, id),
+  )
+  if (undeclared.length > 0) {
+    errors.push(`Transitions reference undeclared guards: ${undeclared.join(', ')}`)
+  }
+  return errors
+}
+
 export function verifyAllScenarios(
   registry: ScenarioRegistry,
   log: (msg: string) => void,
@@ -176,18 +222,7 @@ export function verifyAllScenarios(
 
   for (const s of scenarios) {
     const analysis = ScenarioFlowEnumerator.enumerate(s)
-    const errors: string[] = []
-
-    if (analysis.deadEnds.length > 0) {
-      errors.push(`Dead-end views detected: ${analysis.deadEnds.join(', ')}`)
-    }
-    if (analysis.terminalPaths.length === 0) {
-      errors.push(`No reachable terminal path to any goal`)
-    }
-    if (analysis.reachableViews.length < s.boundedViews.length) {
-      const unreachable = s.boundedViews.filter(v => !analysis.reachableViews.includes(v))
-      errors.push(`Unreachable declared bounded views: ${unreachable.join(', ')}`)
-    }
+    const errors = collectScenarioErrors(s, analysis)
 
     if (errors.length === 0) {
       log(`  ${GREEN}✓${RESET} ${s.id.padEnd(28)} [${analysis.reachableViews.length} views, ${analysis.terminalPaths.length} goal paths]`)
@@ -202,7 +237,7 @@ export function verifyAllScenarios(
 
   log('')
   if (allValid) {
-    log(`${GREEN}${BOLD}Verification PASSED:${RESET} All scenarios are 100% reachable with zero dead-ends.\n`)
+    log(`${GREEN}${BOLD}Verification PASSED:${RESET} All scenarios are 100% reachable with zero dead-ends, bounded transitions and goals, and declared guards.\n`)
   } else {
     logError(`${RED}${BOLD}Verification FAILED:${RESET} Some scenarios have broken transitions or dead-ends.\n`)
   }

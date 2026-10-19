@@ -4,7 +4,7 @@ import {
   validateCollaborationManifest,
   validateReferenceIndex,
 } from '../validator/context-harness-validator.js'
-import type { CollaborationBootstrapResult } from '../contracts/types.js'
+import type { CollaborationBootstrapResult, CollaborationReferenceIndex } from '../contracts/types.js'
 
 export const BootstrapInputSchema = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
@@ -36,42 +36,38 @@ export function createBootstrapTool(port: SharedContextHarnessPort) {
     schema: BootstrapInputSchema,
     execute: async (_ctx, input) => {
       const { collaborationId, actorId } = input
-      const manifest = await port.readCollaboration(collaborationId)
-      if (!manifest) {
-        return { status: 'unavailable', collaborationId }
-      }
+      const unavailable: CollaborationBootstrapResult = { status: 'unavailable', collaborationId }
 
-      const manifestValidation = validateCollaborationManifest(manifest)
-      if (!manifestValidation.ok) {
-        return { status: 'unavailable', collaborationId }
-      }
-
-      let canRead = false
+      // Fail closed: a thrown provider error (including from the reference index
+      // read) is concealed as `unavailable`, never propagated or degraded.
       try {
-        canRead = await port.canReadCollaboration(actorId, manifest)
-      } catch {
-        return { status: 'unavailable', collaborationId }
-      }
+        const manifest = await port.readCollaboration(collaborationId)
+        if (!manifest) return unavailable
 
-      if (!canRead) {
-        return { status: 'unavailable', collaborationId }
-      }
+        const manifestValidation = validateCollaborationManifest(manifest)
+        if (!manifestValidation.ok) return unavailable
 
-      const refIndex = await port.readReferenceIndex(collaborationId)
-      let references = []
-      if (refIndex) {
-        const indexValidation = validateReferenceIndex(refIndex)
-        if (indexValidation.ok) {
-          references = refIndex.references
+        const canRead = await port.canReadCollaboration(actorId, manifest)
+        if (!canRead) return unavailable
+
+        const refIndex = await port.readReferenceIndex(collaborationId)
+        let references: CollaborationReferenceIndex['references'] = []
+        if (refIndex) {
+          const indexValidation = validateReferenceIndex(refIndex)
+          if (indexValidation.ok) {
+            references = refIndex.references
+          }
         }
-      }
 
-      return {
-        status: 'ready',
-        collaborationId: manifest.collaborationId,
-        title: manifest.title,
-        manifest,
-        references,
+        return {
+          status: 'ready',
+          collaborationId: manifest.collaborationId,
+          title: manifest.title,
+          manifest,
+          references,
+        }
+      } catch {
+        return unavailable
       }
     },
   })

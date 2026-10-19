@@ -317,6 +317,44 @@ describe('Issue #3: EWIC v0.1 Entity/Workflow/Execution/Evidence Envelope Valida
       expect(restored.upstreamMirrorUrl).toBe(customRef.upstreamMirrorUrl)
     })
 
+    it.each(['github', 'drive', 'nes', 'semantic', 'web'] as const)(
+      'round-trips source.provider "%s" through the Resource Envelope',
+      (provider) => {
+        const original: SourceReference & Record<string, unknown> = {
+          ...sharedRefOaSdk,
+          source: { ...sharedRefOaSdk.source, provider, nativeRef: 'https://example.com/spec.md' },
+        }
+        const envelope = SourceReferenceAdapter.toResourceEnvelope(original, undefined, { fileId: 'drive_file_rt' })
+        const restored = SourceReferenceAdapter.fromResourceEnvelope(envelope)
+        expect(restored.source).toEqual(original.source)
+      },
+    )
+
+    it('covers every provider allowed by reference.schema.json in the round-trip cases', () => {
+      const schema = JSON.parse(
+        readFileSync(join(__dirname, '../shared-context-harness/schema/json-schema/reference.schema.json'), 'utf-8')
+      ) as { properties: { source: { properties: { provider: { enum: string[] } } } } }
+      expect([...schema.properties.source.properties.provider.enum].sort()).toEqual(
+        ['drive', 'github', 'nes', 'semantic', 'web']
+      )
+    })
+
+    it('falls back to the SSOT provider mapping for envelopes without the side-channel', () => {
+      const ref: SourceReference & Record<string, unknown> = { ...sharedRefOaSdk }
+      const envelope = SourceReferenceAdapter.toResourceEnvelope(ref, undefined, { fileId: 'drive_file_rt' })
+      const { _originalSourceReference: _dropped, ...withoutSideChannel } = envelope
+      const github = SourceReferenceAdapter.fromResourceEnvelope({
+        ...withoutSideChannel,
+        provenance: { ...envelope.provenance, ssot: { ...envelope.provenance.ssot, provider: 'github' } },
+      })
+      expect(github.source.provider).toBe('github')
+      const local = SourceReferenceAdapter.fromResourceEnvelope({
+        ...withoutSideChannel,
+        provenance: { ...envelope.provenance, ssot: { ...envelope.provenance.ssot, provider: 'local' } },
+      })
+      expect(local.source.provider).toBe('drive')
+    })
+
     it('adapts CollaborationManifest to EWIC Framework Envelope and restores it losslessly', () => {
       const envelope = CollaborationManifestAdapter.toFrameworkEnvelope(sharedManifest, {
         fileId: '1h_CjCUEaOUaKzImXqbmbRS0AGkPdmkiB',
@@ -431,7 +469,7 @@ describe('Issue #3: EWIC v0.1 Entity/Workflow/Execution/Evidence Envelope Valida
 
     it('executes ewic_validate_envelope and confirms valid source envelope and digest', async () => {
       const tool = createValidateEnvelopeTool()
-      const ctx = createToolContext({ actorId: 'actor:test' })
+      const ctx = createToolContext({ meta: { actorId: 'actor:test' } })
       const result = await executeTool(
         tool,
         {
@@ -447,7 +485,7 @@ describe('Issue #3: EWIC v0.1 Entity/Workflow/Execution/Evidence Envelope Valida
 
     it('executes ewic_adapt_source_reference in ref-to-envelope direction', async () => {
       const tool = createAdaptSourceRefTool()
-      const ctx = createToolContext({ actorId: 'actor:test' })
+      const ctx = createToolContext({ meta: { actorId: 'actor:test' } })
       const result = await executeTool(
         tool,
         {
@@ -463,9 +501,20 @@ describe('Issue #3: EWIC v0.1 Entity/Workflow/Execution/Evidence Envelope Valida
       expect(result.result?.identity).toBeDefined()
     })
 
+    it('reports content without an RFC 8785 form as invalid instead of throwing', async () => {
+      const tool = createValidateEnvelopeTool()
+      const envelope = { ...fixtureSpec, content: { ...fixtureSpec.content, title: 'broken \ud800 text' } }
+      const result = await executeTool(
+        tool,
+        { type: 'source', envelope },
+        createToolContext()
+      )
+      expect(result).toEqual({ valid: false, issues: ['CONTENT_NOT_CANONICAL_JSON'] })
+    })
+
     it('executes ewic_verify_execution and confirms reproducible status', async () => {
       const tool = createVerifyExecutionTool(port)
-      const ctx = createToolContext({ actorId: 'actor:test' })
+      const ctx = createToolContext({ meta: { actorId: 'actor:test' } })
       const result = await executeTool(
         tool,
         {
@@ -484,21 +533,34 @@ describe('Issue #3: EWIC v0.1 Entity/Workflow/Execution/Evidence Envelope Valida
   // =========================================================================
   describe('7. Mock Denial & Security Boundaries (No-Leak Verification)', () => {
     it('returns indistinguishable responses between denied ACL and non-existent envelope (preventing presence enumeration)', async () => {
+      const SENTINEL_HASH = 'sha256:SECRET_CURRENT_HASH'
+      let deniedVerifyCalls = 0
+      const aclChecks: string[] = []
+
+      // The ref has drifted, so a missing ACL check would answer `stale` and leak SENTINEL_HASH.
       const portDenied = createMockPort({
+        canReadEnvelope: async (actorId) => {
+          aclChecks.push(actorId)
+          return false
+        },
         verifySnapshot: async () => {
-          throw new Error('ACL_DENIED: unauthorized actor')
+          deniedVerifyCalls++
+          return { match: false, currentHash: SENTINEL_HASH }
         },
       })
 
+      let notFoundVerifyCalls = 0
       const portNotFound = createMockPort({
+        readSourceEnvelope: async () => null,
         verifySnapshot: async () => {
-          throw new Error('FILE_NOT_FOUND: entity not found')
+          notFoundVerifyCalls++
+          return { match: false, currentHash: SENTINEL_HASH }
         },
       })
 
       const toolDenied = createVerifyExecutionTool(portDenied)
       const toolNotFound = createVerifyExecutionTool(portNotFound)
-      const ctx = createToolContext({ actorId: 'actor:guest' })
+      const ctx = createToolContext()
 
       const resDenied = await executeTool(
         toolDenied,
@@ -521,6 +583,81 @@ describe('Issue #3: EWIC v0.1 Entity/Workflow/Execution/Evidence Envelope Valida
       // Both must return identical unavailable status without disclosing existence
       expect(resDenied).toEqual({ status: 'unavailable' })
       expect(resNotFound).toEqual({ status: 'unavailable' })
+      expect(JSON.stringify(resDenied)).toBe(JSON.stringify(resNotFound))
+      expect(JSON.stringify(resDenied)).not.toContain(SENTINEL_HASH)
+      // The ACL ran for the requesting actor, and nothing was verified for a denied actor
+      expect(aclChecks).toContain('actor:guest')
+      expect(deniedVerifyCalls).toBe(0)
+      expect(notFoundVerifyCalls).toBe(0)
+    })
+
+    it('denies when the reproducible path would otherwise answer a denied actor', async () => {
+      const port = createMockPort({ canReadEnvelope: async () => false })
+      const res = await executeTool(
+        createVerifyExecutionTool(port),
+        { actorId: 'actor:guest', execution: fixtureExecution.content },
+        createToolContext()
+      )
+      expect(res).toEqual({ status: 'unavailable' })
+    })
+
+    it('authorizes the workflowRef envelope as well as every resolved ref', async () => {
+      const checked: unknown[] = []
+      const port = createMockPort({
+        canReadEnvelope: async (_actorId, envelope) => {
+          checked.push(envelope)
+          return envelope !== fixtureWorkflow
+        },
+      })
+      const res = await executeTool(
+        createVerifyExecutionTool(port),
+        { actorId: 'actor:test', execution: fixtureExecution.content },
+        createToolContext()
+      )
+      expect(res).toEqual({ status: 'unavailable' })
+      expect(checked).toContain(fixtureWorkflow)
+    })
+
+    it('uses the transport-bound ctx.meta.actorId and denies a contradicting input actorId', async () => {
+      const aclChecks: string[] = []
+      const port = createMockPort({
+        canReadEnvelope: async (actorId) => {
+          aclChecks.push(actorId)
+          return actorId === 'actor:test'
+        },
+      })
+      const tool = createVerifyExecutionTool(port)
+
+      const spoofed = await executeTool(
+        tool,
+        { actorId: 'actor:test', execution: fixtureExecution.content },
+        createToolContext({ meta: { actorId: 'actor:guest' } })
+      )
+      expect(spoofed).toEqual({ status: 'unavailable' })
+      expect(aclChecks).toHaveLength(0)
+
+      const bound = await executeTool(
+        tool,
+        { actorId: 'actor:test', execution: fixtureExecution.content },
+        createToolContext({ meta: { actorId: 'actor:test' } })
+      )
+      expect(bound.status).toBe('reproducible')
+      expect(aclChecks.every((actor) => actor === 'actor:test')).toBe(true)
+    })
+
+    it('conceals a throwing ACL check or envelope read as unavailable', async () => {
+      for (const override of [
+        { canReadEnvelope: async (): Promise<boolean> => { throw new Error('ACL backend at /Users/private/acl.db') } },
+        { readSourceEnvelope: async (): Promise<null> => { throw new Error('Drive error at /Users/private/drive.key') } },
+      ] satisfies Partial<EwicEnvelopePort>[]) {
+        const res = await executeTool(
+          createVerifyExecutionTool(createMockPort(override)),
+          { actorId: 'actor:test', execution: fixtureExecution.content },
+          createToolContext()
+        )
+        expect(res).toEqual({ status: 'unavailable' })
+        expect(JSON.stringify(res)).not.toContain('/Users/private')
+      }
     })
 
     it('strictly conceals provider exceptions and private filesystem paths without leak', async () => {
@@ -533,7 +670,7 @@ describe('Issue #3: EWIC v0.1 Entity/Workflow/Execution/Evidence Envelope Valida
       })
 
       const tool = createVerifyExecutionTool(portLeakingError)
-      const ctx = createToolContext({ actorId: 'actor:attacker' })
+      const ctx = createToolContext({ meta: { actorId: 'actor:attacker' } })
       const res = await executeTool(
         tool,
         {

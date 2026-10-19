@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   ScenarioRegistry,
@@ -8,6 +10,8 @@ import {
   CIRCULAR_REF_DIAGNOSTIC_SCENARIO,
   ScenarioFlowEnumerator,
   createInitialScenarioState,
+  evaluateTransitionGuards,
+  resolveScenarioInitialView,
   scenarioTransitionReducer,
 } from './index.js'
 
@@ -182,6 +186,284 @@ describe('Scenario Topic Navigation & BEHAVIOR FSM Engine', () => {
       expect(state.baseId).toBe('v1.0') // preserved
       expect(state.headId).toBe('v2.0') // preserved
       expect(state.onlyBreaking).toBe(true)
+    })
+  })
+
+  describe('Initial state resolution against the scenario definition', () => {
+    const registry = new ScenarioRegistry()
+
+    it('seeds a deep-linked scenario in its own initialView when the requested view is outside boundedViews', () => {
+      // `?scenario=endpoint-exploration` parses to view "timeline", which the scenario does not bound.
+      const state = createInitialScenarioState(ENDPOINT_EXPLORATION_SCENARIO, 'timeline')
+      expect(state.activeScenarioId).toBe('endpoint-exploration')
+      expect(state.currentView).toBe('paths')
+      expect(state.breadcrumbs).toHaveLength(1)
+      expect(state.breadcrumbs[0]?.view).toBe('paths')
+
+      const next = scenarioTransitionReducer(
+        state,
+        { type: 'SELECT_FRAGMENT_SYMBOL', symbolId: 'schema:public/users/User' },
+        registry,
+      )
+      expect(next.ok).toBe(true)
+      expect(next.state.currentView).toBe('graph')
+    })
+
+    it.each(DEFAULT_SCENARIOS)('starts "$id" with outgoing transitions when no view is requested', (scenario) => {
+      const state = createInitialScenarioState(scenario)
+      expect(state.currentView).toBe(scenario.initialView)
+      expect(scenario.transitions.some((t) => t.fromView === state.currentView)).toBe(true)
+    })
+
+    it('honours a requested view that lies inside boundedViews', () => {
+      const state = createInitialScenarioState(SPEC_DRIFT_TRIAGE_SCENARIO, 'diff')
+      expect(state.currentView).toBe('diff')
+      expect(state.breadcrumbs[0]?.view).toBe('diff')
+    })
+
+    it('keeps the requested view (default timeline) for free mode and bare scenario IDs', () => {
+      expect(createInitialScenarioState().currentView).toBe('timeline')
+      expect(createInitialScenarioState(null, 'graph').currentView).toBe('graph')
+      expect(createInitialScenarioState('endpoint-exploration', 'paths').currentView).toBe('paths')
+    })
+
+    it('resolveScenarioInitialView falls back to the definition initialView', () => {
+      expect(resolveScenarioInitialView(CIRCULAR_REF_DIAGNOSTIC_SCENARIO, 'timeline')).toBe('graph')
+      expect(resolveScenarioInitialView(CIRCULAR_REF_DIAGNOSTIC_SCENARIO, 'paths')).toBe('paths')
+      expect(resolveScenarioInitialView(undefined, undefined)).toBe('timeline')
+    })
+  })
+
+  describe('evaluateTransitionGuards', () => {
+    const rule = SPEC_DRIFT_TRIAGE_SCENARIO.transitions.find(
+      (t) => t.fromView === 'timeline' && t.actionType === 'REQUEST_DIFF',
+    )!
+    const state = createInitialScenarioState(SPEC_DRIFT_TRIAGE_SCENARIO)
+
+    it('passes when every guard accepts the action payload', () => {
+      expect(
+        evaluateTransitionGuards(SPEC_DRIFT_TRIAGE_SCENARIO, rule, state, { type: 'REQUEST_DIFF', baseId: 'a', headId: 'b' }),
+      ).toEqual({ ok: true })
+    })
+
+    it('reports the failing guard reason', () => {
+      expect(
+        evaluateTransitionGuards(SPEC_DRIFT_TRIAGE_SCENARIO, rule, state, { type: 'REQUEST_DIFF', baseId: 'a', headId: 'a' }),
+      ).toEqual({ ok: false, reason: 'baseId and headId must be distinct for comparison' })
+    })
+
+    it('fails closed on a guard ID that has no declaration', () => {
+      const result = evaluateTransitionGuards(
+        { ...SPEC_DRIFT_TRIAGE_SCENARIO, guards: {} },
+        rule,
+        state,
+        { type: 'REQUEST_DIFF', baseId: 'a', headId: 'b' },
+      )
+      expect(result.ok).toBe(false)
+      expect(result.ok ? '' : result.reason).toContain('require-diff-pair')
+    })
+  })
+
+  describe('Re-entry transitions land the new payload in the context', () => {
+    const registry = new ScenarioRegistry()
+
+    function run(
+      scenarioId: string,
+      actions: Parameters<typeof scenarioTransitionReducer>[1][],
+    ) {
+      let state = scenarioTransitionReducer(
+        createInitialScenarioState(),
+        { type: 'START_SCENARIO', scenarioId },
+        registry,
+      ).state
+      for (const action of actions) {
+        const res = scenarioTransitionReducer(state, action, registry)
+        expect(res.ok, `${action.type}: ${res.error ?? ''}`).toBe(true)
+        state = res.state
+      }
+      return state
+    }
+
+    it('spec-drift-triage: paths -> diff with a new revision pair replaces baseId/headId', () => {
+      const state = run('spec-drift-triage', [
+        { type: 'REQUEST_DIFF', baseId: 'a', headId: 'b' },
+        { type: 'INSPECT_ENDPOINT_PROVENANCE', pathPattern: '/x' },
+        { type: 'REQUEST_DIFF', baseId: 'c', headId: 'd' },
+      ])
+      expect(state.currentView).toBe('diff')
+      expect(state.baseId).toBe('c')
+      expect(state.headId).toBe('d')
+    })
+
+    it('endpoint-exploration: graph -> paths records the inspected pathPattern', () => {
+      const state = run('endpoint-exploration', [
+        { type: 'SELECT_FRAGMENT_SYMBOL', symbolId: 'User' },
+        { type: 'INSPECT_ENDPOINT_PROVENANCE', pathPattern: '/users' },
+      ])
+      expect(state.currentView).toBe('paths')
+      expect(state.pathPattern).toBe('/users')
+    })
+
+    it('breaking-impact-analysis: graph -> diff with a new revision pair replaces baseId/headId', () => {
+      const state = run('breaking-impact-analysis', [
+        { type: 'REQUEST_DIFF', baseId: 'a', headId: 'b' },
+        { type: 'SELECT_FRAGMENT_SYMBOL', symbolId: 'User' },
+        { type: 'REQUEST_DIFF', baseId: 'c', headId: 'd' },
+      ])
+      expect(state.currentView).toBe('diff')
+      expect(state.baseId).toBe('c')
+      expect(state.headId).toBe('d')
+    })
+
+    it('circular-ref-diagnostic: paths -> graph records the newly selected symbol', () => {
+      const state = run('circular-ref-diagnostic', [
+        { type: 'HIGHLIGHT_DEPENDENCY_CYCLE', rootSymbolId: 'A' },
+        { type: 'INSPECT_ENDPOINT_PROVENANCE', pathPattern: '/p' },
+        { type: 'SELECT_FRAGMENT_SYMBOL', symbolId: 'B' },
+      ])
+      expect(state.currentView).toBe('graph')
+      expect(state.selectedSymbol).toBe('B')
+    })
+
+    it.each(DEFAULT_SCENARIOS)('"$id": every guarded payload-carrying rule writes its payload to the context', (scenario) => {
+      const payloadActions = new Set([
+        'REQUEST_DIFF',
+        'INSPECT_ENDPOINT_PROVENANCE',
+        'SELECT_FRAGMENT_SYMBOL',
+        'HIGHLIGHT_DEPENDENCY_CYCLE',
+        'SELECT_REVISION',
+        'FILTER_BREAKING_CHANGES',
+      ])
+      for (const rule of scenario.transitions) {
+        if (payloadActions.has(rule.actionType)) {
+          expect(rule.transformContext, `${scenario.id} ${rule.fromView} -${rule.actionType}-> ${rule.toView}`).toBeTypeOf('function')
+        }
+      }
+    })
+  })
+
+  describe('Breadcrumbs record the diff pair a step showed', () => {
+    const registry = new ScenarioRegistry()
+    const pairOf = (step: { baseId?: string | undefined; headId?: string | undefined } | undefined) =>
+      step ? { baseId: step.baseId, headId: step.headId } : undefined
+    const NO_PAIR = { baseId: undefined, headId: undefined }
+
+    it('records the pair on every diff step, including self-loops, and on no other step', () => {
+      let state = scenarioTransitionReducer(
+        createInitialScenarioState(),
+        { type: 'START_SCENARIO', scenarioId: 'breaking-impact-analysis', initialContext: { baseId: 'x', headId: 'y' } },
+        registry,
+      ).state
+      for (const action of [
+        { type: 'REQUEST_DIFF', baseId: 'a', headId: 'b' },
+        { type: 'FILTER_BREAKING_CHANGES', onlyBreaking: true },
+        { type: 'SELECT_FRAGMENT_SYMBOL', symbolId: 'User' },
+        { type: 'COMPLETE_GOAL', goalId: 'impact-assessed' },
+        { type: 'REQUEST_DIFF', baseId: 'c', headId: 'd' },
+      ] as const) {
+        const res = scenarioTransitionReducer(state, action, registry)
+        expect(res.ok, `${action.type}: ${res.error ?? ''}`).toBe(true)
+        state = res.state
+      }
+      expect(state.breadcrumbs.map((b) => [b.view, pairOf(b)])).toEqual([
+        ['timeline', NO_PAIR],
+        ['diff', { baseId: 'a', headId: 'b' }],
+        ['diff', { baseId: 'a', headId: 'b' }],
+        ['graph', NO_PAIR],
+        ['graph', NO_PAIR],
+        ['diff', { baseId: 'c', headId: 'd' }],
+      ])
+    })
+
+    it('records the seeded pair on a deep-linked diff origin and on a hand-off into diff', () => {
+      const origin = createInitialScenarioState(SPEC_DRIFT_TRIAGE_SCENARIO, 'diff', { baseId: 'a', headId: 'b' })
+      expect(pairOf(origin.breadcrumbs[0])).toEqual({ baseId: 'a', headId: 'b' })
+      expect(pairOf(createInitialScenarioState(SPEC_DRIFT_TRIAGE_SCENARIO, 'diff').breadcrumbs[0])).toEqual(NO_PAIR)
+
+      const diffFirst = { ...SPEC_DRIFT_TRIAGE_SCENARIO, id: 'diff-first', initialView: 'diff' as const }
+      const handoff = scenarioTransitionReducer(
+        createInitialScenarioState(ENDPOINT_EXPLORATION_SCENARIO),
+        { type: 'SWITCH_SCENARIO', targetScenarioId: 'diff-first', handoffContext: { baseId: 'c', headId: 'd' } },
+        new ScenarioRegistry([diffFirst]),
+      )
+      expect(handoff.ok).toBe(true)
+      expect(pairOf(handoff.state.breadcrumbs.at(-1))).toEqual({ baseId: 'c', headId: 'd' })
+    })
+
+    it('declares every recorded breadcrumb field on ScenarioStepProvenance in scenario.tsp', () => {
+      const tsp = readFileSync(fileURLToPath(new URL('./scenario/scenario.tsp', import.meta.url)), 'utf8')
+      const body = /model ScenarioStepProvenance \{([\s\S]*?)\n\}/.exec(tsp)?.[1]
+      expect(body, 'model ScenarioStepProvenance in scenario.tsp').toBeDefined()
+      const declared = [...(body ?? '').matchAll(/^\s*(\w+)\??\s*:/gm)].map((m) => m[1])
+
+      // A START_SCENARIO into a diff-first scenario with a seeded pair fills every field.
+      const diffFirst = { ...SPEC_DRIFT_TRIAGE_SCENARIO, id: 'diff-first', initialView: 'diff' as const }
+      const started = scenarioTransitionReducer(
+        createInitialScenarioState(),
+        { type: 'START_SCENARIO', scenarioId: 'diff-first', initialContext: { baseId: 'a', headId: 'b' } },
+        new ScenarioRegistry([diffFirst]),
+      )
+      expect(started.ok).toBe(true)
+      const recorded = Object.keys(started.state.breadcrumbs[0] ?? {})
+      expect(new Set(declared)).toEqual(new Set(recorded))
+    })
+  })
+
+  describe('STEP_BACK returns to the step a breadcrumb recorded', () => {
+    const registry = new ScenarioRegistry()
+
+    function run(scenarioId: string, actions: Parameters<typeof scenarioTransitionReducer>[1][]) {
+      let state = scenarioTransitionReducer(
+        createInitialScenarioState(),
+        { type: 'START_SCENARIO', scenarioId },
+        registry,
+      ).state
+      for (const action of actions) {
+        const res = scenarioTransitionReducer(state, action, registry)
+        expect(res.ok, `${action.type}: ${res.error ?? ''}`).toBe(true)
+        state = res.state
+      }
+      return state
+    }
+
+    it('restores the revision pair of the diff step it lands on', () => {
+      // spec-drift-triage: timeline -> diff(a..b) -> timeline -> diff(c..d), then back twice.
+      const state = run('spec-drift-triage', [
+        { type: 'REQUEST_DIFF', baseId: 'a', headId: 'b' },
+        { type: 'SELECT_REVISION', revisionId: 'b' },
+        { type: 'REQUEST_DIFF', baseId: 'c', headId: 'd' },
+        { type: 'STEP_BACK' },
+        { type: 'STEP_BACK' },
+      ])
+      expect(state.breadcrumbs).toHaveLength(2)
+      expect(state.currentView).toBe('diff')
+      expect({ baseId: state.baseId, headId: state.headId }).toEqual({ baseId: 'a', headId: 'b' })
+      expect(state.breadcrumbs.at(-1)).toMatchObject({ view: 'diff', baseId: 'a', headId: 'b' })
+    })
+
+    it('keeps the context pair when the step it lands on recorded none', () => {
+      const onTimeline = run('spec-drift-triage', [
+        { type: 'REQUEST_DIFF', baseId: 'a', headId: 'b' },
+        { type: 'SELECT_REVISION', revisionId: 'b' },
+        { type: 'REQUEST_DIFF', baseId: 'c', headId: 'd' },
+        { type: 'STEP_BACK' },
+      ])
+      expect(onTimeline.currentView).toBe('timeline')
+      expect({ baseId: onTimeline.baseId, headId: onTimeline.headId }).toEqual({ baseId: 'c', headId: 'd' })
+
+      // A diff breadcrumb without a recorded pair (e.g. persisted before the field existed).
+      const legacy = createInitialScenarioState('spec-drift-triage', 'diff', {
+        baseId: 'c',
+        headId: 'd',
+        breadcrumbs: [
+          { stepNumber: 1, scenarioId: 'spec-drift-triage', view: 'diff', actionType: 'START_SCENARIO', timestamp: 0 },
+          { stepNumber: 2, scenarioId: 'spec-drift-triage', view: 'paths', actionType: 'INSPECT_ENDPOINT_PROVENANCE', timestamp: 0 },
+        ],
+      })
+      const back = scenarioTransitionReducer({ ...legacy, currentView: 'paths' }, { type: 'STEP_BACK' }, registry)
+      expect(back.ok).toBe(true)
+      expect(back.state.currentView).toBe('diff')
+      expect({ baseId: back.state.baseId, headId: back.state.headId }).toEqual({ baseId: 'c', headId: 'd' })
     })
   })
 })

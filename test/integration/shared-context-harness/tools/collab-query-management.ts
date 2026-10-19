@@ -46,29 +46,30 @@ export function createQueryManagementTool(port: SharedContextHarnessPort) {
       const { collaborationId, actorId } = input
       const unavailable: QueryManagementOutput = { status: 'unavailable' }
 
-      const manifest = await port.readCollaboration(collaborationId)
-      if (!manifest) return unavailable
-
-      const manifestCheck = validateCollaborationManifest(manifest)
-      if (!manifestCheck.ok) return unavailable
-
+      // Fail closed: a thrown provider error is concealed as `unavailable`.
       try {
+        const manifest = await port.readCollaboration(collaborationId)
+        if (!manifest) return unavailable
+
+        const manifestCheck = validateCollaborationManifest(manifest)
+        if (!manifestCheck.ok) return unavailable
+
         const canRead = await port.canReadCollaboration(actorId, manifest)
         if (!canRead) return unavailable
+
+        const management = await port.readManagementProjection(collaborationId)
+        if (!management) return unavailable
+
+        const managementCheck = validateManagementProjection(management)
+        if (!managementCheck.ok) return unavailable
+
+        return {
+          status: 'ready',
+          collaborationId,
+          management,
+        }
       } catch {
         return unavailable
-      }
-
-      const management = await port.readManagementProjection(collaborationId)
-      if (!management) return unavailable
-
-      const managementCheck = validateManagementProjection(management)
-      if (!managementCheck.ok) return unavailable
-
-      return {
-        status: 'ready',
-        collaborationId,
-        management,
       }
     },
   })
