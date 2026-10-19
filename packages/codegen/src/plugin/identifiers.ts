@@ -26,6 +26,24 @@ export const RESERVED_WORDS: ReadonlySet<string> = new Set([
  */
 export const RESERVED_BINDING_NAMES: ReadonlySet<string> = new Set([...RESERVED_WORDS, 'arguments', 'eval'])
 
+/**
+ * TypeScript's predefined type names. None of them can name a class, an interface, a type alias or a
+ * type parameter ("Class name cannot be 'string'").
+ */
+export const PREDEFINED_TYPE_NAMES: ReadonlySet<string> = new Set([
+  'any', 'bigint', 'boolean', 'never', 'number', 'object', 'string', 'symbol', 'undefined', 'unknown', 'void',
+])
+
+const IDENTIFIER_NAME = /^[\p{ID_Start}$_][\p{ID_Continue}$‌‍]*$/u
+
+/**
+ * Whether `name` is an ECMAScript IdentifierName written without Unicode escape sequences.
+ * It may still be a reserved word.
+ */
+export function isIdentifierName(name: string): boolean {
+  return IDENTIFIER_NAME.test(name)
+}
+
 const PLAIN_IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/
 
 /**

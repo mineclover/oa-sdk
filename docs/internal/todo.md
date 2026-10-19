@@ -65,11 +65,6 @@ boundaries를 확인했다. 현재 production source의 기준은 TypeSpec valid
 2. 파생 scalar는 trace 쪽에서 base scalar provenance로 중복을 해소할지, decorator가 경고할지 결정한다.
 완료 기준: 두 경우의 fixture에서 결정한 정책대로 진단하거나 `oa-gen trace --verify`가 통과하는 테스트가 있다.
 
-### [ ] root-level operationId `client`와 `client.ts`의 `ClientResponse` 충돌
-배경: `pluginClient`는 예약어나 `client.ts`가 선언하는 binding과 겹치는 함수 이름에 `_`를 붙이므로 root-level operation `client`의 함수는 `client_`가 된다. 하지만 type 이름은 escape하지 않는다. 성공 응답이 있으면 `client.ts`가 types 파일에서 import하는 `ClientResponse`가 `client.ts`의 generic helper `ClientResponse<...>` 선언과 충돌하고, 성공 응답이 없으면 fallback `export type ClientResponse = void`가 같은 helper와 중복된다.
-작업: typegen 또는 client renderer가 `client.ts` helper type 이름(`RequestParameters`, `RequestOptions`, `KnownErrorStatus`, `ClientResult`, `ClientResponse`, `ErrorUnion`, `ErrorStatusResult`, `ClientConfig`)을 예약하거나 import를 alias한다.
-완료 기준: root-level `client` operation이 있는 fixture의 생성 types 파일과 `client.ts`가 함께 type-check된다.
-
 ### [ ] `@oa-sdk/client` TanStack `TError`에 transport 오류 포함
 배경: `packages/client/src/tanstack/options-factory-generator.ts`와 `hook-factory-generator.ts`는 error model이 있으면 query·mutation error 타입을 `<Op>Error`로만 둔다. 실제로 reject될 수 있는 네트워크 오류, abort, `ApiClientResponseError`는 `TError`에 없다. 지금은 [client and query consumption](../guides/client-and-query-consumption.md) 가이드가 `instanceof`로 좁히는 방법을 안내한다.
 작업: `TError`를 `<Op>Error | Error`로 넓힐지 결정하고, 넓히면 두 생성기, 생성 결과 테스트, 가이드를 함께 바꾼다.
@@ -89,11 +84,6 @@ boundaries를 확인했다. 현재 production source의 기준은 TypeSpec valid
 배경: `packages/codegen/src/cli/commands/generate-tanstack.ts`는 `--tier hooks`이면 `--framework vue|svelte`에서도 `includeHooks`를 켠다. `@oa-sdk/client`의 hook 생성기는 React 형식의 `use*` hook을 만들기 때문에, 그 출력이 `@tanstack/vue-query`·`@tanstack/svelte-query`를 import하면서 React 전용 API 형태를 쓴다. 이번 pass 전부터 있던 동작이며 문서에 없다.
 작업: vue·svelte에서 `--tier hooks`를 거부할지, framework별 hook 생성기를 둘지 결정하고 CLI 도움말과 [CLI command reference](../guides/cli-command-reference.md)를 맞춘다.
 완료 기준: vue·svelte target의 `--tier hooks` 결과가 해당 패키지에 대해 type-check되거나, 명확한 오류로 거부된다.
-
-### [ ] `pluginClient({ clientName })` 이름 검증
-배경: `pluginClient`는 operation 함수 이름이 생성 module이 참조하는 global(`fetch`, `Response`, `Headers` 등)과 module binding을 가리지 않도록 escape하지만, 사용자가 준 `clientName`은 검증하지 않는다. `clientName: 'Response'`는 global `Response`를 가리는 class를 선언한다.
-작업: `clientName`을 식별자·예약어·참조 global 기준으로 검증하고 충돌하면 진단과 함께 실패시킨다.
-완료 기준: 충돌하는 `clientName`이 명확한 오류로 거부되는 테스트가 있다.
 
 ### [ ] Feature-test matrix에 없는 영역
 배경: [feature-test-matrix.json](./feature-test-matrix.json)에 row가 없어 이번 pass에 추가한 회귀 테스트 일부가 matrix에 연결되지 않는다.
@@ -338,6 +328,16 @@ REST vs bare-clone 결정: REST API 방식 유지. 이유는 (1) 4 케이스 모
 4. `upgradeWebSocket`은 호출 시점에 파기됐거나, peer가 이미 FIN을 보냈거나(`readableEnded`), 더 쓸 수 없는 socket에 101을 보내지 않고 파기하며, `send`는 곧바로 `'closed'`를 돌려주고 `onClose`는 반환 뒤 한 번 실행된다. 테스트: `server-ws-frames.test.ts`.
 5. 결정: 넣는다. live demo provider의 `register`는 SDK처럼 증가하는 `registerSeq`를 담고, 거부를 그 번호로 frame에 맞춘다. 1번 이후 relay는 반복된 frame에 마지막 답을 다시 보내고 기다리는 동안 대체된 frame에는 답하지 않으므로 답의 순서로는 frame을 맞출 수 없다. 마지막 frame에 대한 거부만 Provider 배지(`catalogRefusal`)에 표시하고, 대체된 frame에 대한 거부는 wire log에 무시했다고 남긴다. 테스트: `live-demo.e2e.test.ts`.
 검증: `pnpm --filter @oa-sdk/webmcp-peer test:ci`·`typecheck`, `type-registry:check`, `check:api-index`, `check:docs`, `check:feature-tests`가 통과하고, 새 테스트는 이전 코드에서 실패함을 확인했다.
+
+### [x] root-level operationId `client`와 `client.ts`의 `ClientResponse` 충돌
+배경: `pluginClient`는 예약어나 `client.ts`가 선언하는 binding과 겹치는 함수 이름에 `_`를 붙이므로 root-level operation `client`의 함수는 `client_`가 된다. 하지만 type 이름은 escape하지 않았다. 성공 응답이 있으면 `client.ts`가 types 파일에서 import하는 `ClientResponse`가 `client.ts`의 generic helper `ClientResponse<...>` 선언과 충돌하고, 성공 응답이 없으면 fallback `export type ClientResponse = void`가 같은 helper와 중복됐다.
+결정과 완료 (2026-10-20): typegen이 아니라 client renderer에서 고쳤다. typegen의 operation type 이름(`<Base>Response` 등)은 `@oa-sdk/client`, router target, TanStack adapter, traceability가 `createOperationTypeNameMap()`으로 같은 규칙을 다시 계산해 쓰므로, typegen에서 바꾸면 그 소비자 모두를 함께 바꿔야 하고 `pluginClient`를 쓰지 않는 사용자의 types 파일도 달라진다. 대신 `client.ts`의 per-operation type(types 파일에서 import하는 이름과 `client.ts`가 선언하는 `<Fn>Data`·`<Fn>Response`·`<Fn>Errors`·fallback 등)은 module-scope type 예약 집합(`clientModuleScopeTypeNames(clientName)`: client class, helper type 8개, `client.ts`가 type 위치에서 참조하는 global type)과 겹치면 함수 이름처럼 `_`(이어서 `_2`, ...)를 붙인다. 겹치는 import는 `import type { ClientResponse as ClientResponse_ }`로 alias하고, star re-export에서 helper에 가려지므로 `export type { ClientResponse_ }`로 다시 export한다. 성공 응답이 없으면 fallback은 `export type ClientResponse_ = void`다. 예약 집합은 함수 이름 집합처럼 TypeScript checker로 생성 module에서 도출해 테스트가 고정한다. `clientName`과 같은 operation type 이름(`clientName: 'ListItemsResponse'`)도 같은 규칙으로 escape된다.
+검증: `packages/codegen/src/__tests__/plugin/plugin-client.test.ts`의 root-level `client` fixture(성공 응답 있음·없음 × `clientClass` true·false)가 types 파일·`client.ts`·consumer 파일과 함께 type-check되고(escape를 끄면 실패), `test/e2e/typespec-plugin/fixtures/reserved-names`에 root-level `op client`를 더해 types·client·TanStack·adapter·hono router 조합이 type-check된다.
+
+### [x] `pluginClient({ clientName })` 이름 검증
+배경: `pluginClient`는 operation 함수 이름이 생성 module이 참조하는 global(`fetch`, `Response`, `Headers` 등)과 module binding을 가리지 않도록 escape하지만, 사용자가 준 `clientName`은 검증하지 않았다. `clientName: 'Response'`는 global `Response`를 가리는 class를 선언했다.
+완료 (2026-10-20): `clientName`이 식별자가 아니거나, 예약어·TypeScript predefined type 이름(`string` 등)이거나, `client.ts`가 선언하는 다른 이름(value: `createClient`·`defaultClient` 등, type: `ClientConfig`·`ClientResponse` 등)이거나, 참조하는 global value·type(`fetch`, `Response`, `Record`, `RequestInit` 등)이거나, `client.ts`가 class를 참조하는 자리에서 묶는 이름(`TData`·`TError` type parameter, `createClient`의 `config` parameter)이면 `pluginClient`가 `CLIENT_INVALID_CLIENT_NAME` 오류 진단을 내고 `client.ts`와 `client:sdk` manifest를 만들지 않는다. renderer도 같은 메시지로 throw한다. operation 이름과 겹치는 `clientName`은 허용하고 operation 쪽 이름을 escape한다.
+검증: `plugin-client.test.ts`의 `pluginClient clientName` 테스트가 `clientName: 'Response'`의 진단 전체를 확인하고, 예약 value·type 집합, checker로 도출한 class 참조 위치의 이름, 예약어, predefined type 이름, 식별자가 아닌 이름이 모두 거부되며, 그 밖의 이름(Unicode 식별자, operation과 같은 이름 포함)은 생성 코드가 type-check됨을 확인한다.
 
 ### [x] WebMCP relay 메시지 상한과 `register` 크기
 배경: relay는 fragment로 나눈 message를 256 KiB까지 받았지만 frame 하나가 128 KiB를 넘으면 socket을 닫았다. 브라우저와 Node WebSocket client는 message를 frame 하나로 보내므로 실제 상한은 128 KiB였고, provider socket이 닫히면 room의 모든 agent가 끊겼다. provider는 `register` 크기를 확인하지 않아 큰 catalog가 auto-reconnect 아래에서 ready → register → close를 반복할 수 있었다.

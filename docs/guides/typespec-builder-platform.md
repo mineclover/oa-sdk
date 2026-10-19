@@ -231,7 +231,7 @@ const res = await getPetById({
 ```
 
 - 함수 이름은 operationId에서 옵니다. TypeSpec `Pets.getPetById`는 operationId `Pets_getPetById`가 되고, 짧은 이름 `getPetById`(모든 오퍼레이션에서 유일할 때)와 전체 이름 `petsGetPetById`가 함께 export됩니다. 짧은 이름이 여러 네임스페이스에서 겹치면(`Pets.list`, `Users.list`) 전체 이름(`petsList`, `usersList`)만 쓰입니다.
-- 함수로 선언할 수 없는 이름은 피합니다. 짧은 이름이 예약어(`Pets.delete`의 `delete`, `Orders.export`의 `export`)이거나 `client.ts`가 직접 선언하는 이름(`createClient`, `client`, `isErrorStatus` 등)이거나 다른 오퍼레이션의 전체 이름과 같으면 전체 이름(`petsDelete`, `ordersExport`)만 export됩니다. 전체 이름 자체가 그런 이름이면(루트 수준 `op delete`, `op createClient`) 끝에 `_`를 붙입니다(`delete_`, `createClient_`; 이미 쓰인 이름이면 `_2`, `_3`, ...). 타입 이름은 그대로입니다(`DeleteData`, `DeleteErrors`). 실제 함수 이름은 `client:sdk` 매니페스트(4.2절)의 `functionName`/`primaryFunctionName`에 있습니다.
+- 함수로 선언할 수 없는 이름은 피합니다. 짧은 이름이 예약어(`Pets.delete`의 `delete`, `Orders.export`의 `export`)이거나 `client.ts`가 직접 선언하는 이름(`createClient`, `client`, `isErrorStatus` 등)이거나 다른 오퍼레이션의 전체 이름과 같으면 전체 이름(`petsDelete`, `ordersExport`)만 export됩니다. 전체 이름 자체가 그런 이름이면(루트 수준 `op delete`, `op createClient`) 끝에 `_`를 붙입니다(`delete_`, `createClient_`; 이미 쓰인 이름이면 `_2`, `_3`, ...). 타입 이름은 그대로입니다(`DeleteData`, `DeleteErrors`). 다만 타입 이름이 `client.ts`가 선언하는 타입(전송 클래스, `ClientResponse`·`ClientResult`·`RequestOptions`·`ClientConfig` 등 helper)이나 참조하는 global 타입과 같으면 타입에도 `_`를 붙입니다. 루트 수준 `op client`의 응답 타입은 `client.ts`에서 `ClientResponse_`이고(성공 응답이 없으면 `void`), `ClientResponse`는 helper 그대로입니다. types 파일의 이름은 바뀌지 않습니다. 실제 함수 이름은 `client:sdk` 매니페스트(4.2절)의 `functionName`/`primaryFunctionName`에 있습니다.
 - 헤더 값은 `string`이 아니어도 됩니다. 숫자·불리언은 문자열로, 배열은 `a,b`로 직렬화되며(OpenAPI `simple` 스타일), `undefined`/`null` 헤더는 보내지 않습니다.
 
 ### 3.2 `{ data, error, response }` Discriminated Union 반환 구조
@@ -373,6 +373,8 @@ builder.use(
   }),
 );
 ```
+
+- **`clientName` 검증**: 전송 클래스 이름은 식별자여야 하고, 예약어나 TypeScript 기본 타입 이름(`string` 등), `client.ts`가 선언하는 다른 이름(`createClient`, `client`, `ClientConfig`, `ClientResponse` 등), `client.ts`가 참조하는 global(`fetch`, `Response`, `Record` 등), 클래스를 참조하는 자리에서 묶이는 이름(`TData`, `TError`, `config`)이면 안 됩니다. 그런 이름이면 `CLIENT_INVALID_CLIENT_NAME` 오류 진단으로 빌드가 실패하고 `client.ts`를 만들지 않습니다. 오퍼레이션 함수·타입과 같은 이름은 허용되며 오퍼레이션 쪽 이름에 `_`를 붙입니다.
 
 - **응답 본문 읽기**: 두 전송 방식 모두 본문을 텍스트로 읽어 같은 규칙으로 해석합니다. 빈 본문(공백만 있는 본문 포함)은 `undefined`, JSON이면 파싱한 값, 그 밖의 텍스트는 문자열 그대로입니다. 그래서 빈 본문의 실패 응답은 `error === undefined`이고 `isErrorStatus`도 거짓입니다. `axios` 전송은 이를 위해 요청마다 `responseType: 'text'`를 지정하므로, 인스턴스의 `transformResponse`는 원문 텍스트를 받습니다. 인스턴스(또는 사용자 어댑터)가 그래도 이미 디코딩한 값을 돌려주면 그 값을 그대로 씁니다.
 

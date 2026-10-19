@@ -182,6 +182,94 @@ export function collectModuleScopeValueNames(options: TypecheckGeneratedOptions 
   })
 }
 
+/** Module-scope type names of one generated module, as the TypeScript checker resolves them. */
+export interface ModuleScopeTypeNames {
+  /**
+   * Global types the module names in type positions (`Promise<...>`, `Record<...>`, `Response`): type
+   * references that the checker binds to a global symbol. A module-scope type declaration with one of these
+   * names would replace the global type in the whole module.
+   */
+  globals: string[]
+  /** Types (classes, interfaces, type aliases) the module declares at module scope. */
+  declarations: string[]
+}
+
+/**
+ * Lists the module-scope type names of the generated module `file` (a key of `files`), resolved by the
+ * TypeScript checker over the compiled files. Both lists are sorted and free of duplicates.
+ */
+export function collectModuleScopeTypeNames(options: TypecheckGeneratedOptions & { file: string }): ModuleScopeTypeNames {
+  return withGeneratedProgram(options, (program, rootFiles) => {
+    const filePath = rootFiles.get(options.file)
+    const sourceFile = filePath ? program.getSourceFile(filePath) : undefined
+    if (!sourceFile) throw new Error(`${options.file} is not one of the compiled files`)
+    const checker = program.getTypeChecker()
+
+    const declarations = new Set<string>()
+    const globalSymbols = new Map<string, ts.Symbol>()
+    for (const symbol of checker.getSymbolsInScope(sourceFile, ts.SymbolFlags.Type)) {
+      if (symbol.declarations?.some(declaration => declaration.getSourceFile() === sourceFile)) declarations.add(symbol.name)
+      else globalSymbols.set(symbol.name, symbol)
+    }
+
+    const globals = new Set<string>()
+    const visit = (node: ts.Node): void => {
+      if (ts.isTypeReferenceNode(node) && ts.isIdentifier(node.typeName)) {
+        const symbol = checker.getSymbolAtLocation(node.typeName)
+        if (symbol && globalSymbols.get(symbol.name) === symbol) globals.add(symbol.name)
+      }
+      ts.forEachChild(node, visit)
+    }
+    visit(sourceFile)
+
+    return { globals: [...globals].sort(), declarations: [...declarations].sort() }
+  })
+}
+
+/**
+ * Lists the names the generated module `file` binds in a nested scope (a parameter, a type parameter, a
+ * local) at a reference to its module-scope declaration `name`, resolved by the TypeScript checker in the
+ * meaning of the reference: a type reference sees the types in scope, any other reference the values. A
+ * module-scope declaration renamed to one of these names would be shadowed at that reference. Sorted and
+ * free of duplicates.
+ */
+export function collectNamesBoundAtReferences(options: TypecheckGeneratedOptions & { file: string; name: string }): string[] {
+  return withGeneratedProgram(options, (program, rootFiles) => {
+    const filePath = rootFiles.get(options.file)
+    const sourceFile = filePath ? program.getSourceFile(filePath) : undefined
+    if (!sourceFile) throw new Error(`${options.file} is not one of the compiled files`)
+    const checker = program.getTypeChecker()
+
+    const moduleScope = new Set(checker.getSymbolsInScope(sourceFile, ts.SymbolFlags.Value | ts.SymbolFlags.Type))
+    const target = [...moduleScope].find(symbol =>
+      symbol.name === options.name && symbol.declarations?.some(declaration => declaration.getSourceFile() === sourceFile))
+    const targetDeclarations = new Set<ts.Node>(target?.declarations)
+    if (targetDeclarations.size === 0) throw new Error(`${options.file} declares no module-scope ${options.name}`)
+
+    const names = new Set<string>()
+    let references = 0
+    const visit = (node: ts.Node): void => {
+      const isReference = ts.isIdentifier(node)
+        && !targetDeclarations.has(node.parent)
+        && checker.getSymbolAtLocation(node)?.declarations?.some(declaration => targetDeclarations.has(declaration))
+      if (isReference) {
+        references++
+        const meaning = ts.isTypeReferenceNode(node.parent) ? ts.SymbolFlags.Type : ts.SymbolFlags.Value
+        for (const symbol of checker.getSymbolsInScope(node, meaning)) {
+          const isNested = !moduleScope.has(symbol)
+            && symbol.declarations?.some(declaration => declaration.getSourceFile() === sourceFile)
+          if (isNested) names.add(symbol.name)
+        }
+      }
+      ts.forEachChild(node, visit)
+    }
+    visit(sourceFile)
+    if (references === 0) throw new Error(`${options.file} never refers to ${options.name}`)
+
+    return [...names].sort()
+  })
+}
+
 /** Generated file shape shared by pipeline results and plugin contexts. */
 export interface GeneratedFileLike {
   path: string

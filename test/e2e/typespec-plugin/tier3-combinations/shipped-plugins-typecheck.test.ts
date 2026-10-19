@@ -37,7 +37,7 @@ async function generateStack(
 
 describe('Tier 3: Shipped plugin output type-checks together', () => {
   // reserved-names: operations named with reserved words (`delete`, `import`, `new`, `Orders.export`), like a client.ts binding
-  // (`createClient`) or like a global client.ts refers to (`fetch`).
+  // (`createClient`, `client`, whose `ClientResponse` is also a client.ts helper type) or like a global client.ts refers to (`fetch`).
   for (const fixture of ['petstore', 'storefront', 'edge-cases', 'reserved-names'] as const) {
     it(`${fixture}: types + client + TanStack (single file) + adapter + hono router`, async () => {
       const files = await generateStack(fixture)

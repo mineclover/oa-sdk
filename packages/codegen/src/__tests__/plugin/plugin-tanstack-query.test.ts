@@ -560,18 +560,19 @@ describe('pluginTanstackQuery', () => {
       const result = await generateStack({ split }, { input: reservedNamesFile })
       expect(result.diagnostics).toEqual([])
       const files = toFileRecord(result.files)
-      // Root-level `delete` / `import` / `new` / `createClient` / `fetch` get escaped function names; the
-      // reserved short names of `Pets.delete` and `Orders.export` fall back to the prefixed names.
+      // Root-level `delete` / `import` / `new` / `createClient` / `fetch` / `client` get escaped function names;
+      // the reserved short names of `Pets.delete` and `Orders.export` fall back to the prefixed names.
       expect(files['client.ts']).toContain('export async function delete_(')
       expect(files['client.ts']).toContain('export async function import_(')
       expect(files['client.ts']).toContain('export async function new_(')
       expect(files['client.ts']).toContain('export async function createClient_(')
       expect(files['client.ts']).toContain('export async function fetch_(')
+      expect(files['client.ts']).toContain('export async function client_(')
       expect(files['client.ts']).toContain('export async function petsDelete(')
       expect(files['client.ts']).toContain('export async function ordersExport(')
       expect(files['client.ts']).toContain('export function createClient(config?: ClientConfig): Client {')
       expect(files['api-client.ts']).toContain(
-        "import { type Client, delete_, import_, createClient_, new_, fetch_, petsDelete, ordersExport } from './client.js'",
+        "import { type Client, delete_, import_, createClient_, new_, fetch_, client_, petsDelete, ordersExport } from './client.js'",
       )
       // Reserved member names are quoted in the interface and in the object, so `new` is a method
       // (unquoted, `new(...)` would be a construct signature of ApiClient).
@@ -600,6 +601,9 @@ describe('pluginTanstackQuery', () => {
       fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ id: 'p2', name: 'Ada' }), { status: 200 }))
       await expect(api.fetch({ id: 'p2' })).resolves.toEqual({ id: 'p2', name: 'Ada' })
       expect(fetchMock).toHaveBeenLastCalledWith('https://api.test/fetch/p2', expect.objectContaining({ method: 'GET' }))
+      fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ id: 'p3', name: 'Bo' }), { status: 200 }))
+      await expect(api.client({ id: 'p3' })).resolves.toEqual({ id: 'p3', name: 'Bo' })
+      expect(fetchMock).toHaveBeenLastCalledWith('https://api.test/client/p3', expect.objectContaining({ method: 'GET' }))
     } finally {
       cleanup()
     }

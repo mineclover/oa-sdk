@@ -11,9 +11,21 @@ import {
 } from '../../plugin/index.js'
 import { pluginTypescript } from '../../plugin/plugins/typescript.js'
 import { pluginClient, pluginSdk, readClientSdkManifest } from '../../plugin/plugins/client.js'
-import { clientModuleScopeValueNames, renderOpenApiTsClient } from '../../plugin/client-renderer/openapi-ts-client.js'
+import {
+  CLIENT_CLASS_SCOPE_NAMES,
+  clientModuleScopeTypeNames,
+  clientModuleScopeValueNames,
+  renderOpenApiTsClient,
+} from '../../plugin/client-renderer/openapi-ts-client.js'
+import { PREDEFINED_TYPE_NAMES, RESERVED_BINDING_NAMES } from '../../plugin/identifiers.js'
 import type { OasDocument } from '@oa-sdk/parser'
-import { collectModuleScopeValueNames, toFileRecord, typecheckGeneratedFiles } from './helpers/typecheck-generated.js'
+import {
+  collectModuleScopeTypeNames,
+  collectModuleScopeValueNames,
+  collectNamesBoundAtReferences,
+  toFileRecord,
+  typecheckGeneratedFiles,
+} from './helpers/typecheck-generated.js'
 
 /** Runs pluginTypescript + pluginClient (through the real pipeline) and returns the emitted files. */
 async function generateClient(
@@ -125,6 +137,34 @@ function typedHeaderDoc(): OasDocument {
       },
     },
   }
+}
+
+/** One operation per emitted code path: path/query/header parameters, a JSON body, JSON success and error bodies, no body, a method without a verb helper. */
+const transportPathsDoc: OasDocument = {
+  openapi: '3.2.0',
+  info: { title: 'Transport paths', version: '1.0.0' },
+  paths: {
+    '/items/{id}': {
+      get: {
+        operationId: 'Items_get',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'tags', in: 'query', schema: { type: 'array', items: { type: 'string' } } },
+          { name: 'x-trace', in: 'header', schema: { type: 'string' } },
+        ],
+        responses: {
+          '200': { description: 'ok', content: { 'application/json': { schema: { type: 'object', properties: { id: { type: 'string' } } } } } },
+          '404': { description: 'missing', content: { 'application/json': { schema: { type: 'object', properties: { message: { type: 'string' } } } } } },
+        },
+      },
+      post: {
+        operationId: 'createItem',
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } },
+        responses: { '204': { description: 'created' } },
+      },
+      trace: { operationId: 'traceItem', responses: { '204': { description: 'traced' } } },
+    },
+  },
 }
 
 describe('M2: pluginClient & pluginSdk', () => {
@@ -622,34 +662,6 @@ describe('pluginClient function names', () => {
     }
   })
 
-  /** One operation per emitted code path: path/query/header parameters, a JSON body, JSON success and error bodies, no body, a method without a verb helper. */
-  const transportPathsDoc: OasDocument = {
-    openapi: '3.2.0',
-    info: { title: 'Transport paths', version: '1.0.0' },
-    paths: {
-      '/items/{id}': {
-        get: {
-          operationId: 'Items_get',
-          parameters: [
-            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
-            { name: 'tags', in: 'query', schema: { type: 'array', items: { type: 'string' } } },
-            { name: 'x-trace', in: 'header', schema: { type: 'string' } },
-          ],
-          responses: {
-            '200': { description: 'ok', content: { 'application/json': { schema: { type: 'object', properties: { id: { type: 'string' } } } } } },
-            '404': { description: 'missing', content: { 'application/json': { schema: { type: 'object', properties: { message: { type: 'string' } } } } } },
-          },
-        },
-        post: {
-          operationId: 'createItem',
-          requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } },
-          responses: { '204': { description: 'created' } },
-        },
-        trace: { operationId: 'traceItem', responses: { '204': { description: 'traced' } } },
-      },
-    },
-  }
-
   it('reserves every global and module binding the emitted client module refers to, for every transport and clientClass setting', async () => {
     const reserved = clientModuleScopeValueNames('Client')
     const referenced = new Set<string>()
@@ -744,6 +756,201 @@ describe('pluginClient function names', () => {
       rmSync(directory, { recursive: true, force: true })
       await new Promise<void>(closed => server.close(() => closed()))
     }
+  })
+})
+
+/** A document without operations: every type and value the emitted client module declares is its own. */
+const noOperationsDoc: OasDocument = {
+  openapi: '3.2.0',
+  info: { title: 'No operations', version: '1.0.0' },
+  paths: {},
+}
+
+/**
+ * A root-level operation `client`. Its conventional type names start with `Client` like the client.ts
+ * helpers, and its `ClientResponse` (the success type, or the `void` fallback) is the name of one of them.
+ */
+function rootClientOperationDoc(withSuccessResponse: boolean): OasDocument {
+  const notFound = { description: 'missing', content: { 'application/json': { schema: { $ref: '#/components/schemas/NotFound' } } } }
+  return {
+    openapi: '3.2.0',
+    info: { title: 'Root client operation', version: '1.0.0' },
+    paths: {
+      '/client/{id}': {
+        get: {
+          operationId: 'client',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: withSuccessResponse
+            ? { '200': { description: 'ok', content: { 'application/json': { schema: { $ref: '#/components/schemas/Item' } } } }, '404': notFound }
+            : { '204': { description: 'ok' }, '404': notFound },
+        },
+      },
+    },
+    components: {
+      schemas: {
+        Item: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } },
+        NotFound: { type: 'object', required: ['message'], properties: { message: { type: 'string' } } },
+      },
+    },
+  }
+}
+
+describe('pluginClient type names', () => {
+  it('escapes an operation type named like a client.ts helper: a root-level `client` with and without a success response', async () => {
+    for (const withSuccessResponse of [true, false]) {
+      for (const clientClass of [true, false]) {
+        const label = JSON.stringify({ withSuccessResponse, clientClass })
+        const files = await generateClient(rootClientOperationDoc(withSuccessResponse), { clientClass })
+        const code = files['client.ts']!
+
+        // The helper keeps its name and is declared once; the operation's type is `ClientResponse_`.
+        expect(code.match(/^export type ClientResponse\b.*$/gm), label).toEqual([
+          'export type ClientResponse<TData = unknown, TError = unknown, TErrors = Record<number, TError>> = ClientResult<TData, TError, TErrors>',
+        ])
+        if (withSuccessResponse) {
+          expect(code, label).toContain('  ClientResponse as ClientResponse_,\n')
+          expect(code, label).toContain('export type { ClientResponse_ };')
+        } else {
+          expect(code, label).toContain('export type ClientResponse_ = void;')
+        }
+        expect(code, label).toContain(`): Promise<ClientResult<${withSuccessResponse ? 'ClientResponse_' : 'void'}, ClientError, ClientErrors>> {`)
+        // Names that are no helper keep their conventional form.
+        expect(code, label).toContain('export interface ClientData {')
+        expect(code, label).toContain('export type ClientErrors = ClientErrorByStatus;')
+        expect(duplicateOrSelfAliases(code), label).toEqual([])
+
+        // The consumer sees the helper under its name and the operation's response type under the escaped one.
+        const consumer = [
+          "import { client_, type ClientResponse, type ClientResponse_, type Item, type NotFound } from './client.js'",
+          'type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false',
+          `export const operationResponse: Equal<ClientResponse_, ${withSuccessResponse ? 'Item' : 'void'}> = true`,
+          ...(withSuccessResponse
+            ? [
+                "import type { ClientResponse as OperationResponse } from './types.js'",
+                'export const sameAsTypesFile: Equal<ClientResponse_, OperationResponse> = true',
+              ]
+            : []),
+          'export const helper: ClientResponse<Item, NotFound> = { data: { id: "a" }, error: undefined, response: new Response() }',
+          'export async function load(): Promise<ClientResponse_ | undefined> {',
+          "  const result = await client_({ path: { id: 'a' } })",
+          '  return result.data',
+          '}',
+        ].join('\n')
+        expect(typecheckGeneratedFiles({ files: { ...files, 'consumer.ts': consumer } }), label).toEqual([])
+      }
+    }
+  })
+
+  it('escapes an operation type named like the client class', async () => {
+    for (const clientName of ['ListItemsResponse', 'GetItemData']) {
+      const files = await generateClient(rootLevelDoc, { clientName })
+      const code = files['client.ts']!
+      expect(code, clientName).toContain(`export class ${clientName} {`)
+      expect(code, clientName).toMatch(new RegExp(`^export (?:interface|type \\{) ${clientName}_\\b`, 'm'))
+      expect(typecheckGeneratedFiles({ files }), clientName).toEqual([])
+    }
+  })
+
+  it('reserves every global type and type binding the emitted client module refers to or declares, for every transport and clientClass setting', async () => {
+    const reserved = clientModuleScopeTypeNames('Client')
+    const referenced = new Set<string>()
+    for (const httpClient of ['fetch', 'axios'] as const) {
+      for (const clientClass of [true, false]) {
+        const label = JSON.stringify({ httpClient, clientClass })
+        // The global types the transport and the operation functions name, resolved by the TypeScript checker.
+        const withOperations = await generateClientWithManifest(transportPathsDoc, { httpClient, clientClass })
+        const { globals } = collectModuleScopeTypeNames({ files: withOperations.files, file: 'client.ts' })
+        // The module's own types: without operations, there are no operation types among them.
+        const withoutOperations = await generateClientWithManifest(noOperationsDoc, { httpClient, clientClass })
+        const { declarations } = collectModuleScopeTypeNames({ files: withoutOperations.files, file: 'client.ts' })
+        expect(globals, label).toContain('Promise')
+        expect(declarations, label).toContain('ClientResponse')
+
+        expect(globals.filter(name => !reserved.has(name)), label).toEqual([])
+        expect(declarations.filter(name => !reserved.has(name)), label).toEqual([])
+        for (const name of [...globals, ...declarations]) referenced.add(name)
+      }
+    }
+    // Nothing is reserved that no setting's module refers to or declares.
+    expect([...reserved].sort()).toEqual([...referenced].sort())
+  })
+})
+
+describe('pluginClient clientName', () => {
+  /** Runs pluginTypescript + pluginClient through the pipeline without asserting success. */
+  function runClientPipeline(document: OasDocument, clientName: string) {
+    return runTspPluginPipeline(
+      { input: 'main.tsp', dryRun: true, plugins: [pluginTypescript(), pluginClient({ clientName })] },
+      { document },
+    )
+  }
+
+  it('rejects a clientName that collides with a global the module refers to, with a CLIENT_INVALID_CLIENT_NAME diagnostic', async () => {
+    const result = await runClientPipeline(rootLevelDoc, 'Response')
+
+    expect(result.success).toBe(false)
+    expect(result.diagnostics).toEqual([{
+      plugin: 'client',
+      code: 'CLIENT_INVALID_CLIENT_NAME',
+      severity: 'error',
+      message: '[client] clientName "Response" would shadow the global `Response` that the generated client module refers to; '
+        + 'choose another clientName for the client class.',
+    }])
+    // No client module, and no SDK manifest for downstream plugins.
+    expect(result.files.map(file => file.path)).toEqual(['types.ts'])
+    expect(readClientSdkManifest(result.context)).toBeUndefined()
+    // The renderer refuses the name as well.
+    expect(() => renderOpenApiTsClient({ document: rootLevelDoc, clientName: 'Response' }))
+      .toThrow('clientName "Response" would shadow the global `Response`')
+  })
+
+  it('rejects every clientName the generated module cannot declare as its client class', async () => {
+    // The names the module binds where it refers to the class, resolved by the TypeScript checker for every setting.
+    const scopeNames = new Set<string>()
+    for (const httpClient of ['fetch', 'axios'] as const) {
+      for (const clientClass of [true, false]) {
+        const { files } = await generateClientWithManifest(transportPathsDoc, { httpClient, clientClass })
+        for (const name of collectNamesBoundAtReferences({ files, file: 'client.ts', name: 'Client' })) scopeNames.add(name)
+      }
+    }
+    expect([...scopeNames].sort()).toEqual([...CLIENT_CLASS_SCOPE_NAMES].sort())
+
+    const messages = new Map<string, string>()
+    const invalidNames = new Set([
+      ...clientModuleScopeValueNames('Client'),
+      ...clientModuleScopeTypeNames('Client'),
+      ...scopeNames,
+      ...RESERVED_BINDING_NAMES,
+      ...PREDEFINED_TYPE_NAMES,
+      '', 'my-client', '2Client', 'Client Class', '\\u0043lient',
+    ])
+    invalidNames.delete('Client')
+    for (const clientName of invalidNames) {
+      const result = await runClientPipeline(noOperationsDoc, clientName)
+      expect(result.success, clientName).toBe(false)
+      expect(result.diagnostics.map(diagnostic => diagnostic.code), clientName).toEqual(['CLIENT_INVALID_CLIENT_NAME'])
+      expect(result.files.map(file => file.path), clientName).toEqual(['types.ts'])
+      messages.set(clientName, result.diagnostics[0]!.message)
+    }
+    expect(messages.get('createClient')).toContain('collides with the `createClient` that the generated client module declares')
+    expect(messages.get('ClientConfig')).toContain('collides with the `ClientConfig` that the generated client module declares')
+    expect(messages.get('Record')).toContain('would shadow the global `Record`')
+    expect(messages.get('TData')).toContain('would be shadowed by the `TData` that the generated client module binds where it refers to the client class')
+    expect(messages.get('delete')).toContain('is a reserved word')
+    expect(messages.get('string')).toContain('is a TypeScript predefined type name')
+    expect(messages.get('my-client')).toContain('clientName "my-client" is not an identifier')
+  })
+
+  it('accepts any other identifier, including one named like an operation, whose names are escaped instead', async () => {
+    for (const clientName of ['PetStoreClient', '$Client', '_client', 'Клиент', 'getItem', 'Item']) {
+      const { files, manifest } = await generateClientWithManifest(rootLevelDoc, { clientName })
+      expect(manifest.clientName, clientName).toBe(clientName)
+      expect(files['client.ts'], clientName).toContain(`export class ${clientName} {`)
+      expect(typecheckGeneratedFiles({ files }), clientName).toEqual([])
+    }
+    // An operation function named like the class is escaped.
+    const { manifest } = await generateClientWithManifest(rootLevelDoc, { clientName: 'getItem' })
+    expect(manifest.operations.find(op => op.operationId === 'getItem')?.functionName).toBe('getItem_')
   })
 })
 

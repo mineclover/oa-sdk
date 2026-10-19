@@ -8,6 +8,8 @@ using Http;
  *   `new` is also quoted as an ApiClient member, where it would otherwise be a construct signature
  * - a root-level operation named like a binding client.ts declares itself (`createClient`)
  * - a root-level operation named like a global client.ts refers to (`fetch`, used by the transport)
+ * - a root-level operation named like the default-client export (`client`), whose success type
+ *   `ClientResponse` is also the name of a client.ts helper type
  * - a namespaced operation whose unique short name is a reserved word (`Orders.export`)
  * - a namespaced operation whose reserved short name is shared with a root-level one (`Pets.delete`)
  */
@@ -51,6 +53,10 @@ op `new`(@body pet: Pet): Pet;
 @route("/fetch/{id}")
 @get
 op fetch(@path id: string): Pet | NotFound;
+
+@route("/client/{id}")
+@get
+op client(@path id: string): Pet | NotFound;
 
 @route("/pets")
 namespace Pets {
