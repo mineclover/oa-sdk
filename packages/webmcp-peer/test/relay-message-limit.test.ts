@@ -135,7 +135,8 @@ const descriptorTool = (name: string, description: string): WebMcpToolSummary =>
 
 interface HttpReply {
   status: number;
-  body: Record<string, any>;
+  /** The JSON body, or null for an empty one (a notification's 202 under Streamable HTTP). */
+  body: Record<string, any> | null;
 }
 
 interface ProviderRig {
@@ -159,7 +160,8 @@ async function postMcp(serverUrl: string, roomId: string, token: string, body: s
     headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
     body,
   });
-  return { status: response.status, body: (await response.json()) as Record<string, any> };
+  const text = await response.text();
+  return { status: response.status, body: text ? (JSON.parse(text) as Record<string, any>) : null };
 }
 
 async function approveAgent(provider: WebMcpPeerClient, joined: JoinedPeerRoom): Promise<void> {
@@ -1214,7 +1216,7 @@ describe("HTTP request bodies", { timeout: 20_000 }, () => {
     // Exactly the request limit: the stamped `mcp` envelope around it fits, so it is forwarded.
     const atLimit = notification(REQUEST_LIMIT);
     expect(bytes({ type: "mcp", from: "client", sessionId: joined.sessionId, message: JSON.parse(atLimit) })).toBeGreaterThan(REQUEST_LIMIT);
-    expect(await postMcp(relay.base, room.id, joined.clientToken, atLimit)).toEqual({ status: 202, body: { jsonrpc: "2.0", id: null, result: {} } });
+    expect(await postMcp(relay.base, room.id, joined.clientToken, atLimit)).toEqual({ status: 202, body: null });
     await provider.waitFor((frame) => frame.type === "mcp", "forwarded notification", 5000);
     await flush(provider, "provider socket still open");
     // Only the notification that fits reached the provider.
@@ -1882,7 +1884,7 @@ describe("what one agent can make the relay hold", { timeout: 20_000 }, () => {
     agent.send({ type: "mcp", ...spoofed, message: { jsonrpc: "2.0", method: "notifications/initialized" } });
     await until(forwarded, (frames) => frames.length === 2, "WebSocket frames forwarded", 5000);
     const notification = { jsonrpc: "2.0", method: "notifications/cancelled", params: { requestId: 1 } };
-    expect((await postMcp(relay.base, room.id, joined.clientToken, JSON.stringify(notification))).status).toBe(202);
+    expect(await postMcp(relay.base, room.id, joined.clientToken, JSON.stringify(notification))).toEqual({ status: 202, body: null });
     await until(forwarded, (frames) => frames.length === 3, "HTTP notification forwarded", 5000);
 
     const stamp = { from: "client", sessionId: joined.sessionId };

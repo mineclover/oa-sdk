@@ -1,5 +1,11 @@
 export const MCP_PROTOCOL_VERSION = "2026-07-28";
 export const MCP_PROTOCOL_VERSIONS = ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"] as const;
+/**
+ * MCP revisions that open with the `initialize` handshake, newest first. 2026-07-28 removed
+ * `initialize`, so an `initialize` request is always negotiated within this list and never answered
+ * with 2026-07-28. The official SDK aborts when the server answers a version it does not know.
+ */
+export const MCP_INITIALIZE_PROTOCOL_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"] as const;
 
 export type CommitReceipt =
   | {

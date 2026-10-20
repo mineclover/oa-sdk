@@ -1,6 +1,7 @@
 export const DEFAULT_SERVER_URL = "http://127.0.0.1:8787";
 export const DEFAULT_TIMEOUT_MS = 10_000;
-export const PROTOCOL_VERSION = "2026-07-28";
+/** MCP revision the client asks for in `initialize` (the newest initialize-era revision). */
+export const PROTOCOL_VERSION = "2025-11-25";
 export const PACKAGE_VERSION = "0.1.0";
 
 export type PeerMcpTransportMessage = Record<string, unknown> | string;
