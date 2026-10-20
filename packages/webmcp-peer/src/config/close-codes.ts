@@ -37,8 +37,8 @@ export const WEBSOCKET_CLOSE_ABNORMAL = 1006;
  * from it (1001), the connection was lost (1006), or the relay shed it for a condition that passes
  * (1013). Every other close is final: 1000 after the frame that ended the session, 4001 for a socket
  * another one replaced, 4002 for an expired room, and the codes that refuse a frame the peer sent,
- * which a reconnect would send again. Internal to the package: the provider's auto-reconnect reads
- * it.
+ * which a reconnect would send again. Internal to the package: the provider's auto-reconnect and
+ * the agent client's requests (`PeerMcpSession`) read it.
  */
 export function isReconnectableCloseCode(code: number): boolean {
   return code === WEBMCP_CLOSE_CODES.GOING_AWAY

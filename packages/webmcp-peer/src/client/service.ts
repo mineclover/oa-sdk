@@ -77,15 +77,23 @@ export class PeerMcpService {
     return result;
   }
 
+  /**
+   * Lists the catalog again on the session registered under `key`, or on the active one. Like each
+   * of the session's requests, it connects the session when it is not connected, unless the relay
+   * ended the session for good (see `PeerMcpSession.request`), which the session's own `connect()`
+   * connects again.
+   */
   async refreshCatalog(key = this.activeKey): Promise<PeerMcpCatalogSnapshot> {
     const session = this.getSession(key);
     if (!session) throw new PeerMcpError("No active peer MCP session", "SESSION_NOT_FOUND");
-    await session.connect();
     await session.refreshCatalog();
     return session.getCatalogSnapshot();
   }
 
-  /** Calls `name` on the session registered under `options.key`, or on the active one. */
+  /**
+   * Calls `name` on the session registered under `options.key`, or on the active one, which
+   * connects as `refreshCatalog` does.
+   */
   async callTool(
     name: string,
     args: Record<string, unknown> = {},
@@ -94,7 +102,6 @@ export class PeerMcpService {
     const { key = this.activeKey, ...callOptions } = options;
     const session = this.getSession(key);
     if (!session) throw new PeerMcpError("No active peer MCP session", "SESSION_NOT_FOUND");
-    await session.connect();
     return session.callTool(name, args, callOptions);
   }
 

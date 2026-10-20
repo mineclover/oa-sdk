@@ -9,6 +9,7 @@ import {
   negotiateInitializeProtocolVersion,
 } from "../provider/commit-receipt.js";
 import {
+  freezeToolCatalog,
   hashDeploymentCatalog,
   loadDeploymentCatalog,
   normalizeToolCatalog,
@@ -84,7 +85,8 @@ const ROOM_METADATA_RETAIN_MS = 24 * 60 * 60_000;
 /**
  * Default bound on the rooms the relay holds at once (see `WebMcpPeerServerOptions.maxRooms`).
  * Retained rooms count, since each keeps its tokens and catalog until it is deleted a day after
- * its expiry: with the default publish rate limit, one address can fill it in about 5.5 hours.
+ * its expiry: with the default publish rate limit, which room creation and rotation spend alike,
+ * one address can fill it in about 5.5 hours.
  */
 const DEFAULT_MAX_ROOMS = 10_000;
 /**
@@ -625,8 +627,13 @@ const AGENT_OUTBOX_RETRY_MS = 1_000;
  * ask for far more than the queue holds (MAX_PENDING_REQUESTS_PER_SOCKET replies of up to the
  * message limit each), and one that reads is not at fault. The frame waits here instead, in order
  * with every frame after it, and goes out as the agent reads. While frames wait:
- * - the relay reads nothing more from the agent, so one that does not read cannot make the relay
- *   answer (and hold) more than it already asked for;
+ * - the relay reads, and handles, nothing more from the agent: the socket is paused, and the codec
+ *   stops at the frame it was handling even within a read it already took (see `upgradeWebSocket`).
+ *   So an agent that does not read cannot make the relay answer, and hold, more than it already
+ *   asked for: the replies to its requests in flight (at most MAX_PENDING_REQUESTS_PER_SOCKET), the
+ *   answer to the one frame the relay was handling when the first frame had to wait, and the few
+ *   frames of its approval, its offer and the end of its session, however many requests one read
+ *   of the agent carried;
  * - each waiting reply to one of the agent's requests (`isAgentReplyFrame`) counts toward the
  *   agent's MAX_PENDING_REQUESTS_PER_SOCKET, so at most that many of the provider's replies, each
  *   within the message limit, wait for one socket. The other frames that wait (the state of its
@@ -1003,9 +1010,10 @@ export class WebMcpPeerServer {
       clientSockets: new Set(),
       clientSocketTickets: new Map(),
       pendingApprovals: new Map(),
+      // The deployment catalog itself, which is frozen (see `mcpCatalogSnapshot`), not a copy.
       ...(this.deploymentCatalog.tools.length > 0
         ? {
-            cachedTools: structuredClone(this.deploymentCatalog.tools) as unknown[],
+            cachedTools: this.deploymentCatalog.tools as unknown[],
             catalogUpdatedAt: this.deploymentCatalog.catalogUpdatedAt,
             catalogSource: 'deployment' as const,
           }
@@ -1058,15 +1066,23 @@ export class WebMcpPeerServer {
   }
 
   /**
-   * Null when the relay serves a request addressed to its host (see `requestHost`); otherwise 403
-   * HOST_NOT_ALLOWED. Only a relay that `enforceAllowedHosts` refuses one, every HTTP request and
-   * upgrade alike, before anything else: a page whose name a DNS rebinding pointed at the relay
-   * sends that name, so it reaches none of the relay's routes, its public ones included.
+   * Null when the relay serves a request addressed to its host (see `requestHost`) that also came
+   * with a `Host` it serves; otherwise 403 HOST_NOT_ALLOWED, naming the first of the two that is
+   * not served. Only a relay that `enforceAllowedHosts` refuses one, every HTTP request and upgrade
+   * alike, before anything else: a page whose name a DNS rebinding pointed at the relay sends that
+   * name as its `Host`, so it reaches none of the relay's routes, its public ones included. The
+   * `Host` is checked even when a trusted proxy names the host: a rebound page on the relay's own
+   * machine connects from the loopback address a local tunnel does, and could otherwise name an
+   * allowed host in `X-Forwarded-Host` (a header a page may set). A proxy that keeps a loopback
+   * upstream `Host`, or passes the public one on, is served; one that rewrites it to another name
+   * needs that name in `allowedHosts`.
    */
   protected hostRefusal(req: IncomingMessage): LifecycleRefusal | null {
     if (!this.enforceAllowedHosts) return null;
-    const host = this.requestHost(req);
-    return this.isHostAllowed(host) ? null : { status: 403, name: 'HOST_NOT_ALLOWED', fields: { host } };
+    for (const host of [this.requestHost(req), req.headers.host]) {
+      if (!this.isHostAllowed(host)) return { status: 403, name: 'HOST_NOT_ALLOWED', fields: { host } };
+    }
+    return null;
   }
 
   /**
@@ -1397,6 +1413,12 @@ export class WebMcpPeerServer {
    * dropped. The first `answer` settles the offer, so the socket may offer again and a second
    * `answer` is dropped; `release`, sent once the agent took the session over the DataChannel,
    * ends the route.
+   *
+   * The relay sends the frame as it parsed it, written again, which can take a frame the provider
+   * sent within the message limit over it (`1e21` becomes `1e+21`). The offer still ends as it
+   * must, with an answer, a refusal or the socket's close: an `answer` that does not fit refuses
+   * the offer instead (`offer.refused` RESULT_TOO_LARGE), ending its route, and a `release` that
+   * does not fit goes out as `{type:'release', requestId}`, all a release says.
    */
   protected deliverOfferOutcome(entry: RoomEntry, msg: Record<string, unknown>): void {
     if (typeof msg.requestId !== 'string') return;
@@ -1407,10 +1429,14 @@ export class WebMcpPeerServer {
       if (!route.timer) return;
       clearTimeout(route.timer);
       route.timer = undefined;
-    } else {
-      this.dropOfferRoute(socket);
+      if (this.replyToAgent(socket, msg) === 'too-large') {
+        this.dropOfferRoute(socket);
+        this.replyToAgent(socket, { type: 'offer.refused', requestId: route.requestId, error: RESULT_TOO_LARGE_ERROR });
+      }
+      return;
     }
-    this.replyToAgent(socket, msg);
+    this.dropOfferRoute(socket);
+    if (this.replyToAgent(socket, msg) === 'too-large') this.replyToAgent(socket, { type: 'release', requestId: route.requestId });
   }
 
   /**
@@ -1516,7 +1542,7 @@ export class WebMcpPeerServer {
    */
   protected replaceNormalizedCatalog(entry: RoomEntry, tools: unknown[], hash: string): void {
     if (entry.catalogVersion > 0 && hash === entry.catalogHash) return;
-    entry.cachedTools = tools;
+    entry.cachedTools = freezeToolCatalog(tools);
     entry.catalogSource = 'provider';
     entry.catalogHash = hash;
     entry.catalogVersion += 1;
@@ -1729,7 +1755,9 @@ export class WebMcpPeerServer {
    * relay's `initialize` result, its listing, or CATALOG_UNAVAILABLE when the room has no catalog.
    * Returns false, answering nothing, for any other method. The relay answers these for a ticket
    * that is not approved, whose requests never reach the provider: their discovery is public, so an
-   * agent waiting for approval can read the catalog over either transport.
+   * agent waiting for approval can read the catalog over either transport. A result over the relay
+   * message limit (one whose `serverInfo` the relay's options made long, say) is answered
+   * RESULT_TOO_LARGE, as a provider's reply is: an answer the agent asked for is never dropped.
    */
   protected answerAgentMetadata(entry: RoomEntry, socket: PeerSocket, ticket: ClientSessionTicket, rpc: RpcRequest, id: string | number): boolean {
     const params = this.isRecord(rpc.params) ? rpc.params : undefined;
@@ -1737,7 +1765,7 @@ export class WebMcpPeerServer {
     const snapshot = this.mcpCatalogSnapshot(entry);
     let result: Record<string, unknown>;
     if (rpc.method === 'initialize') {
-      result = this.mcpInitializeResult(entry, entry.id, this.negotiateProtocolVersion(params), snapshot, ticket.status, true);
+      result = this.mcpInitializeResult(entry, entry.id, this.negotiateProtocolVersion(params), snapshot, ticket.status, 'websocket');
     } else if (!snapshot.available) {
       this.sendPeerRpcError(socket, id, 'CATALOG_UNAVAILABLE', { catalogSource: this.deploymentCatalog.source });
       return true;
@@ -1749,7 +1777,9 @@ export class WebMcpPeerServer {
         ticketStatus: ticket.status,
       }, snapshot);
     }
-    this.replyToAgent(socket, { type: 'mcp', message: { jsonrpc: '2.0', id, result } });
+    if (this.replyToAgent(socket, { type: 'mcp', message: { jsonrpc: '2.0', id, result } }) === 'too-large') {
+      this.sendRpcError(socket, id, RESULT_TOO_LARGE_ERROR.code, RESULT_TOO_LARGE_ERROR.message, RESULT_TOO_LARGE_ERROR.data);
+    }
     return true;
   }
 
@@ -1874,20 +1904,24 @@ export class WebMcpPeerServer {
    * room whose provider registered an empty catalog lists `tools: []` (a valid MCP listing) under
    * that catalog's version, like a WebSocket agent of the room is listed; only a room with neither
    * has no catalog to list (CATALOG_UNAVAILABLE).
+   *
+   * Its `tools` are the catalog the relay holds, not a copy: every catalog the relay holds is frozen
+   * (`freezeToolCatalog`) and replaced, never changed in place, so each listing, and each reply
+   * waiting in an agent's outbox, shares the one catalog instead of holding a copy of its own.
    */
   protected mcpCatalogSnapshot(entry: RoomEntry | undefined): McpCatalogSnapshot {
     const deployment = this.deploymentCatalog;
     if (entry?.cachedTools) {
       return {
         available: true,
-        tools: structuredClone(entry.cachedTools),
+        tools: entry.cachedTools,
         catalogVersion: entry.catalogVersion,
         catalogHash: entry.catalogHash,
         catalogUpdatedAt: entry.catalogUpdatedAt ?? null,
       };
     }
     return deployment.tools.length > 0
-      ? { available: true, tools: structuredClone(deployment.tools) as unknown[], catalogVersion: deployment.catalogVersion, catalogHash: deployment.catalogHash, catalogUpdatedAt: deployment.catalogUpdatedAt }
+      ? { available: true, tools: deployment.tools as unknown[], catalogVersion: deployment.catalogVersion, catalogHash: deployment.catalogHash, catalogUpdatedAt: deployment.catalogUpdatedAt }
       : { available: false, tools: [], catalogVersion: 0, catalogHash: this.emptyCatalogHash(), catalogUpdatedAt: null };
   }
 
@@ -1964,6 +1998,12 @@ export class WebMcpPeerServer {
    * and the catalog `snapshot` with the room's metadata, which an agent can read before it joins
    * (discovery is public). The HTTP route answers every `initialize` with it, and an agent WebSocket
    * whose ticket is not approved gets it too (an approved one's `initialize` reaches the provider).
+   *
+   * On the `transport` it answers on: over WebSocket, which pushes catalog changes, the result
+   * reports `tools.listChanged` and must fit the relay message limit, as a listing of the same
+   * catalog does (see PEER_RELAY_MAX_ANNOUNCEMENT_BYTES), so it lists the tools once, in `tools`,
+   * and its `_meta.bootstrapCatalog` names that catalog without listing it again. Over HTTP, which
+   * has no message limit, the bootstrap catalog lists the tools too.
    */
   protected mcpInitializeResult(
     entry: RoomEntry | undefined,
@@ -1971,11 +2011,11 @@ export class WebMcpPeerServer {
     protocolVersion: string,
     snapshot: McpCatalogSnapshot,
     ticketStatus: string,
-    listChanged: boolean,
+    transport: 'http' | 'websocket',
   ): Record<string, unknown> {
     return {
       protocolVersion,
-      capabilities: relayMcpCapabilities(listChanged),
+      capabilities: relayMcpCapabilities(transport === 'websocket'),
       serverInfo: { name: this.serverName, version: this.serverVersion },
       tools: snapshot.tools,
       _meta: {
@@ -1987,7 +2027,7 @@ export class WebMcpPeerServer {
         catalogHash: snapshot.catalogHash,
         toolCount: snapshot.tools.length,
         bootstrapCatalog: {
-          tools: snapshot.tools,
+          ...(transport === 'http' ? { tools: snapshot.tools } : {}),
           catalogVersion: snapshot.catalogVersion,
           catalogHash: snapshot.catalogHash,
           source: entry?.catalogSource ?? this.deploymentCatalog.source,
@@ -2200,6 +2240,39 @@ export class WebMcpPeerServer {
   /** The publish rate-limit bucket of `req`: its client address (see `clientAddress`) and `tokenHash`. */
   protected publishRateIdentity(req: IncomingMessage, tokenHash: string): string {
     return `${this.clientAddress(req)}\u0000${tokenHash}`;
+  }
+
+  /**
+   * The `tokenHash` of a valid publisher's bucket (see `authorizePublishRequest`), the one every
+   * room the relay created was spent from: the hash of the configured publish key, or `anonymous`
+   * when none is configured. A rotation spends from it too, at the rotating caller's address.
+   */
+  protected publisherTokenHash(): string {
+    return this.publishKeyConfigured && this.publishKeyHash ? this.publishKeyHash : 'anonymous';
+  }
+
+  /**
+   * Answers a request the publish rate limit granted no unit (see `consumePublishRateLimit`): 503
+   * PUBLISH_RATE_LIMIT_UNAVAILABLE when the store could not decide, otherwise 429
+   * PUBLISH_RATE_LIMITED, each with `Retry-After` and the quota headers.
+   */
+  protected sendPublishRateRefusal(res: ServerResponse, publishRate: { available: boolean; retryAfterMs: number }, origin?: string): void {
+    const retryAfterSec = Math.max(1, Math.ceil(publishRate.retryAfterMs / 1000));
+    this.sendLifecycleError(res, publishRate.available ? 429 : 503, publishRate.available ? 'PUBLISH_RATE_LIMITED' : 'PUBLISH_RATE_LIMIT_UNAVAILABLE', origin, {
+      retryAfterMs: publishRate.retryAfterMs,
+    }, {
+      'Retry-After': String(retryAfterSec),
+      'X-RateLimit-Limit': String(this.publishRateLimitMax),
+      'X-RateLimit-Remaining': '0',
+    });
+  }
+
+  /** The quota headers of a room creation the publish rate limit granted (`remaining` units left); none without a limit. */
+  protected publishRateHeaders(remaining: number): Record<string, string> | undefined {
+    return this.publishRateLimitMax > 0 ? {
+      'X-RateLimit-Limit': String(this.publishRateLimitMax),
+      'X-RateLimit-Remaining': String(remaining),
+    } : undefined;
   }
 
   public async consumePublishRateLimit(req: IncomingMessage, tokenHash: string): Promise<
@@ -2856,26 +2929,8 @@ export class WebMcpPeerServer {
     if (req.method === 'POST' && url.pathname === '/p') {
       const publishAuth = this.authorizePublishRequest(req);
       const publishRate = await this.consumePublishRateLimit(req, publishAuth.tokenHash);
-      if (!publishRate.available) {
-        const retryAfterSec = Math.max(1, Math.ceil(publishRate.retryAfterMs / 1000));
-        this.sendLifecycleError(res, 503, 'PUBLISH_RATE_LIMIT_UNAVAILABLE', origin, {
-          retryAfterMs: publishRate.retryAfterMs,
-        }, {
-          'Retry-After': String(retryAfterSec),
-          'X-RateLimit-Limit': String(this.publishRateLimitMax),
-          'X-RateLimit-Remaining': '0',
-        });
-        return;
-      }
-      if (!publishRate.allowed) {
-        const retryAfterSec = Math.max(1, Math.ceil(publishRate.retryAfterMs / 1000));
-        this.sendLifecycleError(res, 429, 'PUBLISH_RATE_LIMITED', origin, {
-          retryAfterMs: publishRate.retryAfterMs,
-        }, {
-          'Retry-After': String(retryAfterSec),
-          'X-RateLimit-Limit': String(this.publishRateLimitMax),
-          'X-RateLimit-Remaining': '0',
-        });
+      if (!publishRate.available || !publishRate.allowed) {
+        this.sendPublishRateRefusal(res, publishRate, origin);
         return;
       }
       if (!publishAuth.ok) {
@@ -2916,11 +2971,7 @@ export class WebMcpPeerServer {
       }
       const entry = this.createRoomEntry(alias, approvalRequired, ttlMs, 1, capabilities, ownerId);
       this.rooms.set(entry.id, entry);
-      const rateHeaders = this.publishRateLimitMax > 0 ? {
-        'X-RateLimit-Limit': String(this.publishRateLimitMax),
-        'X-RateLimit-Remaining': String(publishRate.remaining),
-      } : undefined;
-      this.sendJson(res, 201, this.roomDescriptor(req, entry), origin, rateHeaders);
+      this.sendJson(res, 201, this.roomDescriptor(req, entry), origin, this.publishRateHeaders(publishRate.remaining));
       return;
     }
 
@@ -3188,7 +3239,7 @@ export class WebMcpPeerServer {
         // notifications/tools/list_changed: catalog changes surface here as CATALOG_CHANGED errors.
         let result: Record<string, unknown> = {};
         if (rpc.method === 'initialize') {
-          result = this.mcpInitializeResult(entry, roomId, this.negotiateProtocolVersion(rpc.params), snapshot, ticketStatus, false);
+          result = this.mcpInitializeResult(entry, roomId, this.negotiateProtocolVersion(rpc.params), snapshot, ticketStatus, 'http');
         } else if (rpc.method === 'server/discover') {
           result = this.mcpDiscoverResult(entry, roomId, this.negotiateProtocolVersion(rpc.params), snapshot, ticketStatus, false);
         } else if (rpc.method === 'tools/list') {
@@ -3557,6 +3608,16 @@ export class WebMcpPeerServer {
         this.checkLifecycleRoom(res, roomId, room, origin) && this.checkProviderToken(res, room, bearer, origin)
       );
       if (!rotatable(entry)) return;
+      // The replacement is a new room, so a rotation spends a publish rate-limit unit as `POST /p`
+      // does, from the bucket of the room's publisher at the caller's address: a provider that
+      // rotates again and again fills the relay's rooms no faster than one that creates them. The
+      // unit is spent before the body is read, so the checks after the body also cover the wait for
+      // the rate-limit store.
+      const publishRate = await this.consumePublishRateLimit(req, this.publisherTokenHash());
+      if (!publishRate.available || !publishRate.allowed) {
+        this.sendPublishRateRefusal(res, publishRate, origin);
+        return;
+      }
       const body = await this.readJsonBodyOrRespond(req, res, origin);
       if (!body || !rotatable(entry)) return;
       // The room was not rotated: a body naming another room or epoch is a binding error.
@@ -3611,7 +3672,7 @@ export class WebMcpPeerServer {
         replacementRoomEpoch: replacement.roomEpoch,
         rotatedAt: new Date().toISOString(),
         invalidatedSessionCount: entry.clientTickets.size,
-      }, origin);
+      }, origin, this.publishRateHeaders(publishRate.remaining));
       return;
     }
 

@@ -407,7 +407,10 @@ interface InboundFrame {
  * `onText` receives each complete text message. Inbound frames are checked from their header,
  * before any payload is buffered: a message over {@link MAX_WEBSOCKET_MESSAGE_BYTES} or
  * {@link MAX_WEBSOCKET_MESSAGE_FRAGMENTS} closes with 1009, binary data with 1003, a protocol
- * violation with 1002, and a text message that is not valid UTF-8 with 1007.
+ * violation with 1002, and a text message that is not valid UTF-8 with 1007. While the owner has
+ * paused `socket` (`socket.pause()`, as the relay does while an agent is behind on what it asked
+ * for), the codec handles no further frame, not even one of a read it already took: the rest of
+ * that read waits, unparsed, until the owner resumes the socket.
  *
  * Outbound, at most {@link MAX_WEBSOCKET_OUTBOUND_BUFFER_BYTES} wait for a peer that is not reading:
  * a message that would queue more is refused (`send` returns `busy`) and a pong is dropped, and the
@@ -505,8 +508,9 @@ export function upgradeWebSocket(
   let messageBytes = 0;
   let messageFrames = 0;
   /**
-   * The bytes the HTTP parser read past the upgrade request, not parsed yet. They come before any
-   * read of the socket, so whichever runs first, the deferred parse or the first 'data' event,
+   * The bytes read and not parsed yet: those the HTTP parser read past the upgrade request, and the
+   * rest of a read the owner paused the socket in. They come before any later read of the socket,
+   * so whichever runs first, the deferred parse, the 'resume' event or the next 'data' event,
    * parses them first.
    */
   let pendingHead: Buffer | undefined = head.length && upgraded ? head : undefined;
@@ -753,6 +757,15 @@ export function upgradeWebSocket(
     let offset = 0;
     try {
       while (!stopped) {
+        // The owner paused the socket (an `onText` it just ran may have): the rest of this read
+        // waits with the reads the pause holds back, and frames are handled again on 'resume'.
+        if (socket.isPaused()) {
+          if (offset < chunk.length) {
+            const rest = chunk.subarray(offset);
+            pendingHead = pendingHead ? Buffer.concat([pendingHead, rest]) : rest;
+          }
+          return;
+        }
         if (frame) {
           offset = readPayload(chunk, offset, frame);
           if (frame.received < frame.length) return;
@@ -790,6 +803,9 @@ export function upgradeWebSocket(
     parseHead();
     parse(chunk);
   });
+  // The owner resumed the socket it paused: the frames left of the read it paused in come next,
+  // before the reads the pause held back.
+  socket.on("resume", parseHead);
   // The peer ended its side without a close frame (or after the closing handshake). An upgraded
   // node:http socket is half-open by default, so nothing else would end the connection.
   socket.on("end", () => {

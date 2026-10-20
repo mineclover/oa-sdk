@@ -282,6 +282,31 @@ describe("live demo — room lifecycle security", () => {
     expect(await rig.agent.callTool("scene_list", {})).toMatchObject({ ok: false, code: "CLIENT_APPROVAL_DENIED", status: 403 });
   });
 
+  it("shows a room that expires as ROOM_EXPIRED, not as an expired approval request", async () => {
+    const rig = await createRig();
+    const expireRoom = async (roomId: string) => {
+      // The room's time runs out, and with it its ticket's, which expires with the room.
+      const entry = rig.demo.server.rooms.get(roomId)!;
+      entry.expiresAt = Date.now() - 1;
+      for (const ticket of entry.clientTickets.values()) ticket.expiresAt = entry.expiresAt;
+      // The relay's next request sweeps the room.
+      await fetch(`${rig.demo.url}/status`);
+    };
+
+    // An approved agent learns it from the relay's room.expired push.
+    await connectApproved(rig);
+    await expireRoom(rig.provider.state.room.id);
+    await waitUntil(() => rig.agent.state.status === "room-expired", { label: "room.expired push" });
+
+    // An agent still waiting for approval ends its join with the same name.
+    await rig.provider.createRoom();
+    const joined = rig.agent.join(rig.provider.state.room.invitationUrl);
+    await waitUntil(() => rig.provider.state.pendingApproval, { label: "approval.request" });
+    await expireRoom(rig.provider.state.room.id);
+    expect(await joined).toMatchObject({ ok: false, error: "ROOM_EXPIRED" });
+    expect(rig.agent.state.status).toBe("room-expired");
+  });
+
   it("revoke pushes session.revoked and purges the host credentials", async () => {
     const rig = await createRig();
     await connectApproved(rig);

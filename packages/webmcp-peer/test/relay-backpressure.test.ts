@@ -497,6 +497,64 @@ describe("an agent whose outbound queue is full", { timeout: 60_000 }, () => {
     expect(agent.closeCode).toBeUndefined();
   });
 
+  it("holds one catalog listing for an agent waiting for approval that does not read, however many one read asks for, and delivers every listing in order once it reads", async () => {
+    // A catalog of about 200 KB, which the relay lists itself for a ticket waiting for approval.
+    const tools = Array.from({ length: 100 }, (_, index) => ({ ...tool(`tool_${index}`), description: "d".repeat(2_000) }));
+    const relay = await startRelay(servers, { deploymentCatalog: { tools } });
+    const room = await createRoom(relay.base, { approvalRequired: true });
+    const joined = await joinRoom(relay.base, room);
+    const agent = await RawPeer.open(relay, `/p/${room.id}/client`, joined.clientToken, rawPeers);
+    const agentSocket = [...relay.server.rooms.get(room.id)!.clientSockets].at(-1)!;
+    const sends = recordSends(agentSocket);
+    const relayInternals = relay.server as unknown as { answerAgentMetadata: (...args: unknown[]) => boolean };
+    const answered = vi.spyOn(relayInternals, "answerAgentMetadata");
+
+    // An agent that never reads asks, in one write, for some 60 MB of listings: far more than the
+    // kernel buffers and the relay's outbound queue take.
+    agent.pause();
+    const count = 300;
+    agent.sendAll(Array.from({ length: count }, (_, index) => ({ type: "mcp", message: { jsonrpc: "2.0", id: index + 1, method: "tools/list" } })));
+    await untilSettled(() => answered.mock.calls.length, "the relay stops answering the agent");
+    // The relay answered until one listing had to wait, and then handled nothing more of the read:
+    // every listing it made but that one went out.
+    expect(sends.some(({ sent }) => sent === "busy")).toBe(true);
+    expect(answered.mock.calls.length).toBeLessThan(count);
+    expect(answered.mock.calls.length).toBe(sends.filter(({ sent }) => sent === "sent").length + 1);
+
+    agent.resume();
+    const listings = () => agent.messages.filter((message) => message.type === "mcp" && message.message?.result?.tools);
+    await until(() => listings().length, (length) => length === count, "every listing", 30_000);
+    expect(listings().map((message) => message.message.id)).toEqual(ids(count));
+    expect(listings().every((message) => message.message.result.tools.length === tools.length)).toBe(true);
+    expect(agent.closeCode).toBeUndefined();
+  });
+
+  it("lists the one frozen catalog it holds in every reply instead of a copy of its own", async () => {
+    const relay = await startRelay(servers, { deploymentCatalog: { tools: [tool("deployed")] } });
+    const room = await createRoom(relay.base, { approvalRequired: true });
+    const entry = relay.server.rooms.get(room.id)!;
+    // A room starts with the deployment catalog itself; a catalog its provider registers is frozen.
+    expect(entry.cachedTools).toBe(relay.server.deploymentCatalog.tools);
+    const provider = await RawPeer.open(relay, `/p/${room.id}/provider`, room.providerToken, rawPeers);
+    provider.send({ type: "register", tools: [tool("echo")] });
+    await until(() => entry.catalogVersion, (version) => version === 2, "registered catalog");
+    const held = entry.cachedTools as Array<{ inputSchema: object }>;
+    expect(Object.isFrozen(held)).toBe(true);
+    expect(Object.isFrozen(held[0]!.inputSchema)).toBe(true);
+
+    const joined = await joinRoom(relay.base, room);
+    const agent = await RawPeer.open(relay, `/p/${room.id}/client`, joined.clientToken, rawPeers);
+    const copies = vi.spyOn(globalThis, "structuredClone");
+    for (const [id, method] of [[1, "tools/list"], [2, "server/discover"], [3, "initialize"]] as const) {
+      agent.send({ type: "mcp", message: { jsonrpc: "2.0", id, method } });
+      const reply = await agent.waitFor((message) => message.type === "mcp" && message.message?.id === id, `${method} reply`);
+      expect(reply.message.result.tools).toEqual([tool("echo")]);
+    }
+    const response = await postMcp(relay, room, joined, { jsonrpc: "2.0", id: 4, method: "tools/list" });
+    expect(((await response.json()) as Frame).result.tools).toEqual([tool("echo")]);
+    expect(copies).not.toHaveBeenCalled();
+  });
+
   it("offers the oldest waiting reply again while the agent reads nothing, so the codec's stall close stays armed", async () => {
     const { relay, room, entry } = await catalogRoom();
     const { called } = await rawProvider(relay, room, sizedResult(UNREAD_RESULT_BYTES));

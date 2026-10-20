@@ -1325,12 +1325,19 @@ export class WebMcpPeerClient {
     this.signalingReleased = false;
   }
 
+  /**
+   * Ends the session as expired, for `reason`: its approval request or session expired, or its room
+   * was rotated or expired. Each leaves a room no agent can use any more (its one invite is spent,
+   * or the room is gone), so the saved lease is forgotten too: a reloaded host page does not
+   * reclaim the room and show an invitation nobody can redeem (see `readAutoReconnectOptions`).
+   */
   private expirePeerSession(reason: string): void {
     this.approvalState = "expired";
     this.approvalRequestId = null;
     this.sentDecision = null;
     this.state = "disconnected";
     this.error = reason;
+    this.clearSavedRoomLease(this.serverUrl);
     this.terminatePeerTransport();
     this.notify();
   }
@@ -1347,16 +1354,21 @@ export class WebMcpPeerClient {
     this.notify();
   }
 
+  /**
+   * Ends the session as revoked, for `reason`: the relay revoked the room's ticket, whoever asked
+   * (the agent itself, the host over HTTP, another tab). The room takes no other agent (its one
+   * invite is spent), so the saved lease is forgotten and nothing reconnects to the room: the
+   * transport's generation ends, so its close schedules nothing, and a reloaded host page finds no
+   * lease to reclaim. The host's auto-reconnect preference is the host's own and stays as it was,
+   * for the rooms it opens next; only the host's own `revokeClient()` turns it off.
+   */
   private revokePeerSession(reason: string): void {
     this.approvalState = "revoked";
     this.approvalRequestId = null;
     this.sentDecision = null;
     this.state = "disconnected";
     this.error = reason;
-    this.autoReconnect = false;
-    try {
-      if (typeof window !== "undefined") localStorage.setItem("webmcp:auto-reconnect", "false");
-    } catch {}
+    this.clearSavedRoomLease(this.serverUrl);
     this.terminatePeerTransport();
     this.notify();
   }

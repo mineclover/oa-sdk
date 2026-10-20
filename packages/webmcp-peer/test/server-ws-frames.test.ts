@@ -997,6 +997,35 @@ describe("inbound frames split across reads", () => {
     const full = best(LIMIT);
     expect(full / quarter).toBeLessThan(8);
   });
+
+  it("handles no frame of a read while its owner has the socket paused, and the rest in order once it resumes", async () => {
+    const { socket, written } = memorySocket();
+    const texts: string[] = [];
+    upgradeWebSocket(upgradeRequest(), socket, Buffer.alloc(0), (text) => {
+      texts.push(text);
+      // As the relay pauses an agent the moment a frame it asked for has to wait.
+      if (text === "first") socket.pause();
+    }, () => {});
+    const fourth = frame("fourth", { opcode: OPCODE.text });
+    // One read: two messages, a ping, a third message and the start of a fourth.
+    socket.emit("data", Buffer.concat([
+      frame("first", { opcode: OPCODE.text }),
+      frame("second", { opcode: OPCODE.text }),
+      frame("p", { opcode: OPCODE.ping }),
+      frame("third", { opcode: OPCODE.text }),
+      fourth.subarray(0, 5),
+    ]));
+    await settle();
+    expect(texts).toEqual(["first"]);
+    expect(writtenFrames(written)).toEqual([]);
+
+    socket.resume();
+    await settle();
+    expect(texts).toEqual(["first", "second", "third"]);
+    expect(writtenFrames(written).map((f) => [f.opcode, f.payload.toString()])).toEqual([[OPCODE.pong, "p"]]);
+    socket.emit("data", fourth.subarray(5));
+    expect(texts).toEqual(["first", "second", "third", "fourth"]);
+  });
 });
 
 describe("fragment cap", () => {

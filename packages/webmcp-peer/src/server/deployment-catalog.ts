@@ -81,6 +81,24 @@ export function normalizeToolCatalog(value: unknown): Record<string, unknown>[] 
 }
 
 /**
+ * Freezes the catalog `tools` (as `normalizeToolCatalog` returns it, plain JSON data), every tool
+ * and every value in it, and returns it. The relay holds each catalog frozen, so one catalog can be
+ * shared by every listing, announcement and room that names it instead of being copied for each:
+ * a catalog is replaced, never changed in place.
+ */
+export function freezeToolCatalog<T extends readonly unknown[]>(tools: T): T {
+  const visited = new WeakSet<object>();
+  const freeze = (value: unknown): void => {
+    if (!value || typeof value !== "object" || visited.has(value)) return;
+    visited.add(value);
+    Object.freeze(value);
+    for (const member of Object.values(value)) freeze(member);
+  };
+  freeze(tools);
+  return tools;
+}
+
+/**
  * Named validator for a deployment catalog artifact (`api/webmcp-tools.json`): a JSON object whose
  * `tools` (default `[]`) are then checked by `normalizeToolCatalog`, with `catalogVersion` default 1.
  */
@@ -104,7 +122,7 @@ function buildCatalogSnapshot(input: DeploymentCatalogInput, source: DeploymentC
     ? input.catalogVersion as number
     : tools.length ? 1 : 0;
   return Object.freeze({
-    tools: Object.freeze(tools),
+    tools: freezeToolCatalog(tools),
     catalogVersion: version,
     catalogHash: hash,
     catalogUpdatedAt: Number.isFinite(input.catalogUpdatedAt) ? input.catalogUpdatedAt as number : source === "deployment" ? 0 : Date.now(),

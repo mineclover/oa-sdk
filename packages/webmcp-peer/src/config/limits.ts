@@ -47,8 +47,10 @@ export const PEER_RELAY_MAX_CATALOG_BYTES = PEER_RELAY_MAX_MESSAGE_BYTES - 4 * 1
  * metadata the relay adds: its `catalogVersion`/`catalogHash` in `result._meta` and, for an agent
  * that sent `_meta`, at the top of `result`; in a listing the relay answers itself, `result._meta`
  * also holds the room's listing metadata (room id, epoch, state and auth). With an id of the full
- * 1 KiB that is at most about 1.6 KiB more than the announcement, so the reply always fits. Every
- * catalog within {@link PEER_RELAY_MAX_CATALOG_BYTES} passes; a larger announcement is refused with
+ * 1 KiB that is at most about 1.6 KiB more than the announcement, so the reply always fits. The
+ * relay's own WebSocket `initialize` result for the catalog fits the same way: it lists the tools
+ * once, and its bootstrap catalog only names them. Every catalog within
+ * {@link PEER_RELAY_MAX_CATALOG_BYTES} passes; a larger announcement is refused with
  * CATALOG_TOO_LARGE.
  */
 export const PEER_RELAY_MAX_ANNOUNCEMENT_BYTES = PEER_RELAY_MAX_MESSAGE_BYTES - 2 * 1024;

@@ -5,6 +5,7 @@ import {
   parseJsonObject,
   readResponseText,
 } from "../config/json.js";
+import { isReconnectableCloseCode } from "../config/close-codes.js";
 import { PEER_RELAY_MAX_PENDING_REQUESTS } from "../config/limits.js";
 import { WEBMCP_SUBPROTOCOL } from "../config/types.js";
 import {
@@ -57,6 +58,14 @@ import {
   type PeerMcpTransportClose,
   type PeerMcpTransportMessage,
 } from "./types.js";
+
+/** Closes `transport`, which the session no longer uses, dropping whatever its close throws or rejects with. */
+function closeQuietly(transport: PeerMcpTransport): void {
+  try {
+    const closed = transport.close?.();
+    if (closed !== undefined) void Promise.resolve(closed).catch(() => {});
+  } catch {}
+}
 
 function readEnv(name: string): string | undefined {
   return typeof process !== "undefined" ? process.env?.[name] : undefined;
@@ -183,6 +192,27 @@ export class PeerMcpSession {
    * Cleared by `disconnect()`: a session that connects again starts uninitialized.
    */
   #negotiatedProtocolVersion: string | undefined;
+  /**
+   * The transport the caller gave (`options.transport`), the one transport every connect uses
+   * again. Every other transport (the WebSocket, the Streamable HTTP one, a `transportFactory`'s) is
+   * made anew for each connect, since a closed WebSocket cannot be opened again.
+   */
+  readonly #suppliedTransport: PeerMcpTransport | undefined;
+  /**
+   * Whether the callbacks the session gave the transport it made for its latest connect still speak
+   * for it. The next connect, which makes another transport, and `disconnect()` turn them off, so a
+   * late event of the old transport (its close, a `ready`) neither ends nor answers the connection
+   * after it. The caller's own transport keeps the callbacks it was given.
+   */
+  #connection: { live: boolean; transport?: PeerMcpTransport } | undefined;
+  /**
+   * How the relay ended the session, when it ended it for good: the frame that ended it
+   * (`TERMINAL_FRAMES`), or a close after which a peer must not connect again (TRANSPORT_CLOSED
+   * with a code `isReconnectableCloseCode` refuses: 1000 after such a frame, 4001 for a socket
+   * another one replaced, 4002, a code refusing a frame the session sent). A request then fails
+   * with it instead of connecting again; only `connect()` (or `disconnect()`) starts over.
+   */
+  #ended: PeerMcpError | undefined;
 
   constructor(options: PeerMcpSessionOptions = {}) {
     this.serverUrl = normalizeServerUrl(
@@ -207,6 +237,7 @@ export class PeerMcpSession {
     this.protocolVersion = options.protocolVersion ?? PROTOCOL_VERSION;
     this.WebSocketImpl = options.WebSocket ?? globalThis.WebSocket;
     this.transportFactory = options.transportFactory;
+    this.#suppliedTransport = options.transport;
     this.transport = options.transport;
     this.fetchImpl = options.fetchImpl;
     this.state = "idle";
@@ -342,12 +373,14 @@ export class PeerMcpSession {
 
   /**
    * Connects the transport and waits for the peer's `ready` frame. Concurrent callers (including
-   * `request()` calls made while a connect is in flight) share one connect attempt.
+   * `request()` calls made while a connect is in flight) share one connect attempt. Each connect
+   * opens a new transport, unless the caller gave its own (see `#suppliedTransport`). It connects a
+   * session the relay ended for good too, which `request()` does not (see `#ended`).
    */
   async connect(): Promise<PeerMcpSessionInfo> {
     if (this.state === "connected") return this.getSessionInfo();
     if (this.connectPromise) return this.connectPromise;
-    if (!this.roomId && !this.wsUrl && !this.mcpEndpoint && !this.transport && !this.transportFactory) {
+    if (!this.roomId && !this.wsUrl && !this.mcpEndpoint && !this.#suppliedTransport && !this.transportFactory) {
       throw new PeerMcpError("A peer roomId, wsUrl, mcpEndpoint, or transport is required", "ROOM_ID_REQUIRED");
     }
     // Publish the in-flight promise before the connect starts: transports deliver `ready` (and
@@ -370,39 +403,60 @@ export class PeerMcpSession {
     this.state = "connecting";
     this.error = null;
     this.readySeen = false;
+    // A new connection: neither the time the last one opened, which would let `#waitForReady` take
+    // a socket that never opened for an open one, nor how it ended speaks for it.
+    this.connectedAt = null;
+    this.#ended = undefined;
+    const previous = this.#letGoOfTransport();
+    const connection: { live: boolean; transport?: PeerMcpTransport } = { live: true };
+    if (this.transportFactory || !this.#suppliedTransport) this.#connection = connection;
     this.notify();
     try {
       const url = (this.wsUrl || (this.roomId ? websocketUrl(this.serverUrl, this.roomId) : this.mcpEndpoint)) ?? "";
       const protocols: string[] = [WEBMCP_SUBPROTOCOL];
       if (this.clientToken) protocols.push(`ticket.${this.clientToken}`);
       const callbacks: PeerMcpTransportCallbacks = {
-        onOpen: () => this.#markOpen(),
-        onMessage: (message) => this.#handleIncomingSafely(message),
-        onClose: (close) => this.#handleClose(close),
-        onError: (error) => this.#handleTransportError(error),
+        onOpen: () => {
+          if (connection.live) this.#markOpen();
+        },
+        onMessage: (message) => {
+          if (connection.live) this.#handleIncomingSafely(message);
+        },
+        onClose: (close) => {
+          if (connection.live) this.#handleClose(close);
+        },
+        onError: (error) => {
+          if (connection.live) this.#handleTransportError(error);
+        },
       };
       let transport: PeerMcpTransport | undefined;
-      if (this.transportFactory) {
-        transport = await this.transportFactory(url, protocols, callbacks);
-      } else if (this.transport) {
-        transport = this.transport;
-        if (typeof transport.connect === "function") {
-          const connected = await transport.connect(callbacks);
-          if (connected && typeof connected === "object") transport = { ...transport, ...connected };
+      try {
+        if (this.transportFactory) {
+          transport = await this.transportFactory(url, protocols, callbacks);
+        } else if (this.#suppliedTransport) {
+          transport = this.#suppliedTransport;
+          if (typeof transport.connect === "function") {
+            const connected = await transport.connect(callbacks);
+            if (connected && typeof connected === "object") transport = { ...transport, ...connected };
+          }
+          transport.onMessage = transport.onMessage || callbacks.onMessage;
+        } else if (this.mcpEndpoint) {
+          transport = createHttpTransport(this.mcpEndpoint, this.fetchImpl ?? globalThis.fetch, callbacks, {
+            clientToken: this.clientToken,
+            protocolVersion: () => this.#negotiatedProtocolVersion,
+          });
+        } else {
+          transport = createWebSocketTransport(url, protocols, this.WebSocketImpl, callbacks);
         }
-        transport.onMessage = transport.onMessage || callbacks.onMessage;
-      } else if (this.mcpEndpoint) {
-        transport = createHttpTransport(this.mcpEndpoint, this.fetchImpl ?? globalThis.fetch, callbacks, {
-          clientToken: this.clientToken,
-          protocolVersion: () => this.#negotiatedProtocolVersion,
-        });
-      } else {
-        transport = createWebSocketTransport(url, protocols, this.WebSocketImpl, callbacks);
+      } finally {
+        // The transport the last connect made is closed, unless a factory handed it out again.
+        if (previous && previous !== transport) closeQuietly(previous);
       }
       if (!transport || typeof transport.send !== "function") {
         throw new PeerMcpError("Peer transport must provide send(value)", "INVALID_TRANSPORT");
       }
       this.transport = transport;
+      connection.transport = transport;
       if (transport.readyState === "open" || transport.open === true || transport.connected === true) {
         this.#markOpen();
       }
@@ -420,6 +474,20 @@ export class PeerMcpSession {
       this.notify();
       throw error;
     }
+  }
+
+  /**
+   * Lets go of the transport of the last connection: the callbacks of one the session made stop
+   * speaking for the session (see `#connection`), and it is returned for the caller to close. The
+   * caller's own transport (`#suppliedTransport`), which the next connect uses again, is not.
+   */
+  #letGoOfTransport(): PeerMcpTransport | undefined {
+    const made = this.#connection;
+    this.#connection = undefined;
+    this.transport = undefined;
+    if (!made) return undefined;
+    made.live = false;
+    return made.transport;
   }
 
   #markOpen(): void {
@@ -502,6 +570,8 @@ export class PeerMcpSession {
       const error = new PeerMcpError(msg, terminal.code, value);
       this.state = "error";
       this.error = error.message;
+      // The relay ended the session: a request fails with this instead of connecting again.
+      this.#ended = error;
       this.#readyReject?.(error);
       this.#rejectPending(error);
       this.notify();
@@ -575,14 +645,21 @@ export class PeerMcpSession {
 
   /**
    * The transport closed: every request waiting on it fails with TRANSPORT_CLOSED, whose details are
-   * how it closed (`{code, reason}`) when the transport reports it. The code tells the caller whether
-   * connecting again may help (see `WEBMCP_CLOSE_CODES`); the session never reconnects on its own.
+   * how it closed (`{code, reason}`) when the transport reports it. The session never reconnects on
+   * its own. After a close a peer may retry (1001, 1006, 1013, or one that reports no code: a
+   * connection lost without a close frame), the next request connects again, on a new socket.
+   * After any other (see `isReconnectableCloseCode`, R-WS-030) requests fail with this error until
+   * the caller calls `connect()`: a reconnect after 4001 would displace the socket that replaced
+   * this one, and one after a refused frame would be refused again.
    */
   #handleClose(close?: PeerMcpTransportClose): void {
     if (this.state === "disconnecting" || this.state === "idle" || this.state === "error") return;
     this.state = "disconnected";
+    this.connectedAt = null;
+    this.readySeen = false;
     const details = typeof close?.code === "number" ? { code: close.code, reason: close.reason ?? "" } : undefined;
     const error = new PeerMcpError("Peer transport closed", "TRANSPORT_CLOSED", details);
+    if (details && !isReconnectableCloseCode(details.code)) this.#ended = error;
     this.#readyReject?.(error);
     this.#rejectPending(error);
     this.notify();
@@ -725,8 +802,13 @@ export class PeerMcpSession {
     timeoutMs: number,
   ): Promise<PeerMcpRpcResponse> {
     // A request made while a connect is in flight waits for that connect (connect() returns the
-    // in-flight attempt) instead of writing to a transport that is not open yet.
-    if (this.state !== "connected") await this.connect();
+    // in-flight attempt) instead of writing to a transport that is not open yet. A session the
+    // relay ended for good fails as it ended instead of connecting again (see `#ended`).
+    if (this.state !== "connected") {
+      const ended = this.#ended;
+      if (ended) throw new PeerMcpError(ended.message, ended.code, ended.details);
+      await this.connect();
+    }
     if (!this.transport || typeof this.transport.send !== "function") {
       throw new PeerMcpError("Peer transport is not connected", "NOT_CONNECTED");
     }
@@ -954,8 +1036,9 @@ export class PeerMcpSession {
     try {
       await this.transport?.close?.();
     } catch {}
-    this.transport = undefined;
+    this.#letGoOfTransport();
     this.#negotiatedProtocolVersion = undefined;
+    this.#ended = undefined;
     this.state = "idle";
     this.connectedAt = null;
     this.readySeen = false;

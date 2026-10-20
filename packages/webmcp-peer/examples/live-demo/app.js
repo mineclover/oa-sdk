@@ -191,6 +191,7 @@ const AGENT_STATUS_BADGE = {
   rejected: ["err", "CLIENT_APPROVAL_DENIED"],
   revoked: ["err", "SESSION_REVOKED"],
   expired: ["err", "APPROVAL_EXPIRED"],
+  "room-expired": ["err", "ROOM_EXPIRED"],
   rotated: ["err", "ROOM_ROTATED (티켓 무효)"],
 };
 

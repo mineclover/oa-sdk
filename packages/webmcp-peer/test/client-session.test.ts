@@ -1,7 +1,8 @@
 // Regression tests for the agent-side client: room catalog discovery over Streamable HTTP,
 // requests issued while a connect is in flight, ticket revocation (also through PeerMcpService),
 // how a session learns that its room expired or that the relay closed its socket (the close code in
-// TRANSPORT_CLOSED's details), and response validation.
+// TRANSPORT_CLOSED's details), when it connects again on a new socket and when it must not, and
+// response validation.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -451,6 +452,143 @@ describe("a session whose socket the relay closes", () => {
       details: { code: WEBMCP_CLOSE_CODES.SUPERSEDED, reason: "" },
     });
     expect(oldest.getSessionInfo().state).toBe("disconnected");
+  });
+});
+
+describe("a session whose socket closed", () => {
+  /** A relay room an approved agent joined, and a WebSocket class that counts the sockets a session opens. */
+  async function joinedSession() {
+    const server = createWebMcpPeerServer({ port: 0, host: "127.0.0.1", roomSweepIntervalMs: 0, deploymentCatalog: { tools: [] } });
+    servers.push(server);
+    const serverUrl = `http://127.0.0.1:${await server.listen()}`;
+    const created = await fetch(`${serverUrl}/p`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ approvalRequired: false }),
+    });
+    const room = (await created.json()) as { id: string; inviteToken: string; providerToken: string };
+    const joined = await joinPeerRoom({ serverUrl, roomId: room.id, inviteToken: room.inviteToken });
+    const opened: WebSocket[] = [];
+    class CountingWebSocket extends WebSocket {
+      constructor(url: string | URL, protocols?: string | string[]) {
+        super(url, protocols);
+        opened.push(this);
+      }
+    }
+    const session = new PeerMcpSession({ serverUrl, roomId: room.id, clientToken: joined.clientToken, requestTimeoutMs: 2_000, WebSocket: CountingWebSocket });
+    sessions.push(session);
+    await session.connect();
+    const entry = () => server.rooms.get(room.id)!;
+    /** The relay closes the session's socket with `code`, and the session learns it. */
+    const closeFromRelay = async (code: number) => {
+      [...entry().clientSockets].at(-1)!.close(code);
+      await waitUntil(() => session.getSessionInfo().state === "disconnected", "the session sees the close");
+    };
+    return { server, serverUrl, room, joined, session, opened, CountingWebSocket, entry, closeFromRelay };
+  }
+
+  async function waitUntil(condition: () => boolean, label: string): Promise<void> {
+    const deadline = Date.now() + 5_000;
+    while (!condition()) {
+      if (Date.now() > deadline) throw new Error(`timed out waiting until ${label}`);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+  }
+
+  it.each<[string, number]>([
+    ["1001 GOING_AWAY", WEBMCP_CLOSE_CODES.GOING_AWAY],
+    ["1013 TRY_AGAIN_LATER", WEBMCP_CLOSE_CODES.TRY_AGAIN_LATER],
+  ])("connects again on a new socket for the next request after %s", async (_label, code) => {
+    const { session, opened, entry, closeFromRelay } = await joinedSession();
+    await closeFromRelay(code);
+    expect(entry().clientSockets.size).toBe(0);
+
+    expect((await session.request("ping")).result).toEqual({});
+    expect(opened).toHaveLength(2);
+    expect(entry().clientSockets.size).toBe(1);
+    expect(session.getSessionInfo().state).toBe("connected");
+  });
+
+  it.each<[string, number]>([
+    ["1000, a final close", WEBMCP_CLOSE_CODES.NORMAL],
+    ["4001 SUPERSEDED", WEBMCP_CLOSE_CODES.SUPERSEDED],
+    ["4002 ROOM_EXPIRED", WEBMCP_CLOSE_CODES.ROOM_EXPIRED],
+    ["1009, a frame of its own refused", 1009],
+  ])("fails the next request after %s without connecting again, until connect() is called", async (_label, code) => {
+    const { session, opened, entry, closeFromRelay } = await joinedSession();
+    await closeFromRelay(code);
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await expect(session.request("ping")).rejects.toMatchObject({ code: "TRANSPORT_CLOSED", details: { code, reason: "" } });
+    }
+    expect(opened).toHaveLength(1);
+    expect(entry().clientSockets.size).toBe(0);
+
+    // The caller decides to connect again.
+    await session.connect();
+    expect((await session.request("ping")).result).toEqual({});
+    expect(opened).toHaveLength(2);
+  });
+
+  it("lets a PeerMcpService call connect only as a request would, so it does not displace the socket that replaced its own", async () => {
+    const { serverUrl, room, joined, opened, CountingWebSocket, entry } = await joinedSession();
+    const service = new PeerMcpService({ serverUrl, requestTimeoutMs: 2_000, WebSocket: CountingWebSocket });
+    const session = await service.connect({ roomId: room.id, clientToken: joined.clientToken });
+    sessions.push(session);
+    expect(opened).toHaveLength(2);
+    await waitUntil(() => entry().clientSockets.size === 2, "both sockets attached");
+
+    [...entry().clientSockets].at(-1)!.close(WEBMCP_CLOSE_CODES.SUPERSEDED);
+    await waitUntil(() => session.getSessionInfo().state === "disconnected", "the service's session sees the close");
+    await expect(service.callTool("doc_read")).rejects.toMatchObject({ code: "TRANSPORT_CLOSED", details: { code: WEBMCP_CLOSE_CODES.SUPERSEDED } });
+    await expect(service.refreshCatalog()).rejects.toMatchObject({ code: "TRANSPORT_CLOSED" });
+    expect(opened).toHaveLength(2);
+    expect(entry().clientSockets.size).toBe(1);
+  });
+
+  it("closes the transport a connect replaces, and lets none of its late events speak for the new one", async () => {
+    const made: Array<{ callbacks: PeerMcpTransportCallbacks; closed: number }> = [];
+    const session = new PeerMcpSession({
+      requestTimeoutMs: 1_000,
+      transportFactory: (_url: string, _protocols: string[], callbacks: PeerMcpTransportCallbacks) => {
+        const transport = { callbacks, closed: 0 };
+        made.push(transport);
+        return { send: () => {}, close: () => { transport.closed += 1; } };
+      },
+    });
+    sessions.push(session);
+    const first = session.connect();
+    await waitUntil(() => made.length === 1, "the first transport");
+    made[0]!.callbacks.onMessage?.({ type: "ready", role: "client", roomId: "room1" });
+    await first;
+    made[0]!.callbacks.onClose?.({ code: WEBMCP_CLOSE_CODES.TRY_AGAIN_LATER });
+
+    const second = session.connect();
+    await waitUntil(() => made.length === 2, "the second transport");
+    expect(made[0]!.closed).toBe(1);
+    // The old transport's ready and close arrive late: the new connection still waits for its own.
+    made[0]!.callbacks.onMessage?.({ type: "ready", role: "client", roomId: "room1" });
+    made[0]!.callbacks.onClose?.({ code: WEBMCP_CLOSE_CODES.SUPERSEDED });
+    expect(session.getSessionInfo().state).toBe("connecting");
+    made[1]!.callbacks.onMessage?.({ type: "ready", role: "client", roomId: "room1" });
+    await second;
+    expect(session.getSessionInfo().state).toBe("connected");
+    expect(made[1]!.closed).toBe(0);
+  });
+
+  it("fails the next request after the frame that ended its session, without connecting again", async () => {
+    const { server, serverUrl, room, joined, session, opened } = await joinedSession();
+    const revoked = await fetch(`${serverUrl}/p/${room.id}/sessions/${joined.sessionId}/revoke`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${room.providerToken}` },
+      body: "{}",
+    });
+    expect(revoked.status).toBe(200);
+    await waitUntil(() => session.getSessionInfo().state === "error", "the session sees session.revoked");
+
+    await expect(session.request("ping")).rejects.toMatchObject({ code: "SESSION_REVOKED", details: { type: "session.revoked" } });
+    expect(opened).toHaveLength(1);
+    expect(server.rooms.get(room.id)!.clientSockets.size).toBe(0);
   });
 });
 

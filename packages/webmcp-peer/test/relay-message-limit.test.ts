@@ -726,6 +726,51 @@ describe("tool catalog size", { timeout: 20_000 }, () => {
     expect(provider.frames.filter((frame) => frame.type === "mcp")).toEqual([]);
   });
 
+  it("fits its own WebSocket initialize of the largest catalog it accepts under the longest id, naming the bootstrap catalog without listing it twice", async () => {
+    const relay = await startRelay(servers, { deploymentCatalog: { tools: [] } });
+    const room = await createRoom(relay.base, { approvalRequired: true });
+    const provider = await openProvider(relay, room, sockets);
+    const largest = registerWithAnnouncementOf(ANNOUNCEMENT_LIMIT, 1, { alias: null });
+    provider.send(largest.text);
+    const catalog = await until(() => roomCatalog(relay.base, room.id), (value) => value.status === 200, "accepted catalog", 5000);
+
+    // A ticket waiting for approval is answered initialize by the relay itself.
+    const agent = await openClient(relay, room, await joinRoom(relay.base, room), sockets);
+    const longestId = idOfJsonBytes(MAX_ID_BYTES);
+    agent.send({ type: "mcp", message: { jsonrpc: "2.0", id: longestId, method: "initialize", params: { protocolVersion: "2025-11-25" } } });
+    const reply = await agent.waitFor((frame) => frame.type === "mcp" && frame.message?.id === longestId, "the relay's initialize", 5000);
+    expect(reply.message.result).toMatchObject({
+      protocolVersion: "2025-11-25",
+      capabilities: { tools: { listChanged: true } },
+      tools: largest.frame.tools,
+      _meta: {
+        roomId: room.id,
+        toolCount: 1,
+        bootstrapCatalog: { catalogVersion: 1, catalogHash: catalog.body.catalogHash, source: "provider" },
+        auth: { state: "pending" },
+      },
+    });
+    expect(reply.message.result._meta.bootstrapCatalog).not.toHaveProperty("tools");
+    expect(bytes(reply)).toBeLessThanOrEqual(LIMIT);
+    expect(provider.frames.filter((frame) => frame.type === "mcp")).toEqual([]);
+  });
+
+  it("answers its own WebSocket metadata result over the message limit RESULT_TOO_LARGE instead of dropping it", async () => {
+    // A server name long enough that no initialize or discover result of the catalog fits.
+    const relay = await startRelay(servers, { deploymentCatalog: { tools: [tool("echo")] }, serverName: "n".repeat(LIMIT) });
+    const room = await createRoom(relay.base, { approvalRequired: true });
+    const agent = await openClient(relay, room, await joinRoom(relay.base, room), sockets);
+    for (const method of ["initialize", "server/discover"]) {
+      agent.send({ type: "mcp", message: { jsonrpc: "2.0", id: method, method } });
+      const reply = await agent.waitFor((frame) => frame.type === "mcp" && frame.message?.id === method, `${method} reply`, 5000);
+      expect(reply).toEqual({ type: "mcp", message: { jsonrpc: "2.0", id: method, error: RESULT_TOO_LARGE } });
+    }
+    // The socket stays open and serves what fits.
+    agent.send({ type: "mcp", message: { jsonrpc: "2.0", id: "list", method: "tools/list" } });
+    const listed = await agent.waitFor((frame) => frame.type === "mcp" && frame.message?.id === "list", "tools/list reply", 5000);
+    expect(listed.message.result.tools).toEqual([tool("echo")]);
+  });
+
   it("accepts an announcement of exactly PEER_RELAY_MAX_ANNOUNCEMENT_BYTES and sends it to agents in 128 KiB fragments", async () => {
     const relay = await startRelay(servers, { deploymentCatalog: { tools: [] } });
     const room = await createRoom(relay.base);

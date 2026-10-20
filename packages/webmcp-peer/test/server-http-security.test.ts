@@ -176,6 +176,28 @@ describe("forwarded headers", () => {
     expect((await postJson(`${untrusting.base}/p`, {}, { "x-forwarded-host": "rebound.example" })).status).toBe(201);
   });
 
+  it.each<[string, boolean | string[]]>([
+    ["its own peer", true],
+    ["the loopback address", ["127.0.0.1"]],
+  ])("refuses a rebound page that names an allowed host to it through X-Forwarded-Host, trusting %s", async (_label, trustProxy) => {
+    // A loopback relay behind a local tunnel trusts the loopback address, which a page DNS
+    // rebinding pointed at the relay's machine connects from too.
+    const relay = await startRelay(servers, { trustProxy });
+    const port = new URL(relay.base).port;
+    const rebound = `rebound.example:${port}`;
+    for (const route of ["/health", "/config"]) {
+      const response = await request(relay, { path: route, headers: { host: rebound, "x-forwarded-host": "localhost" } });
+      expect(response.status, route).toBe(403);
+      expect(JSON.parse(response.body)).toEqual({ error: "HOST_NOT_ALLOWED", host: rebound });
+    }
+    // A tunnel that keeps the loopback upstream Host, or passes the public one on, is served.
+    for (const host of [`127.0.0.1:${port}`, "relay.trycloudflare.com"]) {
+      const response = await request(relay, { path: "/config", headers: { host, "x-forwarded-host": "relay.trycloudflare.com" } });
+      expect(response.status, host).toBe(200);
+      expect(JSON.parse(response.body).serverUrl).toBe("http://relay.trycloudflare.com");
+    }
+  });
+
   it.each<[string, boolean | string[], string, string]>([
     ["no proxy", false, "203.0.113.9, 198.51.100.7", "127.0.0.1"],
     ["its own peer", true, "203.0.113.9, 198.51.100.7", "198.51.100.7"],

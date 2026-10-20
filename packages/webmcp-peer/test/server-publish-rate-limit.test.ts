@@ -95,6 +95,45 @@ describe("publish rate limiting", () => {
     ]);
   });
 
+  it.each<[string, string | undefined]>([
+    ["without a publish key", undefined],
+    ["with a publish key", "correct-horse"],
+  ])("spends a unit of the publisher's bucket on every rotation, as on a creation, %s", async (_label, publishKey) => {
+    const store = new RecordingStore();
+    const relay = await startRelay(servers, { publishRateLimitMax: 3, publishRateLimitStore: store, ...(publishKey ? { publishKey } : {}) });
+    const response = await fetch(`${relay.base}/p`, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...(publishKey ? { authorization: `Bearer ${publishKey}` } : {}) },
+      body: JSON.stringify({ approvalRequired: false }),
+    });
+    let room = (await response.json()) as { id: string; providerToken: string };
+    const rotate = () => fetch(`${relay.base}/p/${room.id}/rotate`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${room.providerToken}` },
+      body: "{}",
+    });
+    const quota = (rotated: Response) => [rotated.status, rotated.headers.get("x-ratelimit-limit"), rotated.headers.get("x-ratelimit-remaining")];
+
+    // The creation spent one unit; each rotation, which creates the replacement room, spends one more.
+    const replaced = await rotate();
+    expect(quota(replaced)).toEqual([201, "3", "1"]);
+    room = (await replaced.json()) as typeof room;
+    const last = await rotate();
+    expect(quota(last)).toEqual([201, "3", "0"]);
+    room = (await last.json()) as typeof room;
+    const rooms = relay.server.rooms.size;
+
+    // The bucket is used up: the next rotation is refused as a creation would be, and changes nothing.
+    const refused = await rotate();
+    expect(quota(refused)).toEqual([429, "3", "0"]);
+    expect(await refused.json()).toMatchObject({ error: "PUBLISH_RATE_LIMITED", code: -32088 });
+    expect(refused.headers.get("retry-after")).not.toBeNull();
+    expect(relay.server.rooms.size).toBe(rooms);
+    expect(relay.server.rooms.get(room.id)?.rotatedTo).toBeUndefined();
+    // Rotations spend from the bucket the publisher's creations do, at the caller's address.
+    expect(store.keys.size).toBe(1);
+  });
+
   it("bounds the in-memory store and evicts the oldest windows first", () => {
     const store = new InMemoryPublishRateLimitStore();
     const request = (key: string, nowMs = 1_000): PublishRateLimitRequest => ({ key, nowMs, windowMs: 60_000, max: 1 });

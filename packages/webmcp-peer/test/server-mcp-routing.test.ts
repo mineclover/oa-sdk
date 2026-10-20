@@ -9,7 +9,8 @@
 //   - an agent WebSocket's ping is the relay's to answer, and a ticket waiting for approval gets the
 //     relay's public discovery (initialize, tools/list, server/discover) as an HTTP agent does,
 //   - every WebSocket listing carries the relay's catalog stamp in result._meta,
-//   - only replies count toward an agent socket's 64 pending requests,
+//   - the relay handles nothing more of an agent behind on what it asked for, the rest of a read it
+//     already took included, and then counts the agent's requests toward its 64,
 //   - a room whose provider registered an empty catalog lists it on every route,
 //   - an agent WebSocket's request id is pending once per socket, a message that is not a request is
 //     refused under its id, and an id JSON.parse reads as Infinity reaches the wire as null,
@@ -374,9 +375,17 @@ describe("metadata requests over the agent WebSocket", { timeout: 20_000 }, () =
       (await postMcp(relay, room.id, { jsonrpc: "2.0", id, method, params }, joined.clientToken)).body!;
     const withWsCapabilities = (body: Frame) => ({ ...body, result: { ...body.result, capabilities: WS_CAPABILITIES } });
 
+    // The WebSocket initialize must fit the relay message limit, so its bootstrap catalog names the
+    // catalog that `tools` lists instead of listing it a second time.
+    const withoutBootstrapTools = (body: Frame) => {
+      const { tools: _tools, ...bootstrapCatalog } = body.result._meta.bootstrapCatalog;
+      return { ...body, result: { ...body.result, _meta: { ...body.result._meta, bootstrapCatalog } } };
+    };
     const initializeParams = { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "ws-agent", version: "1" } };
     const initialized = await ask(agent, 1, { method: "initialize", params: initializeParams });
-    expect(initialized.message).toEqual(withWsCapabilities(await http(1, "initialize", initializeParams)));
+    const httpInitialized = await http(1, "initialize", initializeParams);
+    expect(httpInitialized.result._meta.bootstrapCatalog.tools).toEqual([tool("echo")]);
+    expect(initialized.message).toEqual(withWsCapabilities(withoutBootstrapTools(httpInitialized)));
     expect(initialized.message.result).toMatchObject({
       protocolVersion: "2025-06-18",
       serverInfo: { name: relay.server.serverName },
@@ -447,7 +456,7 @@ describe("catalog stamps over the agent WebSocket", { timeout: 20_000 }, () => {
 });
 
 describe("pending requests of an agent socket", { timeout: 20_000 }, () => {
-  it("counts only replies waiting for the agent, not the other frames it holds for it", async () => {
+  it("handles nothing more of an agent behind on what it asked for, the rest of its read included, and counts its 64 requests once it reads", async () => {
     const relay = await startRelay(servers, { deploymentCatalog: { tools: [tool("echo")] } });
     const room = await createRoom(relay.base, { approvalRequired: false });
     const provider = await openProvider(relay, room, sockets);
@@ -457,24 +466,27 @@ describe("pending requests of an agent socket", { timeout: 20_000 }, () => {
     const agentSocket: PeerSocket = [...entry.clientSockets].at(-1)!;
 
     // The agent's queue is full: what the relay owes it waits in its outbox. In one read, an offer
-    // the relay refuses (offer.refused waits, and answers no request), then 65 calls.
+    // the relay refuses (offer.refused waits), then 65 calls.
     const sent = vi.spyOn(agentSocket, "send").mockReturnValue("busy");
     const call = (id: number) => ({ type: "mcp", message: { jsonrpc: "2.0", id, method: "tools/call", params: { name: "echo", arguments: {} } } });
     agent.sendAll([
       { type: "offer", sdp: "v=0", requestId: "o".repeat(2_000) },
       ...Array.from({ length: 65 }, (_, index) => call(index + 1)),
     ]);
-    // The relay handles the whole read at once, so once some calls arrive, a ping's pong comes after
-    // every call it forwarded.
-    await until(() => forwarded(provider).length, (count) => count > 0, "calls forwarded");
+    // While the refusal waits, the relay handles none of the calls, though it already read them.
+    await until(() => sent.mock.calls.length, (count) => count > 0, "the refusal offered to the agent");
     await flush(provider, "provider socket processed");
-    expect(forwarded(provider).map((frame) => frame.message.id)).toEqual(Array.from({ length: 64 }, (_, index) => index + 1));
+    expect(forwarded(provider)).toEqual([]);
 
-    // The 65th is refused: the 64 the agent sent are what the relay counts.
+    // Once the agent reads, the refusal goes out first; then the relay handles the calls, forwards
+    // the 64 the pending limit takes and refuses the 65th.
     sent.mockRestore();
     const refusal = await agent.waitFor((message) => message.type === "mcp" && message.message?.id === 65, "the 65th call's refusal");
     expect(refusal.message.error).toEqual({ code: -32087, message: "TOO_MANY_PENDING_REQUESTS", data: { limit: 64 } });
-    expect(agent.messages.find((message) => message.type === "offer.refused")).toMatchObject({ error: { message: "REQUEST_ID_TOO_LARGE" } });
+    await flush(provider, "provider socket processed");
+    expect(forwarded(provider).map((frame) => frame.message.id)).toEqual(Array.from({ length: 64 }, (_, index) => index + 1));
+    const answers = agent.messages.filter((message) => message.type === "offer.refused" || message.type === "mcp");
+    expect(answers[0]).toMatchObject({ type: "offer.refused", error: { message: "REQUEST_ID_TOO_LARGE" } });
   });
 });
 

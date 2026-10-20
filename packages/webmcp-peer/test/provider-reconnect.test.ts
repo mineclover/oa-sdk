@@ -254,6 +254,64 @@ describe("the close code of the provider socket", () => {
   });
 });
 
+describe("a session the relay ends", () => {
+  async function connectedHost(options: { autoReconnect?: boolean } = {}) {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const relay = new FakeRelay();
+    installRelay(relay, { browser: true });
+    const host = provider();
+    await host.connect({ serverUrl: relay.base, alias: "ended", ...options });
+    return { relay, host };
+  }
+
+  it.each<[string, Record<string, unknown>, string]>([
+    ["an approval request that expired", { type: "approval.expired", reason: "APPROVAL_EXPIRED" }, "APPROVAL_EXPIRED"],
+    ["a revoked session, the agent's own revoke included", { type: "session.revoked", reason: "CLIENT_REVOKED" }, "SESSION_REVOKED"],
+    ["a rotated room", { type: "room.rotated", rotatedTo: "fedcba9876543210" }, "ROOM_ROTATED"],
+  ])("forgets the room's lease after %s, so a reloaded page reclaims no room nobody can join", async (_label, frame, error) => {
+    const { relay, host } = await connectedHost();
+    relay.latest.deliver({ roomId: relay.roomId, roomEpoch: 1, ...frame });
+    expect(host.getSession()).toMatchObject({ state: "disconnected", error });
+
+    // A reload: a new provider in the same tab finds nothing to reconnect to.
+    const reloaded = provider();
+    const calls = relay.fetchCalls.length;
+    expect(await reloaded.autoReconnectIfSaved()).toBe(false);
+    expect(relay.fetchCalls.length).toBe(calls);
+    expect(reloaded.getSession().state).toBe("idle");
+  });
+
+  it("keeps the host's auto-reconnect preference when the agent revokes its session, for the rooms it opens next", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
+    const { relay, host } = await connectedHost();
+    relay.latest.deliver({ type: "session.revoked", roomId: relay.roomId, roomEpoch: 1, reason: "CLIENT_REVOKED" });
+    expect(host.getSession()).toMatchObject({ state: "disconnected", approvalState: "revoked", autoReconnect: true });
+    expect(localStorage.getItem("webmcp:auto-reconnect")).toBe("true");
+    // Nothing reconnects to the revoked room.
+    const callsAfterRevoke = relay.fetchCalls.length;
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(relay.fetchCalls.length).toBe(callsAfterRevoke);
+
+    // The host's next room, opened without naming the preference, still reconnects after a drop.
+    await host.connect({ serverUrl: relay.base, alias: "next" });
+    const roomId = relay.roomId;
+    const calls = relay.fetchCalls.length;
+    relay.latest.drop(1006);
+    await vi.advanceTimersByTimeAsync(1000);
+    await flushMicrotasks();
+    expect(relay.fetchCalls.slice(calls)).toEqual([{ url: `${relay.base}/p/${roomId}/reclaim`, method: "POST" }]);
+    expect(host.getSession()).toMatchObject({ state: "waiting", roomId, autoReconnect: true });
+  });
+
+  it("turns auto-reconnect off when the host revokes the session itself", async () => {
+    const { host } = await connectedHost({ autoReconnect: true });
+    host.revokeClient();
+    expect(host.getSession().autoReconnect).toBe(false);
+    expect(localStorage.getItem("webmcp:auto-reconnect")).toBe("false");
+  });
+});
+
 describe("a lease the relay refuses", () => {
   it("is forgotten, so the next auto-reconnect does not present it again", async () => {
     vi.spyOn(console, "log").mockImplementation(() => {});

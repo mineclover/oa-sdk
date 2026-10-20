@@ -234,6 +234,40 @@ describe("provider to agent frame relay", () => {
     ]);
     expect(other.frames.filter((frame) => frame.type === "answer" || frame.type === "release")).toEqual([]);
   });
+
+  it("ends an offer whose answer or release grows past the message limit as it writes it again: a refusal, and a release of the requestId alone", async () => {
+    const relay = await startRelay(servers, { mcpRequestTimeoutMs: 1000 });
+    const room = await createRoom(relay.base, { approvalRequired: false });
+    const provider = await openProvider(relay, room, sockets);
+    const client = await openClient(relay, room, await joinRoom(relay.base, room), sockets);
+    await client.waitFor((frame) => frame.type === "ready", "client ready");
+    // 15000 numbers written as 1e20 are 75 KB as sent and 330 KB once JSON.stringify writes them out.
+    const grown = (type: string, requestId: string) => {
+      const text = `{"type":"${type}","requestId":"${requestId}","sdp":"v=0","candidates":[${Array.from({ length: 15_000 }, () => "1e20").join(",")}]}`;
+      expect(text.length).toBeLessThan(256 * 1024);
+      expect(JSON.stringify(JSON.parse(text)).length).toBeGreaterThan(256 * 1024);
+      return text;
+    };
+    const offered = (requestId: string) => provider.waitFor((frame) => frame.type === "offer" && frame.requestId === requestId, `offer ${requestId}`);
+
+    // The answer cannot reach the agent: the offer is refused at once, not left to time out.
+    client.send({ type: "offer", sdp: "v=0", requestId: "first" });
+    await offered("first");
+    provider.send(grown("answer", "first"));
+    expect(await client.waitFor((frame) => frame.type === "offer.refused", "the refusal", 900)).toEqual({
+      type: "offer.refused", requestId: "first", error: { code: -32603, message: "RESULT_TOO_LARGE", data: { limitBytes: 256 * 1024 } },
+    });
+
+    // The refusal ended the offer, so the socket may offer again, and a release still ends that one.
+    client.send({ type: "offer", sdp: "v=0", requestId: "second" });
+    await offered("second");
+    provider.send({ type: "answer", requestId: "second", sdp: "v=0 answer" });
+    await client.waitFor((frame) => frame.type === "answer", "the answer");
+    provider.send(grown("release", "second"));
+    expect(await client.waitFor((frame) => frame.type === "release", "the release")).toEqual({ type: "release", requestId: "second" });
+    await flush(client, "client socket still open");
+    await flush(provider, "provider socket still open");
+  });
 });
 
 describe("offers an agent socket has waiting", () => {

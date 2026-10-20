@@ -14,7 +14,8 @@ relay·provider·agent client의 wire 규칙을 [WebMCP relay protocol spec](./i
 - **동작 변경: signaling**: provider→agent allow-list, offer `requestId` 계약과 socket당 offer 하나, 종료 frame의 순서 보장, 결과와 무관한 register 평가 budget, auto-reconnect가 room을 새로 열지 않음.
 - **동작 변경: WebSocket**: 거절한 upgrade마다 HTTP 응답, subprotocol `webmcp-peer.v1` 하나, close code의 뜻(`WEBMCP_CLOSE_CODES` 새 export), 30 s ping과 75 s idle timeout, JSON 입력의 맨 앞 BOM 무시.
 - **동작 변경: HTTP 보안**: loopback relay의 Host 검사(`HOST_NOT_ALLOWED`), `trustProxy`가 신뢰하는 proxy의 `X-Forwarded-*`만, 정한 Origin·host 목록이 기본 목록을 대신함, publish key 없이도 기본 publish rate limit, `maxRooms`, CORS 노출 header, route마다의 405 `METHOD_NOT_ALLOWED`.
-- **문서·검사**: README, api-index, relay guide, 개념 문서, 보안 감사(새 webmcp-peer 절)가 wire 규칙을 요약하고 spec을 링크한다. `packages/webmcp-peer/test/protocol-spec.test.ts`가 spec의 요건 ID, 근거 줄, 테스트 제목, 상한·close code·오류 class 표를 코드와 테스트에 맞춰 검사하며, 테스트가 없던 요건에 회귀 테스트를 더했다. 남은 열린 문제는 spec 10.2(O-61~O-68)에 있다.
+- **문서·검사**: README, api-index, relay guide, 개념 문서, 보안 감사(새 webmcp-peer 절)가 wire 규칙을 요약하고 spec을 링크한다. `packages/webmcp-peer/test/protocol-spec.test.ts`가 spec의 요건 ID, 근거 줄, 테스트 제목, 상한·close code·오류 class 표를 코드와 테스트에 맞춰 검사하며, 테스트가 없던 요건에 회귀 테스트를 더했다. 남은 열린 문제는 spec 10.2(O-62~O-68)에 있다.
+- **동작 변경: protocol review 수정**: 문서 단계 뒤 adversarial review가 재현한 결함을 고쳤다. relay는 뒤처진 agent의 frame을 이미 읽은 read의 것까지 처리하지 않고(R-WS-040) catalog를 얼린 하나로 함께 써서, 승인 전 agent가 listing 요청을 쏟아 relay 메모리를 채우던 길을 막았다. rotate가 publish rate limit을 쓰고(O-61), Host 검사는 신뢰한 proxy가 알린 host와 함께 요청의 `Host`도 본다. relay 자신의 WebSocket `initialize`는 message 상한에 들고, 넘치는 relay 답과 다시 쓴 offer 결과는 버리지 않고 `RESULT_TOO_LARGE`로 알린다. `PeerMcpSession`은 다시 붙어도 되는 close 뒤에는 새 socket으로 다시 연결하고 그 밖의 close·종료 frame 뒤에는 다시 연결하지 않으며, provider는 끝난 room의 lease를 지우고 agent의 revoke로 auto-reconnect 설정을 바꾸지 않는다.
 
 ## 2026-10-20 — WebMCP relay 남은 강화: `register` 평가 상한, offer `requestId` 상한, 이미 끝난 socket의 upgrade, client 요청 queue (`@oa-sdk/webmcp-peer`)
 
