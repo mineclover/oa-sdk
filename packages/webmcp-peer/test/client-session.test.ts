@@ -2,7 +2,8 @@
 // requests issued while a connect is in flight, ticket revocation (also through PeerMcpService),
 // how a session learns that its room expired or that the relay closed its socket (the close code in
 // TRANSPORT_CLOSED's details), when it connects again on a new socket and when it must not, the
-// connects made around disconnect(), and response validation.
+// connects made around disconnect() and the transports it and they close (a factory's, one a factory
+// hands out again, the caller's own), and response validation.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -494,8 +495,15 @@ async function waitUntil(condition: () => boolean, label: string): Promise<void>
   }
 }
 
-/** A session on a `transportFactory` whose transports record their callbacks and how often they were closed. */
-function factorySession(options: { requestTimeoutMs?: number; makeTransport?: () => Promise<void> } = {}) {
+/**
+ * A session on a `transportFactory` whose transports record their callbacks and how often they were
+ * closed. `makeTransport` delays the making of each, `closeTransport` the close of each.
+ */
+function factorySession(options: {
+  requestTimeoutMs?: number;
+  makeTransport?: () => Promise<void>;
+  closeTransport?: () => Promise<void>;
+} = {}) {
   const made: Array<{ callbacks: PeerMcpTransportCallbacks; closed: number }> = [];
   const session = new PeerMcpSession({
     requestTimeoutMs: options.requestTimeoutMs ?? 1_000,
@@ -503,13 +511,84 @@ function factorySession(options: { requestTimeoutMs?: number; makeTransport?: ()
       await options.makeTransport?.();
       const transport = { callbacks, closed: 0 };
       made.push(transport);
-      return { send: () => {}, close: () => { transport.closed += 1; } };
+      return {
+        send: () => {},
+        close: () => {
+          transport.closed += 1;
+          return options.closeTransport?.();
+        },
+      };
     },
   });
   sessions.push(session);
   /** The relay's `ready` on the latest transport. */
   const ready = () => made.at(-1)!.callbacks.onMessage?.({ type: "ready", role: "client", roomId: "room1" });
   return { session, made, ready };
+}
+
+/** A promise `open()` resolves: what a fake transport waits on to make, connect or close. */
+function gate(): { opened: Promise<void>; open: () => void } {
+  let open!: () => void;
+  const opened = new Promise<void>((resolve) => {
+    open = resolve;
+  });
+  return { opened, open };
+}
+
+/** The error `promise` rejects with, which must come within `ms`; an Error saying so when it does not. */
+async function rejectionWithin(promise: Promise<unknown>, ms: number): Promise<unknown> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error(`still pending after ${ms} ms`)), ms);
+  });
+  try {
+    await Promise.race([promise, late]);
+    return new Error("resolved instead of rejecting");
+  } catch (error) {
+    return error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * A session on the caller's own transport (`options.transport`), which every connect uses again. Its
+ * `connect(callbacks)` keeps the callbacks it is handed (the transport reports through the latest),
+ * waits for `connecting` when given one, then opens and delivers the relay's `ready`. Its `send`
+ * answers every request with an empty result. Its `close()` counts, delivers the `closing` frames,
+ * as the relay's last frame arrives when its socket closes, and then a 1000 close.
+ */
+function suppliedTransportSession(options: {
+  connecting?: () => Promise<void>;
+  closing?: ReadonlyArray<Record<string, unknown>>;
+  /** What `connect` resolves with, which the session merges into the transport it uses. */
+  connected?: Record<string, unknown>;
+} = {}) {
+  const transport = {
+    connects: 0,
+    closes: 0,
+    callbacks: undefined as PeerMcpTransportCallbacks | undefined,
+    async connect(callbacks?: PeerMcpTransportCallbacks): Promise<Record<string, unknown> | undefined> {
+      transport.connects += 1;
+      transport.callbacks = callbacks;
+      await options.connecting?.();
+      callbacks?.onOpen?.();
+      callbacks?.onMessage?.({ type: "ready", role: "client", roomId: "room1" });
+      return options.connected;
+    },
+    send(value: unknown): void {
+      const rpc = (value as { message: { id: string } }).message;
+      queueMicrotask(() => transport.callbacks?.onMessage?.({ type: "mcp", message: { jsonrpc: "2.0", id: rpc.id, result: {} } }));
+    },
+    close(): void {
+      transport.closes += 1;
+      for (const frame of options.closing ?? []) transport.callbacks?.onMessage?.(frame);
+      transport.callbacks?.onClose?.({ code: WEBMCP_CLOSE_CODES.NORMAL, reason: "" });
+    },
+  };
+  const session = new PeerMcpSession({ requestTimeoutMs: 1_000, transport });
+  sessions.push(session);
+  return { session, transport };
 }
 
 describe("a session whose socket closed", () => {
@@ -649,22 +728,54 @@ describe("disconnect() and the connects around it", () => {
   it.each<[string, boolean]>([
     ["while its transport is being made", true],
     ["while it waits for ready", false],
-  ])("ends a connect %s with SESSION_DISCONNECTED, closes its transport and leaves the session idle", async (_label, making) => {
-    let madeTransport!: () => void;
-    const transportMade = new Promise<void>((resolve) => {
-      madeTransport = resolve;
-    });
-    const { session, made } = factorySession(making ? { makeTransport: () => transportMade } : {});
+  ])("ends a connect %s with SESSION_DISCONNECTED at once, closes its transport and leaves the session idle", async (_label, making) => {
+    const made$ = gate();
+    // Far beyond the test's own timeout: only disconnect() can end the connect in time.
+    const { session, made } = factorySession({ requestTimeoutMs: 60_000, ...(making ? { makeTransport: () => made$.opened } : {}) });
     const connecting = session.connect();
     connecting.catch(() => {});
     if (!making) await waitUntil(() => made.length === 1, "the transport");
     const disconnected = session.disconnect();
-    madeTransport();
+    made$.open();
+
+    expect(await rejectionWithin(connecting, 500)).toMatchObject({ code: "SESSION_DISCONNECTED" });
+    await expect(disconnected).resolves.toMatchObject({ state: "idle" });
+    expect(made.map((transport) => transport.closed)).toEqual([1]);
+    // Neither the closed transport nor a wait for its ready is left for the next connect.
+    expect(session.transport).toBeUndefined();
+    expect(session.readyPromise).toBeNull();
+    expect(session.getSessionInfo()).toMatchObject({ state: "idle", error: null });
+  });
+
+  it("ends a connect whose ready arrives in the same tick as disconnect(), so the session stays idle", async () => {
+    const { session, made, ready } = factorySession();
+    const connecting = session.connect();
+    connecting.catch(() => {});
+    await waitUntil(() => made.length === 1, "the transport");
+    ready();
+    const disconnected = session.disconnect();
 
     await expect(connecting).rejects.toMatchObject({ code: "SESSION_DISCONNECTED" });
     await expect(disconnected).resolves.toMatchObject({ state: "idle" });
-    expect(made.map((transport) => transport.closed)).toEqual([1]);
-    expect(session.getSessionInfo()).toMatchObject({ state: "idle", error: null });
+    expect(made[0]!.closed).toBe(1);
+    expect(session.transport).toBeUndefined();
+    expect(session.getSessionInfo().state).toBe("idle");
+  });
+
+  it("starts a new connect for a connect() made right after it, instead of handing out the one it ended", async () => {
+    const { session, made, ready } = factorySession();
+    const first = session.connect();
+    first.catch(() => {});
+    await waitUntil(() => made.length === 1, "the first transport");
+    const disconnected = session.disconnect();
+    const second = session.connect();
+
+    await expect(first).rejects.toMatchObject({ code: "SESSION_DISCONNECTED" });
+    await disconnected;
+    await waitUntil(() => made.length === 2, "the second transport");
+    ready();
+    await expect(second).resolves.toMatchObject({ state: "connected" });
+    expect(made.map((transport) => transport.closed)).toEqual([1, 0]);
   });
 
   it("ends a connect asked for while it runs when disconnect() is called again before that connect starts", async () => {
@@ -684,6 +795,193 @@ describe("disconnect() and the connects around it", () => {
     expect(made).toHaveLength(1);
     expect(made[0]!.closed).toBe(1);
     expect(session.getSessionInfo().state).toBe("idle");
+  });
+
+  it("resolves a second disconnect() once the first has closed the transport, so neither leaves a later connect idle", async () => {
+    const closed$ = gate();
+    const { session, made, ready } = factorySession({ closeTransport: () => closed$.opened });
+    const first = session.connect();
+    await waitUntil(() => made.length === 1, "the first transport");
+    ready();
+    await first;
+
+    let secondDone = false;
+    const disconnected = session.disconnect();
+    const again = session.disconnect().then((info) => {
+      secondDone = true;
+      return info;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    // The transport is still closing.
+    expect(secondDone).toBe(false);
+    const connecting = session.connect();
+    closed$.open();
+
+    expect(await Promise.all([disconnected, again])).toMatchObject([{ state: "idle" }, { state: "idle" }]);
+    await waitUntil(() => made.length === 2, "the transport of the connect made after them");
+    ready();
+    await expect(connecting).resolves.toMatchObject({ state: "connected" });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(session.getSessionInfo().state).toBe("connected");
+    expect(made.map((transport) => transport.closed)).toEqual([1, 0]);
+  });
+
+  it("closes the transport a connect was replacing when it ends that connect, without waiting for its new one", async () => {
+    const made$ = gate();
+    let making = false;
+    const { session, made, ready } = factorySession({ makeTransport: () => (making ? made$.opened : Promise.resolve()) });
+    const first = session.connect();
+    await waitUntil(() => made.length === 1, "the first transport");
+    ready();
+    await first;
+    // The relay ended the session; its socket, as far as the session knows, is still open.
+    made[0]!.callbacks.onMessage?.({ type: "session.revoked", reason: "CLIENT_REVOKED" });
+    making = true;
+    const replacing = session.connect();
+    replacing.catch(() => {});
+
+    await expect(session.disconnect()).resolves.toMatchObject({ state: "idle" });
+    expect(made.map((transport) => transport.closed)).toEqual([1]);
+    made$.open();
+    await expect(replacing).rejects.toMatchObject({ code: "SESSION_DISCONNECTED" });
+    expect(made.map((transport) => transport.closed)).toEqual([1, 1]);
+  });
+
+  it.each<[string, boolean]>([
+    ["before the connect after it has its own", true],
+    ["after the connect after it has its own", false],
+  ])("closes the transport a connect it ended gets %s, and only that one", async (_label, endedFirst) => {
+    // Each factory call, with the callbacks it was given, makes its transport once its gate opens.
+    const calls: Array<{ callbacks: PeerMcpTransportCallbacks; make: () => void; closed: number }> = [];
+    const session = new PeerMcpSession({
+      requestTimeoutMs: 1_000,
+      transportFactory: async (_url: string, _protocols: string[], callbacks: PeerMcpTransportCallbacks) => {
+        const made = gate();
+        const call = { callbacks, make: made.open, closed: 0 };
+        calls.push(call);
+        await made.opened;
+        return { send: () => {}, close: () => { call.closed += 1; } };
+      },
+    });
+    sessions.push(session);
+    const ended = session.connect();
+    ended.catch(() => {});
+    await waitUntil(() => calls.length === 1, "the first transport being made");
+    await session.disconnect();
+    const next = session.connect();
+    await waitUntil(() => calls.length === 2, "the second transport being made");
+
+    if (endedFirst) {
+      calls[0]!.make();
+      await expect(ended).rejects.toMatchObject({ code: "SESSION_DISCONNECTED" });
+      calls[1]!.make();
+    } else {
+      calls[1]!.make();
+      await waitUntil(() => session.transport !== undefined, "the second transport in use");
+      calls[0]!.make();
+      await expect(ended).rejects.toMatchObject({ code: "SESSION_DISCONNECTED" });
+      expect(calls.map((call) => call.closed)).toEqual([1, 0]);
+    }
+    await waitUntil(() => session.transport !== undefined, "the second transport in use");
+    calls[1]!.callbacks.onMessage?.({ type: "ready", role: "client", roomId: "room1" });
+    await expect(next).resolves.toMatchObject({ state: "connected" });
+    expect(calls.map((call) => call.closed)).toEqual([1, 0]);
+  });
+
+  it.each<[string, readonly [number, number]]>([
+    ["the connect it ended gets it first", [0, 1]],
+    ["the connect after it gets it first", [1, 0]],
+  ])("leaves open a transport a factory hands out again to the connect after it, when %s", async (_label, order) => {
+    // Each factory call, with the callbacks it was given, answered with the one transport once its gate opens.
+    const calls: Array<{ callbacks: PeerMcpTransportCallbacks; answer: () => void; answered: boolean }> = [];
+    let closed = 0;
+    const transport = { send: () => {}, close: () => { closed += 1; } };
+    const session = new PeerMcpSession({
+      requestTimeoutMs: 1_000,
+      transportFactory: async (_url: string, _protocols: string[], callbacks: PeerMcpTransportCallbacks) => {
+        const answered = gate();
+        const call = { callbacks, answer: answered.open, answered: false };
+        calls.push(call);
+        await answered.opened;
+        call.answered = true;
+        return transport;
+      },
+    });
+    sessions.push(session);
+    const ended = session.connect();
+    ended.catch(() => {});
+    await waitUntil(() => calls.length === 1, "the first factory call");
+    await session.disconnect();
+    const next = session.connect();
+    await waitUntil(() => calls.length === 2, "the second factory call");
+
+    for (const index of order) calls[index]!.answer();
+    await expect(ended).rejects.toMatchObject({ code: "SESSION_DISCONNECTED" });
+    await waitUntil(() => calls.every((call) => call.answered), "both factory calls answered");
+    calls[1]!.callbacks.onMessage?.({ type: "ready", role: "client", roomId: "room1" });
+    await expect(next).resolves.toMatchObject({ state: "connected" });
+    expect(session.transport).toBe(transport);
+    expect(closed).toBe(0);
+  });
+});
+
+describe("disconnect() of a session on the caller's own transport", () => {
+  it("lets nothing the transport reports while it closes end the session, so the next request connects again", async () => {
+    // The relay's last frame arrives as its socket closes.
+    const { session, transport } = suppliedTransportSession({ closing: [{ type: "session.revoked", reason: "CLIENT_REVOKED" }] });
+    await session.connect();
+    expect((await session.request("ping")).result).toEqual({});
+
+    await expect(session.disconnect()).resolves.toMatchObject({ state: "idle", error: null, connectedAt: null });
+    expect(transport.closes).toBe(1);
+    expect(session.readySeen).toBe(false);
+
+    expect((await session.request("ping")).result).toEqual({});
+    expect(transport.connects).toBe(2);
+    expect(session.getSessionInfo().state).toBe("connected");
+  });
+
+  it.each<[string, readonly [number, number], Record<string, unknown> | undefined]>([
+    ["the connect it ended finishes first", [0, 1], undefined],
+    ["the connect after it finishes first", [1, 0], undefined],
+    ["the connect it ended finishes first, and connect resolves with what to merge into it", [0, 1], { connected: true }],
+    ["the connect after it finishes first, and connect resolves with what to merge into it", [1, 0], { connected: true }],
+  ])("closes the transport a connect is connecting, and leaves it to the connect after it, when %s", async (_label, order, connected) => {
+    const gates: Array<() => void> = [];
+    const { session, transport } = suppliedTransportSession({
+      connecting: () => new Promise<void>((resolve) => gates.push(resolve)),
+      connected,
+    });
+    const ended = session.connect();
+    ended.catch(() => {});
+    await waitUntil(() => gates.length === 1, "the first connect of the transport");
+    await expect(session.disconnect()).resolves.toMatchObject({ state: "idle" });
+    expect(transport.closes).toBe(1);
+
+    const next = session.connect();
+    await waitUntil(() => gates.length === 2, "the second connect of the transport");
+    for (const index of order) gates[index]!();
+
+    await expect(ended).rejects.toMatchObject({ code: "SESSION_DISCONNECTED" });
+    await expect(next).resolves.toMatchObject({ state: "connected" });
+    expect((await session.request("ping")).result).toEqual({});
+    expect(transport.closes).toBe(1);
+    expect(session.getSessionInfo().state).toBe("connected");
+  });
+
+  it("closes the transport again once a connect it ended has connected it, when no connect uses it", async () => {
+    const connected$ = gate();
+    const { session, transport } = suppliedTransportSession({ connecting: () => connected$.opened });
+    const ended = session.connect();
+    ended.catch(() => {});
+    await waitUntil(() => transport.connects === 1, "the transport's connect");
+    await session.disconnect();
+    expect(transport.closes).toBe(1);
+
+    connected$.open();
+    await expect(ended).rejects.toMatchObject({ code: "SESSION_DISCONNECTED" });
+    expect(transport.closes).toBe(2);
+    expect(session.getSessionInfo()).toMatchObject({ state: "idle", error: null, connectedAt: null });
   });
 });
 

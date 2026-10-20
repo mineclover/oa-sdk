@@ -821,6 +821,11 @@ export class WebMcpPeerServer {
    * provider socket once (see `deliverApprovalRequest`), however often its agent calls the relay.
    */
   private readonly approvalDeliveries = new WeakMap<PendingApprovalRequest, PeerSocket>();
+  /**
+   * The frame that told the room's provider socket a ticket ended while its room stays live (see
+   * `tellProviderTicketEnded`), sent again to each provider socket that attaches later.
+   */
+  private readonly ticketEndFrames = new WeakMap<ClientSessionTicket, Readonly<Record<string, unknown>>>();
   /** The outbox of every agent WebSocket the relay accepted (see `replyToAgent`). */
   private readonly agentOutboxes = new WeakMap<PeerSocket, AgentOutbox>();
   /**
@@ -2522,6 +2527,20 @@ export class WebMcpPeerServer {
       this.replyToAgent(clientSocket, frame);
       this.closeAgentSocket(clientSocket);
     }
+    this.tellProviderTicketEnded(entry, ticket, frame);
+  }
+
+  /**
+   * Tells the room's provider socket that `ticket` ended in a room that stays live, with `frame` (a
+   * rejection's decision echo, a revocation's `session.revoked`, an expired approval request's
+   * `approval.expired`), and keeps the frame for every provider socket that attaches later (see
+   * `replayClientApprovals`). The ticket's agent spent the room's one invite, so the room serves no
+   * other agent: a provider that was away when the ticket ended, or lost the frame (it goes out with
+   * `send` alone, like the relay's other frames to the provider), learns it when it attaches again
+   * instead of offering an invitation nobody can redeem.
+   */
+  protected tellProviderTicketEnded(entry: RoomEntry, ticket: ClientSessionTicket, frame: Readonly<Record<string, unknown>>): void {
+    this.ticketEndFrames.set(ticket, frame);
     entry.providerSocket?.send(frame);
   }
 
@@ -2589,20 +2608,26 @@ export class WebMcpPeerServer {
   }
 
   /**
-   * Replays the room's client approval state to a provider socket that just (re)attached:
-   * approved, unexpired tickets as `approval.restored`, pending ones as their `approval.request`.
-   * Frames go out oldest decision/request first, so a provider that keeps one approval slot ends
-   * in the state it had before the drop. Rooms without approval (`approvalRequired: false`) have
-   * nothing the provider decided, so nothing is replayed. The frames follow `ready` on a socket
-   * that has been sent nothing else, and a room has one ticket (its invite is single-use), so they
-   * always fit its outbound queue.
+   * Replays the room's client state to a provider socket that just (re)attached: a ticket that
+   * ended while the room stays live as the frame that told the provider so (see
+   * `tellProviderTicketEnded`), and, in a room with approval, approved, unexpired tickets as
+   * `approval.restored` and pending ones as their `approval.request`. Frames go out oldest end,
+   * decision or request first, so a provider that keeps one approval slot ends in the state it
+   * would have reached on the socket before. Rooms without approval (`approvalRequired: false`)
+   * have nothing the provider decided, so only an ended ticket is replayed there. The frames follow
+   * `ready` on a socket that has been sent nothing else, and a room has one ticket (its invite is
+   * single-use), so they always fit its outbound queue.
    */
   protected replayClientApprovals(entry: RoomEntry): void {
-    if (!entry.approvalRequired) return;
     const now = Date.now();
-    const replay: Array<{ ticket: ClientSessionTicket; at: number }> = [];
+    const replay: Array<{ ticket: ClientSessionTicket; at: number; ended?: Readonly<Record<string, unknown>> }> = [];
     for (const ticket of entry.clientTickets.values()) {
-      if (ticket.status === 'approved' && ticket.expiresAt > now) {
+      const ended = this.ticketEndFrames.get(ticket);
+      if (ended) {
+        replay.push({ ticket, at: ticket.revokedAt ?? now, ended });
+      } else if (!entry.approvalRequired) {
+        continue;
+      } else if (ticket.status === 'approved' && ticket.expiresAt > now) {
         replay.push({ ticket, at: ticket.approvedAt ?? ticket.issuedAt });
       } else if (ticket.status === 'pending') {
         const request = ticket.approvalRequestId ? entry.pendingApprovals.get(ticket.approvalRequestId) : undefined;
@@ -2610,8 +2635,10 @@ export class WebMcpPeerServer {
       }
     }
     replay.sort((left, right) => left.at - right.at);
-    for (const { ticket } of replay) {
-      if (ticket.status === 'approved') this.sendApprovalRestored(entry, ticket);
+    for (const { ticket, ended } of replay) {
+      // A new message: the same frame, under a messageId of its own.
+      if (ended) entry.providerSocket?.send({ ...ended, messageId: this.messageId(String(ended.type)) });
+      else if (ticket.status === 'approved') this.sendApprovalRestored(entry, ticket);
       else this.sendApprovalRequest(entry, ticket);
     }
     // As after the original approval: a room serving an approved client is active again.
@@ -2682,7 +2709,7 @@ export class WebMcpPeerServer {
     for (const [key, pending] of entry.mcpPending) {
       if (pending.ticket === ticket) this.clearPending(entry, key, error);
     }
-    if (status === 'revoked') entry.providerSocket?.send(frame);
+    if (status === 'revoked') this.tellProviderTicketEnded(entry, ticket, frame);
     ticket.approvalRequestId = undefined;
     return true;
   }
@@ -2753,14 +2780,15 @@ export class WebMcpPeerServer {
    * Tells the room's provider socket how `request` was decided, whoever decided it: the echo of the
    * host's own `approval.decision`, or of a decision made over HTTP, which the host would not learn
    * otherwise. `ticket` was just decided: `approved`, or ended as `rejected` (with the decision's
-   * `reason`). Sent with `send` alone, like the relay's other answers to the provider.
+   * `reason`), whose echo is kept for the provider sockets that attach later (see
+   * `tellProviderTicketEnded`). Sent with `send` alone, like the relay's other answers to the provider.
    */
   protected sendDecisionEcho(entry: RoomEntry, request: PendingApprovalRequest, ticket: ClientSessionTicket, reason?: string): void {
     const decision = ticket.status === 'approved' ? 'approved' : 'rejected';
     const type = decision === 'approved' ? 'approval.approved' : 'approval.rejected';
     const decidedAt = new Date((decision === 'approved' ? ticket.approvedAt : ticket.revokedAt) ?? Date.now()).toISOString();
     const times = this.decisionTimes(request, ticket);
-    entry.providerSocket?.send({
+    const echo = {
       protocol: WEBMCP_PROTOCOL,
       messageId: this.messageId(type),
       type,
@@ -2776,7 +2804,9 @@ export class WebMcpPeerServer {
         clientTokenActive: decision === 'approved', decidedAt, expiresAt: request.expiresAt, ...times,
       },
       ...(reason ? { reason } : {}),
-    });
+    };
+    if (decision === 'rejected') this.tellProviderTicketEnded(entry, ticket, echo);
+    else entry.providerSocket?.send(echo);
   }
 
   /**

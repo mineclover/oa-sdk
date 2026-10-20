@@ -1,6 +1,7 @@
 // Regression tests for a provider socket that (re)attaches to a room it already served (browser F5
 // lease reclaim, auto-reconnect): the relay replays the client approvals it holds, so an approved
-// agent keeps working instead of being refused with CLIENT_APPROVAL_REQUIRED.
+// agent keeps working instead of being refused with CLIENT_APPROVAL_REQUIRED, and the end of a
+// ticket the provider was away for, so the host takes down a room nobody can join any more.
 import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WEBMCP_CLOSE_CODES } from "../src/config.js";
@@ -104,7 +105,7 @@ describe("provider socket reattach", () => {
     });
   });
 
-  it("re-sends a pending request and restores no revoked, expired or approval-free ticket", async () => {
+  it("re-sends a pending request and restores no expired or approval-free ticket", async () => {
     const relay = await startRelay(servers);
 
     const pendingRoom = await roomWithProvider(relay, true);
@@ -113,15 +114,6 @@ describe("provider socket reattach", () => {
     expect(pendingReplay.map((frame) => frame.type)).toEqual(["ready", "approval.request"]);
     expect(pendingReplay[1]?.payload).toMatchObject({ requestId: pending.approvalRequestId, sessionId: pending.sessionId, clientLabel: "Pending agent" });
     expect(relay.server.rooms.get(pendingRoom.id)?.roomState).toBe("accepting-clients");
-
-    const revokedRoom = await roomWithProvider(relay, true);
-    const revoked = await joinRoom(relay.base, revokedRoom);
-    await approveOverHttp(relay, revokedRoom, revoked);
-    const revoke = await postJson(`${relay.base}/p/${revokedRoom.id}/sessions/${revoked.sessionId}/revoke`, {
-      roomId: revokedRoom.id, roomEpoch: revokedRoom.roomEpoch, sessionId: revoked.sessionId,
-    }, { authorization: `Bearer ${revokedRoom.providerToken}` });
-    expect(revoke.status).toBe(200);
-    expect((await reattach(relay, revokedRoom)).map((frame) => frame.type)).toEqual(["ready"]);
 
     const expiredRoom = await roomWithProvider(relay, true);
     const expired = await joinRoom(relay.base, expiredRoom);
@@ -134,6 +126,58 @@ describe("provider socket reattach", () => {
     const openRoom = await roomWithProvider(relay, false);
     expect((await joinRoom(relay.base, openRoom)).state).toBe("approved");
     expect((await reattach(relay, openRoom)).map((frame) => frame.type)).toEqual(["ready"]);
+  });
+
+  /** How a room's one ticket ends while its provider socket is away, and the frame that tells the provider. */
+  const endings: Array<[string, { approvalRequired: boolean; approvalTimeoutMs?: number }, string, (relay: Relay, room: RoomDescriptor, joined: JoinedSession) => Promise<void>, Frame]> = [
+    ["its approval request is rejected over HTTP", { approvalRequired: true }, "approval.rejected", async (relay, room, joined) => {
+      const response = await postJson(`${relay.base}/p/${room.id}/approval/${encodeURIComponent(joined.approvalRequestId!)}`, {
+        roomId: room.id, roomEpoch: room.roomEpoch, sessionId: joined.sessionId, decision: "rejected", reason: "NOT_NOW",
+      }, { authorization: `Bearer ${room.providerToken}` });
+      expect(response.status).toBe(200);
+    }, { reason: "NOT_NOW", payload: expect.objectContaining({ state: "rejected", clientTokenActive: false }) }],
+    ["its agent revokes it", { approvalRequired: true }, "session.revoked", async (relay, room, joined) => {
+      await approveOverHttp(relay, room, joined);
+      const response = await postJson(`${relay.base}/p/${room.id}/session/revoke`, { roomId: room.id, roomEpoch: room.roomEpoch }, {
+        authorization: `Bearer ${joined.clientToken}`,
+      });
+      expect(response.status).toBe(200);
+    }, { reason: "CLIENT_REVOKED" }],
+    ["its agent revokes it in a room without approval", { approvalRequired: false }, "session.revoked", async (relay, room, joined) => {
+      const response = await postJson(`${relay.base}/p/${room.id}/session/revoke`, { roomId: room.id, roomEpoch: room.roomEpoch }, {
+        authorization: `Bearer ${joined.clientToken}`,
+      });
+      expect(response.status).toBe(200);
+    }, { reason: "CLIENT_REVOKED" }],
+    ["its approval request expires", { approvalRequired: true, approvalTimeoutMs: 1_000 }, "approval.expired", async (relay, room, joined) => {
+      await until(() => relay.server.rooms.get(room.id)?.clientTickets.get(tokenHash(joined.clientToken))?.status, (status) => status === "expired", "the approval request expired", 5_000);
+    }, { reason: "APPROVAL_EXPIRED", requestId: expect.any(String) }],
+  ];
+
+  it.each(endings)("tells a provider socket that attaches after %s how the ticket ended, every time one attaches", async (_label, options, type, end, details) => {
+    const relay = await startRelay(servers, options.approvalTimeoutMs ? { approvalTimeoutMs: options.approvalTimeoutMs } : {});
+    const room = await roomWithProvider(relay, options.approvalRequired);
+    const joined = await joinRoom(relay.base, room);
+    await dropProvider(relay, room.id);
+    await end(relay, room, joined);
+
+    const replays: Frame[][] = [];
+    for (let attach = 0; attach < 2; attach++) {
+      const next = await openProvider(relay, room, sockets);
+      await flush(next, "replay delivered");
+      replays.push(next.frames.filter((frame) => frame.type !== "pong"));
+      if (attach === 0) await dropProvider(relay, room.id);
+    }
+
+    for (const replay of replays) {
+      expect(replay.map((frame) => frame.type)).toEqual(["ready", type]);
+      expect(replay[1]).toMatchObject({ protocol: "webmcp-peer/1", type, roomId: room.id, roomEpoch: room.roomEpoch, sessionId: joined.sessionId, ...details });
+    }
+    // Each attach gets a message of its own.
+    expect(replays[0]![1]!.messageId).not.toBe(replays[1]![1]!.messageId);
+    // The room takes no other agent.
+    const rejoin = await postJson(`${relay.base}/p/${room.id}/join`, { inviteToken: room.inviteToken });
+    expect(rejoin.status).toBe(409);
   });
 
   it("replays several tickets in the order they were requested or approved", async () => {
@@ -207,5 +251,45 @@ describe("provider socket reattach", () => {
     expect(reply.error).toBeUndefined();
     expect(reply).toMatchObject({ result: { isError: false } });
     expect(host.getSession()).toMatchObject({ roomId, approvalState: "approved", clientLabel: "Agent" });
+  });
+
+  it.each<[string, string, (relay: Relay, roomId: string, joined: JoinedSession) => Promise<Response>]>([
+    ["its approval request was rejected over HTTP", "CLIENT_APPROVAL_DENIED", (relay, roomId, joined) => {
+      const entry = relay.server.rooms.get(roomId)!;
+      return postJson(`${relay.base}/p/${roomId}/approval/${encodeURIComponent(joined.approvalRequestId!)}`, {
+        roomId, roomEpoch: entry.roomEpoch, sessionId: joined.sessionId, decision: "rejected",
+      }, { authorization: `Bearer ${entry.providerToken}` });
+    }],
+    ["its agent revoked it", "SESSION_REVOKED", (relay, roomId, joined) =>
+      postJson(`${relay.base}/p/${roomId}/session/revoke`, { roomId }, { authorization: `Bearer ${joined.clientToken}` })],
+  ])("takes the room down and forgets its lease when the host reattaches after %s while its socket was away", async (_label, error, end) => {
+    const sessionStorage = new MemoryStorage();
+    vi.stubGlobal("localStorage", new MemoryStorage());
+    vi.stubGlobal("sessionStorage", sessionStorage);
+    vi.stubGlobal("window", { location: { search: "", pathname: "/" }, sessionStorage });
+    vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const relay = await startRelay(servers);
+    const hostAdapter: WebMcpHostAdapter = { listTools: () => [tool("read")], invoke: async () => ({ ok: true, value: "read-result" }) };
+    const host = new WebMcpPeerClient({ hostAdapter, shouldSuppressAutoReconnect: () => false });
+    providers.push(host);
+    const invitationUrl = await host.connect({ serverUrl: relay.base, alias: "ended-away", autoReconnect: true });
+    const roomId = host.getSession().roomId!;
+    const inviteToken = decodeURIComponent(new URL(invitationUrl).hash.slice("#invite=".length));
+    const joined = await joinRoom(relay.base, { id: roomId, inviteToken } as RoomDescriptor, { clientLabel: "Agent" });
+    await until(() => host.getSession().approvalState, (state) => state === "pending", "approval request reached the host");
+
+    // The ticket ends during the host's reconnect backoff, when no provider socket hears it.
+    await dropProvider(relay, roomId);
+    expect((await end(relay, roomId, joined)).status).toBe(200);
+    // The host reclaims the room and attaches again, and the relay tells it how the ticket ended.
+    await until(() => host.getSession().error, (value) => value === error, "the host learned the ticket ended", 15_000);
+
+    expect(host.getSession()).toMatchObject({ roomId, state: "disconnected", approvalState: "revoked", error });
+    // A reload reclaims no room nobody can join.
+    const reloaded = new WebMcpPeerClient({ hostAdapter, shouldSuppressAutoReconnect: () => false });
+    providers.push(reloaded);
+    expect(await reloaded.autoReconnectIfSaved()).toBe(false);
+    expect(reloaded.getSession().state).toBe("idle");
   });
 });
