@@ -1,3 +1,4 @@
+import { isReconnectableCloseCode, WEBMCP_CLOSE_CODES, WEBSOCKET_CLOSE_ABNORMAL } from "../config/close-codes.js";
 import { peerRpcError } from "../config/errors.js";
 import { normalizePeerConfigUrl } from "../config/invitation.js";
 import { isJsonObject, JsonObjectSchema, parseJsonObject, readResponseText } from "../config/json.js";
@@ -78,6 +79,16 @@ const INVALID_APPROVAL_ERROR = "INVALID_APPROVAL";
  * new room, which would leave the agent on the old one and hand out a new invite nobody asked for.
  */
 const ROOM_LEASE_LOST_ERROR = "ROOM_LEASE_LOST";
+/**
+ * The session error of a provider socket the relay closed because another one replaced it (4001
+ * SUPERSEDED): that socket serves the room now, so this provider does not reconnect to take it back.
+ */
+const SESSION_SUPERSEDED_ERROR = "PEER_SESSION_SUPERSEDED";
+/**
+ * The session error of any other final close of the provider socket that no frame explained (a code
+ * auto-reconnect does not retry, see `isReconnectableCloseCode`), such as a 1000 whose frame was lost.
+ */
+const SIGNALING_CLOSED_ERROR = "SIGNALING_CLOSED";
 /** The localStorage key of the host's write consent (see `WebMcpPeerClient.setWriteEnabled`). */
 const WRITE_ENABLED_STORAGE_KEY = "webmcp:write-enabled";
 
@@ -1143,10 +1154,22 @@ export class WebMcpPeerClient {
       }
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event?: { code?: unknown }) => {
       if (generation !== this.connectionGeneration) return;
       this.stopKeepalive();
       if (this.signalingReleased) return;
+      // The close code says whether the relay is done with this provider (see WEBMCP_CLOSE_CODES); a
+      // close that reports none is a connection lost without a close frame.
+      const code = typeof event?.code === "number" ? event.code : WEBSOCKET_CLOSE_ABNORMAL;
+      if (code === WEBMCP_CLOSE_CODES.ROOM_EXPIRED) {
+        // As the provider's own expiry timer would: the room takes no one any more.
+        this.expirePeerSession("ROOM_EXPIRED");
+        return;
+      }
+      if (!isReconnectableCloseCode(code)) {
+        this.endSignaling(code === WEBMCP_CLOSE_CODES.SUPERSEDED ? SESSION_SUPERSEDED_ERROR : SIGNALING_CLOSED_ERROR);
+        return;
+      }
       if (this.state === "connected" || this.state === "waiting") {
         this.state = "disconnected";
         this.notify();
@@ -1306,6 +1329,18 @@ export class WebMcpPeerClient {
     this.approvalState = "expired";
     this.approvalRequestId = null;
     this.sentDecision = null;
+    this.state = "disconnected";
+    this.error = reason;
+    this.terminatePeerTransport();
+    this.notify();
+  }
+
+  /**
+   * Ends the session after a final close of the provider socket that no frame explained: the
+   * transport is released without a reconnect, and `reason` becomes the session error. The approval
+   * state stays as it was, since only the relay's frames change it.
+   */
+  private endSignaling(reason: string): void {
     this.state = "disconnected";
     this.error = reason;
     this.terminatePeerTransport();

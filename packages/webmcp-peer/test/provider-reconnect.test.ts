@@ -1,9 +1,10 @@
 // Regression tests for the provider's relay session lifecycle: the relay URLs it builds, approvals
-// the relay restores after a lease reclaim, the auto-reconnect backoff loop, a lease the relay
-// refuses (auto-reconnect stops instead of opening a new room), the write consent auto-reconnect
-// restores, the rotate request, and relay catalog rejections.
+// the relay restores after a lease reclaim, the auto-reconnect backoff loop, the close codes it
+// reconnects after (1001, 1006, 1013) and the final ones it stops at (1000, 4001, 4002), a lease the
+// relay refuses (auto-reconnect stops instead of opening a new room), the write consent
+// auto-reconnect restores, the rotate request, and relay catalog rejections.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { WEBMCP_SUBPROTOCOL } from "../src/config.js";
+import { WEBMCP_CLOSE_CODES, WEBMCP_SUBPROTOCOL } from "../src/config.js";
 import { WebMcpPeerClient, type WebMcpHostAdapter } from "../src/provider.js";
 import {
   FakeRelay,
@@ -193,6 +194,62 @@ describe("auto-reconnect backoff", () => {
     host.disconnect();
     await vi.advanceTimersByTimeAsync(60_000);
     expect(relay.fetchCalls.length).toBe(callsBefore + 1);
+  });
+});
+
+describe("the close code of the provider socket", () => {
+  async function connectedHost(alias: string) {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const relay = new FakeRelay();
+    installRelay(relay, { browser: true });
+    const host = provider();
+    await host.connect({ serverUrl: relay.base, alias, autoReconnect: true });
+    return { relay, host, roomId: relay.roomId, callsBefore: relay.fetchCalls.length };
+  }
+
+  it.each<[string, number | undefined]>([
+    ["1001, the relay going away or no longer hearing from it", WEBMCP_CLOSE_CODES.GOING_AWAY],
+    ["1006, a connection lost without a close frame", 1006],
+    ["1013, the relay shedding it for a while", WEBMCP_CLOSE_CODES.TRY_AGAIN_LATER],
+    ["no code at all", undefined],
+  ])("is reconnected after %s, by reclaiming its room", async (_label, code) => {
+    const { relay, host, roomId, callsBefore } = await connectedHost("retry");
+
+    relay.latest.drop(code);
+    expect(host.getSession().state).toBe("disconnected");
+    await vi.advanceTimersByTimeAsync(1000);
+    await flushMicrotasks();
+
+    expect(relay.fetchCalls.slice(callsBefore)).toEqual([{ url: `${relay.base}/p/${roomId}/reclaim`, method: "POST" }]);
+    expect(relay.sockets).toHaveLength(2);
+    expect(host.getSession()).toMatchObject({ state: "waiting", roomId, error: null });
+  });
+
+  it.each<[string, number, string]>([
+    ["4001 SUPERSEDED: another provider socket serves the room now", WEBMCP_CLOSE_CODES.SUPERSEDED, "PEER_SESSION_SUPERSEDED"],
+    ["1000, a final close whose frame did not arrive", WEBMCP_CLOSE_CODES.NORMAL, "SIGNALING_CLOSED"],
+    ["1009, a frame of its own the relay refused", 1009, "SIGNALING_CLOSED"],
+  ])("is not reconnected after %s", async (_label, code, error) => {
+    const { relay, host, roomId, callsBefore } = await connectedHost("final");
+
+    relay.latest.drop(code);
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    expect(relay.fetchCalls.length).toBe(callsBefore);
+    expect(relay.sockets).toHaveLength(1);
+    expect(host.getSession()).toMatchObject({ state: "disconnected", roomId, error });
+  });
+
+  it("ends the session as expired after 4002 ROOM_EXPIRED, without reconnecting", async () => {
+    const { relay, host, callsBefore } = await connectedHost("expired");
+
+    relay.latest.drop(WEBMCP_CLOSE_CODES.ROOM_EXPIRED);
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    expect(relay.fetchCalls.length).toBe(callsBefore);
+    expect(host.getSession()).toMatchObject({ state: "disconnected", approvalState: "expired", error: "ROOM_EXPIRED" });
   });
 });
 

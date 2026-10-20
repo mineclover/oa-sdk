@@ -50,3 +50,5 @@ export {
   PEER_CATALOG_MAX_TOOLS,
   PEER_CATALOG_MAX_TOOL_NAME_LENGTH,
 } from "./config/catalog.js";
+
+export { WEBMCP_CLOSE_CODES } from "./config/close-codes.js";

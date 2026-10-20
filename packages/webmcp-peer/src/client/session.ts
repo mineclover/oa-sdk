@@ -54,6 +54,7 @@ import {
   type PeerMcpTool,
   type PeerMcpTransport,
   type PeerMcpTransportCallbacks,
+  type PeerMcpTransportClose,
   type PeerMcpTransportMessage,
 } from "./types.js";
 
@@ -377,7 +378,7 @@ export class PeerMcpSession {
       const callbacks: PeerMcpTransportCallbacks = {
         onOpen: () => this.#markOpen(),
         onMessage: (message) => this.#handleIncomingSafely(message),
-        onClose: () => this.#handleClose(),
+        onClose: (close) => this.#handleClose(close),
         onError: (error) => this.#handleTransportError(error),
       };
       let transport: PeerMcpTransport | undefined;
@@ -572,10 +573,16 @@ export class PeerMcpSession {
     this.notify();
   }
 
-  #handleClose(): void {
+  /**
+   * The transport closed: every request waiting on it fails with TRANSPORT_CLOSED, whose details are
+   * how it closed (`{code, reason}`) when the transport reports it. The code tells the caller whether
+   * connecting again may help (see `WEBMCP_CLOSE_CODES`); the session never reconnects on its own.
+   */
+  #handleClose(close?: PeerMcpTransportClose): void {
     if (this.state === "disconnecting" || this.state === "idle" || this.state === "error") return;
     this.state = "disconnected";
-    const error = new PeerMcpError("Peer transport closed", "TRANSPORT_CLOSED");
+    const details = typeof close?.code === "number" ? { code: close.code, reason: close.reason ?? "" } : undefined;
+    const error = new PeerMcpError("Peer transport closed", "TRANSPORT_CLOSED", details);
     this.#readyReject?.(error);
     this.#rejectPending(error);
     this.notify();

@@ -12,6 +12,7 @@ export {
   type PeerMcpSessionInfo,
   type PeerMcpStore,
   type PeerMcpTransportCallbacks,
+  type PeerMcpTransportClose,
   type PeerMcpTransport,
   type PeerMcpSessionOptions,
   type PeerMcpServiceSessionOptions,

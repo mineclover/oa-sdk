@@ -43,7 +43,7 @@ import {
   type WebMcpHostAdapter,
   type WebMcpToolSummary,
 } from "../src/provider.js";
-import { PEER_RELAY_MAX_ANNOUNCEMENT_BYTES } from "../src/config.js";
+import { PEER_RELAY_MAX_ANNOUNCEMENT_BYTES, WEBMCP_CLOSE_CODES } from "../src/config.js";
 import { MAX_WEBSOCKET_MESSAGE_BYTES, WebMcpPeerServer, type PeerSocket, type RoomEntry } from "../src/server.js";
 import {
   createRoom,
@@ -1610,7 +1610,8 @@ describe("provider and client socket attachment", { timeout: 20_000 }, () => {
 
     const next = await openProvider(relay, room, sockets);
     await next.waitFor((frame) => frame.type === "ready", "new provider ready", 5000);
-    expect(await old.waitForClose("old provider closed")).toBe(1000);
+    // 4001 SUPERSEDED, without a frame: the replaced provider must not reconnect and take the room back.
+    expect(await old.waitForClose("old provider closed")).toBe(WEBMCP_CLOSE_CODES.SUPERSEDED);
     const failed = await agent.waitFor((frame) => frame.type === "mcp" && frame.message?.id === 1, "the old provider's call fails", 5000);
     expect(failed.message.error).toEqual({ code: -32001, message: "PROVIDER_DISCONNECTED" });
 
@@ -1782,7 +1783,8 @@ describe("provider and client socket attachment", { timeout: 20_000 }, () => {
       clients.push(client);
     }
 
-    expect(await clients[0]!.waitForClose("the oldest socket closed")).toBe(1000);
+    // 4001 SUPERSEDED: the session goes on, on the newer sockets.
+    expect(await clients[0]!.waitForClose("the oldest socket closed")).toBe(WEBMCP_CLOSE_CODES.SUPERSEDED);
     expect(entry.clientSockets.size).toBe(MAX_SOCKETS_PER_TICKET);
     provider.send({ type: "register", tools: [tool("a")] });
     for (const client of clients.slice(1)) await client.waitForMessage((message) => message.type === "register", "announcement");

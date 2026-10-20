@@ -3,6 +3,7 @@
 // agent keeps working instead of being refused with CLIENT_APPROVAL_REQUIRED.
 import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { WEBMCP_CLOSE_CODES } from "../src/config.js";
 import { WebMcpPeerClient, type WebMcpHostAdapter } from "../src/provider.js";
 import type { ClientSessionTicket, WebMcpPeerServer } from "../src/server.js";
 import { MemoryStorage } from "./provider-fakes.js";
@@ -47,7 +48,8 @@ async function approveOverHttp(relay: Relay, room: RoomDescriptor, joined: Joine
 async function dropProvider(relay: Relay, roomId: string): Promise<unknown> {
   const dropped = relay.server.rooms.get(roomId)?.providerSocket;
   expect(dropped).toBeDefined();
-  dropped?.close();
+  // As the relay closes a provider it stopped hearing from: 1001, after which the provider may reconnect.
+  dropped?.close(WEBMCP_CLOSE_CODES.GOING_AWAY);
   await until(() => relay.server.rooms.get(roomId)?.providerSocket, (socket) => socket !== dropped, "provider detached");
   return dropped;
 }

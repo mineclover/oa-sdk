@@ -1,4 +1,4 @@
-import { parseJsonObject, readResponseText } from "../config/json.js";
+import { isJsonObject, parseJsonObject, readResponseText } from "../config/json.js";
 import { PEER_RELAY_MAX_REQUEST_BYTES, PEER_RELAY_MAX_REQUEST_ID_BYTES, utf8ByteLength } from "../config/limits.js";
 import { WEBMCP_ROOM_ID_PATTERN } from "../config/types.js";
 import { PeerMcpError } from "./errors.js";
@@ -116,7 +116,7 @@ export function createWebSocketTransport(
     onopen?: () => void;
     onmessage?: (event: { data?: unknown } | unknown) => void;
     onerror?: (event: unknown) => void;
-    onclose?: () => void;
+    onclose?: (event?: unknown) => void;
     send: (data: string) => void;
     close?: () => void;
   };
@@ -132,7 +132,15 @@ export function createWebSocketTransport(
   };
   const onError = (event: unknown) =>
     callbacks.onError?.(event instanceof Error ? event : new Error("WebSocket transport error"));
-  const onClose = () => callbacks.onClose?.();
+  // The close event's code and reason, as a WebSocket (browser, Node, `ws`) reports them.
+  const onClose = (event?: unknown) => {
+    const code = isJsonObject(event) ? event.code : undefined;
+    const reason = isJsonObject(event) ? event.reason : undefined;
+    callbacks.onClose?.({
+      ...(typeof code === "number" ? { code } : {}),
+      ...(typeof reason === "string" ? { reason } : {}),
+    });
+  };
   socket.onopen = onOpen;
   socket.onmessage = onMessage;
   socket.onerror = onError;

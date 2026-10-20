@@ -45,9 +45,14 @@ import {
   MAX_WEBSOCKET_MESSAGE_BYTES,
   MAX_WEBSOCKET_OUTBOUND_BUFFER_BYTES,
   MIN_WEBSOCKET_OUTBOUND_BUFFER_BYTES,
+  refuseWebSocketUpgrade,
+  requestedSubprotocols,
+  resolveUpgradeWebSocketOptions,
   upgradeWebSocket,
+  webSocketHandshakeRefusal,
   type PeerSendResult,
   type PeerSocket,
+  type UpgradeWebSocketOptions,
 } from "./ws-upgrade.js";
 import { isBodyConsumedError, readBoundedBody, type BoundedBody } from "./http-body.js";
 import {
@@ -60,6 +65,7 @@ import {
 import { isJsonObject } from "../config/json.js";
 import { PEER_CATALOG_MAX_TOOLS, PEER_CATALOG_MAX_TOOL_NAME_LENGTH } from "../config/catalog.js";
 import { isPeerErrorName, PEER_ERROR_CODES, peerRpcError, type PeerErrorName } from "../config/errors.js";
+import { WEBMCP_CLOSE_CODES } from "../config/close-codes.js";
 import {
   WEBMCP_PEER_CONFIG_TYPE,
   WEBMCP_PROTOCOL,
@@ -339,14 +345,25 @@ function relayMcpCapabilities(listChanged: boolean): Record<string, unknown> {
   return { tools: { listChanged }, stateless: true };
 }
 
+/**
+ * `text` without the byte order mark (U+FEFF) it may start with. A sender must not add one, but a
+ * receiver may ignore it (RFC 8259 §8.1), and the relay does wherever it parses JSON: the body of an
+ * MCP POST and of a JSON body route, and a text message of a provider or client socket. Only one is
+ * dropped: a second is not JSON whitespace, so the text still fails to parse.
+ */
+function withoutByteOrderMark(text: string): string {
+  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+}
+
 /** The error that answers an agent request the relay could not send to the provider (`sent`). */
 /**
  * Decodes a request body as UTF-8, refusing ill-formed input (a SyntaxError, so it is answered
- * like malformed JSON) instead of substituting U+FFFD and acting on altered content.
+ * like malformed JSON) instead of substituting U+FFFD and acting on altered content. A leading byte
+ * order mark is dropped (see `withoutByteOrderMark`).
  */
 function decodeUtf8Body(body: Buffer): string {
   if (!isUtf8(body)) throw new SyntaxError('Request body is not valid UTF-8');
-  return body.toString('utf8');
+  return withoutByteOrderMark(body.toString('utf8'));
 }
 
 /**
@@ -412,6 +429,9 @@ function secretHash(token: string): string {
  */
 type CodelessLifecycleError =
   | 'NOT_FOUND'
+  | 'BAD_UPGRADE'
+  | 'UNSUPPORTED_WEBSOCKET_VERSION'
+  | 'SUBPROTOCOL_REQUIRED'
   | 'INVALID_PATH'
   | 'ORIGIN_NOT_ALLOWED'
   | 'BODY_TOO_LARGE'
@@ -453,6 +473,37 @@ function lifecycleErrorBody(name: LifecycleErrorName, fields: Record<string, unk
  */
 function bearerChallenge(presented: boolean): Record<string, string> {
   return { 'WWW-Authenticate': presented ? 'Bearer error="invalid_token"' : 'Bearer' };
+}
+
+/**
+ * How the relay refuses a lifecycle request or a WebSocket upgrade: the HTTP status, the error name
+ * of the body (see `lifecycleErrorBody`), the body's other fields and the response's own headers.
+ * A lifecycle route sends it as its JSON response (`sendRefusal`), an upgrade as the HTTP response
+ * that ends the connection (`refuseUpgrade`), so both answer one condition the same way.
+ */
+interface LifecycleRefusal {
+  readonly status: number;
+  readonly name: LifecycleErrorName;
+  readonly fields?: Record<string, unknown>;
+  readonly headers?: Record<string, string>;
+}
+
+/**
+ * 401 for a credential the relay refuses: `name` is the `<X>_REQUIRED` of a request that presented
+ * none, or the `<X>_INVALID` of one whose credential is wrong, with the matching Bearer challenge.
+ */
+function unauthorizedRefusal(name: LifecycleErrorName, presented: boolean): LifecycleRefusal {
+  return { status: 401, name, headers: bearerChallenge(presented) };
+}
+
+/** 410 ROOM_ROTATED for a request to `room`, a rotated room, naming its replacement. */
+function roomRotatedRefusal(room: RoomEntry): LifecycleRefusal {
+  return { status: 410, name: 'ROOM_ROTATED', fields: { roomId: room.id, roomEpoch: room.roomEpoch, replacementRoomId: room.rotatedTo } };
+}
+
+/** 410 ROOM_EXPIRED for a request to `room`, an expired room the relay still retains. */
+function roomExpiredRefusal(room: RoomEntry): LifecycleRefusal {
+  return { status: 410, name: 'ROOM_EXPIRED', fields: { roomId: room.id, roomEpoch: room.roomEpoch } };
 }
 
 /**
@@ -711,6 +762,8 @@ export class WebMcpPeerServer {
   private readonly offerRoutes = new WeakMap<PeerSocket, OfferRoute>();
   /** What the relay keeps about each room's `register` frames (see `receiveRegister`). */
   private readonly registerStates = new WeakMap<RoomEntry, RegisterState>();
+  /** The codec options of every provider and client socket: the relay's liveness timing. */
+  private readonly socketOptions: UpgradeWebSocketOptions;
 
   constructor(options: WebMcpPeerServerOptions = {}) {
     // An embedded server never reads the host process's argv or mutates its environment from
@@ -754,6 +807,9 @@ export class WebMcpPeerServer {
     this.maxRoomTtlMs = Number.isFinite(maxRoomTtlMs)
       ? Math.min(ROOM_TTL_CEILING_MS, Math.max(MIN_ROOM_TTL_MS, maxRoomTtlMs))
       : DEFAULT_MAX_ROOM_TTL_MS;
+    // Checked here, so a bad value fails the construction rather than every upgrade.
+    this.socketOptions = { pingIntervalMs: options.webSocketPingIntervalMs, idleTimeoutMs: options.webSocketIdleTimeoutMs };
+    resolveUpgradeWebSocketOptions(this.socketOptions);
     this.deploymentCatalog = loadDeploymentCatalog(options.deploymentCatalog, cwd);
     this.serverName = options.serverName ?? 'framebook-peer-server';
     this.serverVersion = options.serverVersion ?? '0.4.0';
@@ -819,10 +875,11 @@ export class WebMcpPeerServer {
         this.failPendingForProvider(room);
         for (const pending of room.mcpPending.values()) clearTimeout(pending.timer);
         room.mcpPending.clear();
-        room.providerSocket?.close();
-        for (const cs of room.clientSockets) cs.close();
+        // 1001 (Going Away): the relay is going, not the session, so a peer may connect again.
+        room.providerSocket?.close(WEBMCP_CLOSE_CODES.GOING_AWAY);
+        for (const cs of room.clientSockets) cs.close(WEBMCP_CLOSE_CODES.GOING_AWAY);
       }
-      for (const socket of [...this.closingAgentSockets]) socket.close();
+      for (const socket of [...this.closingAgentSockets]) socket.close(WEBMCP_CLOSE_CODES.GOING_AWAY);
       this.rooms.clear();
       try { this.ownedSqliteRateLimitStore?.close(); } catch { /* already closed */ }
       this.server.close((err) => (err ? reject(err) : resolveClose()));
@@ -1231,7 +1288,9 @@ export class WebMcpPeerServer {
    * closing, so later requests get PROVIDER_UNAVAILABLE and a reclaim can attach a new provider;
    * or one a new provider socket replaces. Every pending request was sent to that socket, so each
    * fails with PROVIDER_DISCONNECTED, and the reconnect lease's grace starts (a socket that replaces
-   * this one ends it again when it attaches).
+   * this one ends it again when it attaches). The socket is closed with 4001 SUPERSEDED, no frame
+   * before it, so a replaced provider does not reconnect and displace the socket that replaced it
+   * (nothing goes out on a socket that is already closing).
    */
   protected detachClosedProvider(entry: RoomEntry): void {
     const socket = entry.providerSocket;
@@ -1239,7 +1298,7 @@ export class WebMcpPeerServer {
     entry.providerSocket = undefined;
     this.startReconnectGrace(entry);
     this.failPendingForProvider(entry);
-    socket.close();
+    socket.close(WEBMCP_CLOSE_CODES.SUPERSEDED);
   }
 
   /**
@@ -1804,67 +1863,107 @@ export class WebMcpPeerServer {
     this.sendJson(res, status, lifecycleErrorBody(name, fields), origin, extraHeaders);
   }
 
+  /** Answers a lifecycle route with `refusal` (see `LifecycleRefusal`). */
+  protected sendRefusal(res: ServerResponse, refusal: LifecycleRefusal, origin?: string): void {
+    this.sendLifecycleError(res, refusal.status, refusal.name, origin, refusal.fields, refusal.headers);
+  }
+
+  /**
+   * Refuses a WebSocket upgrade with `refusal`, as the HTTP response that ends the connection: its
+   * status and lifecycle body, `Connection: close` (see `refuseWebSocketUpgrade`). A browser does
+   * not show its WebSocket API the response, but any other client can tell from it a wrong ticket
+   * from a room that is gone, rotated or expired, as the lifecycle routes tell them.
+   */
+  protected refuseUpgrade(socket: Duplex, refusal: LifecycleRefusal): void {
+    refuseWebSocketUpgrade(socket, refusal.status, lifecycleErrorBody(refusal.name, refusal.fields), refusal.headers);
+  }
+
   /**
    * Answers 401 for an `Authorization` credential the route refuses: `name` is the `<X>_REQUIRED`
    * of a request that presented none, or the `<X>_INVALID` of one whose credential is wrong, and
    * the response carries the matching Bearer challenge (see `bearerChallenge`).
    */
   protected sendUnauthorized(res: ServerResponse, name: LifecycleErrorName, presented: boolean, origin?: string): void {
-    this.sendLifecycleError(res, 401, name, origin, undefined, bearerChallenge(presented));
+    this.sendRefusal(res, unauthorizedRefusal(name, presented), origin);
   }
 
   /** 410 ROOM_ROTATED for a lifecycle request to `room`, a rotated room, naming its replacement. */
   protected sendRoomRotated(res: ServerResponse, room: RoomEntry, origin?: string): void {
-    this.sendLifecycleError(res, 410, 'ROOM_ROTATED', origin, {
-      roomId: room.id,
-      roomEpoch: room.roomEpoch,
-      replacementRoomId: room.rotatedTo,
-    });
+    this.sendRefusal(res, roomRotatedRefusal(room), origin);
   }
 
   /** 410 ROOM_EXPIRED for a lifecycle request to `room`, an expired room the relay still retains. */
   protected sendRoomExpired(res: ServerResponse, room: RoomEntry, origin?: string): void {
-    this.sendLifecycleError(res, 410, 'ROOM_EXPIRED', origin, { roomId: room.id, roomEpoch: room.roomEpoch });
+    this.sendRefusal(res, roomExpiredRefusal(room), origin);
+  }
+
+  /**
+   * The room check of the lifecycle routes and of the WebSocket upgrades: null when `room` is the
+   * live room `roomId`; otherwise 404 ROOM_NOT_FOUND for a room that is gone (deleted once its
+   * retention ended) or was replaced, 410 ROOM_ROTATED for a rotated one, as session status and the
+   * MCP endpoint answer (checked before the expiry, which a rotation sets to the rotation time), or
+   * 410 ROOM_EXPIRED for an expired one, whose expiry this carries out if nothing did yet (see
+   * `expireRoomIfDue`).
+   */
+  protected lifecycleRoomRefusal(roomId: string, room: RoomEntry | undefined): LifecycleRefusal | null {
+    if (!room || this.rooms.get(roomId) !== room) return { status: 404, name: 'ROOM_NOT_FOUND' };
+    if (room.rotatedTo) return roomRotatedRefusal(room);
+    if (this.expireRoomIfDue(room)) return roomExpiredRefusal(room);
+    return null;
   }
 
   /**
    * The room check of the join, reclaim, approval, revoke and rotate routes, made before the body
-   * is read and again after it. True when `room` is the live room `roomId`; otherwise this answered
-   * 404 ROOM_NOT_FOUND for a room that is gone (deleted once its retention ended) or was replaced,
-   * 410 ROOM_ROTATED for a rotated one, as session status and the MCP endpoint do (checked before
-   * the expiry, which a rotation sets to the rotation time), or 410 ROOM_EXPIRED for an expired one,
-   * whose expiry this carries out if nothing did yet (see `expireRoomIfDue`).
+   * is read and again after it: true when `room` is the live room `roomId`, otherwise this answered
+   * with the refusal of `lifecycleRoomRefusal`.
    */
   protected checkLifecycleRoom(res: ServerResponse, roomId: string, room: RoomEntry | undefined, origin?: string): room is RoomEntry {
-    if (!room || this.rooms.get(roomId) !== room) {
-      this.sendLifecycleError(res, 404, 'ROOM_NOT_FOUND', origin);
-      return false;
-    }
-    if (room.rotatedTo) {
-      this.sendRoomRotated(res, room, origin);
-      return false;
-    }
-    if (this.expireRoomIfDue(room)) {
-      this.sendRoomExpired(res, room, origin);
-      return false;
-    }
-    return true;
+    const refusal = this.lifecycleRoomRefusal(roomId, room);
+    if (refusal) this.sendRefusal(res, refusal, origin);
+    return refusal === null;
+  }
+
+  /** The room check of a WebSocket upgrade: `checkLifecycleRoom`, refusing the upgrade instead. */
+  protected checkUpgradeRoom(socket: Duplex, roomId: string, room: RoomEntry | undefined): room is RoomEntry {
+    const refusal = this.lifecycleRoomRefusal(roomId, room);
+    if (refusal) this.refuseUpgrade(socket, refusal);
+    return refusal === null;
   }
 
   /**
-   * True when `bearer` is the room's current provider token; otherwise this answered 401
-   * PROVIDER_TOKEN_REQUIRED for a request without one, or PROVIDER_TOKEN_INVALID for another token.
+   * Null when `token` is the room's current provider token; otherwise 401 PROVIDER_TOKEN_REQUIRED
+   * for a request without one, or PROVIDER_TOKEN_INVALID for another token. The approval and rotate
+   * routes take it as a Bearer token, the provider socket upgrade as its `ticket.<token>` entry.
    */
+  protected providerTokenRefusal(room: RoomEntry, token: string): LifecycleRefusal | null {
+    if (!token) return unauthorizedRefusal('PROVIDER_TOKEN_REQUIRED', false);
+    if (!this.constantTimeTokenEqual(token, room.providerToken)) return unauthorizedRefusal('PROVIDER_TOKEN_INVALID', true);
+    return null;
+  }
+
+  /**
+   * The ticket check of a client socket upgrade: true when the socket may attach with `ticket` (the
+   * room's ticket for the token the upgrade presented, null when the room issued none), an approved
+   * ticket or a pending one, which learns of its approval on the socket. Otherwise this refused the
+   * upgrade with the status and name an MCP POST with the same token gets (see `clientTicketError`),
+   * and the Bearer challenge of a 401 for a request that `presented` a token or none.
+   */
+  protected checkUpgradeTicket(socket: Duplex, ticket: ClientSessionTicket | null, presented: boolean): ticket is ClientSessionTicket {
+    if (ticket?.status === 'pending') return true;
+    const error = this.clientTicketError(ticket, presented);
+    if (error) {
+      this.refuseUpgrade(socket, error.status === 401
+        ? unauthorizedRefusal(error.message, presented)
+        : { status: error.status, name: error.message });
+    }
+    return error === null;
+  }
+
+  /** True when `bearer` is the room's current provider token; otherwise this answered `providerTokenRefusal`. */
   protected checkProviderToken(res: ServerResponse, room: RoomEntry, bearer: string, origin?: string): boolean {
-    if (!bearer) {
-      this.sendUnauthorized(res, 'PROVIDER_TOKEN_REQUIRED', false, origin);
-      return false;
-    }
-    if (!this.constantTimeTokenEqual(bearer, room.providerToken)) {
-      this.sendUnauthorized(res, 'PROVIDER_TOKEN_INVALID', true, origin);
-      return false;
-    }
-    return true;
+    const refusal = this.providerTokenRefusal(room, bearer);
+    if (refusal) this.sendRefusal(res, refusal, origin);
+    return refusal === null;
   }
 
   /** 202 Accepted for a JSON-RPC notification. Streamable HTTP requires an empty body. */
@@ -1963,7 +2062,10 @@ export class WebMcpPeerServer {
     return this.parseJsonObjectBody(read.body);
   }
 
-  /** Parses a request body that must be a JSON object; an empty (or all-whitespace) body is `{}`. */
+  /**
+   * Parses a request body that must be a JSON object, after its leading byte order mark (see
+   * `decodeUtf8Body`); an empty body, or one of whitespace only (`String#trim`'s), is `{}`.
+   */
   protected parseJsonObjectBody(body: Buffer): Record<string, unknown> {
     const raw = decodeUtf8Body(body).trim();
     if (!raw) return {};
@@ -2044,7 +2146,7 @@ export class WebMcpPeerServer {
    * ticket, CLIENT_APPROVAL_DENIED for a rejected one, SESSION_EXPIRED for an expired one and
    * SESSION_INVALID for one revoked or ended by a rotation. `status` is the HTTP status.
    */
-  protected clientTicketError(ticket: ClientSessionTicket | null, presented = true): { status: number; code: number; message: string } | null {
+  protected clientTicketError(ticket: ClientSessionTicket | null, presented = true): { status: number; code: number; message: PeerErrorName } | null {
     const refusal = (status: number, name: PeerErrorName) => ({ status, ...peerRpcError(name) });
     if (!ticket) return refusal(401, presented ? 'CLIENT_TOKEN_INVALID' : 'CLIENT_TOKEN_REQUIRED');
     if (ticket.status === 'pending') return refusal(403, 'CLIENT_APPROVAL_REQUIRED');
@@ -2464,7 +2566,8 @@ export class WebMcpPeerServer {
   /**
    * Carries out the expiry of the room `entry`, once: every ticket ends as `expired` (its client
    * sockets get `room.expired` and are closed, and their requests in flight get ROOM_EXPIRED), the
-   * HTTP requests in flight get ROOM_EXPIRED too, and the provider socket is closed. The room stays
+   * HTTP requests in flight get ROOM_EXPIRED too, and the provider socket is closed with 4002
+   * ROOM_EXPIRED, which tells it why without a frame and keeps it from reconnecting. The room stays
    * until its retention ends (see `cleanupExpiredRooms`), and its lifecycle routes answer 410
    * ROOM_EXPIRED meanwhile. A rotated room is left alone: its rotation already ended its tickets
    * and sockets.
@@ -2477,7 +2580,7 @@ export class WebMcpPeerServer {
     this.revokeAllClientTickets(entry, 'ROOM_EXPIRED', 'expired');
     const provider = entry.providerSocket;
     entry.providerSocket = undefined;
-    try { provider?.close(); } catch {}
+    try { provider?.close(WEBMCP_CLOSE_CODES.ROOM_EXPIRED); } catch {}
   }
 
   /**
@@ -3349,21 +3452,33 @@ export class WebMcpPeerServer {
         }
       }
 
+      // Every refusal from here on is an HTTP response (RFC 6455 §4.2.2) that tells the peer why.
+      // The opening handshake comes first, so a request that is not one costs no lookup of the path,
+      // the room or the ticket.
+      const handshakeRefusal = webSocketHandshakeRefusal(req);
+      if (handshakeRefusal) {
+        this.refuseUpgrade(socket, { status: handshakeRefusal.status, name: handshakeRefusal.error, headers: handshakeRefusal.headers });
+        return;
+      }
+      // The relay speaks one subprotocol: a peer that does not offer it is refused rather than
+      // answered with a value it offered that the relay does not speak (its ticket, say).
+      const protocols = requestedSubprotocols(req);
+      if (!protocols.includes(WEBMCP_SUBPROTOCOL)) {
+        this.refuseUpgrade(socket, { status: 400, name: 'SUBPROTOCOL_REQUIRED' });
+        return;
+      }
+      const ticket = protocols.find(value => value.startsWith('ticket.'))?.slice('ticket.'.length) ?? '';
+
       const providerMatch = url.pathname.match(PROVIDER_SOCKET_ROUTE);
       const clientMatch = url.pathname.match(CLIENT_SOCKET_ROUTE);
 
       if (providerMatch) {
         const roomId = providerMatch[1];
         const entry = this.rooms.get(roomId);
-        if (!entry || this.expireRoomIfDue(entry)) {
-          socket.destroy();
-          return;
-        }
-        const protocols = typeof req.headers['sec-websocket-protocol'] === 'string'
-          ? req.headers['sec-websocket-protocol'].split(',').map(value => value.trim()) : [];
-        const ticket = protocols.find(value => value.startsWith('ticket.'))?.slice('ticket.'.length);
-        if (!ticket || !this.constantTimeTokenEqual(ticket, entry.providerToken)) {
-          socket.destroy();
+        if (!this.checkUpgradeRoom(socket, roomId, entry)) return;
+        const tokenRefusal = this.providerTokenRefusal(entry, ticket);
+        if (tokenRefusal) {
+          this.refuseUpgrade(socket, tokenRefusal);
           return;
         }
 
@@ -3371,17 +3486,17 @@ export class WebMcpPeerServer {
           req,
           socket,
           head,
-          (text) => {
+          (received) => {
             try {
               // Only the room's attached provider socket speaks for it: one the relay replaced,
               // detached or never attached is closed instead of acting on the room. A frame that
               // finds the room expired carries out its expiry, which closes this socket too.
               if (entry.providerSocket !== peer) {
-                peer.close();
+                peer.close(WEBMCP_CLOSE_CODES.SUPERSEDED);
                 return;
               }
               if (this.expireRoomIfDue(entry)) return;
-              const msg = PeerFrameSchema.parse(JSON.parse(text));
+              const msg = PeerFrameSchema.parse(JSON.parse(withoutByteOrderMark(received)));
               // The relay's answers to the provider's own frames (this pong, an approval decision's
               // echo, a register refusal) are sent with `send` alone: a provider whose outbound
               // queue is full skips them and is not closed, since what fills its queue is mostly
@@ -3463,6 +3578,7 @@ export class WebMcpPeerServer {
               this.failPendingForProvider(entry);
             }
           },
+          this.socketOptions,
         );
 
         // A socket that is already closed when attached never reports its close: it must not
@@ -3489,24 +3605,15 @@ export class WebMcpPeerServer {
       if (clientMatch) {
         const roomId = clientMatch[1];
         const entry = this.rooms.get(roomId);
-        if (!entry || this.expireRoomIfDue(entry)) {
-          socket.destroy();
-          return;
-        }
-        const protocols = typeof req.headers['sec-websocket-protocol'] === 'string'
-          ? req.headers['sec-websocket-protocol'].split(',').map(value => value.trim()) : [];
-        const ticket = protocols.find(value => value.startsWith('ticket.'))?.slice('ticket.'.length);
+        if (!this.checkUpgradeRoom(socket, roomId, entry)) return;
         const clientTicket = ticket ? this.resolveClientTicket(entry, ticket) : null;
-        if (!ticket || !clientTicket || clientTicket.expiresAt <= Date.now() || clientTicket.status === 'revoked' || clientTicket.status === 'rejected' || clientTicket.status === 'expired' || clientTicket.status === 'room-rotated') {
-          socket.destroy();
-          return;
-        }
+        if (!this.checkUpgradeTicket(socket, clientTicket, ticket !== '')) return;
 
         const peer = upgradeWebSocket(
           req,
           socket,
           head,
-          (text) => {
+          (received) => {
             try {
               // A socket the relay dropped from the room (revoked, replaced, never attached) is
               // closed instead of acting on it, once what waits for it has gone out (one whose
@@ -3517,10 +3624,12 @@ export class WebMcpPeerServer {
                 return;
               }
               if (this.expireRoomIfDue(entry)) return;
+              // The ticket expires with the room it was issued by (rotation leaves no socket).
               if (clientTicket.expiresAt <= Date.now()) {
-                peer.close();
+                peer.close(WEBMCP_CLOSE_CODES.ROOM_EXPIRED);
                 return;
               }
+              const text = withoutByteOrderMark(received);
               const msg = PeerFrameSchema.parse(JSON.parse(text));
               if (msg.type === 'ping') {
                 peer.send({ type: 'pong', timestamp: Date.now() });
@@ -3652,6 +3761,7 @@ export class WebMcpPeerServer {
             this.detachClientSocket(entry, peer);
             this.failPendingForSocket(entry, peer);
           },
+          this.socketOptions,
         );
         this.agentOutboxes.set(peer, new AgentOutbox(peer, socket));
 
@@ -3662,11 +3772,12 @@ export class WebMcpPeerServer {
           return;
         }
         // At most MAX_CLIENT_SOCKETS_PER_TICKET per ticket: the oldest ones (in attach order) make
-        // room, as after a revocation.
+        // room, closed with 4001 SUPERSEDED and no frame: the session goes on, on the newer sockets,
+        // so the agent must not reconnect the one it replaced.
         const ticketSockets = [...entry.clientSocketTickets].filter(([, bound]) => bound === clientTicket).map(([bound]) => bound);
         const excess = ticketSockets.length + 1 - MAX_CLIENT_SOCKETS_PER_TICKET;
         for (const stale of ticketSockets.slice(0, Math.max(0, excess))) {
-          stale.close();
+          stale.close(WEBMCP_CLOSE_CODES.SUPERSEDED);
           this.detachClientSocket(entry, stale);
           this.failPendingForSocket(entry, stale);
         }
@@ -3676,7 +3787,7 @@ export class WebMcpPeerServer {
         return;
       }
 
-      socket.destroy();
+      this.refuseUpgrade(socket, { status: 404, name: 'NOT_FOUND' });
     } catch {
       socket.destroy();
     }

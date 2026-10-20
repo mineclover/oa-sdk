@@ -147,6 +147,20 @@ export interface WebMcpPeerServerOptions {
   approvalTimeoutMs?: number;
   roomSweepIntervalMs?: number;
   /**
+   * How often, in milliseconds, the relay pings each provider and client socket with an RFC 6455
+   * ping, which browser and Node WebSocket clients answer on their own (default
+   * `WEBSOCKET_PING_INTERVAL_MS`, 30 s): a number from 1 to 2147483647, or the constructor throws a
+   * RangeError.
+   */
+  webSocketPingIntervalMs?: number;
+  /**
+   * How long, in milliseconds, the relay waits to hear anything from a provider or client socket
+   * before it closes it with 1001 (Going Away), a peer that vanished without closing its connection
+   * (default `WEBSOCKET_IDLE_TIMEOUT_MS`, 75 s): a number from 1 to 2147483647 and longer than
+   * `webSocketPingIntervalMs`, or the constructor throws a RangeError.
+   */
+  webSocketIdleTimeoutMs?: number;
+  /**
    * Upper bound for a room's `ttlMs` on `POST /p` and `POST /p/:id/rotate` (default 24 hours,
    * clamped to `[60_000, 365 days]`). Larger requested TTLs are clamped, so every room expires and
    * is eventually swept.
@@ -184,8 +198,9 @@ export interface WebMcpPeerServerOptions {
     server: WebMcpPeerServer,
   ) => Promise<boolean> | boolean;
   /**
-   * Optional custom WebSocket upgrade hook invoked after Origin validation and
-   * before `/p/:id/provider` and `/p/:id/client` routes. Return `true` if handled.
+   * Optional custom WebSocket upgrade hook invoked after Origin validation and before the relay
+   * checks the opening handshake and routes `/p/:id/provider` and `/p/:id/client`, so it may take
+   * any upgrade. Return `true` if handled.
    */
   customUpgradeHandler?: (
     req: IncomingMessage,

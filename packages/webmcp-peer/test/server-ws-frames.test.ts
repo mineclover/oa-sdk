@@ -16,7 +16,11 @@
 // global WebSocket stands in for a browser (one frame per message); a raw node:net client writes exact
 // frames by hand for byte-exact limits, fragmentation, read boundaries, protocol violations and a peer
 // that stops reading; an in-memory Duplex makes byte-exact queue sizes, partial reads, head ordering
-// and dead sockets deterministic, and fake timers make the stalled-queue timeout exact.
+// and dead sockets deterministic, and fake timers make the stalled-queue timeout exact. Before any of
+// that, a request that is not an opening handshake the codec can complete is refused with an HTTP
+// response (400 BAD_UPGRADE, or 426 for another WebSocket version), and the 101 selects only the
+// webmcp-peer.v1 subprotocol, never another value a request offers. Once open, the codec pings the
+// peer every 30 s and closes one it hears nothing from for 75 s with 1001.
 import { createHash, randomBytes } from "node:crypto";
 import { once } from "node:events";
 import { createServer, IncomingMessage, type Server } from "node:http";
@@ -38,6 +42,8 @@ import {
   MIN_WEBSOCKET_OUTBOUND_BUFFER_BYTES,
   WEBSOCKET_CLOSE_TIMEOUT_MS,
   WEBSOCKET_CLOSE_TRY_AGAIN_LATER,
+  WEBSOCKET_IDLE_TIMEOUT_MS,
+  WEBSOCKET_PING_INTERVAL_MS,
   WEBSOCKET_STALLED_OUTBOUND_TIMEOUT_MS,
   type UpgradeWebSocketOptions,
 } from "../src/server/ws-upgrade.js";
@@ -447,10 +453,21 @@ async function expectRefused(client: RawClient, peer: ServerPeer, code: number, 
 
 // --- in-memory socket: upgradeWebSocket over a Duplex the test drives directly ------------------
 
-/** An upgrade request upgradeWebSocket accepts. */
-function upgradeRequest(): IncomingMessage {
+/** An upgrade request upgradeWebSocket accepts: an HTTP/1.1 GET opening handshake, with `headers` over its own. */
+function upgradeRequest(headers: Record<string, string | undefined> = {}): IncomingMessage {
   const req = new IncomingMessage(new Socket());
-  req.headers = { upgrade: "websocket", "sec-websocket-version": "13", "sec-websocket-key": randomBytes(16).toString("base64") };
+  req.method = "GET";
+  req.httpVersion = "1.1";
+  req.httpVersionMajor = 1;
+  req.httpVersionMinor = 1;
+  const merged: Record<string, string | undefined> = {
+    upgrade: "websocket",
+    connection: "Upgrade",
+    "sec-websocket-version": "13",
+    "sec-websocket-key": randomBytes(16).toString("base64"),
+    ...headers,
+  };
+  req.headers = Object.fromEntries(Object.entries(merged).filter(([, value]) => value !== undefined));
   return req;
 }
 
@@ -843,6 +860,8 @@ describe("inbound frames (client to relay)", () => {
     ["status 1011", CLOSE.internalError, closeFramePayload(CLOSE.internalError)],
     ["library status 3000 and a non-ASCII reason", 3000, closeFramePayload(3000, "fermé ✓")],
     ["application status 4999", 4999, closeFramePayload(4999)],
+    // A server never sends 1010, the code of a client whose required extension was not negotiated.
+    ["status 1010, which only a client sends,", CLOSE.normal, closeFramePayload(1010)],
   ])("answers a valid close frame with %s with status %i", async (_label, expected, payload) => {
     const endpoint = await startEndpoint();
     const client = await openRawClient(endpoint);
@@ -1711,8 +1730,252 @@ describe("upgrade edge cases", () => {
   });
 });
 
+/** The HTTP response a refused upgrade wrote: its status line, headers (lowercased names) and JSON body. */
+function refusalResponse(written: Buffer[]): { statusLine: string; headers: Record<string, string>; body: unknown } {
+  const bytes = Buffer.concat(written);
+  const end = bytes.indexOf("\r\n\r\n");
+  expect(end).toBeGreaterThan(0);
+  const [statusLine, ...fields] = bytes.subarray(0, end).toString("latin1").split("\r\n");
+  const headers = Object.fromEntries(fields.map((field) => {
+    const colon = field.indexOf(":");
+    return [field.slice(0, colon).toLowerCase(), field.slice(colon + 1).trim()];
+  }));
+  const body = bytes.subarray(end + 4);
+  expect(body.length).toBe(Number(headers["content-length"]));
+  return { statusLine: statusLine!, headers, body: JSON.parse(body.toString("utf8")) };
+}
+
+/** Upgrades `req` on a fresh in-memory socket, recording what the codec wrote and its owner's callbacks. */
+function upgradeRequestOnMemory(req: IncomingMessage): MemoryPeer & { socket: Duplex; written: Buffer[] } {
+  const { socket, written } = memorySocket();
+  let returned = false;
+  const state = { texts: [] as string[], closeCalls: 0, calledBeforeReturn: false };
+  const peer = upgradeWebSocket(req, socket, frame("hello", { opcode: OPCODE.text }), (text) => state.texts.push(text), () => {
+    if (!returned) state.calledBeforeReturn = true;
+    state.closeCalls += 1;
+  });
+  returned = true;
+  return Object.assign(state, { peer, socket, written });
+}
+
+describe("opening handshake", () => {
+  it.each<[string, Record<string, string | undefined>, { method?: string; version?: [number, number] }]>([
+    ["a POST", {}, { method: "POST" }],
+    ["an HTTP/1.0 request", {}, { version: [1, 0] }],
+    ["an Upgrade that does not name websocket", { upgrade: "h2c" }, {}],
+    ["no Upgrade header", { upgrade: undefined }, {}],
+    ["a Connection header without upgrade", { connection: "keep-alive" }, {}],
+    ["no Connection header", { connection: undefined }, {}],
+    ["no Sec-WebSocket-Key", { "sec-websocket-key": undefined }, {}],
+    ["a Sec-WebSocket-Key that is not base64", { "sec-websocket-key": "not a key" }, {}],
+    ["a Sec-WebSocket-Key of 15 bytes", { "sec-websocket-key": randomBytes(15).toString("base64") }, {}],
+    ["a Sec-WebSocket-Key of 17 bytes", { "sec-websocket-key": randomBytes(17).toString("base64") }, {}],
+  ])("refuses %s with 400 BAD_UPGRADE and stops the socket, without throwing", async (_label, headers, { method, version }) => {
+    const req = upgradeRequest(headers);
+    if (method) req.method = method;
+    if (version) [req.httpVersionMajor, req.httpVersionMinor] = version;
+    const relay = upgradeRequestOnMemory(req);
+
+    expect(relay.peer.send({ type: "ready" })).toBe("closed");
+    expect(relay.closeCalls).toBe(0);
+    await settle();
+    expect(relay.closeCalls).toBe(1);
+    expect(relay.calledBeforeReturn).toBe(false);
+    // The head's message is never delivered: the socket never spoke WebSocket.
+    expect(relay.texts).toEqual([]);
+    const response = refusalResponse(relay.written);
+    expect(response.statusLine).toBe("HTTP/1.1 400 Bad Request");
+    expect(response.headers).toMatchObject({ "content-type": "application/json", connection: "close", "cache-control": "no-store" });
+    expect(response.headers).not.toHaveProperty("sec-websocket-accept");
+    expect(response.body).toEqual({ error: "BAD_UPGRADE" });
+    // The connection is ended once the response is written, and then destroyed.
+    expect(relay.socket.writableEnded).toBe(true);
+    await until(() => relay.socket.destroyed, Boolean, "refused socket destroyed", WAIT_MS);
+    expect(relay.closeCalls).toBe(1);
+  });
+
+  it.each<[string, string | undefined]>([
+    ["version 8", "8"],
+    ["no version", undefined],
+    ["a list of versions", "13, 8"],
+  ])("refuses %s with 426, naming version 13 and the protocol to upgrade to", async (_label, version) => {
+    const relay = upgradeRequestOnMemory(upgradeRequest({ "sec-websocket-version": version }));
+
+    await settle();
+    expect(relay.closeCalls).toBe(1);
+    const response = refusalResponse(relay.written);
+    expect(response.statusLine).toBe("HTTP/1.1 426 Upgrade Required");
+    expect(response.headers).toMatchObject({ "sec-websocket-version": "13", upgrade: "websocket", connection: "Upgrade, close" });
+    expect(response.body).toEqual({ error: "UNSUPPORTED_WEBSOCKET_VERSION" });
+  });
+
+  it("checks the version before the key, which a client of another version may build otherwise", () => {
+    const relay = upgradeRequestOnMemory(upgradeRequest({ "sec-websocket-version": "8", "sec-websocket-key": undefined }));
+    expect(refusalResponse(relay.written).statusLine).toBe("HTTP/1.1 426 Upgrade Required");
+  });
+
+  it("completes a handshake whose Upgrade and Connection list their token among others, in any case", async () => {
+    const key = randomBytes(16).toString("base64");
+    const relay = upgradeRequestOnMemory(upgradeRequest({ upgrade: "WebSocket", connection: "keep-alive, Upgrade", "sec-websocket-key": key }));
+
+    const head = Buffer.concat(relay.written).toString("latin1");
+    expect(head).toMatch(/^HTTP\/1\.1 101 Switching Protocols\r\n/);
+    expect(head).toContain(`Sec-WebSocket-Accept: ${createHash("sha1").update(`${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`).digest("base64")}\r\n`);
+    expect(relay.peer.send({ type: "ready" })).toBe("sent");
+    await settle();
+    expect(relay.texts).toEqual(["hello"]);
+    expect(relay.closeCalls).toBe(0);
+  });
+
+  it("answers a raw client's refused upgrade with a complete response, then closes the connection", async () => {
+    const endpoint = await startEndpoint();
+    const socket = connect({ port: endpoint.port, host: "127.0.0.1" });
+    cleanups.push(() => socket.destroy());
+    const received: Buffer[] = [];
+    socket.on("data", (chunk: Buffer) => received.push(chunk));
+    const closed = once(socket, "close");
+    socket.write(
+      `GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n`
+        + `Sec-WebSocket-Key: short\r\nSec-WebSocket-Version: 13\r\n\r\n`,
+    );
+    expect((await settleWithin(closed, WAIT_MS)).settled).toBe(true);
+
+    const response = refusalResponse(received);
+    expect(response.statusLine).toBe("HTTP/1.1 400 Bad Request");
+    expect(response.body).toEqual({ error: "BAD_UPGRADE" });
+    await until(() => onlyPeer(endpoint).closeCalls, (calls) => calls > 0, "onClose for the refused upgrade", WAIT_MS);
+    expect(onlyPeer(endpoint).closeCalls).toBe(1);
+  });
+});
+
+describe("subprotocol selection", () => {
+  it.each<[string, string | undefined, string | undefined]>([
+    ["webmcp-peer.v1 alone", "webmcp-peer.v1", "webmcp-peer.v1"],
+    ["webmcp-peer.v1 after a ticket", "ticket.secret, webmcp-peer.v1", "webmcp-peer.v1"],
+    ["only a ticket", "ticket.secret", undefined],
+    ["an unknown subprotocol", "chat.v2, other", undefined],
+    ["empty values", " , ", undefined],
+    ["no Sec-WebSocket-Protocol", undefined, undefined],
+  ])("selects webmcp-peer.v1 and nothing else from a request offering %s", (_label, offered, selected) => {
+    const relay = upgradeRequestOnMemory(upgradeRequest({ "sec-websocket-protocol": offered }));
+
+    const head = Buffer.concat(relay.written).toString("latin1");
+    expect(head).toMatch(/^HTTP\/1\.1 101 /);
+    const protocolLines = head.split("\r\n").filter((line) => line.toLowerCase().startsWith("sec-websocket-protocol:"));
+    expect(protocolLines).toEqual(selected === undefined ? [] : [`Sec-WebSocket-Protocol: ${selected}`]);
+    // A credential the request offered never comes back.
+    expect(head).not.toContain("secret");
+  });
+});
+
+describe("liveness", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** Fakes the timers the codec's liveness uses; streams, settle() and nextTick keep running for real. */
+  const fakeTimers = () => vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
+  const pings = (written: Buffer[]) => writtenFrames(written).filter((f) => f.opcode === OPCODE.ping);
+
+  it("pings every 30 seconds and gives up on a peer it hears nothing from for 75", () => {
+    expect(WEBSOCKET_PING_INTERVAL_MS).toBe(30_000);
+    expect(WEBSOCKET_IDLE_TIMEOUT_MS).toBe(75_000);
+  });
+
+  it("pings the peer every WEBSOCKET_PING_INTERVAL_MS with an empty ping", () => {
+    fakeTimers();
+    const { socket, written } = memorySocket();
+    upgradeMemory(socket);
+
+    vi.advanceTimersByTime(WEBSOCKET_PING_INTERVAL_MS - 1);
+    expect(pings(written)).toEqual([]);
+    vi.advanceTimersByTime(1);
+    expect(pings(written)).toEqual([expect.objectContaining({ fin: true, masked: false, payload: Buffer.alloc(0) })]);
+    vi.advanceTimersByTime(WEBSOCKET_PING_INTERVAL_MS);
+    expect(pings(written)).toHaveLength(2);
+  });
+
+  it("closes a peer it hears nothing from for WEBSOCKET_IDLE_TIMEOUT_MS with 1001, and the close timeout destroys it", async () => {
+    fakeTimers();
+    const { socket, written } = memorySocket();
+    const relay = upgradeMemory(socket);
+
+    vi.advanceTimersByTime(WEBSOCKET_IDLE_TIMEOUT_MS - 1);
+    expect(relay.closeCalls).toBe(0);
+    vi.advanceTimersByTime(1);
+    expect(relay.closeCalls).toBe(1);
+    expect(relay.peer.send({ type: "late" })).toBe("closed");
+    const frames = writtenFrames(written);
+    expect(frames.at(-1)!.opcode).toBe(OPCODE.close);
+    expect(frames.at(-1)!.payload.readUInt16BE(0)).toBe(CLOSE.goingAway);
+    // Pinged twice meanwhile, and never again once closed.
+    vi.advanceTimersByTime(WEBSOCKET_PING_INTERVAL_MS);
+    expect(pings(written)).toHaveLength(2);
+    vi.advanceTimersByTime(WEBSOCKET_CLOSE_TIMEOUT_MS);
+    expect(socket.destroyed).toBe(true);
+    await settle();
+    expect(relay.closeCalls).toBe(1);
+  });
+
+  it.each<[string, Buffer]>([
+    ["a pong", frame("", { opcode: OPCODE.pong })],
+    ["a text message", frame("{}", { opcode: OPCODE.text })],
+    ["the first bytes of a frame", frame("{}", { opcode: OPCODE.text }).subarray(0, 3)],
+  ])("keeps a peer open while it sends anything, %s included", (_label, bytes) => {
+    fakeTimers();
+    const { socket } = memorySocket();
+    const relay = upgradeMemory(socket);
+
+    vi.advanceTimersByTime(WEBSOCKET_IDLE_TIMEOUT_MS - 1);
+    socket.emit("data", bytes);
+    vi.advanceTimersByTime(WEBSOCKET_IDLE_TIMEOUT_MS - 1);
+    expect(relay.closeCalls).toBe(0);
+    // Nothing more arrives: the wait counts from the last read.
+    vi.advanceTimersByTime(1);
+    expect(relay.closeCalls).toBe(1);
+  });
+
+  it("does not close a socket its owner paused, whose pongs may be waiting unread, and starts the wait again", () => {
+    fakeTimers();
+    const { socket } = memorySocket();
+    const relay = upgradeMemory(socket);
+    // As the relay pauses an agent that is behind on what it asked for.
+    socket.pause();
+
+    vi.advanceTimersByTime(3 * WEBSOCKET_IDLE_TIMEOUT_MS);
+    expect(relay.closeCalls).toBe(0);
+    socket.resume();
+    // Once reading again, a peer that sends nothing is let go within one more idle timeout.
+    vi.advanceTimersByTime(WEBSOCKET_IDLE_TIMEOUT_MS);
+    expect(relay.closeCalls).toBe(1);
+  });
+
+  it("stops pinging a socket the relay closed", () => {
+    fakeTimers();
+    const { socket, written } = memorySocket();
+    const relay = upgradeMemory(socket);
+    relay.peer.close();
+
+    vi.advanceTimersByTime(3 * WEBSOCKET_PING_INTERVAL_MS);
+    expect(writtenFrames(written).map((f) => f.opcode)).toEqual([OPCODE.close]);
+    expect(relay.closeCalls).toBe(1);
+  });
+
+  it("uses the intervals it is given", () => {
+    fakeTimers();
+    const { socket, written } = memorySocket();
+    const relay = upgradeMemory(socket, Buffer.alloc(0), { pingIntervalMs: 10, idleTimeoutMs: 25 });
+
+    vi.advanceTimersByTime(20);
+    expect(pings(written)).toHaveLength(2);
+    expect(relay.closeCalls).toBe(0);
+    vi.advanceTimersByTime(5);
+    expect(relay.closeCalls).toBe(1);
+  });
+});
+
 describe("upgradeWebSocket options", () => {
-  type TimerOption = "closeTimeoutMs" | "stalledOutboundTimeoutMs";
+  type TimerOption = "closeTimeoutMs" | "stalledOutboundTimeoutMs" | "pingIntervalMs" | "idleTimeoutMs";
   const invalidDelays: Array<[string, number]> = [
     ["Infinity", Infinity],
     ["NaN", NaN],
@@ -1722,7 +1985,7 @@ describe("upgradeWebSocket options", () => {
     ["2^31 (past the longest Node timer)", 2 ** 31],
   ];
   it.each<[TimerOption, string, number]>(
-    (["closeTimeoutMs", "stalledOutboundTimeoutMs"] as const).flatMap((option) =>
+    (["closeTimeoutMs", "stalledOutboundTimeoutMs", "pingIntervalMs", "idleTimeoutMs"] as const).flatMap((option) =>
       invalidDelays.map(([label, value]): [TimerOption, string, number] => [option, label, value])),
   )("refuses %s of %s with a RangeError before answering the upgrade", (option, _label, value) => {
     const { socket, written } = memorySocket();
@@ -1731,6 +1994,16 @@ describe("upgradeWebSocket options", () => {
     expect(() => upgradeMemory(socket, Buffer.alloc(0), options)).toThrow(new RangeError(
       `${option} must be a number of milliseconds from 1 to ${2 ** 31 - 1}, got ${value}`,
     ));
+    expect(written).toEqual([]);
+  });
+
+  it.each<[string, UpgradeWebSocketOptions]>([
+    ["equal to the ping interval", { pingIntervalMs: 1_000, idleTimeoutMs: 1_000 }],
+    ["shorter than the ping interval", { pingIntervalMs: 1_000, idleTimeoutMs: 999 }],
+    ["shorter than the default ping interval", { idleTimeoutMs: WEBSOCKET_PING_INTERVAL_MS }],
+  ])("refuses an idle timeout %s with a RangeError before answering the upgrade", (_label, options) => {
+    const { socket, written } = memorySocket();
+    expect(() => upgradeMemory(socket, Buffer.alloc(0), options)).toThrow(RangeError);
     expect(written).toEqual([]);
   });
 
@@ -1823,7 +2096,8 @@ describe("relay over a provider socket the relay already closed", () => {
     const started = Date.now();
     const close = relay.server.close();
     const closing = settleWithin(close, WEBSOCKET_CLOSE_TIMEOUT_MS + 5_000);
-    expect(await closeCodeOf(provider, "relay shutdown close")).toBe(CLOSE.normal);
+    // 1001 (Going Away): the relay is going, so the provider may come back to another one.
+    expect(await closeCodeOf(provider, "relay shutdown close")).toBe(CLOSE.goingAway);
     const closed = await closing;
     if (!closed.settled) {
       // Let the stuck close finish before failing.

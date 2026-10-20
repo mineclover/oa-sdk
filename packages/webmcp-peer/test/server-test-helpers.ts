@@ -1,6 +1,6 @@
 // Shared fixtures for the server-*.test.ts suites: a relay on an ephemeral port, raw provider and
-// client WebSockets that record every frame, a raw RFC 6455 peer that can stop reading, and polling
-// helpers with generous load-tolerant limits.
+// client WebSockets that record every frame, a raw RFC 6455 peer that can stop reading and never
+// answers a ping, and polling helpers with generous load-tolerant limits.
 import { randomBytes } from "node:crypto";
 import { connect, type Socket } from "node:net";
 import { createWebMcpPeerServer, type WebMcpPeerServer, type WebMcpPeerServerOptions } from "../src/server.js";
@@ -178,6 +178,10 @@ export class RawPeer {
   /** Every complete text message received, parsed. */
   readonly messages: Frame[] = [];
   closeCode: number | undefined;
+  /** The relay's 101 response, without its final blank line. */
+  handshake = "";
+  /** How many pings the relay sent; the peer never answers them. */
+  pings = 0;
   private buffered: Buffer = Buffer.alloc(0);
   private parts: Buffer[] = [];
   private readonly listeners: Array<(message: Frame) => void> = [];
@@ -198,7 +202,8 @@ export class RawPeer {
         const end = head.indexOf("\r\n\r\n");
         if (end < 0) return;
         socket.off("data", onData);
-        if (!head.subarray(0, end).toString("latin1").startsWith("HTTP/1.1 101")) {
+        peer.handshake = head.subarray(0, end).toString("latin1");
+        if (!peer.handshake.startsWith("HTTP/1.1 101")) {
           reject(new Error("upgrade refused"));
           return;
         }
@@ -283,6 +288,10 @@ export class RawPeer {
       const opcode = first & 0x0f;
       if (opcode === 0x8) {
         this.closeCode = payload.length >= 2 ? payload.readUInt16BE(0) : 1005;
+        continue;
+      }
+      if (opcode === 0x9) {
+        this.pings += 1;
         continue;
       }
       if (opcode !== 0x1 && opcode !== 0x0) continue;

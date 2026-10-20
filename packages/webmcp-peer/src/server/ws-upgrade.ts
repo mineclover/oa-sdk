@@ -1,4 +1,4 @@
-import type { IncomingMessage } from "node:http";
+import { STATUS_CODES, type IncomingMessage } from "node:http";
 import { createHash } from "node:crypto";
 import type { Duplex } from "node:stream";
 import { PEER_RELAY_MAX_MESSAGE_BYTES } from "../config/limits.js";
@@ -27,7 +27,8 @@ export interface PeerSocket {
    * Starts the closing handshake with status `code`, 1000 (Normal Closure) when it is omitted. The
    * code is what tells the peer why: 1000 reads as a deliberate, final close, so a peer the relay
    * sheds for a condition it may retry, such as not reading what it asked for, is closed with
-   * {@link WEBSOCKET_CLOSE_TRY_AGAIN_LATER} instead. The socket stops at once (`send` returns
+   * {@link WEBSOCKET_CLOSE_TRY_AGAIN_LATER} instead, and one it stopped hearing from with 1001
+   * (Going Away, see {@link WEBSOCKET_IDLE_TIMEOUT_MS}). The socket stops at once (`send` returns
    * `closed` and `onClose` runs); the connection is destroyed when the peer hangs up, or after
    * {@link WEBSOCKET_CLOSE_TIMEOUT_MS} if it does not. Closing a stopped socket does nothing.
    *
@@ -70,6 +71,21 @@ export const WEBSOCKET_CLOSE_TIMEOUT_MS = 5_000;
  * and an owner passes it to {@link PeerSocket.close} for the same kind of close.
  */
 export const WEBSOCKET_CLOSE_TRY_AGAIN_LATER = 1013;
+/**
+ * How often, in milliseconds, the relay pings a peer: an RFC 6455 ping without payload, whatever
+ * else the peer sends. Browser and Node WebSocket clients answer a ping with a pong on their own
+ * (§5.5.2), so a live peer is heard from at least this often even when its application is silent.
+ */
+export const WEBSOCKET_PING_INTERVAL_MS = 30_000;
+/**
+ * How long, in milliseconds, the relay waits to hear anything from a peer (any bytes: a frame, a
+ * pong, part of a frame) before it closes the socket with 1001 (Going Away); the close timeout then
+ * destroys a connection that is gone. Two and a half ping intervals, so one lost pong is not enough.
+ * A peer that went away without a FIN or an RST (a dropped network, a suspended laptop) is let go
+ * here instead of holding its room until TCP gives up, as an attached provider socket blocks every
+ * reclaim of its room and leaves the agents' requests to time out.
+ */
+export const WEBSOCKET_IDLE_TIMEOUT_MS = 75_000;
 
 /** Outbound messages over this size are sent fragmented. */
 const OUTBOUND_FRAGMENT_BYTES = 128 * 1024;
@@ -136,6 +152,17 @@ export interface UpgradeWebSocketOptions {
    * that never reads would hold its connection open; any other value throws a RangeError.
    */
   stalledOutboundTimeoutMs?: number;
+  /**
+   * Overrides {@link WEBSOCKET_PING_INTERVAL_MS}, with the values `closeTimeoutMs` takes; any other
+   * value throws a RangeError.
+   */
+  pingIntervalMs?: number;
+  /**
+   * Overrides {@link WEBSOCKET_IDLE_TIMEOUT_MS}, with the values `closeTimeoutMs` takes, and longer
+   * than the ping interval, or a live peer whose application is silent would be closed before its
+   * first pong could arrive; any other value throws a RangeError.
+   */
+  idleTimeoutMs?: number;
 }
 
 /** The longest delay a Node timer supports; Node runs a longer, non-finite or sub-1 ms delay after 1 ms. */
@@ -166,6 +193,125 @@ function outboundBufferOption(value: number | undefined): number {
   return value;
 }
 
+/**
+ * `options` checked, with every default applied; throws a RangeError for an invalid value. Internal
+ * to the package: `upgradeWebSocket` checks its options with it before the handshake, and the relay
+ * checks the liveness options it is constructed with, so a bad value fails there, not every upgrade.
+ */
+export function resolveUpgradeWebSocketOptions(options: UpgradeWebSocketOptions = {}): Required<UpgradeWebSocketOptions> {
+  const closeTimeoutMs = timerDelayOption("closeTimeoutMs", options.closeTimeoutMs, WEBSOCKET_CLOSE_TIMEOUT_MS);
+  const maxOutboundBufferBytes = outboundBufferOption(options.maxOutboundBufferBytes);
+  const stalledOutboundTimeoutMs = timerDelayOption(
+    "stalledOutboundTimeoutMs",
+    options.stalledOutboundTimeoutMs,
+    WEBSOCKET_STALLED_OUTBOUND_TIMEOUT_MS,
+  );
+  const pingIntervalMs = timerDelayOption("pingIntervalMs", options.pingIntervalMs, WEBSOCKET_PING_INTERVAL_MS);
+  const idleTimeoutMs = timerDelayOption("idleTimeoutMs", options.idleTimeoutMs, WEBSOCKET_IDLE_TIMEOUT_MS);
+  if (idleTimeoutMs <= pingIntervalMs) {
+    throw new RangeError(`idleTimeoutMs must be longer than pingIntervalMs (${pingIntervalMs}), got ${idleTimeoutMs}`);
+  }
+  return { closeTimeoutMs, maxOutboundBufferBytes, stalledOutboundTimeoutMs, pingIntervalMs, idleTimeoutMs };
+}
+
+/** The comma-separated values of a header field (RFC 9110 §5.6.1), trimmed and lowercased; none without it. */
+function headerTokens(value: string | undefined): string[] {
+  return value === undefined ? [] : value.split(",").map((token) => token.trim().toLowerCase()).filter(Boolean);
+}
+
+/** The only WebSocket version the codec speaks (RFC 6455 §4.4). */
+const WEBSOCKET_VERSION = "13";
+/** A `Sec-WebSocket-Key`: the base64 encoding of 16 bytes (RFC 6455 §4.2.1). */
+const WEBSOCKET_KEY_PATTERN = /^[A-Za-z0-9+/]{22}==$/;
+
+/** How the codec refuses an upgrade request that is not an opening handshake it can complete. */
+export interface WebSocketHandshakeRefusal {
+  readonly status: 400 | 426;
+  /** The `error` of the refusal's JSON body: the relay protocol's name for it. */
+  readonly error: "BAD_UPGRADE" | "UNSUPPORTED_WEBSOCKET_VERSION";
+  readonly headers: Readonly<Record<string, string>>;
+}
+
+/**
+ * Why `req` is not an opening handshake the codec can complete (RFC 6455 §4.2.1), or undefined when
+ * it is one: 400 BAD_UPGRADE for a request that is not an HTTP/1.1 (or later) GET whose `Upgrade`
+ * lists `websocket` and whose `Connection` lists `upgrade`, or whose `Sec-WebSocket-Key` is not the
+ * base64 encoding of 16 bytes; 426 UNSUPPORTED_WEBSOCKET_VERSION, naming version 13 (§4.4), for a
+ * `Sec-WebSocket-Version` other than 13 (none included), checked before the key, since a client of
+ * another version may build its key another way. Header names and the tokens of `Upgrade` and
+ * `Connection` match case-insensitively. Internal to the package: the relay checks it before it
+ * looks at the path, the room or the ticket.
+ */
+export function webSocketHandshakeRefusal(req: IncomingMessage): WebSocketHandshakeRefusal | undefined {
+  const http11 = req.httpVersionMajor > 1 || (req.httpVersionMajor === 1 && req.httpVersionMinor >= 1);
+  if (req.method !== "GET" || !http11
+    || !headerTokens(req.headers.upgrade).includes("websocket")
+    || !headerTokens(req.headers.connection).includes("upgrade")) {
+    return { status: 400, error: "BAD_UPGRADE", headers: {} };
+  }
+  if (req.headers["sec-websocket-version"] !== WEBSOCKET_VERSION) {
+    // A 426 names the protocol to upgrade to (RFC 9110 §15.5.22), and Upgrade needs `Connection: upgrade` (§7.8).
+    return {
+      status: 426,
+      error: "UNSUPPORTED_WEBSOCKET_VERSION",
+      headers: { Upgrade: "websocket", Connection: "Upgrade, close", "Sec-WebSocket-Version": WEBSOCKET_VERSION },
+    };
+  }
+  const key = req.headers["sec-websocket-key"];
+  if (typeof key !== "string" || !WEBSOCKET_KEY_PATTERN.test(key)) return { status: 400, error: "BAD_UPGRADE", headers: {} };
+  return undefined;
+}
+
+/**
+ * The subprotocols an upgrade request offers in `Sec-WebSocket-Protocol`, in order: its
+ * comma-separated values, trimmed, without empty ones (node:http joins repeated headers with `, `).
+ * Internal to the package: the relay reads the `ticket.<token>` entry from them.
+ */
+export function requestedSubprotocols(req: IncomingMessage): string[] {
+  const header = req.headers["sec-websocket-protocol"];
+  return typeof header === "string" ? header.split(",").map((value) => value.trim()).filter(Boolean) : [];
+}
+
+/**
+ * Refuses an upgrade request on its raw `socket` with an HTTP response, as RFC 6455 §4.2.2 asks of a
+ * server that will not complete a handshake: `status` with its reason phrase, the JSON `body` with
+ * its `Content-Length`, `Content-Type: application/json`, `Cache-Control: no-store` and
+ * `Connection: close`, then `headers`, which override them. The connection is destroyed once the
+ * response is written, or after `closeTimeoutMs` for a peer that does not read it; a socket that can
+ * no longer be written gets no response and is destroyed at once. Internal to the package: the relay
+ * refuses its own upgrades (path, room, ticket, subprotocol) with it, as the codec does a handshake.
+ */
+export function refuseWebSocketUpgrade(
+  socket: Duplex,
+  status: number,
+  body: unknown,
+  headers: Readonly<Record<string, string>> = {},
+  closeTimeoutMs = WEBSOCKET_CLOSE_TIMEOUT_MS,
+): void {
+  // node:http stops listening for errors on a socket it hands to 'upgrade'.
+  socket.on("error", () => socket.destroy());
+  if (socket.destroyed || !socket.writable) {
+    socket.destroy();
+    return;
+  }
+  const payload = Buffer.from(JSON.stringify(body));
+  const fields: Record<string, string> = {
+    "Content-Type": "application/json",
+    "Content-Length": String(payload.length),
+    "Cache-Control": "no-store",
+    Connection: "close",
+    ...headers,
+  };
+  const head = `HTTP/1.1 ${status} ${STATUS_CODES[status] ?? ""}\r\n`
+    + Object.entries(fields).map(([name, value]) => `${name}: ${value}\r\n`).join("")
+    + "\r\n";
+  const timer = setTimeout(() => socket.destroy(), closeTimeoutMs);
+  timer.unref?.();
+  socket.once("close", () => clearTimeout(timer));
+  socket.once("finish", () => socket.destroy());
+  socket.end(Buffer.concat([Buffer.from(head, "latin1"), payload]));
+}
+
 /** RFC 6455 §5.2 opcodes. */
 const OPCODE_CONTINUATION = 0x0;
 const OPCODE_TEXT = 0x1;
@@ -176,6 +322,7 @@ const OPCODE_PONG = 0xa;
 
 /** RFC 6455 §7.4.1 close codes. */
 const CLOSE_NORMAL = 1000;
+const CLOSE_GOING_AWAY = 1001;
 const CLOSE_PROTOCOL_ERROR = 1002;
 const CLOSE_UNSUPPORTED_DATA = 1003;
 const CLOSE_INVALID_PAYLOAD = 1007;
@@ -221,7 +368,10 @@ function isSendableCloseCode(code: number): boolean {
   return Number.isInteger(code) && code !== CLOSE_MANDATORY_EXTENSION && isValidCloseCode(code);
 }
 
-/** The status code that answers a received close frame: the one it carries, echoed (§5.5.1). */
+/**
+ * The status code that answers a received close frame: the one it carries, echoed (§5.5.1), except a
+ * client's 1010, which a server never sends (see `isSendableCloseCode`) and answers with 1000.
+ */
 function closeReplyCode(payload: Buffer): number {
   if (payload.length === 0) return CLOSE_NORMAL;
   if (payload.length === 1) throw new FrameError(CLOSE_PROTOCOL_ERROR, "BAD_CLOSE_PAYLOAD");
@@ -229,7 +379,7 @@ function closeReplyCode(payload: Buffer): number {
   if (!isValidCloseCode(code) || decodeUtf8(payload.subarray(2)) === undefined) {
     throw new FrameError(CLOSE_PROTOCOL_ERROR, "BAD_CLOSE_PAYLOAD");
   }
-  return code;
+  return code === CLOSE_MANDATORY_EXTENSION ? CLOSE_NORMAL : code;
 }
 
 /** An inbound frame whose header has been read and whose payload is arriving. */
@@ -248,6 +398,12 @@ interface InboundFrame {
 /**
  * Completes a WebSocket upgrade on `socket` and speaks RFC 6455 text messages over it.
  *
+ * A request that is not an opening handshake the codec can complete is refused with an HTTP
+ * response instead (see {@link webSocketHandshakeRefusal}): 400 BAD_UPGRADE, or 426
+ * UNSUPPORTED_WEBSOCKET_VERSION for a version other than 13. The 101 response selects the
+ * subprotocol {@link WEBMCP_SUBPROTOCOL} when the request offers it, and no subprotocol otherwise:
+ * never another value the request offers, such as a `ticket.<token>` credential.
+ *
  * `onText` receives each complete text message. Inbound frames are checked from their header,
  * before any payload is buffered: a message over {@link MAX_WEBSOCKET_MESSAGE_BYTES} or
  * {@link MAX_WEBSOCKET_MESSAGE_FRAGMENTS} closes with 1009, binary data with 1003, a protocol
@@ -258,13 +414,17 @@ interface InboundFrame {
  * socket stays open. A peer that then reads nothing for {@link WEBSOCKET_STALLED_OUTBOUND_TIMEOUT_MS}
  * is closed with {@link WEBSOCKET_CLOSE_TRY_AGAIN_LATER}.
  *
+ * The codec pings the peer every {@link WEBSOCKET_PING_INTERVAL_MS} and closes it with 1001 (Going
+ * Away) once nothing has arrived from it for {@link WEBSOCKET_IDLE_TIMEOUT_MS}.
+ *
  * `onClose` runs exactly once, as soon as the socket stops from the relay's side: the relay closes
- * it (`close(code)`, a refused inbound frame or a stalled outbound queue), the peer sends a close
- * frame, the peer ends TCP without one, or the connection errors or closes, including before this
- * call: a socket that an upgrade handler that awaited gets already destroyed, already ended by the
- * peer (`readableEnded`) or no longer writable is not answered, is destroyed, and stops (`send`
- * returns `closed` at once). Owners can drop the socket then; they need not wait for TCP. Neither
- * `onText` nor `onClose` runs before this function has returned the PeerSocket.
+ * it (`close(code)`, a refused inbound frame, a stalled outbound queue or a silent peer), the peer
+ * sends a close frame, the peer ends TCP without one, or the connection errors or closes, including
+ * before this call: a socket that an upgrade handler that awaited gets already destroyed, already
+ * ended by the peer (`readableEnded`) or no longer writable is not answered, is destroyed, and
+ * stops (`send` returns `closed` at once), as does a socket whose request the codec refused. Owners
+ * can drop the socket then; they need not wait for TCP. Neither `onText` nor `onClose` runs before
+ * this function has returned the PeerSocket.
  */
 export function upgradeWebSocket(
   req: IncomingMessage,
@@ -274,43 +434,19 @@ export function upgradeWebSocket(
   onClose: () => void,
   options: UpgradeWebSocketOptions = {},
 ): PeerSocket {
-  const upgradeHeader = req.headers.upgrade;
-  const version = req.headers["sec-websocket-version"];
-  const key = req.headers["sec-websocket-key"];
-
-  if (upgradeHeader?.toLowerCase() !== "websocket" || version !== "13" || typeof key !== "string") {
-    throw new Error("BAD_UPGRADE");
-  }
-
-  const accept = createHash("sha1")
-    .update(key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")
-    .digest("base64");
-
-  const rawProtocol = req.headers["sec-websocket-protocol"];
-  const requestedProtocols = typeof rawProtocol === "string"
-    ? rawProtocol.split(",").map((p) => p.trim())
-    : [];
-
-  const protocolHeader = requestedProtocols.includes(WEBMCP_SUBPROTOCOL)
-    ? `Sec-WebSocket-Protocol: ${WEBMCP_SUBPROTOCOL}\r\n`
-    : requestedProtocols.length > 0
-      ? `Sec-WebSocket-Protocol: ${requestedProtocols[0]}\r\n`
-      : "";
-
   // Checked before the handshake, so bad options never leave a half-set-up socket behind.
-  const closeTimeoutMs = timerDelayOption("closeTimeoutMs", options.closeTimeoutMs, WEBSOCKET_CLOSE_TIMEOUT_MS);
-  const maxOutboundBufferBytes = outboundBufferOption(options.maxOutboundBufferBytes);
-  const stalledOutboundTimeoutMs = timerDelayOption(
-    "stalledOutboundTimeoutMs",
-    options.stalledOutboundTimeoutMs,
-    WEBSOCKET_STALLED_OUTBOUND_TIMEOUT_MS,
-  );
+  const { closeTimeoutMs, maxOutboundBufferBytes, stalledOutboundTimeoutMs, pingIntervalMs, idleTimeoutMs } =
+    resolveUpgradeWebSocketOptions(options);
 
   // Outbound state, set up before the handshake so its write is tracked like every other.
   let stopped = false;
   let closeTimer: ReturnType<typeof setTimeout> | undefined;
   /** Runs while the outbound queue is full and the peer has read nothing since a frame was refused. */
   let stallTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Pings the peer every pingIntervalMs while the socket is open. */
+  let pingTimer: ReturnType<typeof setInterval> | undefined;
+  /** Closes the socket with 1001 once nothing has arrived for idleTimeoutMs; every read restarts it. */
+  let idleTimer: ReturnType<typeof setTimeout> | undefined;
 
   const clearStallTimer = () => {
     if (!stallTimer) return;
@@ -331,9 +467,21 @@ export function upgradeWebSocket(
   // has fired and will not fire again, so it would stay half-open), or one that can no longer be
   // written. It is destroyed, as a live socket is when its peer ends it.
   const goneAtUpgrade = socket.destroyed || socket.readableEnded || !socket.writable;
+  const refusal = goneAtUpgrade ? undefined : webSocketHandshakeRefusal(req);
+  /** The socket was answered 101 and speaks WebSocket from now on. */
+  const upgraded = !goneAtUpgrade && refusal === undefined;
   if (goneAtUpgrade) {
     socket.destroy();
+  } else if (refusal) {
+    refuseWebSocketUpgrade(socket, refusal.status, { error: refusal.error }, refusal.headers, closeTimeoutMs);
   } else {
+    const accept = createHash("sha1")
+      .update(req.headers["sec-websocket-key"] + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")
+      .digest("base64");
+    // The codec speaks one subprotocol and selects nothing else a request offers (§4.2.2).
+    const protocolHeader = requestedSubprotocols(req).includes(WEBMCP_SUBPROTOCOL)
+      ? `Sec-WebSocket-Protocol: ${WEBMCP_SUBPROTOCOL}\r\n`
+      : "";
     socket.write(
       `HTTP/1.1 101 Switching Protocols\r\n` +
       `Upgrade: websocket\r\n` +
@@ -361,7 +509,7 @@ export function upgradeWebSocket(
    * read of the socket, so whichever runs first, the deferred parse or the first 'data' event,
    * parses them first.
    */
-  let pendingHead: Buffer | undefined = head.length && !goneAtUpgrade ? head : undefined;
+  let pendingHead: Buffer | undefined = head.length && upgraded ? head : undefined;
 
   const writable = () => !stopped && !socket.destroyed && socket.writable;
 
@@ -425,6 +573,11 @@ export function upgradeWebSocket(
     if (stopped) return;
     stopped = true;
     clearStallTimer();
+    clearInterval(pingTimer);
+    pingTimer = undefined;
+    // Cleared and forgotten: refresh() would start a cleared timer again.
+    clearTimeout(idleTimer);
+    idleTimer = undefined;
     pendingHead = undefined;
     frame = undefined;
     message = undefined;
@@ -546,6 +699,28 @@ export function upgradeWebSocket(
     return offset + take;
   };
 
+  /**
+   * Pings the peer, whose pong (or anything else it sends) restarts the idle timer. Like a pong, a
+   * ping that does not fit the outbound queue is dropped and starts the stall wait.
+   */
+  const ping = () => {
+    if (writable() && fitsOutbound(frameHeaderBytes(0))) writeFrame(OPCODE_PING, EMPTY);
+  };
+
+  /**
+   * Nothing has been read from the peer for idleTimeoutMs: it is gone, and is closed with 1001.
+   * Unless the owner paused the socket (as the relay does while an agent is behind on what it asked
+   * for): then nothing is read, so the peer's pongs may be waiting unread, and the wait starts again
+   * (a peer that is gone meanwhile stops taking writes, which the stall wait closes).
+   */
+  const onIdle = () => {
+    if (socket.isPaused()) {
+      idleTimer?.refresh();
+      return;
+    }
+    close(CLOSE_GOING_AWAY);
+  };
+
   const handleControl = (opcode: number, payload: Buffer) => {
     if (opcode === OPCODE_PING) {
       // A pong that does not fit is dropped: a peer that pings without reading gets no more answers
@@ -610,6 +785,8 @@ export function upgradeWebSocket(
   };
 
   socket.on("data", (chunk: Buffer) => {
+    // Any bytes from the peer show it is there, a partial frame included.
+    idleTimer?.refresh();
     parseHead();
     parse(chunk);
   });
@@ -628,9 +805,18 @@ export function upgradeWebSocket(
     stop();
   });
   // Deferred, so the owner holds the PeerSocket before onText or onClose runs. A socket gone before
-  // this call may have emitted 'end' or 'close' already, which no listener above saw.
-  if (goneAtUpgrade) queueMicrotask(stop);
-  else if (pendingHead) queueMicrotask(parseHead);
+  // this call may have emitted 'end' or 'close' already, which no listener above saw; one whose
+  // request was refused never speaks WebSocket.
+  if (!upgraded) {
+    queueMicrotask(stop);
+  } else {
+    // Liveness: neither timer keeps the process alive, and both stop with the socket.
+    pingTimer = setInterval(ping, pingIntervalMs);
+    pingTimer.unref?.();
+    idleTimer = setTimeout(onIdle, idleTimeoutMs);
+    idleTimer.unref?.();
+    if (pendingHead) queueMicrotask(parseHead);
+  }
 
   return {
     send: (value: unknown) => sendMessage(JSON.stringify(value)),

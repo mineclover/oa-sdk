@@ -15,7 +15,7 @@ export class FakeRelaySocket {
   readyState = 0;
   onopen: (() => void) | null = null;
   onmessage: ((event: { data: string }) => unknown) | null = null;
-  onclose: (() => void) | null = null;
+  onclose: ((event?: { code: number; reason: string }) => void) | null = null;
   onerror: (() => void) | null = null;
   readonly sent: Frame[] = [];
 
@@ -40,10 +40,13 @@ export class FakeRelaySocket {
     void this.onmessage?.({ data: JSON.stringify(frame) });
   }
 
-  /** The connection drops from the relay side. */
-  drop(): void {
+  /**
+   * The connection ends from the relay side: with the relay's close `code`, or, without one, dropped
+   * without a close event code (a provider reads that as 1006, a connection lost).
+   */
+  drop(code?: number): void {
     this.readyState = FakeRelaySocket.CLOSED;
-    this.onclose?.();
+    this.onclose?.(code === undefined ? undefined : { code, reason: "" });
   }
 }
 

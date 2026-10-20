@@ -96,10 +96,22 @@ export interface PeerMcpStore {
   save(value: unknown): void;
 }
 
+/**
+ * How a transport closed, as far as it knows: the WebSocket close `code` and `reason` (RFC 6455
+ * §7.1.5, §7.1.6). The relay's codes and what they mean are `WEBMCP_CLOSE_CODES`; 1006 is a
+ * connection lost without a close frame. A transport without close codes (Streamable HTTP) reports
+ * none.
+ */
+export interface PeerMcpTransportClose {
+  readonly code?: number;
+  readonly reason?: string;
+}
+
 export interface PeerMcpTransportCallbacks {
   onOpen?(): void;
   onMessage?(message: unknown): void;
-  onClose?(): void;
+  /** The transport closed; `close` says how, when the transport knows (`TRANSPORT_CLOSED` details). */
+  onClose?(close?: PeerMcpTransportClose): void;
   onError?(error: Error): void;
 }
 

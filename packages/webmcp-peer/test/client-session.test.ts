@@ -1,6 +1,7 @@
 // Regression tests for the agent-side client: room catalog discovery over Streamable HTTP,
 // requests issued while a connect is in flight, ticket revocation (also through PeerMcpService),
-// how a session learns that its room expired, and response validation.
+// how a session learns that its room expired or that the relay closed its socket (the close code in
+// TRANSPORT_CLOSED's details), and response validation.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -19,7 +20,7 @@ import {
   waitForPeerApproval,
   type PeerMcpTransportCallbacks,
 } from "../src/client.js";
-import { WEBMCP_SUBPROTOCOL } from "../src/config.js";
+import { WEBMCP_CLOSE_CODES, WEBMCP_SUBPROTOCOL } from "../src/config.js";
 import { createWebMcpPeerServer, type WebMcpPeerServer } from "../src/server.js";
 
 const servers: WebMcpPeerServer[] = [];
@@ -405,6 +406,51 @@ describe("a session whose room expires", () => {
     const options = { serverUrl, roomId: joined.roomId, sessionId: joined.sessionId, clientToken: joined.clientToken };
     expect(await getPeerSessionStatus(options)).toMatchObject({ state: "expired" });
     await expect(waitForPeerApproval({ ...options, timeoutMs: 1_000 })).rejects.toMatchObject({ code: "APPROVAL_EXPIRED" });
+  });
+});
+
+describe("a session whose socket the relay closes", () => {
+  it("rejects a request in flight with TRANSPORT_CLOSED, whose details carry the close code", async () => {
+    const server = createWebMcpPeerServer({ port: 0, host: "127.0.0.1", roomSweepIntervalMs: 0, deploymentCatalog: { tools: [] } });
+    servers.push(server);
+    const serverUrl = `http://127.0.0.1:${await server.listen()}`;
+    const created = await fetch(`${serverUrl}/p`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ approvalRequired: false }),
+    });
+    const room = (await created.json()) as { id: string; inviteToken: string; providerToken: string };
+    const joined = await joinPeerRoom({ serverUrl, roomId: room.id, inviteToken: room.inviteToken });
+    // A provider that takes the request and never answers it.
+    const provider = new WebSocket(`${serverUrl.replace(/^http/, "ws")}/p/${room.id}/provider`, [WEBMCP_SUBPROTOCOL, `ticket.${room.providerToken}`]);
+    providers.push(provider);
+    const forwarded = new Promise<void>((resolve) => {
+      provider.onmessage = (event) => {
+        if ((JSON.parse(String(event.data)) as { type?: unknown }).type === "mcp") resolve();
+      };
+    });
+    await new Promise<void>((resolve, reject) => {
+      provider.onopen = () => resolve();
+      provider.onerror = () => reject(new Error("provider socket failed to open"));
+    });
+    const open = async () => {
+      const session = new PeerMcpSession({ serverUrl, roomId: room.id, clientToken: joined.clientToken });
+      sessions.push(session);
+      await session.connect();
+      return session;
+    };
+    const oldest = await open();
+    const call = oldest.request("tools/call", { name: "doc_read", arguments: {} });
+    call.catch(() => {});
+    await forwarded;
+
+    // Four more sockets of the same ticket: the relay closes the oldest with 4001 SUPERSEDED.
+    for (let count = 0; count < 4; count++) await open();
+    await expect(call).rejects.toMatchObject({
+      code: "TRANSPORT_CLOSED",
+      details: { code: WEBMCP_CLOSE_CODES.SUPERSEDED, reason: "" },
+    });
+    expect(oldest.getSessionInfo().state).toBe("disconnected");
   });
 });
 
