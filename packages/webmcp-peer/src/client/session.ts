@@ -233,9 +233,11 @@ export class PeerMcpSession {
    * The connection of the latest connect, until the next connect or `disconnect()` lets go of it
    * (see `#letGoOfTransport`). Only the callbacks given for it speak for the session, so a late event
    * of a transport let go of (its close, a `ready`, a frame that ends a session) neither ends nor
-   * answers the connection after it, nor changes a session `disconnect()` left idle. The callbacks
-   * given to the caller's own transport, which every connect hands its callbacks to again, speak for
-   * whichever connection holds that transport.
+   * answers the connection after it, nor changes a session `disconnect()` left idle. That holds for
+   * the caller's own transport too, which every connect hands callbacks of its own: what it reports
+   * through an earlier connect's callbacks, such as a close event that arrives after `close()`
+   * returned, speaks for nothing. What the session registers on that transport once, and the
+   * transport keeps across connects, goes through `#dispatchSuppliedMessage` instead.
    */
   #connection: PeerMcpConnection | undefined;
   /**
@@ -257,6 +259,16 @@ export class PeerMcpSession {
    * A connect asked for meanwhile starts once it has finished (see `connect()`).
    */
   #disconnecting: Promise<PeerMcpSessionInfo> | undefined;
+  /**
+   * The `onMessage` the session gives the caller's own transport when it has none (see
+   * `#connectImpl`). The transport keeps it across connects, so it belongs to no connect: it delivers
+   * for the connection that holds the transport now, the latest connect's, and for nothing once
+   * `disconnect()` let go of it. It cannot tell an earlier connection's frame from the current one's,
+   * so a transport that has `connect(callbacks)` should report through those callbacks instead.
+   */
+  readonly #dispatchSuppliedMessage = (message: unknown): void => {
+    if (this.#connection?.shared === true) this.#handleIncomingSafely(message);
+  };
 
   constructor(options: PeerMcpSessionOptions = {}) {
     this.serverUrl = normalizeServerUrl(
@@ -477,8 +489,9 @@ export class PeerMcpSession {
     };
     this.#connection = connection;
     this.notify();
-    // The caller's own transport may report through the callbacks of any connect it was handed.
-    const speaks = (): boolean => (shared ? this.#connection?.shared === true : this.#connection === connection);
+    // Only while this is the session's connection: a transport used again (the caller's own) speaks
+    // for this connect through these callbacks, and for a later one through that connect's.
+    const speaks = (): boolean => this.#connection === connection;
     try {
       const url = (this.wsUrl || (this.roomId ? websocketUrl(this.serverUrl, this.roomId) : this.mcpEndpoint)) ?? "";
       const protocols: string[] = [WEBMCP_SUBPROTOCOL];
@@ -507,7 +520,8 @@ export class PeerMcpSession {
             const connected = await transport.connect(callbacks);
             if (connected && typeof connected === "object") transport = { ...transport, ...connected };
           }
-          transport.onMessage = transport.onMessage || callbacks.onMessage;
+          // The session's, not this connect's: the transport keeps it for the connects after this one.
+          transport.onMessage = transport.onMessage || this.#dispatchSuppliedMessage;
         } else if (this.mcpEndpoint) {
           transport = createHttpTransport(this.mcpEndpoint, this.fetchImpl ?? globalThis.fetch, callbacks, {
             clientToken: this.clientToken,
@@ -1145,9 +1159,11 @@ export class PeerMcpSession {
    * Ends the session: the requests waiting and a connect in flight fail with SESSION_DISCONNECTED,
    * the transports the session holds are closed (the caller's own one too, even while a connect is
    * still connecting it, and one a connect was replacing), and the state is `idle` once they are.
-   * Nothing a transport reports while it closes or later speaks for the session (see `#connection`).
-   * The session starts over: the next `connect()` or request connects again, however the relay
-   * ended the session before.
+   * Nothing a transport reports through the callbacks of a connect this ended speaks for the session,
+   * while it closes or after the next connect (see `#connection`); what reaches the `onMessage` the
+   * session gave the caller's own transport speaks for nothing until a connect holds that transport
+   * again (see `#dispatchSuppliedMessage`). The session starts over: the next `connect()` or request
+   * connects again, however the relay ended the session before.
    *
    * Calls made while it runs keep their order. A `connect()` or request starts its connect once the
    * transports are closed, as after an awaited disconnect(); another disconnect() ends such a connect

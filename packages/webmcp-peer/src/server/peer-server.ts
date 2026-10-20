@@ -2536,8 +2536,9 @@ export class WebMcpPeerServer {
    * `approval.expired`), and keeps the frame for every provider socket that attaches later (see
    * `replayClientApprovals`). The ticket's agent spent the room's one invite, so the room serves no
    * other agent: a provider that was away when the ticket ended, or lost the frame (it goes out with
-   * `send` alone, like the relay's other frames to the provider), learns it when it attaches again
-   * instead of offering an invitation nobody can redeem.
+   * `send` alone, like the relay's other frames to the provider), learns it when it attaches again,
+   * from its `ready` (see `endedTicketFrameType`) and the frame after it, instead of offering an
+   * invitation nobody can redeem.
    */
   protected tellProviderTicketEnded(entry: RoomEntry, ticket: ClientSessionTicket, frame: Readonly<Record<string, unknown>>): void {
     this.ticketEndFrames.set(ticket, frame);
@@ -2608,17 +2609,15 @@ export class WebMcpPeerServer {
   }
 
   /**
-   * Replays the room's client state to a provider socket that just (re)attached: a ticket that
-   * ended while the room stays live as the frame that told the provider so (see
-   * `tellProviderTicketEnded`), and, in a room with approval, approved, unexpired tickets as
-   * `approval.restored` and pending ones as their `approval.request`. Frames go out oldest end,
-   * decision or request first, so a provider that keeps one approval slot ends in the state it
-   * would have reached on the socket before. Rooms without approval (`approvalRequired: false`)
-   * have nothing the provider decided, so only an ended ticket is replayed there. The frames follow
-   * `ready` on a socket that has been sent nothing else, and a room has one ticket (its invite is
-   * single-use), so they always fit its outbound queue.
+   * The room's client state a provider socket that (re)attaches is told, in the order it is told:
+   * a ticket that ended while the room stays live, with the frame that told the provider so (see
+   * `tellProviderTicketEnded`), and, in a room with approval, approved, unexpired tickets and
+   * pending ones. Oldest end, decision or request first, so a provider that keeps one approval slot
+   * ends in the state it would have reached on the socket before. Rooms without approval
+   * (`approvalRequired: false`) have nothing the provider decided, so only an ended ticket is told
+   * there.
    */
-  protected replayClientApprovals(entry: RoomEntry): void {
+  private clientReplay(entry: RoomEntry): Array<{ ticket: ClientSessionTicket; at: number; ended?: Readonly<Record<string, unknown>> }> {
     const now = Date.now();
     const replay: Array<{ ticket: ClientSessionTicket; at: number; ended?: Readonly<Record<string, unknown>> }> = [];
     for (const ticket of entry.clientTickets.values()) {
@@ -2634,7 +2633,31 @@ export class WebMcpPeerServer {
         replay.push({ ticket, at: request?.createdAt ?? now });
       }
     }
-    replay.sort((left, right) => left.at - right.at);
+    return replay.sort((left, right) => left.at - right.at);
+  }
+
+  /**
+   * The type of the frame that told the provider the room's ticket ended (see
+   * `tellProviderTicketEnded`), the first such frame `replayClientApprovals` sends, or undefined
+   * when no ticket of the room ended. A provider socket's `ready` names it as `ticketEnded`: the
+   * provider ends its session at that end, so it learns from `ready` itself that the room serves no
+   * agent, before it takes the attach for a live session, however late it reads the frame after
+   * `ready`.
+   */
+  protected endedTicketFrameType(entry: RoomEntry): string | undefined {
+    const ended = this.clientReplay(entry).find((item) => item.ended !== undefined)?.ended;
+    return ended ? String(ended.type) : undefined;
+  }
+
+  /**
+   * Replays the room's client state (see `clientReplay`) to a provider socket that just
+   * (re)attached: an ended ticket as the frame that told the provider so, an approved one as
+   * `approval.restored` and a pending one as its `approval.request`. The frames follow `ready` on a
+   * socket that has been sent nothing else, and a room has one ticket (its invite is single-use), so
+   * they always fit its outbound queue.
+   */
+  protected replayClientApprovals(entry: RoomEntry): void {
+    const replay = this.clientReplay(entry);
     for (const { ticket, ended } of replay) {
       // A new message: the same frame, under a messageId of its own.
       if (ended) entry.providerSocket?.send({ ...ended, messageId: this.messageId(String(ended.type)) });
@@ -3880,8 +3903,13 @@ export class WebMcpPeerServer {
 
         // A socket that is already closed when attached never reports its close: it must not
         // become the room's provider (and displace a live one), or the room would report a
-        // provider and refuse every reclaim.
-        if (peer.send({ type: 'ready', role: 'provider', roomId, roomEpoch: entry.roomEpoch, capabilities: [...entry.capabilities], expiresAt: entry.expiresAt }) !== 'sent') {
+        // provider and refuse every reclaim. A room whose ticket ended says so in `ready`, before
+        // the replay that follows it (see `endedTicketFrameType`).
+        const ticketEnded = this.endedTicketFrameType(entry);
+        if (peer.send({
+          type: 'ready', role: 'provider', roomId, roomEpoch: entry.roomEpoch, capabilities: [...entry.capabilities], expiresAt: entry.expiresAt,
+          ...(ticketEnded !== undefined ? { ticketEnded } : {}),
+        }) !== 'sent') {
           peer.close();
           return;
         }

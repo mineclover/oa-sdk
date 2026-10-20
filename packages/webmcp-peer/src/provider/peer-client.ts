@@ -94,6 +94,33 @@ const SIGNALING_CLOSED_ERROR = "SIGNALING_CLOSED";
  * the name the relay and the agent client give a rejected ticket.
  */
 const CLIENT_APPROVAL_DENIED_ERROR = "CLIENT_APPROVAL_DENIED";
+
+/** How a frame ends the provider's session: as revoked or as expired, with the session error. */
+interface SessionEnd {
+  readonly approvalState: "revoked" | "expired";
+  readonly error: string;
+}
+
+/**
+ * The relay frames that end the provider's session, and how each ends it. The relay ended the room's
+ * ticket, whoever asked: a revocation (`session.revoked`) or the rejection of its approval request
+ * (the `approval.rejected` echo of a rejection over HTTP or of the host's own) ends it as revoked;
+ * the expiry of its approval request or session, or a rotation of the room, as expired. Each leaves
+ * a room no agent can use any more (its one invite is spent, or the room is gone), see
+ * `revokePeerSession` and `expirePeerSession`. A provider socket learns them from these frames, and
+ * one that attaches after the ticket ended from the `ticketEnded` of the relay's `ready`.
+ */
+const SESSION_END_FRAMES: ReadonlyMap<string, SessionEnd> = new Map<string, SessionEnd>([
+  ["approval.rejected", { approvalState: "revoked", error: CLIENT_APPROVAL_DENIED_ERROR }],
+  ["session.revoked", { approvalState: "revoked", error: "SESSION_REVOKED" }],
+  ["collaboration.revoked", { approvalState: "revoked", error: "SESSION_REVOKED" }],
+  ["collaboration.role-updated", { approvalState: "revoked", error: "SESSION_REVOKED" }],
+  ["collaboration.guest-linked", { approvalState: "revoked", error: "SESSION_REVOKED" }],
+  ["approval.expired", { approvalState: "expired", error: "APPROVAL_EXPIRED" }],
+  ["collaboration.expired", { approvalState: "expired", error: "SESSION_EXPIRED" }],
+  ["room.rotated", { approvalState: "expired", error: "ROOM_ROTATED" }],
+]);
+
 /** The localStorage key of the host's write consent (see `WebMcpPeerClient.setWriteEnabled`). */
 const WRITE_ENABLED_STORAGE_KEY = "webmcp:write-enabled";
 
@@ -663,7 +690,9 @@ export class WebMcpPeerClient {
    * Reconnects to the room a previous `connect()` saved, reclaiming its saved room lease; it never
    * opens a new room. Resolves false when auto-reconnect is suppressed, nothing is saved (no lease
    * for the saved relay included), or the connect failed: with the session error ROOM_LEASE_LOST
-   * when the relay refused the lease.
+   * when the relay refused the lease, and with the session ended (and the lease forgotten) when the
+   * relay's `ready` says the room's ticket ended while the provider was away, as the frame that
+   * told so would end it (see `attachCreatedRoom`).
    */
   async autoReconnectIfSaved(): Promise<boolean> {
     return (await this.attemptAutoReconnect()) === "connected";
@@ -695,7 +724,8 @@ export class WebMcpPeerClient {
   /**
    * One auto-reconnect attempt: "skipped" when auto-reconnect is suppressed or nothing is saved,
    * "lease-lost" when the relay refused the saved lease (ROOM_LEASE_LOST: no room is opened and the
-   * attempts stop), "failed" when the connect failed otherwise, "connected" when it succeeded.
+   * attempts stop), "failed" when the connect failed otherwise (a reclaimed room whose ticket ended
+   * included: its session ended), "connected" when it succeeded.
    */
   private async attemptAutoReconnect(): Promise<"connected" | "skipped" | "failed" | "lease-lost"> {
     let options: WebMcpPeerConnectOptions | null;
@@ -738,9 +768,9 @@ export class WebMcpPeerClient {
   private async runScheduledReconnect(attempts: number): Promise<void> {
     const outcome = await this.attemptAutoReconnect();
     // Retry only a connect failure that may pass. A skipped attempt (auto-reconnect turned off,
-    // nothing saved), a lease the relay refused, a manual disconnect ("idle") or a newer connect
-    // that superseded this one (it owns the state, or has already scheduled its own retry) must not
-    // restart the loop.
+    // nothing saved), a lease the relay refused, a room whose ticket ended (the session ended, so
+    // it is "disconnected"), a manual disconnect ("idle") or a newer connect that superseded this
+    // one (it owns the state, or has already scheduled its own retry) must not restart the loop.
     if (outcome !== "failed" || this.state !== "error" || !this.autoReconnect || this.reconnectTimer) return;
     // connect() -> disconnect() reset the counter; restore it so the backoff keeps growing.
     this.reconnectAttempts = attempts;
@@ -766,7 +796,8 @@ export class WebMcpPeerClient {
    * Creates a relay room (or, with `reclaimLease`, reclaims the saved one, and creates a room when
    * the relay refuses it) and attaches the provider socket. Resolves to the invitation URL to hand
    * to an agent (`<descriptorUrl>#invite=<token>`); the full session state is available from
-   * `getSession()` and `subscribe()`.
+   * `getSession()` and `subscribe()`. A reclaimed room whose ticket ended meanwhile serves no agent:
+   * the session then ends, the lease is forgotten, and this rejects with the session error.
    */
   async connect(options: WebMcpPeerConnectOptions): Promise<string> {
     return this.openRoom(options, true);
@@ -962,10 +993,22 @@ export class WebMcpPeerClient {
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("Signaling connection timeout")), 10000);
       ws.onmessage = (event) => {
-        if (parseProviderFrame(event.data)?.type !== "ready") return;
+        const ready = parseProviderFrame(event.data);
+        if (ready?.type !== "ready") return;
         clearTimeout(timer);
         if (generation !== this.connectionGeneration) {
           reject(new Error("PEER_SESSION_SUPERSEDED"));
+          return;
+        }
+        // The room's ticket ended while no socket of this provider was attached (a reload, the
+        // reconnect backoff): the relay names in `ready` the frame that told so, which it replays
+        // after `ready`. The room serves no agent, so the session ends here as that frame ends it,
+        // and the attach fails with its session error rather than resolving for a session that is
+        // over before the frame after `ready` is read.
+        const ended = typeof ready.ticketEnded === "string" ? SESSION_END_FRAMES.get(ready.ticketEnded) : undefined;
+        if (ended) {
+          this.endPeerSession(ended);
+          reject(new Error(ended.error));
           return;
         }
         this.state = "waiting";
@@ -1079,30 +1122,12 @@ export class WebMcpPeerClient {
           return;
         }
 
-        if (msg.type === "approval.rejected") {
-          // The relay ended the ticket, whoever rejected it (the echo of the host's own rejection
-          // or of one over HTTP): its agent spent the room's one invite, so the room is done.
-          this.revokePeerSession(CLIENT_APPROVAL_DENIED_ERROR);
-          return;
-        }
-
-        if (msg.type === "approval.expired" || msg.type === "collaboration.expired") {
-          this.expirePeerSession(msg.type === "collaboration.expired" ? "SESSION_EXPIRED" : "APPROVAL_EXPIRED");
-          return;
-        }
-
-        if (msg.type === "room.rotated") {
-          this.expirePeerSession("ROOM_ROTATED");
-          return;
-        }
-
-        if (
-          msg.type === "session.revoked" ||
-          msg.type === "collaboration.revoked" ||
-          msg.type === "collaboration.role-updated" ||
-          msg.type === "collaboration.guest-linked"
-        ) {
-          this.revokePeerSession("SESSION_REVOKED");
+        // The relay ended the room's ticket, whoever asked (a revocation, or a rejection: the echo of
+        // the host's own or of one over HTTP), its approval request or session expired, or the room
+        // was rotated: the room is done (see SESSION_END_FRAMES).
+        const end = SESSION_END_FRAMES.get(msg.type);
+        if (end) {
+          this.endPeerSession(end);
           return;
         }
 
@@ -1374,6 +1399,12 @@ export class WebMcpPeerClient {
     this.clearSavedRoomLease(this.serverUrl);
     this.terminatePeerTransport();
     this.notify();
+  }
+
+  /** Ends the session as a frame of {@link SESSION_END_FRAMES} says: revoked or expired, with its session error. */
+  private endPeerSession(end: SessionEnd): void {
+    if (end.approvalState === "revoked") this.revokePeerSession(end.error);
+    else this.expirePeerSession(end.error);
   }
 
   /**

@@ -20,6 +20,7 @@ import {
   parseRoomId,
   PROTOCOL_VERSION,
   waitForPeerApproval,
+  type PeerMcpTransport,
   type PeerMcpTransportCallbacks,
 } from "../src/client.js";
 import { WEBMCP_CLOSE_CODES, WEBMCP_SUBPROTOCOL } from "../src/config.js";
@@ -555,12 +556,16 @@ async function rejectionWithin(promise: Promise<unknown>, ms: number): Promise<u
  * A session on the caller's own transport (`options.transport`), which every connect uses again. Its
  * `connect(callbacks)` keeps the callbacks it is handed (the transport reports through the latest),
  * waits for `connecting` when given one, then opens and delivers the relay's `ready`. Its `send`
- * answers every request with an empty result. Its `close()` counts, delivers the `closing` frames,
- * as the relay's last frame arrives when its socket closes, and then a 1000 close.
+ * answers every request with an empty result. Its `close()` counts and, through the callbacks of the
+ * connect whose socket it closes, delivers the `closing` frames, as the relay's last frame arrives
+ * when its socket closes, and then a close with `closeCode` (1000 by default): at once, or
+ * `closeLateMs` later, as a WebSocket's close event arrives after `close()` returned.
  */
 function suppliedTransportSession(options: {
   connecting?: () => Promise<void>;
   closing?: ReadonlyArray<Record<string, unknown>>;
+  closeCode?: number;
+  closeLateMs?: number;
   /** What `connect` resolves with, which the session merges into the transport it uses. */
   connected?: Record<string, unknown>;
 } = {}) {
@@ -582,8 +587,13 @@ function suppliedTransportSession(options: {
     },
     close(): void {
       transport.closes += 1;
-      for (const frame of options.closing ?? []) transport.callbacks?.onMessage?.(frame);
-      transport.callbacks?.onClose?.({ code: WEBMCP_CLOSE_CODES.NORMAL, reason: "" });
+      const closed = transport.callbacks;
+      const report = () => {
+        for (const frame of options.closing ?? []) closed?.onMessage?.(frame);
+        closed?.onClose?.({ code: options.closeCode ?? WEBMCP_CLOSE_CODES.NORMAL, reason: "" });
+      };
+      if (options.closeLateMs === undefined) report();
+      else setTimeout(report, options.closeLateMs);
     },
   };
   const session = new PeerMcpSession({ requestTimeoutMs: 1_000, transport });
@@ -966,6 +976,56 @@ describe("disconnect() of a session on the caller's own transport", () => {
     await expect(next).resolves.toMatchObject({ state: "connected" });
     expect((await session.request("ping")).result).toEqual({});
     expect(transport.closes).toBe(1);
+    expect(session.getSessionInfo().state).toBe("connected");
+  });
+
+  it.each<[string, ReadonlyArray<Record<string, unknown>>]>([
+    ["its close", []],
+    ["the frame that ended its session, then its close", [{ type: "session.revoked", reason: "CLIENT_REVOKED" }]],
+  ])("lets nothing it reports late through an earlier connect's callbacks (%s) end the connect after it", async (_label, closing) => {
+    // The close event, and the relay's last frame before it, arrive after close() returned and the
+    // next connect has connected the transport again.
+    const { session, transport } = suppliedTransportSession({ closing, closeCode: 1005, closeLateMs: 20 });
+    await session.connect();
+    await session.disconnect();
+    await session.connect();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(session.getSessionInfo()).toMatchObject({ state: "connected", error: null });
+    expect((await session.request("ping")).result).toEqual({});
+    expect(transport.connects).toBe(2);
+  });
+
+  it("delivers what reaches the onMessage the session gave it to the connect that holds it, and to nothing after disconnect()", async () => {
+    // A transport without connect(callbacks): it delivers through the onMessage the session sets on it
+    // once and that it keeps across connects.
+    const transport: PeerMcpTransport = {
+      send(value) {
+        const rpc = (value as { message: { id: string } }).message;
+        queueMicrotask(() => transport.onMessage?.({ type: "mcp", message: { jsonrpc: "2.0", id: rpc.id, result: {} } }));
+      },
+      close() {},
+    };
+    const session = new PeerMcpSession({ requestTimeoutMs: 1_000, transport });
+    sessions.push(session);
+    const connect = async () => {
+      const connecting = session.connect();
+      await waitUntil(() => session.transport === transport, "the session uses the transport");
+      transport.onMessage?.({ type: "ready", role: "client", roomId: "room1" });
+      await connecting;
+    };
+
+    await connect();
+    const onMessage = transport.onMessage;
+    expect((await session.request("ping")).result).toEqual({});
+    await session.disconnect();
+    // No connect holds the transport: a frame that would end the session speaks for nothing.
+    transport.onMessage?.({ type: "session.revoked", reason: "CLIENT_REVOKED" });
+    expect(session.getSessionInfo()).toMatchObject({ state: "idle", error: null });
+
+    await connect();
+    expect(transport.onMessage).toBe(onMessage);
+    expect((await session.request("ping")).result).toEqual({});
     expect(session.getSessionInfo().state).toBe("connected");
   });
 

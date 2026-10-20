@@ -83,6 +83,7 @@ describe("provider socket reattach", () => {
     const replay = await reattach(relay, room);
 
     expect(replay.map((frame) => frame.type)).toEqual(["ready", "approval.restored"]);
+    expect(replay[0]).not.toHaveProperty("ticketEnded");
     expect(relay.server.rooms.get(room.id)?.roomState).toBe("active");
     expect(replay[1]).toEqual({
       protocol: "webmcp-peer/1",
@@ -112,6 +113,7 @@ describe("provider socket reattach", () => {
     const pending = await joinRoom(relay.base, pendingRoom, { clientLabel: "Pending agent" });
     const pendingReplay = await reattach(relay, pendingRoom);
     expect(pendingReplay.map((frame) => frame.type)).toEqual(["ready", "approval.request"]);
+    expect(pendingReplay[0]).not.toHaveProperty("ticketEnded");
     expect(pendingReplay[1]?.payload).toMatchObject({ requestId: pending.approvalRequestId, sessionId: pending.sessionId, clientLabel: "Pending agent" });
     expect(relay.server.rooms.get(pendingRoom.id)?.roomState).toBe("accepting-clients");
 
@@ -171,6 +173,8 @@ describe("provider socket reattach", () => {
 
     for (const replay of replays) {
       expect(replay.map((frame) => frame.type)).toEqual(["ready", type]);
+      // `ready` itself names the end, so a provider knows before it reads the frame after it.
+      expect(replay[0]).toMatchObject({ role: "provider", roomId: room.id, ticketEnded: type });
       expect(replay[1]).toMatchObject({ protocol: "webmcp-peer/1", type, roomId: room.id, roomEpoch: room.roomEpoch, sessionId: joined.sessionId, ...details });
     }
     // Each attach gets a message of its own.
@@ -291,5 +295,88 @@ describe("provider socket reattach", () => {
     providers.push(reloaded);
     expect(await reloaded.autoReconnectIfSaved()).toBe(false);
     expect(reloaded.getSession().state).toBe("idle");
+  });
+
+  it.each<[string, { approvalTimeoutMs?: number }, string, "revoked" | "expired", (relay: Relay, roomId: string, joined: JoinedSession) => Promise<void>]>([
+    ["its approval request was rejected over HTTP", {}, "CLIENT_APPROVAL_DENIED", "revoked", async (relay, roomId, joined) => {
+      const entry = relay.server.rooms.get(roomId)!;
+      const response = await postJson(`${relay.base}/p/${roomId}/approval/${encodeURIComponent(joined.approvalRequestId!)}`, {
+        roomId, roomEpoch: entry.roomEpoch, sessionId: joined.sessionId, decision: "rejected",
+      }, { authorization: `Bearer ${entry.providerToken}` });
+      expect(response.status).toBe(200);
+    }],
+    ["its agent revoked it", {}, "SESSION_REVOKED", "revoked", async (relay, roomId, joined) => {
+      const response = await postJson(`${relay.base}/p/${roomId}/session/revoke`, { roomId }, { authorization: `Bearer ${joined.clientToken}` });
+      expect(response.status).toBe(200);
+    }],
+    ["its approval request expired", { approvalTimeoutMs: 1_000 }, "APPROVAL_EXPIRED", "expired", async (relay, roomId, joined) => {
+      await until(() => relay.server.rooms.get(roomId)?.clientTickets.get(tokenHash(joined.clientToken))?.status, (status) => status === "expired", "the approval request expired", 5_000);
+    }],
+  ])("fails a reloaded page's reconnect to a room whose ticket ended while the page was away (%s), with the session ended", async (_label, relayOptions, error, approvalState, end) => {
+    const sessionStorage = new MemoryStorage();
+    vi.stubGlobal("localStorage", new MemoryStorage());
+    vi.stubGlobal("sessionStorage", sessionStorage);
+    vi.stubGlobal("window", { location: { search: "", pathname: "/" }, sessionStorage });
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const relay = await startRelay(servers, relayOptions);
+    const hostAdapter: WebMcpHostAdapter = { listTools: () => [tool("read")], invoke: async () => ({ ok: true, value: "read-result" }) };
+    const host = new WebMcpPeerClient({ hostAdapter, shouldSuppressAutoReconnect: () => false });
+    providers.push(host);
+    const invitationUrl = await host.connect({ serverUrl: relay.base, alias: "reloaded", autoReconnect: true });
+    const roomId = host.getSession().roomId!;
+    const inviteToken = decodeURIComponent(new URL(invitationUrl).hash.slice("#invite=".length));
+    const joined = await joinRoom(relay.base, { id: roomId, inviteToken } as RoomDescriptor, { clientLabel: "Agent" });
+    await until(() => host.getSession().approvalState, (state) => state === "pending", "approval request reached the host");
+
+    // The relay drops the provider socket and the page goes away before it reconnects: its
+    // disconnect() keeps the room's lease. The ticket ends while no provider socket hears it.
+    await dropProvider(relay, roomId);
+    host.disconnect();
+    await end(relay, roomId, joined);
+
+    // The reloaded page (the same tab storage, so the same replica and lease) reclaims the room and
+    // attaches, and the relay's ready says the ticket ended: the reconnect fails as the session ends.
+    const reloaded = new WebMcpPeerClient({ hostAdapter, shouldSuppressAutoReconnect: () => false });
+    providers.push(reloaded);
+    expect(await reloaded.autoReconnectIfSaved()).toBe(false);
+    expect(reloaded.getSession()).toMatchObject({ roomId, state: "disconnected", approvalState, error });
+    // The frame the relay replays after ready changes nothing, and the next reload finds no lease.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(reloaded.getSession()).toMatchObject({ roomId, state: "disconnected", approvalState, error });
+    const again = new WebMcpPeerClient({ hostAdapter, shouldSuppressAutoReconnect: () => false });
+    providers.push(again);
+    expect(await again.autoReconnectIfSaved()).toBe(false);
+    expect(again.getSession().state).toBe("idle");
+  });
+
+  it("rejects a host's connect({ reclaimLease: true }) to a room whose ticket ended while it was away, so its next connect opens a room", async () => {
+    const sessionStorage = new MemoryStorage();
+    vi.stubGlobal("localStorage", new MemoryStorage());
+    vi.stubGlobal("sessionStorage", sessionStorage);
+    vi.stubGlobal("window", { location: { search: "", pathname: "/" }, sessionStorage });
+
+    const relay = await startRelay(servers);
+    const hostAdapter: WebMcpHostAdapter = { listTools: () => [tool("read")], invoke: async () => ({ ok: true, value: "read-result" }) };
+    const host = new WebMcpPeerClient({ hostAdapter, shouldSuppressAutoReconnect: () => true });
+    providers.push(host);
+    const invitationUrl = await host.connect({ serverUrl: relay.base, alias: "reclaimed", autoReconnect: false });
+    const roomId = host.getSession().roomId!;
+    const inviteToken = decodeURIComponent(new URL(invitationUrl).hash.slice("#invite=".length));
+    const joined = await joinRoom(relay.base, { id: roomId, inviteToken } as RoomDescriptor, { clientLabel: "Agent" });
+    await dropProvider(relay, roomId);
+    const revoked = await postJson(`${relay.base}/p/${roomId}/session/revoke`, { roomId }, { authorization: `Bearer ${joined.clientToken}` });
+    expect(revoked.status).toBe(200);
+
+    await expect(host.connect({ serverUrl: relay.base, alias: "reclaimed", reclaimLease: true })).rejects.toThrow("SESSION_REVOKED");
+    expect(host.getSession()).toMatchObject({ roomId, state: "disconnected", approvalState: "revoked", error: "SESSION_REVOKED" });
+    expect(relay.server.rooms.size).toBe(1);
+
+    // The lease is forgotten, so the same call now opens a room an agent can join.
+    await host.connect({ serverUrl: relay.base, alias: "reclaimed", reclaimLease: true });
+    expect(host.getSession()).toMatchObject({ state: "waiting", approvalState: "none", error: null });
+    expect(host.getSession().roomId).not.toBe(roomId);
+    expect(relay.server.rooms.size).toBe(2);
   });
 });
