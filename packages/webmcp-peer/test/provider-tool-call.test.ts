@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AiRunController,
   AiRunLimitExceededError,
+  MCP_INITIALIZE_PROTOCOL_VERSIONS,
+  MCP_PROTOCOL_VERSION,
   WebMcpPeerClient,
   isCommitReceipt,
   type CommitReceipt,
@@ -21,7 +23,7 @@ import {
   createWebMcpPeerServer,
   type WebMcpPeerServer,
 } from "../src/server.js";
-import { FakeRelay, approve, callTool, installRelay, type FakeRelaySocket } from "./provider-fakes.js";
+import { FakeRelay, approve, callTool, installRelay, replyTo, until, type FakeRelaySocket } from "./provider-fakes.js";
 
 const providers: WebMcpPeerClient[] = [];
 
@@ -154,6 +156,50 @@ describe("tools/call results follow the MCP CallToolResult shape", () => {
     expect(provider.stopAiRun("task-stop")?.phase).toBe("stopped");
     const refused = await callTool(socket, 2, "read", { runId: "task-stop" });
     expect(refused.result?.content).toEqual([{ type: "text", text: "AI_RUN_TERMINAL: This AI run is already terminal." }]);
+  });
+});
+
+describe("MCP requests the relay forwards", () => {
+  /** Relays one request with `method` and `params` to the provider and returns its reply. */
+  function relayed(socket: FakeRelaySocket, id: string | number | null, method: string, params: Record<string, unknown> = {}) {
+    socket.deliver({ type: "mcp", message: { jsonrpc: "2.0", id, method, params } });
+    return replyTo(socket, id as string | number);
+  }
+
+  it("negotiates initialize as the relay's HTTP route does, never answering 2026-07-28", async () => {
+    const { socket } = await approvedProvider(async () => ({ ok: true }));
+    for (const [requested, negotiated] of [
+      ...MCP_INITIALIZE_PROTOCOL_VERSIONS.map((version) => [version, version]),
+      [MCP_PROTOCOL_VERSION, "2025-11-25"],
+      ["1999-01-01", "2025-11-25"],
+      [undefined, "2025-11-25"],
+    ] as const) {
+      const reply = await relayed(socket, `init-${requested}`, "initialize", requested ? { protocolVersion: requested } : {});
+      expect(reply.result).toMatchObject({ protocolVersion: negotiated, capabilities: { tools: { listChanged: true }, stateless: true } });
+    }
+  });
+
+  it("reports the relay's negotiation in a server/discover forwarded by the relay", async () => {
+    const { socket } = await approvedProvider(async () => ({ ok: true }));
+    await until(() => socket.sent.find((frame) => frame.type === "register"), "register frame");
+    const reply = await relayed(socket, 1, "server/discover", { protocolVersion: "2025-06-18" });
+    expect(reply.result).toMatchObject({
+      protocolVersion: "2025-06-18",
+      supportedProtocolVersions: [...MCP_INITIALIZE_PROTOCOL_VERSIONS],
+      capabilities: { tools: { listChanged: true }, stateless: true },
+    });
+    expect((await relayed(socket, 2, "server/discover", { protocolVersion: MCP_PROTOCOL_VERSION })).result).toMatchObject({ protocolVersion: "2025-11-25" });
+  });
+
+  it("answers a request with id null as an invalid request and does not run it", async () => {
+    const invoked: string[] = [];
+    const { socket } = await approvedProvider(async (name) => {
+      invoked.push(name);
+      return { ok: true };
+    });
+    const reply = await relayed(socket, null, "tools/call", { name: "write", arguments: {} });
+    expect(reply).toEqual({ jsonrpc: "2.0", id: null, error: { code: -32600, message: "Invalid Request" } });
+    expect(invoked).toEqual([]);
   });
 });
 

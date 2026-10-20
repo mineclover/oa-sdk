@@ -9,6 +9,8 @@ import { PEER_RELAY_MAX_MESSAGE_BYTES, utf8ByteLength } from "../config/limits.j
 import type { AiRunPhase } from "./ai-run-controller.js";
 
 export type JsonRpcId = string | number | null;
+/** The id of a JSON-RPC request: a string or a number, never null (MCP: an id MUST NOT be null). */
+export type JsonRpcRequestId = Exclude<JsonRpcId, null>;
 
 /** A JSON-RPC 2.0 response the provider returns through the relay or the DataChannel. */
 export interface ProviderRpcResponse {
@@ -77,11 +79,15 @@ export function nonEmptyString(value: unknown): string | undefined {
   return typeof value === "string" && value ? value : undefined;
 }
 
-/** The id of a JSON-RPC request; undefined for a notification or a value that is not a request. */
-export function rpcRequestId(value: unknown): JsonRpcId | undefined {
+/**
+ * The id of a JSON-RPC request: a string or a number. Undefined for a notification, a value that is
+ * not a request, and an id of any other type, null included: MCP forbids a null id, and JSON-RPC
+ * does not make a message with one a notification, so such a message is an invalid request.
+ */
+export function rpcRequestId(value: unknown): JsonRpcRequestId | undefined {
   if (!isJsonObject(value) || value.jsonrpc !== "2.0") return undefined;
   const id = value.id;
-  return typeof id === "string" || typeof id === "number" || id === null ? id : undefined;
+  return typeof id === "string" || typeof id === "number" ? id : undefined;
 }
 
 /** `params._meta.framebook.aiTrace` of a tools/call, when present. */

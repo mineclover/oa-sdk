@@ -30,6 +30,7 @@ import {
   assertWithinRelayIdLimit,
   createHttpTransport,
   createWebSocketTransport,
+  MCP_HTTP_ACCEPT,
   normalizeServerUrl,
   parseRoomId,
   roomIdOption,
@@ -124,6 +125,15 @@ function isRetryableRpcError(error: unknown): boolean {
   return isJsonObject(data) && data.retryable === true;
 }
 
+/**
+ * The least delay before a retry that a refusal asks for: the `retryAfterMs` the HTTP transport
+ * reads from the response's `Retry-After` (the relay's 503 PROVIDER_BUSY sends 1 second), or 0.
+ */
+function requestedRetryDelayMs(error: unknown): number {
+  const delay = error instanceof PeerMcpRpcError && isJsonObject(error.rpcError) ? error.rpcError.retryAfterMs : undefined;
+  return typeof delay === "number" && Number.isFinite(delay) && delay > 0 ? delay : 0;
+}
+
 export class PeerMcpSession {
   serverUrl: string;
   roomId?: string;
@@ -166,6 +176,12 @@ export class PeerMcpSession {
    * A session id the client invented for itself is not known to the relay.
    */
   #sessionBound: boolean;
+  /**
+   * The MCP revision the last successful `initialize` negotiated (its `result.protocolVersion`),
+   * which the Streamable HTTP transport sends as `MCP-Protocol-Version` on every later request.
+   * Cleared by `disconnect()`: a session that connects again starts uninitialized.
+   */
+  #negotiatedProtocolVersion: string | undefined;
 
   constructor(options: PeerMcpSessionOptions = {}) {
     this.serverUrl = normalizeServerUrl(
@@ -375,7 +391,10 @@ export class PeerMcpSession {
         }
         transport.onMessage = transport.onMessage || callbacks.onMessage;
       } else if (this.mcpEndpoint) {
-        transport = createHttpTransport(this.mcpEndpoint, this.fetchImpl ?? globalThis.fetch, callbacks, this.clientToken);
+        transport = createHttpTransport(this.mcpEndpoint, this.fetchImpl ?? globalThis.fetch, callbacks, {
+          clientToken: this.clientToken,
+          protocolVersion: () => this.#negotiatedProtocolVersion,
+        });
       } else {
         transport = createWebSocketTransport(url, protocols, this.WebSocketImpl, callbacks);
       }
@@ -665,7 +684,8 @@ export class PeerMcpSession {
    * A request the relay refuses as retryable (`data.retryable: true`, e.g. PROVIDER_BUSY while the
    * provider is not reading) reached nobody, so it is sent again with exponential backoff
    * ({@link RETRY_INITIAL_DELAY_MS} doubling up to {@link RETRY_MAX_DELAY_MS}) for as long as the
-   * request's own timeout allows; the last refusal is then reported.
+   * request's own timeout allows; the last refusal is then reported. A refusal that asks for a
+   * longer wait (an HTTP `Retry-After`, see `requestedRetryDelayMs`) is waited out instead.
    */
   async request(
     method: string,
@@ -680,9 +700,11 @@ export class PeerMcpSession {
       try {
         return await this.#requestOnce(method, params, options, id, Math.max(1, deadline - Date.now()));
       } catch (error) {
-        if (!isRetryableRpcError(error) || deadline - Date.now() <= delayMs) throw error;
+        if (!isRetryableRpcError(error)) throw error;
+        const waitMs = Math.max(delayMs, requestedRetryDelayMs(error));
+        if (deadline - Date.now() <= waitMs) throw error;
         // disconnect(), a transport error or close rejects this wait like a pending request.
-        await this.#waitBeforeRetry(delayMs);
+        await this.#waitBeforeRetry(waitMs);
         delayMs = Math.min(delayMs * 2, RETRY_MAX_DELAY_MS);
       }
     }
@@ -751,13 +773,31 @@ export class PeerMcpSession {
     };
   }
 
+  /**
+   * Opens the MCP session: `initialize`, then the `notifications/initialized` that ends the
+   * initialization (MCP lifecycle). From then on the Streamable HTTP transport names the negotiated
+   * revision (`result.protocolVersion`) in the `MCP-Protocol-Version` of every request. Rejects
+   * when the notification cannot be sent, since the initialization did not complete.
+   */
   async initialize(): Promise<Record<string, unknown>> {
     const response = await this.request("initialize", this.#initializeParams());
     if (!isJsonObject(response.result)) {
       throw new PeerMcpError("Peer initialize response has no result object", "INVALID_RESPONSE", response);
     }
     this.#adoptRoomEpoch(response.result._meta);
+    this.#negotiatedProtocolVersion = asNonEmptyString(response.result.protocolVersion);
+    await this.#sendNotification("notifications/initialized");
     return response.result;
+  }
+
+  /** Sends the JSON-RPC notification `method`: a message without an id, which nothing answers. */
+  async #sendNotification(method: string, params?: Record<string, unknown>): Promise<void> {
+    const transport = this.transport;
+    if (!transport || typeof transport.send !== "function") {
+      throw new PeerMcpError("Peer transport is not connected", "NOT_CONNECTED");
+    }
+    const message = { jsonrpc: "2.0", method, ...(params ? { params } : {}) };
+    await transport.send(transport.raw === true ? message : { type: "mcp", message });
   }
 
   /**
@@ -853,9 +893,24 @@ export class PeerMcpSession {
     }
   }
 
+  /**
+   * Takes a catalog the relay listed or announced, after checking it against the catalog contract
+   * (`normalizeTools`) and against the relay's `catalogHash`: the hash is computed again from the
+   * tools, which the relay hashes with the same function, and a catalog whose hash differs is
+   * refused with CATALOG_INTEGRITY_UNVERIFIED. Either refusal leaves the cached catalog in place, so
+   * a call is never stamped with metadata that does not describe the catalog it was checked against.
+   */
   #replaceCatalog(tools: unknown, version?: number | string, hash?: string): void {
     const normalized = normalizeTools({ result: { tools } });
-    const nextHash = asNonEmptyString(hash) || hashTools(normalized);
+    const nextHash = hashTools(normalized);
+    const reportedHash = asNonEmptyString(hash);
+    if (reportedHash !== undefined && reportedHash !== nextHash) {
+      throw new PeerMcpError(
+        `Peer catalog hash ${reportedHash} does not match its tools, which hash to ${nextHash}`,
+        "CATALOG_INTEGRITY_UNVERIFIED",
+        { catalogHash: reportedHash, computedHash: nextHash },
+      );
+    }
     const nextVersion =
       version ??
       extractCatalogVersion(
@@ -893,6 +948,7 @@ export class PeerMcpSession {
       await this.transport?.close?.();
     } catch {}
     this.transport = undefined;
+    this.#negotiatedProtocolVersion = undefined;
     this.state = "idle";
     this.connectedAt = null;
     this.readySeen = false;
@@ -991,7 +1047,7 @@ export class PeerMcpSession {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          accept: "application/json",
+          accept: MCP_HTTP_ACCEPT,
           "user-agent": `framebook-peer-mcp-client/${PACKAGE_VERSION}`,
           authorization: `Bearer ${this.clientToken}`,
         },

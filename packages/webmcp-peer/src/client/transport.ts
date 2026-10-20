@@ -155,15 +155,65 @@ export function createWebSocketTransport(
   };
 }
 
+/**
+ * The `Accept` of every Streamable HTTP POST: MCP requires a client to list both the JSON and the
+ * SSE form of a response. The relay always answers with JSON.
+ */
+export const MCP_HTTP_ACCEPT = "application/json, text/event-stream";
+
+/** Options of {@link createHttpTransport}. Internal to the client tier. */
+export interface HttpTransportOptions {
+  /** Sent as `authorization: Bearer <clientToken>` on every POST. */
+  readonly clientToken?: string;
+  /**
+   * The MCP revision the session's `initialize` negotiated, or undefined before it did: sent as
+   * `MCP-Protocol-Version` on every later POST, as Streamable HTTP requires.
+   */
+  readonly protocolVersion?: () => string | undefined;
+}
+
+/**
+ * The delay a `Retry-After` header asks for (RFC 9110 §10.2.3), in milliseconds: its delay-seconds,
+ * or the time left until its HTTP-date (0 once that has passed). Undefined when there is no header
+ * or it is neither.
+ */
+function retryAfterMs(header: string | null, now = Date.now()): number | undefined {
+  const value = header?.trim();
+  if (!value) return undefined;
+  if (/^\d+$/.test(value)) return Number(value) * 1000;
+  const date = Date.parse(value);
+  return Number.isNaN(date) ? undefined : Math.max(0, date - now);
+}
+
+/**
+ * The messages of a `text/event-stream` response body, the SSE form a Streamable HTTP server may
+ * answer a POST with: the JSON object in the `data` lines of each event. An event without data, or
+ * whose data is not a JSON object, carries no message.
+ */
+function eventStreamMessages(text: string): Record<string, unknown>[] {
+  const messages: Record<string, unknown>[] = [];
+  for (const event of text.split(/\r\n\r\n|\n\n|\r\r/)) {
+    const data = event
+      .split(/\r\n|\n|\r/)
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.slice("data:".length).replace(/^ /, ""))
+      .join("\n");
+    const message = data ? parseJsonObject(data) : {};
+    if (Object.keys(message).length > 0) messages.push(message);
+  }
+  return messages;
+}
+
 export function createHttpTransport(
   url: string,
   fetchImpl: typeof fetch | undefined,
   callbacks: PeerMcpTransportCallbacks,
-  clientToken?: string,
+  options: HttpTransportOptions = {},
 ): PeerMcpTransport {
   if (typeof fetchImpl !== "function") {
     throw new PeerMcpError("fetch is unavailable; provide transportFactory", "TRANSPORT_UNAVAILABLE");
   }
+  const { clientToken } = options;
   callbacks.onOpen?.();
   callbacks.onMessage?.({ type: "ready", role: "client", transport: "http" });
   return {
@@ -173,24 +223,39 @@ export function createHttpTransport(
       const rpc = (valObj?.type === "mcp" && valObj.message ? valObj.message : value) as Record<string, unknown>;
       const body = JSON.stringify(rpc);
       assertWithinRelayLimit(body);
+      // `initialize` negotiates the revision in its body; every later message names it.
+      const protocolVersion = rpc?.method === "initialize" ? undefined : options.protocolVersion?.();
       const response = await fetchImpl(url, {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          accept: "application/json",
+          accept: MCP_HTTP_ACCEPT,
           "user-agent": `framebook-peer-mcp-client/${PACKAGE_VERSION}`,
           ...(clientToken ? { authorization: `Bearer ${clientToken}` } : {}),
+          ...(protocolVersion ? { "mcp-protocol-version": protocolVersion } : {}),
         },
         body,
       });
-      const responseBody = parseJsonObject(await readResponseText(response));
+      const text = await readResponseText(response);
+      if (response.ok && /^text\/event-stream\b/i.test(response.headers.get("content-type") ?? "")) {
+        for (const message of eventStreamMessages(text)) callbacks.onMessage?.(message);
+        return;
+      }
+      const responseBody = parseJsonObject(text);
       if (!response.ok && responseBody?.jsonrpc === "2.0" && responseBody.error && typeof responseBody.error === "object") {
         // Keep the canonical JSON-RPC error (e.g. -32010 CATALOG_CHANGED on HTTP 409) so callers can
-        // tell catalog drift from auth/room failures instead of seeing an opaque HTTP status.
+        // tell catalog drift from auth/room failures instead of seeing an opaque HTTP status. The
+        // delay a `Retry-After` asks for (e.g. on 503 PROVIDER_BUSY) goes with it as `retryAfterMs`,
+        // the least the session waits before sending a retryable request again.
+        const retryAfter = retryAfterMs(response.headers.get("retry-after"));
         callbacks.onMessage?.({
           ...responseBody,
           id: responseBody.id ?? rpc?.id,
-          error: { ...(responseBody.error as Record<string, unknown>), httpStatus: response.status },
+          error: {
+            ...(responseBody.error as Record<string, unknown>),
+            httpStatus: response.status,
+            ...(retryAfter !== undefined ? { retryAfterMs: retryAfter } : {}),
+          },
         });
         return;
       }

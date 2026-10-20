@@ -37,6 +37,7 @@ import {
   type JoinedPeerRoom,
 } from "../src/client.js";
 import {
+  MCP_INITIALIZE_PROTOCOL_VERSIONS,
   WebMcpPeerClient,
   toWireToolDescriptor,
   type WebMcpHostAdapter,
@@ -685,12 +686,14 @@ describe("tool catalog size", { timeout: 20_000 }, () => {
     expect(listed.map((entry) => [entry.name, entry.description?.length])).toEqual([["big", largest.frame.tools[0]!.description.length]]);
     expect(session.catalogHash).toBe(catalog.body.catalogHash);
 
-    // The headroom below the message limit holds the reply envelope and any request id the relay
-    // accepts (at most 1 KiB of JSON): the reply for the longest accepted id arrives intact.
+    // The headroom below the message limit holds the reply envelope, the relay's catalog stamp (in
+    // result._meta, and at the top of the result for an agent that sent _meta) and any request id
+    // the relay accepts (at most 1 KiB of JSON): the reply for the longest accepted id arrives intact.
     const agent = await openClient(relay, room, joined, sockets);
+    const stamp = { catalogVersion: 1, catalogHash: catalog.body.catalogHash };
     const replyFor = (id: string) => ({
       type: "mcp",
-      message: { jsonrpc: "2.0", id, result: { tools: largest.frame.tools, catalogVersion: 1, catalogHash: catalog.body.catalogHash } },
+      message: { jsonrpc: "2.0", id, result: { tools: largest.frame.tools, ...stamp, _meta: stamp } },
     });
     expect(LIMIT - bytes(replyFor(""))).toBeGreaterThan(MAX_ID_BYTES);
     const longestId = idOfJsonBytes(MAX_ID_BYTES);
@@ -698,6 +701,31 @@ describe("tool catalog size", { timeout: 20_000 }, () => {
     const reply = await agent.waitFor((frame) => frame.type === "mcp" && frame.message?.id === longestId, "reply for the longest id", 5000);
     expect(reply).toEqual(replyFor(longestId));
     expect(bytes(reply)).toBeLessThanOrEqual(LIMIT);
+  });
+
+  it("fits its own listing of the largest catalog it accepts, with the room's listing metadata, under the longest id", async () => {
+    const relay = await startRelay(servers, { deploymentCatalog: { tools: [] } });
+    const room = await createRoom(relay.base, { approvalRequired: true });
+    const provider = await openProvider(relay, room, sockets);
+    const largest = registerWithAnnouncementOf(ANNOUNCEMENT_LIMIT, 1, { alias: null });
+    provider.send(largest.text);
+    const catalog = await until(() => roomCatalog(relay.base, room.id), (value) => value.status === 200, "accepted catalog", 5000);
+
+    // A ticket waiting for approval is listed by the relay itself, with the whole listing metadata
+    // in result._meta and, since it sent _meta, the stamp at the top of the result too.
+    const joined = await joinRoom(relay.base, room);
+    const agent = await openClient(relay, room, joined, sockets);
+    const longestId = idOfJsonBytes(MAX_ID_BYTES);
+    agent.send({ type: "mcp", message: { jsonrpc: "2.0", id: longestId, method: "tools/list", params: { _meta: {} } } });
+    const reply = await agent.waitFor((frame) => frame.type === "mcp" && frame.message?.id === longestId, "the relay's listing", 5000);
+    expect(reply.message.result).toMatchObject({
+      tools: largest.frame.tools,
+      catalogVersion: 1,
+      catalogHash: catalog.body.catalogHash,
+      _meta: { roomId: room.id, catalogVersion: 1, catalogHash: catalog.body.catalogHash, auth: { state: "pending" } },
+    });
+    expect(bytes(reply)).toBeLessThanOrEqual(LIMIT);
+    expect(provider.frames.filter((frame) => frame.type === "mcp")).toEqual([]);
   });
 
   it("accepts an announcement of exactly PEER_RELAY_MAX_ANNOUNCEMENT_BYTES and sends it to agents in 128 KiB fragments", async () => {
@@ -742,18 +770,20 @@ describe("tool catalog size", { timeout: 20_000 }, () => {
     const oversized = registerWithAnnouncementOf(ANNOUNCEMENT_LIMIT + 1, 2, { alias: null });
     agent.send({ type: "mcp", message: { jsonrpc: "2.0", id: "big", method: "tools/list", params: { _meta: {} } } });
     await answer("big", oversized.frame.tools);
-    // The relay's catalog, stamped for an agent that sent _meta; without _meta, just the tools.
-    expect(await replyTo("big")).toEqual({
-      type: "mcp",
-      message: { jsonrpc: "2.0", id: "big", result: { tools: [tool("small")], catalogVersion: 1, catalogHash: before.body.catalogHash } },
-    });
+    // The relay's catalog, as the HTTP route lists it (the stamp in result._meta), and stamped at the
+    // top of the result too for an agent that sent _meta.
+    const stamp = { catalogVersion: 1, catalogHash: before.body.catalogHash };
+    const big = await replyTo("big");
+    expect(big.message.result).toMatchObject({ tools: [tool("small")], ...stamp, _meta: { roomId: room.id, ...stamp } });
     agent.send({ type: "mcp", message: { jsonrpc: "2.0", id: "plain", method: "tools/list", params: {} } });
     await answer("plain", oversized.frame.tools);
-    expect(await replyTo("plain")).toEqual({ type: "mcp", message: { jsonrpc: "2.0", id: "plain", result: { tools: [tool("small")] } } });
+    const plain = await replyTo("plain");
+    expect(plain.message.result).toMatchObject({ tools: [tool("small")], _meta: { roomId: room.id, ...stamp } });
+    expect(plain.message.result).not.toHaveProperty("catalogVersion");
     // An invalid catalog (a duplicate name) is not passed on either.
     agent.send({ type: "mcp", message: { jsonrpc: "2.0", id: "dup", method: "tools/list", params: { _meta: {} } } });
     await answer("dup", [tool("small"), tool("small")]);
-    expect((await replyTo("dup")).message.result).toEqual({ tools: [tool("small")], catalogVersion: 1, catalogHash: before.body.catalogHash });
+    expect((await replyTo("dup")).message.result).toMatchObject({ tools: [tool("small")], ...stamp, _meta: stamp });
 
     await flush(agent, "agent socket still open");
     expect((await roomCatalog(relay.base, room.id)).body).toMatchObject({
@@ -769,7 +799,8 @@ describe("tool catalog size", { timeout: 20_000 }, () => {
     const fits = await replyTo("fits");
     const after = await roomCatalog(relay.base, room.id);
     expect(after.body).toMatchObject({ catalogVersion: 2, tools: [tool("small"), tool("other")] });
-    expect(fits.message.result).toEqual({ tools: [tool("small"), tool("other")], catalogVersion: 2, catalogHash: after.body.catalogHash });
+    const newStamp = { catalogVersion: 2, catalogHash: after.body.catalogHash };
+    expect(fits.message.result).toEqual({ tools: [tool("small"), tool("other")], ...newStamp, _meta: newStamp });
     expect(agent.frames.filter(isListChanged)).toHaveLength(1);
   });
 
@@ -863,16 +894,27 @@ describe("tool catalog size", { timeout: 20_000 }, () => {
       return agent.waitFor((frame) => frame.type === "mcp" && frame.message?.id === id, `reply ${id}`, 5000);
     };
     const stamp = { catalogVersion: 1, catalogHash: catalog.body.catalogHash };
+    const httpAnswer = async (id: string, method: string, params: Record<string, unknown>) => {
+      const http = await postMcp(relay.base, room.id, joined.clientToken, JSON.stringify({ jsonrpc: "2.0", id, method, params }));
+      expect(http.status).toBe(200);
+      return http.body!;
+    };
 
-    expect(await ask("meta", "tools/list", { _meta: {} })).toEqual({ type: "mcp", message: { jsonrpc: "2.0", id: "meta", result: { tools: [tool("a"), tool("b")], ...stamp } } });
-    expect(await ask("plain", "tools/list", {})).toEqual({ type: "mcp", message: { jsonrpc: "2.0", id: "plain", result: { tools: [tool("a"), tool("b")] } } });
-    // server/discover gets what the HTTP route answers the same agent.
+    // tools/list gets what the HTTP route answers the same agent, and the stamp at the top of the
+    // result for an agent that sent _meta.
+    const metaListing = await ask("meta", "tools/list", { _meta: {} });
+    const httpListing = await httpAnswer("meta", "tools/list", {});
+    expect(metaListing.message).toEqual({ ...httpListing, result: { ...httpListing.result, ...stamp } });
+    expect(metaListing.message.result).toMatchObject({ tools: [tool("a"), tool("b")], _meta: stamp });
+    expect((await ask("plain", "tools/list", {})).message).toEqual(await httpAnswer("plain", "tools/list", {}));
+    // server/discover gets what the HTTP route answers the same agent, but for listChanged: the
+    // WebSocket gets catalog changes pushed.
     const discoverParams = { protocolVersion: "2025-06-18" };
     const discovered = await ask("discover", "server/discover", discoverParams);
-    const http = await postMcp(relay.base, room.id, joined.clientToken, JSON.stringify({ jsonrpc: "2.0", id: "discover", method: "server/discover", params: discoverParams }));
-    expect(http.status).toBe(200);
-    expect(discovered.message).toEqual(http.body);
-    expect(discovered.message.result).toMatchObject({ tools: [tool("a"), tool("b")], _meta: stamp });
+    const http = await httpAnswer("discover", "server/discover", discoverParams);
+    expect(http.result.capabilities).toEqual({ tools: { listChanged: false }, stateless: true });
+    expect(discovered.message).toEqual({ ...http, result: { ...http.result, capabilities: { tools: { listChanged: true }, stateless: true } } });
+    expect(discovered.message.result).toMatchObject({ protocolVersion: "2025-06-18", tools: [tool("a"), tool("b")], _meta: stamp });
     // The provider was asked each time: the relay answers only for the provider.
     expect(listed).toEqual(["meta", "plain", "discover"]);
 
@@ -923,20 +965,24 @@ describe("tool catalog size", { timeout: 20_000 }, () => {
     const adopted = await discover("valid");
     const after = await roomCatalog(relay.base, room.id);
     expect(after.body).toMatchObject({ catalogVersion: 2, tools: [tool("a"), tool("b")] });
+    const stamp = { catalogVersion: 2, catalogHash: after.body.catalogHash };
     expect(adopted.message.result).toEqual({
       protocolVersion: "2025-06-18", serverInfo: { name: "page", version: "1" }, tools: [tool("a"), tool("b")],
-      catalogVersion: 2, catalogHash: after.body.catalogHash,
+      ...stamp, _meta: stamp,
     });
 
-    // A catalog the relay refuses (a duplicate name) is never passed on: the relay's own discover result.
+    // A catalog the relay refuses (a duplicate name) is never passed on: the relay's own discover
+    // result, which reports its negotiation and capabilities as the provider's does.
     discoverTools = [tool("c"), tool("c")];
     const refused = await discover("refused");
     expect(refused.message.result).toMatchObject({
+      protocolVersion: "2025-11-25",
+      supportedProtocolVersions: [...MCP_INITIALIZE_PROTOCOL_VERSIONS],
+      capabilities: { tools: { listChanged: true }, stateless: true },
       serverInfo: { name: relay.server.serverName, version: relay.server.serverVersion },
       tools: [tool("a"), tool("b")],
-      _meta: { roomId: room.id, catalogVersion: 2, catalogHash: after.body.catalogHash },
-      catalogVersion: 2,
-      catalogHash: after.body.catalogHash,
+      _meta: { roomId: room.id, ...stamp },
+      ...stamp,
     });
     expect((await roomCatalog(relay.base, room.id)).body).toMatchObject({ catalogVersion: 2, tools: [tool("a"), tool("b")] });
   });
@@ -1909,7 +1955,7 @@ describe("what one agent can make the relay hold", { timeout: 20_000 }, () => {
     const forwarded = () => provider.frames.filter((frame) => frame.type === "mcp");
     const spoofed = { from: "provider", sessionId: "someone-else" };
 
-    agent.send({ type: "mcp", ...spoofed, message: { jsonrpc: "2.0", id: 1, method: "ping" } });
+    agent.send({ type: "mcp", ...spoofed, message: { jsonrpc: "2.0", id: 1, method: "resources/list" } });
     agent.send({ type: "mcp", ...spoofed, message: { jsonrpc: "2.0", method: "notifications/initialized" } });
     await until(forwarded, (frames) => frames.length === 2, "WebSocket frames forwarded", 5000);
     const notification = { jsonrpc: "2.0", method: "notifications/cancelled", params: { requestId: 1 } };
@@ -1918,7 +1964,7 @@ describe("what one agent can make the relay hold", { timeout: 20_000 }, () => {
 
     const stamp = { from: "client", sessionId: joined.sessionId };
     expect(forwarded()).toEqual([
-      { type: "mcp", ...stamp, message: { jsonrpc: "2.0", id: 1, method: "ping" } },
+      { type: "mcp", ...stamp, message: { jsonrpc: "2.0", id: 1, method: "resources/list" } },
       { type: "mcp", ...stamp, message: { jsonrpc: "2.0", method: "notifications/initialized" } },
       { type: "mcp", ...stamp, message: notification },
     ]);
@@ -2018,24 +2064,26 @@ describe("WebSocket agent requests and replies the relay cannot forward", { time
     await until(() => roomCatalog(relay.base, room.id), (value) => value.status === 200, "accepted catalog", 5000);
     const agent = await openClient(relay, room, await joinRoom(relay.base, room), sockets);
 
-    // Request ids are at most 1 KiB, so the provider's reply is made 50 bytes under the limit by a
+    // Request ids are at most 1 KiB, so the provider's reply is made 150 bytes under the limit by a
     // field of its own result next to the catalog.
     const replyTo = (id: string, extra = "") => ({ type: "mcp", message: { jsonrpc: "2.0", id, result: { tools: largest.frame.tools, extra } } });
-    const sizedReply = (id: string) => replyTo(id, "r".repeat(LIMIT - 50 - bytes(replyTo(id))));
+    const sizedReply = (id: string) => replyTo(id, "r".repeat(LIMIT - 150 - bytes(replyTo(id))));
     const answer = async (id: string) => {
       await provider.waitFor((frame) => frame.type === "mcp" && frame.message?.id === id, "forwarded tools/list", 5000);
       provider.send(sizedReply(id));
     };
 
-    // Without _meta the relay forwards the reply unchanged: it fits and arrives intact.
+    // Without _meta the relay adds its stamp to result._meta only (about 100 bytes): the reply fits.
     const plainId = "plain";
     agent.send({ type: "mcp", message: { jsonrpc: "2.0", id: plainId, method: "tools/list", params: {} } });
     await answer(plainId);
     const plain = await agent.waitFor((frame) => frame.type === "mcp" && frame.message?.id === plainId, "plain reply", 5000);
-    expect(bytes(plain)).toBe(LIMIT - 50);
-    expect(plain).toEqual(sizedReply(plainId));
+    const stamp = { catalogVersion: 1, catalogHash: (await roomCatalog(relay.base, room.id)).body.catalogHash };
+    const sized = sizedReply(plainId);
+    expect(plain).toEqual({ ...sized, message: { ...sized.message, result: { ...sized.message.result, _meta: stamp } } });
+    expect(bytes(plain)).toBeLessThanOrEqual(LIMIT);
 
-    // With _meta the relay adds catalogVersion/catalogHash (about 100 bytes) to the result.
+    // With _meta the relay adds the stamp at the top of the result too (about 100 bytes more).
     const metaId = "meta";
     agent.send({ type: "mcp", message: { jsonrpc: "2.0", id: metaId, method: "tools/list", params: { _meta: {} } } });
     await answer(metaId);

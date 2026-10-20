@@ -38,9 +38,11 @@ describe("discoverPeerCatalog over a room MCP endpoint", () => {
   function mockRelay() {
     const calls: Array<{ url: string; method: string; authorization?: string }> = [];
     const fetchImpl = (async (input: string | URL | Request, init: RequestInit = {}) => {
-      const rpc = JSON.parse(String(init.body)) as { id: string; method: string };
+      const rpc = JSON.parse(String(init.body)) as { id?: string; method: string };
       const headers = (init.headers ?? {}) as Record<string, string>;
       calls.push({ url: String(input), method: rpc.method, authorization: headers.authorization });
+      // A notification is accepted with 202 and an empty body, as the relay answers it.
+      if (rpc.id === undefined) return new Response(null, { status: 202 });
       if (rpc.method === "initialize") {
         return Response.json({
           jsonrpc: "2.0",
@@ -70,8 +72,10 @@ describe("discoverPeerCatalog over a room MCP endpoint", () => {
       expect(catalog.tools.map((entry) => entry.name)).toEqual(["doc_read"]);
       expect(catalog).toMatchObject({ protocolVersion: "2025-11-25", serverInfo: { name: "relay" }, catalogVersion: 4 });
       expect(catalog.catalogHash).toBe(hashTools([tool]));
+      // The initialization ends with notifications/initialized before the session lists tools.
       expect(calls).toEqual([
         { url: "http://relay.test/p/room1/mcp", method: "initialize", authorization: "Bearer tok" },
+        { url: "http://relay.test/p/room1/mcp", method: "notifications/initialized", authorization: "Bearer tok" },
         { url: "http://relay.test/p/room1/mcp", method: "tools/list", authorization: "Bearer tok" },
       ]);
     });
@@ -462,5 +466,120 @@ describe("response validation", () => {
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("the relay's catalog hash", () => {
+  const docWrite = { name: "doc_write", description: "Write", inputSchema: { type: "object", properties: {} } };
+
+  /** A session whose raw transport answers each tools/list with the next of `listings`. */
+  async function sessionListing(listings: Array<Record<string, unknown>>) {
+    let callbacks!: PeerMcpTransportCallbacks;
+    const session = new PeerMcpSession({
+      requestTimeoutMs: 1000,
+      transportFactory: (_url: string, _protocols: string[], transportCallbacks: PeerMcpTransportCallbacks) => {
+        callbacks = transportCallbacks;
+        queueMicrotask(() => transportCallbacks.onMessage?.({ type: "ready" }));
+        return {
+          raw: true,
+          send(value) {
+            const rpc = value as { id: string; method: string };
+            const listing = listings.shift();
+            if (rpc.method === "tools/list" && listing) queueMicrotask(() => callbacks.onMessage?.({ jsonrpc: "2.0", id: rpc.id, result: listing }));
+          },
+        };
+      },
+    });
+    sessions.push(session);
+    await session.connect();
+    return { session, deliver: (frame: Record<string, unknown>) => callbacks.onMessage?.(frame) };
+  }
+
+  it("is checked against the tools, so a listing it does not describe is refused and the cached catalog stays", async () => {
+    const hash = hashTools([tool]);
+    const { session, deliver } = await sessionListing([
+      { tools: [tool], _meta: { catalogVersion: 3, catalogHash: hash } },
+      // A relay (or a path to it) that changed the tools but not their hash.
+      { tools: [tool, docWrite], _meta: { catalogVersion: 4, catalogHash: hash } },
+    ]);
+    expect((await session.listTools()).map((entry) => entry.name)).toEqual(["doc_read"]);
+
+    const failure = await session.listTools().catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(PeerMcpError);
+    expect(failure).toMatchObject({
+      code: "CATALOG_INTEGRITY_UNVERIFIED",
+      details: { catalogHash: hash, computedHash: hashTools([tool, docWrite]) },
+    });
+    expect({ tools: session.cachedTools, version: session.catalogVersion, hash: session.catalogHash }).toEqual({ tools: [tool], version: 3, hash });
+
+    // A catalog announcement whose hash does not match is dropped the same way.
+    deliver({ type: "register", tools: [docWrite], catalogVersion: 5, catalogHash: hash });
+    expect(session.cachedTools).toEqual([tool]);
+    expect(session.getSessionInfo().error).toMatch(/does not match its tools/);
+    deliver({ type: "register", tools: [docWrite], catalogVersion: 5, catalogHash: hashTools([docWrite]) });
+    expect({ tools: session.cachedTools, version: session.catalogVersion }).toEqual({ tools: [docWrite], version: 5 });
+  });
+});
+
+describe("the Streamable HTTP transport", () => {
+  const ACCEPT = "application/json, text/event-stream";
+
+  /** A relay MCP endpoint that records each POST and answers like the relay. */
+  function recordingEndpoint(negotiated: string) {
+    const posts: Array<{ method: string; id: unknown; accept?: string; protocolVersion?: string }> = [];
+    const fetchImpl = (async (_input: string | URL | Request, init: RequestInit = {}) => {
+      const rpc = JSON.parse(String(init.body)) as { id?: string; method: string };
+      const headers = (init.headers ?? {}) as Record<string, string>;
+      posts.push({ method: rpc.method, id: rpc.id, accept: headers.accept, protocolVersion: headers["mcp-protocol-version"] });
+      if (rpc.id === undefined) return new Response(null, { status: 202 });
+      if (rpc.method === "initialize") return Response.json({ jsonrpc: "2.0", id: rpc.id, result: { protocolVersion: negotiated, _meta: {} } });
+      return Response.json({ jsonrpc: "2.0", id: rpc.id, result: { tools: [tool], _meta: { catalogVersion: 1, catalogHash: hashTools([tool]) } } });
+    }) as typeof fetch;
+    return { posts, fetchImpl };
+  }
+
+  it("accepts JSON and SSE, ends initialize with notifications/initialized, and names the negotiated revision on every later request", async () => {
+    const { posts, fetchImpl } = recordingEndpoint("2025-06-18");
+    const session = new PeerMcpSession({ mcpEndpoint: "http://relay.test/p/room1/mcp", clientToken: "tok", protocolVersion: "2025-06-18", fetchImpl });
+    sessions.push(session);
+
+    await session.initialize();
+    await session.listTools();
+    expect(posts).toEqual([
+      { method: "initialize", id: expect.any(String), accept: ACCEPT, protocolVersion: undefined },
+      { method: "notifications/initialized", id: undefined, accept: ACCEPT, protocolVersion: "2025-06-18" },
+      { method: "tools/list", id: expect.any(String), accept: ACCEPT, protocolVersion: "2025-06-18" },
+    ]);
+
+    // A session that connects again starts uninitialized.
+    await session.disconnect();
+    await session.listTools();
+    expect(posts.at(-1)).toMatchObject({ method: "tools/list", protocolVersion: undefined });
+  });
+
+  it("is served by the relay with the revision it negotiated", async () => {
+    const server = createWebMcpPeerServer({ port: 0, host: "127.0.0.1", roomSweepIntervalMs: 0, deploymentCatalog: { tools: [tool] } });
+    servers.push(server);
+    const serverUrl = `http://127.0.0.1:${await server.listen()}`;
+    const created = await fetch(`${serverUrl}/p`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ approvalRequired: false }) });
+    const room = (await created.json()) as { id: string; inviteToken: string };
+    const joined = await joinPeerRoom({ serverUrl, roomId: room.id, inviteToken: room.inviteToken });
+    const session = new PeerMcpSession({ mcpEndpoint: joined.mcpEndpoint, clientToken: joined.clientToken, protocolVersion: "2024-11-05" });
+    sessions.push(session);
+
+    expect(await session.initialize()).toMatchObject({ protocolVersion: "2024-11-05" });
+    expect((await session.listTools()).map((entry) => entry.name)).toEqual(["doc_read"]);
+  });
+
+  it("reads a response the server sends as an event stream", async () => {
+    const fetchImpl = (async (_input: string | URL | Request, init: RequestInit = {}) => {
+      const rpc = JSON.parse(String(init.body)) as { id: string };
+      const reply = JSON.stringify({ jsonrpc: "2.0", id: rpc.id, result: { tools: [tool] } });
+      const body = `event: message\nid: 1\ndata: {"jsonrpc":"2.0","method":"notifications/message","params":{}}\n\nevent: message\ndata: ${reply}\n\n`;
+      return new Response(body, { status: 200, headers: { "content-type": "text/event-stream" } });
+    }) as typeof fetch;
+    const session = new PeerMcpSession({ mcpEndpoint: "http://relay.test/p/room1/mcp", clientToken: "tok", fetchImpl, requestTimeoutMs: 1000 });
+    sessions.push(session);
+    expect((await session.listTools()).map((entry) => entry.name)).toEqual(["doc_read"]);
   });
 });

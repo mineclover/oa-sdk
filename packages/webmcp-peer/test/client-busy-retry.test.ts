@@ -213,6 +213,68 @@ describe("a request the relay refuses as retryable", () => {
   });
 });
 
+describe("an HTTP PROVIDER_BUSY with Retry-After", () => {
+  /**
+   * A Streamable HTTP session whose endpoint answers the first `refusals` POSTs 503 PROVIDER_BUSY
+   * with `retryAfter` as Retry-After, and the next one with a result, recording when each arrives.
+   */
+  function busyEndpointSession(refusals: number, retryAfter: () => string, requestTimeoutMs = 10_000) {
+    const sent: number[] = [];
+    const fetchImpl = (async (_input: string | URL | Request, init: RequestInit = {}) => {
+      const rpc = JSON.parse(String(init.body)) as WireRpc;
+      sent.push(Date.now());
+      if (sent.length <= refusals) {
+        return Response.json({ jsonrpc: "2.0", id: rpc.id, error: PROVIDER_BUSY }, { status: 503, headers: { "retry-after": retryAfter() } });
+      }
+      return Response.json({ jsonrpc: "2.0", id: rpc.id, result: { ok: true } });
+    }) as typeof fetch;
+    const session = new PeerMcpSession({ mcpEndpoint: "http://relay.test/p/room1/mcp", clientToken: "tok", requestTimeoutMs, fetchImpl });
+    sessions.push(session);
+    return { session, sent };
+  }
+
+  it("waits at least as long as Retry-After asks before sending the request again", async () => {
+    vi.useFakeTimers();
+    // On a whole second, since an HTTP-date names whole seconds.
+    vi.setSystemTime(new Date("2026-10-20T00:00:00.000Z"));
+    // The relay's `Retry-After: 1`, then an HTTP-date three seconds ahead.
+    const headers = ["1", () => new Date(Date.now() + 3_000).toUTCString()];
+    let refusal = 0;
+    const { session, sent } = busyEndpointSession(2, () => {
+      const header = headers[refusal++]!;
+      return typeof header === "string" ? header : header();
+    });
+    const call = track(session.request("tools/call", echoCall));
+
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sent).toHaveLength(1);
+    // Not after the 100 ms backoff: after the second Retry-After asks for.
+    await vi.advanceTimersByTimeAsync(999);
+    expect(sent).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(sent).toHaveLength(2);
+    await vi.advanceTimersByTimeAsync(3_000);
+    expect(sent).toHaveLength(3);
+    expect(gaps(sent.map((at) => ({ at })))).toEqual([1_000, 3_000]);
+    expect(call.outcome).toMatchObject({ value: { result: { ok: true } } });
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("reports the refusal at once when Retry-After asks for longer than the request's timeout leaves", async () => {
+    vi.useFakeTimers();
+    const { session, sent } = busyEndpointSession(1, () => "1", 900);
+    const call = track(session.request("tools/call", echoCall));
+
+    await vi.advanceTimersByTimeAsync(0);
+    expect(call.outcome).toBeDefined();
+    const { error } = call.outcome as { error: unknown };
+    expect(error).toBeInstanceOf(PeerMcpRpcError);
+    expect(error).toMatchObject({ code: "PROVIDER_BUSY", rpcError: { ...PROVIDER_BUSY, httpStatus: 503, retryAfterMs: 1_000 } });
+    expect(sent).toHaveLength(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
 describe("a call issued while a real relay's provider is not reading", { timeout: 30_000 }, () => {
   /** Records what `socket.send` reported for every frame the relay gave it. */
   function recordSends(socket: PeerSocket): Array<{ frame: Frame; sent: PeerSendResult }> {

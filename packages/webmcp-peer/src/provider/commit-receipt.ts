@@ -1,3 +1,5 @@
+import { isJsonObject } from "../config/json.js";
+
 export const MCP_PROTOCOL_VERSION = "2026-07-28";
 export const MCP_PROTOCOL_VERSIONS = ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"] as const;
 /**
@@ -6,6 +8,26 @@ export const MCP_PROTOCOL_VERSIONS = ["2026-07-28", "2025-11-25", "2025-06-18", 
  * with 2026-07-28. The official SDK aborts when the server answers a version it does not know.
  */
 export const MCP_INITIALIZE_PROTOCOL_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"] as const;
+
+/** An initialize-era MCP revision (see {@link MCP_INITIALIZE_PROTOCOL_VERSIONS}). */
+export type McpInitializeProtocolVersion = (typeof MCP_INITIALIZE_PROTOCOL_VERSIONS)[number];
+
+/** True for one of {@link MCP_INITIALIZE_PROTOCOL_VERSIONS}. Internal to the package. */
+export function isInitializeProtocolVersion(version: unknown): version is McpInitializeProtocolVersion {
+  return (MCP_INITIALIZE_PROTOCOL_VERSIONS as readonly unknown[]).includes(version);
+}
+
+/**
+ * The MCP revision an `initialize` with `params` is answered with, and a `server/discover` asked
+ * through the relay reports: `params.protocolVersion` when it is an initialize-era revision (MCP
+ * requires a server to answer a version it supports with that version), otherwise the newest one
+ * (2025-11-25). The relay and the provider both negotiate with it, so a request gets the same
+ * revision over HTTP and WebSocket whichever of them answers. Internal to the package.
+ */
+export function negotiateInitializeProtocolVersion(params: unknown): McpInitializeProtocolVersion {
+  const requested = isJsonObject(params) ? params.protocolVersion : undefined;
+  return isInitializeProtocolVersion(requested) ? requested : MCP_INITIALIZE_PROTOCOL_VERSIONS[0];
+}
 
 export type CommitReceipt =
   | {

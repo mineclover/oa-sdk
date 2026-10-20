@@ -162,6 +162,14 @@ function maskedFrameHeader(opcode: number, length: number): Buffer {
   return header;
 }
 
+/** `value` as JSON in one masked text frame, as a client sends it. */
+function maskedTextFrame(value: unknown): Buffer {
+  const body = Buffer.from(JSON.stringify(value));
+  const mask = randomBytes(4);
+  for (let index = 0; index < body.length; index++) body[index]! ^= mask[index & 3]!;
+  return Buffer.concat([maskedFrameHeader(0x1, body.length), mask, body]);
+}
+
 /**
  * A raw RFC 6455 client over TCP that can stop reading (pause) and start again (resume), the way a
  * browser tab whose main thread is busy stops draining its socket.
@@ -221,10 +229,15 @@ export class RawPeer {
 
   /** Sends `value` as one masked text frame. */
   send(value: unknown): void {
-    const body = Buffer.from(JSON.stringify(value));
-    const mask = randomBytes(4);
-    for (let index = 0; index < body.length; index++) body[index]! ^= mask[index & 3]!;
-    this.socket.write(Buffer.concat([maskedFrameHeader(0x1, body.length), mask, body]));
+    this.socket.write(maskedTextFrame(value));
+  }
+
+  /**
+   * Sends every value as a masked text frame, all in one write, so the relay reads them together
+   * (one loopback read) and handles them without reading from the socket in between.
+   */
+  sendAll(values: readonly unknown[]): void {
+    this.socket.write(Buffer.concat(values.map(maskedTextFrame)));
   }
 
   /** Calls `listener` with every message that arrives from now on (only while reading). */

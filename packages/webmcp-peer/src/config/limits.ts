@@ -23,7 +23,11 @@ export const PEER_RELAY_MAX_MESSAGE_BYTES = 256 * 1024;
  * otherwise, e.g. `1e20`, can grow when the relay re-serializes it). The relay forwards a request to the
  * provider after stamping it with `from`/`sessionId` and, for a duplicate id, a rewritten wire id;
  * the 1 KiB below the message limit always covers both, so every request within this limit is
- * forwarded and a larger one is refused with REQUEST_TOO_LARGE on every transport.
+ * forwarded and a larger one is refused with REQUEST_TOO_LARGE on every transport. Each transport
+ * measures what it carries, so an `mcp` envelope is measured over WebSocket (whatever fields the
+ * agent put beside `message`, which the relay forwards too) and the bare body over HTTP. An HTTP
+ * body over the limit is refused before it is parsed, so its 413 has id null (JSON-RPC: the id
+ * could not be read); a request refused once parsed is answered under its own id.
  */
 export const PEER_RELAY_MAX_REQUEST_BYTES = PEER_RELAY_MAX_MESSAGE_BYTES - 1024;
 
@@ -38,9 +42,13 @@ export const PEER_RELAY_MAX_CATALOG_BYTES = PEER_RELAY_MAX_MESSAGE_BYTES - 4 * 1
 /**
  * The largest catalog announcement the relay accepts (the provider's `register` frame stamped with
  * `catalogVersion`/`catalogHash`). The 2 KiB below the message limit keeps a `tools/list` reply for
- * the same catalog within the limit: the relay refuses JSON-RPC request ids over 1 KiB of JSON
- * (REQUEST_ID_TOO_LARGE), so the reply envelope always fits. Every catalog within
- * {@link PEER_RELAY_MAX_CATALOG_BYTES} passes; a larger announcement is refused with
+ * the same catalog within the limit. Besides the tools, that reply carries the JSON-RPC envelope,
+ * the request id (the relay refuses ids over 1 KiB of JSON, REQUEST_ID_TOO_LARGE) and the catalog
+ * metadata the relay adds: its `catalogVersion`/`catalogHash` in `result._meta` and, for an agent
+ * that sent `_meta`, at the top of `result`; in a listing the relay answers itself, `result._meta`
+ * also holds the room's listing metadata (room id, epoch, state and auth). With an id of the full
+ * 1 KiB that is at most about 1.6 KiB more than the announcement, so the reply always fits. Every
+ * catalog within {@link PEER_RELAY_MAX_CATALOG_BYTES} passes; a larger announcement is refused with
  * CATALOG_TOO_LARGE.
  */
 export const PEER_RELAY_MAX_ANNOUNCEMENT_BYTES = PEER_RELAY_MAX_MESSAGE_BYTES - 2 * 1024;
@@ -60,7 +68,11 @@ export const PEER_RELAY_MAX_REQUEST_ID_BYTES = 1024;
  * with TOO_MANY_PENDING_REQUESTS (-32087), so `PeerMcpSession` never sends one more: past this many
  * unanswered requests on a relay socket, a request waits for an earlier one to be answered. A
  * request the agent counts as in flight (sent and not yet answered) always includes every one the
- * relay counts, so the agent's count reaching the limit is the earliest the relay's can.
+ * relay counts, so the agent's count reaching the limit is the earliest the relay's can: the relay
+ * counts only requests, never the other frames it holds for a slow agent (its approval state,
+ * `ready`, `offer.refused`), which answer nothing the agent counts. HTTP requests are not counted:
+ * each one is answered on its own response, and one whose id is already pending is forwarded under
+ * a rewritten wire id.
  */
 export const PEER_RELAY_MAX_PENDING_REQUESTS = 64;
 

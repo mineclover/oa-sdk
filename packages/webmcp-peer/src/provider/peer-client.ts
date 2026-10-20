@@ -19,8 +19,10 @@ import {
 } from "./ai-run-ledger.js";
 import {
   isCommitReceipt,
+  MCP_INITIALIZE_PROTOCOL_VERSIONS,
   MCP_PROTOCOL_VERSION,
   MCP_PROTOCOL_VERSIONS,
+  negotiateInitializeProtocolVersion,
 } from "./commit-receipt.js";
 import {
   defaultShouldSuppressAutoReconnect,
@@ -51,7 +53,7 @@ import {
   toolErrorResult,
   traceRunId,
   traceStepIndex,
-  type JsonRpcId,
+  type JsonRpcRequestId,
   type ProviderRpcResponse,
 } from "./tool-call.js";
 import {
@@ -1414,6 +1416,13 @@ export class WebMcpPeerClient {
    * DataChannel agent, which talks to the provider directly; on the relay socket they list the
    * catalog the relay holds (see {@link relayCatalogTools}), since the relay takes their tools as a
    * catalog announcement.
+   *
+   * `initialize` negotiates its revision on every channel as the relay's HTTP route does
+   * ({@link negotiateInitializeProtocolVersion}): the requested initialize-era revision, otherwise
+   * 2025-11-25, never 2026-07-28, which has no `initialize`. A server/discover the relay forwards
+   * reports the same negotiation within those revisions, as the relay's own discover result does, so
+   * an agent gets the same negotiation whether the provider or the relay answers; over the DataChannel
+   * it reports 2026-07-28 and every revision the provider speaks.
    */
   private async handleMcpRpc(
     rpc: unknown,
@@ -1422,6 +1431,8 @@ export class WebMcpPeerClient {
   ): Promise<ProviderRpcResponse | null> {
     if (!isJsonObject(rpc) || rpc.jsonrpc !== "2.0") return null;
     if (rpc.id === undefined) return null;
+    // An id that is not a string or a number, null included (MCP: an id MUST NOT be null), makes
+    // the message an invalid request, which is answered and never run.
     const id = rpcRequestId(rpc);
     if (id === undefined) {
       return { jsonrpc: "2.0", id: null, error: { code: -32600, message: "Invalid Request" } };
@@ -1456,17 +1467,18 @@ export class WebMcpPeerClient {
         return { jsonrpc: "2.0", id, error: peerRpcError("CATALOG_UNAVAILABLE", { catalogSource: "provider", reason: catalog.unavailable }) };
       }
       if (method === "tools/list") return { jsonrpc: "2.0", id, result: { tools: catalog.tools } };
+      const protocolVersion = channel === "relay" ? negotiateInitializeProtocolVersion(rpc.params) : MCP_PROTOCOL_VERSION;
       return {
         jsonrpc: "2.0",
         id,
         result: {
-          protocolVersion: MCP_PROTOCOL_VERSION,
-          supportedProtocolVersions: MCP_PROTOCOL_VERSIONS,
+          protocolVersion,
+          supportedProtocolVersions: channel === "relay" ? MCP_INITIALIZE_PROTOCOL_VERSIONS : MCP_PROTOCOL_VERSIONS,
           capabilities: { tools: { listChanged: true }, stateless: true },
           serverInfo: { name: serverInfo.name, version: serverInfo.version },
           instructions:
             serverInfo.instructions ??
-            `Wireframe Storyboard Toolkit authoring and inspection tools (MCP ${MCP_PROTOCOL_VERSION} Stateless spec).`,
+            `Wireframe Storyboard Toolkit authoring and inspection tools (MCP ${protocolVersion} Stateless spec).`,
           tools: catalog.tools,
         },
       };
@@ -1477,7 +1489,7 @@ export class WebMcpPeerClient {
         jsonrpc: "2.0",
         id,
         result: {
-          protocolVersion: MCP_PROTOCOL_VERSION,
+          protocolVersion: negotiateInitializeProtocolVersion(rpc.params),
           capabilities: { tools: { listChanged: true }, stateless: true },
           serverInfo: { name: serverInfo.name, version: serverInfo.version },
           instructions: serverInfo.instructions ?? "Wireframe Storyboard Toolkit authoring tools.",
@@ -1502,7 +1514,7 @@ export class WebMcpPeerClient {
   }
 
   private async handleToolCall(
-    id: JsonRpcId,
+    id: JsonRpcRequestId,
     params: Record<string, unknown>,
     generation: number,
     webMcp: WebMcpHostAdapter | undefined,

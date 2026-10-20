@@ -3,7 +3,11 @@ import { isUtf8 } from "node:buffer";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { Duplex } from "node:stream";
 import { TLSSocket } from "node:tls";
-import { MCP_INITIALIZE_PROTOCOL_VERSIONS } from "../provider/commit-receipt.js";
+import {
+  isInitializeProtocolVersion,
+  MCP_INITIALIZE_PROTOCOL_VERSIONS,
+  negotiateInitializeProtocolVersion,
+} from "../provider/commit-receipt.js";
 import {
   hashDeploymentCatalog,
   loadDeploymentCatalog,
@@ -53,6 +57,7 @@ import {
   PEER_RELAY_MAX_REQUEST_ID_BYTES,
   utf8ByteLength,
 } from "../config/limits.js";
+import { isJsonObject } from "../config/json.js";
 import { PEER_CATALOG_MAX_TOOLS, PEER_CATALOG_MAX_TOOL_NAME_LENGTH } from "../config/catalog.js";
 import { isPeerErrorName, PEER_ERROR_CODES, peerRpcError, type PeerErrorName } from "../config/errors.js";
 import {
@@ -96,7 +101,8 @@ const MAX_RPC_ID_BYTES = PEER_RELAY_MAX_REQUEST_ID_BYTES;
 /**
  * The most requests one agent WebSocket may have waiting at a time, for the provider or for the
  * agent to read their replies (see `AgentOutbox`): PEER_RELAY_MAX_PENDING_REQUESTS, which the agent
- * client keeps to by queueing its own requests.
+ * client keeps to by queueing its own requests. Only requests count: a frame waiting for the agent
+ * that answers no request (its approval state, `ready`, `offer.refused`) does not.
  */
 const MAX_PENDING_REQUESTS_PER_SOCKET = PEER_RELAY_MAX_PENDING_REQUESTS;
 /**
@@ -195,6 +201,30 @@ type ProviderCatalogOutcome =
   | { kind: 'invalid' }
   | { kind: 'too-large'; announcementBytes: number };
 
+/**
+ * An agent WebSocket's whole-catalog listing (`tools/list` without a cursor, or `server/discover`)
+ * the relay answers itself (see `WebMcpPeerServer.relayCatalogListing`).
+ */
+interface AgentListing {
+  readonly method: string;
+  /** True when the request had `params._meta` (see `PendingMcpRequest.includeCatalogMeta`). */
+  readonly includeCatalogMeta?: boolean;
+  /** For `server/discover`, the revision negotiated from the request (`negotiateProtocolVersion`). */
+  readonly protocolVersion?: string;
+  /** The status of the agent's ticket, reported as `_meta.auth.state`. */
+  readonly ticketStatus: string;
+}
+
+/** The catalog the relay lists for a room (see `WebMcpPeerServer.mcpCatalogSnapshot`). */
+type McpCatalogSnapshot = {
+  /** False only when neither the room nor the deployment has a catalog (CATALOG_UNAVAILABLE). */
+  available: boolean;
+  tools: unknown[];
+  catalogVersion: number;
+  catalogHash: string;
+  catalogUpdatedAt: number | null;
+};
+
 /** The outcome of a `register` frame that took no new catalog: what the provider is answered. */
 type IdleCatalogOutcome = Exclude<ProviderCatalogOutcome, { kind: 'accepted' }>;
 
@@ -226,6 +256,50 @@ interface RegisterState {
 
 /** A JSON-RPC response a provider sent, as `isRpcResponse` validates it. */
 type RpcResponse = { jsonrpc: '2.0'; id: string | number; result?: unknown; error?: unknown };
+
+/**
+ * True for a JSON-RPC reply: `jsonrpc: '2.0'` with a `result` or `error` member. A reply answers the
+ * one request whose id it carries, so it is never news for anyone else.
+ */
+function isRpcReplyMessage(value: unknown): value is Record<string, unknown> {
+  return isJsonObject(value) && value.jsonrpc === '2.0' && ('result' in value || 'error' in value);
+}
+
+/**
+ * True for a frame that answers an agent's request under an id the agent can match it by: an `mcp`
+ * frame whose message is a JSON-RPC reply with a string or number id, from the provider or the
+ * relay. The agent counts that request as in flight until this frame reaches it.
+ */
+function isAgentReplyFrame(frame: unknown): boolean {
+  if (!isJsonObject(frame) || frame.type !== 'mcp' || !isRpcReplyMessage(frame.message)) return false;
+  const id = frame.message.id;
+  return typeof id === 'string' || typeof id === 'number';
+}
+
+/**
+ * The MCP methods the relay answers itself on the HTTP endpoint, for any room and any ticket (their
+ * discovery is public), and never forwards to the provider. Over WebSocket it answers `ping` itself
+ * for every ticket and the others for a ticket that is not approved (see `handleUpgrade`).
+ */
+const RELAY_METADATA_METHODS: ReadonlySet<string> = new Set(['initialize', 'server/discover', 'tools/list', 'ping', 'notifications/initialized']);
+
+/**
+ * True for a method of MCP's notification namespace (`notifications/...`). Notifications have no
+ * id, so a message with an id and such a method is an invalid request on either transport.
+ */
+function isNotificationMethod(method: string): boolean {
+  return method.startsWith('notifications/');
+}
+
+/**
+ * The capabilities the relay reports for its own `initialize` and `server/discover` results. The
+ * agent WebSocket gets catalog changes pushed (`notifications/tools/list_changed`), so it lists
+ * `listChanged: true`, as the provider does; the HTTP endpoint has no server-to-client stream, so it
+ * never sends that notification (catalog changes surface there as CATALOG_CHANGED errors).
+ */
+function relayMcpCapabilities(listChanged: boolean): Record<string, unknown> {
+  return { tools: { listChanged }, stateless: true };
+}
 
 /** The error that answers an agent request the relay could not send to the provider (`sent`). */
 /**
@@ -420,8 +494,11 @@ const AGENT_OUTBOX_RETRY_MS = 1_000;
  * after it, and goes out as the agent reads. While frames wait:
  * - the relay reads nothing more from the agent, so one that does not read cannot make the relay
  *   answer (and hold) more than it already asked for;
- * - each waiting frame counts toward the agent's MAX_PENDING_REQUESTS_PER_SOCKET, so at most that
- *   many of the provider's replies, each within the message limit, wait for one socket;
+ * - each waiting reply to one of the agent's requests (`isAgentReplyFrame`) counts toward the
+ *   agent's MAX_PENDING_REQUESTS_PER_SOCKET, so at most that many of the provider's replies, each
+ *   within the message limit, wait for one socket. The other frames that wait (the state of its
+ *   approval, `ready`, an `offer.refused`) answer no request the agent counts, so they do not count:
+ *   counted, they would make the relay refuse a request the agent rightly sent as its 64th;
  * - the oldest one is offered to the socket again when its queue drains and every
  *   AGENT_OUTBOX_RETRY_MS, so a refusal keeps the codec's stall close armed.
  * The only close a full queue causes is the codec's: an agent that reads nothing for
@@ -430,14 +507,19 @@ const AGENT_OUTBOX_RETRY_MS = 1_000;
  * A frame the agent did not ask for is `offer`ed instead, and skipped for an agent that is behind.
  */
 class AgentOutbox {
-  private readonly waiting: unknown[] = [];
+  /** The frames waiting, oldest first, each marked when it is a reply (`isAgentReplyFrame`). */
+  private readonly waiting: Array<{ frame: unknown; reply: boolean }> = [];
+  private waitingReplyCount = 0;
   private retryTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(private readonly peer: PeerSocket, private readonly raw: Duplex) {}
 
-  /** How many frames wait for the agent to read what was sent before them. */
-  get size(): number {
-    return this.waiting.length;
+  /**
+   * How many replies to the agent's requests wait for the agent to read what was sent before them:
+   * requests the agent still counts as in flight, so the relay counts them too.
+   */
+  get waitingReplies(): number {
+    return this.waitingReplyCount;
   }
 
   /**
@@ -454,7 +536,9 @@ class AgentOutbox {
     } else if (utf8ByteLength(JSON.stringify(frame)) > MAX_WEBSOCKET_MESSAGE_BYTES) {
       return 'too-large';
     }
-    this.waiting.push(frame);
+    const reply = isAgentReplyFrame(frame);
+    this.waiting.push({ frame, reply });
+    if (reply) this.waitingReplyCount += 1;
     return 'queued';
   }
 
@@ -473,6 +557,7 @@ class AgentOutbox {
   discard(): void {
     if (this.waiting.length === 0) return;
     this.waiting.length = 0;
+    this.waitingReplyCount = 0;
     this.stopRetrying();
     this.raw.resume();
   }
@@ -494,7 +579,7 @@ class AgentOutbox {
   private readonly flush = (): void => {
     this.stopRetrying();
     while (this.waiting.length > 0) {
-      const sent = this.peer.send(this.waiting[0]);
+      const sent = this.peer.send(this.waiting[0]!.frame);
       if (sent === 'busy') {
         this.retryLater();
         return;
@@ -503,7 +588,7 @@ class AgentOutbox {
         this.discard();
         return;
       }
-      this.waiting.shift();
+      if (this.waiting.shift()!.reply) this.waitingReplyCount -= 1;
     }
     this.raw.resume();
   };
@@ -792,15 +877,17 @@ export class WebMcpPeerServer {
    * MCP `initialize` version negotiation: answer with the requested version when it is an
    * initialize-era revision the relay supports, otherwise with the newest one (2025-11-25). Standard
    * MCP clients (e.g. the official SDK) abort the handshake when the server answers with a version
-   * they do not know, and 2026-07-28 has no `initialize` at all.
+   * they do not know, and 2026-07-28 has no `initialize` at all. The provider negotiates with the
+   * same function (`negotiateInitializeProtocolVersion`), so an agent's `initialize` or
+   * `server/discover` gets the same revision over HTTP and WebSocket, whether the relay or the
+   * provider answers it.
    */
   protected negotiateProtocolVersion(params: unknown): string {
-    const requested = this.isRecord(params) && typeof params.protocolVersion === 'string' ? params.protocolVersion : undefined;
-    return requested && this.isInitializeProtocolVersion(requested) ? requested : MCP_INITIALIZE_PROTOCOL_VERSIONS[0];
+    return negotiateInitializeProtocolVersion(params);
   }
 
   protected isInitializeProtocolVersion(version: string): boolean {
-    return (MCP_INITIALIZE_PROTOCOL_VERSIONS as readonly string[]).includes(version);
+    return isInitializeProtocolVersion(version);
   }
 
   /** True for an MCP client asking for an SSE stream (Accept lists text/event-stream but not JSON). */
@@ -871,10 +958,12 @@ export class WebMcpPeerServer {
 
   /**
    * How many of `socket`'s requests the relay holds: those waiting for the provider, and, for an
-   * agent WebSocket, the frames waiting for the agent to read them (see `AgentOutbox`).
+   * agent WebSocket, those whose replies wait for the agent to read them (see `AgentOutbox`). These
+   * are requests the agent has sent and not yet seen answered, so an agent that counts its own
+   * requests in flight never counts fewer than the relay does.
    */
   protected pendingRequestCount(entry: RoomEntry, socket: PeerSocket): number {
-    let count = this.agentOutboxes.get(socket)?.size ?? 0;
+    let count = this.agentOutboxes.get(socket)?.waitingReplies ?? 0;
     for (const pending of entry.mcpPending.values()) {
       if (pending.socket === socket) count += 1;
     }
@@ -1147,9 +1236,11 @@ export class WebMcpPeerServer {
    * without a cursor or a `server/discover` (see `PendingMcpRequest.listsCatalog`), offers the relay
    * a catalog; any other reply, such as a `tools/call` result that happens to have `tools` or a page
    * of a paginated listing, is forwarded and leaves the room catalog alone. A catalog the relay
-   * takes is forwarded, stamped with the relay's `catalogVersion`/`catalogHash` for an agent that
-   * sent `_meta`. A listing the relay does not pass on is answered from the catalog the relay holds,
-   * which is what an HTTP agent is listed (see `relayCatalogListing`):
+   * takes is forwarded stamped with the relay's `catalogVersion`/`catalogHash` in `result._meta`,
+   * where every HTTP listing result has them (the provider's own `_meta` members are kept), and, for
+   * an agent that sent `_meta`, also at the top of `result` (deprecated, see `catalogStamp`). A
+   * listing the relay does not pass on is answered from the catalog the relay holds, which is what
+   * an HTTP agent is listed (see `relayCatalogListing`):
    * - a catalog the relay refuses (invalid, or over the announcement limit), since the relay would
    *   not enforce it: an agent that adopted it would have every later call refused
    *   (CATALOG_CHANGED, TOOL_NOT_FOUND);
@@ -1168,36 +1259,79 @@ export class WebMcpPeerServer {
       // The first page of a paginated listing is not the whole catalog either.
       if (result && result.nextCursor !== undefined && result.nextCursor !== null) return forwarded;
       const outcome = this.acceptProviderCatalog(entry, result?.tools, { type: 'register' });
-      if (outcome.kind === 'accepted' || outcome.kind === 'unchanged') {
-        if (!pending.includeCatalogMeta) return forwarded;
-        const stamp = { catalogVersion: entry.catalogVersion, catalogHash: entry.catalogHash };
-        return { ...forwarded, message: { ...message, result: { ...result, ...stamp } } };
+      if (result && (outcome.kind === 'accepted' || outcome.kind === 'unchanged')) {
+        const stamp = this.catalogStamp(entry);
+        const meta = { ...(this.isRecord(result._meta) ? result._meta : {}), ...stamp };
+        return {
+          ...forwarded,
+          message: { ...message, result: { ...result, ...(pending.includeCatalogMeta ? stamp : {}), _meta: meta } },
+        };
       }
       refusal = outcome.kind === 'too-large'
         ? peerRpcError('CATALOG_TOO_LARGE', { limitBytes: PEER_RELAY_MAX_ANNOUNCEMENT_BYTES, announcementBytes: outcome.announcementBytes })
         : peerRpcError('CATALOG_INVALID');
     }
-    if (entry.cachedTools) {
-      return { type: 'mcp', message: { jsonrpc: '2.0', id: pending.id, result: this.relayCatalogListing(entry, entry.cachedTools, pending) } };
+    const snapshot = this.mcpCatalogSnapshot(entry);
+    if (snapshot.available) {
+      const listing = { ...pending, ticketStatus: pending.ticket?.status ?? 'not-joined' };
+      return { type: 'mcp', message: { jsonrpc: '2.0', id: pending.id, result: this.relayCatalogListing(entry, listing, snapshot) } };
     }
     return refusal ? { type: 'mcp', message: { jsonrpc: '2.0', id: pending.id, error: refusal } } : forwarded;
   }
 
   /**
-   * The relay's own answer to an agent's whole-catalog listing (`pending`) from the catalog `tools`
-   * it holds: for `server/discover` the result the HTTP route answers (see `mcpDiscoverResult`),
-   * for `tools/list` the tools. For an agent that sent `_meta`, either is stamped with the relay's
-   * `catalogVersion`/`catalogHash`, as a catalog the relay takes from the provider is.
+   * The `catalogVersion`/`catalogHash` of `catalog` (the room's, or a listed snapshot's) that a WebSocket
+   * listing result carries in `result._meta`. The same members at the top of `result`, for an agent
+   * that sent `params._meta`, are deprecated: kept for one minor release for agents that read them
+   * there, while `result._meta` is where every listing result, on either transport, has them.
    */
-  protected relayCatalogListing(entry: RoomEntry, tools: unknown[], pending: PendingMcpRequest): Record<string, unknown> {
-    const stamp = pending.includeCatalogMeta ? { catalogVersion: entry.catalogVersion, catalogHash: entry.catalogHash } : {};
-    if (pending.method !== 'server/discover') return { tools, ...stamp };
-    const ticketStatus = entry.clientSocketTickets.get(pending.socket)?.status ?? 'not-joined';
-    const catalog = { tools, catalogVersion: entry.catalogVersion, catalogHash: entry.catalogHash };
-    return {
-      ...this.mcpDiscoverResult(entry, entry.id, pending.protocolVersion ?? this.negotiateProtocolVersion(undefined), catalog, ticketStatus),
-      ...stamp,
-    };
+  protected catalogStamp(catalog: { catalogVersion: number; catalogHash: string }): { catalogVersion: number; catalogHash: string } {
+    return { catalogVersion: catalog.catalogVersion, catalogHash: catalog.catalogHash };
+  }
+
+  /**
+   * The relay's own answer to an agent WebSocket's whole-catalog listing (`listing`) from the room's
+   * catalog `snapshot` (which must be `available`): the result the HTTP route answers the same
+   * request, a `server/discover` with `capabilities.tools.listChanged: true` since this socket gets
+   * catalog changes pushed (see `mcpDiscoverResult`, `mcpToolsListResult`). For an agent that sent
+   * `_meta`, it also carries the deprecated top-level stamp (see `catalogStamp`), as a catalog the
+   * relay takes from the provider does.
+   */
+  protected relayCatalogListing(entry: RoomEntry, listing: AgentListing, snapshot = this.mcpCatalogSnapshot(entry)): Record<string, unknown> {
+    const result = listing.method === 'server/discover'
+      ? this.mcpDiscoverResult(entry, entry.id, listing.protocolVersion ?? this.negotiateProtocolVersion(undefined), snapshot, listing.ticketStatus, true)
+      : this.mcpToolsListResult(entry, entry.id, snapshot, listing.ticketStatus);
+    return listing.includeCatalogMeta ? { ...result, ...this.catalogStamp(snapshot) } : result;
+  }
+
+  /**
+   * Answers an agent WebSocket's `initialize`, `tools/list` or `server/discover` (`rpc`, with the id
+   * `id`) from the relay, as the HTTP route answers the same request of the same `ticket`: the
+   * relay's `initialize` result, its listing, or CATALOG_UNAVAILABLE when the room has no catalog.
+   * Returns false, answering nothing, for any other method. The relay answers these for a ticket
+   * that is not approved, whose requests never reach the provider: their discovery is public, so an
+   * agent waiting for approval can read the catalog over either transport.
+   */
+  protected answerAgentMetadata(entry: RoomEntry, socket: PeerSocket, ticket: ClientSessionTicket, rpc: RpcRequest, id: string | number): boolean {
+    const params = this.isRecord(rpc.params) ? rpc.params : undefined;
+    if (rpc.method !== 'initialize' && rpc.method !== 'tools/list' && rpc.method !== 'server/discover') return false;
+    const snapshot = this.mcpCatalogSnapshot(entry);
+    let result: Record<string, unknown>;
+    if (rpc.method === 'initialize') {
+      result = this.mcpInitializeResult(entry, entry.id, this.negotiateProtocolVersion(params), snapshot, ticket.status, true);
+    } else if (!snapshot.available) {
+      this.sendPeerRpcError(socket, id, 'CATALOG_UNAVAILABLE', { catalogSource: this.deploymentCatalog.source });
+      return true;
+    } else {
+      result = this.relayCatalogListing(entry, {
+        method: rpc.method,
+        includeCatalogMeta: this.isRecord(params?._meta),
+        protocolVersion: this.negotiateProtocolVersion(params),
+        ticketStatus: ticket.status,
+      }, snapshot);
+    }
+    this.replyToAgent(socket, { type: 'mcp', message: { jsonrpc: '2.0', id, result } });
+    return true;
   }
 
   protected clearPending(entry: RoomEntry, key: string, error?: RpcErrorBody): void {
@@ -1306,17 +1440,27 @@ export class WebMcpPeerServer {
     return entry.roomState;
   }
 
-  protected mcpCatalogSnapshot(entry: RoomEntry | undefined): { tools: unknown[]; catalogVersion: number; catalogHash: string; catalogUpdatedAt: number | null } {
+  /**
+   * The catalog the relay lists for the room `entry` (or for no room): the room's own catalog when
+   * it holds one, otherwise the deployment catalog. It is `available` whenever either exists, so a
+   * room whose provider registered an empty catalog lists `tools: []` (a valid MCP listing) under
+   * that catalog's version, like a WebSocket agent of the room is listed; only a room with neither
+   * has no catalog to list (CATALOG_UNAVAILABLE).
+   */
+  protected mcpCatalogSnapshot(entry: RoomEntry | undefined): McpCatalogSnapshot {
     const deployment = this.deploymentCatalog;
-    const fallback = deployment.tools.length > 0
-      ? { tools: structuredClone(deployment.tools) as unknown[], catalogVersion: deployment.catalogVersion, catalogHash: deployment.catalogHash, catalogUpdatedAt: deployment.catalogUpdatedAt }
-      : { tools: [] as unknown[], catalogVersion: 0, catalogHash: this.emptyCatalogHash(), catalogUpdatedAt: null };
-    return {
-      tools: entry?.cachedTools ? structuredClone(entry.cachedTools) : fallback.tools,
-      catalogVersion: entry?.cachedTools ? entry.catalogVersion : fallback.catalogVersion,
-      catalogHash: entry?.cachedTools ? entry.catalogHash : fallback.catalogHash,
-      catalogUpdatedAt: entry?.cachedTools ? entry.catalogUpdatedAt ?? null : fallback.catalogUpdatedAt,
-    };
+    if (entry?.cachedTools) {
+      return {
+        available: true,
+        tools: structuredClone(entry.cachedTools),
+        catalogVersion: entry.catalogVersion,
+        catalogHash: entry.catalogHash,
+        catalogUpdatedAt: entry.catalogUpdatedAt ?? null,
+      };
+    }
+    return deployment.tools.length > 0
+      ? { available: true, tools: structuredClone(deployment.tools) as unknown[], catalogVersion: deployment.catalogVersion, catalogHash: deployment.catalogHash, catalogUpdatedAt: deployment.catalogUpdatedAt }
+      : { available: false, tools: [], catalogVersion: 0, catalogHash: this.emptyCatalogHash(), catalogUpdatedAt: null };
   }
 
   protected mcpAuthMetadata(entry: RoomEntry | undefined, state: string): Record<string, unknown> {
@@ -1352,7 +1496,11 @@ export class WebMcpPeerServer {
 
   /**
    * The relay's own `server/discover` result listing `catalog`, as the HTTP route answers it and as
-   * a WebSocket agent gets it when the provider cannot answer (see `agentReplyFrame`).
+   * a WebSocket agent gets it when the relay answers for the provider (see `relayCatalogListing`).
+   * It reports the revisions the relay negotiates within (`supportedProtocolVersions`) and its
+   * capabilities (`listChanged` for a transport that pushes catalog changes, see
+   * `relayMcpCapabilities`), as the provider's discover result through the relay does, so a
+   * WebSocket agent gets the same negotiation and capabilities whichever of them answers.
    */
   protected mcpDiscoverResult(
     entry: RoomEntry | undefined,
@@ -1360,12 +1508,64 @@ export class WebMcpPeerServer {
     protocolVersion: string,
     catalog: { tools: unknown[]; catalogVersion: number; catalogHash: string },
     ticketStatus: string,
+    listChanged: boolean,
   ): Record<string, unknown> {
     return {
       protocolVersion,
+      supportedProtocolVersions: [...MCP_INITIALIZE_PROTOCOL_VERSIONS],
+      capabilities: relayMcpCapabilities(listChanged),
       serverInfo: { name: this.serverName, version: this.serverVersion },
       tools: catalog.tools,
       _meta: this.mcpListingMeta(entry, roomId, catalog, ticketStatus),
+    };
+  }
+
+  /** The relay's own `tools/list` result listing `catalog`, as the HTTP route answers it (see `mcpDiscoverResult`). */
+  protected mcpToolsListResult(
+    entry: RoomEntry | undefined,
+    roomId: string,
+    catalog: { tools: unknown[]; catalogVersion: number; catalogHash: string },
+    ticketStatus: string,
+  ): Record<string, unknown> {
+    return { tools: catalog.tools, _meta: this.mcpListingMeta(entry, roomId, catalog, ticketStatus) };
+  }
+
+  /**
+   * The relay's own `initialize` result for the room `roomId` (`entry`, if it exists): the
+   * negotiated `protocolVersion`, its capabilities (see `relayMcpCapabilities`), its `serverInfo`,
+   * and the catalog `snapshot` with the room's metadata, which an agent can read before it joins
+   * (discovery is public). The HTTP route answers every `initialize` with it, and an agent WebSocket
+   * whose ticket is not approved gets it too (an approved one's `initialize` reaches the provider).
+   */
+  protected mcpInitializeResult(
+    entry: RoomEntry | undefined,
+    roomId: string,
+    protocolVersion: string,
+    snapshot: McpCatalogSnapshot,
+    ticketStatus: string,
+    listChanged: boolean,
+  ): Record<string, unknown> {
+    return {
+      protocolVersion,
+      capabilities: relayMcpCapabilities(listChanged),
+      serverInfo: { name: this.serverName, version: this.serverVersion },
+      tools: snapshot.tools,
+      _meta: {
+        roomId,
+        roomEpoch: entry?.roomEpoch ?? 0,
+        roomState: this.mcpRoomState(entry),
+        roomValid: Boolean(entry && !entry.rotatedTo && entry.expiresAt > Date.now()),
+        catalogVersion: snapshot.catalogVersion,
+        catalogHash: snapshot.catalogHash,
+        toolCount: snapshot.tools.length,
+        bootstrapCatalog: {
+          tools: snapshot.tools,
+          catalogVersion: snapshot.catalogVersion,
+          catalogHash: snapshot.catalogHash,
+          source: entry?.catalogSource ?? this.deploymentCatalog.source,
+        },
+        auth: this.mcpAuthMetadata(entry, ticketStatus),
+      },
     };
   }
 
@@ -2279,8 +2479,8 @@ export class WebMcpPeerServer {
     const deploymentCatalogHashMatch = url.pathname.match(/^\/mcp\/catalog\/([a-f0-9]{64})$/);
     if (req.method === 'GET' && (url.pathname === '/mcp/catalog' || deploymentCatalogHashMatch)) {
       const snapshot = this.mcpCatalogSnapshot(undefined);
-      if (snapshot.tools.length === 0) {
-        this.sendLifecycleError(res, 503, 'CATALOG_UNAVAILABLE', origin, { catalogVersion: 0, catalogHash: snapshot.catalogHash });
+      if (!snapshot.available) {
+        this.sendLifecycleError(res, 503, 'CATALOG_UNAVAILABLE', origin, { catalogVersion: snapshot.catalogVersion, catalogHash: snapshot.catalogHash });
         return;
       }
       if (deploymentCatalogHashMatch && deploymentCatalogHashMatch[1] !== snapshot.catalogHash) {
@@ -2366,9 +2566,10 @@ export class WebMcpPeerServer {
         providerConnected: Boolean(entry?.providerSocket),
         auth: this.mcpAuthMetadata(entry, 'not-joined'),
       };
-      if (snapshot.tools.length === 0) {
+      // A room whose provider registered an empty catalog has one: 200 with `tools: []`.
+      if (!snapshot.available) {
         this.sendLifecycleError(res, 503, 'CATALOG_UNAVAILABLE', origin, {
-          catalogVersion: 0, catalogHash: snapshot.catalogHash, auth: this.mcpAuthMetadata(entry, 'not-joined'),
+          catalogVersion: snapshot.catalogVersion, catalogHash: snapshot.catalogHash, auth: this.mcpAuthMetadata(entry, 'not-joined'),
         });
         return;
       }
@@ -2406,9 +2607,14 @@ export class WebMcpPeerServer {
         this.sendJson(res, 400, { jsonrpc: '2.0', id: null, error: refusal }, origin);
         return;
       }
-      // MCP request ids must be a string or a number; a message without an id is a notification.
+      // MCP request ids must be a string or a number, and a message without one is a notification:
+      // a null id, or an id on a method of the notification namespace, makes an invalid request.
       if (rpc.id === null) {
         this.sendJson(res, 400, { jsonrpc: '2.0', id: null, error: peerRpcError('INVALID_REQUEST') }, origin);
+        return;
+      }
+      if (rpc.id !== undefined && isNotificationMethod(rpc.method)) {
+        this.sendJson(res, 400, { jsonrpc: '2.0', id: rpc.id, error: peerRpcError('INVALID_REQUEST') }, origin);
         return;
       }
       // What is forwarded is this request re-serialized, which JSON not written by JSON.stringify
@@ -2430,19 +2636,22 @@ export class WebMcpPeerServer {
         return;
       }
       const id = rpc.id ?? null;
-      const metadataOnly = rpc.method === 'initialize'
-        || rpc.method === 'server/discover'
-        || rpc.method === 'tools/list'
-        || rpc.method === 'ping'
-        || rpc.method === 'notifications/initialized';
+      const metadataOnly = RELAY_METADATA_METHODS.has(rpc.method);
       const mcpTicket = entry ? this.resolveBearerClientTicket(entry, req.headers.authorization) : null;
       // Whether the request presented a client token at all: CLIENT_TOKEN_REQUIRED or _INVALID.
       const presentedToken = Boolean(this.bearerToken(req));
       // A pending ticket's approval request reaches each provider socket once (deliverApprovalRequest):
       // this only sends one the attached provider socket has not taken yet.
       if (entry && mcpTicket?.status === 'pending') this.sendApprovalRequest(entry, mcpTicket);
-      const roomState = this.mcpRoomState(entry);
       const snapshot = this.mcpCatalogSnapshot(entry);
+      const ticketStatus = mcpTicket?.status ?? 'not-joined';
+      // Streamable HTTP answers every notification it accepts with 202 and an empty body, whatever
+      // its method. One for a method the relay answers itself (`notifications/initialized`, or an
+      // `initialize`, `ping` or listing without an id) leaves the relay nothing to do.
+      if (metadataOnly && rpc.id === undefined) {
+        this.sendAccepted(res, origin, this.mcpPostMetadataHeaders(snapshot.catalogVersion, snapshot.catalogHash));
+        return;
+      }
       if (!metadataOnly && !entry) {
         this.sendJson(res, 404, { jsonrpc: '2.0', id, error: peerRpcError('ROOM_NOT_FOUND', { roomId }) }, origin);
         return;
@@ -2463,70 +2672,22 @@ export class WebMcpPeerServer {
         }, origin, mcpAuthError.status === 401 ? bearerChallenge(presentedToken) : undefined);
         return;
       }
-      if (snapshot.tools.length === 0 && (rpc.method === 'tools/list' || rpc.method === 'server/discover')) {
+      if (!snapshot.available && (rpc.method === 'tools/list' || rpc.method === 'server/discover')) {
         this.sendJson(res, 503, { jsonrpc: '2.0', id, error: peerRpcError('CATALOG_UNAVAILABLE', { catalogSource: this.deploymentCatalog.source }) }, origin);
         return;
       }
-      if (rpc.method === 'initialize') {
-        const initialize = {
-          jsonrpc: '2.0', id,
-          result: {
-            protocolVersion: this.negotiateProtocolVersion(rpc.params),
-            // This endpoint has no server-to-client stream, so it never sends
-            // notifications/tools/list_changed (catalog changes reach WebSocket clients and surface
-            // here as CATALOG_CHANGED errors).
-            capabilities: { tools: { listChanged: false }, stateless: true },
-            serverInfo: { name: this.serverName, version: this.serverVersion },
-            tools: snapshot.tools,
-            _meta: {
-              roomId,
-              roomEpoch: entry?.roomEpoch ?? 0,
-              roomState,
-              roomValid: Boolean(entry && !entry.rotatedTo && entry.expiresAt > Date.now()),
-              catalogVersion: snapshot.catalogVersion,
-              catalogHash: snapshot.catalogHash,
-              toolCount: snapshot.tools.length,
-              bootstrapCatalog: {
-                tools: snapshot.tools,
-                catalogVersion: snapshot.catalogVersion,
-                catalogHash: snapshot.catalogHash,
-                source: entry?.catalogSource ?? this.deploymentCatalog.source,
-              },
-              auth: this.mcpAuthMetadata(entry, mcpTicket?.status ?? 'not-joined'),
-            },
-          },
-        };
-        this.sendJson(res, 200, initialize, origin,
-          this.mcpPostMetadataHeaders(snapshot.catalogVersion, snapshot.catalogHash));
-        return;
-      }
-      if (rpc.method === 'ping') {
-        this.sendJson(res, 200, { jsonrpc: '2.0', id, result: {} }, origin,
-          this.mcpPostMetadataHeaders(snapshot.catalogVersion, snapshot.catalogHash));
-        return;
-      }
-      if (rpc.method === 'notifications/initialized') {
-        this.sendAccepted(res, origin, this.mcpPostMetadataHeaders(snapshot.catalogVersion, snapshot.catalogHash));
-        return;
-      }
-      if (rpc.method === 'server/discover') {
-        const discover = {
-          jsonrpc: '2.0', id,
-          result: this.mcpDiscoverResult(entry, roomId, this.negotiateProtocolVersion(rpc.params), snapshot, mcpTicket?.status ?? 'not-joined'),
-        };
-        this.sendJson(res, 200, discover, origin,
-          this.mcpPostMetadataHeaders(snapshot.catalogVersion, snapshot.catalogHash));
-        return;
-      }
-      if (rpc.method === 'tools/list') {
-        const list = {
-          jsonrpc: '2.0', id,
-          result: {
-            tools: snapshot.tools,
-            _meta: this.mcpListingMeta(entry, roomId, snapshot, mcpTicket?.status ?? 'not-joined'),
-          },
-        };
-        this.sendJson(res, 200, list, origin,
+      if (metadataOnly) {
+        // This endpoint has no server-to-client stream, so it never sends
+        // notifications/tools/list_changed: catalog changes surface here as CATALOG_CHANGED errors.
+        let result: Record<string, unknown> = {};
+        if (rpc.method === 'initialize') {
+          result = this.mcpInitializeResult(entry, roomId, this.negotiateProtocolVersion(rpc.params), snapshot, ticketStatus, false);
+        } else if (rpc.method === 'server/discover') {
+          result = this.mcpDiscoverResult(entry, roomId, this.negotiateProtocolVersion(rpc.params), snapshot, ticketStatus, false);
+        } else if (rpc.method === 'tools/list') {
+          result = this.mcpToolsListResult(entry, roomId, snapshot, ticketStatus);
+        }
+        this.sendJson(res, 200, { jsonrpc: '2.0', id, result }, origin,
           this.mcpPostMetadataHeaders(snapshot.catalogVersion, snapshot.catalogHash));
         return;
       }
@@ -3042,8 +3203,12 @@ export class WebMcpPeerServer {
                 this.receiveRegister(entry, peer, msg);
                 return;
               }
-              if (msg.type === 'mcp' && this.isRpcResponse(msg.message)) {
+              if (msg.type === 'mcp' && isRpcReplyMessage(msg.message)) {
+                // A reply answers the one request whose id it carries, never every agent: one the
+                // relay cannot match to a request it forwarded (a late one, or one whose id is null
+                // or not a string or a number) is dropped.
                 const rpc = msg.message;
+                if (!this.isRpcResponse(rpc)) return;
                 const pending = entry.mcpPending.get(this.rpcKey(rpc.id));
                 if (!pending) return;
                 this.clearPending(entry, this.rpcKey(rpc.id));
@@ -3056,8 +3221,8 @@ export class WebMcpPeerServer {
                 }
                 return;
               }
-              // Everything else the provider sends goes to every agent of the room, which did not ask
-              // for it: an agent that is behind skips it.
+              // Everything else the provider sends (a notification, a request to the agents) goes to
+              // every agent of the room, which did not ask for it: an agent that is behind skips it.
               this.broadcastToAgents(entry, msg);
             } catch { /* malformed frames ignored */ }
           },
@@ -3133,14 +3298,6 @@ export class WebMcpPeerServer {
               }
               if (msg.type === 'mcp') {
                 const rpc = msg.message;
-                // The request limit, not the stamped envelope's size, decides what is forwarded,
-                // so the same request is accepted or refused whatever its id and session id.
-                if (this.isRpcRequest(rpc) && exceedsRequestLimit(text, msg)) {
-                  if (rpc.id !== undefined && rpc.id !== null) {
-                    this.sendRpcError(peer, rpc.id, REQUEST_TOO_LARGE_ERROR.code, REQUEST_TOO_LARGE_ERROR.message, REQUEST_TOO_LARGE_ERROR.data);
-                  }
-                  return;
-                }
                 if (!this.isRpcRequest(rpc)) {
                   if (this.isRecord(rpc) && this.isOversizedRpcId(rpc.id)) {
                     // Not echoed: the id is what is too large.
@@ -3151,17 +3308,39 @@ export class WebMcpPeerServer {
                   this.sendPeerRpcError(peer, invalidId, 'INVALID_REQUEST');
                   return;
                 }
-                // The same error, with the same data, as an HTTP request of this ticket gets.
+                // As over HTTP, and whatever the ticket's status: a null id is no id (MCP), so it
+                // makes an invalid request, not a notification, and a notification method takes no
+                // id. Neither is forwarded.
+                if (rpc.id === null || (rpc.id !== undefined && isNotificationMethod(rpc.method))) {
+                  this.sendPeerRpcError(peer, rpc.id, 'INVALID_REQUEST');
+                  return;
+                }
+                const id = rpc.id;
+                // The request limit, not the stamped envelope's size, decides what is forwarded,
+                // so the same request is accepted or refused whatever its id and session id.
+                if (exceedsRequestLimit(text, msg)) {
+                  if (id !== undefined) this.sendRpcError(peer, id, REQUEST_TOO_LARGE_ERROR.code, REQUEST_TOO_LARGE_ERROR.message, REQUEST_TOO_LARGE_ERROR.data);
+                  return;
+                }
+                // `ping` is the relay's to answer, for a ticket in any state, as over HTTP: what it
+                // checks is the agent's connection, which ends at the relay.
+                if (rpc.method === 'ping') {
+                  if (id !== undefined) this.replyToAgent(peer, { type: 'mcp', message: { jsonrpc: '2.0', id, result: {} } });
+                  return;
+                }
                 const ticketError = this.clientTicketError(clientTicket);
                 if (ticketError) {
-                  this.sendRpcError(peer, rpc.id, ticketError.code, ticketError.message, this.clientTicketErrorData(entry, roomId, clientTicket));
+                  // Discovery is public: the relay answers the metadata requests of a ticket that
+                  // is not approved, as its HTTP route does. Anything else gets the same error, with
+                  // the same data, as an HTTP request of this ticket gets.
+                  if (id !== undefined && this.answerAgentMetadata(entry, peer, clientTicket, rpc, id)) return;
+                  this.sendRpcError(peer, id, ticketError.code, ticketError.message, this.clientTicketErrorData(entry, roomId, clientTicket));
                   return;
                 }
                 // What reaches the provider says who sent it in the relay's own words: whatever
                 // `from` or `sessionId` the client put on its frame is replaced.
                 const stamp = { from: 'client', sessionId: clientTicket.sessionId };
-                const id = rpc.id;
-                if (id === undefined || id === null) {
+                if (id === undefined) {
                   // A notification has no one to answer, so one the provider cannot take now (its
                   // queue is full, or it is too large) is dropped; a provider socket that is already
                   // closing is still detached, so the next request gets PROVIDER_UNAVAILABLE.

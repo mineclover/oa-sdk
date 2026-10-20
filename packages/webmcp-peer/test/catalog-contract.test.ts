@@ -5,6 +5,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   PeerMcpSession,
+  hashTools,
   joinPeerRoom,
   normalizeTools,
   waitForPeerApproval,
@@ -254,7 +255,7 @@ describe("client catalog frame resilience", () => {
     sessions.push(session);
     await session.connect();
 
-    callbacks.onMessage?.({ type: "register", tools: [tool("a")], catalogVersion: 4, catalogHash: "f".repeat(64) });
+    callbacks.onMessage?.({ type: "register", tools: [tool("a")], catalogVersion: 4, catalogHash: hashTools([tool("a")]) });
     expect(session.catalogVersion).toBe(4);
 
     expect(() => callbacks.onMessage?.({ type: "register", tools: [tool("a"), tool("a")] })).not.toThrow();
