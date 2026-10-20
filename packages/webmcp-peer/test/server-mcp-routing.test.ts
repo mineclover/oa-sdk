@@ -10,11 +10,16 @@
 //     relay's public discovery (initialize, tools/list, server/discover) as an HTTP agent does,
 //   - every WebSocket listing carries the relay's catalog stamp in result._meta,
 //   - only replies count toward an agent socket's 64 pending requests,
-//   - a room whose provider registered an empty catalog lists it on every route.
+//   - a room whose provider registered an empty catalog lists it on every route,
+//   - an agent WebSocket's request id is pending once per socket, a message that is not a request is
+//     refused under its id, and an id JSON.parse reads as Infinity reaches the wire as null,
+//   - the relay checks a WebSocket tools/call as it checks an HTTP one before the provider sees it,
+//   - a forwarded request is timed out after mcpRequestTimeoutMs, at least 1 s, and a value Node's
+//     timer cannot hold times every request out at once.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { joinPeerRoom, waitForPeerApproval } from "../src/client.js";
 import { MCP_INITIALIZE_PROTOCOL_VERSIONS, WebMcpPeerClient } from "../src/provider.js";
-import type { PeerSocket, WebMcpPeerServer } from "../src/server.js";
+import type { PeerSocket, WebMcpPeerServer, WebMcpPeerServerOptions } from "../src/server.js";
 import {
   createRoom,
   flush,
@@ -98,14 +103,14 @@ async function providedRoom(): Promise<{ relay: Relay; roomId: string; clientTok
 }
 
 /** A relay room with a recording provider socket and a joined agent socket. */
-async function recordedRoom(options: { approvalRequired?: boolean; tools?: unknown[] } = {}): Promise<{
+async function recordedRoom(options: { approvalRequired?: boolean; tools?: unknown[]; relay?: WebMcpPeerServerOptions } = {}): Promise<{
   relay: Relay;
   room: RoomDescriptor;
   provider: RecordingSocket;
   joined: JoinedSession;
   agent: RecordingSocket;
 }> {
-  const relay = await startRelay(servers, { deploymentCatalog: { tools: options.tools ?? [tool("echo")] } });
+  const relay = await startRelay(servers, { deploymentCatalog: { tools: options.tools ?? [tool("echo")] }, ...options.relay });
   const room = await createRoom(relay.base, { approvalRequired: options.approvalRequired ?? false });
   const provider = await openProvider(relay, room, sockets);
   const joined = await joinRoom(relay.base, room);
@@ -181,6 +186,136 @@ describe("request ids", { timeout: 20_000 }, () => {
     expect(agent.frames.filter((frame) => frame.type === "mcp")).toEqual([
       { type: "mcp", message: { jsonrpc: "2.0", method: "notifications/message", params: { level: "info" } } },
     ]);
+  });
+
+  it("refuses a WebSocket request whose id is still pending on its socket, and forwards the same id over HTTP under a wire id", async () => {
+    const { relay, room, provider, joined, agent } = await recordedRoom();
+    const call = { method: "tools/call", params: { name: "echo", arguments: {} } };
+    agent.send({ type: "mcp", message: { jsonrpc: "2.0", id: "dup", ...call } });
+    await provider.waitFor((frame) => frame.type === "mcp" && frame.message?.id === "dup", "the first call");
+
+    // The same socket asks again before the provider answered: refused, and not forwarded.
+    expect((await ask(agent, "dup", call)).message).toEqual({ jsonrpc: "2.0", id: "dup", error: { code: -32600, message: "DUPLICATE_REQUEST_ID" } });
+    // An HTTP request is answered on its own response, so the same id is forwarded under a wire id.
+    const http = postMcp(relay, room.id, { jsonrpc: "2.0", id: "dup", ...call }, joined.clientToken);
+    const rewritten = await provider.waitFor((frame) => frame.type === "mcp" && /^framebook:\d+:string:dup$/.test(String(frame.message?.id)), "the HTTP call");
+    provider.send({ type: "mcp", message: { jsonrpc: "2.0", id: rewritten.message.id, result: { content: [], isError: false } } });
+    expect(await http).toEqual({ status: 200, body: { jsonrpc: "2.0", id: "dup", result: { content: [], isError: false } } });
+    expect(forwarded(provider).map((frame) => frame.message.id)).toEqual(["dup", rewritten.message.id]);
+
+    // Once the provider answered it, the socket may send the id again.
+    provider.send({ type: "mcp", message: { jsonrpc: "2.0", id: "dup", result: { content: [], isError: false } } });
+    await agent.waitFor((frame) => frame.type === "mcp" && frame.message?.id === "dup" && frame.message.result, "the first call's answer");
+    agent.send({ type: "mcp", message: { jsonrpc: "2.0", id: "dup", ...call } });
+    await until(() => forwarded(provider).length, (count) => count === 3, "the id forwarded again");
+  });
+
+  it("answers a WebSocket message that is not a request INVALID_REQUEST under its id, and nothing without one", async () => {
+    const { provider, agent } = await recordedRoom();
+    agent.send({ type: "mcp", message: { jsonrpc: "1.0", id: "version", method: "ping" } });
+    agent.send({ type: "mcp", message: { jsonrpc: "2.0", id: 5 } });
+    agent.send({ type: "mcp", message: { jsonrpc: "2.0", method: 7 } });
+    agent.send({ type: "mcp", message: { jsonrpc: "2.0", id: { not: "an id" }, method: "ping" } });
+    agent.send({ type: "mcp", message: "ping" });
+    // The relay answers in order, so the reply to this ping comes after every reply to the messages above.
+    await ask(agent, "after", { method: "ping" });
+
+    expect(agent.frames.filter((frame) => frame.type === "mcp").map((frame) => frame.message)).toEqual([
+      { jsonrpc: "2.0", id: "version", error: INVALID_REQUEST },
+      { jsonrpc: "2.0", id: 5, error: INVALID_REQUEST },
+      { jsonrpc: "2.0", id: "after", result: {} },
+    ]);
+    await flush(provider, "provider socket processed");
+    expect(forwarded(provider)).toEqual([]);
+  });
+
+  it("forwards a request whose id JSON.parse reads as Infinity under id null, and times it out under id null", async () => {
+    const call = (id: string) => `{"jsonrpc":"2.0","id":${id},"method":"tools/call","params":{"name":"echo","arguments":{}}}`;
+    // One room per transport: the two requests would share the pending key number:Infinity.
+    const [ws, http] = await Promise.all([recordedRoom({ relay: { mcpRequestTimeoutMs: 1000 } }), recordedRoom({ relay: { mcpRequestTimeoutMs: 1000 } })]);
+
+    ws.agent.send(`{"type":"mcp","message":${call("1e400")}}`);
+    const posted = fetch(`${http.relay.base}/p/${http.room.id}/mcp`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${http.joined.clientToken}` },
+      body: call("1e400"),
+    });
+    for (const provider of [ws.provider, http.provider]) {
+      const request = await provider.waitFor((frame) => frame.type === "mcp", "the forwarded call");
+      expect(request.message).toEqual({ jsonrpc: "2.0", id: null, method: "tools/call", params: { name: "echo", arguments: {} } });
+    }
+    const timedOut = { jsonrpc: "2.0", id: null, error: { code: -32001, message: "MCP_REQUEST_TIMEOUT" } };
+    expect((await ws.agent.waitFor((frame) => frame.type === "mcp" && frame.message?.error, "the timeout")).message).toEqual(timedOut);
+    const response = await posted;
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(timedOut);
+  });
+});
+
+describe("the relay's checks of a WebSocket tools/call", { timeout: 20_000 }, () => {
+  it("refuses invalid params, a catalog stamp that is not the room's and an unknown tool before the provider sees them", async () => {
+    const { relay, room, provider, agent } = await recordedRoom();
+    const entry = relay.server.rooms.get(room.id)!;
+    const current = { catalogVersion: entry.catalogVersion, catalogHash: entry.catalogHash };
+
+    for (const params of [{}, { name: "" }, { name: 7 }]) {
+      expect((await ask(agent, `params-${JSON.stringify(params)}`, { method: "tools/call", params })).message.error).toEqual({
+        code: -32602,
+        message: "tools/call params are invalid",
+      });
+    }
+    for (const stamp of [{ catalogVersion: current.catalogVersion + 1 }, { catalogHash: "0".repeat(64) }]) {
+      const reply = await ask(agent, `stamp-${JSON.stringify(stamp)}`, { method: "tools/call", params: { name: "echo", arguments: {}, _meta: stamp } });
+      expect(reply.message.error).toEqual({ code: -32010, message: "CATALOG_CHANGED", data: current });
+    }
+    expect((await ask(agent, "unknown", { method: "tools/call", params: { name: "unknown", arguments: {} } })).message.error).toEqual({
+      code: -32602,
+      message: "TOOL_NOT_FOUND",
+    });
+    await flush(provider, "provider socket processed");
+    expect(forwarded(provider)).toEqual([]);
+
+    // The room's own stamp passes, and a notification is forwarded without these checks (the
+    // provider runs no message without an id).
+    agent.send({ type: "mcp", message: { jsonrpc: "2.0", id: "current", method: "tools/call", params: { name: "echo", arguments: {}, _meta: current } } });
+    agent.send({ type: "mcp", message: { jsonrpc: "2.0", method: "tools/call", params: { name: "unknown" } } });
+    await until(() => forwarded(provider).length, (count) => count === 2, "the calls forwarded");
+    expect(forwarded(provider).map((frame) => [frame.message.id, frame.message.params.name])).toEqual([["current", "echo"], [undefined, "unknown"]]);
+  });
+});
+
+describe("the timeout of a forwarded request", { timeout: 20_000 }, () => {
+  it("answers a request the provider does not answer within mcpRequestTimeoutMs, at least 1000 ms, and drops the late answer", async () => {
+    // 200 ms is under the floor, so the relay waits 1000 ms.
+    const { relay, room, provider, joined, agent } = await recordedRoom({ relay: { mcpRequestTimeoutMs: 200 } });
+    const call = { method: "tools/call", params: { name: "echo", arguments: {} } };
+    const timedOut = { code: -32001, message: "MCP_REQUEST_TIMEOUT" };
+    const started = Date.now();
+    agent.send({ type: "mcp", message: { jsonrpc: "2.0", id: "ws", ...call } });
+    const http = postMcp(relay, room.id, { jsonrpc: "2.0", id: "http", ...call }, joined.clientToken);
+    await until(() => forwarded(provider).length, (count) => count === 2, "both calls forwarded");
+
+    const wsReply = await agent.waitFor((frame) => frame.type === "mcp" && frame.message?.id === "ws", "the WebSocket timeout");
+    expect(wsReply.message).toEqual({ jsonrpc: "2.0", id: "ws", error: timedOut });
+    expect(await http).toEqual({ status: 200, body: { jsonrpc: "2.0", id: "http", error: timedOut } });
+    expect(Date.now() - started).toBeGreaterThanOrEqual(900);
+
+    provider.send({ type: "mcp", message: { jsonrpc: "2.0", id: "ws", result: { content: [], isError: false } } });
+    await flush(provider, "the late answer processed");
+    await ask(agent, "after", { method: "ping" });
+    expect(agent.frames.filter((frame) => frame.type === "mcp" && frame.message?.id === "ws")).toEqual([wsReply]);
+  });
+
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, 2 ** 31])("times every forwarded request out at once for mcpRequestTimeoutMs %s, which Node's timer runs after 1 ms", async (mcpRequestTimeoutMs) => {
+    // Node reports a delay it cannot hold with a process warning; it is the case under test.
+    vi.spyOn(process, "emitWarning").mockImplementation(() => {});
+    const { provider, agent } = await recordedRoom({ relay: { mcpRequestTimeoutMs } });
+    const started = Date.now();
+    agent.send({ type: "mcp", message: { jsonrpc: "2.0", id: "fast", method: "tools/call", params: { name: "echo", arguments: {} } } });
+    const reply = await agent.waitFor((frame) => frame.type === "mcp" && frame.message?.id === "fast", "the timeout");
+    expect(reply.message.error).toEqual({ code: -32001, message: "MCP_REQUEST_TIMEOUT" });
+    expect(Date.now() - started).toBeLessThan(900);
+    expect(forwarded(provider)).toHaveLength(1);
   });
 });
 

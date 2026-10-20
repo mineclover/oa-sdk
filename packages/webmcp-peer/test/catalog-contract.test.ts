@@ -1,6 +1,8 @@
 // Regression tests for the tool-catalog contract shared by provider, relay and client:
 //   - the provider publishes one descriptor shape on every channel (no version flapping),
-//   - the relay only accepts and announces catalogs its clients can validate,
+//   - the relay only accepts and announces catalogs its clients can validate, telling every agent the
+//     catalog changed before it announces it, and hashes a catalog it received with a tool's own
+//     __proto__ key as the client does,
 //   - a client never crashes on a catalog frame it cannot validate.
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -201,6 +203,46 @@ describe("relay register validation", () => {
 
     expect(session.catalogHash).toBe(server.catalogHash);
     expect(session.cachedTools.map((entry) => entry.name)).toEqual(["a", "b"]);
+  });
+
+  it("tells every agent the catalog changed before it announces the catalog, under the relay's version and hash", async () => {
+    const serverUrl = await startServer();
+    const { room, register } = await openRoom(serverUrl);
+    const joined = await joinPeerRoom({ serverUrl, roomId: room.id, inviteToken: room.inviteToken });
+    const agent = new WebSocket(`${serverUrl.replace(/^http/, "ws")}/p/${room.id}/client`, ["webmcp-peer.v1", `ticket.${joined.clientToken}`]);
+    sockets.push(agent);
+    const received: Array<Record<string, any>> = [];
+    agent.onmessage = (event) => received.push(JSON.parse(String(event.data)));
+    await until(() => received.some((frame) => frame.type === "ready"), Boolean, "agent ready");
+
+    register([tool("a")]);
+    await until(() => received.some((frame) => frame.type === "register"), Boolean, "the announcement");
+    const catalog = await roomCatalog(serverUrl, room.id);
+    const told = received.filter((frame) => frame.type === "register" || frame.message?.method === "notifications/tools/list_changed");
+    expect(told).toEqual([
+      { type: "mcp", message: { jsonrpc: "2.0", method: "notifications/tools/list_changed", params: { catalogVersion: 1, catalogHash: catalog.catalogHash } } },
+      { type: "register", tools: [tool("a")], catalogVersion: 1, catalogHash: catalog.catalogHash },
+    ]);
+  });
+
+  it("hashes a catalog that came with a tool's own __proto__ key as the client hashes what it lists", async () => {
+    const serverUrl = await startServer();
+    const { room, register } = await openRoom(serverUrl);
+    // JSON.parse makes "__proto__" an own key, as the relay's parse of a register frame does.
+    const withOwnKey = JSON.parse('[{"name":"a","description":"a tool","inputSchema":{"type":"object","properties":{"__proto__":{"type":"string"}}}}]') as unknown[];
+    register(withOwnKey);
+    const catalog = await until(() => roomCatalog(serverUrl, room.id), (listed) => listed.catalogVersion === 1, "register");
+
+    expect(Object.hasOwn(catalog.tools[0]!.inputSchema as object, "properties")).toBe(true);
+    expect(Object.keys((catalog.tools[0]!.inputSchema as { properties: object }).properties)).toEqual(["__proto__"]);
+    expect(catalog.catalogHash).toBe(hashTools(catalog.tools as never));
+    expect(catalog.catalogHash).not.toBe(hashTools([tool("a", { description: "a tool" })] as never));
+    // A client takes the catalog: the hash it computes is the relay's.
+    const joined = await joinPeerRoom({ serverUrl, roomId: room.id, inviteToken: room.inviteToken });
+    const session = new PeerMcpSession({ serverUrl, roomId: room.id, sessionId: joined.sessionId, clientToken: joined.clientToken });
+    sessions.push(session);
+    expect((await session.listTools()).map((entry) => entry.name)).toEqual(["a"]);
+    expect(session.catalogHash).toBe(catalog.catalogHash);
   });
 
   it("refuses exactly the catalogs the client refuses, and neither side trims a tool name", () => {

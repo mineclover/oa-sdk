@@ -2,7 +2,8 @@
 // the relay restores after a lease reclaim, the auto-reconnect backoff loop, the close codes it
 // reconnects after (1001, 1006, 1013) and the final ones it stops at (1000, 4001, 4002), a lease the
 // relay refuses (auto-reconnect stops instead of opening a new room), the write consent
-// auto-reconnect restores, the rotate request, and relay catalog rejections.
+// auto-reconnect restores, the rotate request, and relay catalog rejections; the room descriptors it
+// takes, and its timers: the 25 s keepalive, the 10 s wait for ready, and the room's expiry.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WEBMCP_CLOSE_CODES, WEBMCP_SUBPROTOCOL } from "../src/config.js";
 import { WebMcpPeerClient, type WebMcpHostAdapter } from "../src/provider.js";
@@ -479,5 +480,121 @@ describe("pending approvals re-sent right after ready", () => {
     const host = provider();
     await host.connect({ serverUrl: relay.base, alias: "early" });
     expect(host.getSession()).toMatchObject({ approvalState: "pending", approvalRequestId: "approval-early" });
+  });
+});
+
+describe("room descriptors", () => {
+  /**
+   * The relay's fetch with every 2xx room descriptor (`POST /p`, reclaim) changed by `change`: its
+   * members merged in, and a member it sets to undefined removed.
+   */
+  function rewriteDescriptors(relay: FakeRelay, change: Record<string, unknown>): typeof fetch {
+    return (async (input: string | URL | Request, init?: RequestInit) => {
+      const response = await relay.fetch(input, init);
+      const url = String(input);
+      if (!response.ok || !(url === `${relay.base}/p` || url.endsWith("/reclaim"))) return response;
+      const descriptor: Record<string, unknown> = { ...((await response.json()) as Record<string, unknown>), ...change };
+      for (const [key, value] of Object.entries(change)) if (value === undefined) delete descriptor[key];
+      return Response.json(descriptor, { status: response.status });
+    }) as typeof fetch;
+  }
+
+  it.each([
+    ["an id outside the room id grammar", { id: "abc.def" }],
+    ["an id of 129 characters", { id: "a".repeat(129) }],
+    ["an empty providerToken", { providerToken: "" }],
+    ["no descriptorUrl", { descriptorUrl: undefined }],
+    ["an inviteToken that is not a string", { inviteToken: 7 }],
+  ])("refuses a room descriptor with %s as INVALID_ROOM_DESCRIPTOR, opening no socket", async (_label, change) => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const relay = new FakeRelay();
+    installRelay(relay);
+    vi.stubGlobal("fetch", rewriteDescriptors(relay, change));
+    const host = provider();
+
+    await expect(host.connect({ serverUrl: relay.base, alias: "descriptor" })).rejects.toThrow("INVALID_ROOM_DESCRIPTOR");
+    expect(relay.sockets).toHaveLength(0);
+    expect(host.getSession()).toMatchObject({ state: "error", error: "INVALID_ROOM_DESCRIPTOR" });
+  });
+
+  it("refuses a reclaimed room descriptor it cannot use as INVALID_RECLAIMED_ROOM_DESCRIPTOR", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const relay = new FakeRelay();
+    installRelay(relay, { browser: true });
+    const host = provider();
+    await host.connect({ serverUrl: relay.base, alias: "reclaimed-descriptor" });
+    host.disconnect();
+    vi.stubGlobal("fetch", rewriteDescriptors(relay, { providerToken: undefined }));
+
+    await expect(host.connect({ serverUrl: relay.base, reclaimLease: true })).rejects.toThrow("INVALID_RECLAIMED_ROOM_DESCRIPTOR");
+    expect(relay.fetchCalls.at(-1)?.url).toBe(`${relay.base}/p/${relay.roomId}/reclaim`);
+    expect(relay.sockets).toHaveLength(1);
+  });
+
+  it("drops the malformed optional members of a descriptor, and assumes a room of 30 minutes without expiresAt", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const relay = new FakeRelay();
+    installRelay(relay);
+    vi.stubGlobal("fetch", rewriteDescriptors(relay, { roomEpoch: -1, expiresAt: "in two hours", inviteToken: "a b" }));
+    const host = provider();
+    const before = Date.now();
+
+    // The invitation URL is the descriptor URL and the invite token as they came.
+    expect(await host.connect({ serverUrl: relay.base, alias: "optional" })).toBe(`${relay.base}/p/${relay.roomId}/mcp#invite=a b`);
+    const session = host.getSession();
+    expect(session.roomEpoch).toBeUndefined();
+    expect(session.expiresAt).toBeGreaterThanOrEqual(before + 30 * 60_000);
+    expect(session.expiresAt).toBeLessThanOrEqual(Date.now() + 30 * 60_000);
+  });
+});
+
+describe("the provider's timers", () => {
+  it("sends a keepalive ping every 25 s while it is attached", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const relay = new FakeRelay();
+    installRelay(relay);
+    const host = provider();
+    await host.connect({ serverUrl: relay.base, alias: "keepalive" });
+    const pings = () => relay.latest.sent.filter((frame) => frame.type === "ping");
+
+    await vi.advanceTimersByTimeAsync(24_999);
+    expect(pings()).toEqual([]);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(pings()).toEqual([{ type: "ping", timestamp: expect.any(Number) }]);
+    await vi.advanceTimersByTimeAsync(25_000);
+    expect(pings()).toHaveLength(2);
+  });
+
+  it("gives up on a provider socket that sends no ready within 10 s", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const relay = new FakeRelay();
+    relay.sendsReady = false;
+    installRelay(relay);
+    const host = provider();
+    const outcome = host.connect({ serverUrl: relay.base, alias: "silent" }).then(() => "connected", (error: Error) => error.message);
+
+    await vi.advanceTimersByTimeAsync(9_999);
+    expect(await Promise.race([outcome, flushMicrotasks().then(() => "waiting")])).toBe("waiting");
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await outcome).toBe("Signaling connection timeout");
+  });
+
+  it("ends the session as SESSION_EXPIRED once the room's expiresAt passes, and does not reconnect", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const relay = new FakeRelay();
+    installRelay(relay, { browser: true });
+    const host = provider();
+    await host.connect({ serverUrl: relay.base, alias: "expiry", autoReconnect: true });
+    const left = host.getSession().expiresAt! - Date.now();
+
+    await vi.advanceTimersByTimeAsync(left - 1000);
+    expect(host.getSession().approvalState).toBe("none");
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(host.getSession()).toMatchObject({ approvalState: "expired", state: "disconnected", error: "SESSION_EXPIRED" });
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(relay.sockets).toHaveLength(1);
   });
 });

@@ -1,9 +1,13 @@
 // Regression tests for the provider's tools/call handling: the shared run of untraced calls,
-// the CallToolResult shape agents receive, the AI run limit, and CommitReceipt gating.
+// the CallToolResult shape agents receive, the AI run limit, CommitReceipt gating, and the AI run
+// ledger, which answers a durable request again without calling the host and holds back one whose
+// outcome is unknown.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AiRunController,
+  AiRunLedger,
   AiRunLimitExceededError,
+  InMemoryAiRunLedgerStore,
   MCP_INITIALIZE_PROTOCOL_VERSIONS,
   MCP_PROTOCOL_VERSION,
   WebMcpPeerClient,
@@ -430,5 +434,44 @@ describe("CommitReceipt gating", () => {
     expect(reply.result?.isError).toBe(false);
     expect(provider.getAiRun("task-write")?.operationIds).toEqual([]);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("invalid CommitReceipt"), expect.anything());
+  });
+});
+
+describe("the AI run ledger", () => {
+  const durable: CommitReceipt = {
+    status: "durable",
+    requestId: "request-1",
+    documentId: "d1",
+    transactionId: "t1",
+    committedAt: "2026-10-18T00:00:00.000Z",
+  };
+
+  it("answers a call whose request it holds as durable with the recorded receipt, without calling the host again", async () => {
+    const invoke = vi.fn(async () => ({ ok: true, receipt: durable }));
+    const { provider, socket } = await approvedProvider(invoke);
+    provider.setAiRunLedger(new InMemoryAiRunLedgerStore());
+    const args = { context: { requestId: "request-1" } };
+
+    expect((await callTool(socket, 1, "write", { runId: "task-ledger", args })).result?.isError).toBe(false);
+    const replayed = await callTool(socket, 2, "write", { runId: "task-ledger", args });
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(replayed.result).toMatchObject({ isError: false, structuredContent: { ok: true, receipt: durable, data: { replayed: true } } });
+  });
+
+  it("refuses a call whose request it holds as outcome-unknown with RECONCILIATION_REQUIRED, without calling the host", async () => {
+    const invoke = vi.fn(async () => ({ ok: true }));
+    const { provider, socket } = await approvedProvider(invoke);
+    const ledger = new AiRunLedger(new InMemoryAiRunLedgerStore());
+    await ledger.recordReceipt({
+      runId: "task-ledger",
+      actionId: "write",
+      stepIndex: 0,
+      receipt: { status: "outcome-unknown", requestId: "request-2", documentId: "d1", message: "the commit was not confirmed" },
+    });
+    provider.setAiRunLedger(ledger);
+
+    const reply = await callTool(socket, 1, "write", { runId: "task-ledger", args: { context: { requestId: "request-2" } } });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(reply.result).toMatchObject({ isError: true, structuredContent: { ok: false, error: { code: "RECONCILIATION_REQUIRED" } } });
   });
 });

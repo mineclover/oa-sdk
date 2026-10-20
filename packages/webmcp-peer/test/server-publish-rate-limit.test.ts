@@ -1,5 +1,6 @@
 // Regression tests: publish-key guessing must be throttled no matter which wrong key a caller
-// sends, the stores must stay bounded, and the File store must validate its persisted state.
+// sends, the stores must stay bounded, and the File store must validate its persisted state. A
+// configured publishRateLimitMax is floored, and X-RateLimit-* only go with 201, 429 and 503.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -58,6 +59,40 @@ describe("publish rate limiting", () => {
     expect(await publish(relay.base, "correct-horse")).toBe(201);
     // Failed attempts share one bucket per address; the valid key has its own.
     expect(store.keys.size).toBe(2);
+  });
+
+  it("floors a configured publishRateLimitMax, so one under 1 turns the limit off, and names the quota only on 201, 429 and 503", async () => {
+    const post = (base: string, body: Record<string, unknown>, headers: Record<string, string> = {}) =>
+      fetch(`${base}/p`, { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer key", ...headers }, body: JSON.stringify(body) });
+    const quota = (response: Response) => [response.status, response.headers.get("x-ratelimit-limit"), response.headers.get("x-ratelimit-remaining")];
+
+    // 2.9 is 2: the third creation of the window is refused.
+    const floored = await startRelay(servers, { publishKey: "key", publishRateLimitMax: 2.9 });
+    const created: unknown[] = [];
+    for (let attempt = 0; attempt < 3; attempt++) created.push(quota(await post(floored.base, { approvalRequired: false })));
+    expect(created).toEqual([[201, "2", "1"], [201, "2", "0"], [429, "2", "0"]]);
+
+    // 0.5 is 0: no limit even with a publish key, and no quota headers.
+    const unlimited = await startRelay(servers, { publishKey: "key", publishRateLimitMax: 0.5 });
+    const statuses = new Set<unknown>();
+    for (let attempt = 0; attempt < 31; attempt++) statuses.add(JSON.stringify(quota(await post(unlimited.base, { approvalRequired: false }))));
+    expect([...statuses]).toEqual([JSON.stringify([201, null, null])]);
+
+    // A creation that spent a unit and then was refused for its key, body, owner or capabilities names no quota.
+    const limited = await startRelay(servers, { publishKey: "key", publishRateLimitMax: 10 });
+    const refused = [
+      await post(limited.base, {}, { authorization: "Bearer wrong" }),
+      await fetch(`${limited.base}/p`, { method: "POST", headers: { authorization: "Bearer key" }, body: "[]" }),
+      await post(limited.base, {}, { "x-framebook-owner": "someone-else" }),
+      await post(limited.base, { capabilities: ["mcp-unknown"] }),
+    ];
+    expect(refused.map(quota)).toEqual([[401, null, null], [400, null, null], [403, null, null], [400, null, null]]);
+    expect(await Promise.all(refused.map(async (response) => ((await response.json()) as { error: string }).error))).toEqual([
+      "PUBLISH_KEY_INVALID",
+      "INVALID_JSON_BODY",
+      "PUBLISH_OWNER_BINDING_INVALID",
+      "CAPABILITIES_INVALID",
+    ]);
   });
 
   it("bounds the in-memory store and evicts the oldest windows first", () => {

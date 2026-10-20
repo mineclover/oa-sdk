@@ -2,7 +2,7 @@
 // implements only on the provider (no package agent offers yet):
 //   - an offer is answered under its own requestId, which the DataChannel's grant and the relay
 //     release repeat, so the relay routes both to the agent socket that offered; an offer without a
-//     requestId is not answered;
+//     requestId is not answered, and the answer waits at most 2 s for ICE gathering;
 //   - the framing is the same in both directions: the provider sends a frame in at most 512 chunks
 //     of 2048 UTF-16 code units, the most an agent of the same framing assembles, replaces a reply
 //     too large for that with RESULT_TOO_LARGE, and does not send any other frame that large.
@@ -31,6 +31,7 @@ const providers: WebMcpPeerClient[] = [];
 afterEach(() => {
   for (const provider of providers.splice(0)) provider.disconnect();
   FakePeerConnection.instances.length = 0;
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -138,6 +139,20 @@ describe("an offer the relay forwards", () => {
     expect(FakePeerConnection.instances.some((peerConnection) => peerConnection.remoteDescription !== null)).toBe(false);
 
     expect(await offer(socket, "offer-8")).toMatchObject({ requestId: "offer-8" });
+  });
+
+  it("waits at most 2000 ms for ICE gathering before it answers", async () => {
+    const { socket } = await approvedProvider([readTool]);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    // The peer connection the relay's approval prepared never finishes gathering.
+    FakePeerConnection.instances.at(-1)!.iceGatheringState = "gathering";
+    socket.deliver({ type: "offer", sdp: "v=0 slow", requestId: "slow", ...relayStamp() });
+    const answers = () => socket.sent.filter((frame) => frame.type === "answer");
+
+    await vi.advanceTimersByTimeAsync(1999);
+    expect(answers()).toEqual([]);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(answers()).toEqual([{ type: "answer", requestId: "slow", sdp: "answer to v=0 slow" }]);
   });
 });
 

@@ -2,7 +2,8 @@
 // relay-authored control frames into the provider, nor a provider into its agents; only approved
 // clients relay allow-listed signaling (stamped by the relay), a provider reaches only the agents
 // it serves, its answer to an offer goes to the socket that offered, an agent socket has one offer
-// waiting at a time, and frames that are not typed JSON objects are dropped.
+// waiting at a time, and frames that are not typed JSON objects are dropped. A provider frame the
+// relay passes on is measured as the relay writes it again, not as it arrived.
 import { afterEach, describe, expect, it } from "vitest";
 import { PeerMcpSession } from "../src/client.js";
 import type { WebMcpPeerServer } from "../src/server.js";
@@ -180,6 +181,29 @@ describe("provider to agent frame relay", () => {
     provider.send(notification("once approved"));
     await client.waitFor((frame) => frame.message?.params?.data === "once approved", "the notification once approved");
     expect(client.frames.filter((frame) => frame.type === "mcp").map((frame) => frame.message.params.data)).toEqual(["once approved"]);
+  });
+
+  it("measures a provider notification as it writes it again, so one that grows past the message limit reaches no agent", async () => {
+    const relay = await startRelay(servers);
+    const room = await createRoom(relay.base, { approvalRequired: false });
+    const provider = await openProvider(relay, room, sockets);
+    const client = await openClient(relay, room, await joinRoom(relay.base, room), sockets);
+    await client.waitFor((frame) => frame.type === "ready", "client ready");
+
+    // 15000 numbers written as 1e20 are 75 KB as sent and 330 KB once JSON.stringify writes them out.
+    const numbers = Array.from({ length: 15_000 }, () => "1e20").join(",");
+    const grown = `{"type":"mcp","message":{"jsonrpc":"2.0","method":"notifications/message","params":{"level":"info","data":[${numbers}]}}}`;
+    expect(grown.length).toBeLessThan(256 * 1024);
+    expect(JSON.stringify(JSON.parse(grown)).length).toBeGreaterThan(256 * 1024);
+    provider.send(grown);
+    provider.send(notification("after"));
+
+    await client.waitFor((frame) => frame.message?.params?.data === "after", "the notification after it");
+    expect(client.frames.filter((frame) => frame.type === "mcp").map((frame) => frame.message.params.data)).toEqual(["after"]);
+    // Neither socket is told or closed.
+    await flush(provider, "provider socket still open");
+    await flush(client, "client socket still open");
+    expect(provider.frames.map((frame) => frame.type).filter((type) => type !== "pong")).toEqual(["ready"]);
   });
 
   it("sends the answer and the release of an offer to the agent socket that offered, and drops one that names no offer", async () => {

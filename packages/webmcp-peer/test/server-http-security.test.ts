@@ -12,7 +12,9 @@
 //   - CORS exposes the headers the relay sends for its clients, a preflight names the methods the
 //     routes take, every response names Origin in Vary and the descriptor also Accept;
 //   - a route asked with a method it does not take is 405 with its Allow, /health tells live rooms
-//     from retained ones, and conditional GETs answer 304 with the route's cache headers.
+//     from retained ones, and conditional GETs answer 304 with the route's cache headers;
+//   - a route is matched on the request target as a WHATWG URL normalizes it, and node:http's
+//     header limit stays in place for requests and upgrades alike.
 import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
@@ -466,5 +468,48 @@ describe("methods, health and conditional GETs", () => {
     const after = await fetch(`${relay.base}/p/${room.id}/mcp`, { headers: { "if-none-match": before } });
     expect(after.status).toBe(200);
     expect(after.headers.get("etag")).not.toBe(before);
+  });
+});
+
+describe("the request target and its headers", () => {
+  it("matches a route on the path a WHATWG URL makes of the request target", async () => {
+    const relay = await startRelay(servers);
+    const room = await createRoom(relay.base);
+    const descriptorOf = async (target: string) => {
+      const response = await request(relay, { path: target });
+      return { status: response.status, roomId: (JSON.parse(response.body) as { roomId?: string }).roomId };
+    };
+
+    // Dot segments, an encoded one included, are removed before matching, and the query is ignored.
+    expect(await descriptorOf(`/p/other/../${room.id}/mcp`)).toEqual({ status: 200, roomId: room.id });
+    expect(await descriptorOf(`/p/other/%2e%2e/${room.id}/mcp?x=1`)).toEqual({ status: 200, roomId: room.id });
+    // A backslash is a path separator.
+    expect((await request(relay, { path: "/x\\..\\health" })).status).toBe(200);
+    // A target that opens with // names an authority, which leaves the path: this creates a room.
+    expect((await request(relay, { method: "POST", path: "//x/p" })).status).toBe(201);
+    expect((await request(relay, { method: "POST", path: "/p/../p" })).status).toBe(201);
+    // A target the URL parser cannot read fails the request.
+    const unreadable = await request(relay, { path: "//" });
+    expect([unreadable.status, JSON.parse(unreadable.body)]).toEqual([500, { error: "PEER_REQUEST_FAILED" }]);
+  });
+
+  it("leaves node:http's 16 KiB header limit in place, for an upgrade as for a request", async () => {
+    const relay = await startRelay(servers);
+    const room = await createRoom(relay.base);
+    const large = { "x-large": "a".repeat(17 * 1024) };
+    expect((await request(relay, { path: "/health", headers: large })).status).toBe(431);
+    const upgrade = await request(relay, {
+      path: `/p/${room.id}/provider`,
+      headers: {
+        ...large,
+        connection: "Upgrade",
+        upgrade: "websocket",
+        "sec-websocket-key": "dGhlIHNhbXBsZSBub25jZQ==",
+        "sec-websocket-version": "13",
+        "sec-websocket-protocol": `webmcp-peer.v1, ticket.${room.providerToken}`,
+      },
+    });
+    expect(upgrade.status).toBe(431);
+    expect((await request(relay, { path: "/health", headers: { "x-small": "a".repeat(8 * 1024) } })).status).toBe(200);
   });
 });

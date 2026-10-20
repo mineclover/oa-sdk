@@ -1,14 +1,19 @@
 // Regression tests for room TTL bounds, room expiry and retention, idempotent session revocation
-// responses, the room id grammar of the routes, and how every route reads its Authorization header.
+// responses, the room id grammar of the routes, and how every route reads its Authorization header;
+// the formats of the ids and tokens the relay issues, and the expiry sweep, from its timer and at the
+// start of every HTTP request.
 import { createHash } from "node:crypto";
 import { IncomingMessage } from "node:http";
 import { Socket } from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WebMcpPeerServer, type RoomEntry } from "../src/server.js";
-import { createRoom, joinRoom, postJson, startRelay, type JoinedSession, type RoomDescriptor } from "./server-test-helpers.js";
+import { createRoom, joinRoom, openClient, postJson, startRelay, type JoinedSession, type RoomDescriptor } from "./server-test-helpers.js";
 
 const servers: WebMcpPeerServer[] = [];
+const sockets: WebSocket[] = [];
 afterEach(async () => {
+  vi.restoreAllMocks();
+  for (const socket of sockets.splice(0)) socket.close();
   for (const server of servers.splice(0)) await server.close();
 });
 
@@ -275,5 +280,75 @@ describe("Authorization", () => {
     const entry = relay.server.rooms.get(room.id)!;
     expect([...entry.clientTickets.keys()]).toEqual([createHash("sha256").update(joined.clientToken, "utf8").digest("hex")]);
     expect(JSON.stringify([...entry.clientTickets])).not.toContain(joined.clientToken);
+  });
+});
+
+describe("identifiers and tokens", () => {
+  it("issues room ids, tokens, session ids and approval request ids of the protocol's formats, fresh each time", async () => {
+    const relay = await startRelay(servers);
+    const hex = (bytes: number) => new RegExp(`^[0-9a-f]{${bytes * 2}}$`);
+    const rooms = [await createRoom(relay.base, { approvalRequired: true }), await createRoom(relay.base, { approvalRequired: true })];
+    const issued: string[] = [];
+    for (const room of rooms) {
+      const { reconnectToken } = room as RoomDescriptor & { reconnectToken: string };
+      expect(room.id).toMatch(hex(16));
+      for (const token of [room.providerToken, room.inviteToken, reconnectToken]) expect(token).toMatch(hex(24));
+      const joined = await joinRoom(relay.base, room);
+      expect(joined.clientToken).toMatch(hex(24));
+      expect(joined.sessionId).toMatch(/^peer-session-[0-9a-f]{32}$/);
+      expect(joined.approvalRequestId).toMatch(/^approval-[0-9a-f]{32}$/);
+      // A reclaim issues a new provider token and lease of the same formats.
+      const reclaimed = await postJson(`${relay.base}/p/${room.id}/reclaim`, { leaseToken: reconnectToken });
+      const lease = (await reclaimed.json()) as { providerToken: string; reconnectToken: string };
+      expect([lease.providerToken, lease.reconnectToken]).toEqual([expect.stringMatching(hex(24)), expect.stringMatching(hex(24))]);
+      issued.push(room.id, room.providerToken, room.inviteToken, reconnectToken, joined.clientToken, joined.sessionId, joined.approvalRequestId!, lease.providerToken, lease.reconnectToken);
+    }
+    expect(new Set(issued).size).toBe(issued.length);
+  });
+});
+
+describe("the expiry sweep", { timeout: 20_000 }, () => {
+  it("arms one timer of max(1000, roomSweepIntervalMs ?? 30000) ms, and none for 0 or NaN", async () => {
+    const intervals = vi.spyOn(globalThis, "setInterval");
+    const armed: Array<[number | undefined, unknown[]]> = [];
+    for (const roomSweepIntervalMs of [undefined, 200, 5000, Number.POSITIVE_INFINITY, 0, Number.NaN]) {
+      intervals.mockClear();
+      await startRelay(servers, { roomSweepIntervalMs });
+      armed.push([roomSweepIntervalMs, intervals.mock.calls.map((call) => call[1])]);
+    }
+    expect(armed).toEqual([
+      [undefined, [30_000]],
+      [200, [1000]],
+      [5000, [5000]],
+      // Node runs a delay it cannot hold after 1 ms, so this relay sweeps about every millisecond.
+      [Number.POSITIVE_INFINITY, [Number.POSITIVE_INFINITY]],
+      [0, []],
+      [Number.NaN, []],
+    ]);
+  });
+
+  it("expires a room from its timer without any request, and at the start of an HTTP request without a timer", async () => {
+    // Node reports the infinite interval with a process warning; it is one of the cases under test.
+    vi.spyOn(process, "emitWarning").mockImplementation(() => {});
+    const real = Date.now.bind(Date);
+    let offset = 0;
+    vi.spyOn(Date, "now").mockImplementation(() => real() + offset);
+    const relays = await Promise.all([1000, Number.POSITIVE_INFINITY, Number.NaN, 0].map((roomSweepIntervalMs) => startRelay(servers, { roomSweepIntervalMs })));
+    const agents = [];
+    for (const relay of relays) {
+      const room = await createRoom(relay.base, { approvalRequired: false, ttlMs: 60_000 });
+      agents.push(await openClient(relay, room, await joinRoom(relay.base, room), sockets));
+    }
+    const [timed, everyMillisecond, notANumber, none] = agents;
+
+    // Every room is past its expiry; no relay gets a request from now on until the last step.
+    offset = 61_000;
+    await timed!.waitFor((frame) => frame.type === "room.expired", "the expiry the 1000 ms timer finds", 5000);
+    await everyMillisecond!.waitFor((frame) => frame.type === "room.expired", "the expiry the 1 ms timer finds", 5000);
+    for (const agent of [notANumber!, none!]) expect(agent.frames.some((frame) => frame.type === "room.expired")).toBe(false);
+
+    // A relay without a timer sweeps at the start of every HTTP request, whatever its route.
+    for (const relay of relays.slice(2)) await (await fetch(`${relay.base}/health`)).arrayBuffer();
+    for (const agent of [notANumber!, none!]) await agent.waitFor((frame) => frame.type === "room.expired", "the expiry a request finds", 5000);
   });
 });

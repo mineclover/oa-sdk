@@ -78,6 +78,8 @@ export class FakeRelay {
   reportsRoomEpoch = true;
   /** When set, every `POST /p/:id/reclaim` is answered with this status and body instead. */
   reclaimAnswer?: { status: number; body: Frame };
+  /** Whether a provider socket that opens gets `ready`; while false it hears nothing, as from a relay that never answers. */
+  sendsReady = true;
   afterReady?: (socket: FakeRelaySocket, room: IssuedRoom) => void;
   private room?: IssuedRoom;
   private issued = 0;
@@ -182,6 +184,7 @@ export class FakeRelay {
     if (!this.room || socket.readyState !== FakeRelaySocket.CONNECTING) return;
     socket.readyState = FakeRelaySocket.OPEN;
     socket.onopen?.();
+    if (!this.sendsReady) return;
     socket.deliver({ type: "ready", role: "provider", roomId: this.room.id, roomEpoch: this.room.roomEpoch });
     this.afterReady?.(socket, this.room);
   }
