@@ -131,11 +131,11 @@ interface RegisteredCatalog {
 
 /**
  * Sends one frame on the relay signaling socket; every frame the provider sends there goes through
- * here. The relay closes a socket that sends a message over its limit (close code 1009), and a
- * closed provider socket drops every agent of the room. Some frames echo values an agent chose (an
- * answer repeats the offer's `requestId`), so the serialized frame is measured instead of being
- * assumed small: a frame over {@link RELAY_MAX_MESSAGE_BYTES} is not sent, with a warning. Returns
- * whether the frame was handed to the socket.
+ * here. The relay closes a socket that sends a message over its limit (close code 1009), which
+ * fails every agent request pending in the room with PROVIDER_DISCONNECTED. Some frames echo values
+ * an agent chose (an answer repeats the offer's `requestId`), so the serialized frame is measured
+ * instead of being assumed small: a frame over {@link RELAY_MAX_MESSAGE_BYTES} is not sent, with a
+ * warning. Returns whether the frame was handed to the socket.
  */
 function sendRelayFrame(ws: WebSocket, frame: string | Record<string, unknown>, label: string): boolean {
   const text = typeof frame === "string" ? frame : JSON.stringify(frame);

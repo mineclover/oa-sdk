@@ -2,9 +2,23 @@
 
 릴리스 단위가 아닌, 굵직한 surface 변경이 떨어졌을 때 한 항목으로 기록한다. 자세한 구현 상태는 [spec.md](./internal/spec.md), API 단일 소스는 [api-index.md](./internal/api-index.md), 기능↔테스트는 [feature-test-matrix.md](./internal/feature-test-matrix.md) 참조.
 
+## 2026-10-20 — WebMCP relay protocol 안정화: 단일 spec, 결정 60건 구현, spec 적합성 검사 (`@oa-sdk/webmcp-peer`)
+
+relay·provider·agent client의 wire 규칙을 [WebMCP relay protocol spec](./internal/webmcp-relay-protocol.md) 하나로 모았다. 코드에서 요건(`R-*`)을 추출한 초안이 코드끼리, 또는 코드와 문서가 어긋난 곳 60건(O-01~O-60)을 올렸고, 패키지가 아직 배포되지 않은 0.1.0이라 권고안을 모두 채택하고 breaking wire 변경을 지금 냈다. 결정과 구현 위치는 spec 10장에, 패키지별 **Behavior change**는 `.changeset/webmcp-peer-protocol-c1-foundation.md`~`c9-docs.md`에 있다. 업그레이드할 때는 changeset의 **Behavior change** 항목을 확인한다.
+
+- **동작 변경: 공유 protocol 상수와 해석 규칙**: protocol 식별자(`WEBMCP_PROTOCOL` 새 export), `Authorization` 해석 하나와 clientToken의 hash 보관, room id 문법 하나(`WEBMCP_ROOM_ID_PATTERN`), 공유 catalog 계약(`PEER_CATALOG_MAX_TOOLS`·`PEER_CATALOG_MAX_TOOL_NAME_LENGTH`), alias 상한, `descriptorUrl`의 `/p/<id>/mcp`.
+- **동작 변경: 오류 모델**: 이름 하나에 code 하나(code는 class이고 이름이 식별자), 없는 자격 `_REQUIRED`와 틀린 자격 `_INVALID`, 모든 401의 `WWW-Authenticate: Bearer`, 모든 수명주기 route의 rotate된 room 410, 잘못된 경로 encoding의 400 `INVALID_PATH`, `PeerMcpService`의 등록 `key`·`activeKey`.
+- **동작 변경: room 만료와 rotate**: 만료는 `room.expired` frame과 두 transport의 같은 `ROOM_EXPIRED` 하나로 알리고, 보존 중인 만료 room은 410, WebSocket agent도 rotate의 대체 room을 받는다.
+- **동작 변경: 승인과 lease**: 승인 요청은 `approvalTimeoutMs`(기본 5분)를 쓰고, lease는 provider socket이 붙어 있는 동안 만료되지 않으며, provider는 relay가 socket 밖에서 한 결정·만료·revoke를 frame으로 받는다. 단일 revoke가 진행 중인 HTTP 요청도 끝낸다.
+- **동작 변경: MCP 라우팅**: 두 transport의 같은 `id: null`·notification 규칙, WebSocket의 relay `ping`과 승인 전 공개 discovery, `result._meta`의 catalog stamp, `PeerMcpSession`의 catalogHash 검증과 Streamable HTTP client 규칙(`Accept`, `notifications/initialized`, `MCP-Protocol-Version`, `Retry-After`).
+- **동작 변경: signaling**: provider→agent allow-list, offer `requestId` 계약과 socket당 offer 하나, 종료 frame의 순서 보장, 결과와 무관한 register 평가 budget, auto-reconnect가 room을 새로 열지 않음.
+- **동작 변경: WebSocket**: 거절한 upgrade마다 HTTP 응답, subprotocol `webmcp-peer.v1` 하나, close code의 뜻(`WEBMCP_CLOSE_CODES` 새 export), 30 s ping과 75 s idle timeout, JSON 입력의 맨 앞 BOM 무시.
+- **동작 변경: HTTP 보안**: loopback relay의 Host 검사(`HOST_NOT_ALLOWED`), `trustProxy`가 신뢰하는 proxy의 `X-Forwarded-*`만, 정한 Origin·host 목록이 기본 목록을 대신함, publish key 없이도 기본 publish rate limit, `maxRooms`, CORS 노출 header, route마다의 405 `METHOD_NOT_ALLOWED`.
+- **문서·검사**: README, api-index, relay guide, 개념 문서, 보안 감사(새 webmcp-peer 절)가 wire 규칙을 요약하고 spec을 링크한다. `packages/webmcp-peer/test/protocol-spec.test.ts`가 spec의 요건 ID, 근거 줄, 테스트 제목, 상한·close code·오류 class 표를 코드와 테스트에 맞춰 검사하며, 테스트가 없던 요건에 회귀 테스트를 더했다. 남은 열린 문제는 spec 10.2(O-61~O-68)에 있다.
+
 ## 2026-10-20 — WebMCP relay 남은 강화: `register` 평가 상한, offer `requestId` 상한, 이미 끝난 socket의 upgrade, client 요청 queue (`@oa-sdk/webmcp-peer`)
 
-2026-10-19 relay 메시지 상한 작업 뒤에 남긴 [강화 항목](./internal/todo.md#x-webmcp-relay-남은-강화-항목) 다섯 가지를 마쳤다. relay protocol은 바뀌지 않고, provider SDK도 그대로다.
+2026-10-19 relay 메시지 상한 작업 뒤에 남긴 [강화 항목](./internal/todo.md#x-webmcp-relay-남은-강화-항목) 다섯 가지를 마쳤다. relay의 wire 동작 두 가지가 바뀌었다: offer의 `requestId` 상한을 넘으면 `offer.refused`(`REQUEST_ID_TOO_LARGE`)로 답하고, `register` 거절이 오는 시점을 평가 상한(반복 frame은 다시 평가하지 않고, 평가는 room마다 제한한다)이 정한다. provider SDK는 그대로다.
 
 - **동작 변경: `register` 평가 상한**: relay는 room마다 마지막으로 평가한 `register` frame(`registerSeq`를 뺀 frame의 SHA-256)과 그 frame이 남긴 room catalog(version·hash)를 기억한다. 같은 frame이 다시 오면 room catalog가 그대로인 동안 정규화·hash·크기 측정을 하지 않고 같은 답(거부면 새 frame의 `registerSeq`를 담은 같은 거부, 아니면 답 없음)을 돌려준다. catalog를 바꾸지 않는 frame(`CATALOG_INVALID`·`CATALOG_TOO_LARGE`로 거부되거나 room이 이미 가진 catalog)은 room마다 한 번에 8개, 그 뒤로 초당 1개까지만 평가한다. 그 사이에 온 frame은 기다리고 provider의 다음 `register`가 그것을 대신하므로, 마지막 frame은 늦게라도 항상 평가되고 속도 때문에 거부되지 않는다. budget은 room에 속해 provider socket을 바꿔도 초기화되지 않는다. 이전에는 provider token을 가진 쪽이 거부되거나 아무것도 바꾸지 않는 `register`를 반복해 보낸 만큼 relay CPU를 쓸 수 있었다.
 - **동작 변경: offer `requestId` 상한**: relay는 `requestId`가 JSON 1 KiB(JSON-RPC id와 같은 상한)를 넘는 승인된 agent의 offer를 provider에 전달하지 않고 `{ type: "offer.refused", error: REQUEST_ID_TOO_LARGE }`로 답한다(id는 되돌려 주지 않는다). provider의 `answer`·`release` frame이 그 id를 되풀이하므로, 이전에는 그런 offer가 전달되고도 provider가 상한을 넘는 답을 보내지 않아 응답을 받지 못했다.

@@ -4,6 +4,8 @@
 
 전체 개념 및 모듈 의존성 구조는 [WebMCP 피어링·전송·협업·메시 아키텍처](../concepts/webmcp-peering-mesh-and-collab.md), 보안 경계 및 운영 규칙은 [WebMCP 보안 감사 및 경계 계약](../security/webmcp-hardening.md)을 참조하십시오.
 
+이 가이드는 두 relay 구현을 다룹니다. 1~8절의 `/p/:roomId/:role`, `/relay/rooms`, Cloud Transit 레시피와 5절의 표는 `@oa-sdk/peer-server`·`@oa-sdk/peer-transport`의 것입니다. `@oa-sdk/webmcp-peer`도 `/p/:id/...` 경로를 쓰지만 다른 protocol(`webmcp-peer/1`)이며, 그 wire 규칙(엔드포인트, frame, 오류 이름, 상한)의 정본은 [WebMCP relay protocol](../internal/webmcp-relay-protocol.md)입니다. 두 패키지의 같은 이름의 경로를 섞어 쓰지 마십시오(예: 이미 쓴 초대로 join하면 `@oa-sdk/peer-server`는 `409 ROOM_BUSY`, `@oa-sdk/webmcp-peer`는 `409 INVITE_TOKEN_CONSUMED`로 답합니다).
+
 ---
 
 ## 1. 해결하는 문제와 3계층 아키텍처
@@ -69,7 +71,7 @@ flowchart TD
   - `@oa-sdk/peer-server/cloud`: `CloudTransitProxy`, `handleCloudTransitHttpRequest`, `handleCloudTransitWorker`.
 
 ### 2.3 `@oa-sdk/webmcp-peer` (3-Tier 단일 통합 패키지 및 기능 의도 단위 모듈화)
-- 룸 기반 Streamable HTTP MCP 라우터(`/p/:id/mcp`), WebSocket 시그널링 데몬(`/p/:id/provider`, `/p/:id/client`), 브라우저 Provider, 외부 에이전트/CLI 세션 클라이언트를 **단일 패키지(`dependencies: {}`)**로 통합한 패키지입니다 (상세: [`packages/webmcp-peer/README.md`](../../packages/webmcp-peer/README.md)).
+- 룸 기반 Streamable HTTP MCP 라우터(`/p/:id/mcp`), WebSocket 시그널링 데몬(`/p/:id/provider`, `/p/:id/client`), 브라우저 Provider, 외부 에이전트/CLI 세션 클라이언트를 **단일 패키지(`dependencies: {}`)**로 통합한 패키지입니다 (상세: [`packages/webmcp-peer/README.md`](../../packages/webmcp-peer/README.md)). 세 계층이 주고받는 규칙은 [WebMCP relay protocol](../internal/webmcp-relay-protocol.md)이 요건 ID(`R-…`) 단위로 정하며, 아래 목록은 모듈의 위치와 역할만 요약합니다.
 - 서브패스 및 기능 의도 단위 모듈:
   - `@oa-sdk/webmcp-peer/config`:
     - `config/invitation.ts`: URL 정규화 및 `#invite=...` 초대 링크 파서/빌더 (`normalizePeerUrl`, `parseInvitationUrl`, `buildInvitationUrl`)
@@ -89,9 +91,9 @@ flowchart TD
   - `@oa-sdk/webmcp-peer/server`:
     - `server/ws-upgrade.ts`: 무의존성 RFC 6455 WebSocket 핸드셰이크 및 프레이밍 (`upgradeWebSocket`)
     - `server/durable-file.ts`: 프로세스 간 파일 잠금 및 `fsync` JSONL 헬퍼 (`withFileLockSync`, `appendDurableLineSync`, `readDurableJsonLinesSync`, `truncateUnterminatedTailSync`). `readDurableJsonLinesSync(filePath, errorCode, schema, options)`는 모든 행을 행 스키마(`DurableJsonRowSchema`)로 검증하고, `ignoreUnterminatedTail: true`이면 개행으로 끝나지 않은 마지막 조각(완료되지 않은 append)을 건너뜁니다. `truncateUnterminatedTailSync(filePath)`는 마지막 개행 뒤에 남은 찢어진 마지막 행을 바이트 오프셋 기준으로 잘라 내고(앞선 행의 멀티바이트 UTF-8은 자르지 않음), 잘라 냈으면 `true`를 반환합니다. 이 함수는 잠금을 직접 잡지 않으므로 호출자가 반드시 `withFileLockSync` 안에서, 다음 append 전에 호출해야 합니다. 잠금 없이 호출하면 다른 프로세스가 그 순간 append 중인 행을 잘라 낼 수 있습니다.
-    - `server/rate-limit.ts`: 룸 발행(`POST /p`) 속도 제한기 (`InMemoryPublishRateLimitStore`, `FilePublishRateLimitStore`, `SqlitePublishRateLimitStore`, `createPublishRateLimitStoreFromEnv`). 세 저장소 모두 키별 **고정 윈도우**(키의 첫 요청 시각에 고정)이므로 윈도우 경계를 사이에 두고 최대 약 `2 × max`건이 통과할 수 있습니다. 버킷 키는 `원격 주소 + 발행 키 해시`(발행 키를 설정하지 않았으면 `anonymous`)이며, 발행 키 인증에 실패한 시도는 주소마다 하나의 `unauthenticated` 버킷을 공유합니다(틀린 키를 바꿔 가며 새 버킷을 얻을 수 없음).
+    - `server/rate-limit.ts`: 룸 발행(`POST /p`) 속도 제한기 (`InMemoryPublishRateLimitStore`, `FilePublishRateLimitStore`, `SqlitePublishRateLimitStore`, `createPublishRateLimitStoreFromEnv`). 세 저장소 모두 키별 **고정 윈도우**(키의 첫 요청 시각에 고정)이므로 윈도우 경계를 사이에 두고 최대 약 `2 × max`건이 통과할 수 있습니다. publish key가 없어도 기본으로 켜지며(주소당 60초에 30회, `publishRateLimitMax: 0`이면 끔), 버킷 키는 요청 주소(`trustProxy`가 신뢰하는 proxy 뒤면 그 proxy가 알린 주소)와 발행 키 해시(발행 키를 설정하지 않았으면 `anonymous`)이고, 발행 키 인증에 실패한 시도는 주소마다 하나의 `unauthenticated` 버킷을 공유합니다(틀린 키를 바꿔 가며 새 버킷을 얻을 수 없음, spec R-ROOM-010).
     - `server/deployment-catalog.ts`: 콜드 스타트 배포 카탈로그 로더 (`loadDeploymentCatalog`, `hashDeploymentCatalog`)
-    - `server/server-config.ts`: CLI/환경변수/JSON 설정 해석 및 Origin/Host 보안 가드 (`resolvePeerServerConfig`, `isOriginAllowed`, `isHostAllowed`). `resolvePeerServerConfig`를 직접 호출하면 `argv` 기본값은 `process.argv.slice(2)`이고, `.env.local`/`.env`를 `process.env`로 읽어 들입니다(`loadEnvFiles` 기본 `true`).
+    - `server/server-config.ts`: CLI/환경변수/JSON 설정 해석 및 Origin/Host 보안 가드 (`resolvePeerServerConfig`, `isOriginAllowed`, `isHostAllowed`). loopback에 bind하거나 `allowedHosts`를 정한 relay는 목록 밖 host를 403 `HOST_NOT_ALLOWED`로 거절하고, 정한 Origin·host 목록은 기본 목록을 대신하며, `X-Forwarded-*`는 `trustProxy`가 신뢰하는 proxy에게서만 읽습니다(spec R-HTTP-012, R-HTTP-020, R-HTTP-021). `resolvePeerServerConfig`를 직접 호출하면 `argv` 기본값은 `process.argv.slice(2)`이고, `.env.local`/`.env`를 `process.env`로 읽어 들입니다(`loadEnvFiles` 기본 `true`).
     - `server/ledger-stores.ts`: `AiRunLedger`용 파일 및 SQLite WAL 영속 저장소 (`FileAiRunLedgerStore`, `SqliteAiRunLedgerStore`)
     - `server/peer-server.ts`: 룸 제어 평면, Streamable HTTP MCP 라우터 및 커스텀 훅 (`WebMcpPeerServer`, `createWebMcpPeerServer`). 임베드된 `WebMcpPeerServer`는 CLI 플래그를 명시적인 `argv` 옵션에서만 읽고(기본값 없음), `.env` 파일은 `loadEnvFiles: true`일 때만 로드합니다. 프로세스 환경 변수는 그대로 적용되며, CLI 진입점은 `argv: process.argv.slice(2)`로 옵트인합니다.
 
@@ -305,9 +307,11 @@ const res = await router.dispatchTool('wireframe-storyboard__storyboard_page_cre
 
 ## 5. 보안 및 적대적 공격 방어 (Hardening)
 
+아래 표는 `@oa-sdk/peer-server` relay의 방어입니다. `@oa-sdk/webmcp-peer` relay의 방어(publish key, `ticket.<token>` subprotocol, 승인 gate, Host·Origin 검사, 상한)는 [보안 감사의 webmcp-peer 절](../security/webmcp-hardening.md)과 [WebMCP relay protocol](../internal/webmcp-relay-protocol.md)에 있습니다.
+
 | 위협 요소 | 방어 메커니즘 | 동작 규약 |
 | :--- | :--- | :--- |
-| **티켓 재전송 공격 (Ticket Replay)** | 48-hex 단일 사용 토큰(One-Time Token) | 이미 사용된 초대 토큰으로 `POST /p/:id/join` 재시도 시 `409 ROOM_BUSY`; 이미 붙은 티켓으로 WebSocket 재접속 시 `{type:'closed'}`(`ALREADY_ATTACHED`/`WRONG_PHASE`/`NOT_FOUND`) 후 1008 종료 |
+| **티켓 재전송 공격 (Ticket Replay)** | 48-hex 단일 사용 토큰(One-Time Token) | `@oa-sdk/peer-server`에서 이미 사용된 초대 토큰으로 `POST /p/:id/join` 재시도 시 `409 ROOM_BUSY`(`@oa-sdk/webmcp-peer`는 `409 INVITE_TOKEN_CONSUMED`); 이미 붙은 티켓으로 WebSocket 재접속 시 `{type:'closed'}`(`ALREADY_ATTACHED`/`WRONG_PHASE`/`NOT_FOUND`) 후 1008 종료 |
 | **시그널링 위조·플러딩 (Signaling Forgery/Flood)** | 릴레이 전용 신호 차단 + 룸당 최대 32 시그널링 프레임 (`MAX_SIGNAL_FRAMES`, `@oa-sdk/peer-server/relay`) | 피어가 보낸 `ready`/`request`/`approved`/`released`/`closed`는 전달하지 않고 `FORBIDDEN_SIGNAL`로 즉시 종료; 단계에 맞지 않는 프레임은 `WRONG_PHASE`로 종료; 32회를 넘는 시그널링 프레임은 `SIGNAL_LIMIT`로 종료 |
 | **승인 전 도구 호출** | 승인 게이트 + `allowedTools` | `approved` 전 relay 패킷은 `RELAY_NOT_APPROVED`로 거절; decision의 `allowedTools`는 `approved` 신호로 양측에 전달되고, 범위 밖 client `tools/call`은 JSON-RPC 오류로 응답 |
 | **대용량 페이로드 DoS** | 와이어 바이트 상한 검증 | 시그널링 메시지 64KB(`MAX_SIGNAL_BYTES`), 중계 릴레이 패킷 1MB(`MAX_RELAY_BYTES`) 초과 시 소켓 종료 |

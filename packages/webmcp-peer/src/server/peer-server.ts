@@ -363,7 +363,6 @@ function withoutByteOrderMark(text: string): string {
   return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
 }
 
-/** The error that answers an agent request the relay could not send to the provider (`sent`). */
 /**
  * Decodes a request body as UTF-8, refusing ill-formed input (a SyntaxError, so it is answered
  * like malformed JSON) instead of substituting U+FFFD and acting on altered content. A leading byte
@@ -562,6 +561,7 @@ function decodePathParameter(value: string): string | null {
   }
 }
 
+/** The error that answers an agent request the relay could not send to the provider (`sent`). */
 function unforwardedRpcError(sent: Exclude<PeerSendResult, 'sent'>): RpcErrorBody {
   if (sent === 'too-large') return REQUEST_TOO_LARGE_ERROR;
   if (sent === 'busy') return PROVIDER_BUSY_ERROR;

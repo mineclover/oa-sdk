@@ -42,11 +42,12 @@ const MCP_CONTENT_TYPES: ReadonlySet<string> = new Set(["text", "image", "audio"
 /**
  * The largest WebSocket message the provider can send the relay: the relay protocol's message
  * limit ({@link PEER_RELAY_MAX_MESSAGE_BYTES}, `MAX_WEBSOCKET_MESSAGE_BYTES` in `./server`). The
- * relay closes a socket that sends more (close code 1009), and a closed provider socket drops every
- * agent of the room, so the provider measures every frame it sends on the relay socket against it
- * and sends none that is larger. A reply too large to send is replaced by a RESULT_TOO_LARGE error
- * (see {@link encodeRelayMcpReply}); a `register` catalog has the stricter `PEER_RELAY_MAX_CATALOG_BYTES`
- * budget and is withheld with CATALOG_TOO_LARGE past it; any other frame is dropped with a warning.
+ * relay closes a socket that sends more (close code 1009), which fails every agent request pending
+ * in the room with PROVIDER_DISCONNECTED, so the provider measures every frame it sends on the relay
+ * socket against it and sends none that is larger. A reply too large to send is replaced by a
+ * RESULT_TOO_LARGE error (see {@link encodeRelayMcpReply}); a `register` catalog has the stricter
+ * `PEER_RELAY_MAX_CATALOG_BYTES` budget and is withheld with CATALOG_TOO_LARGE past it; any other
+ * frame is dropped with a warning.
  */
 export const RELAY_MAX_MESSAGE_BYTES = PEER_RELAY_MAX_MESSAGE_BYTES;
 

@@ -617,6 +617,25 @@ describe("the Streamable HTTP transport", () => {
     expect((await session.listTools()).map((entry) => entry.name)).toEqual(["doc_read"]);
   });
 
+  it("names the package's own version as clientInfo.version and in its user-agent", async () => {
+    const { version } = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string };
+    const sent: Array<{ method: string; userAgent?: string; clientInfo?: unknown }> = [];
+    const fetchImpl = (async (_input: string | URL | Request, init: RequestInit = {}) => {
+      const rpc = JSON.parse(String(init.body)) as { id?: string; method: string; params?: { clientInfo?: unknown } };
+      sent.push({ method: rpc.method, userAgent: (init.headers as Record<string, string>)["user-agent"], clientInfo: rpc.params?.clientInfo });
+      if (rpc.id === undefined) return new Response(null, { status: 202 });
+      return Response.json({ jsonrpc: "2.0", id: rpc.id, result: { protocolVersion: "2025-11-25", _meta: {} } });
+    }) as typeof fetch;
+    const session = new PeerMcpSession({ mcpEndpoint: "http://relay.test/p/room1/mcp", clientToken: "tok", fetchImpl });
+    sessions.push(session);
+
+    await session.initialize();
+    expect(sent).toEqual([
+      { method: "initialize", userAgent: `framebook-peer-mcp-client/${version}`, clientInfo: { name: "framebook-cli", version } },
+      { method: "notifications/initialized", userAgent: `framebook-peer-mcp-client/${version}`, clientInfo: undefined },
+    ]);
+  });
+
   it("reads a response the server sends as an event stream", async () => {
     const fetchImpl = (async (_input: string | URL | Request, init: RequestInit = {}) => {
       const rpc = JSON.parse(String(init.body)) as { id: string };

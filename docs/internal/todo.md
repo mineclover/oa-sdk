@@ -309,6 +309,12 @@ REST vs bare-clone 결정: REST API 방식 유지. 이유는 (1) 4 케이스 모
 
 ## 최근 완료
 
+### [x] WebMCP relay protocol 안정화
+배경: `packages/webmcp-peer`의 코드와 테스트에서 relay protocol 초안 [webmcp-relay-protocol.md](./webmcp-relay-protocol.md)를 추출했고, 초안은 코드끼리, 또는 코드와 문서가 어긋난 곳 60건(O-01~O-60)을 열린 문제로 올렸다.
+결정과 완료 (2026-10-20): 권고안을 모두 채택하고 0.1.0에서 breaking wire 변경을 냈다. 8개 cluster(공유 상수, 오류 모델, 만료·rotate, 승인·lease, MCP 라우팅, signaling, WebSocket, HTTP 보안)가 O-01~O-58을 구현했고, 문서 단계가 O-59·O-60을 마쳤다: spec을 [정본 표](../spec-governance/README.md)와 `.ai/spec-loader.yaml`에 올리고, README·api-index·relay guide·개념 문서·보안 감사가 요약하며 spec을 링크하게 했으며, spec 10장을 결정 기록(결정마다 commit·changeset)과 남은 열린 문제 O-61~O-68로 바꿨다. 테스트가 없던 요건에 회귀 테스트를 더했고 남은 둘(R-HTTP-016, R-HTTP-017)의 이유를 O-60에 적었다. `packages/webmcp-peer/test/protocol-spec.test.ts`가 spec과 코드·테스트의 일치를 검사하고, [feature-test matrix](./feature-test-matrix.md)에 `webmcp-relay-protocol-conformance` row로 올렸다. 동작 변경은 [changelog](../changelog.md)와 `.changeset/webmcp-peer-protocol-c1-foundation.md`~`c9-docs.md`에 있다.
+검증: `pnpm --filter @oa-sdk/webmcp-peer typecheck`·`test:ci`, `check:docs`, `check:spec-governance`, `test:docs-gates`, `check:feature-tests`, `check:api-index`, `type-registry:check`가 통과한다. 적합성 검사는 spec에 결함(중복·미정의 ID, 없는 테스트 제목, 틀린 상한 값 등)을 하나씩 넣었을 때 해당 검사가 실패함을 확인했다.
+후속: spec 10.2의 O-61~O-68(rotate의 rate limit, WebSocket id 없는 `tools/call`, provider의 `list_changed`, client와 relay의 pending 수, 만료가 덮어쓰는 ticket status, 401 challenge와 OAuth discovery, revoke의 왕복, provider의 방어용 오류)은 결정이 필요하다.
+
 ### [x] Feature-test matrix에 없는 영역
 배경: [feature-test-matrix.json](./feature-test-matrix.json)에 row가 없어 이번 pass에 추가한 회귀 테스트 일부가 matrix에 연결되지 않는다.
 - `@oa-sdk/telemetry`: `packages/telemetry/test/*.test.ts`(새 `hmac-sha256.test.ts` 포함)

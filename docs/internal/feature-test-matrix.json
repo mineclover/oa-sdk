@@ -1721,6 +1721,31 @@
       ]
     },
     {
+      "id": "webmcp-relay-protocol-conformance",
+      "name": "WebMCP relay protocol spec conformance",
+      "category": "governance",
+      "package": "@oa-sdk/webmcp-peer",
+      "description": "The relay protocol spec (docs/internal/webmcp-relay-protocol.md) is the single source of the webmcp-peer wire rules. A conformance test reads it in its own format and fails when a requirement ID is defined twice or referenced but undefined, a requirement states no evidence or a malformed one, a cited source line is missing or blank, a cited test file or it()/test() title does not exist, the limits table disagrees with an exported constant or leaves out a limit the config tier exports, the close code table disagrees with WEBMCP_CLOSE_CODES, the error class table disagrees with PEER_ERROR_CODES, or a document linking to the spec cites an undefined requirement ID.",
+      "capabilities": [
+        "requirement IDs defined once and every mentioned ID defined",
+        "one evidence line per requirement, in the spec's citation format",
+        "cited source lines exist and are not blank",
+        "cited test files and it()/test() titles exist",
+        "limits table values equal the exported limit constants",
+        "close code table equals WEBMCP_CLOSE_CODES",
+        "error class table equals PEER_ERROR_CODES",
+        "documents linking to the spec cite defined requirement IDs"
+      ],
+      "testPaths": [
+        "packages/webmcp-peer/test/protocol-spec.test.ts",
+        "docs/internal/webmcp-relay-protocol.md"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/webmcp-peer test",
+        "pnpm --filter @oa-sdk/webmcp-peer typecheck"
+      ]
+    },
+    {
       "id": "telemetry-runtime",
       "name": "Design-driven telemetry, DPM pseudonymization, and dispatchers",
       "category": "downstream-security",
