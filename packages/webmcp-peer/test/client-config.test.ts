@@ -63,8 +63,23 @@ describe("fetchPeerServerConfig", () => {
   });
 
   it("reports the relay's error text for a failed response", async () => {
-    const fetchImpl = (async () => Response.json({ error: "ORIGIN_DENIED" }, { status: 403 })) as typeof fetch;
-    await expect(fetchPeerServerConfig("https://peer.example.com", { fetchImpl })).rejects.toThrow("ORIGIN_DENIED");
+    const fetchImpl = (async () => Response.json({ error: "ORIGIN_NOT_ALLOWED", origin: "https://app.example" }, { status: 403 })) as typeof fetch;
+    await expect(fetchPeerServerConfig("https://peer.example.com", { fetchImpl })).rejects.toThrow("ORIGIN_NOT_ALLOWED");
+  });
+});
+
+describe("probePeerHealth", () => {
+  it("reports the relay's live rooms and the expired or rotated ones it still retains apart", async () => {
+    const relay = server.createWebMcpPeerServer({ port: 0, host: "127.0.0.1", roomSweepIntervalMs: 0 });
+    relays.push(relay);
+    const base = `http://127.0.0.1:${await relay.listen()}`;
+    const create = async () => (await (await fetch(`${base}/p`, { method: "POST", body: "{}" })).json()) as { id: string; providerToken: string };
+    const rotated = await create();
+    await create();
+    const rotation = await fetch(`${base}/p/${rotated.id}/rotate`, { method: "POST", body: "{}", headers: { authorization: `Bearer ${rotated.providerToken}` } });
+    expect(rotation.status).toBe(201);
+
+    expect(await config.probePeerHealth(base)).toMatchObject({ ok: true, state: "healthy", activeRooms: 2, retainedRooms: 1 });
   });
 });
 

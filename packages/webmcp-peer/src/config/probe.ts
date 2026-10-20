@@ -132,6 +132,7 @@ export async function probePeerHealth(value: string, options: PeerHealthProbeOpt
       status: response.status,
       message: msgs?.healthy ?? "피어 서버가 정상 응답했습니다.",
       ...(typeof body.activeRooms === "number" ? { activeRooms: body.activeRooms } : {}),
+      ...(typeof body.retainedRooms === "number" ? { retainedRooms: body.retainedRooms } : {}),
       ...(typeof body.uptimeSec === "number" ? { uptimeSec: body.uptimeSec } : {}),
     };
   } catch (error: unknown) {

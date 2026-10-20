@@ -153,6 +153,23 @@ describe("refused upgrades", () => {
     expect(relay.server.rooms.get(room.id)?.providerSocket).toBeUndefined();
   });
 
+  it("refuses an upgrade for a host it does not serve or from an Origin it does not allow as an HTTP request is refused, before any hook", async () => {
+    let hookCalls = 0;
+    const relay = await startRelay(servers, { customUpgradeHandler: () => { hookCalls += 1; return false; } });
+    const room = await createRoom(relay.base);
+    const path = `/p/${room.id}/provider`;
+    const protocols = [WEBMCP_SUBPROTOCOL, `ticket.${room.providerToken}`];
+    const rebound = `rebound.example:${new URL(relay.base).port}`;
+
+    // The relay binds the loopback interface, so a host outside its list is refused.
+    expect(answerOf(await upgrade(relay, path, { protocols, headers: { Host: rebound } })))
+      .toEqual(refusal(403, { error: "HOST_NOT_ALLOWED", host: rebound }));
+    expect(answerOf(await upgrade(relay, path, { protocols, headers: { Origin: "https://evil.example" } })))
+      .toEqual(refusal(403, { error: "ORIGIN_NOT_ALLOWED", origin: "https://evil.example" }, { vary: "Origin" }));
+    expect(hookCalls).toBe(0);
+    expect(relay.server.rooms.get(room.id)?.providerSocket).toBeUndefined();
+  });
+
   it("answers a path that is not a socket endpoint with 404 NOT_FOUND", async () => {
     const relay = await startRelay(servers);
     const room = await createRoom(relay.base);

@@ -104,7 +104,10 @@ export interface PeerHealthResult {
   readonly state: Exclude<PeerHealthState, "unknown" | "checking">;
   readonly status?: number | null;
   readonly message: string;
+  /** The relay's live rooms, neither expired nor rotated (`/health`'s `activeRooms`). */
   readonly activeRooms?: number;
+  /** The expired and rotated rooms the relay still retains (`/health`'s `retainedRooms`). */
+  readonly retainedRooms?: number;
   readonly uptimeSec?: number;
 }
 

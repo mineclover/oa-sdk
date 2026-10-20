@@ -23,9 +23,11 @@ import {
   type PublishRateLimitStore,
 } from "./rate-limit.js";
 import {
+  createProxyTrust,
   isHostAllowed,
   isOriginAllowed,
   resolvePeerServerConfig,
+  type ProxyTrust,
 } from "./server-config.js";
 import type {
   ClientSessionStatus,
@@ -79,6 +81,12 @@ const MIN_ROOM_TTL_MS = 60_000;
 /** Hard ceiling for `maxRoomTtlMs`, which keeps every room timestamp inside the JS Date range. */
 const ROOM_TTL_CEILING_MS = 365 * 24 * 60 * 60 * 1000;
 const ROOM_METADATA_RETAIN_MS = 24 * 60 * 60_000;
+/**
+ * Default bound on the rooms the relay holds at once (see `WebMcpPeerServerOptions.maxRooms`).
+ * Retained rooms count, since each keeps its tokens and catalog until it is deleted a day after
+ * its expiry: with the default publish rate limit, one address can fill it in about 5.5 hours.
+ */
+const DEFAULT_MAX_ROOMS = 10_000;
 /**
  * How long a room's reconnect lease outlives its provider socket (15 minutes), reported in every
  * room descriptor as `reconnectGraceMs`. The lease does not expire while a provider socket is
@@ -399,6 +407,30 @@ const REVOKE_ROUTE = roomRoute('/(?:session/revoke|sessions/([^/]+)/revoke)');
 const ROTATE_ROUTE = roomRoute('/rotate');
 const PROVIDER_SOCKET_ROUTE = roomRoute('/provider');
 const CLIENT_SOCKET_ROUTE = roomRoute('/client');
+const DEPLOYMENT_CATALOG_HASH_ROUTE = /^\/mcp\/catalog\/([a-f0-9]{64})$/;
+
+/** The methods of the MCP endpoint `/p/:id/mcp`: the descriptor (GET) and JSON-RPC (POST). */
+const MCP_ENDPOINT_METHODS = 'GET, POST';
+
+/**
+ * The methods the relay route at `pathname` answers, as an `Allow` value, or null for a path that
+ * is no relay route. A request of another method to a route is answered 405 with this `Allow`
+ * (RFC 9110 §15.5.6), once no `customHttpHandler` took it; a path that is no route is 404.
+ */
+function routeMethods(pathname: string): string | null {
+  if (MCP_ROUTE.test(pathname)) return MCP_ENDPOINT_METHODS;
+  if (pathname === '/config' || pathname === '/mcp/catalog' || DEPLOYMENT_CATALOG_HASH_ROUTE.test(pathname)
+    || MCP_TOOLS_ROUTE.test(pathname) || SESSION_STATUS_ROUTE.test(pathname)) return 'GET';
+  if (pathname === '/p' || RECLAIM_ROUTE.test(pathname) || JOIN_ROUTE.test(pathname) || APPROVAL_ROUTE.test(pathname)
+    || REVOKE_ROUTE.test(pathname) || ROTATE_ROUTE.test(pathname)) return 'POST';
+  return null;
+}
+
+/** The comma-separated values of a request header, trimmed, empty ones dropped, in order. */
+function headerValues(value: string | string[] | undefined): string[] {
+  const joined = Array.isArray(value) ? value.join(',') : value;
+  return typeof joined === 'string' ? joined.split(',').map(entry => entry.trim()).filter(Boolean) : [];
+}
 
 /**
  * The token of an `Authorization: Bearer <token>` header, or undefined when the request has no
@@ -433,7 +465,10 @@ type CodelessLifecycleError =
   | 'UNSUPPORTED_WEBSOCKET_VERSION'
   | 'SUBPROTOCOL_REQUIRED'
   | 'INVALID_PATH'
+  | 'METHOD_NOT_ALLOWED'
+  | 'HOST_NOT_ALLOWED'
   | 'ORIGIN_NOT_ALLOWED'
+  | 'ROOM_CAPACITY_EXCEEDED'
   | 'BODY_TOO_LARGE'
   | 'INVALID_JSON_BODY'
   | 'PUBLISH_KEY_REQUIRED'
@@ -494,6 +529,15 @@ interface LifecycleRefusal {
  */
 function unauthorizedRefusal(name: LifecycleErrorName, presented: boolean): LifecycleRefusal {
   return { status: 401, name, headers: bearerChallenge(presented) };
+}
+
+/**
+ * 403 ORIGIN_NOT_ALLOWED for a request from a browser `origin` the relay does not allow, whichever
+ * the request: a preflight, any other HTTP request, a WebSocket upgrade. It names `Vary: Origin`,
+ * since the same request from another origin is answered otherwise.
+ */
+function originRefusal(origin: string): LifecycleRefusal {
+  return { status: 403, name: 'ORIGIN_NOT_ALLOWED', fields: { origin }, headers: { Vary: 'Origin' } };
 }
 
 /** 410 ROOM_ROTATED for a request to `room`, a rotated room, naming its replacement. */
@@ -716,6 +760,17 @@ class AgentOutbox {
 // Request headers a browser may send cross-origin. The MCP ones are what browser-hosted Streamable
 // HTTP clients send after `initialize`; without them every such request fails its CORS preflight.
 const BROWSER_ALLOWED_REQUEST_HEADERS = 'Content-Type, Authorization, X-Requested-With, X-Publish-Key, X-Framebook-Owner, X-Owner-Id, MCP-Protocol-Version, Mcp-Method, Mcp-Name';
+// The methods a browser may send cross-origin, as a preflight answers them: those of the relay's
+// routes, DELETE included, so a browser MCP client's session termination gets the endpoint's 405
+// (which MCP clients expect) rather than a CORS failure.
+const BROWSER_ALLOWED_METHODS = 'GET, POST, DELETE, OPTIONS';
+// Response headers a cross-origin script may read. None is CORS-safelisted, and the relay sends
+// each for its client to act on: when to retry, the validator of a conditional GET, the catalog a
+// response comes from, the publish quota.
+const BROWSER_EXPOSED_RESPONSE_HEADERS = 'Retry-After, ETag, X-MCP-Catalog-Version, X-MCP-Catalog-Hash, X-RateLimit-Limit, X-RateLimit-Remaining';
+// The `Vary` of the room descriptor (`GET /p/:id/mcp`): an `Accept` of only text/event-stream gets
+// 405 instead of it, so a shared cache must not answer one Accept with the other's response.
+const DESCRIPTOR_VARY = 'Origin, Accept, Accept-Encoding';
 
 export class WebMcpPeerServer {
   readonly server: Server;
@@ -724,6 +779,12 @@ export class WebMcpPeerServer {
   readonly host: string;
   readonly allowedOrigins: string[];
   readonly allowedHosts: string[];
+  /** True when the relay refuses a request addressed to a host outside `allowedHosts` (HOST_NOT_ALLOWED). */
+  readonly enforceAllowedHosts: boolean;
+  /** Which peers the relay takes `X-Forwarded-*` headers from; see `WebMcpPeerServerOptions.trustProxy`. */
+  readonly trustProxy: boolean | readonly string[];
+  /** The most rooms the relay holds at once, retained ones included; see `WebMcpPeerServerOptions.maxRooms`. */
+  readonly maxRooms: number;
   readonly configPath?: string;
   readonly publishKeyConfigured: boolean;
   readonly publishKeyOwner?: string;
@@ -740,6 +801,8 @@ export class WebMcpPeerServer {
   readonly serverVersion: string;
   private mcpWireSequence = 0;
   private readonly publishKeyHash?: string;
+  /** The trust `trustProxy` places in the hops in front of the relay (see `clientAddress`). */
+  private readonly proxyTrust: ProxyTrust;
   /** The SQLite rate-limit store the relay opened from its configuration, closed with the relay. */
   private readonly ownedSqliteRateLimitStore?: SqlitePublishRateLimitStore;
   protected readonly roomSweepTimer?: ReturnType<typeof setInterval>;
@@ -779,6 +842,9 @@ export class WebMcpPeerServer {
     this.host = config.host;
     this.allowedOrigins = config.allowedOrigins;
     this.allowedHosts = config.allowedHosts;
+    this.enforceAllowedHosts = config.enforceAllowedHosts;
+    this.trustProxy = config.trustProxy;
+    this.proxyTrust = createProxyTrust(config.trustProxy);
     this.configPath = config.configPath;
     this.publishKeyConfigured = Boolean(config.publishKey);
     this.publishKeyOwner = config.publishKeyOwner;
@@ -807,6 +873,9 @@ export class WebMcpPeerServer {
     this.maxRoomTtlMs = Number.isFinite(maxRoomTtlMs)
       ? Math.min(ROOM_TTL_CEILING_MS, Math.max(MIN_ROOM_TTL_MS, maxRoomTtlMs))
       : DEFAULT_MAX_ROOM_TTL_MS;
+    // `Infinity` holds any number of rooms; NaN is no bound at all, so it is the default.
+    const maxRooms = options.maxRooms ?? DEFAULT_MAX_ROOMS;
+    this.maxRooms = Number.isNaN(maxRooms) ? DEFAULT_MAX_ROOMS : Math.max(1, Math.floor(maxRooms));
     // Checked here, so a bad value fails the construction rather than every upgrade.
     this.socketOptions = { pingIntervalMs: options.webSocketPingIntervalMs, idleTimeoutMs: options.webSocketIdleTimeoutMs };
     resolveUpgradeWebSocketOptions(this.socketOptions);
@@ -953,14 +1022,92 @@ export class WebMcpPeerServer {
     return Math.min(this.maxRoomTtlMs, Math.max(MIN_ROOM_TTL_MS, Number.isFinite(ttlMs) ? ttlMs : MIN_ROOM_TTL_MS));
   }
 
+  /** True when `req` came from a trusted proxy (see `trustProxy`), whose `X-Forwarded-*` the relay reads. */
+  protected fromTrustedProxy(req: IncomingMessage): boolean {
+    const peer = req.socket.remoteAddress;
+    return typeof peer === 'string' && this.proxyTrust(peer, 0);
+  }
+
+  /**
+   * The value of the forwarded header `name` the nearest proxy wrote (the last of its values), when
+   * the request came from a trusted proxy; otherwise undefined, whatever the request carries.
+   */
+  protected forwardedHeader(req: IncomingMessage, name: 'x-forwarded-proto' | 'x-forwarded-host'): string | undefined {
+    return this.fromTrustedProxy(req) ? headerValues(req.headers[name]).at(-1) : undefined;
+  }
+
+  /**
+   * The address a request came from, the identity of its publish rate-limit bucket: the socket's
+   * remote address, or, through trusted proxies (see `trustProxy`), the `X-Forwarded-For` address
+   * the relay reaches reading back from the nearest hop while each hop is trusted, the first
+   * outside the trust boundary (the left-most when every hop is trusted). An address a caller
+   * wrote ahead of the ones its proxies added is never reached, so it cannot pick its bucket.
+   */
+  protected clientAddress(req: IncomingMessage): string {
+    let address = req.socket.remoteAddress ?? 'unknown';
+    const forwardedFor = headerValues(req.headers['x-forwarded-for']);
+    for (let hop = 0; hop < forwardedFor.length && this.proxyTrust(address, hop); hop += 1) {
+      address = forwardedFor[forwardedFor.length - 1 - hop]!;
+    }
+    return address;
+  }
+
+  /** The host a request is addressed to: `X-Forwarded-Host` from a trusted proxy, otherwise `Host`. */
+  protected requestHost(req: IncomingMessage): string | undefined {
+    return this.forwardedHeader(req, 'x-forwarded-host') ?? req.headers.host;
+  }
+
+  /**
+   * Null when the relay serves a request addressed to its host (see `requestHost`); otherwise 403
+   * HOST_NOT_ALLOWED. Only a relay that `enforceAllowedHosts` refuses one, every HTTP request and
+   * upgrade alike, before anything else: a page whose name a DNS rebinding pointed at the relay
+   * sends that name, so it reaches none of the relay's routes, its public ones included.
+   */
+  protected hostRefusal(req: IncomingMessage): LifecycleRefusal | null {
+    if (!this.enforceAllowedHosts) return null;
+    const host = this.requestHost(req);
+    return this.isHostAllowed(host) ? null : { status: 403, name: 'HOST_NOT_ALLOWED', fields: { host } };
+  }
+
+  /**
+   * The base URL the relay's descriptors name for `req`: the scheme `X-Forwarded-Proto` from a
+   * trusted proxy names when it is `http` or `https`, else that of the socket, and the request's
+   * host (see `requestHost`) when it is allowed, else the relay's own `host:port`.
+   */
   public requestOrigin(req: IncomingMessage): string {
-    const forwardedProto = (req.headers['x-forwarded-proto'] as string) || (req.socket instanceof TLSSocket && req.socket.encrypted ? 'https' : 'http');
+    const forwardedProto = this.forwardedHeader(req, 'x-forwarded-proto')?.toLowerCase();
+    const proto = forwardedProto === 'http' || forwardedProto === 'https'
+      ? forwardedProto
+      : req.socket instanceof TLSSocket && req.socket.encrypted ? 'https' : 'http';
     const addr = this.server.address();
     const currentPort = typeof addr === 'object' && addr ? addr.port : this.port;
     const fallbackHost = `${this.host}:${currentPort}`;
-    const rawForwardedHost = (req.headers['x-forwarded-host'] as string) || req.headers.host || fallbackHost;
-    const safeHost = this.isHostAllowed(rawForwardedHost) ? rawForwardedHost : fallbackHost;
-    return `${forwardedProto}://${safeHost}`;
+    const host = this.requestHost(req) || fallbackHost;
+    const safeHost = this.isHostAllowed(host) ? host : fallbackHost;
+    return `${proto}://${safeHost}`;
+  }
+
+  /** True when `entry` is live: neither rotated nor past its `expiresAt`. */
+  protected isLiveRoom(entry: RoomEntry | undefined, now = Date.now()): entry is RoomEntry {
+    return Boolean(entry && !entry.rotatedTo && entry.expiresAt > now);
+  }
+
+  /**
+   * Null when the relay may hold one more room; otherwise 503 ROOM_CAPACITY_EXCEEDED, with the time
+   * until the first room it holds is deleted (when its retention ends, see `cleanupExpiredRooms`)
+   * as `retryAfterMs` and `Retry-After`. Retained rooms count: each answers for its id until then.
+   */
+  protected roomCapacityRefusal(now = Date.now()): LifecycleRefusal | null {
+    if (this.rooms.size < this.maxRooms) return null;
+    let firstDeletion = Number.POSITIVE_INFINITY;
+    for (const entry of this.rooms.values()) firstDeletion = Math.min(firstDeletion, entry.metadataRetainUntil ?? now);
+    const retryAfterMs = Math.max(1_000, firstDeletion - now);
+    return {
+      status: 503,
+      name: 'ROOM_CAPACITY_EXCEEDED',
+      fields: { retryAfterMs },
+      headers: { 'Retry-After': String(Math.ceil(retryAfterMs / 1000)) },
+    };
   }
 
   /**
@@ -1660,14 +1807,24 @@ export class WebMcpPeerServer {
     };
   }
 
-  protected mcpDescriptorCacheHeaders(body: unknown, catalogVersion: number, catalogHash: string): Record<string, string> {
+  /**
+   * The cache headers of a room's descriptor and its catalog snapshot (`GET /p/:id/mcp`,
+   * `GET /p/:id/mcp/tools`), whose ETag is the digest of `body`. `vary` names the request headers
+   * the response depends on: the descriptor's also depends on `Accept` (see DESCRIPTOR_VARY).
+   */
+  protected mcpDescriptorCacheHeaders(
+    body: unknown,
+    catalogVersion: number,
+    catalogHash: string,
+    vary = 'Origin, Accept-Encoding',
+  ): Record<string, string> {
     const digest = createHash('sha256').update(JSON.stringify(body), 'utf8').digest('hex');
     return {
       'Cache-Control': 'public, max-age=5, s-maxage=30, stale-while-revalidate=60, stale-if-error=300',
       ETag: `"mcp-descriptor-${digest}"`,
       'X-MCP-Catalog-Version': String(catalogVersion),
       'X-MCP-Catalog-Hash': catalogHash,
-      Vary: 'Origin, Accept-Encoding',
+      Vary: vary,
     };
   }
 
@@ -1696,13 +1853,7 @@ export class WebMcpPeerServer {
       const matched = typeof ifNoneMatch === 'string' && etag
         && (ifNoneMatch.split(',').some(token => token.trim() === etag) || ifNoneMatch.trim() === '*');
       if (matched) {
-        const isAllowed = this.isOriginAllowed(origin);
-        const headers: Record<string, string> = { ...cacheHeaders, 'Content-Length': '0' };
-        if (origin && isAllowed) {
-          headers['Access-Control-Allow-Origin'] = origin;
-          headers['Access-Control-Allow-Headers'] = BROWSER_ALLOWED_REQUEST_HEADERS;
-        }
-        res.writeHead(304, headers);
+        res.writeHead(304, { ...cacheHeaders, 'Content-Length': '0', ...this.corsHeaders(origin) });
         res.end();
         return;
       }
@@ -1847,8 +1998,14 @@ export class WebMcpPeerServer {
   }
 
   public sendJson(res: ServerResponse, status: number, body: unknown, origin?: string, extraHeaders?: Record<string, string>): void {
-    res.writeHead(status, this.responseHeaders(origin, { 'Content-Type': 'application/json', ...extraHeaders }));
-    res.end(JSON.stringify(body));
+    // `undefined` has no JSON text; it is sent as an empty body.
+    const payload = JSON.stringify(body) ?? '';
+    res.writeHead(status, this.responseHeaders(origin, {
+      'Content-Type': 'application/json',
+      'Content-Length': String(Buffer.byteLength(payload)),
+      ...extraHeaders,
+    }));
+    res.end(payload);
   }
 
   /** Answers a lifecycle route with the error `name` (see `lifecycleErrorBody`) and its `fields`. */
@@ -1972,13 +2129,27 @@ export class WebMcpPeerServer {
     res.end();
   }
 
+  /**
+   * The CORS headers of a response to a request from `origin`: none unless it is a browser origin
+   * the relay allows, which may then read the response, send the request headers the relay takes
+   * and read the response headers it sends for its clients.
+   */
+  protected corsHeaders(origin: string | undefined): Record<string, string> {
+    if (!origin || !this.isOriginAllowed(origin)) return {};
+    return {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Headers': BROWSER_ALLOWED_REQUEST_HEADERS,
+      'Access-Control-Expose-Headers': BROWSER_EXPOSED_RESPONSE_HEADERS,
+    };
+  }
+
+  /**
+   * The headers of a relay response: `Cache-Control: no-store`, `Vary: Origin` (every response
+   * depends on the Origin, which may get it refused or the CORS headers) and the CORS headers, then
+   * `extraHeaders`, which override them (a cacheable route's own `Cache-Control` and `Vary`).
+   */
   protected responseHeaders(origin: string | undefined, extraHeaders?: Record<string, string>): Record<string, string> {
-    const headers: Record<string, string> = { 'Cache-Control': 'no-store' };
-    if (origin && this.isOriginAllowed(origin)) {
-      headers['Access-Control-Allow-Origin'] = origin;
-      headers['Access-Control-Allow-Headers'] = BROWSER_ALLOWED_REQUEST_HEADERS;
-      headers['Vary'] = 'Origin';
-    }
+    const headers: Record<string, string> = { 'Cache-Control': 'no-store', Vary: 'Origin', ...this.corsHeaders(origin) };
     return extraHeaders ? Object.assign(headers, extraHeaders) : headers;
   }
 
@@ -2026,8 +2197,9 @@ export class WebMcpPeerServer {
     return { ok: true, tokenHash };
   }
 
+  /** The publish rate-limit bucket of `req`: its client address (see `clientAddress`) and `tokenHash`. */
   protected publishRateIdentity(req: IncomingMessage, tokenHash: string): string {
-    return `${req.socket.remoteAddress ?? 'unknown'}\u0000${tokenHash}`;
+    return `${this.clientAddress(req)}\u0000${tokenHash}`;
   }
 
   public async consumePublishRateLimit(req: IncomingMessage, tokenHash: string): Promise<
@@ -2611,23 +2783,25 @@ export class WebMcpPeerServer {
 
   async handleHttp(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const origin = req.headers.origin;
+    // A request addressed to a host the relay does not serve reaches nothing, a preflight included.
+    const hostRefusal = this.hostRefusal(req);
+    if (hostRefusal) {
+      this.sendRefusal(res, hostRefusal, origin);
+      return;
+    }
     const url = new URL(req.url ?? '/', `http://${this.host}:${this.port}`);
     this.cleanupExpiredRooms();
 
-    // Strict CORS preflight
+    // Strict CORS preflight. A request without an Origin is no preflight, so it gets no
+    // Access-Control-Allow-Origin.
     if (req.method === 'OPTIONS') {
       if (origin && !this.isOriginAllowed(origin)) {
-        res.writeHead(403, {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-store',
-        });
-        res.end(JSON.stringify({ error: 'CORS_ORIGIN_DENIED', origin }));
+        this.sendRefusal(res, originRefusal(origin), origin);
         return;
       }
-      const allowOrigin = origin || `http://${this.host}:${this.port}`;
       res.writeHead(204, {
-        'Access-Control-Allow-Origin': allowOrigin,
-        'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
+        ...(origin ? { 'Access-Control-Allow-Origin': origin } : {}),
+        'Access-Control-Allow-Methods': BROWSER_ALLOWED_METHODS,
         'Access-Control-Allow-Headers': BROWSER_ALLOWED_REQUEST_HEADERS,
         'Access-Control-Max-Age': '86400',
         Vary: 'Origin',
@@ -2638,15 +2812,20 @@ export class WebMcpPeerServer {
 
     // Fail-Closed: Deny non-whitelisted browser origins on all HTTP endpoints
     if (origin && !this.isOriginAllowed(origin)) {
-      this.sendLifecycleError(res, 403, 'ORIGIN_NOT_ALLOWED', origin, { origin });
+      this.sendRefusal(res, originRefusal(origin), origin);
       return;
     }
 
-    // Health / Status
+    // Health / Status. Live rooms and the expired or rotated ones the relay still retains (and
+    // counts against maxRooms) are told apart.
     if (url.pathname === '/status' || url.pathname === '/health' || url.pathname === '/ping') {
+      const now = Date.now();
+      let activeRooms = 0;
+      for (const entry of this.rooms.values()) if (this.isLiveRoom(entry, now)) activeRooms += 1;
       this.sendJson(res, 200, {
         status: 'healthy',
-        activeRooms: this.rooms.size,
+        activeRooms,
+        retainedRooms: this.rooms.size - activeRooms,
         uptimeSec: process.uptime(),
       }, origin);
       return;
@@ -2729,6 +2908,12 @@ export class WebMcpPeerServer {
         this.sendLifecycleError(res, 400, 'CAPABILITIES_INVALID', origin);
         return;
       }
+      // Checked last, after the body arrived, so concurrent creations cannot pass it together.
+      const capacityRefusal = this.roomCapacityRefusal();
+      if (capacityRefusal) {
+        this.sendRefusal(res, capacityRefusal, origin);
+        return;
+      }
       const entry = this.createRoomEntry(alias, approvalRequired, ttlMs, 1, capabilities, ownerId);
       this.rooms.set(entry.id, entry);
       const rateHeaders = this.publishRateLimitMax > 0 ? {
@@ -2797,7 +2982,7 @@ export class WebMcpPeerServer {
     }
 
     // Room-independent immutable deployment catalog: GET /mcp/catalog or /mcp/catalog/:hash
-    const deploymentCatalogHashMatch = url.pathname.match(/^\/mcp\/catalog\/([a-f0-9]{64})$/);
+    const deploymentCatalogHashMatch = url.pathname.match(DEPLOYMENT_CATALOG_HASH_ROUTE);
     if (req.method === 'GET' && (url.pathname === '/mcp/catalog' || deploymentCatalogHashMatch)) {
       const snapshot = this.mcpCatalogSnapshot(undefined);
       if (!snapshot.available) {
@@ -2830,12 +3015,13 @@ export class WebMcpPeerServer {
       // catalog changes are pushed over the client WebSocket), so the spec requires 405. A 200 JSON
       // descriptor made the official MCP SDK treat it as an ended stream and reconnect about once
       // per second for as long as the MCP host stayed connected.
-      this.sendJson(res, 405, { jsonrpc: '2.0', id: null, error: peerRpcError('SSE_STREAM_NOT_SUPPORTED') }, origin, { Allow: 'POST' });
+      // Its Allow names the endpoint's methods, as every 405 of the endpoint does.
+      this.sendJson(res, 405, { jsonrpc: '2.0', id: null, error: peerRpcError('SSE_STREAM_NOT_SUPPORTED') }, origin, { Allow: MCP_ENDPOINT_METHODS });
       return;
     }
     if (req.method === 'DELETE' && mcpMatch) {
       // The relay issues no Mcp-Session-Id, so there is no session to terminate (Streamable HTTP: 405).
-      this.sendJson(res, 405, { jsonrpc: '2.0', id: null, error: peerRpcError('SESSION_TERMINATION_NOT_SUPPORTED') }, origin, { Allow: 'GET, POST' });
+      this.sendJson(res, 405, { jsonrpc: '2.0', id: null, error: peerRpcError('SESSION_TERMINATION_NOT_SUPPORTED') }, origin, { Allow: MCP_ENDPOINT_METHODS });
       return;
     }
     if (req.method === 'GET' && mcpMatch) {
@@ -2851,7 +3037,7 @@ export class WebMcpPeerServer {
         protocol: WEBMCP_SUBPROTOCOL,
         status: state,
         state,
-        roomValid: Boolean(entry && !entry.rotatedTo && entry.expiresAt > now),
+        roomValid: this.isLiveRoom(entry, now),
         expiresAt: entry?.expiresAt ?? null,
         catalogVersion: snapshot.catalogVersion,
         catalogHash: snapshot.catalogHash,
@@ -2865,7 +3051,7 @@ export class WebMcpPeerServer {
         rotatedTo: entry?.rotatedTo ?? null,
       };
       this.sendMcpMetadata(req, res, 200, descriptor, origin,
-        this.mcpDescriptorCacheHeaders(descriptor, snapshot.catalogVersion, snapshot.catalogHash), true);
+        this.mcpDescriptorCacheHeaders(descriptor, snapshot.catalogVersion, snapshot.catalogHash, DESCRIPTOR_VARY), true);
       return;
     }
 
@@ -2883,7 +3069,7 @@ export class WebMcpPeerServer {
         catalogHash: snapshot.catalogHash,
         updatedAt: snapshot.catalogUpdatedAt,
         state,
-        roomValid: Boolean(entry && !entry.rotatedTo && entry.expiresAt > Date.now()),
+        roomValid: this.isLiveRoom(entry),
         providerConnected: Boolean(entry?.providerSocket),
         auth: this.mcpAuthMetadata(entry, 'not-joined'),
       };
@@ -3378,6 +3564,13 @@ export class WebMcpPeerServer {
         this.sendLifecycleError(res, 409, 'ROOM_BINDING_INVALID', origin, { roomId, roomEpoch: entry.roomEpoch });
         return;
       }
+      // The replacement is one more room (the rotated one is retained), so rotation is bounded
+      // like creation, and a refused one leaves the room as it was.
+      const capacityRefusal = this.roomCapacityRefusal();
+      if (capacityRefusal) {
+        this.sendRefusal(res, capacityRefusal, origin);
+        return;
+      }
       const alias = typeof body.alias === 'string' && body.alias.trim()
         ? truncateCodePoints(body.alias.trim(), MAX_ROOM_ALIAS_CODE_POINTS) : entry.alias;
       const ttlMs = typeof body.ttlMs === 'number' && Number.isFinite(body.ttlMs) ? body.ttlMs : 2 * 60 * 60 * 1000;
@@ -3422,6 +3615,13 @@ export class WebMcpPeerServer {
       return;
     }
 
+    // A route asked with a method it does not take is 405 with the methods it does; any other
+    // path is no route of the relay.
+    const allow = routeMethods(url.pathname);
+    if (allow) {
+      this.sendLifecycleError(res, 405, 'METHOD_NOT_ALLOWED', origin, undefined, { Allow: allow });
+      return;
+    }
     this.sendLifecycleError(res, 404, 'NOT_FOUND', origin);
   }
 
@@ -3432,10 +3632,16 @@ export class WebMcpPeerServer {
     // event nobody handles, an uncaught exception that ends the relay process.
     socket.on('error', () => socket.destroy());
     try {
+      // The host and the Origin are checked before anything else, the hook included, and refused
+      // as an HTTP request is (HOST_NOT_ALLOWED, ORIGIN_NOT_ALLOWED).
+      const hostRefusal = this.hostRefusal(req);
+      if (hostRefusal) {
+        this.refuseUpgrade(socket, hostRefusal);
+        return;
+      }
       const origin = req.headers.origin;
       if (origin && !this.isOriginAllowed(origin)) {
-        socket.write('HTTP/1.1 403 Forbidden\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nOrigin not allowed\r\n');
-        socket.destroy();
+        this.refuseUpgrade(socket, originRefusal(origin));
         return;
       }
 

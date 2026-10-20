@@ -234,7 +234,8 @@ describe("MCP Streamable HTTP interoperability", () => {
 
     const sse = await fetch(`${base}/p/${roomId}/mcp`, { headers: { accept: "text/event-stream" } });
     expect(sse.status).toBe(405);
-    expect(sse.headers.get("allow")).toBe("POST");
+    // The endpoint's methods, as its other 405s name them: GET itself is served, with another Accept.
+    expect(sse.headers.get("allow")).toBe("GET, POST");
 
     const descriptor = await fetch(`${base}/p/${roomId}/mcp`, { headers: { accept: "application/json" } });
     expect(descriptor.status).toBe(200);

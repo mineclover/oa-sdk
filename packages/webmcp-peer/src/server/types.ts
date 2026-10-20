@@ -121,8 +121,30 @@ export interface RoomEntry {
 export interface WebMcpPeerServerOptions {
   port?: number;
   host?: string;
+  /**
+   * The browser origins the relay serves (`isOriginAllowed` rules). Configured here, in the config
+   * file, `ALLOWED_ORIGINS` or the CLI, the lists replace the default policy (the relay's own
+   * origin and `DEFAULT_ALLOWED_ORIGINS`); a request from any other origin gets 403
+   * ORIGIN_NOT_ALLOWED. A request without an Origin is not from a browser page and is served.
+   */
   allowedOrigins?: string[];
+  /**
+   * The hosts requests may be addressed to besides the relay's own `host` (`isHostAllowed` rules),
+   * replacing `DEFAULT_ALLOWED_HOSTS` when configured here or elsewhere. Configuring them, or
+   * binding a loopback `host`, makes the relay refuse a request for any other host with 403
+   * HOST_NOT_ALLOWED, which keeps a DNS-rebound page out.
+   */
   allowedHosts?: string[];
+  /**
+   * Which peers the relay takes `X-Forwarded-Proto`, `X-Forwarded-Host` and `X-Forwarded-For` from
+   * (default `false`: none, so the headers are ignored). `true` trusts the relay's own peer, one
+   * proxy in front of it; a list names the IP addresses and CIDR ranges of trusted proxies. From a
+   * trusted proxy, the scheme (`http` or `https` only) and host of the descriptors' base URL are the
+   * last values of those headers, and the publish rate limit counts the client `X-Forwarded-For`
+   * names past the trusted hops (see `WebMcpPeerServer.clientAddress`). Also `trustProxy` in the
+   * config file, `PEER_SERVER_TRUST_PROXY` or `--trust-proxy` (`true`, `false`, or a list).
+   */
+  trustProxy?: boolean | readonly string[];
   configPath?: string;
   publishKey?: string;
   publishKeyOwner?: string;
@@ -167,6 +189,13 @@ export interface WebMcpPeerServerOptions {
    */
   maxRoomTtlMs?: number;
   /**
+   * The most rooms the relay holds at once (default 10000; a number of at least 1, `Infinity` for
+   * no bound). Expired and rotated rooms the relay still retains count, until they are deleted a
+   * day after their expiry. At the bound, `POST /p` and `POST /p/:id/rotate` answer 503
+   * ROOM_CAPACITY_EXCEEDED with `Retry-After` until the first held room is deleted.
+   */
+  maxRooms?: number;
+  /**
    * CLI arguments to resolve (`--port`, `--host`, `--config`, `--publish-key`, ...). Default: none.
    * The embedded server never reads `process.argv` on its own; a CLI entry point opts in with
    * `argv: process.argv.slice(2)`. When given, CLI flags take precedence over these options.
@@ -187,8 +216,9 @@ export interface WebMcpPeerServerOptions {
   serverName?: string;
   serverVersion?: string;
   /**
-   * Optional custom HTTP route hook invoked after CORS/Origin validation and
-   * before `/p/*` room routes. Return `true` if the request was handled.
+   * Optional custom HTTP route hook invoked after the Host and Origin validation, the CORS
+   * preflight, the health routes and `GET /config`, and before `/p/*` room routes. Return `true`
+   * if the request was handled.
    */
   customHttpHandler?: (
     req: IncomingMessage,
@@ -198,9 +228,9 @@ export interface WebMcpPeerServerOptions {
     server: WebMcpPeerServer,
   ) => Promise<boolean> | boolean;
   /**
-   * Optional custom WebSocket upgrade hook invoked after Origin validation and before the relay
-   * checks the opening handshake and routes `/p/:id/provider` and `/p/:id/client`, so it may take
-   * any upgrade. Return `true` if handled.
+   * Optional custom WebSocket upgrade hook invoked after the Host and Origin validation and before
+   * the relay checks the opening handshake and routes `/p/:id/provider` and `/p/:id/client`, so it
+   * may take any upgrade. Return `true` if handled.
    */
   customUpgradeHandler?: (
     req: IncomingMessage,
