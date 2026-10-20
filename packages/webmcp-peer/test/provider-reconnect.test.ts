@@ -1,6 +1,6 @@
 // Regression tests for the provider's relay session lifecycle: the relay URLs it builds, approvals
-// the relay restores after a lease reclaim, the auto-reconnect backoff loop, and relay catalog
-// rejections.
+// the relay restores after a lease reclaim, the auto-reconnect backoff loop, a lease the relay
+// refuses, the rotate request, and relay catalog rejections.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WEBMCP_SUBPROTOCOL } from "../src/config.js";
 import { WebMcpPeerClient, type WebMcpHostAdapter } from "../src/provider.js";
@@ -79,7 +79,8 @@ describe("approvals the relay restores on reattach", () => {
     await host.connect({ serverUrl: relay.base, alias: "restore" });
 
     expect(host.getSession().approvalState).toBe("none");
-    expect((await callTool(relay.latest, 1, "read")).error).toMatchObject({ code: -32003 });
+    // The relay's code for CLIENT_APPROVAL_REQUIRED, not the −32003 of a missing client token.
+    expect((await callTool(relay.latest, 1, "read")).error).toEqual({ code: -32053, message: "CLIENT_APPROVAL_REQUIRED" });
   });
 
   it("keeps an approved agent working across a lease reclaim", async () => {
@@ -190,6 +191,46 @@ describe("auto-reconnect backoff", () => {
     host.disconnect();
     await vi.advanceTimersByTimeAsync(60_000);
     expect(relay.fetchCalls.length).toBe(callsBefore + 1);
+  });
+});
+
+describe("a lease the relay refuses", () => {
+  it("is forgotten, so the next auto-reconnect does not present it again", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const relay = new FakeRelay();
+    installRelay(relay, { browser: true });
+    const host = provider();
+    await host.connect({ serverUrl: relay.base, alias: "lease", autoReconnect: true });
+    host.disconnect();
+    // The saved lease is now wrong (403 ROOM_LEASE_INVALID), and no new room can be created.
+    relay.replaceLease();
+    relay.creatable = false;
+    const reclaims = () => relay.fetchCalls.filter((call) => call.url.endsWith("/reclaim")).length;
+
+    expect(await host.autoReconnectIfSaved()).toBe(false);
+    expect(reclaims()).toBe(1);
+    expect(await host.autoReconnectIfSaved()).toBe(false);
+    expect(reclaims()).toBe(1);
+  });
+});
+
+describe("room rotation", () => {
+  it("sends the room epoch the provider knows, and leaves out one it does not instead of guessing 0", async () => {
+    const relay = new FakeRelay();
+    installRelay(relay);
+    const host = provider();
+    await host.connect({ serverUrl: relay.base, alias: "rotate" });
+    // From here on the relay's descriptors do not report the epoch.
+    relay.reportsRoomEpoch = false;
+
+    await host.refreshRoom();
+    expect(relay.rotateBodies[0]).toMatchObject({ roomId: "abcdef0123456789", roomEpoch: 1 });
+    // The replacement's epoch is unknown: a guessed 0 would be refused as ROOM_BINDING_INVALID.
+    await host.refreshRoom();
+    expect(relay.rotateBodies[1]).toMatchObject({ roomId: "fedcba9876543210" });
+    expect(relay.rotateBodies[1]).not.toHaveProperty("roomEpoch");
+    expect(host.getSession()).toMatchObject({ roomId: "fedcba9876543210", error: null });
   });
 });
 

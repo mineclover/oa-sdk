@@ -9,80 +9,99 @@ import type {
   PeerMcpCallToolResult,
   PeerMcpCatalogCache,
   PeerMcpCatalogSnapshot,
+  PeerMcpServiceSessionOptions,
   PeerMcpSessionInfo,
   PeerMcpSessionOptions,
   PeerMcpStore,
 } from "./types.js";
 
+/**
+ * A registry of peer MCP sessions under keys of the caller's choosing, one of them active. A key
+ * names a session in this registry only: the session's `sessionId` stays the relay's own id (or
+ * none until the relay supplies it), so revoking a session registered under any key uses the
+ * route its relay session id allows.
+ */
 export class PeerMcpService {
   options: PeerMcpSessionOptions;
   sessions: Map<string, PeerMcpSession>;
-  activeSessionId?: string;
+  /** The key of the session the methods act on when no key is given. */
+  activeKey?: string;
 
   constructor(options: PeerMcpSessionOptions = {}) {
     this.options = { ...options };
     this.sessions = new Map();
-    this.activeSessionId = undefined;
+    this.activeKey = undefined;
   }
 
-  createSession(options: PeerMcpSessionOptions = {}): PeerMcpSession {
-    const session = new PeerMcpSession({ ...this.options, ...options });
-    const id = options.sessionId || session.sessionId || `peer-session-${randomUUID()}`;
-    session.sessionId = id;
-    this.sessions.set(id, session);
-    this.activeSessionId = id;
+  /**
+   * Creates a session and registers it, as the active one, under `options.key`, else its
+   * `sessionId`, else a new `peer-session-<uuid>`. A session already registered under that key is
+   * replaced.
+   */
+  createSession(options: PeerMcpServiceSessionOptions = {}): PeerMcpSession {
+    const { key: requestedKey, ...sessionOptions } = options;
+    const session = new PeerMcpSession({ ...this.options, ...sessionOptions });
+    const key = requestedKey || session.sessionId || `peer-session-${randomUUID()}`;
+    this.sessions.set(key, session);
+    this.activeKey = key;
     return session;
   }
 
-  getSession(sessionId = this.activeSessionId): PeerMcpSession | undefined {
-    return sessionId ? this.sessions.get(sessionId) : undefined;
+  getSession(key = this.activeKey): PeerMcpSession | undefined {
+    return key ? this.sessions.get(key) : undefined;
   }
 
   listSessions(): PeerMcpSessionInfo[] {
     return [...this.sessions.values()].map((session) => session.getSessionInfo());
   }
 
-  async connect(options: PeerMcpSessionOptions = {}): Promise<PeerMcpSession> {
+  async connect(options: PeerMcpServiceSessionOptions = {}): Promise<PeerMcpSession> {
     const session = this.createSession(options);
     await session.connect();
     return session;
   }
 
-  async disconnect(sessionId = this.activeSessionId): Promise<PeerMcpSessionInfo | undefined> {
-    const session = this.getSession(sessionId);
-    if (!session || !sessionId) return undefined;
+  async disconnect(key = this.activeKey): Promise<PeerMcpSessionInfo | undefined> {
+    const session = this.getSession(key);
+    if (!session || !key) return undefined;
     const info = await session.disconnect();
-    this.sessions.delete(sessionId);
-    if (this.activeSessionId === sessionId) this.activeSessionId = this.sessions.keys().next().value;
+    this.unregister(key);
     return info;
   }
 
-  async revoke(sessionId = this.activeSessionId, reason = "client-request"): Promise<Record<string, unknown>> {
-    const session = this.getSession(sessionId);
-    if (!session || !sessionId) throw new PeerMcpError("Peer session is not registered", "SESSION_NOT_FOUND");
+  async revoke(key = this.activeKey, reason = "client-request"): Promise<Record<string, unknown>> {
+    const session = this.getSession(key);
+    if (!session || !key) throw new PeerMcpError("Peer session is not registered", "SESSION_NOT_FOUND");
     const result = await session.revoke(reason);
-    this.sessions.delete(sessionId);
-    if (this.activeSessionId === sessionId) this.activeSessionId = this.sessions.keys().next().value;
+    this.unregister(key);
     return result;
   }
 
-  async refreshCatalog(sessionId = this.activeSessionId): Promise<PeerMcpCatalogSnapshot> {
-    const session = this.getSession(sessionId);
+  async refreshCatalog(key = this.activeKey): Promise<PeerMcpCatalogSnapshot> {
+    const session = this.getSession(key);
     if (!session) throw new PeerMcpError("No active peer MCP session", "SESSION_NOT_FOUND");
     await session.connect();
     await session.refreshCatalog();
     return session.getCatalogSnapshot();
   }
 
+  /** Calls `name` on the session registered under `options.key`, or on the active one. */
   async callTool(
     name: string,
     args: Record<string, unknown> = {},
-    options: PeerMcpCallOptions & { sessionId?: string } = {},
+    options: PeerMcpCallOptions & { key?: string } = {},
   ): Promise<PeerMcpCallToolResult> {
-    const session = this.getSession(options.sessionId ?? this.activeSessionId);
+    const { key = this.activeKey, ...callOptions } = options;
+    const session = this.getSession(key);
     if (!session) throw new PeerMcpError("No active peer MCP session", "SESSION_NOT_FOUND");
     await session.connect();
-    return session.callTool(name, args, options);
+    return session.callTool(name, args, callOptions);
+  }
+
+  /** Drops the session registered under `key`; the first remaining one becomes active if it was. */
+  private unregister(key: string): void {
+    this.sessions.delete(key);
+    if (this.activeKey === key) this.activeKey = this.sessions.keys().next().value;
   }
 }
 

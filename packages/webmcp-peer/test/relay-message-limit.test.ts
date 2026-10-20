@@ -1400,7 +1400,7 @@ describe("state-changing endpoints with a body that cannot be used", { timeout: 
     const kept = await joinRoom(relay.base, room);
     const entry = relay.server.rooms.get(room.id)!;
     const authorization = `Bearer ${room.providerToken}`;
-    const consumed = { status: 500, body: { error: "BODY_CONSUMED" } };
+    const consumed = { status: 500, body: { error: "BODY_CONSUMED", code: -32603 } };
     const statuses = () => [...entry.clientTickets.values()].map((ticket) => ticket.status);
 
     // Read as `{}`, this would revoke every session (no sessionId) instead of answering 404.
@@ -1456,11 +1456,14 @@ describe("state-changing endpoints with a body that cannot be used", { timeout: 
     const replacement = (await rotated.json()) as RoomDescriptor;
     expect((await postJson(`${relay.base}/p/${other.id}/rotate`, {}, { authorization: `Bearer ${other.providerToken}` })).status).toBe(201);
 
-    expect(await slowRotate.finish()).toEqual({ status: 404, body: { error: "ROOM_NOT_FOUND" } });
-    expect(await slowReclaim.finish()).toMatchObject({ status: 410, body: { error: "ROOM_ROTATED", replacementRoomId: replacement.id } });
-    expect(await slowRevoke.finish()).toEqual({ status: 404, body: { error: "ROOM_NOT_FOUND" } });
-    expect(await slowApproval.finish()).toEqual({ status: 404, body: { error: "ROOM_NOT_FOUND" } });
-    expect(await slowJoin.finish()).toMatchObject({ status: 410, body: { error: "ROOM_ROTATED" } });
+    // Every route answers a room rotated meanwhile alike, naming its replacement: the second
+    // rotation too, which mints no other one.
+    const rotatedAway = { status: 410, body: { error: "ROOM_ROTATED", code: -32057, roomId: room.id, roomEpoch: room.roomEpoch, replacementRoomId: replacement.id } };
+    expect(await slowRotate.finish()).toEqual(rotatedAway);
+    expect(await slowReclaim.finish()).toEqual(rotatedAway);
+    expect(await slowRevoke.finish()).toEqual(rotatedAway);
+    expect(await slowApproval.finish()).toEqual(rotatedAway);
+    expect(await slowJoin.finish()).toMatchObject({ status: 410, body: { error: "ROOM_ROTATED", code: -32057, roomId: other.id } });
 
     // One replacement per rotated room, nothing minted for the dead ones, tickets as rotated.
     const live = [...relay.server.rooms.values()].filter((candidate) => !candidate.rotatedTo && candidate.expiresAt > Date.now());
@@ -1491,8 +1494,9 @@ describe("state-changing endpoints with a body that cannot be used", { timeout: 
     expect(reclaim.status).toBe(200);
     expect(entry.providerToken).not.toBe(room.providerToken);
 
-    expect(await slowApproval.finish()).toEqual({ status: 401, body: { error: "PROVIDER_TOKEN_REQUIRED" } });
-    expect(await slowRotate.finish()).toEqual({ status: 401, body: { error: "PROVIDER_TOKEN_REQUIRED" } });
+    // The token the reclaim replaced is a wrong one now, not a missing one.
+    expect(await slowApproval.finish()).toEqual({ status: 401, body: { error: "PROVIDER_TOKEN_INVALID" } });
+    expect(await slowRotate.finish()).toEqual({ status: 401, body: { error: "PROVIDER_TOKEN_INVALID" } });
     expect([...entry.clientTickets.values()].map((ticket) => ticket.status)).toEqual(["pending"]);
     expect(entry.rotatedTo).toBeUndefined();
   });

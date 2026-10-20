@@ -85,6 +85,7 @@ export {
   type PeerMcpTransportCallbacks,
   type PeerMcpTransport,
   type PeerMcpSessionOptions,
+  type PeerMcpServiceSessionOptions,
   type PeerMcpRequestOptions,
   type PeerMcpCallOptions,
   type PeerMcpListener,

@@ -127,6 +127,10 @@ export interface PeerMcpSessionOptions {
   clientToken?: string;
   peerAlias?: string;
   alias?: string;
+  /**
+   * The relay's session id for this client ticket (the `sessionId` `joinPeerRoom` returns), sent to
+   * the relay as it is. Leave it out when unknown: the relay's WebSocket `ready` frame supplies it.
+   */
   sessionId?: string;
   runtimeEpoch?: string;
   protocolVersion?: string;
@@ -139,6 +143,16 @@ export interface PeerMcpSessionOptions {
     callbacks: PeerMcpTransportCallbacks,
   ) => Promise<PeerMcpTransport> | PeerMcpTransport;
   storage?: PeerMcpStore;
+}
+
+/** Options of a session `PeerMcpService` creates: the session's options and its registry key. */
+export interface PeerMcpServiceSessionOptions extends PeerMcpSessionOptions {
+  /**
+   * The key the service registers the session under (`getSession(key)`, `revoke(key)`, ...).
+   * It is the service's own name for the session and never reaches the relay; without it the key
+   * is the session's `sessionId`, or a new `peer-session-<uuid>` when there is none.
+   */
+  key?: string;
 }
 
 export interface PeerMcpRequestOptions {

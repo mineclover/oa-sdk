@@ -162,7 +162,7 @@ async function main(): Promise<void> {
 
   const service = new PeerMcpService();
   const session = await service.connect({
-    sessionId: "local-smoke-session",
+    key: "local-smoke-session",
     serverUrl,
     roomId: joined.roomId,
     roomEpoch: joined.roomEpoch,

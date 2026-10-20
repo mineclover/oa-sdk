@@ -3,6 +3,7 @@
  * `_meta.framebook.aiTrace` metadata, and the conversion of a host tool's return value into the
  * MCP CallToolResult sent back to the agent.
  */
+import { peerRpcError } from "../config/errors.js";
 import { isJsonObject } from "../config/json.js";
 import { PEER_RELAY_MAX_MESSAGE_BYTES, utf8ByteLength } from "../config/limits.js";
 import type { AiRunPhase } from "./ai-run-controller.js";
@@ -221,7 +222,8 @@ export interface RelayMcpReply {
  * Serializes a reply to a relayed request for the relay WebSocket. A reply over `maxBytes` would
  * make the relay close the provider socket, so it is replaced by a small error the agent can read:
  * for tools/call an `isError` result with code RESULT_TOO_LARGE (the tool did run; only its result
- * is lost), for any other method a JSON-RPC error named RESULT_TOO_LARGE.
+ * is lost), for any other method the JSON-RPC error RESULT_TOO_LARGE with the limit as
+ * `data.limitBytes`, as the relay sends it.
  */
 export function encodeRelayMcpReply(
   request: unknown,
@@ -243,7 +245,7 @@ export function encodeRelayMcpReply(
           message: `The result of tool "${nonEmptyString(params?.name) ?? "unknown"}" is ${limit}; the tool ran but its result was not delivered`,
         }),
       }
-    : { jsonrpc: "2.0", id: response.id, error: { code: -32603, message: "RESULT_TOO_LARGE" } };
+    : { jsonrpc: "2.0", id: response.id, error: peerRpcError("RESULT_TOO_LARGE", { limitBytes: maxBytes }) };
   const fallback = JSON.stringify({ type: "mcp", message: replacement });
   return { frame: utf8ByteLength(fallback) <= maxBytes ? fallback : undefined, oversizeBytes: bytes };
 }

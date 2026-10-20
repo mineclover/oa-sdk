@@ -557,11 +557,14 @@ function relayRequest(socket: FakeRelaySocket, id: number, method: "tools/list" 
   return replyTo(socket, id);
 }
 
-/** The JSON-RPC error a catalog request gets when the relay holds no catalog the provider sent. */
+/**
+ * The JSON-RPC error a catalog request gets when the relay holds no catalog the provider sent: the
+ * relay's CATALOG_UNAVAILABLE, naming the provider's catalog as the one missing.
+ */
 const catalogUnavailable = (id: number, reason: string) => ({
   jsonrpc: "2.0",
   id,
-  error: { code: -32090, message: "CATALOG_UNAVAILABLE", data: { reason } },
+  error: { code: -32090, message: "CATALOG_UNAVAILABLE", data: { catalogSource: "provider", reason } },
 });
 
 /** An agent's end of the provider's `mcp` DataChannel. */

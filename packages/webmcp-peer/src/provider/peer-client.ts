@@ -1,3 +1,4 @@
+import { peerRpcError } from "../config/errors.js";
 import { normalizePeerConfigUrl } from "../config/invitation.js";
 import { isJsonObject, JsonObjectSchema, parseJsonObject, readResponseText } from "../config/json.js";
 import { PEER_RELAY_MAX_CATALOG_BYTES, utf8ByteLength } from "../config/limits.js";
@@ -64,8 +65,6 @@ import {
 
 const CATALOG_INVALID_ERROR = "CATALOG_INVALID";
 const CATALOG_TOO_LARGE_ERROR = "CATALOG_TOO_LARGE";
-/** The JSON-RPC error the relay itself answers a catalog request with when the room has no catalog. */
-const CATALOG_UNAVAILABLE_RPC_ERROR = { code: -32090, message: "CATALOG_UNAVAILABLE" } as const;
 
 /** True for a session error that reports a catalog the relay will not serve. */
 function isCatalogError(error: string | null): boolean {
@@ -814,7 +813,9 @@ export class WebMcpPeerClient {
         }
         if (body.error === "ROOM_PROVIDER_ACTIVE") throw new Error("ROOM_PROVIDER_ACTIVE");
       }
-      if (response.status === 401 || response.status === 404 || response.status === 410) {
+      // The lease cannot be used again: none was sent (400), it is wrong (403), or the room is gone
+      // or expired (404) or was rotated (410).
+      if (response.status === 400 || response.status === 403 || response.status === 404 || response.status === 410) {
         this.clearSavedRoomLease(this.serverUrl);
       }
       return null;
@@ -1367,11 +1368,14 @@ export class WebMcpPeerClient {
       return { jsonrpc: "2.0", id: null, error: { code: -32600, message: "Invalid Request" } };
     }
     if (generation !== this.connectionGeneration) {
-      return { jsonrpc: "2.0", id, error: { code: -32008, message: "PEER_SESSION_SUPERSEDED" } };
+      return { jsonrpc: "2.0", id, error: peerRpcError("PEER_SESSION_SUPERSEDED") };
     }
 
+    // An agent the relay let through but this provider has not approved (an HTTP approval, a
+    // reattach before `approval.restored`) gets the relay's own error for a ticket waiting for
+    // approval, code included.
     if (this.approvalState !== "approved") {
-      return { jsonrpc: "2.0", id, error: { code: -32003, message: "CLIENT_APPROVAL_REQUIRED" } };
+      return { jsonrpc: "2.0", id, error: peerRpcError("CLIENT_APPROVAL_REQUIRED") };
     }
 
     const method = typeof rpc.method === "string" ? rpc.method : "";
@@ -1387,8 +1391,10 @@ export class WebMcpPeerClient {
         channel === "relay"
           ? this.relayCatalogTools()
           : { tools: (webMcp?.listTools?.() || []).map(toWireToolDescriptor) };
+      // The relay's own error for a request for a catalog it does not have, whose `catalogSource`
+      // names the catalog that is missing: here the one this provider registers.
       if ("unavailable" in catalog) {
-        return { jsonrpc: "2.0", id, error: { ...CATALOG_UNAVAILABLE_RPC_ERROR, data: { reason: catalog.unavailable } } };
+        return { jsonrpc: "2.0", id, error: peerRpcError("CATALOG_UNAVAILABLE", { catalogSource: "provider", reason: catalog.unavailable }) };
       }
       if (method === "tools/list") return { jsonrpc: "2.0", id, result: { tools: catalog.tools } };
       return {
@@ -1535,7 +1541,7 @@ export class WebMcpPeerClient {
         }
       }
       if (generation !== this.connectionGeneration || !this.aiRuns.get(runId)) {
-        return { jsonrpc: "2.0", id, error: { code: -32008, message: "OUTCOME_UNKNOWN" } };
+        return { jsonrpc: "2.0", id, error: peerRpcError("OUTCOME_UNKNOWN") };
       }
       this.aiRuns.settleAction(runId, requestId);
       this.aiRuns.recordStep(runId, {
@@ -1554,7 +1560,7 @@ export class WebMcpPeerClient {
     } catch (err) {
       const message = errorMessage(err, "Tool execution error");
       if (generation !== this.connectionGeneration || !this.aiRuns.get(runId)) {
-        return { jsonrpc: "2.0", id, error: { code: -32008, message: "OUTCOME_UNKNOWN" } };
+        return { jsonrpc: "2.0", id, error: peerRpcError("OUTCOME_UNKNOWN") };
       }
       this.aiRuns.settleAction(runId, requestId);
       if (controller.signal.aborted) this.aiRuns.stop(runId, "stopped by host");
@@ -1921,9 +1927,11 @@ export class WebMcpPeerClient {
         "Content-Type": "application/json",
         Authorization: `Bearer ${previousProviderToken}`,
       },
+      // The relay checks a roomEpoch it is sent (ROOM_BINDING_INVALID), so one the provider does
+      // not know is left out rather than guessed.
       body: JSON.stringify({
         roomId: previousRoomId,
-        roomEpoch: this.roomEpoch ?? 0,
+        ...(this.roomEpoch !== null ? { roomEpoch: this.roomEpoch } : {}),
         requestedAt: new Date().toISOString(),
         alias: nextOptions.alias || this.alias,
       }),

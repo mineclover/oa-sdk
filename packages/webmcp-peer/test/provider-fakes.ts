@@ -55,14 +55,21 @@ interface IssuedRoom {
 
 /**
  * Scripted relay. `POST /p` creates a room, `POST /p/:id/reclaim` re-issues it when the lease
- * token matches, and every provider socket receives `ready` followed (in the same tick, as one
- * network read can deliver them) by whatever `afterReady` sends.
+ * token matches, `POST /p/:id/rotate` replaces it, and every provider socket receives `ready`
+ * followed (in the same tick, as one network read can deliver them) by whatever `afterReady` sends.
+ * Refusals use the relay's statuses and error names.
  */
 export class FakeRelay {
   readonly base = "http://relay.test";
   readonly sockets: FakeRelaySocket[] = [];
   readonly fetchCalls: Array<{ url: string; method: string }> = [];
+  /** The body of every `POST /p/:id/rotate`, in order. */
+  readonly rotateBodies: Frame[] = [];
   reachable = true;
+  /** Whether `POST /p` creates a room; while false it answers 503, as a relay that cannot. */
+  creatable = true;
+  /** Whether room descriptors report `roomEpoch`, which a relay is not required to. */
+  reportsRoomEpoch = true;
   afterReady?: (socket: FakeRelaySocket, room: IssuedRoom) => void;
   private room?: IssuedRoom;
   private issued = 0;
@@ -74,17 +81,32 @@ export class FakeRelay {
     this.fetchCalls.push({ url, method });
     if (!this.reachable) throw new TypeError("fetch failed");
     if (method === "POST" && url === `${this.base}/p`) {
+      if (!this.creatable) return Response.json({ error: "PUBLISH_RATE_LIMIT_UNAVAILABLE", code: -32089 }, { status: 503 });
       this.room = { id: "abcdef0123456789", roomEpoch: 1, leaseToken: "" };
       return Response.json(this.descriptor(this.room), { status: 201 });
     }
     const reclaim = url.match(/\/p\/([^/]+)\/reclaim$/);
     if (method === "POST" && reclaim) {
       const body = JSON.parse(String(init.body)) as { leaseToken?: string; roomEpoch?: number };
-      if (!this.room || reclaim[1] !== this.room.id) return Response.json({ error: "ROOM_NOT_FOUND" }, { status: 404 });
-      if (body.leaseToken !== this.room.leaseToken || body.roomEpoch !== this.room.roomEpoch) {
-        return Response.json({ error: "ROOM_LEASE_INVALID" }, { status: 401 });
+      if (!this.room || reclaim[1] !== this.room.id) return Response.json({ error: "ROOM_NOT_FOUND", code: -32004 }, { status: 404 });
+      if (!body.leaseToken) return Response.json({ error: "ROOM_LEASE_REQUIRED" }, { status: 400 });
+      if (body.roomEpoch !== undefined && body.roomEpoch !== this.room.roomEpoch) {
+        return Response.json({ error: "ROOM_LEASE_BINDING_INVALID", code: -32002 }, { status: 409 });
       }
+      if (body.leaseToken !== this.room.leaseToken) return Response.json({ error: "ROOM_LEASE_INVALID" }, { status: 403 });
       return Response.json({ ...this.descriptor(this.room), reclaimed: true });
+    }
+    const rotate = url.match(/\/p\/([^/]+)\/rotate$/);
+    if (method === "POST" && rotate) {
+      const body = JSON.parse(String(init.body)) as Frame;
+      this.rotateBodies.push(body);
+      if (!this.room || rotate[1] !== this.room.id) return Response.json({ error: "ROOM_NOT_FOUND", code: -32004 }, { status: 404 });
+      if (body.roomEpoch !== undefined && body.roomEpoch !== this.room.roomEpoch) {
+        const binding = { roomId: this.room.id, roomEpoch: this.room.roomEpoch };
+        return Response.json({ error: "ROOM_BINDING_INVALID", code: -32002, ...binding }, { status: 409 });
+      }
+      this.room = { id: "fedcba9876543210", roomEpoch: this.room.roomEpoch + 1, leaseToken: "" };
+      return Response.json(this.descriptor(this.room), { status: 201 });
     }
     return Response.json({ error: "NOT_FOUND" }, { status: 404 });
   };
@@ -113,6 +135,11 @@ export class FakeRelay {
     return this.room.id;
   }
 
+  /** Replaces the room's lease token, so the lease a provider saved is refused (403). */
+  replaceLease(): void {
+    if (this.room) this.room.leaseToken = `lease-replaced-${++this.issued}`;
+  }
+
   private descriptor(room: IssuedRoom): Frame {
     this.issued += 1;
     room.leaseToken = `lease-${this.issued}`;
@@ -120,7 +147,7 @@ export class FakeRelay {
     return {
       id: room.id,
       roomId: room.id,
-      roomEpoch: room.roomEpoch,
+      ...(this.reportsRoomEpoch ? { roomEpoch: room.roomEpoch } : {}),
       providerToken: `provider-${this.issued}`,
       inviteToken: "invite-token",
       reconnectToken: room.leaseToken,

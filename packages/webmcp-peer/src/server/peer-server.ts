@@ -54,6 +54,7 @@ import {
   utf8ByteLength,
 } from "../config/limits.js";
 import { PEER_CATALOG_MAX_TOOLS, PEER_CATALOG_MAX_TOOL_NAME_LENGTH } from "../config/catalog.js";
+import { isPeerErrorName, PEER_ERROR_CODES, peerRpcError, type PeerErrorName } from "../config/errors.js";
 import {
   WEBMCP_PEER_CONFIG_TYPE,
   WEBMCP_PROTOCOL,
@@ -115,19 +116,15 @@ type RpcRequest = { jsonrpc: '2.0'; id?: string | number | null; method: string;
 type RpcErrorBody = { code: number; message: string; data?: unknown };
 
 /** A request over the agent request limit (PEER_RELAY_MAX_REQUEST_BYTES), which the relay does not forward. */
-const REQUEST_TOO_LARGE_ERROR: RpcErrorBody = {
-  code: -32600,
-  message: 'REQUEST_TOO_LARGE',
-  data: { limitBytes: PEER_RELAY_MAX_REQUEST_BYTES },
-};
+const REQUEST_TOO_LARGE_ERROR: RpcErrorBody = peerRpcError('REQUEST_TOO_LARGE', { limitBytes: PEER_RELAY_MAX_REQUEST_BYTES });
 /** A request the relay cannot forward because the provider socket is closing or closed. */
-const PROVIDER_UNAVAILABLE_ERROR: RpcErrorBody = { code: -32001, message: 'PROVIDER_UNAVAILABLE' };
+const PROVIDER_UNAVAILABLE_ERROR: RpcErrorBody = peerRpcError('PROVIDER_UNAVAILABLE');
 /**
  * A request the relay did not forward because the provider's outbound queue is full: the provider
  * has not yet read what the relay already sent it. Nothing reached the provider and it stays
  * attached, so the agent may send the request again.
  */
-const PROVIDER_BUSY_ERROR: RpcErrorBody = { code: -32001, message: 'PROVIDER_BUSY', data: { retryable: true } };
+const PROVIDER_BUSY_ERROR: RpcErrorBody = peerRpcError('PROVIDER_BUSY', { retryable: true });
 /** The `Retry-After` (seconds) of an HTTP agent's PROVIDER_BUSY response. */
 const PROVIDER_BUSY_RETRY_AFTER_SECONDS = 1;
 /**
@@ -147,31 +144,19 @@ const CATALOG_INVALID_REASON = `register.tools must be an array of at most ${PEE
   + `non-empty name of at most ${PEER_CATALOG_MAX_TOOL_NAME_LENGTH} UTF-16 code units without leading or trailing whitespace `
   + 'and an inputSchema object of type "object"';
 /** A provider reply the relay cannot deliver to a WebSocket agent because it is over the limit. */
-const RESULT_TOO_LARGE_ERROR: RpcErrorBody = {
-  code: -32603,
-  message: 'RESULT_TOO_LARGE',
-  data: { limitBytes: MAX_WEBSOCKET_MESSAGE_BYTES },
-};
+const RESULT_TOO_LARGE_ERROR: RpcErrorBody = peerRpcError('RESULT_TOO_LARGE', { limitBytes: MAX_WEBSOCKET_MESSAGE_BYTES });
 /**
  * A request whose id, or an offer whose requestId, is over MAX_RPC_ID_BYTES. The id is not echoed:
  * the request is answered with id null, the offer's `offer.refused` has no requestId.
  */
-const REQUEST_ID_TOO_LARGE_ERROR: RpcErrorBody = {
-  code: -32600,
-  message: 'REQUEST_ID_TOO_LARGE',
-  data: { limitBytes: MAX_RPC_ID_BYTES },
-};
+const REQUEST_ID_TOO_LARGE_ERROR: RpcErrorBody = peerRpcError('REQUEST_ID_TOO_LARGE', { limitBytes: MAX_RPC_ID_BYTES });
 /**
  * A request from an agent socket that already has MAX_PENDING_REQUESTS_PER_SOCKET in flight: waiting
  * for the provider, or answered and waiting for the agent to read the answer.
  */
-const TOO_MANY_PENDING_REQUESTS_ERROR: RpcErrorBody = {
-  code: -32087,
-  message: 'TOO_MANY_PENDING_REQUESTS',
-  data: { limit: MAX_PENDING_REQUESTS_PER_SOCKET },
-};
+const TOO_MANY_PENDING_REQUESTS_ERROR: RpcErrorBody = peerRpcError('TOO_MANY_PENDING_REQUESTS', { limit: MAX_PENDING_REQUESTS_PER_SOCKET });
 /** An MCP request whose body a `customHttpHandler` (or another reader) consumed before the relay. */
-const BODY_CONSUMED_ERROR: RpcErrorBody = { code: -32603, message: 'BODY_CONSUMED' };
+const BODY_CONSUMED_ERROR: RpcErrorBody = peerRpcError('BODY_CONSUMED');
 
 /**
  * What the relay did with a catalog a provider sent; see `acceptProviderCatalog`. `unchanged` is a
@@ -280,6 +265,66 @@ function bearerCredential(authorization: string | string[] | undefined): string 
  */
 function secretHash(token: string): string {
   return createHash('sha256').update(token, 'utf8').digest('hex');
+}
+
+/**
+ * The error names of the relay's lifecycle bodies that have no JSON-RPC code. Every other lifecycle
+ * error is a name of `PEER_ERROR_CODES` and carries its code (see `lifecycleErrorBody`).
+ */
+type CodelessLifecycleError =
+  | 'NOT_FOUND'
+  | 'INVALID_PATH'
+  | 'ORIGIN_NOT_ALLOWED'
+  | 'BODY_TOO_LARGE'
+  | 'INVALID_JSON_BODY'
+  | 'PUBLISH_KEY_REQUIRED'
+  | 'PUBLISH_KEY_INVALID'
+  | 'PUBLISH_OWNER_BINDING_INVALID'
+  | 'CAPABILITIES_INVALID'
+  | 'ROOM_LEASE_REQUIRED'
+  | 'ROOM_LEASE_INVALID'
+  | 'ROOM_PROVIDER_ACTIVE'
+  | 'INVITE_TOKEN_REQUIRED'
+  | 'INVITE_TOKEN_INVALID'
+  | 'INVITE_TOKEN_CONSUMED'
+  | 'CRDT_CAPABILITY_NOT_GRANTED'
+  | 'PROVIDER_TOKEN_REQUIRED'
+  | 'PROVIDER_TOKEN_INVALID'
+  | 'SESSION_NOT_FOUND'
+  | 'SESSION_NOT_OWNED'
+  | 'CATALOG_HASH_NOT_FOUND';
+
+/** The canonical name of an error a relay lifecycle route answers with. */
+type LifecycleErrorName = PeerErrorName | CodelessLifecycleError;
+
+/**
+ * The body of a lifecycle error: `{error: name, code?, ...fields}`. A name with a JSON-RPC code
+ * carries it as `code`, the code an MCP error of the same name has, so one name has one code on
+ * every route and transport.
+ */
+function lifecycleErrorBody(name: LifecycleErrorName, fields: Record<string, unknown> = {}): Record<string, unknown> {
+  return { error: name, ...(isPeerErrorName(name) ? { code: PEER_ERROR_CODES[name] } : {}), ...fields };
+}
+
+/**
+ * The `WWW-Authenticate` challenge every 401 carries (RFC 9110 §15.5.2): the Bearer scheme each
+ * relay credential is presented with, plus `error="invalid_token"` when the request presented a
+ * credential the relay refused rather than none (RFC 6750 §3).
+ */
+function bearerChallenge(presented: boolean): Record<string, string> {
+  return { 'WWW-Authenticate': presented ? 'Bearer error="invalid_token"' : 'Bearer' };
+}
+
+/**
+ * A path parameter percent-decoded, or null when its encoding is malformed (e.g. `%E0`), which the
+ * route answers 400 INVALID_PATH instead of failing the request.
+ */
+function decodePathParameter(value: string): string | null {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return null;
+  }
 }
 
 function unforwardedRpcError(sent: Exclude<PeerSendResult, 'sent'>): RpcErrorBody {
@@ -798,6 +843,12 @@ export class WebMcpPeerServer {
     this.replyToAgent(socket, { type: 'mcp', message: { jsonrpc: '2.0', id, error } });
   }
 
+  /** `sendRpcError` for the canonical error `name`, with the code `PEER_ERROR_CODES` gives it. */
+  protected sendPeerRpcError(socket: PeerSocket, id: string | number | null | undefined, name: PeerErrorName, data?: unknown): void {
+    const error = peerRpcError(name, data);
+    this.sendRpcError(socket, id, error.code, error.message, error.data);
+  }
+
   /**
    * Sends an agent socket `frame`, the answer to something the agent asked for: a reply to its
    * request (the provider's or the relay's own), the state of its approval, or the refusal of its
@@ -1047,12 +1098,8 @@ export class WebMcpPeerServer {
         return { ...forwarded, message: { ...message, result: { ...result, ...stamp } } };
       }
       refusal = outcome.kind === 'too-large'
-        ? {
-            code: -32603,
-            message: 'CATALOG_TOO_LARGE',
-            data: { limitBytes: PEER_RELAY_MAX_ANNOUNCEMENT_BYTES, announcementBytes: outcome.announcementBytes },
-          }
-        : { code: -32603, message: 'CATALOG_INVALID' };
+        ? peerRpcError('CATALOG_TOO_LARGE', { limitBytes: PEER_RELAY_MAX_ANNOUNCEMENT_BYTES, announcementBytes: outcome.announcementBytes })
+        : peerRpcError('CATALOG_INVALID');
     }
     if (entry.cachedTools) {
       return { type: 'mcp', message: { jsonrpc: '2.0', id: pending.id, result: this.relayCatalogListing(entry, entry.cachedTools, pending) } };
@@ -1101,7 +1148,7 @@ export class WebMcpPeerServer {
     for (const [key, pending] of entry.mcpPending) {
       clearTimeout(pending.timer);
       entry.mcpPending.delete(key);
-      this.sendRpcError(pending.socket, pending.id, -32001, 'PROVIDER_DISCONNECTED');
+      this.sendPeerRpcError(pending.socket, pending.id, 'PROVIDER_DISCONNECTED');
     }
   }
 
@@ -1251,6 +1298,75 @@ export class WebMcpPeerServer {
     res.end(JSON.stringify(body));
   }
 
+  /** Answers a lifecycle route with the error `name` (see `lifecycleErrorBody`) and its `fields`. */
+  protected sendLifecycleError(
+    res: ServerResponse,
+    status: number,
+    name: LifecycleErrorName,
+    origin?: string,
+    fields?: Record<string, unknown>,
+    extraHeaders?: Record<string, string>,
+  ): void {
+    this.sendJson(res, status, lifecycleErrorBody(name, fields), origin, extraHeaders);
+  }
+
+  /**
+   * Answers 401 for an `Authorization` credential the route refuses: `name` is the `<X>_REQUIRED`
+   * of a request that presented none, or the `<X>_INVALID` of one whose credential is wrong, and
+   * the response carries the matching Bearer challenge (see `bearerChallenge`).
+   */
+  protected sendUnauthorized(res: ServerResponse, name: LifecycleErrorName, presented: boolean, origin?: string): void {
+    this.sendLifecycleError(res, 401, name, origin, undefined, bearerChallenge(presented));
+  }
+
+  /** 410 ROOM_ROTATED for a lifecycle request to `room`, a rotated room, naming its replacement. */
+  protected sendRoomRotated(res: ServerResponse, room: RoomEntry, origin?: string): void {
+    this.sendLifecycleError(res, 410, 'ROOM_ROTATED', origin, {
+      roomId: room.id,
+      roomEpoch: room.roomEpoch,
+      replacementRoomId: room.rotatedTo,
+    });
+  }
+
+  /**
+   * The room check of the approval, revoke and rotate routes, made before the body is read and
+   * again after it. True when `room` is the live room `roomId`; otherwise this answered 404
+   * ROOM_NOT_FOUND for a room that is gone or was replaced, 410 ROOM_ROTATED for a rotated one, as
+   * join, session status, reclaim and the MCP endpoint do (checked before the expiry, which a
+   * rotation sets to the rotation time), or 404 ROOM_NOT_FOUND for an expired one.
+   */
+  protected checkLifecycleRoom(res: ServerResponse, roomId: string, room: RoomEntry | undefined, origin?: string): room is RoomEntry {
+    if (!room || this.rooms.get(roomId) !== room) {
+      this.sendLifecycleError(res, 404, 'ROOM_NOT_FOUND', origin);
+      return false;
+    }
+    if (room.rotatedTo) {
+      this.sendRoomRotated(res, room, origin);
+      return false;
+    }
+    if (room.expiresAt <= Date.now()) {
+      this.sendLifecycleError(res, 404, 'ROOM_NOT_FOUND', origin);
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * True when `bearer` is the room's current provider token; otherwise this answered 401
+   * PROVIDER_TOKEN_REQUIRED for a request without one, or PROVIDER_TOKEN_INVALID for another token.
+   */
+  protected checkProviderToken(res: ServerResponse, room: RoomEntry, bearer: string, origin?: string): boolean {
+    if (!bearer) {
+      this.sendUnauthorized(res, 'PROVIDER_TOKEN_REQUIRED', false, origin);
+      return false;
+    }
+    if (!this.constantTimeTokenEqual(bearer, room.providerToken)) {
+      this.sendUnauthorized(res, 'PROVIDER_TOKEN_INVALID', true, origin);
+      return false;
+    }
+    return true;
+  }
+
   /** 202 Accepted for a JSON-RPC notification. Streamable HTTP requires an empty body. */
   protected sendAccepted(res: ServerResponse, origin?: string, extraHeaders?: Record<string, string>): void {
     res.writeHead(202, this.responseHeaders(origin, extraHeaders));
@@ -1374,18 +1490,18 @@ export class WebMcpPeerServer {
     try {
       read = await readBoundedBody(req, maxBytes);
     } catch (error) {
-      this.answerUnreadBody(req, res, error, { error: 'BODY_CONSUMED' }, origin);
+      this.answerUnreadBody(req, res, error, lifecycleErrorBody('BODY_CONSUMED'), origin);
       return null;
     }
     if (read.kind === 'too-large') {
-      if (read.drained) this.sendJson(res, 413, { error: 'BODY_TOO_LARGE' }, origin);
+      if (read.drained) this.sendLifecycleError(res, 413, 'BODY_TOO_LARGE', origin);
       else res.destroy();
       return null;
     }
     try {
       return this.parseJsonObjectBody(read.body);
     } catch {
-      this.sendJson(res, 400, { error: 'INVALID_JSON_BODY' }, origin);
+      this.sendLifecycleError(res, 400, 'INVALID_JSON_BODY', origin);
       return null;
     }
   }
@@ -1423,13 +1539,34 @@ export class WebMcpPeerServer {
     return ticket;
   }
 
-  protected clientTicketError(ticket: ClientSessionTicket | null): { status: number; code: number; message: string } | null {
-    if (!ticket) return { status: 401, code: -32003, message: 'CLIENT_TOKEN_REQUIRED' };
-    if (ticket.status === 'pending') return { status: 403, code: -32053, message: 'CLIENT_APPROVAL_REQUIRED' };
-    if (ticket.status === 'rejected') return { status: 403, code: -32054, message: 'CLIENT_APPROVAL_DENIED' };
-    if (ticket.status === 'expired') return { status: 410, code: -32056, message: 'SESSION_EXPIRED' };
-    if (ticket.status === 'revoked') return { status: 401, code: -32001, message: 'SESSION_INVALID' };
+  /**
+   * The error an MCP request authorized by `ticket` gets, on either transport, unless the ticket is
+   * approved: without a ticket CLIENT_TOKEN_REQUIRED, or CLIENT_TOKEN_INVALID when the request
+   * `presented` a client token the room did not issue; CLIENT_APPROVAL_REQUIRED for a pending
+   * ticket, CLIENT_APPROVAL_DENIED for a rejected one, SESSION_EXPIRED for an expired one and
+   * SESSION_INVALID for one revoked or ended by a rotation. `status` is the HTTP status.
+   */
+  protected clientTicketError(ticket: ClientSessionTicket | null, presented = true): { status: number; code: number; message: string } | null {
+    const refusal = (status: number, name: PeerErrorName) => ({ status, ...peerRpcError(name) });
+    if (!ticket) return refusal(401, presented ? 'CLIENT_TOKEN_INVALID' : 'CLIENT_TOKEN_REQUIRED');
+    if (ticket.status === 'pending') return refusal(403, 'CLIENT_APPROVAL_REQUIRED');
+    if (ticket.status === 'rejected') return refusal(403, 'CLIENT_APPROVAL_DENIED');
+    if (ticket.status === 'expired') return refusal(410, 'SESSION_EXPIRED');
+    if (ticket.status === 'revoked' || ticket.status === 'room-rotated') return refusal(401, 'SESSION_INVALID');
     return null;
+  }
+
+  /**
+   * The data of a `clientTicketError`, the same on both transports: the room, the ticket's session
+   * and approval request (null when there is none), and whether the room requires approval.
+   */
+  protected clientTicketErrorData(entry: RoomEntry | undefined, roomId: string, ticket: ClientSessionTicket | null): Record<string, unknown> {
+    return {
+      roomId,
+      sessionId: ticket?.sessionId ?? null,
+      approvalRequestId: ticket?.approvalRequestId ?? null,
+      approvalRequired: entry?.approvalRequired ?? true,
+    };
   }
 
   /** The ticket of session `sessionId`, with the hash of its client token (its key in `clientTickets`). */
@@ -1618,7 +1755,7 @@ export class WebMcpPeerServer {
           reason,
         });
       } catch {}
-      this.failPendingForSocket(entry, socket, { code: status === 'room-rotated' ? -32057 : status === 'revoked' ? -32001 : -32054, message: status === 'room-rotated' ? 'ROOM_ROTATED' : status === 'revoked' ? 'SESSION_INVALID' : 'CLIENT_APPROVAL_DENIED' });
+      this.failPendingForSocket(entry, socket, peerRpcError(status === 'room-rotated' ? 'ROOM_ROTATED' : status === 'revoked' ? 'SESSION_INVALID' : 'CLIENT_APPROVAL_DENIED'));
       socket.close();
       entry.clientSocketTickets.delete(socket);
       entry.clientSockets.delete(socket);
@@ -1670,10 +1807,10 @@ export class WebMcpPeerServer {
   /** The JSON-RPC error an in-flight request receives when its room is rotated, revoked or expired. */
   protected roomClosedRpcError(entry: RoomEntry, reason: string, status: 'revoked' | 'room-rotated'): RpcErrorBody {
     if (status === 'room-rotated') {
-      return { code: -32057, message: 'ROOM_ROTATED', data: { replacementRoomId: entry.rotatedTo ?? null, roomId: entry.id, roomEpoch: entry.roomEpoch } };
+      return peerRpcError('ROOM_ROTATED', { replacementRoomId: entry.rotatedTo ?? null, roomId: entry.id, roomEpoch: entry.roomEpoch });
     }
-    if (reason === 'ROOM_EXPIRED') return { code: -32056, message: 'ROOM_EXPIRED', data: { roomId: entry.id, roomEpoch: entry.roomEpoch } };
-    return { code: -32001, message: 'SESSION_INVALID' };
+    if (reason === 'ROOM_EXPIRED') return peerRpcError('ROOM_EXPIRED', { roomId: entry.id, roomEpoch: entry.roomEpoch });
+    return peerRpcError('SESSION_INVALID');
   }
 
   protected revokeAllClientTickets(entry: RoomEntry, reason: string, status: 'revoked' | 'room-rotated' = 'revoked'): void {
@@ -1750,7 +1887,7 @@ export class WebMcpPeerServer {
 
     // Fail-Closed: Deny non-whitelisted browser origins on all HTTP endpoints
     if (origin && !this.isOriginAllowed(origin)) {
-      this.sendJson(res, 403, { error: 'ORIGIN_NOT_ALLOWED', origin }, origin);
+      this.sendLifecycleError(res, 403, 'ORIGIN_NOT_ALLOWED', origin, { origin });
       return;
     }
 
@@ -1791,11 +1928,9 @@ export class WebMcpPeerServer {
       const publishRate = await this.consumePublishRateLimit(req, publishAuth.tokenHash);
       if (!publishRate.available) {
         const retryAfterSec = Math.max(1, Math.ceil(publishRate.retryAfterMs / 1000));
-        this.sendJson(res, 503, {
-          error: 'PUBLISH_RATE_LIMIT_UNAVAILABLE',
-          code: -32089,
+        this.sendLifecycleError(res, 503, 'PUBLISH_RATE_LIMIT_UNAVAILABLE', origin, {
           retryAfterMs: publishRate.retryAfterMs,
-        }, origin, {
+        }, {
           'Retry-After': String(retryAfterSec),
           'X-RateLimit-Limit': String(this.publishRateLimitMax),
           'X-RateLimit-Remaining': '0',
@@ -1804,11 +1939,9 @@ export class WebMcpPeerServer {
       }
       if (!publishRate.allowed) {
         const retryAfterSec = Math.max(1, Math.ceil(publishRate.retryAfterMs / 1000));
-        this.sendJson(res, 429, {
-          error: 'PUBLISH_RATE_LIMITED',
-          code: -32088,
+        this.sendLifecycleError(res, 429, 'PUBLISH_RATE_LIMITED', origin, {
           retryAfterMs: publishRate.retryAfterMs,
-        }, origin, {
+        }, {
           'Retry-After': String(retryAfterSec),
           'X-RateLimit-Limit': String(this.publishRateLimitMax),
           'X-RateLimit-Remaining': '0',
@@ -1816,7 +1949,7 @@ export class WebMcpPeerServer {
         return;
       }
       if (!publishAuth.ok) {
-        this.sendJson(res, 401, { error: publishAuth.error }, origin);
+        this.sendUnauthorized(res, publishAuth.error, publishAuth.error === 'PUBLISH_KEY_INVALID', origin);
         return;
       }
       const body = await this.readJsonBodyOrRespond(req, res, origin);
@@ -1829,7 +1962,7 @@ export class WebMcpPeerServer {
       if ((headerOwner && bodyOwner && headerOwner !== bodyOwner)
         || (ownerId && ((headerOwner && headerOwner !== ownerId)
           || (bodyOwner && bodyOwner !== ownerId)))) {
-        this.sendJson(res, 403, { error: 'PUBLISH_OWNER_BINDING_INVALID' }, origin);
+        this.sendLifecycleError(res, 403, 'PUBLISH_OWNER_BINDING_INVALID', origin);
         return;
       }
       // Trimmed and cut to MAX_ROOM_ALIAS_CODE_POINTS: the alias is in every room descriptor.
@@ -1839,7 +1972,7 @@ export class WebMcpPeerServer {
       const ttlMs = typeof body.ttlMs === 'number' && Number.isFinite(body.ttlMs) ? body.ttlMs : 2 * 60 * 60 * 1000;
       const capabilities = this.parsePeerCapabilities(body.capabilities);
       if (!capabilities) {
-        this.sendJson(res, 400, { error: 'CAPABILITIES_INVALID' }, origin);
+        this.sendLifecycleError(res, 400, 'CAPABILITIES_INVALID', origin);
         return;
       }
       const entry = this.createRoomEntry(alias, approvalRequired, ttlMs, 1, capabilities, ownerId);
@@ -1861,19 +1994,16 @@ export class WebMcpPeerServer {
       // reclaimed by another request while the body is in transit.
       const reclaimable = (room: RoomEntry | undefined): room is RoomEntry => {
         if (!room || this.rooms.get(roomId) !== room) {
-          this.sendJson(res, 404, { error: 'ROOM_NOT_FOUND' }, origin);
+          this.sendLifecycleError(res, 404, 'ROOM_NOT_FOUND', origin);
           return false;
         }
         if (room.rotatedTo) {
-          this.sendJson(res, 410, {
-            error: 'ROOM_ROTATED', code: -32057, roomId, roomEpoch: room.roomEpoch,
-            replacementRoomId: room.rotatedTo,
-          }, origin);
+          this.sendRoomRotated(res, room, origin);
           return false;
         }
         const checkedAt = Date.now();
         if (room.expiresAt <= checkedAt || room.reconnectLeaseExpiresAt <= checkedAt) {
-          this.sendJson(res, 404, { error: 'ROOM_EXPIRED' }, origin);
+          this.sendLifecycleError(res, 404, 'ROOM_EXPIRED', origin);
           return false;
         }
         return true;
@@ -1882,19 +2012,24 @@ export class WebMcpPeerServer {
       const body = await this.readJsonBodyOrRespond(req, res, origin);
       if (!body || !reclaimable(entry)) return;
       const now = Date.now();
+      // The lease is a body credential, not an `Authorization` one: none is 400, a wrong one 403.
       const leaseToken = typeof body.leaseToken === 'string' ? body.leaseToken.trim() : '';
+      if (!leaseToken) {
+        this.sendLifecycleError(res, 400, 'ROOM_LEASE_REQUIRED', origin);
+        return;
+      }
       const requestedEpoch = body.roomEpoch === undefined ? entry.roomEpoch : body.roomEpoch;
-      if (!leaseToken || requestedEpoch !== entry.roomEpoch || (body.roomId !== undefined && body.roomId !== roomId)) {
-        this.sendJson(res, 409, { error: 'ROOM_LEASE_BINDING_INVALID', code: -32002, roomId, roomEpoch: entry.roomEpoch }, origin);
+      if (requestedEpoch !== entry.roomEpoch || (body.roomId !== undefined && body.roomId !== roomId)) {
+        this.sendLifecycleError(res, 409, 'ROOM_LEASE_BINDING_INVALID', origin, { roomId, roomEpoch: entry.roomEpoch });
         return;
       }
       const leaseHash = secretHash(leaseToken);
       if (!this.constantTimeTokenEqual(leaseHash, entry.reconnectLeaseHash)) {
-        this.sendJson(res, 401, { error: 'ROOM_LEASE_INVALID' }, origin);
+        this.sendLifecycleError(res, 403, 'ROOM_LEASE_INVALID', origin);
         return;
       }
       if (entry.providerSocket) {
-        this.sendJson(res, 409, { error: 'ROOM_PROVIDER_ACTIVE', roomId, roomEpoch: entry.roomEpoch }, origin);
+        this.sendLifecycleError(res, 409, 'ROOM_PROVIDER_ACTIVE', origin, { roomId, roomEpoch: entry.roomEpoch });
         return;
       }
 
@@ -1917,11 +2052,11 @@ export class WebMcpPeerServer {
     if (req.method === 'GET' && (url.pathname === '/mcp/catalog' || deploymentCatalogHashMatch)) {
       const snapshot = this.mcpCatalogSnapshot(undefined);
       if (snapshot.tools.length === 0) {
-        this.sendJson(res, 503, { error: 'CATALOG_UNAVAILABLE', catalogVersion: 0, catalogHash: snapshot.catalogHash }, origin);
+        this.sendLifecycleError(res, 503, 'CATALOG_UNAVAILABLE', origin, { catalogVersion: 0, catalogHash: snapshot.catalogHash });
         return;
       }
       if (deploymentCatalogHashMatch && deploymentCatalogHashMatch[1] !== snapshot.catalogHash) {
-        this.sendJson(res, 404, { error: 'CATALOG_HASH_NOT_FOUND', catalogHash: snapshot.catalogHash }, origin);
+        this.sendLifecycleError(res, 404, 'CATALOG_HASH_NOT_FOUND', origin, { catalogHash: snapshot.catalogHash });
         return;
       }
       this.sendMcpMetadata(req, res, 200, {
@@ -1946,12 +2081,12 @@ export class WebMcpPeerServer {
       // catalog changes are pushed over the client WebSocket), so the spec requires 405. A 200 JSON
       // descriptor made the official MCP SDK treat it as an ended stream and reconnect about once
       // per second for as long as the MCP host stayed connected.
-      this.sendJson(res, 405, { jsonrpc: '2.0', id: null, error: { code: -32000, message: 'SSE_STREAM_NOT_SUPPORTED' } }, origin, { Allow: 'POST' });
+      this.sendJson(res, 405, { jsonrpc: '2.0', id: null, error: peerRpcError('SSE_STREAM_NOT_SUPPORTED') }, origin, { Allow: 'POST' });
       return;
     }
     if (req.method === 'DELETE' && mcpMatch) {
       // The relay issues no Mcp-Session-Id, so there is no session to terminate (Streamable HTTP: 405).
-      this.sendJson(res, 405, { jsonrpc: '2.0', id: null, error: { code: -32000, message: 'SESSION_TERMINATION_NOT_SUPPORTED' } }, origin, { Allow: 'GET, POST' });
+      this.sendJson(res, 405, { jsonrpc: '2.0', id: null, error: peerRpcError('SESSION_TERMINATION_NOT_SUPPORTED') }, origin, { Allow: 'GET, POST' });
       return;
     }
     if (req.method === 'GET' && mcpMatch) {
@@ -2004,7 +2139,9 @@ export class WebMcpPeerServer {
         auth: this.mcpAuthMetadata(entry, 'not-joined'),
       };
       if (snapshot.tools.length === 0) {
-        this.sendJson(res, 503, { error: 'CATALOG_UNAVAILABLE', catalogVersion: 0, catalogHash: snapshot.catalogHash, auth: this.mcpAuthMetadata(entry, 'not-joined') }, origin);
+        this.sendLifecycleError(res, 503, 'CATALOG_UNAVAILABLE', origin, {
+          catalogVersion: 0, catalogHash: snapshot.catalogHash, auth: this.mcpAuthMetadata(entry, 'not-joined'),
+        });
         return;
       }
       this.sendMcpMetadata(req, res, 200, catalog, origin,
@@ -2025,22 +2162,25 @@ export class WebMcpPeerServer {
         return;
       }
       if (read.kind === 'too-large') {
+        // Past the drain limit the request is destroyed; the response is destroyed with it, as for
+        // a JSON body route (readJsonBodyOrRespond), rather than left to the socket teardown.
         if (read.drained) this.sendJson(res, 413, { jsonrpc: '2.0', id: null, error: REQUEST_TOO_LARGE_ERROR }, origin);
+        else res.destroy();
         return;
       }
       let rpc: RpcRequest;
       try { rpc = this.rpcRequestSchema.parse(JSON.parse(decodeUtf8Body(read.body))); } catch (error) {
         const refusal: RpcErrorBody = error instanceof SyntaxError
-          ? { code: -32700, message: 'PARSE_ERROR' }
+          ? peerRpcError('PARSE_ERROR')
           : error instanceof TypeError && error.message === REQUEST_ID_TOO_LARGE_ERROR.message
             ? REQUEST_ID_TOO_LARGE_ERROR
-            : { code: -32600, message: 'INVALID_REQUEST' };
+            : peerRpcError('INVALID_REQUEST');
         this.sendJson(res, 400, { jsonrpc: '2.0', id: null, error: refusal }, origin);
         return;
       }
       // MCP request ids must be a string or a number; a message without an id is a notification.
       if (rpc.id === null) {
-        this.sendJson(res, 400, { jsonrpc: '2.0', id: null, error: { code: -32600, message: 'INVALID_REQUEST' } }, origin);
+        this.sendJson(res, 400, { jsonrpc: '2.0', id: null, error: peerRpcError('INVALID_REQUEST') }, origin);
         return;
       }
       // What is forwarded is this request re-serialized, which JSON not written by JSON.stringify
@@ -2057,7 +2197,7 @@ export class WebMcpPeerServer {
         && (typeof requestedVersion !== 'string' || !this.isInitializeProtocolVersion(requestedVersion.trim()))) {
         this.sendJson(res, 400, {
           jsonrpc: '2.0', id: rpc.id ?? null,
-          error: { code: -32600, message: 'UNSUPPORTED_PROTOCOL_VERSION', data: { supported: MCP_INITIALIZE_PROTOCOL_VERSIONS, requested: requestedVersion } },
+          error: peerRpcError('UNSUPPORTED_PROTOCOL_VERSION', { supported: MCP_INITIALIZE_PROTOCOL_VERSIONS, requested: requestedVersion }),
         }, origin);
         return;
       }
@@ -2068,30 +2208,35 @@ export class WebMcpPeerServer {
         || rpc.method === 'ping'
         || rpc.method === 'notifications/initialized';
       const mcpTicket = entry ? this.resolveBearerClientTicket(entry, req.headers.authorization) : null;
+      // Whether the request presented a client token at all: CLIENT_TOKEN_REQUIRED or _INVALID.
+      const presentedToken = Boolean(this.bearerToken(req));
       // A pending ticket's approval request reaches each provider socket once (deliverApprovalRequest):
       // this only sends one the attached provider socket has not taken yet.
       if (entry && mcpTicket?.status === 'pending') this.sendApprovalRequest(entry, mcpTicket);
       const roomState = this.mcpRoomState(entry);
       const snapshot = this.mcpCatalogSnapshot(entry);
       if (!metadataOnly && !entry) {
-        this.sendJson(res, 404, { jsonrpc: '2.0', id, error: { code: -32004, message: 'ROOM_NOT_FOUND', data: { roomId } } }, origin);
+        this.sendJson(res, 404, { jsonrpc: '2.0', id, error: peerRpcError('ROOM_NOT_FOUND', { roomId }) }, origin);
         return;
       }
       if (!metadataOnly && entry?.rotatedTo) {
-        this.sendJson(res, 410, { jsonrpc: '2.0', id, error: { code: -32057, message: 'ROOM_ROTATED', data: { replacementRoomId: entry.rotatedTo, roomId, roomEpoch: entry.roomEpoch } } }, origin);
+        this.sendJson(res, 410, { jsonrpc: '2.0', id, error: peerRpcError('ROOM_ROTATED', { replacementRoomId: entry.rotatedTo, roomId, roomEpoch: entry.roomEpoch }) }, origin);
         return;
       }
       if (!metadataOnly && entry && entry.expiresAt <= Date.now()) {
-        this.sendJson(res, 410, { jsonrpc: '2.0', id, error: { code: -32056, message: 'ROOM_EXPIRED', data: { roomId, roomEpoch: entry.roomEpoch } } }, origin);
+        this.sendJson(res, 410, { jsonrpc: '2.0', id, error: peerRpcError('ROOM_EXPIRED', { roomId, roomEpoch: entry.roomEpoch }) }, origin);
         return;
       }
-      const mcpAuthError = this.clientTicketError(mcpTicket);
+      const mcpAuthError = this.clientTicketError(mcpTicket, presentedToken);
       if (mcpAuthError && !metadataOnly) {
-        this.sendJson(res, mcpAuthError.status, { jsonrpc: '2.0', id, error: { code: mcpAuthError.code, message: mcpAuthError.message, data: { roomId, sessionId: mcpTicket?.sessionId ?? null, approvalRequired: entry?.approvalRequired ?? true } } }, origin);
+        this.sendJson(res, mcpAuthError.status, {
+          jsonrpc: '2.0', id,
+          error: { code: mcpAuthError.code, message: mcpAuthError.message, data: this.clientTicketErrorData(entry, roomId, mcpTicket) },
+        }, origin, mcpAuthError.status === 401 ? bearerChallenge(presentedToken) : undefined);
         return;
       }
       if (snapshot.tools.length === 0 && (rpc.method === 'tools/list' || rpc.method === 'server/discover')) {
-        this.sendJson(res, 503, { jsonrpc: '2.0', id, error: { code: -32090, message: 'CATALOG_UNAVAILABLE', data: { catalogSource: this.deploymentCatalog.source } } }, origin);
+        this.sendJson(res, 503, { jsonrpc: '2.0', id, error: peerRpcError('CATALOG_UNAVAILABLE', { catalogSource: this.deploymentCatalog.source }) }, origin);
         return;
       }
       if (rpc.method === 'initialize') {
@@ -2158,7 +2303,7 @@ export class WebMcpPeerServer {
         return;
       }
       if (!entry) {
-        this.sendJson(res, 404, { jsonrpc: '2.0', id, error: { code: -32004, message: 'ROOM_NOT_FOUND', data: { roomId } } }, origin);
+        this.sendJson(res, 404, { jsonrpc: '2.0', id, error: peerRpcError('ROOM_NOT_FOUND', { roomId }) }, origin);
         return;
       }
       if (rpc.method === 'tools/call') {
@@ -2172,21 +2317,17 @@ export class WebMcpPeerServer {
           || (typeof metadata?.catalogHash === 'string' && metadata.catalogHash !== entry.catalogHash)) {
           this.sendJson(res, 409, {
             jsonrpc: '2.0', id,
-            error: {
-              code: -32010,
-              message: 'CATALOG_CHANGED',
-              data: { catalogVersion: entry.catalogVersion, catalogHash: entry.catalogHash },
-            },
+            error: peerRpcError('CATALOG_CHANGED', { catalogVersion: entry.catalogVersion, catalogHash: entry.catalogHash }),
           }, origin);
           return;
         }
         if (entry.cachedTools && !entry.cachedTools.some(tool => this.isRecord(tool) && tool.name === params.name)) {
-          this.sendJson(res, 400, { jsonrpc: '2.0', id, error: { code: -32602, message: 'TOOL_NOT_FOUND' } }, origin);
+          this.sendJson(res, 400, { jsonrpc: '2.0', id, error: peerRpcError('TOOL_NOT_FOUND') }, origin);
           return;
         }
       }
       if (!entry.providerSocket) {
-        this.sendJson(res, 503, { jsonrpc: '2.0', id, error: { code: -32001, message: 'PROVIDER_UNAVAILABLE' } }, origin);
+        this.sendJson(res, 503, { jsonrpc: '2.0', id, error: PROVIDER_UNAVAILABLE_ERROR }, origin);
         return;
       }
       // Like a WebSocket agent's, the request reaches the provider stamped with the relay's own
@@ -2220,10 +2361,10 @@ export class WebMcpPeerServer {
       const releaseOnDisconnect = () => {
         if (res.writableEnded || entry.mcpPending.get(key)?.socket !== bridgeSocket) return;
         agentDisconnected = true;
-        this.clearPending(entry, key, { code: -32001, message: 'CLIENT_DISCONNECTED' });
+        this.clearPending(entry, key, peerRpcError('CLIENT_DISCONNECTED'));
       };
       res.once('close', releaseOnDisconnect);
-      const timer = setTimeout(() => this.clearPending(entry, key, { code: -32001, message: 'MCP_REQUEST_TIMEOUT' }), this.mcpRequestTimeoutMs);
+      const timer = setTimeout(() => this.clearPending(entry, key, peerRpcError('MCP_REQUEST_TIMEOUT')), this.mcpRequestTimeoutMs);
       entry.mcpPending.set(key, { socket: bridgeSocket, timer, method: rpc.method, id, wireId });
       const sent = entry.providerSocket.send({ type: 'mcp', ...stamp, message: wireId === id ? rpc : { ...rpc, id: wireId } });
       if (sent !== 'sent') {
@@ -2250,11 +2391,11 @@ export class WebMcpPeerServer {
       // expire while the body is in transit.
       const joinable = (room: RoomEntry | undefined): room is RoomEntry => {
         if (room?.rotatedTo) {
-          this.sendJson(res, 410, { error: 'ROOM_ROTATED', code: -32057, replacementRoomId: room.rotatedTo, roomId, roomEpoch: room.roomEpoch }, origin);
+          this.sendRoomRotated(res, room, origin);
           return false;
         }
         if (!room || this.rooms.get(roomId) !== room || room.expiresAt < Date.now()) {
-          this.sendJson(res, 404, { error: 'ROOM_NOT_FOUND' }, origin);
+          this.sendLifecycleError(res, 404, 'ROOM_NOT_FOUND', origin);
           return false;
         }
         return true;
@@ -2262,26 +2403,28 @@ export class WebMcpPeerServer {
       if (!joinable(entry)) return;
       const body = await this.readJsonBodyOrRespond(req, res, origin);
       if (!body || !joinable(entry)) return;
+      // The invite is a body credential, not an `Authorization` one: none is 400, a wrong one 403.
+      // Only the right invite learns that it was already used.
       const inviteToken = typeof body.inviteToken === 'string' ? body.inviteToken.trim() : '';
       if (!inviteToken) {
-        this.sendJson(res, 401, { error: 'INVITE_TOKEN_REQUIRED' }, origin);
-        return;
-      }
-      if (entry.inviteConsumed) {
-        this.sendJson(res, 409, { error: 'INVITE_TOKEN_CONSUMED' }, origin);
+        this.sendLifecycleError(res, 400, 'INVITE_TOKEN_REQUIRED', origin);
         return;
       }
       if (!this.constantTimeTokenEqual(inviteToken, entry.inviteToken)) {
-        this.sendJson(res, 403, { error: 'INVITE_TOKEN_INVALID' }, origin);
+        this.sendLifecycleError(res, 403, 'INVITE_TOKEN_INVALID', origin);
+        return;
+      }
+      if (entry.inviteConsumed) {
+        this.sendLifecycleError(res, 409, 'INVITE_TOKEN_CONSUMED', origin);
         return;
       }
       const requestedCapabilities = this.parsePeerCapabilities(body.capabilities);
       if (!requestedCapabilities) {
-        this.sendJson(res, 400, { error: 'CAPABILITIES_INVALID' }, origin);
+        this.sendLifecycleError(res, 400, 'CAPABILITIES_INVALID', origin);
         return;
       }
       if (requestedCapabilities.includes('mcp-crdt') && !entry.capabilities.includes('mcp-crdt')) {
-        this.sendJson(res, 403, { error: 'CRDT_CAPABILITY_NOT_GRANTED' }, origin);
+        this.sendLifecycleError(res, 403, 'CRDT_CAPABILITY_NOT_GRANTED', origin);
         return;
       }
 
@@ -2329,22 +2472,18 @@ export class WebMcpPeerServer {
     const approvalMatch = url.pathname.match(APPROVAL_ROUTE);
     if (req.method === 'POST' && approvalMatch) {
       const roomId = approvalMatch[1];
-      const requestId = decodeURIComponent(approvalMatch[2]);
+      const requestId = decodePathParameter(approvalMatch[2]);
+      if (requestId === null) {
+        this.sendLifecycleError(res, 400, 'INVALID_PATH', origin);
+        return;
+      }
       const entry = this.rooms.get(roomId);
       const bearer = this.bearerToken(req);
       // Checked before the body is read and again after it: the room can expire, be rotated, or be
       // reclaimed (a new provider token) while the body is in transit.
-      const decidable = (room: RoomEntry | undefined): room is RoomEntry => {
-        if (!room || this.rooms.get(roomId) !== room || room.expiresAt <= Date.now()) {
-          this.sendJson(res, 404, { error: 'ROOM_NOT_FOUND' }, origin);
-          return false;
-        }
-        if (!bearer || !this.constantTimeTokenEqual(bearer, room.providerToken)) {
-          this.sendJson(res, 401, { error: 'PROVIDER_TOKEN_REQUIRED' }, origin);
-          return false;
-        }
-        return true;
-      };
+      const decidable = (room: RoomEntry | undefined): room is RoomEntry => (
+        this.checkLifecycleRoom(res, roomId, room, origin) && this.checkProviderToken(res, room, bearer, origin)
+      );
       if (!decidable(entry)) return;
       const body = await this.readJsonBodyOrRespond(req, res, origin);
       if (!body || !decidable(entry)) return;
@@ -2354,12 +2493,12 @@ export class WebMcpPeerServer {
       const decision = body.decision;
       if (!pending || !sessionId || pending.sessionId !== sessionId || body.roomId !== roomId || roomEpoch !== entry.roomEpoch
         || (decision !== 'approved' && decision !== 'rejected')) {
-        this.sendJson(res, 409, { error: 'INVALID_APPROVAL', code: -32081 }, origin);
+        this.sendLifecycleError(res, 409, 'INVALID_APPROVAL', origin);
         return;
       }
       const handled = this.approveClientTicket(entry, requestId, decision === 'approved', typeof body.reason === 'string' ? body.reason : undefined);
       if (!handled) {
-        this.sendJson(res, 409, { error: 'INVALID_APPROVAL', code: -32081 }, origin);
+        this.sendLifecycleError(res, 409, 'INVALID_APPROVAL', origin);
         return;
       }
       this.sendJson(res, 200, {
@@ -2379,24 +2518,44 @@ export class WebMcpPeerServer {
     const sessionStatusMatch = url.pathname.match(SESSION_STATUS_ROUTE);
     if (req.method === 'GET' && sessionStatusMatch) {
       const roomId = sessionStatusMatch[1];
-      const sessionId = decodeURIComponent(sessionStatusMatch[2]);
+      const sessionId = decodePathParameter(sessionStatusMatch[2]);
+      if (sessionId === null) {
+        this.sendLifecycleError(res, 400, 'INVALID_PATH', origin);
+        return;
+      }
       const entry = this.rooms.get(roomId);
       if (!entry) {
-        this.sendJson(res, 404, { error: 'ROOM_NOT_FOUND' }, origin);
+        this.sendLifecycleError(res, 404, 'ROOM_NOT_FOUND', origin);
         return;
       }
       if (entry.rotatedTo) {
-        this.sendJson(res, 410, { error: 'ROOM_ROTATED', code: -32057, replacementRoomId: entry.rotatedTo, roomId, roomEpoch: entry.roomEpoch }, origin);
+        this.sendRoomRotated(res, entry, origin);
         return;
       }
+      // The provider token reads any session of the room; a client token only its own.
       const bearer = this.bearerToken(req);
+      const byProvider = Boolean(bearer) && this.constantTimeTokenEqual(bearer, entry.providerToken);
       const found = this.findClientTicket(entry, sessionId);
-      const byClient = Boolean(bearer && found && this.constantTimeTokenEqual(secretHash(bearer), found.tokenHash));
-      const authorized = byClient || Boolean(bearer && this.constantTimeTokenEqual(bearer, entry.providerToken));
-      if (!authorized || !found) {
-        this.sendJson(res, authorized ? 404 : 401, { error: authorized ? 'SESSION_NOT_FOUND' : 'CLIENT_TOKEN_REQUIRED' }, origin);
+      if (!byProvider) {
+        if (!bearer) {
+          this.sendUnauthorized(res, 'CLIENT_TOKEN_REQUIRED', false, origin);
+          return;
+        }
+        const own = entry.clientTickets.get(secretHash(bearer));
+        if (!own) {
+          this.sendUnauthorized(res, 'CLIENT_TOKEN_INVALID', true, origin);
+          return;
+        }
+        if (own !== found?.ticket) {
+          this.sendLifecycleError(res, 403, 'SESSION_NOT_OWNED', origin);
+          return;
+        }
+      }
+      if (!found) {
+        this.sendLifecycleError(res, 404, 'SESSION_NOT_FOUND', origin);
         return;
       }
+      const byClient = !byProvider;
       const ticket = found.ticket;
       if (ticket.expiresAt <= Date.now() && ticket.status !== 'revoked' && ticket.status !== 'rejected') ticket.status = 'expired';
       // An agent that waits for approval polls here (waitForPeerApproval): its approval request
@@ -2422,23 +2581,21 @@ export class WebMcpPeerServer {
     const revokePeerMatch = url.pathname.match(REVOKE_ROUTE);
     if (req.method === 'POST' && revokePeerMatch) {
       const roomId = revokePeerMatch[1];
+      const pathSessionId = revokePeerMatch[2] ? decodePathParameter(revokePeerMatch[2]) : '';
+      if (pathSessionId === null) {
+        this.sendLifecycleError(res, 400, 'INVALID_PATH', origin);
+        return;
+      }
       const entry = this.rooms.get(roomId);
       // Checked before the body is read and again after it, since the room can expire or be
       // rotated while the body is in transit (the tokens are checked after the read).
-      const revocable = (room: RoomEntry | undefined): room is RoomEntry => {
-        if (!room || this.rooms.get(roomId) !== room || room.expiresAt <= Date.now()) {
-          this.sendJson(res, 404, { error: 'ROOM_NOT_FOUND' }, origin);
-          return false;
-        }
-        return true;
-      };
+      const revocable = (room: RoomEntry | undefined): room is RoomEntry => this.checkLifecycleRoom(res, roomId, room, origin);
       if (!revocable(entry)) return;
       const bearer = this.bearerToken(req);
       const body = await this.readJsonBodyOrRespond(req, res, origin);
       if (!body || !revocable(entry)) return;
-      const pathSessionId = revokePeerMatch[2] ? decodeURIComponent(revokePeerMatch[2]) : '';
       if (pathSessionId && (body.roomId !== roomId || body.roomEpoch !== entry.roomEpoch)) {
-        this.sendJson(res, 409, { error: 'SESSION_BINDING_INVALID', code: -32002 }, origin);
+        this.sendLifecycleError(res, 409, 'SESSION_BINDING_INVALID', origin);
         return;
       }
       if (pathSessionId) body.sessionId = pathSessionId;
@@ -2451,7 +2608,7 @@ export class WebMcpPeerServer {
         }
         const found = this.findClientTicket(entry, requestedSessionId);
         if (!found) {
-          this.sendJson(res, 404, { error: 'SESSION_NOT_FOUND' }, origin);
+          this.sendLifecycleError(res, 404, 'SESSION_NOT_FOUND', origin);
           return;
         }
         // Read before closing: closeClientTicket sets the status to 'revoked'. A repeat revoke is
@@ -2461,17 +2618,23 @@ export class WebMcpPeerServer {
         this.sendJson(res, 200, { roomId, roomEpoch: entry.roomEpoch, sessionId: requestedSessionId, state: 'revoked', revoked: true, revokedAt: new Date(found.ticket.revokedAt ?? Date.now()).toISOString(), reason: body.reason ?? 'provider-request', alreadyRevoked }, origin);
         return;
       }
-      const ticket = bearer ? this.resolveClientTicket(entry, bearer) : null;
-      if (!ticket) {
-        this.sendJson(res, 401, { error: 'CLIENT_TOKEN_REQUIRED' }, origin);
+      if (!bearer) {
+        this.sendUnauthorized(res, 'CLIENT_TOKEN_REQUIRED', false, origin);
         return;
       }
+      const ticket = this.resolveClientTicket(entry, bearer);
+      if (!ticket) {
+        this.sendUnauthorized(res, 'CLIENT_TOKEN_INVALID', true, origin);
+        return;
+      }
+      // A client revokes only its own ticket: naming another session is not a binding mismatch
+      // (SESSION_BINDING_INVALID, 409) but a session the token does not own.
       if (typeof body.sessionId === 'string' && body.sessionId && body.sessionId !== ticket.sessionId) {
-        this.sendJson(res, 403, { error: 'SESSION_BINDING_INVALID' }, origin);
+        this.sendLifecycleError(res, 403, 'SESSION_NOT_OWNED', origin);
         return;
       }
       if (body.roomId !== roomId || body.roomEpoch !== entry.roomEpoch) {
-        this.sendJson(res, 409, { error: 'SESSION_BINDING_INVALID', code: -32002 }, origin);
+        this.sendLifecycleError(res, 409, 'SESSION_BINDING_INVALID', origin);
         return;
       }
       const alreadyRevoked = ticket.status === 'revoked';
@@ -2486,25 +2649,19 @@ export class WebMcpPeerServer {
       const roomId = rotateMatch[1];
       const entry = this.rooms.get(roomId);
       const bearer = this.bearerToken(req);
-      // Checked before the body is read and again after it: a concurrent rotation (which would
-      // otherwise rotate the room twice and leave two live replacements), an expiry or a reclaim
-      // (a new provider token) can happen while the body is in transit.
-      const rotatable = (room: RoomEntry | undefined): room is RoomEntry => {
-        if (!room || this.rooms.get(roomId) !== room || room.rotatedTo || room.expiresAt <= Date.now()) {
-          this.sendJson(res, 404, { error: 'ROOM_NOT_FOUND' }, origin);
-          return false;
-        }
-        if (!bearer || !this.constantTimeTokenEqual(bearer, room.providerToken)) {
-          this.sendJson(res, 401, { error: 'PROVIDER_TOKEN_REQUIRED' }, origin);
-          return false;
-        }
-        return true;
-      };
+      // Checked before the body is read and again after it: a concurrent rotation, an expiry or a
+      // reclaim (a new provider token) can happen while the body is in transit. A rotated room
+      // answers 410 ROOM_ROTATED naming its replacement, so a second rotation (concurrent or late)
+      // learns it instead of rotating the room twice and leaving two live replacements.
+      const rotatable = (room: RoomEntry | undefined): room is RoomEntry => (
+        this.checkLifecycleRoom(res, roomId, room, origin) && this.checkProviderToken(res, room, bearer, origin)
+      );
       if (!rotatable(entry)) return;
       const body = await this.readJsonBodyOrRespond(req, res, origin);
       if (!body || !rotatable(entry)) return;
+      // The room was not rotated: a body naming another room or epoch is a binding error.
       if ((body.roomId !== undefined && body.roomId !== roomId) || (body.roomEpoch !== undefined && body.roomEpoch !== entry.roomEpoch)) {
-        this.sendJson(res, 409, { error: 'ROOM_ROTATED', code: -32057, roomId, roomEpoch: entry.roomEpoch, replacementRoomId: entry.rotatedTo ?? null }, origin);
+        this.sendLifecycleError(res, 409, 'ROOM_BINDING_INVALID', origin, { roomId, roomEpoch: entry.roomEpoch });
         return;
       }
       const alias = typeof body.alias === 'string' && body.alias.trim()
@@ -2562,7 +2719,7 @@ export class WebMcpPeerServer {
       return;
     }
 
-    this.sendJson(res, 404, { error: 'NOT_FOUND' }, origin);
+    this.sendLifecycleError(res, 404, 'NOT_FOUND', origin);
   }
 
   async handleUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer): Promise<void> {
@@ -2771,16 +2928,13 @@ export class WebMcpPeerServer {
                     return;
                   }
                   const invalidId = this.isRecord(rpc) && (typeof rpc.id === 'string' || typeof rpc.id === 'number' || rpc.id === null) ? rpc.id : undefined;
-                  this.sendRpcError(peer, invalidId, -32600, 'INVALID_REQUEST');
+                  this.sendPeerRpcError(peer, invalidId, 'INVALID_REQUEST');
                   return;
                 }
-                if (clientTicket.status !== 'approved') {
-                  const statusCode = clientTicket.status === 'revoked' || clientTicket.status === 'room-rotated' ? -32001 : clientTicket.status === 'expired' ? -32056 : clientTicket.status === 'rejected' ? -32054 : -32053;
-                  const statusMessage = clientTicket.status === 'revoked' || clientTicket.status === 'room-rotated' ? 'SESSION_INVALID' : clientTicket.status === 'expired' ? 'SESSION_EXPIRED' : clientTicket.status === 'rejected' ? 'CLIENT_APPROVAL_DENIED' : 'CLIENT_APPROVAL_REQUIRED';
-                  this.sendRpcError(peer, rpc.id, statusCode, statusMessage, {
-                    sessionId: clientTicket.sessionId,
-                    approvalRequestId: clientTicket.approvalRequestId,
-                  });
+                // The same error, with the same data, as an HTTP request of this ticket gets.
+                const ticketError = this.clientTicketError(clientTicket);
+                if (ticketError) {
+                  this.sendRpcError(peer, rpc.id, ticketError.code, ticketError.message, this.clientTicketErrorData(entry, roomId, clientTicket));
                   return;
                 }
                 // What reaches the provider says who sent it in the relay's own words: whatever
@@ -2805,19 +2959,19 @@ export class WebMcpPeerServer {
                   const hash = metadata?.catalogHash;
                   if ((typeof version === 'number' && version !== entry.catalogVersion)
                     || (typeof hash === 'string' && hash !== entry.catalogHash)) {
-                    this.sendRpcError(peer, id, -32010, 'CATALOG_CHANGED', {
+                    this.sendPeerRpcError(peer, id, 'CATALOG_CHANGED', {
                       catalogVersion: entry.catalogVersion,
                       catalogHash: entry.catalogHash,
                     });
                     return;
                   }
                   if (entry.cachedTools && !entry.cachedTools.some(tool => this.isRecord(tool) && tool.name === params.name)) {
-                    this.sendRpcError(peer, id, -32602, 'TOOL_NOT_FOUND');
+                    this.sendPeerRpcError(peer, id, 'TOOL_NOT_FOUND');
                     return;
                   }
                 }
                 if (this.hasPendingRequest(entry, peer, id)) {
-                  this.sendRpcError(peer, id, -32600, 'DUPLICATE_REQUEST_ID');
+                  this.sendPeerRpcError(peer, id, 'DUPLICATE_REQUEST_ID');
                   return;
                 }
                 if (this.pendingRequestCount(entry, peer) >= MAX_PENDING_REQUESTS_PER_SOCKET) {
@@ -2827,11 +2981,11 @@ export class WebMcpPeerServer {
                 const wireId = this.allocateWireId(entry, id);
                 const key = this.rpcKey(wireId);
                 if (!entry.providerSocket) {
-                  this.sendRpcError(peer, id, -32001, 'PROVIDER_UNAVAILABLE');
+                  this.sendPeerRpcError(peer, id, 'PROVIDER_UNAVAILABLE');
                   return;
                 }
                 const timer = setTimeout(() => {
-                  this.clearPending(entry, key, { code: -32001, message: 'MCP_REQUEST_TIMEOUT' });
+                  this.clearPending(entry, key, peerRpcError('MCP_REQUEST_TIMEOUT'));
                 }, this.mcpRequestTimeoutMs);
                 const params = this.isRecord(rpc.params) ? rpc.params : undefined;
                 const discovers = rpc.method === 'server/discover';

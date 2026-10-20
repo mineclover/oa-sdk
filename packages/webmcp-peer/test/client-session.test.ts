@@ -1,5 +1,6 @@
 // Regression tests for the agent-side client: room catalog discovery over Streamable HTTP,
-// requests issued while a connect is in flight, ticket revocation, and response validation.
+// requests issued while a connect is in flight, ticket revocation (also through PeerMcpService),
+// and response validation.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -7,6 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   JsonPeerMcpStore,
   PeerMcpError,
+  PeerMcpService,
   PeerMcpSession,
   discoverPeerCatalog,
   getPeerSessionStatus,
@@ -309,6 +311,38 @@ describe("PeerMcpSession.revoke against the relay", () => {
 
     await session.revoke();
     expect((await status()).state).toBe("revoked");
+  });
+
+  it("reports the relay's error name as the code of a refused revoke", async () => {
+    const { joined, status } = await joinedRoom();
+    // A stale epoch: the relay refuses the binding with 409 SESSION_BINDING_INVALID (code −32002).
+    const session = new PeerMcpSession({
+      mcpEndpoint: joined.mcpEndpoint,
+      clientToken: joined.clientToken,
+      sessionId: joined.sessionId,
+      roomEpoch: joined.roomEpoch + 1,
+    });
+    sessions.push(session);
+
+    const failure = await session.revoke().catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(PeerMcpError);
+    expect(failure).toMatchObject({ code: "SESSION_BINDING_INVALID", details: { error: "SESSION_BINDING_INVALID", code: -32002 } });
+    expect((await status()).state).toBe("approved");
+  });
+
+  it("revokes a session a PeerMcpService registered under a key of its own", async () => {
+    const { joined, status } = await joinedRoom();
+    const service = new PeerMcpService();
+    const session = await service.connect({ key: "primary", mcpEndpoint: joined.mcpEndpoint, clientToken: joined.clientToken });
+    sessions.push(session);
+    expect(service.getSession("primary")).toBe(session);
+    expect(service.activeKey).toBe("primary");
+    // The key names the session in the registry only: the relay never sees it as a session id.
+    expect(session.sessionId).not.toBe("primary");
+
+    await expect(service.revoke("primary")).resolves.toMatchObject({ revoked: true, sessionId: joined.sessionId });
+    expect((await status()).state).toBe("revoked");
+    expect(service.getSession("primary")).toBeUndefined();
   });
 });
 

@@ -255,7 +255,10 @@ describe("encodeRelayMcpReply", () => {
 
   it("answers a non-tools/call request with a JSON-RPC error", () => {
     const reply = encodeRelayMcpReply({ jsonrpc: "2.0", id: 7, method: "tools/list" }, big, 1_024);
-    expect(JSON.parse(reply.frame!)).toEqual({ type: "mcp", message: { jsonrpc: "2.0", id: 7, error: { code: -32603, message: "RESULT_TOO_LARGE" } } });
+    expect(JSON.parse(reply.frame!)).toEqual({
+      type: "mcp",
+      message: { jsonrpc: "2.0", id: 7, error: { code: -32603, message: "RESULT_TOO_LARGE", data: { limitBytes: 1_024 } } },
+    });
   });
 
   it("drops a reply when not even the error fits", () => {

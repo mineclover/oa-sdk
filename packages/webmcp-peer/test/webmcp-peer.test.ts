@@ -191,7 +191,7 @@ describe("@oa-sdk/webmcp-peer unified package", () => {
     // 4. External Agent Client invokes tools via PeerMcpService multi-session orchestrator
     const service = new PeerMcpService();
     const session = await service.connect({
-      sessionId: "primary-room",
+      key: "primary-room",
       serverUrl,
       roomId,
       roomEpoch: joined.roomEpoch,

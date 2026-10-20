@@ -952,11 +952,10 @@ export class PeerMcpSession {
     });
     const body = parseJsonObject(await readResponseText(response));
     if (!response.ok) {
-      throw new PeerMcpError(
-        (typeof body.error === "string" ? body.error : undefined) || `HTTP ${response.status}: peer session revoke failed`,
-        (typeof body.code === "string" ? body.code : undefined) || "SESSION_REVOKE_FAILED",
-        body,
-      );
+      // The relay names the failure in `error`, as for every other lifecycle helper; its `code`
+      // member is the numeric JSON-RPC class.
+      const errStr = typeof body.error === "string" && body.error ? body.error : undefined;
+      throw new PeerMcpError(errStr || `HTTP ${response.status}: peer session revoke failed`, errStr || "SESSION_REVOKE_FAILED", body);
     }
     await this.disconnect();
     return body;
