@@ -1,6 +1,6 @@
-// Regression tests: an HTTP `tools/call` in flight when its room is rotated, revoked or expired
-// must receive a JSON-RPC error (not hang), a WebSocket agent's request the same error after the
-// frame that tells it why, and `server.close()` must still resolve.
+// Regression tests: an HTTP `tools/call` in flight when its room is rotated, revoked or expired, or
+// its session alone is revoked, must receive a JSON-RPC error (not hang), a WebSocket agent's
+// request the same error after the frame that tells it why, and `server.close()` must still resolve.
 import { afterEach, describe, expect, it } from "vitest";
 import { WebMcpPeerServer, type WebMcpPeerServerOptions } from "../src/server.js";
 import {
@@ -123,6 +123,28 @@ describe("in-flight MCP requests across room shutdown", () => {
     expect(outcome.settled).toBe(true);
     if (!outcome.settled) return;
     expect(outcome.value.body).toMatchObject({ id: 7, error: { code: -32001, message: "SESSION_INVALID" } });
+    await expectCloseResolves(setup.relay.server);
+  });
+
+  it.each([
+    ["the provider revokes it", "sessions/:session/revoke", "provider"],
+    ["the agent revokes it itself", "session/revoke", "client"],
+  ] as const)("answers SESSION_INVALID when %s alone, as a revoke of every session does", async (_label, route, signer) => {
+    const setup = await roomWithSilentProvider();
+    const { response: call } = await callInFlight(setup);
+    const agent = await agentCallInFlight(setup);
+    const token = signer === "provider" ? setup.room.providerToken : setup.joined.clientToken;
+    const revoked = await postJson(`${setup.relay.base}/p/${setup.room.id}/${route.replace(":session", setup.joined.sessionId)}`, {}, {
+      authorization: `Bearer ${token}`,
+    });
+    expect(revoked.status).toBe(200);
+    const error = { code: -32001, message: "SESSION_INVALID" };
+
+    // The HTTP request is the ticket's although no socket of the ticket carries it.
+    const outcome = await settleWithin(call, SETTLE_MS);
+    expect(outcome).toMatchObject({ settled: true, value: { body: { id: 7, error } } });
+    expect((await agentEnding(agent, "session.revoked")).error).toEqual(error);
+    expect(setup.relay.server.rooms.get(setup.room.id)?.mcpPending.size).toBe(0);
     await expectCloseResolves(setup.relay.server);
   });
 

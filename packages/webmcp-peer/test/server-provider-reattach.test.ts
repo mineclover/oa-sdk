@@ -83,7 +83,8 @@ describe("provider socket reattach", () => {
     expect(relay.server.rooms.get(room.id)?.roomState).toBe("active");
     expect(replay[1]).toEqual({
       protocol: "webmcp-peer/1",
-      messageId: `approval-restored-${joined.sessionId}`,
+      // Opaque and unique to the message: nothing is to be read from it.
+      messageId: expect.any(String),
       type: "approval.restored",
       roomId: room.id,
       roomEpoch: room.roomEpoch,

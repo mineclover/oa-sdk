@@ -902,8 +902,8 @@ export class PeerMcpSession {
 
   /**
    * Revokes this client's ticket on the relay, then disconnects. The relay identifies the ticket by
-   * the bearer `clientToken` and accepts the request only when it names the ticket's room
-   * (`roomId` + the current `roomEpoch`) and, on the session-scoped route, its session id:
+   * the bearer `clientToken`; the body names the ticket's room (`roomId` + the current `roomEpoch`),
+   * which the relay checks when it is sent, and, on the session-scoped route, its session id:
    * - `roomId` comes from the options, the WebSocket `ready` frame, or the `/p/:id/mcp` endpoint;
    * - `roomEpoch` comes from the options, the `ready` frame, or `initialize`/`tools/list` metadata.
    *   When none of those supplied it yet, it is learned before revoking: from the session status
@@ -955,7 +955,7 @@ export class PeerMcpSession {
    * Learns the relay's room epoch for {@link revoke} when no frame or response supplied it yet:
    * from the session status route when the relay's session id is known, otherwise (or when that
    * route cannot be read) from a metadata-only `initialize` POST to the room's MCP endpoint.
-   * Undefined when neither answers; the relay then rejects the revoke with its binding error.
+   * Undefined when neither answers; the revoke then leaves `roomEpoch` out, which the relay accepts.
    */
   async #learnRoomEpoch(fetchImpl: typeof fetch, roomBase: string, sessionId: string | undefined): Promise<number | undefined> {
     if (sessionId) {

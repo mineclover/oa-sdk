@@ -55,7 +55,8 @@ interface IssuedRoom {
 
 /**
  * Scripted relay. `POST /p` creates a room, `POST /p/:id/reclaim` re-issues it when the lease
- * token matches, `POST /p/:id/rotate` replaces it, and every provider socket receives `ready`
+ * token matches, `POST /p/:id/rotate` replaces it, `POST /p/:id/sessions/:sessionId/revoke` revokes
+ * the session, and every provider socket receives `ready`
  * followed (in the same tick, as one network read can deliver them) by whatever `afterReady` sends.
  * Refusals use the relay's statuses and error names.
  */
@@ -65,6 +66,8 @@ export class FakeRelay {
   readonly fetchCalls: Array<{ url: string; method: string }> = [];
   /** The body of every `POST /p/:id/rotate`, in order. */
   readonly rotateBodies: Frame[] = [];
+  /** The body of every `POST /p/:id/sessions/:sessionId/revoke`, in order. */
+  readonly revokeBodies: Frame[] = [];
   reachable = true;
   /** Whether `POST /p` creates a room; while false it answers 503, as a relay that cannot. */
   creatable = true;
@@ -107,6 +110,16 @@ export class FakeRelay {
       }
       this.room = { id: "fedcba9876543210", roomEpoch: this.room.roomEpoch + 1, leaseToken: "" };
       return Response.json(this.descriptor(this.room), { status: 201 });
+    }
+    const revoke = url.match(/\/p\/([^/]+)\/sessions\/([^/]+)\/revoke$/);
+    if (method === "POST" && revoke) {
+      const body = JSON.parse(String(init.body)) as Frame;
+      this.revokeBodies.push(body);
+      if (!this.room || revoke[1] !== this.room.id) return Response.json({ error: "ROOM_NOT_FOUND", code: -32004 }, { status: 404 });
+      if (body.roomEpoch !== undefined && body.roomEpoch !== this.room.roomEpoch) {
+        return Response.json({ error: "SESSION_BINDING_INVALID", code: -32002 }, { status: 409 });
+      }
+      return Response.json({ roomId: this.room.id, sessionId: decodeURIComponent(revoke[2]!), state: "revoked", revoked: true });
     }
     return Response.json({ error: "NOT_FOUND" }, { status: 404 });
   };

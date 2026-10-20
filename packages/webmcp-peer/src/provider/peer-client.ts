@@ -65,6 +65,8 @@ import {
 
 const CATALOG_INVALID_ERROR = "CATALOG_INVALID";
 const CATALOG_TOO_LARGE_ERROR = "CATALOG_TOO_LARGE";
+/** The relay's refusal of an `approval.decision`, and the session error a refusal of the host's latest one sets. */
+const INVALID_APPROVAL_ERROR = "INVALID_APPROVAL";
 
 /** True for a session error that reports a catalog the relay will not serve. */
 function isCatalogError(error: string | null): boolean {
@@ -196,6 +198,11 @@ export class WebMcpPeerClient {
   private approvalSessionId: string | null = null;
   private approvalRoomEpoch: number | null = null;
   private approvalEnvelope = false;
+  /**
+   * The host's latest `approval.decision`, taken as made when it was sent, until the relay settles it:
+   * its echo, a new request, or the INVALID_APPROVAL that undoes it (see {@link undoRefusedDecision}).
+   */
+  private sentDecision: { readonly requestId: string; readonly decision: "approved" | "rejected" } | null = null;
   private roomEpoch: number | null = null;
   private roomGeneration = 0;
   private connectionGeneration = 0;
@@ -700,6 +707,7 @@ export class WebMcpPeerClient {
     this.approvalSessionId = null;
     this.approvalRoomEpoch = null;
     this.approvalEnvelope = false;
+    this.sentDecision = null;
 
     let enableWrite = false;
     try {
@@ -926,7 +934,7 @@ export class WebMcpPeerClient {
         }
 
         if (msg.type === "approval.restored") {
-          this.restoreApprovedSession(msg);
+          this.adoptRelayApproval(msg);
           return;
         }
 
@@ -951,18 +959,28 @@ export class WebMcpPeerClient {
                 : this.roomEpoch;
           this.approvalEnvelope = true;
           this.approvalState = "pending";
+          // A new request supersedes whatever the host decided before.
+          this.sentDecision = null;
+          this.clearDecisionError();
           this.state = "waiting";
           this.notify();
           return;
         }
 
         if (msg.type === "approval.approved") {
-          if (this.approvalState !== "approved") return;
+          // The relay holds the ticket approved, whoever decided it. The echo of the host's own
+          // approval confirms it; an approval made another way (over HTTP), which this provider
+          // learns only from this echo, is adopted when the frame names this room's epoch and a
+          // session (see adoptRelayApproval).
+          if (this.approvalState === "approved") this.sentDecision = null;
+          else if (!this.adoptRelayApproval(msg)) return;
           this.setupPeerConnection(ws, nonEmptyString(msg.requestId) ?? activeRequestId, iceServers, generation);
           return;
         }
 
         if (msg.type === "approval.rejected") {
+          this.sentDecision = null;
+          this.clearDecisionError();
           this.approvalState = "revoked";
           this.approvalRequestId = null;
           this.state = "waiting";
@@ -1070,23 +1088,59 @@ export class WebMcpPeerClient {
       this.setSessionError(refusal);
       return;
     }
+    if (message === INVALID_APPROVAL_ERROR) {
+      this.undoRefusedDecision(frame);
+      return;
+    }
     console.warn("[WebMCP] Relay error:", frame.code, message || frame);
   }
 
   /**
-   * `approval.restored`: the relay reattached this provider (F5 / auto-reconnect lease reclaim)
-   * and reports a client ticket it already approved. Only the relay can vouch for that, so the
-   * provider adopts it instead of refusing the still-approved agent with CLIENT_APPROVAL_REQUIRED.
+   * An INVALID_APPROVAL error frame: the relay refused an `approval.decision`. When it names the
+   * request of the host's latest decision and no echo settled that decision since, the decision did
+   * not take effect (its request expired or was decided another way meanwhile, its ticket ended, or
+   * the decision did not match the request): the approval state it set is undone, back to `pending`
+   * for that request, and INVALID_APPROVAL becomes the session error. Any other refusal concerns a
+   * decision the relay has settled since, and is only logged.
    */
-  private restoreApprovedSession(frame: ProviderFrame): void {
+  private undoRefusedDecision(frame: ProviderFrame): void {
+    const decision = this.sentDecision;
+    if (!decision || frame.requestId !== decision.requestId) {
+      console.warn("[WebMCP] Relay error:", frame.code, INVALID_APPROVAL_ERROR);
+      return;
+    }
+    this.sentDecision = null;
+    this.approvalState = "pending";
+    this.approvalRequestId = decision.requestId;
+    this.error = INVALID_APPROVAL_ERROR;
+    this.notify();
+  }
+
+  /** Clears an INVALID_APPROVAL session error once the approval state has moved on; the caller notifies. */
+  private clearDecisionError(): void {
+    if (this.error === INVALID_APPROVAL_ERROR) this.error = null;
+  }
+
+  /**
+   * Takes the relay's word that the client ticket a frame names is approved: `approval.restored`,
+   * after the relay reattached this provider (F5 / auto-reconnect lease reclaim), or the
+   * `approval.approved` echo of an approval this provider did not make (one over HTTP). Only the relay can
+   * vouch for the ticket, so its approval stands whatever this provider decided or saw before, instead
+   * of the still-approved agent being refused with CLIENT_APPROVAL_REQUIRED. The frame must name this
+   * room's epoch and a session, and a ticket expiry it reports must be in the future: the restored
+   * ticket's `payload.expiresAt`, or an echo's `ticketExpiresAt` (an echo's `expiresAt` is the
+   * request's). Returns whether the approval was taken.
+   */
+  private adoptRelayApproval(frame: ProviderFrame): boolean {
     const payload = isJsonObject(frame.payload) ? frame.payload : frame;
     const sessionId = nonEmptyString(payload.sessionId) ?? nonEmptyString(frame.sessionId);
     const roomEpoch = typeof payload.roomEpoch === "number" ? payload.roomEpoch : frame.roomEpoch;
     const roomId = payload.roomId ?? frame.roomId;
-    const expiresAt = typeof payload.expiresAt === "number" ? payload.expiresAt : undefined;
-    if (!sessionId || this.roomEpoch === null || roomEpoch !== this.roomEpoch) return;
-    if (roomId !== undefined && roomId !== this.roomId) return;
-    if (expiresAt !== undefined && expiresAt <= Date.now()) return;
+    const ticketExpiry = frame.type === "approval.restored" ? payload.expiresAt : (payload.ticketExpiresAt ?? frame.ticketExpiresAt);
+    const expiresAt = typeof ticketExpiry === "number" ? ticketExpiry : undefined;
+    if (!sessionId || this.roomEpoch === null || roomEpoch !== this.roomEpoch) return false;
+    if (roomId !== undefined && roomId !== this.roomId) return false;
+    if (expiresAt !== undefined && expiresAt <= Date.now()) return false;
     this.clientLabel = nonEmptyString(payload.clientLabel) ?? this.clientLabel ?? "AI Agent";
     this.approvalSessionId = sessionId;
     this.carrierSessionId = sessionId;
@@ -1095,7 +1149,10 @@ export class WebMcpPeerClient {
     this.approvalEnvelope = true;
     this.approvalRequestId = null;
     this.approvalState = "approved";
+    this.sentDecision = null;
+    this.clearDecisionError();
     this.notify();
+    return true;
   }
 
   private startKeepalive(ws: WebSocket): void {
@@ -1156,6 +1213,7 @@ export class WebMcpPeerClient {
   private expirePeerSession(reason: string): void {
     this.approvalState = "expired";
     this.approvalRequestId = null;
+    this.sentDecision = null;
     this.state = "disconnected";
     this.error = reason;
     this.terminatePeerTransport();
@@ -1165,6 +1223,7 @@ export class WebMcpPeerClient {
   private revokePeerSession(reason: string): void {
     this.approvalState = "revoked";
     this.approvalRequestId = null;
+    this.sentDecision = null;
     this.state = "disconnected";
     this.error = reason;
     this.autoReconnect = false;
@@ -1855,21 +1914,32 @@ export class WebMcpPeerClient {
     );
   }
 
+  /**
+   * Approves the pending request `requestId`. The provider is `approved` as soon as the decision is
+   * sent, without waiting for the relay's echo (a `send` the relay may skip when this socket is
+   * behind); a relay that refuses the decision with INVALID_APPROVAL undoes it (see
+   * {@link undoRefusedDecision}).
+   */
   approveClient(requestId = this.approvalRequestId): boolean {
     if (!requestId || this.approvalState !== "pending" || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
       return false;
     }
     if (!this.sendApprovalDecision(this.ws, requestId, "approved")) return false;
+    this.sentDecision = { requestId, decision: "approved" };
+    this.clearDecisionError();
     this.approvalState = "approved";
     this.notify();
     return true;
   }
 
+  /** Rejects the pending request `requestId`; like {@link approveClient}, a refused rejection is undone. */
   rejectClient(requestId = this.approvalRequestId): boolean {
     if (!requestId || this.approvalState !== "pending" || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
       return false;
     }
     if (!this.sendApprovalDecision(this.ws, requestId, "rejected", "CLIENT_REJECTED")) return false;
+    this.sentDecision = { requestId, decision: "rejected" };
+    this.clearDecisionError();
     this.approvalState = "revoked";
     this.approvalRequestId = null;
     this.notify();
@@ -1955,6 +2025,7 @@ export class WebMcpPeerClient {
     this.approvalSessionId = null;
     this.approvalRoomEpoch = null;
     this.approvalEnvelope = false;
+    this.sentDecision = null;
     this.state = "creating";
     this.error = null;
     this.notify();
@@ -1993,9 +2064,11 @@ export class WebMcpPeerClient {
             "Content-Type": "application/json",
             Authorization: `Bearer ${revokeProviderToken}`,
           },
+          // Like refreshRoom: a roomEpoch the relay is sent must be the room's (SESSION_BINDING_INVALID),
+          // so one the provider does not know is left out rather than guessed.
           body: JSON.stringify({
             roomId: revokeRoomId,
-            roomEpoch: this.roomEpoch ?? 0,
+            ...(this.roomEpoch !== null ? { roomEpoch: this.roomEpoch } : {}),
             sessionId: revokeSessionId,
             requestedAt: new Date().toISOString(),
             reason: "provider-request",
@@ -2058,6 +2131,7 @@ export class WebMcpPeerClient {
     this.approvalSessionId = null;
     this.approvalRoomEpoch = null;
     this.approvalEnvelope = false;
+    this.sentDecision = null;
     this.invitationUrl = null;
     this.roomId = null;
     this.roomEpoch = null;

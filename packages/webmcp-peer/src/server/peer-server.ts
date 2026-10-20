@@ -68,6 +68,19 @@ const MIN_ROOM_TTL_MS = 60_000;
 /** Hard ceiling for `maxRoomTtlMs`, which keeps every room timestamp inside the JS Date range. */
 const ROOM_TTL_CEILING_MS = 365 * 24 * 60 * 60 * 1000;
 const ROOM_METADATA_RETAIN_MS = 24 * 60 * 60_000;
+/**
+ * How long a room's reconnect lease outlives its provider socket (15 minutes), reported in every
+ * room descriptor as `reconnectGraceMs`. The lease does not expire while a provider socket is
+ * attached; once none is, it expires this long after, or with the room. So a host that kept its
+ * socket for the room's whole life can still reclaim the room after a reload, while a lease that
+ * leaked is usable for at most this long after its provider went away.
+ */
+const RECONNECT_GRACE_MS = 15 * 60_000;
+/** Default lifetime of an approval request (5 minutes); see `WebMcpPeerServerOptions.approvalTimeoutMs`. */
+const DEFAULT_APPROVAL_TIMEOUT_MS = 5 * 60_000;
+const MIN_APPROVAL_TIMEOUT_MS = 1_000;
+/** The longest delay a Node timer keeps (2^31 − 1 ms); a longer one fires after 1 ms instead. */
+const MAX_TIMER_DELAY_MS = 2 ** 31 - 1;
 /** The default size limit of a JSON request body (`readJsonBody`) outside the MCP endpoint. */
 const MAX_JSON_BODY_BYTES = 64 * 1024;
 /**
@@ -514,6 +527,8 @@ export class WebMcpPeerServer {
   readonly publishRateLimitMax: number;
   readonly publishRateLimitStore: PublishRateLimitStore;
   readonly mcpRequestTimeoutMs: number;
+  /** How long an approval request waits for a decision; see `WebMcpPeerServerOptions.approvalTimeoutMs`. */
+  readonly approvalTimeoutMs: number;
   /** Upper bound applied to every room's `ttlMs` on creation and rotation. */
   readonly maxRoomTtlMs: number;
   readonly deploymentCatalog: DeploymentCatalogSnapshot;
@@ -570,6 +585,11 @@ export class WebMcpPeerServer {
     }
     this.publishKeyHash = config.publishKey ? secretHash(config.publishKey) : undefined;
     this.mcpRequestTimeoutMs = Math.max(1000, options.mcpRequestTimeoutMs ?? 30_000);
+    // `Infinity` keeps an approval request for the room's lifetime; NaN is no duration at all.
+    const approvalTimeoutMs = options.approvalTimeoutMs ?? DEFAULT_APPROVAL_TIMEOUT_MS;
+    this.approvalTimeoutMs = Number.isNaN(approvalTimeoutMs)
+      ? DEFAULT_APPROVAL_TIMEOUT_MS
+      : Math.max(MIN_APPROVAL_TIMEOUT_MS, approvalTimeoutMs);
     const maxRoomTtlMs = options.maxRoomTtlMs ?? DEFAULT_MAX_ROOM_TTL_MS;
     this.maxRoomTtlMs = Number.isFinite(maxRoomTtlMs)
       ? Math.min(ROOM_TTL_CEILING_MS, Math.max(MIN_ROOM_TTL_MS, maxRoomTtlMs))
@@ -672,13 +692,14 @@ export class WebMcpPeerServer {
     const providerToken = randomBytes(24).toString('hex');
     const inviteToken = randomBytes(24).toString('hex');
     const reconnectLeaseToken = randomBytes(24).toString('hex');
-    const expiresAt = Date.now() + this.clampRoomTtl(ttlMs);
+    const now = Date.now();
+    const expiresAt = now + this.clampRoomTtl(ttlMs);
     return {
       id,
       roomEpoch,
       roomState: 'provisioned',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      createdAt: now,
+      updatedAt: now,
       alias,
       ...(ownerId ? { ownerId } : {}),
       providerToken,
@@ -689,7 +710,8 @@ export class WebMcpPeerServer {
       expiresAt,
       reconnectLeaseToken,
       reconnectLeaseHash: secretHash(reconnectLeaseToken),
-      reconnectLeaseExpiresAt: Math.min(expiresAt, Date.now() + 15 * 60_000),
+      // No provider socket is attached yet, so the lease's grace runs from now (see `startReconnectGrace`).
+      reconnectLeaseExpiresAt: Math.min(expiresAt, now + RECONNECT_GRACE_MS),
       metadataRetainUntil: expiresAt + ROOM_METADATA_RETAIN_MS,
       clientSockets: new Set(),
       clientSocketTickets: new Map(),
@@ -723,6 +745,13 @@ export class WebMcpPeerServer {
     return `${forwardedProto}://${safeHost}`;
   }
 
+  /**
+   * The room descriptor `POST /p`, reclaim and rotate answer with. Its reconnect lease is reported as
+   * the latest time it can be used, the room's expiry (`reconnectTokenExpiresAt`), and the grace it
+   * has once no provider socket is attached (`reconnectGraceMs`): a provider keeps a saved lease
+   * until `reconnectTokenExpiresAt`, and the relay tells it with 410 ROOM_LEASE_EXPIRED when the
+   * grace ran out first.
+   */
   protected roomDescriptor(req: IncomingMessage, entry: RoomEntry): Record<string, unknown> {
     const serverUrl = this.requestOrigin(req);
     return {
@@ -732,7 +761,8 @@ export class WebMcpPeerServer {
       providerToken: entry.providerToken,
       inviteToken: entry.inviteToken,
       reconnectToken: entry.reconnectLeaseToken,
-      reconnectTokenExpiresAt: entry.reconnectLeaseExpiresAt,
+      reconnectTokenExpiresAt: entry.expiresAt,
+      reconnectGraceMs: RECONNECT_GRACE_MS,
       descriptorUrl: `${serverUrl}/p/${entry.id}/mcp`,
       expiresAt: entry.expiresAt,
       state: entry.roomState,
@@ -898,14 +928,45 @@ export class WebMcpPeerServer {
    * closing, e.g. after the relay refused an oversized frame), without waiting for TCP to finish
    * closing, so later requests get PROVIDER_UNAVAILABLE and a reclaim can attach a new provider;
    * or one a new provider socket replaces. Every pending request was sent to that socket, so each
-   * fails with PROVIDER_DISCONNECTED.
+   * fails with PROVIDER_DISCONNECTED, and the reconnect lease's grace starts (a socket that replaces
+   * this one ends it again when it attaches).
    */
   protected detachClosedProvider(entry: RoomEntry): void {
     const socket = entry.providerSocket;
     if (!socket) return;
     entry.providerSocket = undefined;
+    this.startReconnectGrace(entry);
     this.failPendingForProvider(entry);
     socket.close();
+  }
+
+  /**
+   * Starts the reconnect lease's grace: the room has no provider socket (any more), so its lease,
+   * which does not expire while one is attached, now expires RECONNECT_GRACE_MS from `now`, or with
+   * the room. A reclaim after that is 410 ROOM_LEASE_EXPIRED.
+   */
+  protected startReconnectGrace(entry: RoomEntry, now = Date.now()): void {
+    entry.reconnectLeaseExpiresAt = Math.min(entry.expiresAt, now + RECONNECT_GRACE_MS);
+  }
+
+  /**
+   * A new `messageId` for a relay control frame of `type`: an opaque string no other message of the
+   * relay has (one frame sent to several sockets is one message). A receiver may compare it, never
+   * read anything from it.
+   */
+  protected messageId(type: string): string {
+    return `${type}-${randomBytes(16).toString('hex')}`;
+  }
+
+  /**
+   * True when `body` names no other room than `room`. `roomId` and `roomEpoch` are optional on every
+   * route that changes a room, and each one present must be the room's own, strictly. A room id fixes
+   * its epoch (a rotation makes a new id), so this is the caller's consistency check, not a credential:
+   * each route checks it after the request's credential, and answers a mismatch 409 under its own name.
+   */
+  protected bodyNamesRoom(body: Record<string, unknown>, room: RoomEntry): boolean {
+    return (body.roomId === undefined || body.roomId === room.id)
+      && (body.roomEpoch === undefined || body.roomEpoch === room.roomEpoch);
   }
 
   /**
@@ -1599,7 +1660,7 @@ export class WebMcpPeerServer {
   /**
    * Makes sure the provider knows `ticket` waits for approval and returns its pending request:
    * the existing one, or a new one (which expires, and the ticket with it, after
-   * `mcpRequestTimeoutMs`). The request goes to the room's provider socket only if that socket does
+   * `approvalTimeoutMs`). The request goes to the room's provider socket only if that socket does
    * not have it yet (see `deliverApprovalRequest`). `socket`, the agent's client socket, if any, is
    * told with `approval.pending`. Returns null when the ticket needs no approval.
    */
@@ -1610,16 +1671,28 @@ export class WebMcpPeerServer {
     this.deliverApprovalRequest(entry, ticket, request);
     if (socket) {
       this.replyToAgent(socket, {
-        type: 'approval.pending', roomId: entry.id, roomEpoch: entry.roomEpoch, requestId: request.requestId,
-        sessionId: ticket.sessionId, capabilities: [...ticket.capabilities], expiresAt: request.expiresAt,
+        protocol: WEBMCP_PROTOCOL,
+        messageId: this.messageId('approval.pending'),
+        type: 'approval.pending',
+        roomId: entry.id,
+        roomEpoch: entry.roomEpoch,
+        requestId: request.requestId,
+        sessionId: ticket.sessionId,
+        capabilities: [...ticket.capabilities],
+        sentAt: new Date().toISOString(),
+        expiresAt: request.expiresAt,
       });
     }
     return request;
   }
 
-  /** Registers a new pending approval request for `ticket`, which expires it if nobody decides in time. */
+  /**
+   * Registers a new pending approval request for `ticket`, which expires `approvalTimeoutMs` from
+   * now, or with the room (see `scheduleApprovalExpiry`), unless somebody decides it first.
+   */
   protected createApprovalRequest(entry: RoomEntry, ticket: ClientSessionTicket): PendingApprovalRequest {
     const requestId = `approval-${randomBytes(16).toString('hex')}`;
+    const now = Date.now();
     const request: PendingApprovalRequest = {
       requestId,
       clientTokenHash: [...entry.clientTickets.entries()].find(([, candidate]) => candidate === ticket)?.[0] ?? '',
@@ -1628,29 +1701,63 @@ export class WebMcpPeerServer {
       roomEpoch: entry.roomEpoch,
       clientLabel: ticket.clientLabel || 'MCP client',
       identity: { sessionId: ticket.sessionId, roomId: entry.id, clientLabel: ticket.clientLabel || 'MCP client' },
-      createdAt: Date.now(),
-      expiresAt: Math.min(entry.expiresAt, Date.now() + this.mcpRequestTimeoutMs),
+      createdAt: now,
+      expiresAt: Math.min(entry.expiresAt, now + this.approvalTimeoutMs),
     };
     ticket.approvalRequestId = requestId;
     entry.pendingApprovals.set(requestId, request);
-    const approvalTimer = setTimeout(() => {
-      const current = entry.pendingApprovals.get(requestId);
-      if (!current || current.expiresAt > Date.now()) return;
-      entry.pendingApprovals.delete(requestId);
-      if (ticket.status !== 'pending') return;
-      ticket.status = 'expired';
-      ticket.revokedAt = Date.now();
-      ticket.approvalRequestId = undefined;
-      for (const [clientSocket, boundTicket] of entry.clientSocketTickets) {
-        if (boundTicket !== ticket) continue;
-        clientSocket.send({ protocol: WEBMCP_PROTOCOL, messageId: `approval-expired-${requestId}`, type: 'approval.expired', roomId: entry.id, roomEpoch: entry.roomEpoch, sessionId: ticket.sessionId, requestId, reason: 'APPROVAL_EXPIRED' });
-        clientSocket.close();
-        entry.clientSocketTickets.delete(clientSocket);
-        entry.clientSockets.delete(clientSocket);
-      }
-    }, Math.max(1, request.expiresAt - Date.now()));
-    approvalTimer.unref?.();
+    this.scheduleApprovalExpiry(entry, ticket, request);
     return request;
+  }
+
+  /**
+   * Expires `request` (of `ticket`) at its `expiresAt` unless it was decided or ended first (see
+   * `expireApprovalRequest`). A Node timer can fire a little before `Date.now()` reaches the time it
+   * was set for, and one set past MAX_TIMER_DELAY_MS fires at once, so a timer that finds the request
+   * not yet due is set again for the time left. A room that expired meanwhile is expired instead,
+   * which ends the ticket with it (see `expireRoomIfDue`).
+   */
+  protected scheduleApprovalExpiry(entry: RoomEntry, ticket: ClientSessionTicket, request: PendingApprovalRequest): void {
+    const timer = setTimeout(() => {
+      if (entry.pendingApprovals.get(request.requestId) !== request || this.expireRoomIfDue(entry)) return;
+      if (request.expiresAt > Date.now()) this.scheduleApprovalExpiry(entry, ticket, request);
+      else this.expireApprovalRequest(entry, ticket, request);
+    }, Math.min(MAX_TIMER_DELAY_MS, Math.max(1, request.expiresAt - Date.now())));
+    timer.unref?.();
+  }
+
+  /**
+   * Ends `request`, which nobody decided in time: it is removed, and `ticket`, if it still waits for
+   * it, ends as `expired`. Each client socket of the ticket gets `approval.expired` and is closed,
+   * and the room's provider socket gets the same frame, so the host takes the request down instead of
+   * offering a decision the relay would refuse. The invite stays used: the room serves no other agent
+   * until it is rotated.
+   */
+  protected expireApprovalRequest(entry: RoomEntry, ticket: ClientSessionTicket, request: PendingApprovalRequest): void {
+    entry.pendingApprovals.delete(request.requestId);
+    if (ticket.status !== 'pending') return;
+    ticket.status = 'expired';
+    ticket.revokedAt = Date.now();
+    ticket.approvalRequestId = undefined;
+    const frame = {
+      protocol: WEBMCP_PROTOCOL,
+      messageId: this.messageId('approval.expired'),
+      type: 'approval.expired',
+      roomId: entry.id,
+      roomEpoch: entry.roomEpoch,
+      sessionId: ticket.sessionId,
+      requestId: request.requestId,
+      sentAt: new Date(ticket.revokedAt).toISOString(),
+      reason: 'APPROVAL_EXPIRED',
+    };
+    for (const [clientSocket, boundTicket] of entry.clientSocketTickets) {
+      if (boundTicket !== ticket) continue;
+      clientSocket.send(frame);
+      clientSocket.close();
+      entry.clientSocketTickets.delete(clientSocket);
+      entry.clientSockets.delete(clientSocket);
+    }
+    entry.providerSocket?.send(frame);
   }
 
   /**
@@ -1667,7 +1774,7 @@ export class WebMcpPeerServer {
     const requestedAt = new Date(request.createdAt).toISOString();
     const sent = provider.send({
       protocol: WEBMCP_PROTOCOL,
-      messageId: `approval-${request.requestId}`,
+      messageId: this.messageId('approval.request'),
       type: 'approval.request',
       roomId: entry.id,
       roomEpoch: entry.roomEpoch,
@@ -1698,7 +1805,7 @@ export class WebMcpPeerServer {
   protected sendApprovalRestored(entry: RoomEntry, ticket: ClientSessionTicket): void {
     entry.providerSocket?.send({
       protocol: WEBMCP_PROTOCOL,
-      messageId: `approval-restored-${ticket.sessionId}`,
+      messageId: this.messageId('approval.restored'),
       type: 'approval.restored',
       roomId: entry.id,
       roomEpoch: entry.roomEpoch,
@@ -1754,7 +1861,15 @@ export class WebMcpPeerServer {
    * `status`: rejected by the provider, revoked, or ended with its room by a rotation or the room's
    * expiry (`expired`; see `expireRoom`). Each client socket of the ticket is told why with the frame
    * of `TICKET_END_FRAMES` (a rotation's names the replacement room), its requests in flight get the
-   * same error an HTTP request of the room would (see `ticketClosedRpcError`), and it is closed.
+   * same error an HTTP request of the room would (see `ticketClosedRpcError`), and it is closed. The
+   * requests the ticket authorized over HTTP end with the same error: they are bound to no socket of
+   * the ticket. One the provider already took may still run there; its late answer is dropped.
+   *
+   * A revocation is also told to the room's provider socket, with the same `session.revoked`: every
+   * revocation is an HTTP request (the agent's own, or the host's made outside its socket), and a room
+   * has one ticket, so its end is the end of the room's agent side. A rejection reaches the provider
+   * as its decision's echo (see `sendDecisionEcho`); a rotation and the room's expiry tell the provider
+   * socket themselves.
    */
   protected closeClientTicket(entry: RoomEntry, tokenHash: string, status: TicketEndStatus, reason: string): boolean {
     const ticket = entry.clientTickets.get(tokenHash);
@@ -1768,40 +1883,52 @@ export class WebMcpPeerServer {
     const replacement = status === 'room-rotated' && entry.rotatedTo
       ? { replacementRoomId: entry.rotatedTo, replacementRoomEpoch: this.rooms.get(entry.rotatedTo)?.roomEpoch ?? null }
       : undefined;
+    const frame = {
+      protocol: WEBMCP_PROTOCOL,
+      messageId: this.messageId(type),
+      type,
+      roomId: entry.id,
+      roomEpoch: entry.roomEpoch,
+      sessionId: ticket.sessionId,
+      ...(approvalRequestId ? { requestId: approvalRequestId } : {}),
+      sentAt: new Date(ticket.revokedAt).toISOString(),
+      payload: {
+        ...(approvalRequestId ? { requestId: approvalRequestId } : {}),
+        sessionId: ticket.sessionId,
+        roomId: entry.id,
+        roomEpoch: entry.roomEpoch,
+        ...replacement,
+        reason,
+      },
+      ...(replacement ? { rotatedTo: replacement.replacementRoomId } : {}),
+      reason,
+    };
     const error = this.ticketClosedRpcError(entry, status);
     for (const [socket, boundTicket] of entry.clientSocketTickets) {
       if (boundTicket !== ticket) continue;
       try {
-        socket.send({
-          protocol: WEBMCP_PROTOCOL,
-          messageId: `${type}-${ticket.sessionId}-${Date.now()}`,
-          type,
-          roomId: entry.id,
-          roomEpoch: entry.roomEpoch,
-          sessionId: ticket.sessionId,
-          ...(approvalRequestId ? { requestId: approvalRequestId } : {}),
-          sentAt: new Date().toISOString(),
-          payload: {
-            ...(approvalRequestId ? { requestId: approvalRequestId } : {}),
-            sessionId: ticket.sessionId,
-            roomId: entry.id,
-            roomEpoch: entry.roomEpoch,
-            ...replacement,
-            reason,
-          },
-          ...(replacement ? { rotatedTo: replacement.replacementRoomId } : {}),
-          reason,
-        });
+        socket.send(frame);
       } catch {}
       this.failPendingForSocket(entry, socket, error);
       socket.close();
       entry.clientSocketTickets.delete(socket);
       entry.clientSockets.delete(socket);
     }
+    for (const [key, pending] of entry.mcpPending) {
+      if (pending.ticket === ticket) this.clearPending(entry, key, error);
+    }
+    if (status === 'revoked') entry.providerSocket?.send(frame);
     ticket.approvalRequestId = undefined;
     return true;
   }
 
+  /**
+   * Decides the pending approval request `requestId`, from the provider socket's `approval.decision`
+   * or the HTTP approval route: false when there is no such request, or its ticket no longer waits
+   * for it (the request is removed either way). An approval makes the ticket `approved` and tells each
+   * of its client sockets (`approval.approved`, then `ready`); a rejection ends the ticket (see
+   * `closeClientTicket`). Either way the room's provider socket gets the decision's echo.
+   */
   protected approveClientTicket(entry: RoomEntry, requestId: string, allow: boolean, reason?: string): boolean {
     const pending = entry.pendingApprovals.get(requestId);
     if (!pending) return false;
@@ -1809,37 +1936,82 @@ export class WebMcpPeerServer {
     entry.pendingApprovals.delete(requestId);
     if (!ticket || ticket.approvalRequestId !== requestId) return false;
     if (!allow) {
-      ticket.status = 'rejected';
-      ticket.revokedAt = Date.now();
       this.closeClientTicket(entry, pending.clientTokenHash, 'rejected', reason || 'CLIENT_APPROVAL_DENIED');
+      this.sendDecisionEcho(entry, pending, ticket, reason);
       return true;
     }
     ticket.status = 'approved';
     ticket.approvedAt = Date.now();
     entry.roomState = 'active';
-    entry.updatedAt = Date.now();
+    entry.updatedAt = ticket.approvedAt;
     const sentAt = new Date(ticket.approvedAt).toISOString();
+    const times = this.decisionTimes(pending, ticket);
+    const frame = {
+      protocol: WEBMCP_PROTOCOL,
+      messageId: this.messageId('approval.approved'),
+      type: 'approval.approved',
+      roomId: entry.id,
+      roomEpoch: entry.roomEpoch,
+      sessionId: ticket.sessionId,
+      requestId,
+      sentAt,
+      expiresAt: ticket.expiresAt,
+      ...times,
+      payload: {
+        requestId, sessionId: ticket.sessionId, roomId: entry.id, roomEpoch: entry.roomEpoch, state: 'approved',
+        clientTokenActive: true, decidedAt: sentAt, expiresAt: ticket.expiresAt, ...times,
+      },
+    };
     for (const [socket, boundTicket] of entry.clientSocketTickets) {
       if (boundTicket !== ticket) continue;
       // The agent asked for this decision: a socket that is behind gets it, then `ready`, once it
       // has read what was sent before them (see replyToAgent).
-      const approved = this.replyToAgent(socket, {
-        protocol: WEBMCP_PROTOCOL,
-        messageId: `approval-approved-${requestId}`,
-        type: 'approval.approved',
-        roomId: entry.id,
-        roomEpoch: entry.roomEpoch,
-        sessionId: ticket.sessionId,
-        requestId,
-        sentAt,
-        expiresAt: ticket.expiresAt,
-        payload: { requestId, sessionId: ticket.sessionId, roomId: entry.id, roomEpoch: entry.roomEpoch, state: 'approved', clientTokenActive: true, decidedAt: sentAt, expiresAt: ticket.expiresAt },
-      });
+      const approved = this.replyToAgent(socket, frame);
       if (approved !== 'sent' && approved !== 'queued') continue;
       this.replyToAgent(socket, { type: 'ready', role: 'client', roomId: entry.id, roomEpoch: entry.roomEpoch, sessionId: ticket.sessionId, capabilities: [...ticket.capabilities], expiresAt: ticket.expiresAt, approval: 'approved' });
     }
     ticket.approvalRequestId = undefined;
+    this.sendDecisionEcho(entry, pending, ticket, reason);
     return true;
+  }
+
+  /**
+   * The two expiries a decision on `request` (of `ticket`) reports, each under its own name and in
+   * epoch ms: the approval request's (`approvalExpiresAt`) and the ticket's (`ticketExpiresAt`). The
+   * older `expiresAt` of the same messages means one or the other depending on the message.
+   */
+  protected decisionTimes(request: PendingApprovalRequest, ticket: ClientSessionTicket): { approvalExpiresAt: number; ticketExpiresAt: number } {
+    return { approvalExpiresAt: request.expiresAt, ticketExpiresAt: ticket.expiresAt };
+  }
+
+  /**
+   * Tells the room's provider socket how `request` was decided, whoever decided it: the echo of the
+   * host's own `approval.decision`, or of a decision made over HTTP, which the host would not learn
+   * otherwise. `ticket` was just decided: `approved`, or ended as `rejected` (with the decision's
+   * `reason`). Sent with `send` alone, like the relay's other answers to the provider.
+   */
+  protected sendDecisionEcho(entry: RoomEntry, request: PendingApprovalRequest, ticket: ClientSessionTicket, reason?: string): void {
+    const decision = ticket.status === 'approved' ? 'approved' : 'rejected';
+    const type = decision === 'approved' ? 'approval.approved' : 'approval.rejected';
+    const decidedAt = new Date((decision === 'approved' ? ticket.approvedAt : ticket.revokedAt) ?? Date.now()).toISOString();
+    const times = this.decisionTimes(request, ticket);
+    entry.providerSocket?.send({
+      protocol: WEBMCP_PROTOCOL,
+      messageId: this.messageId(type),
+      type,
+      roomId: entry.id,
+      roomEpoch: entry.roomEpoch,
+      sessionId: ticket.sessionId,
+      requestId: request.requestId,
+      sentAt: decidedAt,
+      expiresAt: request.expiresAt,
+      ...times,
+      payload: {
+        requestId: request.requestId, sessionId: ticket.sessionId, roomId: entry.id, roomEpoch: entry.roomEpoch, state: decision,
+        clientTokenActive: decision === 'approved', decidedAt, expiresAt: request.expiresAt, ...times,
+      },
+      ...(reason ? { reason } : {}),
+    });
   }
 
   /**
@@ -1859,8 +2031,8 @@ export class WebMcpPeerServer {
   /** Ends every ticket of the room as `status` (see `closeClientTicket`) and every request in flight. */
   protected revokeAllClientTickets(entry: RoomEntry, reason: string, status: Exclude<TicketEndStatus, 'rejected'> = 'revoked'): void {
     for (const [tokenHash] of entry.clientTickets) this.closeClientTicket(entry, tokenHash, status, reason);
-    // Requests still in flight belong to sockets no ticket is bound to (the HTTP MCP bridge):
-    // settle each one with an error so its caller gets a response instead of waiting forever.
+    // Ending a ticket settles every request it authorized (see `closeClientTicket`). Any request
+    // still in flight is settled too, so no caller waits for an answer from a room that is done.
     const error = this.ticketClosedRpcError(entry, status);
     for (const key of [...entry.mcpPending.keys()]) this.clearPending(entry, key, error);
     entry.pendingApprovals.clear();
@@ -2016,6 +2188,9 @@ export class WebMcpPeerServer {
       const headerOwner = typeof rawHeaderOwner === 'string' ? rawHeaderOwner.trim() : '';
       const bodyOwner = typeof body.ownerId === 'string' ? body.ownerId.trim()
         : typeof body.owner === 'string' ? body.owner.trim() : '';
+      // The owner comes from the publish key alone: without a key the header and body owners are
+      // claims nothing authenticated, so they are never the room's owner. Two claims that
+      // contradict each other are still refused, as they would be with a key.
       const ownerId = this.publishKeyConfigured ? this.publishKeyOwner ?? 'publish-key-owner' : undefined;
       if ((headerOwner && bodyOwner && headerOwner !== bodyOwner)
         || (ownerId && ((headerOwner && headerOwner !== ownerId)
@@ -2050,7 +2225,8 @@ export class WebMcpPeerServer {
       const entry = this.rooms.get(roomId);
       // Checked before the body is read and again after it: the room can be rotated, expire or be
       // reclaimed by another request while the body is in transit. The lease of a live room can
-      // expire on its own: ROOM_LEASE_EXPIRED, not the room's ROOM_EXPIRED.
+      // expire on its own, once its grace after the provider socket went away has run out
+      // (see `startReconnectGrace`): ROOM_LEASE_EXPIRED, not the room's ROOM_EXPIRED.
       const reclaimable = (room: RoomEntry | undefined): room is RoomEntry => {
         if (!this.checkLifecycleRoom(res, roomId, room, origin)) return false;
         if (room.reconnectLeaseExpiresAt <= Date.now()) {
@@ -2069,14 +2245,14 @@ export class WebMcpPeerServer {
         this.sendLifecycleError(res, 400, 'ROOM_LEASE_REQUIRED', origin);
         return;
       }
-      const requestedEpoch = body.roomEpoch === undefined ? entry.roomEpoch : body.roomEpoch;
-      if (requestedEpoch !== entry.roomEpoch || (body.roomId !== undefined && body.roomId !== roomId)) {
-        this.sendLifecycleError(res, 409, 'ROOM_LEASE_BINDING_INVALID', origin, { roomId, roomEpoch: entry.roomEpoch });
-        return;
-      }
       const leaseHash = secretHash(leaseToken);
       if (!this.constantTimeTokenEqual(leaseHash, entry.reconnectLeaseHash)) {
         this.sendLifecycleError(res, 403, 'ROOM_LEASE_INVALID', origin);
+        return;
+      }
+      // Checked after the lease, like every route's binding: only the lease's holder learns it.
+      if (!this.bodyNamesRoom(body, entry)) {
+        this.sendLifecycleError(res, 409, 'ROOM_LEASE_BINDING_INVALID', origin, { roomId, roomEpoch: entry.roomEpoch });
         return;
       }
       if (entry.providerSocket) {
@@ -2087,7 +2263,8 @@ export class WebMcpPeerServer {
       entry.providerToken = randomBytes(24).toString('hex');
       entry.reconnectLeaseToken = randomBytes(24).toString('hex');
       entry.reconnectLeaseHash = secretHash(entry.reconnectLeaseToken);
-      entry.reconnectLeaseExpiresAt = Math.min(entry.expiresAt, now + 15 * 60_000);
+      // The new lease's grace runs until a provider socket attaches with the new token.
+      this.startReconnectGrace(entry, now);
       entry.updatedAt = now;
       entry.roomState = entry.clientTickets.size ? 'accepting-clients' : 'provisioned';
       this.sendJson(res, 200, {
@@ -2416,7 +2593,8 @@ export class WebMcpPeerServer {
       };
       res.once('close', releaseOnDisconnect);
       const timer = setTimeout(() => this.clearPending(entry, key, peerRpcError('MCP_REQUEST_TIMEOUT')), this.mcpRequestTimeoutMs);
-      entry.mcpPending.set(key, { socket: bridgeSocket, timer, method: rpc.method, id, wireId });
+      // Bound to the ticket that authorized it, so the ticket's end ends it too (see `closeClientTicket`).
+      entry.mcpPending.set(key, { socket: bridgeSocket, timer, method: rpc.method, id, wireId, ...(mcpTicket ? { ticket: mcpTicket } : {}) });
       const sent = entry.providerSocket.send({ type: 'mcp', ...stamp, message: wireId === id ? rpc : { ...rpc, id: wireId } });
       if (sent !== 'sent') {
         // Nothing reached the provider: the relay envelope pushed the request over the limit, the
@@ -2529,20 +2707,25 @@ export class WebMcpPeerServer {
       if (!decidable(entry)) return;
       const body = await this.readJsonBodyOrRespond(req, res, origin);
       if (!body || !decidable(entry)) return;
+      // A decision names its request's session; `roomId` and `roomEpoch` are optional, like on every
+      // route that changes a room (see `bodyNamesRoom`). A request decided once is gone, so a repeated
+      // decision is refused like a stale one.
       const pending = entry.pendingApprovals.get(requestId);
       const sessionId = typeof body.sessionId === 'string' ? body.sessionId : '';
-      const roomEpoch = typeof body.roomEpoch === 'number' ? body.roomEpoch : undefined;
       const decision = body.decision;
-      if (!pending || !sessionId || pending.sessionId !== sessionId || body.roomId !== roomId || roomEpoch !== entry.roomEpoch
+      if (!pending || !sessionId || pending.sessionId !== sessionId || !this.bodyNamesRoom(body, entry)
         || (decision !== 'approved' && decision !== 'rejected')) {
         this.sendLifecycleError(res, 409, 'INVALID_APPROVAL', origin);
         return;
       }
+      const ticket = entry.clientTickets.get(pending.clientTokenHash);
       const handled = this.approveClientTicket(entry, requestId, decision === 'approved', typeof body.reason === 'string' ? body.reason : undefined);
-      if (!handled) {
+      if (!handled || !ticket) {
         this.sendLifecycleError(res, 409, 'INVALID_APPROVAL', origin);
         return;
       }
+      // The decision's time, as the ticket recorded it and its echo to the provider reports it.
+      const decidedAt = (decision === 'approved' ? ticket.approvedAt : ticket.revokedAt) ?? Date.now();
       this.sendJson(res, 200, {
         requestId,
         sessionId,
@@ -2550,8 +2733,9 @@ export class WebMcpPeerServer {
         roomEpoch: entry.roomEpoch,
         state: decision,
         clientTokenActive: decision === 'approved',
-        decidedAt: new Date().toISOString(),
+        decidedAt: new Date(decidedAt).toISOString(),
         expiresAt: new Date(pending.expiresAt).toISOString(),
+        ...this.decisionTimes(pending, ticket),
       }, origin);
       return;
     }
@@ -2636,13 +2820,17 @@ export class WebMcpPeerServer {
       const bearer = this.bearerToken(req);
       const body = await this.readJsonBodyOrRespond(req, res, origin);
       if (!body || !revocable(entry)) return;
-      if (pathSessionId && (body.roomId !== roomId || body.roomEpoch !== entry.roomEpoch)) {
-        this.sendLifecycleError(res, 409, 'SESSION_BINDING_INVALID', origin);
-        return;
-      }
       if (pathSessionId) body.sessionId = pathSessionId;
+      // The body's `roomId` and `roomEpoch` are optional (see `bodyNamesRoom`) and checked after the
+      // credential, so a caller without one learns nothing from a mismatch.
       if (bearer && this.constantTimeTokenEqual(bearer, entry.providerToken)) {
+        if (!this.bodyNamesRoom(body, entry)) {
+          this.sendLifecycleError(res, 409, 'SESSION_BINDING_INVALID', origin);
+          return;
+        }
         const requestedSessionId = typeof body.sessionId === 'string' ? body.sessionId : '';
+        // No session named: an explicit request to revoke every session of the room, an empty body
+        // included. The revoke routes take no other scope.
         if (!requestedSessionId) {
           this.revokeAllClientTickets(entry, 'ROOM_REVOKED');
           this.sendJson(res, 200, { roomId, revoked: true, revokedSessions: true }, origin);
@@ -2654,7 +2842,9 @@ export class WebMcpPeerServer {
           return;
         }
         // Read before closing: closeClientTicket sets the status to 'revoked'. A repeat revoke is
-        // idempotent and reports the original revocation time.
+        // idempotent and reports the original revocation time. The response's `reason` echoes the
+        // caller's own, which is kept nowhere and sent to nobody else: the `session.revoked` frames
+        // carry the relay's fixed reason, so no caller puts text of its choice in front of the agent.
         const alreadyRevoked = found.ticket.status === 'revoked';
         if (!alreadyRevoked) this.closeClientTicket(entry, found.tokenHash, 'revoked', 'SESSION_REVOKED');
         this.sendJson(res, 200, { roomId, roomEpoch: entry.roomEpoch, sessionId: requestedSessionId, state: 'revoked', revoked: true, revokedAt: new Date(found.ticket.revokedAt ?? Date.now()).toISOString(), reason: body.reason ?? 'provider-request', alreadyRevoked }, origin);
@@ -2675,7 +2865,7 @@ export class WebMcpPeerServer {
         this.sendLifecycleError(res, 403, 'SESSION_NOT_OWNED', origin);
         return;
       }
-      if (body.roomId !== roomId || body.roomEpoch !== entry.roomEpoch) {
+      if (!this.bodyNamesRoom(body, entry)) {
         this.sendLifecycleError(res, 409, 'SESSION_BINDING_INVALID', origin);
         return;
       }
@@ -2702,7 +2892,7 @@ export class WebMcpPeerServer {
       const body = await this.readJsonBodyOrRespond(req, res, origin);
       if (!body || !rotatable(entry)) return;
       // The room was not rotated: a body naming another room or epoch is a binding error.
-      if ((body.roomId !== undefined && body.roomId !== roomId) || (body.roomEpoch !== undefined && body.roomEpoch !== entry.roomEpoch)) {
+      if (!this.bodyNamesRoom(body, entry)) {
         this.sendLifecycleError(res, 409, 'ROOM_BINDING_INVALID', origin, { roomId, roomEpoch: entry.roomEpoch });
         return;
       }
@@ -2726,7 +2916,7 @@ export class WebMcpPeerServer {
       this.revokeAllClientTickets(entry, 'ROOM_ROTATED', 'room-rotated');
       entry.providerSocket?.send({
         protocol: WEBMCP_PROTOCOL,
-        messageId: `room-rotated-${entry.id}`,
+        messageId: this.messageId('room.rotated'),
         type: 'room.rotated',
         roomId: entry.id,
         roomEpoch: entry.roomEpoch,
@@ -2841,24 +3031,11 @@ export class WebMcpPeerServer {
                   peer.send({ type: 'error', code: -32081, message: 'INVALID_APPROVAL', requestId });
                   return;
                 }
-                const handled = this.approveClientTicket(entry, requestId, decision === 'approved', reason);
-                if (!handled) {
+                // A decision taken is echoed to this socket, the room's provider socket, as one made
+                // over HTTP is (see `sendDecisionEcho`).
+                if (!this.approveClientTicket(entry, requestId, decision === 'approved', reason)) {
                   peer.send({ type: 'error', code: -32081, message: 'INVALID_APPROVAL', requestId });
-                  return;
                 }
-                peer.send({
-                  protocol: WEBMCP_PROTOCOL,
-                  messageId: `approval-decision-${requestId}`,
-                  type: decision === 'approved' ? 'approval.approved' : 'approval.rejected',
-                  roomId,
-                  roomEpoch: entry.roomEpoch,
-                  sessionId,
-                  requestId,
-                  sentAt: new Date().toISOString(),
-                  expiresAt: pending.expiresAt,
-                  payload: { requestId, sessionId, roomId, roomEpoch: entry.roomEpoch, state: decision, clientTokenActive: decision === 'approved', decidedAt: new Date().toISOString(), expiresAt: pending.expiresAt },
-                  ...(reason ? { reason } : {}),
-                });
                 return;
               }
               if (msg.type === 'register') {
@@ -2888,6 +3065,7 @@ export class WebMcpPeerServer {
             this.dropWaitingRegister(entry, peer);
             if (entry.providerSocket === peer) {
               entry.providerSocket = undefined;
+              this.startReconnectGrace(entry);
               this.failPendingForProvider(entry);
             }
           },
@@ -2905,6 +3083,9 @@ export class WebMcpPeerServer {
         // left open to keep acting on the room.
         if (entry.providerSocket && entry.providerSocket !== peer) this.detachClosedProvider(entry);
         entry.providerSocket = peer;
+        // While a provider socket is attached the reconnect lease lasts as long as the room; its
+        // grace starts again when the socket goes away (see `startReconnectGrace`).
+        entry.reconnectLeaseExpiresAt = entry.expiresAt;
         entry.roomState = entry.clientTickets.size ? 'accepting-clients' : 'provider-connected';
         entry.updatedAt = Date.now();
         this.replayClientApprovals(entry);
@@ -3034,6 +3215,7 @@ export class WebMcpPeerServer {
                   method: rpc.method,
                   id,
                   wireId,
+                  ticket: clientTicket,
                   includeCatalogMeta: this.isRecord(params?._meta),
                   // A listing with a cursor asks for one page, not the whole catalog.
                   listsCatalog: discovers || (rpc.method === 'tools/list' && (params?.cursor === undefined || params.cursor === null)),

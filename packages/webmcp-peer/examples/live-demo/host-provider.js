@@ -114,7 +114,17 @@ export function createHostProvider({ origin, host, alias = "live-demo-host", onE
       }
       case "approval.approved":
       case "approval.rejected":
+        // The relay echoes every decision, one made over HTTP included, so the request is settled.
+        state.pendingApproval = null;
         wire("Tier 2 → Tier 1", `WS ${frame.type} (확정 에코)`, frame, frame.type === "approval.approved" ? "ok" : "err");
+        changed();
+        return;
+      case "approval.expired":
+      case "session.revoked":
+        // Nobody decided in time, or the session was revoked over HTTP: there is nothing to decide.
+        state.pendingApproval = null;
+        wire("Tier 2 → Tier 1", `WS ${frame.type} (${frame.reason ?? "ended"})`, frame, "warn");
+        changed();
         return;
       case "room.rotated":
         wire("Tier 2 → Tier 1", `WS room.rotated → ${String(frame.rotatedTo).slice(0, 10)}…`, frame, "warn");

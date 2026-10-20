@@ -38,12 +38,14 @@ provider 측 framing만 9.1에 요약한다), host adapter·AI run ledger·Commi
 - **room**: relay의 `RoomEntry`. provider socket을 0개 또는 1개, client socket을 여러 개 가진다.
   `roomState`는 `provisioned`, `provider-connected`, `accepting-clients`, `active`, `rotating`, `rotated`,
   `expired` 중 하나다(전이는 R-ROOM-003).
-- **roomEpoch**: room 세대 번호. 생성 시 1이고, rotate로 만든 대체 room은 이전 값 + 1이다. reclaim,
-  approval, revoke, rotate의 binding 검사가 이 값을 비교한다.
+- **roomEpoch**: room 세대 번호. 생성 시 1이고, rotate로 만든 대체 room은 이전 값 + 1이다. 한 room id의 epoch는
+  바뀌지 않는다(rotate는 새 id를 만든다). 그래서 reclaim, approval, revoke, rotate body의 `roomId`·`roomEpoch`는 선택이고,
+  보내면 relay가 이 값과 비교하는 일관성 검사다(R-ROOM-071).
 - **ticket** (`ClientSessionTicket`): join이 발급하는 client 자격. `clientToken`과 `sessionId`를 가지며
   `status`는 `pending`, `approved`, `rejected`, `revoked`, `expired`, `room-rotated` 중 하나다. 만료 시각은
   발급 시점 room의 `expiresAt`이다. invite가 1회용이므로 room 하나가 발급하는 ticket은 최대 1개다.
-- **approval request**: 승인이 필요한 room에서 pending ticket마다 하나 만드는 승인 요청(`requestId`).
+- **approval request**: 승인이 필요한 room에서 pending ticket마다 하나 만드는 승인 요청(`requestId`). 수명은
+  `approvalTimeoutMs`(기본 5분)이고 room 만료를 넘지 않는다(R-ROOM-024).
 - **pending request**: relay가 provider에게 전달하고 답을 기다리는 JSON-RPC 요청(room의 `mcpPending`).
 
 ### 1.4 토큰과 식별자
@@ -98,7 +100,7 @@ provider 측 framing만 9.1에 요약한다), host adapter·AI run ledger·Commi
 받는다. 두 경로의 `{roomId}`는 다른 room route와 같은 room id 문법 `^[A-Za-z0-9_-]{1,128}$`(R-HTTP-002)에 맞아야 한다.
 그 밖의 경로(문법에 맞지 않는 id 포함)로 온 upgrade는 `customUpgradeHandler`가 처리하지 않는 한 응답 없이 socket을 MUST
 파기한다. 문법에 맞지만 없는 room은 R-WS-004다.\
-근거: `src/server/peer-server.ts:247`, `src/server/peer-server.ts:258`, `src/server/peer-server.ts:259`, `src/server/peer-server.ts:2783`, `src/server/peer-server.ts:2784`, `src/server/peer-server.ts:3107`; 테스트: 없음
+근거: `src/server/peer-server.ts:260`, `src/server/peer-server.ts:271`, `src/server/peer-server.ts:272`, `src/server/peer-server.ts:2973`, `src/server/peer-server.ts:2974`, `src/server/peer-server.ts:3289`; 테스트: 없음
 
 **R-WS-002** relay는 upgrade를 다음 순서로 MUST 처리한다. 어느 단계에서든 예외가 나면 socket을 파기한다.
 
@@ -113,32 +115,32 @@ provider 측 framing만 9.1에 요약한다), host adapter·AI run ledger·Commi
 8. ticket을 검사한다(R-WS-006, R-WS-007).
 9. RFC 6455 handshake를 한다(R-WS-008).
 
-근거: `src/server/peer-server.ts:2761`, `src/server/peer-server.ts:2763`, `src/server/peer-server.ts:2770`, `src/server/peer-server.ts:2771`, `src/server/peer-server.ts:2777`, `src/server/peer-server.ts:3108`, `src/server/peer-server.ts:604`; 테스트: `test/relay-message-limit.test.ts` › `survives a client that resets its connection while a customUpgradeHandler is awaiting`; `test/relay-message-limit.test.ts` › `does not attach a provider socket whose client went away (%s) while a customUpgradeHandler was awaiting`
+근거: `src/server/peer-server.ts:2951`, `src/server/peer-server.ts:2953`, `src/server/peer-server.ts:2960`, `src/server/peer-server.ts:2961`, `src/server/peer-server.ts:2967`, `src/server/peer-server.ts:3290`, `src/server/peer-server.ts:624`; 테스트: `test/relay-message-limit.test.ts` › `survives a client that resets its connection while a customUpgradeHandler is awaiting`; `test/relay-message-limit.test.ts` › `does not attach a provider socket whose client went away (%s) while a customUpgradeHandler was awaiting`
 
 **R-WS-003** Origin header가 있고 허용 목록(R-HTTP-012)에 없으면 relay는 hook보다 먼저 정확히
 `HTTP/1.1 403 Forbidden\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nOrigin not allowed\r\n`
 (Content-Length 없음)을 쓰고 바로 socket을 MUST 파기한다. Origin header가 없는 upgrade는 MUST 허용한다(→ O-25).\
-근거: `src/server/peer-server.ts:2763`, `src/server/peer-server.ts:2765`, `src/server/peer-server.ts:2766`, `src/server/server-config.ts:448`; 테스트: 없음
+근거: `src/server/peer-server.ts:2953`, `src/server/peer-server.ts:2955`, `src/server/peer-server.ts:2956`, `src/server/server-config.ts:448`; 테스트: 없음
 
 **R-WS-004** 두 endpoint 모두 room이 없거나 `expiresAt <= now`이면 relay는 HTTP status 없이 socket을 MUST
 파기한다. rotate는 이전 room의 `expiresAt`을 rotate 시각으로 바꾸므로 rotate된 room도 여기서 거절된다.
 upgrade 경로는 sweep을 돌리지 않지만, 대상 room이 만료됐는데 아직 만료 처리되지 않았으면 파기 전에 그 처리를 한다(R-ROOM-067).\
-근거: `src/server/peer-server.ts:2789`, `src/server/peer-server.ts:2917`, `src/server/peer-server.ts:2720`, `src/server/peer-server.ts:1899`; 테스트: `test/server-pending-settlement.test.ts` › `carries out the room's expiry where it is found first, not only at the sweep: %s`
+근거: `src/server/peer-server.ts:2979`, `src/server/peer-server.ts:3098`, `src/server/peer-server.ts:2910`, `src/server/peer-server.ts:2071`; 테스트: `test/server-pending-settlement.test.ts` › `carries out the room's expiry where it is found first, not only at the sweep: %s`
 
 **R-WS-005** provider와 agent는 자격을 `Sec-WebSocket-Protocol`의 `ticket.<token>` 항목으로만 MUST 제시한다.
 relay는 header를 `,`로 나누고 각 값을 trim한 뒤 `ticket.`으로 시작하는 첫 항목을 MUST 쓴다. upgrade에서
 query string과 `Authorization`은 읽지 않는다.\
-근거: `src/server/peer-server.ts:2793`, `src/server/peer-server.ts:2795`, `src/server/peer-server.ts:2921`, `src/server/peer-server.ts:2923`; 테스트: `test/webmcp-peer.test.ts` › `runs end-to-end 3-tier Peer-Based Server Routing MCP (Provider -> Server -> Client & PeerMcpService)`
+근거: `src/server/peer-server.ts:2983`, `src/server/peer-server.ts:2985`, `src/server/peer-server.ts:3102`, `src/server/peer-server.ts:3104`; 테스트: `test/webmcp-peer.test.ts` › `runs end-to-end 3-tier Peer-Based Server Routing MCP (Provider -> Server -> Client & PeerMcpService)`
 
 **R-WS-006** provider upgrade에서 relay는 ticket을 room의 현재 `providerToken`과 상수 시간으로 MUST 비교한다
 (UTF-8 byte 길이가 같을 때만 `timingSafeEqual`). ticket이 없거나 비었거나 다르면 status 없이 파기한다.\
-근거: `src/server/peer-server.ts:2796`, `src/server/peer-server.ts:1407`; 테스트: 없음
+근거: `src/server/peer-server.ts:2986`, `src/server/peer-server.ts:1468`; 테스트: 없음
 
 **R-WS-007** client upgrade에서 relay는 ticket의 SHA-256 hex로 room의 `clientTickets` Map에서 ticket을 MUST 찾는다.
 relay는 clientToken 자체를 보관하지 않으므로(join이 hash만 저장한다) 비밀 문자열을 문자 단위로 비교하거나 찾지 않는다(R-HTTP-018).
 ticket이 없거나, `ticket.expiresAt <= now`이거나, status가 `revoked`, `rejected`, `expired`, `room-rotated`면 파기한다. `pending`과
 `approved` ticket은 MUST 받는다.\
-근거: `src/server/peer-server.ts:2924`, `src/server/peer-server.ts:2925`, `src/server/peer-server.ts:1550`, `src/server/peer-server.ts:1551`, `src/server/peer-server.ts:2491`; 테스트: `test/server-signaling-frames.test.ts` › `drops forged control frames and only relays approved, allow-listed signaling stamped by the relay`; `test/server-room-lifecycle.test.ts` › `keeps a client token only as its SHA-256 hash, the key its ticket is found by`
+근거: `src/server/peer-server.ts:3105`, `src/server/peer-server.ts:3106`, `src/server/peer-server.ts:1611`, `src/server/peer-server.ts:1612`, `src/server/peer-server.ts:2669`; 테스트: `test/server-signaling-frames.test.ts` › `drops forged control frames and only relays approved, allow-listed signaling stamped by the relay`; `test/server-room-lifecycle.test.ts` › `keeps a client token only as its SHA-256 hash, the key its ticket is found by`
 
 **R-WS-008** relay가 upgrade로 다루는 요청은 node:http가 `'upgrade'` event로 넘긴 것뿐이다. node:http는 `Upgrade`
 header가 있고 `Connection` header에 `upgrade` token이 있을 때만(llhttp `F_UPGRADE`와 `F_CONNECTION_UPGRADE`) 그렇게 한다.
@@ -149,7 +151,7 @@ header가 있고 `Connection` header에 `upgrade` token이 있을 때만(llhttp 
 `Sec-WebSocket-Key`가 문자열임을 MUST 확인하고, 어기면 `BAD_UPGRADE`로 socket을 파기한다. 400·426 응답도
 `Sec-WebSocket-Version` 안내도 보내지 않는다. key 형식, request method, HTTP version은 검사하지 않고, relay 코드는
 `Connection` header를 읽지 않는다(→ O-21).\
-근거: `src/server/peer-server.ts:591`, `src/server/peer-server.ts:603`, `src/server/peer-server.ts:2753`, `src/server/ws-upgrade.ts:277`, `src/server/ws-upgrade.ts:281`, `src/server/ws-upgrade.ts:282`, `src/server/peer-server.ts:3108`; 테스트: 없음
+근거: `src/server/peer-server.ts:611`, `src/server/peer-server.ts:623`, `src/server/peer-server.ts:2943`, `src/server/ws-upgrade.ts:277`, `src/server/ws-upgrade.ts:281`, `src/server/ws-upgrade.ts:282`, `src/server/peer-server.ts:3290`; 테스트: 없음
 
 **R-WS-009** 101 응답은 정확히 `HTTP/1.1 101 Switching Protocols`, `Upgrade: websocket`,
 `Connection: Upgrade`, `Sec-WebSocket-Accept: base64(SHA-1(key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"))`
@@ -161,7 +163,7 @@ header가 있고 `Connection` header에 `upgrade` token이 있을 때만(llhttp 
 고른다. 없고 header가 있으면 첫 값을 그대로 돌려준다. 모르는 값, 빈 문자열, `ticket.<token>` 비밀도
 그대로다(→ O-22). header가 없으면 응답에도 넣지 않는다. 그러므로 peer는 `webmcp-peer.v1`을 ticket과 함께
 SHOULD 제시한다. 참조 구현 둘 다 `[WEBMCP_SUBPROTOCOL, 'ticket.<token>']`, 곧 `['webmcp-peer.v1', 'ticket.<token>']`을 보낸다.\
-근거: `src/config/types.ts:12`, `src/server/ws-upgrade.ts:289`, `src/server/ws-upgrade.ts:294`, `src/server/ws-upgrade.ts:297`, `src/provider/peer-client.ts:846`, `src/provider/peer-client.ts:847`, `src/client/session.ts:359`; 테스트: 없음
+근거: `src/config/types.ts:12`, `src/server/ws-upgrade.ts:289`, `src/server/ws-upgrade.ts:294`, `src/server/ws-upgrade.ts:297`, `src/provider/peer-client.ts:854`, `src/provider/peer-client.ts:855`, `src/client/session.ts:359`; 테스트: 없음
 
 **R-WS-011** `upgradeWebSocket`이 불릴 때 socket이 이미 `destroyed`, `readableEnded`(peer가 FIN을 보냄)이거나
 writable이 아니면 codec은 101을 MUST NOT 쓰고, socket을 파기하고 head bytes를 버린다. `send`는 즉시
@@ -227,7 +229,7 @@ status(0, 999, 1004, 1005, 1006, 1015, 1016-2999, 5000 이상)나 UTF-8이 아�
 
 **R-WS-020** codec은 소유자의 `onText`가 던지면 1011로 socket을 MUST 닫고 이후 frame을 전달하지 않는다. relay의
 provider·client `onText` 처리기는 모든 예외를 스스로 삼키므로 relay는 frame 처리 때문에 1011을 보내지 않는다.\
-근거: `src/server/ws-upgrade.ts:600`, `src/server/ws-upgrade.ts:601`, `src/server/peer-server.ts:2885`, `src/server/peer-server.ts:3074`; 테스트: `test/server-ws-frames.test.ts` › `closes with 1011 when onText throws, and calls onClose once`
+근거: `src/server/ws-upgrade.ts:600`, `src/server/ws-upgrade.ts:601`, `src/server/peer-server.ts:3062`, `src/server/peer-server.ts:3256`; 테스트: `test/server-ws-frames.test.ts` › `closes with 1011 when onText throws, and calls onClose once`
 
 **R-WS-021** relay는 수신 ping마다 같은 payload의 pong으로 MUST 답한다. 단 `writableLength` + pong의 wire byte가
 송신 상한(R-WS-024) 안일 때만 보낸다. 들어가지 않는 pong은 socket을 닫지 않고 버리며 stall timer(R-WS-026)를
@@ -258,7 +260,7 @@ socket을 MUST NOT 닫는다.\
 송신 상한 1048576 byte를 MUST 쓴다. codec option은 101을 쓰기 전에 검사한다. `closeTimeoutMs`와
 `stalledOutboundTimeoutMs`는 [1, 2147483647] 범위의 유한한 수, `maxOutboundBufferBytes`는 262164 이상의 safe
 integer여야 하며 아니면 `RangeError`다.\
-근거: `src/server/ws-upgrade.ts:153`, `src/server/ws-upgrade.ts:161`, `src/server/ws-upgrade.ts:301`, `src/server/peer-server.ts:2801`, `src/server/peer-server.ts:2930`; 테스트: `test/server-ws-frames.test.ts` › `refuses %s of %s with a RangeError before answering the upgrade`; `test/server-ws-frames.test.ts` › `refuses maxOutboundBufferBytes of %s with a RangeError before answering the upgrade`
+근거: `src/server/ws-upgrade.ts:153`, `src/server/ws-upgrade.ts:161`, `src/server/ws-upgrade.ts:301`, `src/server/peer-server.ts:2991`, `src/server/peer-server.ts:3111`; 테스트: `test/server-ws-frames.test.ts` › `refuses %s of %s with a RangeError before answering the upgrade`; `test/server-ws-frames.test.ts` › `refuses maxOutboundBufferBytes of %s with a RangeError before answering the upgrade`
 
 **R-WS-026** 처음 거절된 frame(message 또는 pong)이 `stalledOutboundTimeoutMs`(기본
 `WEBSOCKET_STALLED_OUTBOUND_TIMEOUT_MS` = 30000 ms) timer를 MUST 시작한다. 이후 거절은 timer를 다시 시작하지 않는다.
@@ -266,7 +268,7 @@ queue된 write가 오류 없이 하나라도 끝나면 timer를 지운다. 그�
 대기를 시작한다. timer가 끝나면 relay는 1013(Try Again Later)으로 닫는다. 이미 queue된 것과 close frame은 close
 timeout 전에 peer가 읽으면 순서대로 나간다. 송신 queue가 가득 찬 것 때문에 생기는 close는 이것뿐이다. relay가
 `AgentOutbox`에서 건너뛴 broadcast(R-WS-032)는 codec에 제시되지 않으므로 거절이 아니고 이 timer를 시작하지 않는다(R-WS-035).\
-근거: `src/server/ws-upgrade.ts:72`, `src/server/ws-upgrade.ts:113`, `src/server/ws-upgrade.ts:325`, `src/server/ws-upgrade.ts:390`, `src/server/ws-upgrade.ts:393`, `src/server/peer-server.ts:454`, `src/server/peer-server.ts:455`; 테스트: `test/server-ws-frames.test.ts` › `closes a peer that reads nothing for WEBSOCKET_STALLED_OUTBOUND_TIMEOUT_MS after a frame was refused with 1013, calling onClose once`; `test/server-ws-frames.test.ts` › `keeps a peer open that reads part of its full queue within the timeout; the next refused frame starts a new wait`
+근거: `src/server/ws-upgrade.ts:72`, `src/server/ws-upgrade.ts:113`, `src/server/ws-upgrade.ts:325`, `src/server/ws-upgrade.ts:390`, `src/server/ws-upgrade.ts:393`, `src/server/peer-server.ts:467`, `src/server/peer-server.ts:468`; 테스트: `test/server-ws-frames.test.ts` › `closes a peer that reads nothing for WEBSOCKET_STALLED_OUTBOUND_TIMEOUT_MS after a frame was refused with 1013, calling onClose once`; `test/server-ws-frames.test.ts` › `keeps a peer open that reads part of its full queue within the timeout; the next refused frame starts a new wait`
 
 **R-WS-027** relay가 `close(code)`를 하면 writable일 때 2-byte status만 담은 close frame을 송신 상한을 무시하고(4 byte)
 쓰고, 즉시 `socket.end()`(FIN)를 하고, `closeTimeoutMs`(기본 `WEBSOCKET_CLOSE_TIMEOUT_MS` = 5000 ms) 뒤 peer가 끊지
@@ -300,7 +302,7 @@ close timer를 지우고 멈춘다. 어느 경우든 `onClose`는 정확히 한 
 
 **R-WS-030** relay가 먼저 닫는 close는 위 표의 code만 MUST 쓴다. relay는 1008을 보내지 않고, 1013은 stall timer로만
 보낸다. relay는 다시 시도할 수 있는 상황(provider 교체, ticket당 socket 상한, provider가 닫히는 중)에도 1000을 쓴다(→ O-23).\
-근거: `src/server/peer-server.ts:642`, `src/server/peer-server.ts:908`, `src/server/peer-server.ts:1647`, `src/server/peer-server.ts:1797`, `src/server/peer-server.ts:1890`, `src/server/peer-server.ts:2737`, `src/server/peer-server.ts:2811`, `src/server/peer-server.ts:2900`, `src/server/peer-server.ts:2945`, `src/server/peer-server.ts:3088`, `src/server/peer-server.ts:3096`, `src/server/ws-upgrade.ts:393`; 테스트: `test/relay-message-limit.test.ts` › `closes with 1003 for binary data, 1002 for protocol violations and 1000 for a normal close`; `test/relay-message-limit.test.ts` › `holds at most 4 client sockets per ticket, closing the oldest for a new one`; `test/server-ws-frames.test.ts` › `names 1013 (Try Again Later), the code that sheds a peer it may retry`
+근거: `src/server/peer-server.ts:662`, `src/server/peer-server.ts:940`, `src/server/peer-server.ts:1756`, `src/server/peer-server.ts:1913`, `src/server/peer-server.ts:2062`, `src/server/peer-server.ts:2927`, `src/server/peer-server.ts:3001`, `src/server/peer-server.ts:3078`, `src/server/peer-server.ts:3126`, `src/server/peer-server.ts:3270`, `src/server/peer-server.ts:3278`, `src/server/ws-upgrade.ts:393`; 테스트: `test/relay-message-limit.test.ts` › `closes with 1003 for binary data, 1002 for protocol violations and 1000 for a normal close`; `test/relay-message-limit.test.ts` › `holds at most 4 client sockets per ticket, closing the oldest for a new one`; `test/server-ws-frames.test.ts` › `names 1013 (Try Again Later), the code that sheds a peer it may retry`
 
 ### 2.5 backpressure
 
@@ -312,7 +314,7 @@ frame은 queue가 가득 찼다는 이유로 버려지지 않고 socket을 닫�
 유효하다. 기다리는 frame이 다 나가면 읽기를 재개한다. 이미 기다리는 frame이 있을 때 262144 byte를 넘는 새 frame은
 queue하지 않고 `too-large`를 돌려준다. socket이 멈추면 기다리던 frame은 버리고 읽기를 재개한다. 기다리는 frame은
 pending 상한(R-MCP-032)에 센다.\
-근거: `src/server/peer-server.ts:397`, `src/server/peer-server.ts:435`, `src/server/peer-server.ts:439`, `src/server/peer-server.ts:441`, `src/server/peer-server.ts:460`, `src/server/peer-server.ts:468`, `src/server/peer-server.ts:481`, `src/server/peer-server.ts:875`; 테스트: `test/relay-backpressure.test.ts` › `keeps an agent that falls behind on the replies it asked for, reads nothing more from it meanwhile, and delivers them all in order once it reads`; `test/relay-backpressure.test.ts` › `offers the oldest waiting reply again while the agent reads nothing, so the codec's stall close stays armed`; `test/relay-backpressure.test.ts` › `drops the replies waiting for an agent that goes away, and keeps the room serving`
+근거: `src/server/peer-server.ts:410`, `src/server/peer-server.ts:448`, `src/server/peer-server.ts:452`, `src/server/peer-server.ts:454`, `src/server/peer-server.ts:473`, `src/server/peer-server.ts:481`, `src/server/peer-server.ts:494`, `src/server/peer-server.ts:905`; 테스트: `test/relay-backpressure.test.ts` › `keeps an agent that falls behind on the replies it asked for, reads nothing more from it meanwhile, and delivers them all in order once it reads`; `test/relay-backpressure.test.ts` › `offers the oldest waiting reply again while the agent reads nothing, so the codec's stall close stays armed`; `test/relay-backpressure.test.ts` › `drops the replies waiting for an agent that goes away, and keeps the room serving`
 
 **R-WS-032** 어떤 agent도 요청하지 않은 frame — catalog announcement, `notifications/tools/list_changed`, broadcast되는
 모든 provider frame — 은 UTF-8 길이를 한 번 재고 room의 client socket마다 제시한다. 그 socket의 outbox에 기다리는
@@ -320,23 +322,23 @@ frame이 없고 `writableLength` + JSON byte + 20(`MAX_MESSAGE_HEADER_BYTES`)이
 (`MAX_UNREQUESTED_QUEUE_BYTES` = 1048576 − 262164) 이하일 때만 relay는 MUST 보낸다. 아니면 그 agent에게만 건너뛰고
 socket은 열어 둔다. 남은 공간은 상한 크기의 답 하나를 위한 것이다. 재는 JSON과 건너뛴 frame의 효과는 R-WS-036,
 R-WS-035다.\
-근거: `src/server/peer-server.ts:379`, `src/server/peer-server.ts:387`, `src/server/peer-server.ts:453`, `src/server/peer-server.ts:455`, `src/server/peer-server.ts:886`; 테스트: `test/relay-backpressure.test.ts` › `skips announcements an agent that is not reading did not ask for, keeps its socket, and keeps room for the reply it asked for`
+근거: `src/server/peer-server.ts:392`, `src/server/peer-server.ts:400`, `src/server/peer-server.ts:466`, `src/server/peer-server.ts:468`, `src/server/peer-server.ts:916`; 테스트: `test/relay-backpressure.test.ts` › `skips announcements an agent that is not reading did not ask for, keeps its socket, and keeps room for the reply it asked for`
 
 **R-WS-036** relay는 broadcast하는 provider frame을 받은 text가 아니라 `JSON.parse`한 값을 `JSON.stringify`로 다시 쓴
 JSON으로 MUST 재고 보낸다. 다시 쓴 JSON은 받은 text보다 길 수 있다(예: `1e20`은 `100000000000000000000`이 된다). 그래서
 262144 byte 안으로 받은 provider frame이라도 다시 쓴 길이가 262144를 넘으면 socket마다 건너뛰어지거나 `send`가
 `too-large`(R-WS-023)를 돌려줘 어떤 agent에게도 가지 않는다. relay는 이것을 provider에게도 agent에게도 알리지 않는다.\
-근거: `src/server/peer-server.ts:2815`, `src/server/peer-server.ts:2884`, `src/server/peer-server.ts:888`, `src/server/peer-server.ts:891`, `src/server/peer-server.ts:456`, `src/server/ws-upgrade.ts:405`; 테스트: 없음
+근거: `src/server/peer-server.ts:3005`, `src/server/peer-server.ts:3061`, `src/server/peer-server.ts:918`, `src/server/peer-server.ts:921`, `src/server/peer-server.ts:469`, `src/server/ws-upgrade.ts:405`; 테스트: 없음
 
 **R-WS-035** `AgentOutbox.offer`는 frame을 건너뛸 때 `PeerSocket.send`를 MUST NOT 부른다. 그래서 건너뛴 broadcast는
 codec의 거절이 아니고 stall timer(R-WS-026)를 시작하지 않는다. 요청한 frame이 없어 요청하지 않은 frame만 받는 agent가
 읽지 않으면, broadcast만으로는 그 queue가 786412 byte를 넘지 않고 relay는 그 socket을 닫지 않은 채 계속 붙여 둔다(→ O-42).\
-근거: `src/server/peer-server.ts:454`, `src/server/peer-server.ts:455`, `src/server/peer-server.ts:456`, `src/server/ws-upgrade.ts:388`, `src/server/ws-upgrade.ts:390`; 테스트: `test/relay-backpressure.test.ts` › `skips announcements an agent that is not reading did not ask for, keeps its socket, and keeps room for the reply it asked for`
+근거: `src/server/peer-server.ts:467`, `src/server/peer-server.ts:468`, `src/server/peer-server.ts:469`, `src/server/ws-upgrade.ts:388`, `src/server/ws-upgrade.ts:390`; 테스트: `test/relay-backpressure.test.ts` › `skips announcements an agent that is not reading did not ask for, keeps its socket, and keeps room for the reply it asked for`
 
 **R-WS-033** 다음 agent 방향 frame은 `AgentOutbox`를 거치지 않고 `PeerSocket.send`로 보낸다. 그래서 `busy`면 사라지고,
 기다리는 답보다 먼저 나갈 수 있다: client 부착 시의 첫 `ready`, `pong`, `approval.expired`, ticket 종료 시의
 `session.revoked`·`room.rotated`·`room.expired`·`approval.rejected`. 종료 frame 뒤에는 close가 이어지고 기다리던 frame은 버려진다(→ O-35).\
-근거: `src/server/peer-server.ts:3087`, `src/server/peer-server.ts:2950`, `src/server/peer-server.ts:1646`, `src/server/peer-server.ts:1775`; 테스트: 없음
+근거: `src/server/peer-server.ts:3269`, `src/server/peer-server.ts:3131`, `src/server/peer-server.ts:1755`, `src/server/peer-server.ts:1910`; 테스트: 없음
 
 **R-WS-034** relay는 provider socket에 outbox를 두지 않고, provider 방향 frame은 모두 `PeerSocket.send`로 MUST 보낸다.
 provider queue가 가득 차도(`busy`) provider를 닫지 않는다. 그 결과는 frame마다 다르다. id가 있는 중계 요청은
@@ -344,8 +346,9 @@ PROVIDER_BUSY로 답하고(R-MCP-024, R-MCP-035), offer는 `offer.refused`(PROVI
 JSON-RPC notification은 답 없이 버린다(R-MCP-030. HTTP notification은 503 `PROVIDER_BUSY`, R-MCP-022). 승인 요청은 다음
 접촉 때 다시 보낸다(R-ROOM-025). 다음 frame은 다시 보내지 않고 사라진다: `pong`, register 거절(`CATALOG_INVALID`·
 `CATALOG_TOO_LARGE`), 승인 결정 echo(`approval.approved`·`approval.rejected`), `INVALID_APPROVAL` error frame,
-`approval.restored`, rotate 때의 provider용 `room.rotated`(그 뒤 provider socket은 닫힌다).\
-근거: `src/server/peer-server.ts:2816`, `src/server/peer-server.ts:2821`, `src/server/peer-server.ts:3042`, `src/server/peer-server.ts:3064`, `src/server/peer-server.ts:2987`, `src/server/peer-server.ts:2389`, `src/server/peer-server.ts:2391`, `src/server/peer-server.ts:1668`, `src/server/peer-server.ts:1070`, `src/server/peer-server.ts:2836`, `src/server/peer-server.ts:2849`, `src/server/peer-server.ts:1699`, `src/server/peer-server.ts:2727`, `src/server/peer-server.ts:2737`; 테스트: `test/relay-backpressure.test.ts` › `answers agent requests PROVIDER_BUSY instead of closing the provider, and serves them again once it reads`; `test/server-ws-frames.test.ts` › `answers the agent requests a provider that stops reading cannot take with a retryable PROVIDER_BUSY, and keeps the provider`; `test/relay-backpressure.test.ts` › `drops an agent notification it cannot queue and refuses an offer to its sender, keeping the provider`
+`approval.restored`, 승인 요청 만료의 `approval.expired`, revoke의 `session.revoked`(R-SIG-024), rotate 때의 provider용
+`room.rotated`(그 뒤 provider socket은 닫힌다).\
+근거: `src/server/peer-server.ts:3006`, `src/server/peer-server.ts:3011`, `src/server/peer-server.ts:3224`, `src/server/peer-server.ts:3246`, `src/server/peer-server.ts:3168`, `src/server/peer-server.ts:2566`, `src/server/peer-server.ts:2568`, `src/server/peer-server.ts:1775`, `src/server/peer-server.ts:1131`, `src/server/peer-server.ts:3026`, `src/server/peer-server.ts:1998`, `src/server/peer-server.ts:1806`, `src/server/peer-server.ts:1760`, `src/server/peer-server.ts:1920`, `src/server/peer-server.ts:2917`, `src/server/peer-server.ts:2927`; 테스트: `test/relay-backpressure.test.ts` › `answers agent requests PROVIDER_BUSY instead of closing the provider, and serves them again once it reads`; `test/server-ws-frames.test.ts` › `answers the agent requests a provider that stops reading cannot take with a retryable PROVIDER_BUSY, and keeps the provider`; `test/relay-backpressure.test.ts` › `drops an agent notification it cannot queue and refuses an offer to its sender, keeping the provider`
 
 ### 2.6 HTTP dispatch와 공통 응답
 
@@ -364,7 +367,7 @@ R-ROOM-067대로 처리한다). 경로는 정규화된 pathname만 쓰고 query 
 9. `POST /p/:id/join`, `POST /p/:id/approval/:requestId`, `GET /p/:id/sessions/:sessionId`, `POST /p/:id/session/revoke`·`POST /p/:id/sessions/:sessionId/revoke`, `POST /p/:id/rotate`
 10. 그 밖은 404 `{error:'NOT_FOUND'}`. 알려진 경로에 맞지 않는 method(예: `GET /p/:id/join`, `PUT /p/:id/mcp`)도 404다(→ O-46).
 
-근거: `src/server/peer-server.ts:1919`, `src/server/peer-server.ts:1921`, `src/server/peer-server.ts:1922`, `src/server/peer-server.ts:1925`, `src/server/peer-server.ts:1947`, `src/server/peer-server.ts:1953`, `src/server/peer-server.ts:1963`, `src/server/peer-server.ts:1978`, `src/server/peer-server.ts:2753`; 테스트: `test/webmcp-peer.test.ts` › `supports customHttpHandler plugin hook and headless HTTP approval + room rotation`
+근거: `src/server/peer-server.ts:2091`, `src/server/peer-server.ts:2093`, `src/server/peer-server.ts:2094`, `src/server/peer-server.ts:2097`, `src/server/peer-server.ts:2119`, `src/server/peer-server.ts:2125`, `src/server/peer-server.ts:2135`, `src/server/peer-server.ts:2150`, `src/server/peer-server.ts:2943`; 테스트: `test/webmcp-peer.test.ts` › `supports customHttpHandler plugin hook and headless HTTP approval + room rotation`
 
 **R-HTTP-015** relay는 HTTP 요청과 upgrade 모두 `new URL(req.url ?? '/', 'http://{host}:{port}')`(WHATWG URL)의
 `pathname`으로 MUST 경로를 맞춘다. 그래서 request-target은 맞추기 전에 정규화된다. dot segment는 지운다
@@ -374,7 +377,7 @@ R-ROOM-067대로 처리한다). 경로는 정규화된 pathname만 쓰고 query 
 `OPTIONS`, Origin 검사보다 먼저이므로 그런 요청은 `OPTIONS`이든 허용되지 않은 Origin이든 R-HTTP-003의 500
 `PEER_REQUEST_FAILED`(또는 `formatHttpError` 결과)를 받는다. upgrade에서는 Origin 검사 뒤, hook 앞에서 예외가 되어
 socket이 파기된다(R-WS-002).\
-근거: `src/server/peer-server.ts:1921`, `src/server/peer-server.ts:1922`, `src/server/peer-server.ts:592`, `src/server/peer-server.ts:2770`, `src/server/peer-server.ts:3108`; 테스트: 없음
+근거: `src/server/peer-server.ts:2093`, `src/server/peer-server.ts:2094`, `src/server/peer-server.ts:612`, `src/server/peer-server.ts:2960`, `src/server/peer-server.ts:3290`; 테스트: 없음
 
 **R-HTTP-016** 운영자는 relay의 `host`로 IPv6 literal을 MUST NOT 쓴다. IPv4 주소나 hostname만 동작한다. relay는 base
 URL을 `http://${host}:${port}`로 대괄호 없이 만들므로, `::`나 `::1` 같은 host에서는 R-HTTP-015의 해석이 언제나
@@ -383,7 +386,7 @@ URL을 `http://${host}:${port}`로 대괄호 없이 만들므로, `::`나 `::1` 
 대괄호를 쓴 `[::1]`은 URL로는 해석되지만 `server.listen`이 그 이름을 찾지 못해(`ENOTFOUND`) relay가 시작되지 않는다. 같은
 대괄호 없는 형식이 `requestOrigin`의 fallback host(R-HTTP-013), preflight `Access-Control-Allow-Origin`의 fallback
 (R-HTTP-010), 실효 Origin 목록의 `http://{host}:{port}` 항목(R-HTTP-012)에도 쓰인다. relay는 host 값을 검사하지 않는다.\
-근거: `src/server/peer-server.ts:1921`, `src/server/peer-server.ts:2770`, `src/server/peer-server.ts:625`, `src/server/peer-server.ts:720`, `src/server/peer-server.ts:1934`, `src/server/server-config.ts:330`, `src/server/server-config.ts:410`, `src/server/server-config.ts:422`; 테스트: 없음
+근거: `src/server/peer-server.ts:2093`, `src/server/peer-server.ts:2960`, `src/server/peer-server.ts:645`, `src/server/peer-server.ts:742`, `src/server/peer-server.ts:2106`, `src/server/server-config.ts:330`, `src/server/server-config.ts:410`, `src/server/server-config.ts:422`; 테스트: 없음
 
 **R-HTTP-002** 모든 room route와 WebSocket upgrade 경로(reclaim, join, approval, sessions, revoke, rotate,
 `/p/:id/mcp`, `/p/:id/mcp/tools`, `/p/:id/provider`, `/p/:id/client`)의 room id는 protocol의 room id 문법
@@ -393,7 +396,7 @@ URL을 `http://${host}:${port}`로 대괄호 없이 만들므로, `::`나 `::1` 
 `{error:'NOT_FOUND'}`를 받는다(upgrade는 파기, R-WS-001). 문법에 맞지만 없는 id에는 route마다 자기 답을 한다. 수명주기
 route는 404 `{error:'ROOM_NOT_FOUND', code:-32004}`(R-ERR-005), `GET /p/:id/mcp`는 `unknown` descriptor(R-ROOM-060),
 `POST /p/:id/mcp`는 R-MCP-013의 답이다. room id는 대소문자를 구분한다. `/mcp/catalog/:hash`의 hash는 `[a-f0-9]{64}`다.\
-근거: `src/config/types.ts:17`, `src/config/types.ts:25`, `src/server/peer-server.ts:247`, `src/server/peer-server.ts:248`, `src/server/peer-server.ts:250`, `src/server/peer-server.ts:257`, `src/server/peer-server.ts:2047`, `src/server/peer-server.ts:2102`, `src/server/peer-server.ts:2129`, `src/server/peer-server.ts:2175`, `src/server/peer-server.ts:2437`, `src/server/peer-server.ts:2514`, `src/server/peer-server.ts:2560`, `src/server/peer-server.ts:2623`, `src/server/peer-server.ts:2689`; 테스트: `test/server-room-lifecycle.test.ts` › `answers ROOM_NOT_FOUND for an unknown id of the protocol's grammar on every lifecycle route`; `test/server-room-lifecycle.test.ts` › `answers NOT_FOUND for an id outside the grammar on every room route, the MCP routes included`
+근거: `src/config/types.ts:17`, `src/config/types.ts:25`, `src/server/peer-server.ts:260`, `src/server/peer-server.ts:261`, `src/server/peer-server.ts:263`, `src/server/peer-server.ts:270`, `src/server/peer-server.ts:2222`, `src/server/peer-server.ts:2279`, `src/server/peer-server.ts:2306`, `src/server/peer-server.ts:2352`, `src/server/peer-server.ts:2615`, `src/server/peer-server.ts:2692`, `src/server/peer-server.ts:2744`, `src/server/peer-server.ts:2807`, `src/server/peer-server.ts:2879`; 테스트: `test/server-room-lifecycle.test.ts` › `answers ROOM_NOT_FOUND for an unknown id of the protocol's grammar on every lifecycle route`; `test/server-room-lifecycle.test.ts` › `answers NOT_FOUND for an id outside the grammar on every room route, the MCP routes included`
 
 **R-HTTP-018** `Authorization`으로 자격을 받는 모든 route — `POST /p`의 publish key, approval·rotate·revoke·session status의
 providerToken, session status·revoke·`POST /p/:id/mcp`의 clientToken — 는 header를 한 가지 방법(`bearerCredential`)으로 MUST
@@ -404,7 +407,7 @@ key에서만, 그것도 Bearer 자격이 없을 때만 읽는다(R-ROOM-009). �
 돌려주고 `X-Publish-Key`는 읽지 않는다. relay는 비밀 token을 문자 단위로 비교하지 않는다. providerToken은 상수 시간으로
 비교하고(R-WS-006), clientToken은 SHA-256 hex로 ticket을 찾고(R-WS-007), publish key와 reconnectToken은 SHA-256 hex를 상수
 시간으로 비교한다(R-ROOM-009, R-ROOM-015).\
-근거: `src/server/peer-server.ts:268`, `src/server/peer-server.ts:269`, `src/server/peer-server.ts:271`, `src/server/peer-server.ts:272`, `src/server/peer-server.ts:280`, `src/server/peer-server.ts:1418`, `src/server/peer-server.ts:1426`, `src/server/peer-server.ts:1869`, `src/server/peer-server.ts:2261`, `src/server/peer-server.ts:2523`, `src/server/peer-server.ts:2578`, `src/server/peer-server.ts:2636`, `src/server/peer-server.ts:2693`; 테스트: `test/server-room-lifecycle.test.ts` › `takes a Bearer token with a scheme of any case and one or more spaces on every route`; `test/server-room-lifecycle.test.ts` › `reads X-Publish-Key for the publish key only`
+근거: `src/server/peer-server.ts:281`, `src/server/peer-server.ts:282`, `src/server/peer-server.ts:284`, `src/server/peer-server.ts:285`, `src/server/peer-server.ts:293`, `src/server/peer-server.ts:1479`, `src/server/peer-server.ts:1487`, `src/server/peer-server.ts:2041`, `src/server/peer-server.ts:2438`, `src/server/peer-server.ts:2701`, `src/server/peer-server.ts:2762`, `src/server/peer-server.ts:2820`, `src/server/peer-server.ts:2883`; 테스트: `test/server-room-lifecycle.test.ts` › `takes a Bearer token with a scheme of any case and one or more spaces on every route`; `test/server-room-lifecycle.test.ts` › `reads X-Publish-Key for the publish key only`
 
 **R-HTTP-019** relay는 거절한 자격을 그 자격이 오는 자리에 따라 한 규칙으로 MUST 알린다.
 
@@ -421,7 +424,7 @@ key에서만, 그것도 Bearer 자격이 없을 때만 읽는다(R-ROOM-009). �
 - 맞는 자격으로 그 자격이 할 수 없는 일을 요청하면 401이 아니다. client token이 자기 것이 아닌 session을 지목하면 403
   `SESSION_NOT_OWNED`(R-ROOM-033, R-ROOM-040)이고, 이미 쓴 invite는 맞는 invite에만 409 `INVITE_TOKEN_CONSUMED`로 알린다(R-ROOM-020).
 
-근거: `src/server/peer-server.ts:329`, `src/server/peer-server.ts:330`, `src/server/peer-server.ts:1333`, `src/server/peer-server.ts:1334`, `src/server/peer-server.ts:1379`, `src/server/peer-server.ts:1381`, `src/server/peer-server.ts:1385`, `src/server/peer-server.ts:2010`, `src/server/peer-server.ts:1570`, `src/server/peer-server.ts:1574`, `src/server/peer-server.ts:2263`, `src/server/peer-server.ts:2286`, `src/server/peer-server.ts:2583`, `src/server/peer-server.ts:2588`, `src/server/peer-server.ts:2592`, `src/server/peer-server.ts:2664`, `src/server/peer-server.ts:2669`, `src/server/peer-server.ts:2675`, `src/server/peer-server.ts:2452`, `src/server/peer-server.ts:2456`, `src/server/peer-server.ts:2460`, `src/server/peer-server.ts:2069`, `src/server/peer-server.ts:2079`; 테스트: `test/server-error-model.test.ts` › `tells a missing Authorization credential from a wrong one, with a Bearer challenge`; `test/server-error-model.test.ts` › `answers a missing body credential with 400 and a wrong one with 403, without a challenge`; `test/server-error-model.test.ts` › `tells only the right invite that it was already used`; `test/server-error-model.test.ts` › `lets a client token read the status of its own session only`
+근거: `src/server/peer-server.ts:342`, `src/server/peer-server.ts:343`, `src/server/peer-server.ts:1394`, `src/server/peer-server.ts:1395`, `src/server/peer-server.ts:1440`, `src/server/peer-server.ts:1442`, `src/server/peer-server.ts:1446`, `src/server/peer-server.ts:2182`, `src/server/peer-server.ts:1631`, `src/server/peer-server.ts:1635`, `src/server/peer-server.ts:2440`, `src/server/peer-server.ts:2463`, `src/server/peer-server.ts:2767`, `src/server/peer-server.ts:2772`, `src/server/peer-server.ts:2776`, `src/server/peer-server.ts:2854`, `src/server/peer-server.ts:2859`, `src/server/peer-server.ts:2865`, `src/server/peer-server.ts:2630`, `src/server/peer-server.ts:2634`, `src/server/peer-server.ts:2638`, `src/server/peer-server.ts:2245`, `src/server/peer-server.ts:2250`; 테스트: `test/server-error-model.test.ts` › `tells a missing Authorization credential from a wrong one, with a Bearer challenge`; `test/server-error-model.test.ts` › `answers a missing body credential with 400 and a wrong one with 403, without a challenge`; `test/server-error-model.test.ts` › `tells only the right invite that it was already used`; `test/server-error-model.test.ts` › `lets a client token read the status of its own session only`
 
 **R-HTTP-003** 처리 중 잡히지 않은 예외는 `formatHttpError` hook이 있으면 그 `{status, error, requestId?}`로, 없으면
 500 `{error:'PEER_REQUEST_FAILED'}`로 MUST 답한다(Origin이 허용되면 CORS header 포함). header를 이미 보냈으면 response를
@@ -429,12 +432,12 @@ key에서만, 그것도 Bearer 자격이 없을 때만 읽는다(R-ROOM-009). �
 `:requestId`, session status의 `:sessionId`, `POST /p/:id/sessions/:sessionId/revoke`의 `:sessionId`는 room 조회, 인증, body
 읽기보다 먼저 decode하고(`decodePathParameter`), decode에 실패하면(예: `%E0`, `%E0%A4`) relay는 400 `{error:'INVALID_PATH'}`로
 MUST 답한다. 이때 room과 ticket은 바뀌지 않는다.\
-근거: `src/server/peer-server.ts:591`, `src/server/peer-server.ts:593`, `src/server/peer-server.ts:615`, `src/server/peer-server.ts:337`, `src/server/peer-server.ts:339`, `src/server/peer-server.ts:2517`, `src/server/peer-server.ts:2519`, `src/server/peer-server.ts:2563`, `src/server/peer-server.ts:2565`, `src/server/peer-server.ts:2626`, `src/server/peer-server.ts:2628`; 테스트: `test/server-error-model.test.ts` › `answers a malformed percent-encoding with 400 INVALID_PATH instead of failing the request`
+근거: `src/server/peer-server.ts:611`, `src/server/peer-server.ts:613`, `src/server/peer-server.ts:635`, `src/server/peer-server.ts:350`, `src/server/peer-server.ts:352`, `src/server/peer-server.ts:2695`, `src/server/peer-server.ts:2697`, `src/server/peer-server.ts:2747`, `src/server/peer-server.ts:2749`, `src/server/peer-server.ts:2810`, `src/server/peer-server.ts:2812`; 테스트: `test/server-error-model.test.ts` › `answers a malformed percent-encoding with 400 INVALID_PATH instead of failing the request`
 
 **R-HTTP-017** `formatHttpError` hook은 MUST NOT 던진다. relay는 전역 `.catch` 안에서 hook을 다시 감싸지 않고 부르므로,
 hook이 던지면 그 요청에는 아무 응답도 가지 않고 그 rejection은 처리되지 않는다. Node 기본값
 (`--unhandled-rejections=throw`)에서는 relay process가 끝난다.\
-근거: `src/server/peer-server.ts:592`, `src/server/peer-server.ts:594`, `src/server/peer-server.ts:613`; 테스트: 없음
+근거: `src/server/peer-server.ts:612`, `src/server/peer-server.ts:614`, `src/server/peer-server.ts:633`; 테스트: 없음
 
 **R-HTTP-004** JSON 응답(`sendJson`)은 `Content-Type: application/json`과 기본 `Cache-Control: no-store`를 MUST 가진다.
 Origin이 허용 목록에 있으면 `Access-Control-Allow-Origin: <Origin>`, `Access-Control-Allow-Headers:` 아래 목록,
@@ -443,11 +446,11 @@ Origin이 허용 목록에 있으면 `Access-Control-Allow-Origin: <Origin>`, `A
 relay는 `Access-Control-Allow-Credentials`와 `Access-Control-Expose-Headers`를 보내지 않는다(→ O-27). 목록은
 `Content-Type, Authorization, X-Requested-With, X-Publish-Key, X-Framebook-Owner, X-Owner-Id, MCP-Protocol-Version, Mcp-Method, Mcp-Name`
 (`BROWSER_ALLOWED_REQUEST_HEADERS`)이다.\
-근거: `src/server/peer-server.ts:501`, `src/server/peer-server.ts:1311`, `src/server/peer-server.ts:1392`, `src/server/peer-server.ts:1397`, `src/server/peer-server.ts:1404`; 테스트: `test/mcp-http-interop.test.ts` › `lets a browser send the MCP request headers through the CORS preflight`; `test/mcp-http-interop.test.ts` › `answers a notification with 202 and an empty body`
+근거: `src/server/peer-server.ts:514`, `src/server/peer-server.ts:1372`, `src/server/peer-server.ts:1453`, `src/server/peer-server.ts:1458`, `src/server/peer-server.ts:1465`; 테스트: `test/mcp-http-interop.test.ts` › `lets a browser send the MCP request headers through the CORS preflight`; `test/mcp-http-interop.test.ts` › `answers a notification with 202 and an empty body`
 
 **R-HTTP-005** relay는 어떤 POST에서도 `Content-Type`을 검사하지 않고, `Content-Length`로 크기를 미리 판단하지 않는다.
 `Accept`는 `GET /p/:id/mcp`에서만 읽는다(R-ROOM-059).\
-근거: `src/server/peer-server.ts:778`, `src/server/peer-server.ts:2130`, `src/server/http-body.ts:52`; 테스트: 없음
+근거: `src/server/peer-server.ts:808`, `src/server/peer-server.ts:2307`, `src/server/http-body.ts:52`; 테스트: 없음
 
 ### 2.7 HTTP body
 
@@ -469,7 +472,7 @@ byte로 읽는다(drain 상한 1048576). 다음 경우 endpoint는 아무 동작
 drain됨: 413 `{error:'BODY_TOO_LARGE'}`. drain 상한을 넘음: response 파기. UTF-8이 아니거나 JSON이 아니거나 object가 아님:
 400 `{error:'INVALID_JSON_BODY'}`. `BODY_CONSUMED`: request가 끝났고 header를 안 보냈으면 500 `{error:'BODY_CONSUMED',
 code:-32603}`(MCP의 같은 이름과 같은 code, R-ERR-005), 아니면 파기. abort: 파기. 비었거나 공백뿐인 body(`String#trim`, U+FEFF도 지운다)는 `{}`다.\
-근거: `src/server/peer-server.ts:72`, `src/server/peer-server.ts:1488`, `src/server/peer-server.ts:1504`, `src/server/peer-server.ts:1514`, `src/server/peer-server.ts:1518`, `src/server/peer-server.ts:1519`, `src/server/peer-server.ts:1525`, `src/server/peer-server.ts:1537`; 테스트: `test/relay-message-limit.test.ts` › `delivers 413 BODY_TOO_LARGE for join bodies over 64 KiB and leaves the connection usable`; `test/relay-message-limit.test.ts` › `revokes no session on an oversized, aborted or malformed body (an empty one would revoke them all)`; `test/relay-message-limit.test.ts` › `answers 500 BODY_CONSUMED instead of acting on a body a customHttpHandler read, and reads one it only paused`
+근거: `src/server/peer-server.ts:85`, `src/server/peer-server.ts:1549`, `src/server/peer-server.ts:1565`, `src/server/peer-server.ts:1575`, `src/server/peer-server.ts:1579`, `src/server/peer-server.ts:1580`, `src/server/peer-server.ts:1586`, `src/server/peer-server.ts:1598`; 테스트: `test/relay-message-limit.test.ts` › `delivers 413 BODY_TOO_LARGE for join bodies over 64 KiB and leaves the connection usable`; `test/relay-message-limit.test.ts` › `revokes no session on an oversized, aborted or malformed body (an empty one would revoke them all)`; `test/relay-message-limit.test.ts` › `answers 500 BODY_CONSUMED instead of acting on a body a customHttpHandler read, and reads one it only paused`
 
 **R-HTTP-009** 상태를 바꾸는 route(reclaim, join, approval, revoke, rotate)는 body를 읽기 전과 다 읽은 뒤 두 번 room
 검사를 MUST 한다. 자격 검사의 시점은 route마다 다르다. approval과 rotate는 `Authorization: Bearer`의 providerToken도
@@ -477,7 +480,7 @@ body 전과 뒤에 두 번 검사한다. revoke는 body 전에는 room만 보고
 검사한 뒤 한 번만 본다. join(`inviteToken`)과 reclaim(`leaseToken`)은 자격이 body에 있으므로 body 뒤 room 재검사 다음에
 한 번만 검사한다. 어느 경우든 자격 검사는 마지막 room 검사 뒤이므로 body가 오는 사이에 일어난 rotate, reclaim(새
 providerToken), 만료가 이긴다.\
-근거: `src/server/peer-server.ts:2062`, `src/server/peer-server.ts:2064`, `src/server/peer-server.ts:2067`, `src/server/peer-server.ts:2445`, `src/server/peer-server.ts:2447`, `src/server/peer-server.ts:2450`, `src/server/peer-server.ts:2527`, `src/server/peer-server.ts:2529`, `src/server/peer-server.ts:2531`, `src/server/peer-server.ts:2634`, `src/server/peer-server.ts:2635`, `src/server/peer-server.ts:2638`, `src/server/peer-server.ts:2644`, `src/server/peer-server.ts:2667`, `src/server/peer-server.ts:2699`, `src/server/peer-server.ts:2701`, `src/server/peer-server.ts:2703`; 테스트: `test/relay-message-limit.test.ts` › `checks the room again once a slow body has arrived, so a rotation that happened meanwhile wins`; `test/relay-message-limit.test.ts` › `refuses a slow approval or rotation signed with a provider token a reclaim replaced meanwhile`
+근거: `src/server/peer-server.ts:2238`, `src/server/peer-server.ts:2240`, `src/server/peer-server.ts:2243`, `src/server/peer-server.ts:2623`, `src/server/peer-server.ts:2625`, `src/server/peer-server.ts:2628`, `src/server/peer-server.ts:2705`, `src/server/peer-server.ts:2707`, `src/server/peer-server.ts:2709`, `src/server/peer-server.ts:2818`, `src/server/peer-server.ts:2819`, `src/server/peer-server.ts:2822`, `src/server/peer-server.ts:2826`, `src/server/peer-server.ts:2857`, `src/server/peer-server.ts:2889`, `src/server/peer-server.ts:2891`, `src/server/peer-server.ts:2893`; 테스트: `test/relay-message-limit.test.ts` › `checks the room again once a slow body has arrived, so a rotation that happened meanwhile wins`; `test/relay-message-limit.test.ts` › `refuses a slow approval or rotation signed with a provider token a reclaim replaced meanwhile`
 
 `POST /p/:id/mcp`의 body 규칙은 R-MCP-008, R-MCP-009에 있다.
 
@@ -488,12 +491,12 @@ providerToken), 만료가 이긴다.\
 header와 `Vary`는 없다. 아니면 204와 `Access-Control-Allow-Origin: <Origin>`(Origin이 없으면 `http://{host}:{port}`),
 `Access-Control-Allow-Methods: GET, POST, PATCH, OPTIONS`, `Access-Control-Allow-Headers:` R-HTTP-004의 목록,
 `Access-Control-Max-Age: 86400`, `Vary: Origin`이다. `Access-Control-Request-Method`·`-Headers`는 검사하지 않는다(→ O-27).\
-근거: `src/server/peer-server.ts:1925`, `src/server/peer-server.ts:1926`, `src/server/peer-server.ts:1931`, `src/server/peer-server.ts:1934`, `src/server/peer-server.ts:1935`; 테스트: `test/mcp-http-interop.test.ts` › `lets a browser send the MCP request headers through the CORS preflight`
+근거: `src/server/peer-server.ts:2097`, `src/server/peer-server.ts:2098`, `src/server/peer-server.ts:2103`, `src/server/peer-server.ts:2106`, `src/server/peer-server.ts:2107`; 테스트: `test/mcp-http-interop.test.ts` › `lets a browser send the MCP request headers through the CORS preflight`
 
 **R-HTTP-011** `OPTIONS`가 아닌 요청의 Origin이 있고 허용되지 않으면 relay는 `/health`, `/config`, MCP route를 포함한
 모든 route에서 403 `{error:'ORIGIN_NOT_ALLOWED', origin}`으로 MUST 답하고 `Access-Control-Allow-Origin`을 보내지
 않는다. Origin header가 없는 요청(브라우저가 아닌 client)은 언제나 허용한다.\
-근거: `src/server/peer-server.ts:1947`, `src/server/peer-server.ts:1948`, `src/server/server-config.ts:448`; 테스트: 없음
+근거: `src/server/peer-server.ts:2119`, `src/server/peer-server.ts:2120`, `src/server/server-config.ts:448`; 테스트: 없음
 
 **R-HTTP-012** `isOriginAllowed`는 다음 경우 MUST 참이다(→ O-25). Origin 없음(빈 값 포함). 목록에 `*`. 목록 항목과
 문자열이 정확히 같음. URL hostname이 `localhost`, `127.0.0.1`, `[::1]`(scheme·port 무관, 고정).
@@ -515,7 +518,7 @@ host는 `X-Forwarded-Host`, 없으면 `Host`, 없으면 `{host}:{port}`이고, `
 (맨 도메인도 맞는다), `domain:port` 규칙, 허용 Origin 중 http(s) 항목의 hostname이면 참이다. 실효 host 목록은 host,
 `{host}:{port}`, `DEFAULT_ALLOWED_HOSTS`(`*.pages.dev`, `*.workers.dev`, `*.trycloudflare.com` 포함), 설정 파일,
 `ALLOWED_HOSTS`, option, CLI의 합집합이다.\
-근거: `src/server/peer-server.ts:716`, `src/server/peer-server.ts:717`, `src/server/peer-server.ts:721`, `src/server/peer-server.ts:722`, `src/server/server-config.ts:51`, `src/server/server-config.ts:420`, `src/server/server-config.ts:495`, `src/server/server-config.ts:538`; 테스트: 없음
+근거: `src/server/peer-server.ts:738`, `src/server/peer-server.ts:739`, `src/server/peer-server.ts:743`, `src/server/peer-server.ts:744`, `src/server/server-config.ts:51`, `src/server/server-config.ts:420`, `src/server/server-config.ts:495`, `src/server/server-config.ts:538`; 테스트: 없음
 
 ### 2.9 조건부 GET
 
@@ -524,7 +527,7 @@ host는 `X-Forwarded-Host`, 없으면 `Host`, 없으면 `{host}:{port}`이고, `
 cache header, `Content-Length: 0`으로 MUST 답한다. Origin이 허용되면 `Access-Control-Allow-Origin`과
 `Access-Control-Allow-Headers`를 더한다. 304에는 `Cache-Control: no-store`가 붙지 않는다. weak validator(`W/"…"`)는
 맞지 않는다.\
-근거: `src/server/peer-server.ts:1220`, `src/server/peer-server.ts:1222`, `src/server/peer-server.ts:1225`, `src/server/peer-server.ts:1228`, `src/server/peer-server.ts:1233`; 테스트: 없음
+근거: `src/server/peer-server.ts:1281`, `src/server/peer-server.ts:1283`, `src/server/peer-server.ts:1286`, `src/server/peer-server.ts:1289`, `src/server/peer-server.ts:1294`; 테스트: 없음
 
 ## 3. 상한
 
@@ -559,9 +562,10 @@ byte다. 근거는 표 다음 목록에 있다.
 | R-LIM-042 | `MAX_ROOM_ALIAS_CODE_POINTS` | 256 code point | `POST /p`·rotate의 `alias` | relay | trim한 뒤 잘라냄(거절 아님) |
 | R-LIM-023 | `MAX_UNREQUESTED_QUEUE_BYTES` | 786412 (+ header 20) | broadcast 시점의 agent queue | relay | 그 agent에게만 건너뜀 |
 | R-LIM-024 | `AGENT_OUTBOX_RETRY_MS` | 1000 ms | outbox 재시도 주기 | relay | 해당 없음(주기) |
-| R-LIM-025 | `mcpRequestTimeoutMs` | 30000 ms(최소 1000) | 중계 요청, 승인 요청 수명 | relay | `MCP_REQUEST_TIMEOUT` −32001. 승인 요청은 ticket `expired` |
+| R-LIM-025 | `mcpRequestTimeoutMs` | 30000 ms(최소 1000) | 중계 요청(승인 요청의 수명과는 무관, R-LIM-043) | relay | `MCP_REQUEST_TIMEOUT` −32001 |
+| R-LIM-043 | `approvalTimeoutMs` (`DEFAULT_APPROVAL_TIMEOUT_MS`) | 300000 ms(최소 1000; `Infinity`는 room 수명, `NaN`은 기본값). room `expiresAt`이 상한 | 승인 요청 수명 | relay | ticket `expired`, agent·provider에 `approval.expired`(R-ROOM-026). invite가 소비된 채라 rotate해야 다시 join을 받는다 |
 | R-LIM-026 | room TTL | 기본 7200000 ms, `[60000, maxRoomTtlMs]`. `maxRoomTtlMs` 기본 86400000, `[60000, 31536000000]` | `POST /p`, rotate의 `ttlMs` | relay | clamp |
-| R-LIM-027 | reconnect lease | `min(expiresAt, 생성·reclaim 시각 + 900000)` | reclaim | relay | 410 `ROOM_LEASE_EXPIRED`(room이 살아 있을 때, R-ROOM-014) |
+| R-LIM-027 | reconnect lease (`RECONNECT_GRACE_MS`) | provider socket이 붙어 있는 동안 room `expiresAt`, 붙어 있지 않으면 `min(expiresAt, 생성·reclaim·provider socket 분리 시각 + 900000)`. descriptor는 `reconnectTokenExpiresAt = expiresAt`, `reconnectGraceMs = 900000` | reclaim | relay | 410 `ROOM_LEASE_EXPIRED`(room이 살아 있을 때, R-ROOM-014) |
 | R-LIM-028 | `ROOM_METADATA_RETAIN_MS` | 원래 `expiresAt` + 86400000(`metadataRetainUntil`) | 만료·rotate된 room 보존 | relay | room 삭제(그 전에는 410 `ROOM_EXPIRED`·`ROOM_ROTATED`, 이후 404 `ROOM_NOT_FOUND`) |
 | R-LIM-029 | rotated 보존 | R-LIM-028과 같은 기한(원래 `expiresAt` + 86400000). rotate 시각에 따른 보존 기한은 없다 | rotate된 room | relay | room 삭제(그 전에는 410 `ROOM_ROTATED`와 `replacementRoomId`, 이후 404) |
 | R-LIM-030 | `roomSweepIntervalMs` | 30000 ms(최소 1000, 0이면 timer 없음), HTTP 요청마다 추가 | 만료 room | relay | sweep(R-ROOM-050) |
@@ -578,7 +582,7 @@ byte다. 근거는 표 다음 목록에 있다.
 
 ### 3.1 상한별 근거
 
-- **R-LIM-001** 근거: `src/config/limits.ts:17`, `src/server/ws-upgrade.ts:44`, `src/server/ws-upgrade.ts:405`, `src/server/ws-upgrade.ts:495`, `src/server/ws-upgrade.ts:502`, `src/provider/tool-call.ts:48`, `src/provider/peer-client.ts:106`; 테스트: `test/server-ws-frames.test.ts` › `uses one 256 KiB limit for single frames and assembled messages`; `test/client-request-limit.test.ts` › `is one 256 KiB limit exported from the config tier and the package root, equal to the relay's limits`
+- **R-LIM-001** 근거: `src/config/limits.ts:17`, `src/server/ws-upgrade.ts:44`, `src/server/ws-upgrade.ts:405`, `src/server/ws-upgrade.ts:495`, `src/server/ws-upgrade.ts:502`, `src/provider/tool-call.ts:48`, `src/provider/peer-client.ts:108`; 테스트: `test/server-ws-frames.test.ts` › `uses one 256 KiB limit for single frames and assembled messages`; `test/client-request-limit.test.ts` › `is one 256 KiB limit exported from the config tier and the package root, equal to the relay's limits`
 - **R-LIM-002** 근거: `src/server/ws-upgrade.ts:49`, `src/server/ws-upgrade.ts:495`; 테스트: `test/server-ws-frames.test.ts` › `refuses a single frame of limit + 1 bytes with 1009 from its header, without waiting for the payload`
 - **R-LIM-003** 근거: `src/server/ws-upgrade.ts:59`, `src/server/ws-upgrade.ts:483`; 테스트: `test/server-ws-frames.test.ts` › `caps a message at 1024 frames, far more than the two the relay itself sends for the largest message`
 - **R-LIM-004** 근거: `src/server/ws-upgrade.ts:146`, `src/server/ws-upgrade.ts:477`; 테스트: `test/server-ws-frames.test.ts` › `closes with 1002 on a protocol violation: %s`
@@ -587,39 +591,40 @@ byte다. 근거는 표 다음 목록에 있다.
 - **R-LIM-007** 근거: `src/server/ws-upgrade.ts:113`, `src/server/ws-upgrade.ts:391`; 테스트: `test/server-ws-frames.test.ts` › `keeps a peer open that drains its full queue within stalledOutboundTimeoutMs`
 - **R-LIM-008** 근거: `src/server/ws-upgrade.ts:65`, `src/server/ws-upgrade.ts:449`; 테스트: `test/server-ws-frames.test.ts` › `keeps a closed socket for the longest valid close timeout, and destroys it after the shortest`
 - **R-LIM-009** 근거: `src/server/ws-upgrade.ts:119`, `src/server/ws-upgrade.ts:142`, `src/server/ws-upgrade.ts:155`, `src/server/ws-upgrade.ts:163`; 테스트: `test/server-ws-frames.test.ts` › `keeps a stalled socket open for the longest valid stalledOutboundTimeoutMs, and closes it after the shortest`
-- **R-LIM-010** 근거: `src/config/limits.ts:28`, `src/server/peer-server.ts:231`, `src/server/peer-server.ts:2210`, `src/server/peer-server.ts:2239`, `src/server/peer-server.ts:2957`, `src/server/peer-server.ts:3062`, `src/client/transport.ts:77`; 테스트: `test/relay-message-limit.test.ts` › `applies the request limit to a request as the relay re-serializes it, over HTTP and WebSocket`; `test/client-request-limit.test.ts` › `has a request limit 1 KiB under the message limit, exported from the config tier and the package root`
-- **R-LIM-011** 근거: `src/server/http-body.ts:31`, `src/server/peer-server.ts:2215`; 테스트: `test/relay-message-limit.test.ts` › `drains an oversized body up to 16x the limit so its 413 arrives, and cuts off a larger one without hanging`
-- **R-LIM-012** 근거: `src/config/limits.ts:55`, `src/server/peer-server.ts:82`, `src/server/peer-server.ts:237`, `src/client/transport.ts:93`; 테스트: `test/relay-message-limit.test.ts` › `refuses a request id over 1 KiB of JSON without echoing or forwarding it, over WebSocket and HTTP`; `test/client-pending-limit.test.ts` › `is refused before it is sent when its id is over 1 KiB of JSON, which the relay would answer with id null`
-- **R-LIM-013** 근거: `src/config/limits.ts:65`, `src/server/peer-server.ts:88`, `src/server/peer-server.ts:846`, `src/server/peer-server.ts:3016`, `src/client/session.ts:607`; 테스트: `test/relay-message-limit.test.ts` › `lets an agent socket have at most 64 requests waiting for the provider`; `test/client-pending-limit.test.ts` › `is the relay's limit of 64, exported from the config tier and the package root`
-- **R-LIM-014** 근거: `src/server/peer-server.ts:95`, `src/server/peer-server.ts:3093`, `src/server/peer-server.ts:3099`; 테스트: `test/relay-message-limit.test.ts` › `holds at most 4 client sockets per ticket, closing the oldest for a new one`
-- **R-LIM-015** 근거: `src/server/peer-server.ts:2455`, `src/server/peer-server.ts:2473`; 테스트: `test/live-demo.e2e.test.ts` › `rotation pushes room.rotated, voids old tickets, and issues a fresh single-use invite`
-- **R-LIM-016** 근거: `src/config/limits.ts:36`, `src/provider/peer-client.ts:335`; 테스트: `test/provider-register-limit.test.ts` › `is the message limit less 4 KiB, exported from the config tier and the package root`; `test/provider-register-limit.test.ts` › `sends a register frame of exactly the catalog limit and withholds one a byte larger`
-- **R-LIM-017** 근거: `src/config/limits.ts:46`, `src/server/peer-server.ts:987`, `src/server/peer-server.ts:1075`, `src/server/peer-server.ts:1115`; 테스트: `test/relay-message-limit.test.ts` › `refuses a register whose announcement is over PEER_RELAY_MAX_ANNOUNCEMENT_BYTES with CATALOG_TOO_LARGE for its registerSeq, and keeps the previous catalog`
+- **R-LIM-010** 근거: `src/config/limits.ts:28`, `src/server/peer-server.ts:244`, `src/server/peer-server.ts:2387`, `src/server/peer-server.ts:2416`, `src/server/peer-server.ts:3138`, `src/server/peer-server.ts:3244`, `src/client/transport.ts:77`; 테스트: `test/relay-message-limit.test.ts` › `applies the request limit to a request as the relay re-serializes it, over HTTP and WebSocket`; `test/client-request-limit.test.ts` › `has a request limit 1 KiB under the message limit, exported from the config tier and the package root`
+- **R-LIM-011** 근거: `src/server/http-body.ts:31`, `src/server/peer-server.ts:2392`; 테스트: `test/relay-message-limit.test.ts` › `drains an oversized body up to 16x the limit so its 413 arrives, and cuts off a larger one without hanging`
+- **R-LIM-012** 근거: `src/config/limits.ts:55`, `src/server/peer-server.ts:95`, `src/server/peer-server.ts:250`, `src/client/transport.ts:93`; 테스트: `test/relay-message-limit.test.ts` › `refuses a request id over 1 KiB of JSON without echoing or forwarding it, over WebSocket and HTTP`; `test/client-pending-limit.test.ts` › `is refused before it is sent when its id is over 1 KiB of JSON, which the relay would answer with id null`
+- **R-LIM-013** 근거: `src/config/limits.ts:65`, `src/server/peer-server.ts:101`, `src/server/peer-server.ts:876`, `src/server/peer-server.ts:3197`, `src/client/session.ts:607`; 테스트: `test/relay-message-limit.test.ts` › `lets an agent socket have at most 64 requests waiting for the provider`; `test/client-pending-limit.test.ts` › `is the relay's limit of 64, exported from the config tier and the package root`
+- **R-LIM-014** 근거: `src/server/peer-server.ts:108`, `src/server/peer-server.ts:3275`, `src/server/peer-server.ts:3281`; 테스트: `test/relay-message-limit.test.ts` › `holds at most 4 client sockets per ticket, closing the oldest for a new one`
+- **R-LIM-015** 근거: `src/server/peer-server.ts:2633`, `src/server/peer-server.ts:2651`; 테스트: `test/live-demo.e2e.test.ts` › `rotation pushes room.rotated, voids old tickets, and issues a fresh single-use invite`
+- **R-LIM-016** 근거: `src/config/limits.ts:36`, `src/provider/peer-client.ts:342`; 테스트: `test/provider-register-limit.test.ts` › `is the message limit less 4 KiB, exported from the config tier and the package root`; `test/provider-register-limit.test.ts` › `sends a register frame of exactly the catalog limit and withholds one a byte larger`
+- **R-LIM-017** 근거: `src/config/limits.ts:46`, `src/server/peer-server.ts:1048`, `src/server/peer-server.ts:1136`, `src/server/peer-server.ts:1176`; 테스트: `test/relay-message-limit.test.ts` › `refuses a register whose announcement is over PEER_RELAY_MAX_ANNOUNCEMENT_BYTES with CATALOG_TOO_LARGE for its registerSeq, and keeps the previous catalog`
 - **R-LIM-018** 근거: `src/config/catalog.ts:12`, `src/server/deployment-catalog.ts:69`, `src/client/catalog-hash.ts:87`; 테스트: `test/catalog-contract.test.ts` › `rejects catalogs clients would reject and keeps every tier on the last valid catalog`; `test/catalog-contract.test.ts` › `refuses exactly the catalogs the client refuses, and neither side trims a tool name`
 - **R-LIM-019** 근거: `src/config/catalog.ts:15`, `src/config/catalog.ts:32`, `src/server/deployment-catalog.ts:75`, `src/client/catalog-hash.ts:108`; 테스트: `test/catalog-contract.test.ts` › `rejects catalogs clients would reject and keeps every tier on the last valid catalog`; `test/catalog-contract.test.ts` › `refuses exactly the catalogs the client refuses, and neither side trims a tool name`
-- **R-LIM-020** 근거: `src/server/peer-server.ts:104`, `src/server/peer-server.ts:106`, `src/server/peer-server.ts:1040`, `src/server/peer-server.ts:1050`; 테스트: `test/server-register-evaluation.test.ts` › `evaluates at most ${BURST} at once and then one a second, always the latest, and still takes a changed catalog`
-- **R-LIM-021** 근거: `src/server/peer-server.ts:72`, `src/server/peer-server.ts:1518`, `src/server/http-body.ts:31`; 테스트: `test/relay-message-limit.test.ts` › `delivers 413 BODY_TOO_LARGE for join bodies over 64 KiB and leaves the connection usable`
-- **R-LIM-041** 근거: `src/server/peer-server.ts:591`, `src/server/peer-server.ts:504`; 테스트: 없음
-- **R-LIM-022** 근거: `src/server/peer-server.ts:149`, `src/server/peer-server.ts:355`, `src/server/peer-server.ts:2479`; 테스트: `test/relay-message-limit.test.ts` › `trims a join's clientLabel and keeps at most its first 256 code points`
-- **R-LIM-042** 근거: `src/server/peer-server.ts:155`, `src/server/peer-server.ts:355`, `src/server/peer-server.ts:2028`, `src/server/peer-server.ts:2710`; 테스트: `test/relay-message-limit.test.ts` › `trims a room's alias and keeps at most its first 256 code points, on creation and on rotation`
-- **R-LIM-023** 근거: `src/server/peer-server.ts:379`, `src/server/peer-server.ts:387`, `src/server/peer-server.ts:455`; 테스트: `test/relay-backpressure.test.ts` › `skips announcements an agent that is not reading did not ask for, keeps its socket, and keeps room for the reply it asked for`
-- **R-LIM-024** 근거: `src/server/peer-server.ts:397`, `src/server/peer-server.ts:470`; 테스트: `test/relay-backpressure.test.ts` › `offers the oldest waiting reply again while the agent reads nothing, so the codec's stall close stays armed`
-- **R-LIM-025** 근거: `src/server/peer-server.ts:572`, `src/server/peer-server.ts:1632`, `src/server/peer-server.ts:2418`, `src/server/peer-server.ts:3026`; 테스트: 없음
-- **R-LIM-026** 근거: `src/server/peer-server.ts:66`, `src/server/peer-server.ts:67`, `src/server/peer-server.ts:69`, `src/server/peer-server.ts:573`, `src/server/peer-server.ts:712`, `src/server/peer-server.ts:2030`, `src/server/peer-server.ts:2711`; 테스트: `test/server-room-lifecycle.test.ts` › `clamps a huge ttlMs on creation and rotation so the room expires and session status stays readable`; `test/server-room-lifecycle.test.ts` › `honours a configured maxRoomTtlMs and advertises it in /config`
-- **R-LIM-027** 근거: `src/server/peer-server.ts:692`, `src/server/peer-server.ts:2056`, `src/server/peer-server.ts:2057`, `src/server/peer-server.ts:2090`; 테스트: `test/server-room-lifecycle.test.ts` › `refuses a reclaim of a live room whose lease expired with 410 ROOM_LEASE_EXPIRED, not the room's ROOM_EXPIRED`
-- **R-LIM-028** 근거: `src/server/peer-server.ts:70`, `src/server/peer-server.ts:693`, `src/server/peer-server.ts:1915`, `src/server/types.ts:107`; 테스트: `test/server-room-lifecycle.test.ts` › `answers every lifecycle route of an expired room 410 ROOM_EXPIRED while it is retained, and 404 once it is deleted`
-- **R-LIM-029** 근거: `src/server/peer-server.ts:2720`, `src/server/peer-server.ts:1915`; 테스트: `test/server-room-lifecycle.test.ts` › `retains a rotated room, answering 410 ROOM_ROTATED with its replacement, until a day after its original expiry`
-- **R-LIM-030** 근거: `src/server/peer-server.ts:584`, `src/server/peer-server.ts:1922`; 테스트: 없음
-- **R-LIM-031** 근거: `src/server/server-config.ts:62`, `src/server/server-config.ts:63`, `src/server/server-config.ts:382`, `src/server/server-config.ts:385`, `src/server/server-config.ts:387`, `src/server/peer-server.ts:1459`, `src/server/peer-server.ts:1998`; 테스트: `test/server-publish-rate-limit.test.ts` › `throttles distinct wrong publish keys from one address and keeps the valid key's quota separate`
+- **R-LIM-020** 근거: `src/server/peer-server.ts:117`, `src/server/peer-server.ts:119`, `src/server/peer-server.ts:1101`, `src/server/peer-server.ts:1111`; 테스트: `test/server-register-evaluation.test.ts` › `evaluates at most ${BURST} at once and then one a second, always the latest, and still takes a changed catalog`
+- **R-LIM-021** 근거: `src/server/peer-server.ts:85`, `src/server/peer-server.ts:1579`, `src/server/http-body.ts:31`; 테스트: `test/relay-message-limit.test.ts` › `delivers 413 BODY_TOO_LARGE for join bodies over 64 KiB and leaves the connection usable`
+- **R-LIM-041** 근거: `src/server/peer-server.ts:611`, `src/server/peer-server.ts:517`; 테스트: 없음
+- **R-LIM-022** 근거: `src/server/peer-server.ts:162`, `src/server/peer-server.ts:368`, `src/server/peer-server.ts:2657`; 테스트: `test/relay-message-limit.test.ts` › `trims a join's clientLabel and keeps at most its first 256 code points`
+- **R-LIM-042** 근거: `src/server/peer-server.ts:168`, `src/server/peer-server.ts:368`, `src/server/peer-server.ts:2203`, `src/server/peer-server.ts:2900`; 테스트: `test/relay-message-limit.test.ts` › `trims a room's alias and keeps at most its first 256 code points, on creation and on rotation`
+- **R-LIM-023** 근거: `src/server/peer-server.ts:392`, `src/server/peer-server.ts:400`, `src/server/peer-server.ts:468`; 테스트: `test/relay-backpressure.test.ts` › `skips announcements an agent that is not reading did not ask for, keeps its socket, and keeps room for the reply it asked for`
+- **R-LIM-024** 근거: `src/server/peer-server.ts:410`, `src/server/peer-server.ts:483`; 테스트: `test/relay-backpressure.test.ts` › `offers the oldest waiting reply again while the agent reads nothing, so the codec's stall close stays armed`
+- **R-LIM-025** 근거: `src/server/peer-server.ts:587`, `src/server/peer-server.ts:2595`, `src/server/peer-server.ts:3207`; 테스트: `test/server-approval-lease.test.ts` › `is approvalTimeoutMs %s, not the MCP request timeout`
+- **R-LIM-043** 근거: `src/server/peer-server.ts:80`, `src/server/peer-server.ts:81`, `src/server/peer-server.ts:589`, `src/server/peer-server.ts:590`, `src/server/peer-server.ts:592`, `src/server/peer-server.ts:1705`; 테스트: `test/server-approval-lease.test.ts` › `is approvalTimeoutMs %s, not the MCP request timeout`; `test/server-approval-lease.test.ts` › `never outlives the room, which an infinite approvalTimeoutMs waits for`; `test/server-approval-lease.test.ts` › `ends with approval.expired to the agent and the provider, and a decision after it is refused`
+- **R-LIM-026** 근거: `src/server/peer-server.ts:66`, `src/server/peer-server.ts:67`, `src/server/peer-server.ts:69`, `src/server/peer-server.ts:593`, `src/server/peer-server.ts:734`, `src/server/peer-server.ts:2205`, `src/server/peer-server.ts:2901`; 테스트: `test/server-room-lifecycle.test.ts` › `clamps a huge ttlMs on creation and rotation so the room expires and session status stays readable`; `test/server-room-lifecycle.test.ts` › `honours a configured maxRoomTtlMs and advertises it in /config`
+- **R-LIM-027** 근거: `src/server/peer-server.ts:78`, `src/server/peer-server.ts:714`, `src/server/peer-server.ts:764`, `src/server/peer-server.ts:765`, `src/server/peer-server.ts:948`, `src/server/peer-server.ts:2232`, `src/server/peer-server.ts:2233`, `src/server/peer-server.ts:2267`, `src/server/peer-server.ts:3068`, `src/server/peer-server.ts:3088`; 테스트: `test/server-room-lifecycle.test.ts` › `refuses a reclaim of a live room whose lease expired with 410 ROOM_LEASE_EXPIRED, not the room's ROOM_EXPIRED`; `test/server-approval-lease.test.ts` › `does not expire while a provider socket is attached, and lasts 15 minutes after the socket goes away`; `test/server-approval-lease.test.ts` › `expires 15 minutes after the provider socket went away, however long it was attached`
+- **R-LIM-028** 근거: `src/server/peer-server.ts:70`, `src/server/peer-server.ts:715`, `src/server/peer-server.ts:2087`, `src/server/types.ts:118`; 테스트: `test/server-room-lifecycle.test.ts` › `answers every lifecycle route of an expired room 410 ROOM_EXPIRED while it is retained, and 404 once it is deleted`
+- **R-LIM-029** 근거: `src/server/peer-server.ts:2910`, `src/server/peer-server.ts:2087`; 테스트: `test/server-room-lifecycle.test.ts` › `retains a rotated room, answering 410 ROOM_ROTATED with its replacement, until a day after its original expiry`
+- **R-LIM-030** 근거: `src/server/peer-server.ts:604`, `src/server/peer-server.ts:2094`; 테스트: 없음
+- **R-LIM-031** 근거: `src/server/server-config.ts:62`, `src/server/server-config.ts:63`, `src/server/server-config.ts:382`, `src/server/server-config.ts:385`, `src/server/server-config.ts:387`, `src/server/peer-server.ts:1520`, `src/server/peer-server.ts:2170`; 테스트: `test/server-publish-rate-limit.test.ts` › `throttles distinct wrong publish keys from one address and keeps the valid key's quota separate`
 - **R-LIM-032** 근거: `src/server/rate-limit.ts:94`, `src/server/rate-limit.ts:109`; 테스트: `test/server-publish-rate-limit.test.ts` › `bounds the in-memory store and evicts the oldest windows first`
-- **R-LIM-033** 근거: `src/server/peer-server.ts:143`, `src/server/peer-server.ts:929`; 테스트: `test/relay-backpressure.test.ts` › `answers agent requests PROVIDER_BUSY instead of closing the provider, and serves them again once it reads`
-- **R-LIM-034** 근거: `src/provider/peer-client.ts:853`, `src/provider/peer-client.ts:1109`; 테스트: 없음
-- **R-LIM-035** 근거: `src/provider/peer-client.ts:649`, `src/provider/peer-client.ts:793`, `src/provider/peer-client.ts:811`; 테스트: `test/provider-reconnect.test.ts` › `keeps retrying with growing delays while the relay is down, then reclaims the room`
-- **R-LIM-036** 근거: `src/provider/peer-client.ts:1014`; 테스트: 없음
+- **R-LIM-033** 근거: `src/server/peer-server.ts:156`, `src/server/peer-server.ts:990`; 테스트: `test/relay-backpressure.test.ts` › `answers agent requests PROVIDER_BUSY instead of closing the provider, and serves them again once it reads`
+- **R-LIM-034** 근거: `src/provider/peer-client.ts:861`, `src/provider/peer-client.ts:1166`; 테스트: 없음
+- **R-LIM-035** 근거: `src/provider/peer-client.ts:656`, `src/provider/peer-client.ts:801`, `src/provider/peer-client.ts:819`; 테스트: `test/provider-reconnect.test.ts` › `keeps retrying with growing delays while the relay is down, then reclaims the room`
+- **R-LIM-036** 근거: `src/provider/peer-client.ts:1032`; 테스트: 없음
 - **R-LIM-037** 근거: `src/provider/tool-call.ts:56`, `src/provider/tool-call.ts:151`; 테스트: `test/provider-tool-call.test.ts` › `repeats a payload up to the text budget and points at structuredContent past it`
-- **R-LIM-038** 근거: `src/provider/ai-run-controller.ts:72`, `src/provider/peer-client.ts:1489`; 테스트: `test/provider-tool-call.test.ts` › `answers a call immediately when every tracked run has work in flight, then evicts idle runs`
+- **R-LIM-038** 근거: `src/provider/ai-run-controller.ts:72`, `src/provider/peer-client.ts:1548`; 테스트: `test/provider-tool-call.test.ts` › `answers a call immediately when every tracked run has work in flight, then evicts idle runs`
 - **R-LIM-039** 근거: `src/client/types.ts:2`, `src/client/session.ts:116`, `src/client/session.ts:118`, `src/client/room-lifecycle.ts:217`, `src/config/probe.ts:80`, `src/config/probe.ts:177`; 테스트: `test/client-busy-retry.test.ts` › `doubles its backoff up to 2 s and no further`
-- **R-LIM-040** 근거: `src/provider/wire-schemas.ts:26`, `src/provider/wire-schemas.ts:28`, `src/provider/wire-schemas.ts:47`, `src/provider/wire-schemas.ts:53`, `src/provider/peer-client.ts:1237`, `src/provider/peer-client.ts:1238`, `src/provider/peer-client.ts:1240`, `src/provider/peer-client.ts:1577`; 테스트: 없음
+- **R-LIM-040** 근거: `src/provider/wire-schemas.ts:26`, `src/provider/wire-schemas.ts:28`, `src/provider/wire-schemas.ts:47`, `src/provider/wire-schemas.ts:53`, `src/provider/peer-client.ts:1296`, `src/provider/peer-client.ts:1297`, `src/provider/peer-client.ts:1299`, `src/provider/peer-client.ts:1636`; 테스트: 없음
 
 ## 4. room·session 수명주기
 
@@ -628,7 +633,7 @@ byte다. 근거는 표 다음 목록에 있다.
 **R-ROOM-001** relay는 식별자와 토큰을 1.4의 형식으로 MUST 만든다. roomId는 `randomBytes(16)` hex,
 providerToken·inviteToken·reconnectToken·clientToken은 `randomBytes(24)` hex, sessionId는
 `peer-session-` + `randomBytes(16)` hex, 승인 requestId는 `approval-` + `randomBytes(16)` hex다.\
-근거: `src/server/peer-server.ts:671`, `src/server/peer-server.ts:672`, `src/server/peer-server.ts:674`, `src/server/peer-server.ts:1622`, `src/server/peer-server.ts:2474`, `src/server/peer-server.ts:2475`; 테스트: 없음
+근거: `src/server/peer-server.ts:691`, `src/server/peer-server.ts:692`, `src/server/peer-server.ts:694`, `src/server/peer-server.ts:1694`, `src/server/peer-server.ts:2652`, `src/server/peer-server.ts:2653`; 테스트: 없음
 
 **R-ROOM-002** room의 `expiresAt`은 `now + min(maxRoomTtlMs, max(60000, ttlMs))`로 MUST 정한다. `POST /p`와 rotate는
 body의 `ttlMs`가 없거나 수가 아니거나 유한하지 않으면(JSON 넘침 `1e400`이 만드는 Infinity 포함) 7200000으로 바꾼 뒤 이
@@ -636,7 +641,7 @@ clamp를 적용한다(R-ROOM-012, R-ROOM-043). 그러므로 `{"ttlMs":1e400}`은
 값을 60000으로 보지만 wire 입력은 거기에 닿지 않는다. `maxRoomTtlMs`는 option으로만 정하며(CLI·env·설정 파일 없음) 기본
 86400000이고 `[60000, 31536000000]`으로 clamp하며, 유한하지 않으면 기본값이다. 이 clamp는 `POST /p`, rotate, `/config`의
 `defaults.roomTtlMs`에 쓴다.\
-근거: `src/server/peer-server.ts:66`, `src/server/peer-server.ts:573`, `src/server/peer-server.ts:675`, `src/server/peer-server.ts:712`, `src/server/peer-server.ts:713`, `src/server/peer-server.ts:2030`, `src/server/peer-server.ts:2711`; 테스트: `test/server-room-lifecycle.test.ts` › `clamps a huge ttlMs on creation and rotation so the room expires and session status stays readable`
+근거: `src/server/peer-server.ts:66`, `src/server/peer-server.ts:593`, `src/server/peer-server.ts:696`, `src/server/peer-server.ts:734`, `src/server/peer-server.ts:735`, `src/server/peer-server.ts:2205`, `src/server/peer-server.ts:2901`; 테스트: `test/server-room-lifecycle.test.ts` › `clamps a huge ttlMs on creation and rotation so the room expires and session status stays readable`
 
 **R-ROOM-003** `roomState`는 다음처럼 MUST 바뀐다. 생성 시 `provisioned`. provider 부착 시 ticket이 없으면
 `provider-connected`, 있으면 `accepting-clients`. join은 `provisioned`·`provider-connected`를 `accepting-clients`로
@@ -646,25 +651,52 @@ R-ROOM-067의 다른 자리가 먼저 하든)는 `expired`(rotated는 유지). p
 MCP `_meta`가 보고하는 `mcpRoomState`는 room이 없으면 `unknown`, `rotatedTo`가 있으면 `rotated`, `expiresAt <= now`이거나
 상태가 `expired`면 `expired`, 아니면 `roomState`다. `POST /p`, reclaim, rotate 응답의 `state`는 `roomState` 그대로다.
 `rotating`은 rotate의 한 동기 구간 안에서만 있는 내부 상태이고 relay는 이 값을 어떤 응답이나 frame에도 MUST NOT 싣는다.\
-근거: `src/server/types.ts:71`, `src/server/peer-server.ts:679`, `src/server/peer-server.ts:1241`, `src/server/peer-server.ts:1553`, `src/server/peer-server.ts:1747`, `src/server/peer-server.ts:1819`, `src/server/peer-server.ts:1884`, `src/server/peer-server.ts:2092`, `src/server/peer-server.ts:2492`, `src/server/peer-server.ts:2713`, `src/server/peer-server.ts:2721`, `src/server/peer-server.ts:2908`; 테스트: `test/server-provider-reattach.test.ts` › `restores an approved ticket to the new socket with an approval.restored frame`
+근거: `src/server/types.ts:77`, `src/server/peer-server.ts:700`, `src/server/peer-server.ts:1302`, `src/server/peer-server.ts:1614`, `src/server/peer-server.ts:1854`, `src/server/peer-server.ts:1945`, `src/server/peer-server.ts:2056`, `src/server/peer-server.ts:2269`, `src/server/peer-server.ts:2670`, `src/server/peer-server.ts:2903`, `src/server/peer-server.ts:2911`, `src/server/peer-server.ts:3089`; 테스트: `test/server-provider-reattach.test.ts` › `restores an approved ticket to the new socket with an approval.restored frame`
 
 **R-ROOM-004** 비밀 값은 `POST /p`, reclaim, rotate 응답(providerToken, inviteToken, reconnectToken)과 join 응답
 (clientToken)에만 MUST 실린다. 예외가 하나 있다. peer가 `webmcp-peer.v1`을 제시하지 않고 첫 subprotocol이
 `ticket.<token>`이면 101 응답의 `Sec-WebSocket-Protocol`이 그 providerToken이나 clientToken을 그대로 되돌린다(R-WS-010,
 → O-22). 참조 구현은 `webmcp-peer.v1`을 함께 보내므로 이 경우가 없다. `GET /config`, `GET /p/:id/mcp`,
 `GET /p/:id/mcp/tools`, `GET /mcp/catalog`, session status 응답에는 비밀 값이 없다.\
-근거: `src/server/peer-server.ts:726`, `src/server/peer-server.ts:1965`, `src/server/peer-server.ts:2149`, `src/server/peer-server.ts:2497`, `src/server/peer-server.ts:2607`, `src/server/ws-upgrade.ts:294`, `src/server/ws-upgrade.ts:297`; 테스트: 없음
+근거: `src/server/peer-server.ts:755`, `src/server/peer-server.ts:2137`, `src/server/peer-server.ts:2326`, `src/server/peer-server.ts:2675`, `src/server/peer-server.ts:2791`, `src/server/ws-upgrade.ts:294`, `src/server/ws-upgrade.ts:297`; 테스트: 없음
 
 **R-ROOM-005** room 하나는 client ticket을 최대 1개 MUST 발급한다. invite는 처음 성공한 join에서 소비되고,
 새 invite는 rotate로만 생긴다(R-ROOM-021, R-ROOM-043). provider의 승인 상태 모델은 이 불변식에 기댄다(→ O-43).\
-근거: `src/server/peer-server.ts:2459`, `src/server/peer-server.ts:2473`, `src/server/peer-server.ts:1725`; 테스트: `test/live-demo.e2e.test.ts` › `rotation pushes room.rotated, voids old tickets, and issues a fresh single-use invite`
+근거: `src/server/peer-server.ts:2637`, `src/server/peer-server.ts:2651`, `src/server/peer-server.ts:1832`; 테스트: `test/live-demo.e2e.test.ts` › `rotation pushes room.rotated, voids old tickets, and issues a fresh single-use invite`
+
+**R-ROOM-071** room을 바꾸는 수명주기 route — reclaim, approval, 두 revoke route, rotate — 의 body `roomId`와 `roomEpoch`는 모두
+선택이며, 있으면 각각 경로 roomId·room의 현재 epoch와 엄격히(`===`) 같아야 한다(`bodyNamesRoom`). 한 room id의 epoch는 바뀌지
+않으므로(rotate는 새 id를 만든다) 이 검사는 stale 요청을 막는 보안 장치가 아니라 caller의 일관성 확인이다. relay는 이 검사를 그 route의
+자격 검사 — reclaim의 lease, approval·rotate의 provider token, revoke의 provider·client token과 `SESSION_NOT_OWNED` — 뒤에 MUST 하고,
+불일치는 409와 route마다의 이름으로 답한다: reclaim `ROOM_LEASE_BINDING_INVALID`(−32002, `{roomId, roomEpoch}`), approval
+`INVALID_APPROVAL`(−32081), 두 revoke route `SESSION_BINDING_INVALID`(−32002), rotate `ROOM_BINDING_INVALID`(−32002, `{roomId, roomEpoch}`).
+그래서 자격이 없거나 틀린 요청은 binding이 맞든 틀리든 같은 401·403을 받는다. join은 binding을 보지 않는다(room을 가리키는 자격은
+invite다). provider socket의 `approval.decision`은 route가 아니며 `payload.roomId`와 epoch를 요구한다(R-SIG-009).\
+근거: `src/server/peer-server.ts:967`, `src/server/peer-server.ts:968`, `src/server/peer-server.ts:2254`, `src/server/peer-server.ts:2255`, `src/server/peer-server.ts:2716`, `src/server/peer-server.ts:2718`, `src/server/peer-server.ts:2827`, `src/server/peer-server.ts:2828`, `src/server/peer-server.ts:2868`, `src/server/peer-server.ts:2869`, `src/server/peer-server.ts:2895`, `src/server/peer-server.ts:2896`; 테스트: `test/server-approval-lease.test.ts` › `is optional on approval and both revoke routes`; `test/server-approval-lease.test.ts` › `must name the room and its epoch when present, on every route under its own name`; `test/server-approval-lease.test.ts` › `is checked after the request's credential`; `test/server-error-model.test.ts` › `refuses a rotate whose body names another room or epoch with ROOM_BINDING_INVALID`
+
+**R-ROOM-072** relay HTTP 응답의 시각 필드는 아래 형식을 MUST 따른다. 기존 필드의 형식은 바꾸지 않는다(바꾸면 그 값을 parse하는
+peer가 깨진다). 새로 만드는 시각 필드는 epoch ms로만 만들고, 같은 이름이 응답마다 다른 시각을 가리키는 `expiresAt`은 새 필드로 뜻을
+나눈다: 승인 요청 만료는 `approvalExpiresAt`, ticket 만료는 `ticketExpiresAt`이다(frame은 R-SIG-025). 기간은 ms 수(`reconnectGraceMs`,
+`/config`의 `defaults`)이고 `/status`의 `uptimeSec`만 초다.
+
+| 응답 | epoch ms | ISO |
+|---|---|---|
+| room descriptor(`POST /p`, reclaim, rotate) | `expiresAt`, `reconnectTokenExpiresAt` | `createdAt`, `updatedAt`, reclaim의 `reclaimedAt`, rotate의 `rotatedAt` |
+| join | `issuedAt`, `expiresAt` | — |
+| approval | `approvalExpiresAt`, `ticketExpiresAt` | `decidedAt`, `expiresAt`(승인 요청 만료) |
+| session status | — | `issuedAt`, `expiresAt`, `approvedAt`, `revokedAt` |
+| 단일 revoke | — | `revokedAt` |
+| `GET /p/:id/mcp` | `expiresAt`(room이 없으면 null), `catalogUpdatedAt`(catalog가 없으면 null) | — |
+| `GET /p/:id/mcp/tools`, `GET /mcp/catalog` | `updatedAt`(catalog가 없으면 null) | — |
+
+근거: `src/server/peer-server.ts:764`, `src/server/peer-server.ts:767`, `src/server/peer-server.ts:769`, `src/server/peer-server.ts:770`, `src/server/peer-server.ts:2273`, `src/server/peer-server.ts:2736`, `src/server/peer-server.ts:2737`, `src/server/peer-server.ts:2738`, `src/server/peer-server.ts:1983`; 테스트: `test/server-approval-lease.test.ts` › `echoes a decision made over HTTP (%s), with both expiries`; `test/server-approval-lease.test.ts` › `reports the room's expiry and a 15-minute grace in the room descriptor`
 
 ### 4.2 `/status`, `/health`, `/ping`
 
 **R-ROOM-006** relay는 세 경로 모두 HTTP method와 무관하게 200 `{status:'healthy', activeRooms, uptimeSec}`로
 MUST 답한다. `activeRooms`는 보존 중인 rotate·만료 room을 포함한 `rooms.size`, `uptimeSec`는 `process.uptime()`이다.
 Origin 검사 뒤, `customHttpHandler` 앞에서 처리하므로 hook이 덮어쓸 수 없다(→ O-46).\
-근거: `src/server/peer-server.ts:1953`, `src/server/peer-server.ts:1954`, `src/server/peer-server.ts:1956`, `src/server/peer-server.ts:1957`; 테스트: `test/relay-message-limit.test.ts` › `survives a client that resets its connection while a customUpgradeHandler is awaiting`; `test/webmcp-peer.test.ts` › `runs end-to-end 3-tier Peer-Based Server Routing MCP (Provider -> Server -> Client & PeerMcpService)`
+근거: `src/server/peer-server.ts:2125`, `src/server/peer-server.ts:2126`, `src/server/peer-server.ts:2128`, `src/server/peer-server.ts:2129`; 테스트: `test/relay-message-limit.test.ts` › `survives a client that resets its connection while a customUpgradeHandler is awaiting`; `test/webmcp-peer.test.ts` › `runs end-to-end 3-tier Peer-Based Server Routing MCP (Provider -> Server -> Client & PeerMcpService)`
 
 ### 4.3 `GET /config`
 
@@ -675,7 +707,7 @@ defaults:{approvalRequired:true, roomTtlMs: clamp(7200000), maxRoomTtlMs}}`를 M
 `WEBMCP_PEER_CONFIG_TYPE`, `WEBMCP_PROTOCOL`). `serverUrl`은 `requestOrigin`(R-HTTP-013)이다. `defaults`의 세 member는 config
 tier의 `PeerServerPublicConfig.defaults`가 선언하고 `fetchPeerServerConfig`가 type을 검사한다(R-PEER-051). `defaults.roomTtlMs`는
 이미 clamp한 값이다. GET이 아닌 `/config`는 hook을 거쳐 404다.\
-근거: `src/server/peer-server.ts:1963`, `src/server/peer-server.ts:1966`, `src/server/peer-server.ts:1969`, `src/server/peer-server.ts:1971`, `src/server/peer-server.ts:1973`, `src/config/types.ts:90`, `src/config/types.ts:95`; 테스트: `test/server-room-lifecycle.test.ts` › `honours a configured maxRoomTtlMs and advertises it in /config`; `test/client-config.test.ts` › `rejects a config document whose defaults.maxRoomTtlMs is not a finite number`
+근거: `src/server/peer-server.ts:2135`, `src/server/peer-server.ts:2138`, `src/server/peer-server.ts:2141`, `src/server/peer-server.ts:2143`, `src/server/peer-server.ts:2145`, `src/config/types.ts:90`, `src/config/types.ts:95`; 테스트: `test/server-room-lifecycle.test.ts` › `honours a configured maxRoomTtlMs and advertises it in /config`; `test/client-config.test.ts` › `rejects a config document whose defaults.maxRoomTtlMs is not a finite number`
 
 ### 4.4 `POST /p` (room 생성)
 
@@ -689,7 +721,7 @@ tier의 `PeerServerPublicConfig.defaults`가 선언하고 `fetchPeerServerConfig
 5. capabilities(400; R-ROOM-012).
 6. room을 만들고 201로 답한다(R-ROOM-013).
 
-근거: `src/server/peer-server.ts:1985`, `src/server/peer-server.ts:1986`, `src/server/peer-server.ts:2009`, `src/server/peer-server.ts:2013`, `src/server/peer-server.ts:2020`, `src/server/peer-server.ts:2032`, `src/server/peer-server.ts:2042`; 테스트: `test/server-publish-rate-limit.test.ts` › `throttles distinct wrong publish keys from one address and keeps the valid key's quota separate`
+근거: `src/server/peer-server.ts:2157`, `src/server/peer-server.ts:2158`, `src/server/peer-server.ts:2181`, `src/server/peer-server.ts:2185`, `src/server/peer-server.ts:2195`, `src/server/peer-server.ts:2207`, `src/server/peer-server.ts:2217`; 테스트: `test/server-publish-rate-limit.test.ts` › `throttles distinct wrong publish keys from one address and keeps the valid key's quota separate`
 
 **R-ROOM-009** publish key가 설정돼 있으면 relay는 token을 MUST 다음처럼 읽는다. 요청에 Bearer 자격(R-HTTP-018)이 있으면
 그 token이고, 이때 `X-Publish-Key`는 읽지 않는다. 그래서 Bearer 값이 틀려도 `X-Publish-Key`로 넘어가지 않는다. Bearer 자격이
@@ -698,7 +730,7 @@ tier의 `PeerServerPublicConfig.defaults`가 선언하고 `fetchPeerServerConfig
 SHA-256 hex와 상수 시간으로 비교한다. 빈 token은 401 `{error:'PUBLISH_KEY_REQUIRED'}`와 `WWW-Authenticate: Bearer`, 다른
 token은 401 `{error:'PUBLISH_KEY_INVALID'}`와 `WWW-Authenticate: Bearer error="invalid_token"`이다(R-HTTP-019). publish key가 없으면
 모든 `POST /p`를 허용한다.\
-근거: `src/server/peer-server.ts:571`, `src/server/peer-server.ts:1426`, `src/server/peer-server.ts:1427`, `src/server/peer-server.ts:1428`, `src/server/peer-server.ts:1429`, `src/server/peer-server.ts:1430`, `src/server/peer-server.ts:1440`, `src/server/peer-server.ts:1445`, `src/server/peer-server.ts:1447`, `src/server/peer-server.ts:2010`; 테스트: `test/server-publish-rate-limit.test.ts` › `throttles distinct wrong publish keys from one address and keeps the valid key's quota separate`; `test/server-room-lifecycle.test.ts` › `reads X-Publish-Key for the publish key only`; `test/server-error-model.test.ts` › `tells a missing Authorization credential from a wrong one, with a Bearer challenge`
+근거: `src/server/peer-server.ts:586`, `src/server/peer-server.ts:1487`, `src/server/peer-server.ts:1488`, `src/server/peer-server.ts:1489`, `src/server/peer-server.ts:1490`, `src/server/peer-server.ts:1491`, `src/server/peer-server.ts:1501`, `src/server/peer-server.ts:1506`, `src/server/peer-server.ts:1508`, `src/server/peer-server.ts:2182`; 테스트: `test/server-publish-rate-limit.test.ts` › `throttles distinct wrong publish keys from one address and keeps the valid key's quota separate`; `test/server-room-lifecycle.test.ts` › `reads X-Publish-Key for the publish key only`; `test/server-error-model.test.ts` › `tells a missing Authorization credential from a wrong one, with a Bearer challenge`
 
 **R-ROOM-010** publish rate limit은 다음을 MUST 따른다.
 
@@ -724,14 +756,14 @@ token은 401 `{error:'PUBLISH_KEY_INVALID'}`와 `WWW-Authenticate: Bearer error=
   `FRAMEBOOK_PUBLISH_RATE_LIMIT_SQLITE_PATH`, `WEBMCP_PUBLISH_RATE_LIMIT_SQLITE_PATH` 순으로 읽고 `cwd` 기준으로 resolve한다. 비었거나
   NUL이 있으면 `PUBLISH_RATE_LIMIT_SQLITE_PATH_INVALID`로 던진다. relay가 연 SQLite store는 relay의 `close()`가 닫는다.
 
-근거: `src/server/peer-server.ts:1451`, `src/server/peer-server.ts:1455`, `src/server/peer-server.ts:1459`, `src/server/peer-server.ts:1471`, `src/server/peer-server.ts:1987`, `src/server/peer-server.ts:1998`, `src/server/peer-server.ts:2038`, `src/server/peer-server.ts:561`, `src/server/peer-server.ts:563`, `src/server/peer-server.ts:564`, `src/server/peer-server.ts:567`, `src/server/peer-server.ts:646`, `src/server/rate-limit.ts:75`, `src/server/rate-limit.ts:101`, `src/server/rate-limit.ts:121`, `src/server/rate-limit.ts:298`, `src/server/server-config.ts:399`, `src/server/server-config.ts:405`, `src/server/server-config.ts:441`; 테스트: `test/server-publish-rate-limit.test.ts` › `throttles distinct wrong publish keys from one address and keeps the valid key's quota separate`; `test/server-publish-rate-limit.test.ts` › `validates the File store's persisted state`; `test/server-publish-rate-limit.test.ts` › `deletes expired SQLite windows instead of keeping a row per key forever`; `test/server-publish-rate-limit.test.ts` › `is the SQLite database the environment names, ahead of a JSON file, closed with the relay`; `test/server-publish-rate-limit.test.ts` › `resolves the SQLite path from the CLI, the options, the config file and the environment, in that order`
+근거: `src/server/peer-server.ts:1512`, `src/server/peer-server.ts:1516`, `src/server/peer-server.ts:1520`, `src/server/peer-server.ts:1532`, `src/server/peer-server.ts:2159`, `src/server/peer-server.ts:2170`, `src/server/peer-server.ts:2213`, `src/server/peer-server.ts:576`, `src/server/peer-server.ts:578`, `src/server/peer-server.ts:579`, `src/server/peer-server.ts:582`, `src/server/peer-server.ts:666`, `src/server/rate-limit.ts:75`, `src/server/rate-limit.ts:101`, `src/server/rate-limit.ts:121`, `src/server/rate-limit.ts:298`, `src/server/server-config.ts:399`, `src/server/server-config.ts:405`, `src/server/server-config.ts:441`; 테스트: `test/server-publish-rate-limit.test.ts` › `throttles distinct wrong publish keys from one address and keeps the valid key's quota separate`; `test/server-publish-rate-limit.test.ts` › `validates the File store's persisted state`; `test/server-publish-rate-limit.test.ts` › `deletes expired SQLite windows instead of keeping a row per key forever`; `test/server-publish-rate-limit.test.ts` › `is the SQLite database the environment names, ahead of a JSON file, closed with the relay`; `test/server-publish-rate-limit.test.ts` › `resolves the SQLite path from the CLI, the options, the config file and the environment, in that order`
 
 **R-ROOM-069** 설정한 `publishRateLimitMax`는 `floor`한 값을 MUST 쓴다(음수나 유한하지 않은 값은 설정 단계에서
 `PUBLISH_RATE_LIMIT_MAX_INVALID`로 던진다). 그래서 1 미만의 소수(예: 0.5)는 0이 되고, publish key가 있어도 rate limit이
 없다(R-ROOM-010의 0 규칙). `X-RateLimit-Limit`·`X-RateLimit-Remaining`은 201(max > 0일 때), 429, 503에만 붙는다.
 rate-limit 단위를 쓴 뒤 401(R-ROOM-009), 413·400·500(R-HTTP-008), 403(R-ROOM-011), 400 `CAPABILITIES_INVALID`
 (R-ROOM-012)로 끝난 `POST /p`에는 `X-RateLimit-*`가 없다.\
-근거: `src/server/server-config.ts:379`, `src/server/server-config.ts:387`, `src/server/peer-server.ts:1993`, `src/server/peer-server.ts:2004`, `src/server/peer-server.ts:2010`, `src/server/peer-server.ts:2013`, `src/server/peer-server.ts:2023`, `src/server/peer-server.ts:2033`, `src/server/peer-server.ts:2038`; 테스트: 없음
+근거: `src/server/server-config.ts:379`, `src/server/server-config.ts:387`, `src/server/peer-server.ts:2165`, `src/server/peer-server.ts:2176`, `src/server/peer-server.ts:2182`, `src/server/peer-server.ts:2185`, `src/server/peer-server.ts:2198`, `src/server/peer-server.ts:2208`, `src/server/peer-server.ts:2213`; 테스트: 없음
 
 **R-ROOM-011** owner binding: header owner는 `X-Framebook-Owner ?? X-Owner-Id`를 trim한 값이다. `??`는 header가 없을 때만
 넘어가므로 빈 `X-Framebook-Owner`도 `X-Owner-Id`를 가린다(그러면 header owner는 없다). 반복 header는 node:http가 `, `로
@@ -739,8 +771,10 @@ rate-limit 단위를 쓴 뒤 401(R-ROOM-009), 413·400·500(R-HTTP-008), 403(R-R
 다르다). body owner는 문자열 `body.ownerId`(trim. 문자열이면 비어 있어도 `owner`를 보지 않는다), 아니면 문자열
 `body.owner`(trim)다. 설정 owner는 publish key가 있을 때만 `publishKeyOwner ?? 'publish-key-owner'`다. header owner와 body
 owner가 둘 다 있고 다르거나, 설정 owner가 있고 비어 있지 않은 header·body owner가 그와 다르면 relay는 403
-`{error:'PUBLISH_OWNER_BINDING_INVALID'}`로 MUST 답한다. room의 `ownerId`는 설정 owner에서만 온다(→ O-51).\
-근거: `src/server/peer-server.ts:2015`, `src/server/peer-server.ts:2016`, `src/server/peer-server.ts:2017`, `src/server/peer-server.ts:2018`, `src/server/peer-server.ts:2019`, `src/server/peer-server.ts:2020`, `src/server/peer-server.ts:2023`; 테스트: 없음
+`{error:'PUBLISH_OWNER_BINDING_INVALID'}`로 MUST 답한다. room의 `ownerId`는 설정 owner에서만 MUST 온다. publish key가 없으면 header·body
+owner는 아무것도 인증하지 않은 주장이라 room에 넣지 않고 descriptor에도 싣지 않는다. 그래도 서로 모순된 두 힌트는 모순된 요청으로 보아
+거절하므로, 나중에 key를 켜도 같은 요청은 같은 결과를 낸다.\
+근거: `src/server/peer-server.ts:2187`, `src/server/peer-server.ts:2188`, `src/server/peer-server.ts:2189`, `src/server/peer-server.ts:2190`, `src/server/peer-server.ts:2194`, `src/server/peer-server.ts:2195`, `src/server/peer-server.ts:2198`; 테스트: `test/server-approval-lease.test.ts` › `refuse hints that contradict each other and never become the room's owner`
 
 **R-ROOM-012** body option은 다음과 같이 MUST 해석한다. `alias`: 문자열이고 trim해서 비어 있지 않으면 그 값의 처음
 256 code point(`MAX_ROOM_ALIAS_CODE_POINTS`, R-LIM-042. surrogate pair 안에서 자르지 않고, 자른 끝의 공백은 지운다), 아니면
@@ -750,16 +784,18 @@ owner가 둘 다 있고 다르거나, 설정 owner가 있고 비어 있지 않�
 중복 제거한 원소가 모두 `mcp-control` 또는 `mcp-crdt`여야 하며 아니면 400 `{error:'CAPABILITIES_INVALID'}`.
 `mcp-control`이 없으면 앞에 넣고, room의 capabilities는 언제나 `mcp-control`이 맨 앞이다(`createRoomEntry`가 다시 앞에 두고
 중복을 지운다). 그 밖의 member(`title` 등)는 무시한다.\
-근거: `src/server/peer-server.ts:752`, `src/server/peer-server.ts:2027`, `src/server/peer-server.ts:2028`, `src/server/peer-server.ts:2029`, `src/server/peer-server.ts:2030`, `src/server/peer-server.ts:2031`, `src/server/peer-server.ts:2033`, `src/server/peer-server.ts:687`; 테스트: `test/relay-message-limit.test.ts` › `trims a room's alias and keeps at most its first 256 code points, on creation and on rotation`
+근거: `src/server/peer-server.ts:782`, `src/server/peer-server.ts:2202`, `src/server/peer-server.ts:2203`, `src/server/peer-server.ts:2204`, `src/server/peer-server.ts:2205`, `src/server/peer-server.ts:2206`, `src/server/peer-server.ts:2208`, `src/server/peer-server.ts:708`; 테스트: `test/relay-message-limit.test.ts` › `trims a room's alias and keeps at most its first 256 code points, on creation and on rotation`
 
 **R-ROOM-013** 성공한 `POST /p`는 201과 room descriptor `{id, roomId(같은 값), roomEpoch:1, providerToken, inviteToken,
-reconnectToken, reconnectTokenExpiresAt(epoch ms), descriptorUrl:'<requestOrigin>/p/<id>/mcp', expiresAt(epoch ms),
+reconnectToken, reconnectTokenExpiresAt(epoch ms), reconnectGraceMs, descriptorUrl:'<requestOrigin>/p/<id>/mcp', expiresAt(epoch ms),
 state:'provisioned', createdAt(ISO), updatedAt(ISO), approvalRequired, capabilities, alias, ownerId?}`로 MUST 답한다.
-새 room은 `inviteConsumed: false`, ticket 없음, `reconnectLeaseExpiresAt = min(expiresAt, now + 900000)`,
-`metadataRetainUntil = expiresAt + 86400000`이다. deployment catalog에 tool이 있으면 그 사본을 room catalog로 갖고
-(`catalogSource: 'deployment'`, deployment의 version과 hash), 없으면 catalog 없이 `catalogVersion: 0`,
-`catalogHash = SHA-256('[]')`이다.\
-근거: `src/server/peer-server.ts:663`, `src/server/peer-server.ts:686`, `src/server/peer-server.ts:692`, `src/server/peer-server.ts:693`, `src/server/peer-server.ts:697`, `src/server/peer-server.ts:704`, `src/server/peer-server.ts:726`, `src/server/peer-server.ts:2042`; 테스트: 없음
+`reconnectTokenExpiresAt`은 lease를 쓸 수 있는 가장 늦은 시각인 room의 `expiresAt`이고, `reconnectGraceMs`(900000,
+`RECONNECT_GRACE_MS`)는 provider socket이 붙어 있지 않을 때 lease가 남는 시간이다(R-ROOM-018). reclaim과 rotate의 descriptor도 같은
+`roomDescriptor`로 만든다. 새 room은 `inviteConsumed: false`, ticket 없음, 아직 provider socket이 없으므로
+`reconnectLeaseExpiresAt = min(expiresAt, now + 900000)`, `metadataRetainUntil = expiresAt + 86400000`이다. deployment catalog에
+tool이 있으면 그 사본을 room catalog로 갖고(`catalogSource: 'deployment'`, deployment의 version과 hash), 없으면 catalog 없이
+`catalogVersion: 0`, `catalogHash = SHA-256('[]')`이다.\
+근거: `src/server/peer-server.ts:683`, `src/server/peer-server.ts:707`, `src/server/peer-server.ts:714`, `src/server/peer-server.ts:715`, `src/server/peer-server.ts:719`, `src/server/peer-server.ts:726`, `src/server/peer-server.ts:755`, `src/server/peer-server.ts:764`, `src/server/peer-server.ts:765`, `src/server/peer-server.ts:2217`; 테스트: `test/server-approval-lease.test.ts` › `reports the room's expiry and a 15-minute grace in the room descriptor`
 
 ### 4.5 `POST /p/:id/reclaim` (provider lease 회수)
 
@@ -768,30 +804,38 @@ state:'provisioned', createdAt(ISO), updatedAt(ISO), approvalRequired, capabilit
 code:-32004}`. rotate됐으면 410 `{error:'ROOM_ROTATED', code:-32057, roomId, roomEpoch, replacementRoomId}`(`sendRoomRotated`, 모든
 수명주기 route가 같은 body다, R-ROOM-046). `expiresAt <= now`이면 410 `{error:'ROOM_EXPIRED', code:-32056, roomId, roomEpoch}`
 (`sendRoomExpired`, R-ROOM-070)이고, 그 room을 아직 만료 처리하지 않았으면 이때 처리한다(R-ROOM-067). room이 살아 있는데
-`reconnectLeaseExpiresAt <= now`이면 room 만료와 다른 이름인 410 `{error:'ROOM_LEASE_EXPIRED', roomId, roomEpoch}`(code 없음)다(→ O-06).\
-근거: `src/server/peer-server.ts:2054`, `src/server/peer-server.ts:2055`, `src/server/peer-server.ts:2056`, `src/server/peer-server.ts:2057`, `src/server/peer-server.ts:2062`, `src/server/peer-server.ts:2064`, `src/server/peer-server.ts:1359`, `src/server/peer-server.ts:1368`, `src/server/peer-server.ts:1338`, `src/server/peer-server.ts:1347`; 테스트: `test/relay-message-limit.test.ts` › `checks the room again once a slow body has arrived, so a rotation that happened meanwhile wins`; `test/server-error-model.test.ts` › `puts the code of an error's JSON-RPC namesake in its lifecycle body`; `test/server-room-lifecycle.test.ts` › `answers every lifecycle route of an expired room 410 ROOM_EXPIRED while it is retained, and 404 once it is deleted`; `test/server-room-lifecycle.test.ts` › `refuses a reclaim of a live room whose lease expired with 410 ROOM_LEASE_EXPIRED, not the room's ROOM_EXPIRED`
+`reconnectLeaseExpiresAt <= now`이면 room 만료와 다른 이름인 410 `{error:'ROOM_LEASE_EXPIRED', roomId, roomEpoch}`(code 없음)다. lease가
+언제 만료되는지는 R-ROOM-018이다.\
+근거: `src/server/peer-server.ts:2230`, `src/server/peer-server.ts:2231`, `src/server/peer-server.ts:2232`, `src/server/peer-server.ts:2233`, `src/server/peer-server.ts:2238`, `src/server/peer-server.ts:2240`, `src/server/peer-server.ts:1420`, `src/server/peer-server.ts:1429`, `src/server/peer-server.ts:1399`, `src/server/peer-server.ts:1408`; 테스트: `test/relay-message-limit.test.ts` › `checks the room again once a slow body has arrived, so a rotation that happened meanwhile wins`; `test/server-error-model.test.ts` › `puts the code of an error's JSON-RPC namesake in its lifecycle body`; `test/server-room-lifecycle.test.ts` › `answers every lifecycle route of an expired room 410 ROOM_EXPIRED while it is retained, and 404 once it is deleted`; `test/server-room-lifecycle.test.ts` › `refuses a reclaim of a live room whose lease expired with 410 ROOM_LEASE_EXPIRED, not the room's ROOM_EXPIRED`
 
 **R-ROOM-015** reclaim은 `Authorization`을 읽지 않고 `body.leaseToken`을 자격으로 MUST 쓴다(body 자격, R-HTTP-019). 다음
-순서로 검사한다. trim한 문자열 leaseToken이 비었으면 400 `{error:'ROOM_LEASE_REQUIRED'}`. `body.roomEpoch`(없으면 현재 epoch)가
-현재 epoch와 엄격히 같지 않거나, `body.roomId`가 있는데 경로 id와 다르면 409 `{error:'ROOM_LEASE_BINDING_INVALID', code:-32002,
-roomId, roomEpoch}`. `SHA-256(leaseToken)`을 저장한 hash와 상수 시간으로 비교해 다르면 403 `{error:'ROOM_LEASE_INVALID'}`다.\
-근거: `src/server/peer-server.ts:2067`, `src/server/peer-server.ts:2068`, `src/server/peer-server.ts:2069`, `src/server/peer-server.ts:2072`, `src/server/peer-server.ts:2073`, `src/server/peer-server.ts:2074`, `src/server/peer-server.ts:2077`, `src/server/peer-server.ts:2079`; 테스트: `test/server-error-model.test.ts` › `answers a missing body credential with 400 and a wrong one with 403, without a challenge`
+순서로 검사한다. trim한 문자열 leaseToken이 비었으면 400 `{error:'ROOM_LEASE_REQUIRED'}`. `SHA-256(leaseToken)`을 저장한 hash와 상수
+시간으로 비교해 다르면 403 `{error:'ROOM_LEASE_INVALID'}`. 그다음 binding(R-ROOM-071)이다: `body.roomId`·`body.roomEpoch` 중 있는 것이
+경로 id·현재 epoch와 엄격히 같지 않으면 409 `{error:'ROOM_LEASE_BINDING_INVALID', code:-32002, roomId, roomEpoch}`다. binding은 lease
+뒤에 보므로, 맞는 lease를 낸 요청만 binding 불일치를 안다.\
+근거: `src/server/peer-server.ts:2243`, `src/server/peer-server.ts:2244`, `src/server/peer-server.ts:2245`, `src/server/peer-server.ts:2249`, `src/server/peer-server.ts:2250`, `src/server/peer-server.ts:2254`, `src/server/peer-server.ts:2255`, `src/server/peer-server.ts:967`; 테스트: `test/server-error-model.test.ts` › `answers a missing body credential with 400 and a wrong one with 403, without a challenge`; `test/server-approval-lease.test.ts` › `must name the room and its epoch when present, on every route under its own name`; `test/server-approval-lease.test.ts` › `is checked after the request's credential`
 
 **R-ROOM-016** room에 provider socket이 붙어 있으면 409 `{error:'ROOM_PROVIDER_ACTIVE', roomId, roomEpoch}`(code 없음)로
 MUST 답한다. relay가 이미 떼어 낸 socket(send가 `closed`를 돌려 분리된 것, 새 socket에 밀린 것, hook 대기 중 client가
 떠나 붙지 않은 것)은 reclaim을 막지 않는다.\
-근거: `src/server/peer-server.ts:2082`, `src/server/peer-server.ts:2083`, `src/server/peer-server.ts:903`, `src/server/peer-server.ts:2777`; 테스트: `test/relay-message-limit.test.ts` › `answers a %s agent PROVIDER_UNAVAILABLE and lets a reclaim attach a new provider`; `test/relay-message-limit.test.ts` › `does not attach a provider socket whose client went away (%s) while a customUpgradeHandler was awaiting`
+근거: `src/server/peer-server.ts:2258`, `src/server/peer-server.ts:2259`, `src/server/peer-server.ts:934`, `src/server/peer-server.ts:2967`; 테스트: `test/relay-message-limit.test.ts` › `answers a %s agent PROVIDER_UNAVAILABLE and lets a reclaim attach a new provider`; `test/relay-message-limit.test.ts` › `does not attach a provider socket whose client went away (%s) while a customUpgradeHandler was awaiting`
 
 **R-ROOM-017** 성공한 reclaim은 새 providerToken(이전 token은 진행 중인 느린 approval·rotate 요청을 포함해 이후 거절된다),
-새 reconnectToken과 hash, `reconnectLeaseExpiresAt = min(expiresAt, now + 900000)`을 MUST 발급하고 `updatedAt`과
-`roomState`(R-ROOM-003)를 바꾼다. roomEpoch, inviteToken(이미 소비됐어도), ticket, catalog는 그대로다. 응답은 200
-`{...room descriptor, reclaimed:true, reclaimedAt(ISO)}`다.\
-근거: `src/server/peer-server.ts:2087`, `src/server/peer-server.ts:2088`, `src/server/peer-server.ts:2090`, `src/server/peer-server.ts:2092`, `src/server/peer-server.ts:2093`; 테스트: `test/relay-message-limit.test.ts` › `refuses a slow approval or rotation signed with a provider token a reclaim replaced meanwhile`; `test/relay-message-limit.test.ts` › `answers a %s agent PROVIDER_UNAVAILABLE and lets a reclaim attach a new provider`; `test/server-provider-reattach.test.ts` › `keeps an approved agent working after the provider socket drops and the host reclaims the room`
+새 reconnectToken과 hash를 MUST 발급한다. 이때 provider socket은 없으므로 새 lease의 유예를 시작해
+`reconnectLeaseExpiresAt = min(expiresAt, now + 900000)`으로 정하고(R-ROOM-018), `updatedAt`과 `roomState`(R-ROOM-003)를 바꾼다.
+roomEpoch, inviteToken(이미 소비됐어도), ticket, catalog는 그대로다. 응답은 200 `{...room descriptor(R-ROOM-013), reclaimed:true,
+reclaimedAt(ISO)}`다.\
+근거: `src/server/peer-server.ts:2263`, `src/server/peer-server.ts:2264`, `src/server/peer-server.ts:2265`, `src/server/peer-server.ts:2267`, `src/server/peer-server.ts:2269`, `src/server/peer-server.ts:2270`, `src/server/peer-server.ts:948`; 테스트: `test/relay-message-limit.test.ts` › `refuses a slow approval or rotation signed with a provider token a reclaim replaced meanwhile`; `test/relay-message-limit.test.ts` › `answers a %s agent PROVIDER_UNAVAILABLE and lets a reclaim attach a new provider`; `test/server-provider-reattach.test.ts` › `keeps an approved agent working after the provider socket drops and the host reclaims the room`; `test/server-approval-lease.test.ts` › `does not expire while a provider socket is attached, and lasts 15 minutes after the socket goes away`
 
-**R-ROOM-018** `reconnectLeaseExpiresAt`은 room 생성과 성공한 reclaim에서만 MUST 정한다. 붙어 있는 provider socket이나
-keepalive는 lease를 늘리지 않는다. 그래서 마지막 생성·reclaim 뒤 900000 ms(15분)가 지나 끊긴 provider는 room이 유효해도
-reclaim에서 410 `ROOM_LEASE_EXPIRED`(R-ROOM-014)를 받는다(→ O-06).\
-근거: `src/server/peer-server.ts:692`, `src/server/peer-server.ts:2056`, `src/server/peer-server.ts:2090`; 테스트: `test/server-room-lifecycle.test.ts` › `refuses a reclaim of a live room whose lease expired with 410 ROOM_LEASE_EXPIRED, not the room's ROOM_EXPIRED`
+**R-ROOM-018** reconnect lease는 provider socket이 붙어 있는 동안 MUST NOT 만료된다. relay는 provider socket을 붙일 때
+`reconnectLeaseExpiresAt = expiresAt`(room 수명)으로 두고, room에 provider socket이 없게 될 때마다 — room 생성(R-ROOM-013), 성공한
+reclaim(R-ROOM-017), 붙어 있던 provider socket의 close(R-ROOM-054), relay가 socket을 떼는 분리(`detachClosedProvider`: 새 socket의
+교체, `closed`인 send) — 유예를 시작해 `reconnectLeaseExpiresAt = min(expiresAt, 그 시각 + 900000)`(`startReconnectGrace`)으로 MUST
+정한다. keepalive는 lease를 바꾸지 않는다. 그래서 room 수명 내내 socket을 붙여 둔 host도 새로고침 뒤 15분 안에 reclaim할 수 있고,
+새어 나간 lease는 provider가 떠난 뒤 최대 15분만 쓸 수 있다. 유예가 지난 reclaim은 room이 유효해도 410 `ROOM_LEASE_EXPIRED`
+(R-ROOM-014)이고, provider socket이 붙어 있는 동안의 reclaim은 lease가 유효하므로 409 `ROOM_PROVIDER_ACTIVE`(R-ROOM-016)다.
+descriptor는 lease의 상한인 room `expiresAt`을 `reconnectTokenExpiresAt`으로, 유예를 `reconnectGraceMs`로 알린다(R-ROOM-013).\
+근거: `src/server/peer-server.ts:78`, `src/server/peer-server.ts:714`, `src/server/peer-server.ts:938`, `src/server/peer-server.ts:948`, `src/server/peer-server.ts:949`, `src/server/peer-server.ts:2232`, `src/server/peer-server.ts:2267`, `src/server/peer-server.ts:3068`, `src/server/peer-server.ts:3088`, `src/server/peer-server.ts:764`, `src/server/peer-server.ts:765`; 테스트: `test/server-room-lifecycle.test.ts` › `refuses a reclaim of a live room whose lease expired with 410 ROOM_LEASE_EXPIRED, not the room's ROOM_EXPIRED`; `test/server-approval-lease.test.ts` › `does not expire while a provider socket is attached, and lasts 15 minutes after the socket goes away`; `test/server-approval-lease.test.ts` › `expires 15 minutes after the provider socket went away, however long it was attached`
 
 ### 4.6 `POST /p/:id/join`
 
@@ -800,39 +844,40 @@ reclaim에서 410 `ROOM_LEASE_EXPIRED`(R-ROOM-014)를 받는다(→ O-06).\
 code:-32057, roomId, roomEpoch, replacementRoomId}`, `expiresAt <= now`이면 410 `{error:'ROOM_EXPIRED', code:-32056, roomId,
 roomEpoch}`다. 만료 비교는 다른 모든 route와 sweep처럼 `<=`이므로, `expiresAt`과 같은 ms에 온 join도 invite를 소비하거나 이미
 만료된 ticket을 발급하지 않는다.\
-근거: `src/server/peer-server.ts:2444`, `src/server/peer-server.ts:2445`, `src/server/peer-server.ts:2447`, `src/server/peer-server.ts:1359`, `src/server/peer-server.ts:1368`, `src/server/peer-server.ts:1900`; 테스트: `test/relay-message-limit.test.ts` › `checks the room again once a slow body has arrived, so a rotation that happened meanwhile wins`; `test/server-room-lifecycle.test.ts` › `refuses a join in the millisecond its room expires, as every other route does, and keeps the invite`
+근거: `src/server/peer-server.ts:2622`, `src/server/peer-server.ts:2623`, `src/server/peer-server.ts:2625`, `src/server/peer-server.ts:1420`, `src/server/peer-server.ts:1429`, `src/server/peer-server.ts:2072`; 테스트: `test/relay-message-limit.test.ts` › `checks the room again once a slow body has arrived, so a rotation that happened meanwhile wins`; `test/server-room-lifecycle.test.ts` › `refuses a join in the millisecond its room expires, as every other route does, and keeps the invite`
 
 **R-ROOM-020** invite token은 trim한 문자열 `body.inviteToken`이고 body 자격이다(R-HTTP-019). relay는 다음 순서로 MUST
 검사한다. 비었으면 400 `{error:'INVITE_TOKEN_REQUIRED'}`. room의 invite와 상수 시간 비교가 다르면 403
 `{error:'INVITE_TOKEN_INVALID'}`. 맞는 invite가 이미 소비됐으면 409 `{error:'INVITE_TOKEN_CONSUMED'}`. 그래서 소비 여부는 맞는
 invite를 낸 요청만 안다. capabilities가 R-ROOM-012 규칙에 맞지 않으면 400 `{error:'CAPABILITIES_INVALID'}`. `mcp-crdt`를
 요청했는데 room에 없으면 403 `{error:'CRDT_CAPABILITY_NOT_GRANTED'}`.\
-근거: `src/server/peer-server.ts:2450`, `src/server/peer-server.ts:2452`, `src/server/peer-server.ts:2455`, `src/server/peer-server.ts:2456`, `src/server/peer-server.ts:2459`, `src/server/peer-server.ts:2460`, `src/server/peer-server.ts:2463`, `src/server/peer-server.ts:2468`; 테스트: `test/live-demo.e2e.test.ts` › `rotation pushes room.rotated, voids old tickets, and issues a fresh single-use invite`; `test/server-error-model.test.ts` › `tells only the right invite that it was already used`; `test/server-error-model.test.ts` › `answers a missing body credential with 400 and a wrong one with 403, without a challenge`
+근거: `src/server/peer-server.ts:2628`, `src/server/peer-server.ts:2630`, `src/server/peer-server.ts:2633`, `src/server/peer-server.ts:2634`, `src/server/peer-server.ts:2637`, `src/server/peer-server.ts:2638`, `src/server/peer-server.ts:2641`, `src/server/peer-server.ts:2646`; 테스트: `test/live-demo.e2e.test.ts` › `rotation pushes room.rotated, voids old tickets, and issues a fresh single-use invite`; `test/server-error-model.test.ts` › `tells only the right invite that it was already used`; `test/server-error-model.test.ts` › `answers a missing body credential with 400 and a wrong one with 403, without a challenge`
 
 **R-ROOM-021** invite는 모든 검사를 통과한 join에서만 MUST 소비한다(`inviteConsumed = true`). body 때문에 거절된 join(413,
 400, 500 `BODY_CONSUMED`)과 R-ROOM-019·R-ROOM-020에서 거절된 join은 invite를 소비하지 않는다.\
-근거: `src/server/peer-server.ts:2473`; 테스트: `test/relay-message-limit.test.ts` › `answers 500 BODY_CONSUMED instead of acting on a body a customHttpHandler read, and reads one it only paused`; `test/server-room-lifecycle.test.ts` › `refuses a join in the millisecond its room expires, as every other route does, and keeps the invite`
+근거: `src/server/peer-server.ts:2651`; 테스트: `test/relay-message-limit.test.ts` › `answers 500 BODY_CONSUMED instead of acting on a body a customHttpHandler read, and reads one it only paused`; `test/server-room-lifecycle.test.ts` › `refuses a join in the millisecond its room expires, as every other route does, and keeps the invite`
 
 **R-ROOM-022** 발급하는 ticket은 `clientToken`, `sessionId`, `issuedAt = now`, `expiresAt = room.expiresAt`, 요청한
 capabilities를 MUST 가진다. status는 `approvalRequired`면 `pending`, 아니면 `approved`이고 그때 `approvedAt = issuedAt`이다.
 `clientLabel`은 비어 있지 않은 문자열이면 trim한 뒤 앞 256 code point만 남기고(surrogate pair 중간에서 자르지 않고,
 자른 뒤 끝 공백도 지운다), 아니면 `MCP client`다. 더 긴 label은 거절하지 않고 자른다. roomState 전이는 R-ROOM-003이며,
 그래서 승인 불필요 room은 join으로 `active`가 되지 않는다.\
-근거: `src/server/peer-server.ts:149`, `src/server/peer-server.ts:355`, `src/server/peer-server.ts:2474`, `src/server/peer-server.ts:2479`, `src/server/peer-server.ts:2481`, `src/server/peer-server.ts:2492`; 테스트: `test/relay-message-limit.test.ts` › `trims a join's clientLabel and keeps at most its first 256 code points`; `test/server-provider-reattach.test.ts` › `re-sends a pending request and restores no revoked, expired or approval-free ticket`
+근거: `src/server/peer-server.ts:162`, `src/server/peer-server.ts:368`, `src/server/peer-server.ts:2652`, `src/server/peer-server.ts:2657`, `src/server/peer-server.ts:2659`, `src/server/peer-server.ts:2670`; 테스트: `test/relay-message-limit.test.ts` › `trims a join's clientLabel and keeps at most its first 256 code points`; `test/server-provider-reattach.test.ts` › `re-sends a pending request and restores no revoked, expired or approval-free ticket`
 
 **R-ROOM-023** join 응답은 201 `{roomId, roomEpoch, clientToken, sessionId, issuedAt(epoch ms), expiresAt(epoch ms),
 approvalRequired, capabilities, approvalState:'pending'|'approved', state:'pending-approval'|'approved',
 approvalRequestId?}`이다. `approvalRequestId`는 승인 요청을 만들었을 때만 MUST 있다(R-ROOM-024).\
-근거: `src/server/peer-server.ts:2495`, `src/server/peer-server.ts:2497`, `src/server/peer-server.ts:2508`; 테스트: `test/webmcp-peer.test.ts` › `runs end-to-end 3-tier Peer-Based Server Routing MCP (Provider -> Server -> Client & PeerMcpService)`
+근거: `src/server/peer-server.ts:2673`, `src/server/peer-server.ts:2675`, `src/server/peer-server.ts:2686`; 테스트: `test/webmcp-peer.test.ts` › `runs end-to-end 3-tier Peer-Based Server Routing MCP (Provider -> Server -> Client & PeerMcpService)`
 
 ### 4.7 승인 요청의 수명
 
 **R-ROOM-024** 승인이 필요한 room에서 pending ticket의 승인 요청은 `requestId = 'approval-' + 32 hex`,
-`createdAt = now`, `expiresAt = min(room.expiresAt, now + mcpRequestTimeoutMs)`(기본 30000 ms, → O-07),
-`clientLabel = ticket.clientLabel || 'MCP client'`로 MUST 만든다. ticket이 room의 `pendingApprovals`에 남아 있는 요청을
-가리키면(그 `expiresAt`이 지났어도, R-ROOM-026) 새로 만들지 않고 그 요청을 다시 쓴다. 만드는 시점은 join이고, 이후 접촉에서
-요청이 없으면 다시 만든다.\
-근거: `src/server/peer-server.ts:1606`, `src/server/peer-server.ts:1608`, `src/server/peer-server.ts:1621`, `src/server/peer-server.ts:1632`, `src/server/peer-server.ts:572`; 테스트: `test/relay-message-limit.test.ts` › `sends a pending ticket's approval request to each provider socket once, however often the agent calls`
+`createdAt = now`, `expiresAt = min(room.expiresAt, now + approvalTimeoutMs)`(R-LIM-043, 기본 300000 ms),
+`clientLabel = ticket.clientLabel || 'MCP client'`로 MUST 만든다. 사람이 결정하는 창이므로 중계 요청의 `mcpRequestTimeoutMs`
+(R-LIM-025)와 관계가 없다. ticket이 room의 `pendingApprovals`에 남아 있는 요청을 가리키면 새로 만들지 않고 그 요청을 다시 쓴다.
+만드는 시점은 join이고, 이후 접촉에서 요청이 없으면 다시 만든다. 요청이 만료되면 ticket도 `expired`로 끝나고(R-ROOM-026) invite는
+소비된 채이므로, 그 room은 rotate(R-ROOM-043)로 새 invite를 내기 전에는 다른 agent를 받지 않는다.\
+근거: `src/server/peer-server.ts:1667`, `src/server/peer-server.ts:1669`, `src/server/peer-server.ts:1693`, `src/server/peer-server.ts:1705`, `src/server/peer-server.ts:589`; 테스트: `test/relay-message-limit.test.ts` › `sends a pending ticket's approval request to each provider socket once, however often the agent calls`; `test/server-approval-lease.test.ts` › `is approvalTimeoutMs %s, not the MCP request timeout`; `test/server-approval-lease.test.ts` › `never outlives the room, which an infinite approvalTimeoutMs waits for`
 
 **R-ROOM-025** relay는 승인 요청을 provider socket마다 최대 한 번 `approval.request`(R-SIG-008)로 MUST 보낸다. `send`가
 `sent`일 때만 전달로 기록한다. 받지 못한 요청(provider 없음, `busy`, `too-large`)은 미전달로 남고 ticket 소유자의 다음 접촉
@@ -841,19 +886,19 @@ client socket 부착, client bearer로 한 `GET /p/:id/sessions/:sessionId` — 
 거절된 POST(body 읽기의 413·500 `BODY_CONSUMED`, 400 `PARSE_ERROR`·`REQUEST_ID_TOO_LARGE`·`INVALID_REQUEST`, 다시 직렬화한 크기의
 413, 400 `UNSUPPORTED_PROTOCOL_VERSION`)와 client socket이 보낸 frame(R-SIG-013)은 아무것도 보내지 않는다. `closed`면 provider를
 분리한다(`detachClosedProvider`). 새 provider socket은 같은 요청을 다시 한 번 받는다.\
-근거: `src/server/peer-server.ts:1664`, `src/server/peer-server.ts:1666`, `src/server/peer-server.ts:1689`, `src/server/peer-server.ts:1690`, `src/server/peer-server.ts:2218`, `src/server/peer-server.ts:2229`, `src/server/peer-server.ts:2234`, `src/server/peer-server.ts:2240`, `src/server/peer-server.ts:2249`, `src/server/peer-server.ts:2261`, `src/server/peer-server.ts:2266`, `src/server/peer-server.ts:2495`, `src/server/peer-server.ts:2605`, `src/server/peer-server.ts:3103`; 테스트: `test/relay-backpressure.test.ts` › `sends a pending approval request the provider could not take on the agent's next call, and only once`; `test/relay-message-limit.test.ts` › `sends a pending ticket's approval request to each provider socket once, however often the agent calls`
+근거: `src/server/peer-server.ts:1771`, `src/server/peer-server.ts:1773`, `src/server/peer-server.ts:1796`, `src/server/peer-server.ts:1797`, `src/server/peer-server.ts:2395`, `src/server/peer-server.ts:2406`, `src/server/peer-server.ts:2411`, `src/server/peer-server.ts:2417`, `src/server/peer-server.ts:2426`, `src/server/peer-server.ts:2438`, `src/server/peer-server.ts:2443`, `src/server/peer-server.ts:2673`, `src/server/peer-server.ts:2789`, `src/server/peer-server.ts:3285`; 테스트: `test/relay-backpressure.test.ts` › `sends a pending approval request the provider could not take on the agent's next call, and only once`; `test/relay-message-limit.test.ts` › `sends a pending ticket's approval request to each provider socket once, however often the agent calls`
 
-**R-ROOM-026** relay는 승인 요청을 만들 때 `max(1, expiresAt − Date.now())` ms 뒤에 도는 timer를 하나 건다. timer가 돌 때
-요청이 아직 `pendingApprovals`에 있고 `expiresAt <= Date.now()`이면 relay는 요청을 지우고, ticket이 아직 `pending`이면 `expired`
-(`revokedAt` 설정, `approvalRequestId` 해제)로 MUST 바꾼다. ticket에 묶인 client socket마다 `approval.expired`(R-SIG-012)를
-plain `send`로 보내고 닫고(1000) room에서 뺀다. provider에는 아무것도 보내지 않는다. invite는 소비된 채 남아 rotate 전에는
-새 join을 받지 않는다. 이 timer는 provider가 붙어 있지 않아도 돈다. timer가 돌 때 `expiresAt > Date.now()`이면 relay는 아무것도
-하지 않고 timer를 다시 걸지 않는다. Node timer는 `Date.now()`가 `expiresAt`에 닿기 전에 돌 수 있고(timer의 시작 시각은 libuv
-loop의 cached 시각이고 `Date.now()`는 wall clock이다), 2147483647 ms보다 긴 지연은 1 ms로 바뀌므로 이 경우가 생긴다. 그러면
-요청은 `pendingApprovals`에 남고 ticket은 결정이나 ticket 종료(R-ROOM-047·R-ROOM-048: revoke, rotate, room 만료)까지 `pending`이다.
-그동안 relay는 새 provider socket에 지난 `expiresAt`을 담은 같은 `approval.request`를 보내고(R-ROOM-024, R-ROOM-025), 늦은
-HTTP·WebSocket 결정도 받아들인다(결정은 요청의 `expiresAt`을 보지 않는다, → O-07, O-18).\
-근거: `src/server/peer-server.ts:1636`, `src/server/peer-server.ts:1638`, `src/server/peer-server.ts:1639`, `src/server/peer-server.ts:1640`, `src/server/peer-server.ts:1641`, `src/server/peer-server.ts:1646`, `src/server/peer-server.ts:1647`, `src/server/peer-server.ts:1651`, `src/server/peer-server.ts:1608`, `src/server/peer-server.ts:1806`; 테스트: 없음
+**R-ROOM-026** relay는 승인 요청을 만들 때 `min(2147483647, max(1, expiresAt − Date.now()))` ms 뒤에 도는 timer를 MUST 건다
+(`scheduleApprovalExpiry`). timer가 돌 때 요청이 `pendingApprovals`에 없으면(결정됐거나 ticket이 끝났다) 아무것도 하지 않는다. room이
+만료됐으면 room 만료 처리(R-ROOM-067)를 하고, 그것이 ticket을 끝낸다. 요청이 아직 만기가 아니면(`expiresAt > Date.now()`) 남은 시간으로
+timer를 다시 건다. Node timer는 `Date.now()`가 `expiresAt`에 닿기 전에 돌 수 있고(timer의 시작 시각은 libuv loop의 cached 시각이고
+`Date.now()`는 wall clock이다) 2147483647 ms보다 긴 지연은 1 ms로 바뀌므로, 다시 걸지 않으면 요청이 만료되지 않는다. 만기면 relay는
+요청을 지우고(`expireApprovalRequest`), ticket이 아직 `pending`이면 `expired`(`revokedAt` 설정, `approvalRequestId` 해제)로 바꾼 뒤
+`approval.expired`(R-SIG-012)를 ticket에 묶인 client socket마다 plain `send`로 보내고 그 socket을 닫고(1000) room에서 빼며, room의
+provider socket에도 같은 frame을 plain `send`로 보낸다. 그래서 host는 요청을 내린다. 결정은 요청의 `expiresAt`을 보지 않으므로 timer가
+요청을 지우기 전의 결정은 받아들이고, 지운 뒤의 HTTP·WebSocket 결정은 409·error frame `INVALID_APPROVAL`이다(R-ROOM-028, R-SIG-009).
+invite는 소비된 채 남아 rotate 전에는 새 join을 받지 않는다. 이 timer는 provider가 붙어 있지 않아도 돈다.\
+근거: `src/server/peer-server.ts:83`, `src/server/peer-server.ts:1709`, `src/server/peer-server.ts:1720`, `src/server/peer-server.ts:1722`, `src/server/peer-server.ts:1723`, `src/server/peer-server.ts:1724`, `src/server/peer-server.ts:1725`, `src/server/peer-server.ts:1736`, `src/server/peer-server.ts:1737`, `src/server/peer-server.ts:1738`, `src/server/peer-server.ts:1739`, `src/server/peer-server.ts:1740`, `src/server/peer-server.ts:1741`, `src/server/peer-server.ts:1755`, `src/server/peer-server.ts:1756`, `src/server/peer-server.ts:1758`, `src/server/peer-server.ts:1760`; 테스트: `test/server-approval-lease.test.ts` › `ends with approval.expired to the agent and the provider, and a decision after it is refused`; `test/server-approval-lease.test.ts` › `expires a request whose timer fired before it was due, once it is`; `test/provider-approval-state.test.ts` › `takes an approval request nobody decided in time down when the relay expires it`
 
 ### 4.8 `POST /p/:id/approval/:requestId`
 
@@ -864,96 +909,104 @@ roomEpoch, replacementRoomId}`(R-ROOM-046). `expiresAt <= now`면 410 `{error:'R
 (R-ROOM-070). 그다음 Bearer 자격(R-HTTP-018)이 없으면
 401 `{error:'PROVIDER_TOKEN_REQUIRED'}`, 현재 providerToken과 상수 시간으로 같지 않으면 401 `{error:'PROVIDER_TOKEN_INVALID'}`이고,
 둘 다 R-HTTP-019의 challenge를 가진다.\
-근거: `src/server/peer-server.ts:2517`, `src/server/peer-server.ts:2523`, `src/server/peer-server.ts:2527`, `src/server/peer-server.ts:2531`, `src/server/peer-server.ts:1360`, `src/server/peer-server.ts:1364`, `src/server/peer-server.ts:1368`, `src/server/peer-server.ts:1380`, `src/server/peer-server.ts:1384`; 테스트: `test/relay-message-limit.test.ts` › `refuses a slow approval or rotation signed with a provider token a reclaim replaced meanwhile`; `test/server-room-lifecycle.test.ts` › `takes a Bearer token with a scheme of any case and one or more spaces on every route`; `test/server-error-model.test.ts` › `tells a missing Authorization credential from a wrong one, with a Bearer challenge`; `test/server-error-model.test.ts` › `answers every lifecycle route of a rotated room with 410 ROOM_ROTATED and its replacement`; `test/server-room-lifecycle.test.ts` › `answers every lifecycle route of an expired room 410 ROOM_EXPIRED while it is retained, and 404 once it is deleted`
+근거: `src/server/peer-server.ts:2695`, `src/server/peer-server.ts:2701`, `src/server/peer-server.ts:2705`, `src/server/peer-server.ts:2709`, `src/server/peer-server.ts:1421`, `src/server/peer-server.ts:1425`, `src/server/peer-server.ts:1429`, `src/server/peer-server.ts:1441`, `src/server/peer-server.ts:1445`; 테스트: `test/relay-message-limit.test.ts` › `refuses a slow approval or rotation signed with a provider token a reclaim replaced meanwhile`; `test/server-room-lifecycle.test.ts` › `takes a Bearer token with a scheme of any case and one or more spaces on every route`; `test/server-error-model.test.ts` › `tells a missing Authorization credential from a wrong one, with a Bearer challenge`; `test/server-error-model.test.ts` › `answers every lifecycle route of a rotated room with 410 ROOM_ROTATED and its replacement`; `test/server-room-lifecycle.test.ts` › `answers every lifecycle route of an expired room 410 ROOM_EXPIRED while it is retained, and 404 once it is deleted`
 
 **R-ROOM-028** 경로 requestId의 pending 요청이 있어야 하고, `body.sessionId`는 그 요청의 sessionId와 같은 비어 있지 않은
-문자열, `body.roomId`는 경로 roomId와 엄격히 같은 값(필수), `body.roomEpoch`는 현재 epoch와 같은 수(필수), `decision`은
-`approved` 또는 `rejected`여야 한다. `reason`은 선택이며 문자열이 아니면 무시한다. 하나라도 어기거나 ticket이 사라졌거나 다른
-요청에 묶여 있으면 relay는 409 `{error:'INVALID_APPROVAL', code:-32081}`로 MUST 답한다. 결정한 요청은 지우므로 같은 결정을 반복하면
-409다. ticket이 사라졌거나 다른 요청에 묶여 409가 될 때도 그 요청은 이미 지운 뒤다(→ O-10, O-50).\
-근거: `src/server/peer-server.ts:2532`, `src/server/peer-server.ts:2536`, `src/server/peer-server.ts:2538`, `src/server/peer-server.ts:2541`, `src/server/peer-server.ts:2543`, `src/server/peer-server.ts:1809`, `src/server/peer-server.ts:1810`; 테스트: 없음
+문자열, `decision`은 `approved` 또는 `rejected`여야 한다. `body.roomId`·`body.roomEpoch`는 선택이며, 있으면 경로 roomId·현재 epoch와
+엄격히 같아야 한다(R-ROOM-071). `reason`은 선택이며 문자열이 아니면 무시한다. 하나라도 어기거나 ticket이 사라졌거나 다른 요청에
+묶여 있으면 relay는 409 `{error:'INVALID_APPROVAL', code:-32081}`로 MUST 답한다. 결정은 pending 요청을 지우는 1회성 동작이라 relay는
+반복된 결정을 오래된 결정과 구별할 수 없다. 그래서 같은 결정을 반복해도 멱등으로 받지 않고 409다. ticket이 사라졌거나 다른 요청에
+묶여 409가 될 때도 그 요청은 이미 지운 뒤다. 만료돼 지운 요청(R-ROOM-026)에 온 결정도 409다.\
+근거: `src/server/peer-server.ts:2713`, `src/server/peer-server.ts:2714`, `src/server/peer-server.ts:2716`, `src/server/peer-server.ts:2718`, `src/server/peer-server.ts:2722`, `src/server/peer-server.ts:2724`, `src/server/peer-server.ts:1936`, `src/server/peer-server.ts:1937`, `src/server/peer-server.ts:967`; 테스트: `test/server-approval-lease.test.ts` › `is optional on approval and both revoke routes`; `test/server-approval-lease.test.ts` › `must name the room and its epoch when present, on every route under its own name`; `test/server-approval-lease.test.ts` › `ends with approval.expired to the agent and the provider, and a decision after it is refused`
 
 **R-ROOM-029** 승인하면 ticket은 `approved`, `approvedAt = now`, room은 `active`가 MUST 된다. ticket에 묶인 client
 socket마다 outbox로 `approval.approved`(R-SIG-010)를, 그것이 `sent`나 `queued`일 때만 이어서
 `{type:'ready', role:'client', roomId, roomEpoch, sessionId, capabilities, expiresAt: ticket.expiresAt, approval:'approved'}`를
-보낸다. HTTP 결정은 provider socket에 echo하지 않는다(WebSocket `approval.decision`은 echo한다, R-SIG-009; → O-18).\
-근거: `src/server/peer-server.ts:1817`, `src/server/peer-server.ts:1819`, `src/server/peer-server.ts:1826`, `src/server/peer-server.ts:1838`, `src/server/peer-server.ts:1839`, `src/server/peer-server.ts:2541`; 테스트: `test/relay-backpressure.test.ts` › `sends an agent that is behind its approval, then ready, after the replies queued before them`
+보낸다. 그다음 결정 경로와 무관하게(HTTP route든 provider socket의 `approval.decision`이든) room의 provider socket에 결정 echo
+(R-SIG-009)를 MUST 보낸다(R-SIG-024). 거절(R-ROOM-030)도 echo를 보낸다.\
+근거: `src/server/peer-server.ts:1943`, `src/server/peer-server.ts:1944`, `src/server/peer-server.ts:1945`, `src/server/peer-server.ts:1969`, `src/server/peer-server.ts:1970`, `src/server/peer-server.ts:1971`, `src/server/peer-server.ts:1974`, `src/server/peer-server.ts:1940`, `src/server/peer-server.ts:2722`, `src/server/peer-server.ts:3036`; 테스트: `test/relay-backpressure.test.ts` › `sends an agent that is behind its approval, then ready, after the replies queued before them`; `test/server-approval-lease.test.ts` › `echoes a decision made over HTTP (%s), with both expiries`; `test/server-approval-lease.test.ts` › `echoes a decision made on its own socket once`
 
 **R-ROOM-030** 거절하면 ticket은 `rejected`가 되고, relay는 reason(HTTP는 비어 있지 않은 문자열 `body.reason`, WebSocket은
 R-SIG-011의 값, 없으면 `CLIENT_APPROVAL_DENIED`)으로 ticket 종료(R-ROOM-047)를 MUST 한다. `rejected` ticket은 다시 `pending`이나
 `approved`가 되지 않고, 그동안 그 ticket의 MCP 호출은 403 −32054 `CLIENT_APPROVAL_DENIED`다. 다만 뒤의 ticket 종료 — provider 단일
 revoke(R-ROOM-039), client 자기 revoke(R-ROOM-040), 전체 revoke·rotate·room 만료(R-ROOM-048) — 는 이 status를 `revoked`,
 `room-rotated`, `expired`로 덮어쓴다. invite는 소비된 채 남는다.\
-근거: `src/server/peer-server.ts:1811`, `src/server/peer-server.ts:1812`, `src/server/peer-server.ts:1814`, `src/server/peer-server.ts:2541`, `src/server/peer-server.ts:1572`, `src/server/peer-server.ts:1762`, `src/server/peer-server.ts:2659`, `src/server/peer-server.ts:2683`, `src/server/peer-server.ts:1861`; 테스트: `test/live-demo.e2e.test.ts` › `a host rejection denies the session`
+근거: `src/server/peer-server.ts:1938`, `src/server/peer-server.ts:1939`, `src/server/peer-server.ts:2722`, `src/server/peer-server.ts:1633`, `src/server/peer-server.ts:1877`, `src/server/peer-server.ts:2849`, `src/server/peer-server.ts:2873`, `src/server/peer-server.ts:2033`; 테스트: `test/live-demo.e2e.test.ts` › `a host rejection denies the session`
 
 **R-ROOM-031** 결정한 approval은 200 `{requestId, sessionId, roomId, roomEpoch, state:<decision>,
-clientTokenActive:<decision === 'approved'>, decidedAt(ISO), expiresAt(ISO)}`로 MUST 답한다. 여기서 `expiresAt`은 ticket이
-아니라 승인 요청의 만료다(→ O-17).\
-근거: `src/server/peer-server.ts:2546`, `src/server/peer-server.ts:2554`; 테스트: `test/webmcp-peer.test.ts` › `supports customHttpHandler plugin hook and headless HTTP approval + room rotation`
+clientTokenActive:<decision === 'approved'>, decidedAt(ISO), expiresAt(ISO), approvalExpiresAt(epoch ms), ticketExpiresAt(epoch ms)}`로
+MUST 답한다. `expiresAt`은 ticket이 아니라 승인 요청의 만료이고 기존 필드라 형식과 뜻을 바꾸지 않는다. 같은 승인 요청 만료를 epoch
+ms로 `approvalExpiresAt`에, ticket의 만료를 `ticketExpiresAt`에 싣는다(R-ROOM-072). `decidedAt`은 ticket이 기록한 결정 시각(승인은
+`approvedAt`, 거절은 `revokedAt`)이라 provider echo의 `sentAt`·`payload.decidedAt`(R-SIG-009)과 같다.\
+근거: `src/server/peer-server.ts:2728`, `src/server/peer-server.ts:2729`, `src/server/peer-server.ts:2736`, `src/server/peer-server.ts:2737`, `src/server/peer-server.ts:2738`, `src/server/peer-server.ts:1983`; 테스트: `test/webmcp-peer.test.ts` › `supports customHttpHandler plugin hook and headless HTTP approval + room rotation`; `test/server-approval-lease.test.ts` › `echoes a decision made over HTTP (%s), with both expiries`
 
 ### 4.9 `GET /p/:id/sessions/:sessionId`
 
 **R-ROOM-032** session status는 경로 `:sessionId`를 먼저 decode하고(실패하면 400 `INVALID_PATH`, R-HTTP-003), room이 없으면
 404 `{error:'ROOM_NOT_FOUND', code:-32004}`, rotate됐으면 인증보다 먼저 410 `{error:'ROOM_ROTATED', code:-32057, roomId, roomEpoch,
 replacementRoomId}`로 MUST 답한다. room 만료는 검사하지 않으므로 보존 중인 만료 room도 답한다.\
-근거: `src/server/peer-server.ts:2563`, `src/server/peer-server.ts:2565`, `src/server/peer-server.ts:2569`, `src/server/peer-server.ts:2570`, `src/server/peer-server.ts:2573`, `src/server/peer-server.ts:2574`; 테스트: `test/server-error-model.test.ts` › `answers every lifecycle route of a rotated room with 410 ROOM_ROTATED and its replacement`
+근거: `src/server/peer-server.ts:2747`, `src/server/peer-server.ts:2749`, `src/server/peer-server.ts:2753`, `src/server/peer-server.ts:2754`, `src/server/peer-server.ts:2757`, `src/server/peer-server.ts:2758`; 테스트: `test/server-error-model.test.ts` › `answers every lifecycle route of a rotated room with 410 ROOM_ROTATED and its replacement`
 
 **R-ROOM-033** bearer(R-HTTP-018)가 room의 providerToken과 상수 시간으로 같으면 room의 모든 session을 읽을 수 있고, 모르는
 session은 404 `{error:'SESSION_NOT_FOUND'}`다. 그 밖의 bearer는 client token이어야 하며 relay는 MUST 다음 순서로 검사한다. bearer가
 없으면 401 `{error:'CLIENT_TOKEN_REQUIRED', code:-32003}`. token의 SHA-256 hex로 찾은 room의 ticket이 없으면 401
 `{error:'CLIENT_TOKEN_INVALID', code:-32003}`(둘 다 R-HTTP-019의 challenge를 가진다). 그 ticket이 경로의 session이 아니면(모르는
 session 포함) 403 `{error:'SESSION_NOT_OWNED'}`. 모든 status의 ticket(revoked, rejected 포함)을 읽을 수 있다.\
-근거: `src/server/peer-server.ts:2578`, `src/server/peer-server.ts:2579`, `src/server/peer-server.ts:2580`, `src/server/peer-server.ts:2583`, `src/server/peer-server.ts:2586`, `src/server/peer-server.ts:2588`, `src/server/peer-server.ts:2592`, `src/server/peer-server.ts:2597`; 테스트: `test/client-session.test.ts` › `revokes a README-style Streamable HTTP session after initialize`; `test/server-room-lifecycle.test.ts` › `takes a Bearer token with a scheme of any case and one or more spaces on every route`; `test/server-error-model.test.ts` › `lets a client token read the status of its own session only`; `test/server-error-model.test.ts` › `tells a missing Authorization credential from a wrong one, with a Bearer challenge`
+근거: `src/server/peer-server.ts:2762`, `src/server/peer-server.ts:2763`, `src/server/peer-server.ts:2764`, `src/server/peer-server.ts:2767`, `src/server/peer-server.ts:2770`, `src/server/peer-server.ts:2772`, `src/server/peer-server.ts:2776`, `src/server/peer-server.ts:2781`; 테스트: `test/client-session.test.ts` › `revokes a README-style Streamable HTTP session after initialize`; `test/server-room-lifecycle.test.ts` › `takes a Bearer token with a scheme of any case and one or more spaces on every route`; `test/server-error-model.test.ts` › `lets a client token read the status of its own session only`; `test/server-error-model.test.ts` › `tells a missing Authorization credential from a wrong one, with a Bearer challenge`
 
 **R-ROOM-034** `ticket.expiresAt <= now`이고 status가 `revoked`·`rejected`가 아니면 status를 `expired`로 MUST 바꾼다.
 client token으로 pending ticket을 조회하면 승인 요청을 전달한다(R-ROOM-025, provider token 조회는 하지 않는다). 응답은 200
 `{roomId, roomEpoch, sessionId, state, clientLabel, approvalRequestId(문자열 또는 null), issuedAt(ISO), expiresAt(ISO),
 approvedAt?(ISO), revokedAt?(ISO)}`이다. `state`는 `pending`이면 `pending-approval`, 아니면 status 그대로
 (`approved`, `rejected`, `revoked`, `expired`)다. `revokedAt`은 ticket이 끝난 시각이라 거절, 승인 만료, room 만료에도 설정된다.\
-근거: `src/server/peer-server.ts:2602`, `src/server/peer-server.ts:2605`, `src/server/peer-server.ts:2606`, `src/server/peer-server.ts:2607`, `src/server/peer-server.ts:2616`, `src/server/peer-server.ts:2617`; 테스트: `test/client-session.test.ts` › `revokes a ticket that is still waiting for approval`; `test/relay-backpressure.test.ts` › `sends a pending approval request the provider could not take on the agent's next call, and only once`
+근거: `src/server/peer-server.ts:2786`, `src/server/peer-server.ts:2789`, `src/server/peer-server.ts:2790`, `src/server/peer-server.ts:2791`, `src/server/peer-server.ts:2800`, `src/server/peer-server.ts:2801`; 테스트: `test/client-session.test.ts` › `revokes a ticket that is still waiting for approval`; `test/relay-backpressure.test.ts` › `sends a pending approval request the provider could not take on the agent's next call, and only once`
 
 **R-ROOM-035** room 만료 처리(R-ROOM-050)는 이전 status와 무관하게 room의 모든 ticket을 `expired`로 끝내므로(R-ROOM-048), 보존
 중인 만료 room에서 이 route는 `state:'expired'`와 만료 처리 시각의 `revokedAt`을 MUST 보고하고 `revoked`를 보고하지 않는다. 그래서
 agent는 room 만료와 revoke를 구별하고, 승인을 기다리던 agent의 `waitForPeerApproval`은 `APPROVAL_EXPIRED`로 끝난다(R-PEER-048).
 HTTP 요청마다 sweep이 먼저 돌고 이 route는 body가 없으므로, 응답할 때 만료 room은 언제나 이미 만료 처리돼 있다. room이 보존 기한
 (R-ROOM-051)이 지나 삭제되면 404 `ROOM_NOT_FOUND`다.\
-근거: `src/server/peer-server.ts:1922`, `src/server/peer-server.ts:1914`, `src/server/peer-server.ts:1887`, `src/server/peer-server.ts:1861`, `src/server/peer-server.ts:1762`, `src/server/peer-server.ts:1763`, `src/server/peer-server.ts:2602`, `src/server/peer-server.ts:2617`; 테스트: `test/server-room-lifecycle.test.ts` › `answers every lifecycle route of an expired room 410 ROOM_EXPIRED while it is retained, and 404 once it is deleted`; `test/client-session.test.ts` › `reports a session still waiting for approval as expired, so waitForPeerApproval throws APPROVAL_EXPIRED`
+근거: `src/server/peer-server.ts:2094`, `src/server/peer-server.ts:2086`, `src/server/peer-server.ts:2059`, `src/server/peer-server.ts:2033`, `src/server/peer-server.ts:1877`, `src/server/peer-server.ts:1878`, `src/server/peer-server.ts:2786`, `src/server/peer-server.ts:2801`; 테스트: `test/server-room-lifecycle.test.ts` › `answers every lifecycle route of an expired room 410 ROOM_EXPIRED while it is retained, and 404 once it is deleted`; `test/client-session.test.ts` › `reports a session still waiting for approval as expired, so waitForPeerApproval throws APPROVAL_EXPIRED`
 
 ### 4.10 `POST /p/:id/session/revoke`, `POST /p/:id/sessions/:sessionId/revoke`
 
 **R-ROOM-036** 두 revoke route는 경로형의 `:sessionId`를 먼저 decode하고(실패하면 400 `INVALID_PATH`, R-HTTP-003), body를
 읽기 전과 뒤에 room을 R-ROOM-027과 같이(`checkLifecycleRoom`) MUST 검사한다. room이 없거나 바뀌었으면 404
 `{error:'ROOM_NOT_FOUND', code:-32004}`, rotate됐으면 410 `ROOM_ROTATED`(R-ROOM-046), 만료됐으면 410 `ROOM_EXPIRED`(R-ROOM-070)다.\
-근거: `src/server/peer-server.ts:2626`, `src/server/peer-server.ts:2628`, `src/server/peer-server.ts:2634`, `src/server/peer-server.ts:2635`, `src/server/peer-server.ts:2638`; 테스트: `test/relay-message-limit.test.ts` › `checks the room again once a slow body has arrived, so a rotation that happened meanwhile wins`; `test/server-error-model.test.ts` › `answers every lifecycle route of a rotated room with 410 ROOM_ROTATED and its replacement`
+근거: `src/server/peer-server.ts:2810`, `src/server/peer-server.ts:2812`, `src/server/peer-server.ts:2818`, `src/server/peer-server.ts:2819`, `src/server/peer-server.ts:2822`; 테스트: `test/relay-message-limit.test.ts` › `checks the room again once a slow body has arrived, so a rotation that happened meanwhile wins`; `test/server-error-model.test.ts` › `answers every lifecycle route of a rotated room with 410 ROOM_ROTATED and its replacement`
 
-**R-ROOM-037** 경로형 `/sessions/:sessionId/revoke`에서는 token 검사보다 먼저 `body.roomId`가 경로 roomId와,
-`body.roomEpoch`가 현재 epoch와 엄격히 같아야 하며(둘 다 필수) 아니면 409
-`{error:'SESSION_BINDING_INVALID', code:-32002}`다. 통과하면 경로 sessionId가 `body.sessionId`를 MUST 대신한다(→ O-10).\
-근거: `src/server/peer-server.ts:2626`, `src/server/peer-server.ts:2639`, `src/server/peer-server.ts:2640`, `src/server/peer-server.ts:2643`; 테스트: `test/server-room-lifecycle.test.ts` › `reports alreadyRevoked false then true for a provider revocation`
+**R-ROOM-037** 경로형 `/sessions/:sessionId/revoke`에서는 경로 sessionId가 `body.sessionId`를 MUST 대신한다. body binding은 두
+revoke route 모두 R-ROOM-071을 따른다: `body.roomId`·`body.roomEpoch`는 선택이고, 있으면 경로 roomId·현재 epoch와 엄격히 같아야 하며
+아니면 409 `{error:'SESSION_BINDING_INVALID', code:-32002}`다. 검사는 자격 뒤다: provider token이면 그 확인 바로 뒤(R-ROOM-038·R-ROOM-039보다
+먼저), 아니면 R-ROOM-040의 순서다. 그래서 자격이 없거나 틀린 요청은 binding이 틀려도 401을 받는다.\
+근거: `src/server/peer-server.ts:2810`, `src/server/peer-server.ts:2823`, `src/server/peer-server.ts:2826`, `src/server/peer-server.ts:2827`, `src/server/peer-server.ts:2828`, `src/server/peer-server.ts:2868`, `src/server/peer-server.ts:2869`; 테스트: `test/server-room-lifecycle.test.ts` › `reports alreadyRevoked false then true for a provider revocation`; `test/server-approval-lease.test.ts` › `is optional on approval and both revoke routes`; `test/server-approval-lease.test.ts` › `must name the room and its epoch when present, on every route under its own name`; `test/server-approval-lease.test.ts` › `is checked after the request's credential`
 
-**R-ROOM-038** bearer(R-HTTP-018)가 providerToken이고 sessionId가 없으면(`body.sessionId`가 없거나 문자열이 아니거나
-빈 값; `/session/revoke`에서만 가능) relay는 reason `ROOM_REVOKED`로 모든 ticket을 MUST revoke한다(R-ROOM-048). 이 경우
-roomId·roomEpoch binding 검사가 없어서 빈 body `{}`도 전부 revoke한다. 응답은 200
-`{roomId, revoked:true, revokedSessions:true}`이고 `roomState`는 바뀌지 않는다(→ O-10, O-50).\
-근거: `src/server/peer-server.ts:2644`, `src/server/peer-server.ts:2646`, `src/server/peer-server.ts:2647`, `src/server/peer-server.ts:2648`; 테스트: `test/server-pending-settlement.test.ts` › `answers SESSION_INVALID when the provider revokes every session`; `test/live-demo.e2e.test.ts` › `revoke pushes session.revoked and purges the host credentials`
+**R-ROOM-038** bearer(R-HTTP-018)가 providerToken이고 binding(R-ROOM-037)을 통과했고 sessionId가 없으면(`body.sessionId`가 없거나
+문자열이 아니거나 빈 값; `/session/revoke`에서만 가능) relay는 이를 room의 모든 session을 revoke하라는 명시적 요청으로 보고 reason
+`ROOM_REVOKED`로 모든 ticket을 MUST revoke한다(R-ROOM-048). revoke route에는 다른 범위 지정이 없으므로 빈 body `{}`도 전부 revoke한다.
+`roomId`·`roomEpoch`를 보냈으면 binding이 맞아야 하고, 틀리면 아무것도 revoke하지 않고 409다. 응답은 200
+`{roomId, revoked:true, revokedSessions:true}`이고(단일 revoke와 모양이 다르다) `roomState`는 바뀌지 않는다.\
+근거: `src/server/peer-server.ts:2826`, `src/server/peer-server.ts:2827`, `src/server/peer-server.ts:2834`, `src/server/peer-server.ts:2835`, `src/server/peer-server.ts:2836`; 테스트: `test/server-pending-settlement.test.ts` › `answers SESSION_INVALID when the provider revokes every session`; `test/live-demo.e2e.test.ts` › `revoke pushes session.revoked and purges the host credentials`; `test/server-approval-lease.test.ts` › `must name the room and its epoch when present, on every route under its own name`
 
 **R-ROOM-039** providerToken과 sessionId가 있으면, 모르는 session은 404 `{error:'SESSION_NOT_FOUND'}`다. 아니면 ticket이
 이미 `revoked`가 아닌 한 reason `SESSION_REVOKED`로 ticket을 MUST 종료(R-ROOM-047)하며, `rejected`·`expired`도 `revoked`로
-덮어쓴다. 응답은 200 `{roomId, roomEpoch, sessionId, state:'revoked', revoked:true, revokedAt(ISO; 반복이면 원래 시각),
-reason, alreadyRevoked}`이다. `reason`은 `body.reason ?? 'provider-request'`라서 `null`이 아닌 JSON 값이면 무엇이든 그대로
-돌려주고, 없거나 `null`이면 `'provider-request'`다. `/session/revoke`에 `body.sessionId`를 준 provider는 binding 검사가 없다.\
-근거: `src/server/peer-server.ts:2651`, `src/server/peer-server.ts:2653`, `src/server/peer-server.ts:2658`, `src/server/peer-server.ts:2659`, `src/server/peer-server.ts:2660`; 테스트: `test/server-room-lifecycle.test.ts` › `reports alreadyRevoked false then true for a provider revocation`
+덮어쓴다. revoke는 ticket을 '끝남'으로 수렴시키므로 멱등이다. 응답은 200 `{roomId, roomEpoch, sessionId, state:'revoked', revoked:true,
+revokedAt(ISO; 반복이면 원래 시각), reason, alreadyRevoked}`이다. `reason`은 `body.reason ?? 'provider-request'`라서 `null`이 아닌 JSON
+값이면 무엇이든 그대로 돌려주고, 없거나 `null`이면 `'provider-request'`다. 이 echo는 요청자에게만 돌아가고 저장되거나 전달되지
+않는다. agent와 provider socket이 받는 `session.revoked`의 reason은 relay가 정한 고정값이라(R-SIG-015) 호출자가 agent 화면에 임의
+문자열을 넣을 수 없다.\
+근거: `src/server/peer-server.ts:2839`, `src/server/peer-server.ts:2840`, `src/server/peer-server.ts:2841`, `src/server/peer-server.ts:2848`, `src/server/peer-server.ts:2849`, `src/server/peer-server.ts:2850`; 테스트: `test/server-room-lifecycle.test.ts` › `reports alreadyRevoked false then true for a provider revocation`; `test/server-approval-lease.test.ts` › `tells it of %s with session.revoked`
 
 **R-ROOM-040** bearer(R-HTTP-018)가 providerToken이 아니면 relay는 client revoke로 보고 MUST 다음 순서로 검사한다. bearer가
 없으면 401 `{error:'CLIENT_TOKEN_REQUIRED', code:-32003}`. token의 SHA-256 hex로 room의 ticket(모든 status)을 찾지 못하면 401
 `{error:'CLIENT_TOKEN_INVALID', code:-32003}`(둘 다 R-HTTP-019의 challenge를 가진다). 비어 있지 않은 문자열 `body.sessionId`(또는
-경로 sessionId)가 ticket의 것과 다르면 403 `{error:'SESSION_NOT_OWNED'}`. `body.roomId`·`body.roomEpoch`가 경로 roomId·현재 epoch와
-같지 않으면(둘 다 필수) 409 `{error:'SESSION_BINDING_INVALID', code:-32002}`. 그래서 `SESSION_BINDING_INVALID`는 binding 불일치
-하나만 뜻한다. 통과하면 이미 `revoked`가 아닌 한 reason `CLIENT_REVOKED`로 ticket을 종료한다. 응답은 200 `{roomId, roomEpoch,
-sessionId, state:'revoked', revoked:true, revokedAt, reason, alreadyRevoked}`이다. `reason`은 `body.reason ?? 'client-request'`라서
-`null`이 아닌 JSON 값이면 그대로, 없거나 `null`이면 `'client-request'`다. pending, approved, expired, rejected ticket 모두 스스로
-revoke할 수 있다.\
-근거: `src/server/peer-server.ts:2663`, `src/server/peer-server.ts:2664`, `src/server/peer-server.ts:2667`, `src/server/peer-server.ts:2669`, `src/server/peer-server.ts:2674`, `src/server/peer-server.ts:2675`, `src/server/peer-server.ts:2678`, `src/server/peer-server.ts:2679`, `src/server/peer-server.ts:2683`, `src/server/peer-server.ts:2684`; 테스트: `test/server-room-lifecycle.test.ts` › `reports alreadyRevoked false then true for a client revocation`; `test/client-session.test.ts` › `revokes a ticket that is still waiting for approval`; `test/server-room-lifecycle.test.ts` › `takes a Bearer token with a scheme of any case and one or more spaces on every route`; `test/server-error-model.test.ts` › `refuses a client revoke naming another session with SESSION_NOT_OWNED, not a binding error`; `test/server-error-model.test.ts` › `tells a missing Authorization credential from a wrong one, with a Bearer challenge`
+경로 sessionId)가 ticket의 것과 다르면 403 `{error:'SESSION_NOT_OWNED'}`. `body.roomId`·`body.roomEpoch` 중 있는 것이 경로 roomId·현재
+epoch와 같지 않으면(R-ROOM-071) 409 `{error:'SESSION_BINDING_INVALID', code:-32002}`. 그래서 `SESSION_BINDING_INVALID`는 binding 불일치
+하나만 뜻한다. 통과하면 이미 `revoked`가 아닌 한 reason `CLIENT_REVOKED`로 ticket을 종료한다(R-ROOM-047. provider socket도
+`session.revoked`를 받는다). 응답은 200 `{roomId, roomEpoch, sessionId, state:'revoked', revoked:true, revokedAt, reason, alreadyRevoked}`다.
+`reason`은 `body.reason ?? 'client-request'`라서 `null`이 아닌 JSON 값이면 그대로, 없거나 `null`이면 `'client-request'`이고,
+R-ROOM-039처럼 요청자에게만 돌아간다. pending, approved, expired, rejected ticket 모두 스스로 revoke할 수 있다.\
+근거: `src/server/peer-server.ts:2853`, `src/server/peer-server.ts:2854`, `src/server/peer-server.ts:2857`, `src/server/peer-server.ts:2859`, `src/server/peer-server.ts:2864`, `src/server/peer-server.ts:2865`, `src/server/peer-server.ts:2868`, `src/server/peer-server.ts:2869`, `src/server/peer-server.ts:2873`, `src/server/peer-server.ts:2874`; 테스트: `test/server-room-lifecycle.test.ts` › `reports alreadyRevoked false then true for a client revocation`; `test/client-session.test.ts` › `revokes a ticket that is still waiting for approval`; `test/server-room-lifecycle.test.ts` › `takes a Bearer token with a scheme of any case and one or more spaces on every route`; `test/server-error-model.test.ts` › `refuses a client revoke naming another session with SESSION_NOT_OWNED, not a binding error`; `test/server-error-model.test.ts` › `tells a missing Authorization credential from a wrong one, with a Bearer challenge`; `test/server-approval-lease.test.ts` › `is optional on approval and both revoke routes`; `test/server-approval-lease.test.ts` › `tells it of %s with session.revoked`
 
 ### 4.11 `POST /p/:id/rotate`
 
@@ -962,19 +1015,19 @@ MUST 검사한다. room이 없거나 바뀌었으면 404 `{error:'ROOM_NOT_FOUND
 `{error:'ROOM_ROTATED', code:-32057, roomId, roomEpoch, replacementRoomId}`이므로 동시에 온 두 번째 rotate도 대체 room을 받고
 room을 두 번 rotate하지 않는다. 만료됐으면 410 `ROOM_EXPIRED`(R-ROOM-070)이므로 만료 room은 rotate할 수 없다. bearer가 없으면 401
 `PROVIDER_TOKEN_REQUIRED`, 현재 providerToken이 아니면 401 `PROVIDER_TOKEN_INVALID`다(R-HTTP-019).\
-근거: `src/server/peer-server.ts:2693`, `src/server/peer-server.ts:2698`, `src/server/peer-server.ts:2699`, `src/server/peer-server.ts:2701`, `src/server/peer-server.ts:2703`, `src/server/peer-server.ts:1364`, `src/server/peer-server.ts:1381`, `src/server/peer-server.ts:1385`; 테스트: `test/relay-message-limit.test.ts` › `checks the room again once a slow body has arrived, so a rotation that happened meanwhile wins`; `test/server-error-model.test.ts` › `answers every lifecycle route of a rotated room with 410 ROOM_ROTATED and its replacement`; `test/server-error-model.test.ts` › `tells a missing Authorization credential from a wrong one, with a Bearer challenge`; `test/server-room-lifecycle.test.ts` › `answers every lifecycle route of an expired room 410 ROOM_EXPIRED while it is retained, and 404 once it is deleted`
+근거: `src/server/peer-server.ts:2883`, `src/server/peer-server.ts:2888`, `src/server/peer-server.ts:2889`, `src/server/peer-server.ts:2891`, `src/server/peer-server.ts:2893`, `src/server/peer-server.ts:1425`, `src/server/peer-server.ts:1442`, `src/server/peer-server.ts:1446`; 테스트: `test/relay-message-limit.test.ts` › `checks the room again once a slow body has arrived, so a rotation that happened meanwhile wins`; `test/server-error-model.test.ts` › `answers every lifecycle route of a rotated room with 410 ROOM_ROTATED and its replacement`; `test/server-error-model.test.ts` › `tells a missing Authorization credential from a wrong one, with a Bearer challenge`; `test/server-room-lifecycle.test.ts` › `answers every lifecycle route of an expired room 410 ROOM_EXPIRED while it is retained, and 404 once it is deleted`
 
-**R-ROOM-042** `body.roomId`와 `body.roomEpoch`는 선택이지만, 있으면 경로 roomId·현재 epoch와 엄격히 같아야 한다. 다르면
-relay는 rotate하지 않고 409 `{error:'ROOM_BINDING_INVALID', code:-32002, roomId, roomEpoch}`(현재 epoch)로 MUST 답한다.
+**R-ROOM-042** `body.roomId`와 `body.roomEpoch`는 선택이지만, 있으면 경로 roomId·현재 epoch와 엄격히 같아야 한다(R-ROOM-071).
+다르면 relay는 rotate하지 않고 409 `{error:'ROOM_BINDING_INVALID', code:-32002, roomId, roomEpoch}`(현재 epoch)로 MUST 답한다.
 `ROOM_ROTATED`는 실제로 rotate된 room에만 쓴다(R-ROOM-041). provider는 모르는 epoch를 보내지 않는다(R-PEER-026).\
-근거: `src/server/peer-server.ts:2705`, `src/server/peer-server.ts:2706`; 테스트: `test/server-error-model.test.ts` › `refuses a rotate whose body names another room or epoch with ROOM_BINDING_INVALID`
+근거: `src/server/peer-server.ts:2895`, `src/server/peer-server.ts:2896`, `src/server/peer-server.ts:967`; 테스트: `test/server-error-model.test.ts` › `refuses a rotate whose body names another room or epoch with ROOM_BINDING_INVALID`; `test/server-approval-lease.test.ts` › `must name the room and its epoch when present, on every route under its own name`
 
 **R-ROOM-043** 대체 room은 `alias = trim한 비어 있지 않은 문자열 body.alias를 R-ROOM-012처럼 처음 256 code point로 자른 값,
 아니면 이전 alias`, `ttlMs = 유한한 body.ttlMs, 아니면
 7200000`(이전 TTL을 물려받지 않음, R-ROOM-002 clamp), 이전 room의 `approvalRequired`·`capabilities`·`ownerId`,
 `roomEpoch = 이전 + 1`로 MUST 만든다. 새 token들, 소비되지 않은 invite, 빈 ticket, deployment catalog(R-ROOM-013)를 가지며
 provider가 등록한 catalog는 넘어가지 않는다.\
-근거: `src/server/peer-server.ts:2709`, `src/server/peer-server.ts:2710`, `src/server/peer-server.ts:2711`, `src/server/peer-server.ts:2715`, `src/server/peer-server.ts:2716`; 테스트: `test/server-room-lifecycle.test.ts` › `clamps a huge ttlMs on creation and rotation so the room expires and session status stays readable`; `test/live-demo.e2e.test.ts` › `rotation pushes room.rotated, voids old tickets, and issues a fresh single-use invite`; `test/relay-message-limit.test.ts` › `trims a room's alias and keeps at most its first 256 code points, on creation and on rotation`
+근거: `src/server/peer-server.ts:2899`, `src/server/peer-server.ts:2900`, `src/server/peer-server.ts:2901`, `src/server/peer-server.ts:2905`, `src/server/peer-server.ts:2906`; 테스트: `test/server-room-lifecycle.test.ts` › `clamps a huge ttlMs on creation and rotation so the room expires and session status stays readable`; `test/live-demo.e2e.test.ts` › `rotation pushes room.rotated, voids old tickets, and issues a fresh single-use invite`; `test/relay-message-limit.test.ts` › `trims a room's alias and keeps at most its first 256 code points, on creation and on rotation`
 
 **R-ROOM-044** 이전 room에는 다음을 MUST 한다. `rotatedTo = 대체 id`, `expiresAt = rotate 시각`, `roomState = 'rotated'`.
 보존 기한은 만료 room과 같은 `metadataRetainUntil`(원래 `expiresAt` + 86400000)이며 rotate가 바꾸지 않는다(R-ROOM-051). 모든 ticket을
@@ -982,14 +1035,14 @@ provider가 등록한 catalog는 넘어가지 않는다.\
 `room.rotated`(R-SIG-016)를 받고 닫히며, 그 socket의 pending WebSocket 요청과 진행 중인 HTTP MCP 요청은 모두 −32057 `ROOM_ROTATED`,
 data `{replacementRoomId, roomId, roomEpoch}`로 끝난다. client socket은 모두 ticket에 묶여 있으므로 이 종료가 room의 client socket을
 모두 뗀다. 그다음 provider socket에는 provider용 `room.rotated`(R-SIG-016)를 보내고 닫고 뗀다.\
-근거: `src/server/peer-server.ts:2712`, `src/server/peer-server.ts:2719`, `src/server/peer-server.ts:2720`, `src/server/peer-server.ts:2721`, `src/server/peer-server.ts:2726`, `src/server/peer-server.ts:2727`, `src/server/peer-server.ts:2737`, `src/server/peer-server.ts:2738`, `src/server/peer-server.ts:1768`, `src/server/peer-server.ts:1792`, `src/server/peer-server.ts:1852`; 테스트: `test/server-pending-settlement.test.ts` › `answers ROOM_ROTATED with the replacement room when the provider rotates`; `test/server-pending-settlement.test.ts` › `names the replacement room to a WebSocket agent, in its room.rotated and its request's error, as to an HTTP one`; `test/live-demo.e2e.test.ts` › `rotation pushes room.rotated, voids old tickets, and issues a fresh single-use invite`
+근거: `src/server/peer-server.ts:2902`, `src/server/peer-server.ts:2909`, `src/server/peer-server.ts:2910`, `src/server/peer-server.ts:2911`, `src/server/peer-server.ts:2916`, `src/server/peer-server.ts:2917`, `src/server/peer-server.ts:2927`, `src/server/peer-server.ts:2928`, `src/server/peer-server.ts:1883`, `src/server/peer-server.ts:1903`, `src/server/peer-server.ts:2024`; 테스트: `test/server-pending-settlement.test.ts` › `answers ROOM_ROTATED with the replacement room when the provider rotates`; `test/server-pending-settlement.test.ts` › `names the replacement room to a WebSocket agent, in its room.rotated and its request's error, as to an HTTP one`; `test/live-demo.e2e.test.ts` › `rotation pushes room.rotated, voids old tickets, and issues a fresh single-use invite`
 
 **R-ROOM-045** rotate는 201 `{...대체 room의 descriptor, rotatedFrom, previousRoomId, previousRoomEpoch, previousState:'rotated',
 replacementRoomId, replacementRoomEpoch, rotatedAt(ISO), invalidatedSessionCount}`로 MUST 답한다. `invalidatedSessionCount`는
 이전 room이 발급한 ticket 수(`clientTickets.size`, 최대 1)다. relay는 rotate 시각(`Date.now()`) 하나를 이전 room의 `expiresAt`과
 `updatedAt`에 쓰지만, 응답의 `rotatedAt`, provider용 `room.rotated`의 `sentAt`과 `payload.rotatedAt`은 각각 그 자리에서
 새로 찍은 `new Date()`라서 서로, 그리고 저장한 rotate 시각과 ms 단위로 다를 수 있다(→ O-17).\
-근거: `src/server/peer-server.ts:2739`, `src/server/peer-server.ts:2748`, `src/server/peer-server.ts:2712`, `src/server/peer-server.ts:2720`, `src/server/peer-server.ts:2722`, `src/server/peer-server.ts:2733`, `src/server/peer-server.ts:2734`, `src/server/peer-server.ts:2747`; 테스트: `test/webmcp-peer.test.ts` › `supports customHttpHandler plugin hook and headless HTTP approval + room rotation`
+근거: `src/server/peer-server.ts:2929`, `src/server/peer-server.ts:2938`, `src/server/peer-server.ts:2902`, `src/server/peer-server.ts:2910`, `src/server/peer-server.ts:2912`, `src/server/peer-server.ts:2923`, `src/server/peer-server.ts:2924`, `src/server/peer-server.ts:2937`; 테스트: `test/webmcp-peer.test.ts` › `supports customHttpHandler plugin hook and headless HTTP approval + room rotation`
 
 **R-ROOM-046** rotate 뒤 이전 room id로 온 요청에 relay는 다음과 같이 MUST 답한다. 모든 수명주기 route는 같은 410 body를
 인증보다 먼저 보낸다. `rotatedTo`는 공개 descriptor(R-ROOM-060)에도 있으므로 새로 드러나는 것은 없다. route마다 rotate 검사는
@@ -1007,38 +1060,43 @@ replacementRoomId, replacementRoomEpoch, rotatedAt(ISO), invalidatedSessionCount
 | `GET /p/:id/mcp/tools` | snapshot에 tool이 있으면 200, `state:'rotated'`, `roomValid:false`, 마지막 catalog. 없으면 503 `CATALOG_UNAVAILABLE`(R-ROOM-063) |
 | provider·client WebSocket upgrade | 파기(`expiresAt <= now`) |
 
-근거: `src/server/peer-server.ts:1338`, `src/server/peer-server.ts:1364`, `src/server/peer-server.ts:2444`, `src/server/peer-server.ts:2573`, `src/server/peer-server.ts:2055`, `src/server/peer-server.ts:2527`, `src/server/peer-server.ts:2634`, `src/server/peer-server.ts:2699`, `src/server/peer-server.ts:2273`, `src/server/peer-server.ts:2289`, `src/server/peer-server.ts:2307`, `src/server/peer-server.ts:2326`, `src/server/peer-server.ts:2331`, `src/server/peer-server.ts:2167`, `src/server/peer-server.ts:2192`, `src/server/peer-server.ts:2789`; 테스트: `test/relay-message-limit.test.ts` › `checks the room again once a slow body has arrived, so a rotation that happened meanwhile wins`; `test/server-error-model.test.ts` › `answers every lifecycle route of a rotated room with 410 ROOM_ROTATED and its replacement`
+근거: `src/server/peer-server.ts:1399`, `src/server/peer-server.ts:1425`, `src/server/peer-server.ts:2622`, `src/server/peer-server.ts:2757`, `src/server/peer-server.ts:2231`, `src/server/peer-server.ts:2705`, `src/server/peer-server.ts:2818`, `src/server/peer-server.ts:2889`, `src/server/peer-server.ts:2450`, `src/server/peer-server.ts:2466`, `src/server/peer-server.ts:2484`, `src/server/peer-server.ts:2503`, `src/server/peer-server.ts:2508`, `src/server/peer-server.ts:2344`, `src/server/peer-server.ts:2369`, `src/server/peer-server.ts:2979`; 테스트: `test/relay-message-limit.test.ts` › `checks the room again once a slow body has arrived, so a rotation that happened meanwhile wins`; `test/server-error-model.test.ts` › `answers every lifecycle route of a rotated room with 410 ROOM_ROTATED and its replacement`
 
 ### 4.12 ticket 종료
 
 **R-ROOM-047** ticket 종료(`closeClientTicket(entry, tokenHash, …)`. ticket은 client token의 SHA-256 hex로 고른다. status는
-`rejected`, `revoked`, `room-rotated`, `expired` 중 하나이고, `expired`는 room 만료 처리(R-ROOM-050)만 쓴다)는 이전 status와
-무관하게 status와 `revokedAt = now`를 정하고 ticket의 pending 승인 요청을 지운다. ticket에 묶인 client socket마다 plain `send`로
-status의 종료 frame(`TICKET_END_FRAMES`: `approval.rejected`, `session.revoked`, `room.rotated`, `room.expired`; R-SIG-011, R-SIG-015,
-R-SIG-016, R-SIG-023)을 보내고, 그 socket의 pending WebSocket 요청을 `ticketClosedRpcError`로 끝내고, 닫고(1000) room에서 MUST 뗀다.
-오류는 HTTP 진행 요청이 같은 종료에서 받는 것(R-ROOM-048)과 같다: −32054 `CLIENT_APPROVAL_DENIED`(data 없음), −32001
-`SESSION_INVALID`(data 없음), −32057 `ROOM_ROTATED` `{replacementRoomId, roomId, roomEpoch}`, −32056 `ROOM_EXPIRED` `{roomId,
-roomEpoch}`. 각 socket은 종료 frame을 오류보다 먼저 받는다. provider socket에는 frame을 보내지 않는다. 같은 ticket으로 진행 중인
-HTTP 요청은 이 단계에서 끝내지 않는다(→ O-19).\
-근거: `src/server/peer-server.ts:1759`, `src/server/peer-server.ts:1762`, `src/server/peer-server.ts:1763`, `src/server/peer-server.ts:1766`, `src/server/peer-server.ts:1771`, `src/server/peer-server.ts:1775`, `src/server/peer-server.ts:1796`, `src/server/peer-server.ts:1797`, `src/server/peer-server.ts:122`, `src/server/peer-server.ts:1850`; 테스트: `test/live-demo.e2e.test.ts` › `revoke pushes session.revoked and purges the host credentials`; `test/live-demo.e2e.test.ts` › `a host rejection denies the session`; `test/server-pending-settlement.test.ts` › `names the replacement room to a WebSocket agent, in its room.rotated and its request's error, as to an HTTP one`; `test/server-pending-settlement.test.ts` › `ends a WebSocket agent's request with the ROOM_EXPIRED an HTTP one gets, after a room.expired frame`
+`rejected`, `revoked`, `room-rotated`, `expired` 중 하나이고, `expired`는 room 만료 처리(R-ROOM-050)만 쓴다. 승인 요청의 만료는
+R-ROOM-026이다)는 이전 status와 무관하게 status와 `revokedAt = now`를 정하고 ticket의 pending 승인 요청을 지운다. status의 종료 frame
+(`TICKET_END_FRAMES`: `approval.rejected`, `session.revoked`, `room.rotated`, `room.expired`; R-SIG-011, R-SIG-015, R-SIG-016, R-SIG-023)을
+하나 만들어 ticket에 묶인 client socket마다 plain `send`로 보내고, 그 socket의 pending WebSocket 요청을 `ticketClosedRpcError`로
+끝내고, 닫고(1000) room에서 MUST 뗀다. 그다음 그 ticket이 인증한 남은 진행 요청(`PendingMcpRequest.ticket`), 곧 ticket의 socket에
+묶이지 않은 HTTP 요청도 같은 오류로 MUST 끝낸다. 오류는 −32054 `CLIENT_APPROVAL_DENIED`(data 없음), −32001 `SESSION_INVALID`(data
+없음), −32057 `ROOM_ROTATED` `{replacementRoomId, roomId, roomEpoch}`, −32056 `ROOM_EXPIRED` `{roomId, roomEpoch}`이고 두 transport에서
+같다. 각 socket은 종료 frame을 오류보다 먼저 받는다. 이미 provider에 간 요청은 provider에서 실행될 수 있다. relay는 그 답을 기다리지
+않고, 늦게 온 답은 pending 항목이 없어 버린다(R-MCP-005). status가 `revoked`이면 같은 `session.revoked`를 room의 provider socket에도
+plain `send`로 보낸다(R-SIG-024). 다른 status는 provider socket에 이 frame을 보내지 않는다(거절은 결정 echo가, rotate는 provider용
+`room.rotated`가, room 만료는 socket close가 알린다).\
+근거: `src/server/peer-server.ts:1874`, `src/server/peer-server.ts:1877`, `src/server/peer-server.ts:1878`, `src/server/peer-server.ts:1880`, `src/server/peer-server.ts:1881`, `src/server/peer-server.ts:1886`, `src/server/peer-server.ts:1906`, `src/server/peer-server.ts:1910`, `src/server/peer-server.ts:1912`, `src/server/peer-server.ts:1913`, `src/server/peer-server.ts:1917`, `src/server/peer-server.ts:1918`, `src/server/peer-server.ts:1920`, `src/server/peer-server.ts:135`, `src/server/peer-server.ts:2022`, `src/server/peer-server.ts:2597`, `src/server/peer-server.ts:3218`; 테스트: `test/live-demo.e2e.test.ts` › `revoke pushes session.revoked and purges the host credentials`; `test/live-demo.e2e.test.ts` › `a host rejection denies the session`; `test/server-pending-settlement.test.ts` › `names the replacement room to a WebSocket agent, in its room.rotated and its request's error, as to an HTTP one`; `test/server-pending-settlement.test.ts` › `ends a WebSocket agent's request with the ROOM_EXPIRED an HTTP one gets, after a room.expired frame`; `test/server-pending-settlement.test.ts` › `answers SESSION_INVALID when %s alone, as a revoke of every session does`; `test/server-approval-lease.test.ts` › `tells it of %s with session.revoked`
 
 **R-ROOM-048** 전체 revoke(`revokeAllClientTickets`: provider revoke-all은 `revoked`, rotate는 `room-rotated`, room 만료 처리는
-`expired`)는 이전 status와 무관하게 room의 모든 ticket을 R-ROOM-047로 종료해 그 status로 MUST 덮어쓴다. 그다음 남은 pending
-요청(HTTP bridge)을 모두 같은 status의 `ticketClosedRpcError`로 끝내고 승인 요청을 비운다. 오류는 rotate면 −32057 `ROOM_ROTATED`
-`{replacementRoomId, roomId, roomEpoch}`, room 만료면 −32056 `ROOM_EXPIRED` `{roomId, roomEpoch}`, revoke-all이면 data 없는 −32001
-`SESSION_INVALID`다. 그래서 한 종료에서 WebSocket과 HTTP 요청은 같은 오류를 받는다.\
-근거: `src/server/peer-server.ts:1850`, `src/server/peer-server.ts:1852`, `src/server/peer-server.ts:1854`, `src/server/peer-server.ts:1856`, `src/server/peer-server.ts:1860`, `src/server/peer-server.ts:1861`, `src/server/peer-server.ts:1864`, `src/server/peer-server.ts:1865`, `src/server/peer-server.ts:1866`; 테스트: `test/server-pending-settlement.test.ts` › `answers SESSION_INVALID when the provider revokes every session`; `test/server-pending-settlement.test.ts` › `answers ROOM_EXPIRED when the sweeper expires the room %s`; `test/server-pending-settlement.test.ts` › `names the replacement room to a WebSocket agent, in its room.rotated and its request's error, as to an HTTP one`; `test/server-pending-settlement.test.ts` › `ends a WebSocket agent's request with the ROOM_EXPIRED an HTTP one gets, after a room.expired frame`
+`expired`)는 이전 status와 무관하게 room의 모든 ticket을 R-ROOM-047로 종료해 그 status로 MUST 덮어쓴다. ticket 종료가 그 ticket이
+인증한 요청을 모두 끝내고, 그다음 relay는 그래도 남은 pending 요청을 같은 status의 `ticketClosedRpcError`로 끝내고 승인 요청을 비운다.
+오류는 rotate면 −32057 `ROOM_ROTATED` `{replacementRoomId, roomId, roomEpoch}`, room 만료면 −32056 `ROOM_EXPIRED` `{roomId, roomEpoch}`,
+revoke-all이면 data 없는 −32001 `SESSION_INVALID`다. 그래서 한 종료에서 WebSocket과 HTTP 요청은 같은 오류를 받는다. 단일 revoke
+(R-ROOM-039, R-ROOM-040)도 R-ROOM-047로 그 ticket의 HTTP 요청을 끝내므로, room당 ticket이 하나인 지금 단일 revoke와 전체 revoke는
+진행 요청에 같은 결과를 낸다.\
+근거: `src/server/peer-server.ts:2022`, `src/server/peer-server.ts:2024`, `src/server/peer-server.ts:2026`, `src/server/peer-server.ts:2028`, `src/server/peer-server.ts:2032`, `src/server/peer-server.ts:2033`, `src/server/peer-server.ts:2036`, `src/server/peer-server.ts:2037`, `src/server/peer-server.ts:2038`; 테스트: `test/server-pending-settlement.test.ts` › `answers SESSION_INVALID when the provider revokes every session`; `test/server-pending-settlement.test.ts` › `answers ROOM_EXPIRED when the sweeper expires the room %s`; `test/server-pending-settlement.test.ts` › `names the replacement room to a WebSocket agent, in its room.rotated and its request's error, as to an HTTP one`; `test/server-pending-settlement.test.ts` › `ends a WebSocket agent's request with the ROOM_EXPIRED an HTTP one gets, after a room.expired frame`; `test/server-pending-settlement.test.ts` › `answers SESSION_INVALID when %s alone, as a revoke of every session does`
 
 ### 4.13 room 만료와 sweep
 
 **R-ROOM-049** relay는 `roomSweepIntervalMs`가 0이 아니면 `max(1000, roomSweepIntervalMs ?? 30000)` ms마다(unref timer),
 그리고 timer와 별개로 모든 HTTP 요청 시작 때 `cleanupExpiredRooms`를 MUST 돌린다.\
-근거: `src/server/peer-server.ts:584`, `src/server/peer-server.ts:587`, `src/server/peer-server.ts:1922`; 테스트: 없음
+근거: `src/server/peer-server.ts:604`, `src/server/peer-server.ts:607`, `src/server/peer-server.ts:2094`; 테스트: 없음
 
 **R-ROOM-068** relay는 `roomSweepIntervalMs`가 유한한 수인지 검사하지 않는다. `NaN`이면 `max(1000, NaN)`이 `NaN`이고
 `NaN > 0`이 거짓이므로 relay는 sweep timer를 MUST NOT 건다(HTTP 요청 때의 sweep만 돈다). `Infinity`나 2147483647보다 큰 값이면
 Node가 interval 지연을 1 ms로 바꾸므로(`TimeoutOverflowWarning`) sweep이 약 1 ms마다 돈다.\
-근거: `src/server/peer-server.ts:584`, `src/server/peer-server.ts:585`, `src/server/peer-server.ts:586`, `src/server/peer-server.ts:587`; 테스트: 없음
+근거: `src/server/peer-server.ts:604`, `src/server/peer-server.ts:605`, `src/server/peer-server.ts:606`, `src/server/peer-server.ts:607`; 테스트: 없음
 
 **R-ROOM-050** sweep(`cleanupExpiredRooms(now)`)은 `expiresAt <= now`인 room마다 만료 처리(`expireRoom`)를 하고, 그 room의
 `metadataRetainUntil <= now`이면 room을 지운다(R-ROOM-051). 만료 처리는 rotate되지 않은 room에 한 번만 MUST 한다. `roomState`가
@@ -1049,7 +1107,7 @@ socket마다 `room.expired`(R-SIG-023)를 보내고, 그 socket의 pending 요�
 client socket을 모두 뗀다. 그다음 provider socket을 떼고 frame 없이 닫는다(→ O-23). room은 보존 기한까지 남고, 그동안 수명주기
 route는 410 `ROOM_EXPIRED`로 답한다(R-ROOM-070). 보존 기한이 지나 지울 room을 그때까지 아무도 만료 처리하지 않았으면(sweep도 요청도
 없었던 경우) 지우기 전에 처리한다. sweep 말고 만료를 먼저 발견한 자리도 같은 처리를 한다(R-ROOM-067).\
-근거: `src/server/peer-server.ts:1911`, `src/server/peer-server.ts:1913`, `src/server/peer-server.ts:1914`, `src/server/peer-server.ts:1915`, `src/server/peer-server.ts:1882`, `src/server/peer-server.ts:1883`, `src/server/peer-server.ts:1884`, `src/server/peer-server.ts:1885`, `src/server/peer-server.ts:1887`, `src/server/peer-server.ts:1889`, `src/server/peer-server.ts:1890`; 테스트: `test/server-pending-settlement.test.ts` › `answers ROOM_EXPIRED when the sweeper expires the room %s`; `test/server-pending-settlement.test.ts` › `ends a WebSocket agent's request with the ROOM_EXPIRED an HTTP one gets, after a room.expired frame`; `test/server-room-lifecycle.test.ts` › `answers every lifecycle route of an expired room 410 ROOM_EXPIRED while it is retained, and 404 once it is deleted`
+근거: `src/server/peer-server.ts:2083`, `src/server/peer-server.ts:2085`, `src/server/peer-server.ts:2086`, `src/server/peer-server.ts:2087`, `src/server/peer-server.ts:2054`, `src/server/peer-server.ts:2055`, `src/server/peer-server.ts:2056`, `src/server/peer-server.ts:2057`, `src/server/peer-server.ts:2059`, `src/server/peer-server.ts:2061`, `src/server/peer-server.ts:2062`; 테스트: `test/server-pending-settlement.test.ts` › `answers ROOM_EXPIRED when the sweeper expires the room %s`; `test/server-pending-settlement.test.ts` › `ends a WebSocket agent's request with the ROOM_EXPIRED an HTTP one gets, after a room.expired frame`; `test/server-room-lifecycle.test.ts` › `answers every lifecycle route of an expired room 410 ROOM_EXPIRED while it is retained, and 404 once it is deleted`
 
 **R-ROOM-067** relay는 sweep 말고도 room을 보는 다음 자리에서 `expiresAt <= now`인 room을 찾으면 그 자리의 동작보다 먼저
 R-ROOM-050의 만료 처리를 MUST 한다(`expireRoomIfDue`. 이미 처리했거나 rotate된 room이면 아무것도 하지 않는다).
@@ -1066,13 +1124,13 @@ sweep이 처리할 때와 같은 신호(`room.expired`, −32056 `ROOM_EXPIRED`)
 sweep은 처리한 room을 다시 처리하지 않는다. session status와 GET route는 body가 없어 요청 시작의 sweep이 이미 처리한 room을 읽을
 뿐이다. body를 다 읽은 뒤 bearer 없이 온 metadata method(`POST /p/:id/mcp`)는 처리하지 않고 `_meta.roomState:'expired'`로
 보고한다(그 room은 다음 sweep이나 위의 자리에서 처리된다).\
-근거: `src/server/peer-server.ts:1899`, `src/server/peer-server.ts:1900`, `src/server/peer-server.ts:1901`, `src/server/peer-server.ts:1368`, `src/server/peer-server.ts:2277`, `src/server/peer-server.ts:1553`, `src/server/peer-server.ts:2789`, `src/server/peer-server.ts:2917`, `src/server/peer-server.ts:2814`, `src/server/peer-server.ts:2943`, `src/server/peer-server.ts:1046`, `src/server/peer-server.ts:1883`; 테스트: `test/server-pending-settlement.test.ts` › `carries out the room's expiry where it is found first, not only at the sweep: %s`
+근거: `src/server/peer-server.ts:2071`, `src/server/peer-server.ts:2072`, `src/server/peer-server.ts:2073`, `src/server/peer-server.ts:1429`, `src/server/peer-server.ts:2454`, `src/server/peer-server.ts:1614`, `src/server/peer-server.ts:2979`, `src/server/peer-server.ts:3098`, `src/server/peer-server.ts:3004`, `src/server/peer-server.ts:3124`, `src/server/peer-server.ts:1107`, `src/server/peer-server.ts:2055`; 테스트: `test/server-pending-settlement.test.ts` › `carries out the room's expiry where it is found first, not only at the sweep: %s`
 
 **R-ROOM-051** 만료 room과 rotate된 room은 같은 보존 기한 `metadataRetainUntil`(원래 `expiresAt` + 86400000, R-LIM-028)까지
 MUST 남는다. rotate는 이 기한을 바꾸지 않으므로(R-LIM-029) rotate된 room은 그때까지 모든 수명주기 route에 410 `ROOM_ROTATED`와
 `replacementRoomId`(R-ROOM-046)로, 만료 room은 410 `ROOM_EXPIRED`(R-ROOM-070)로 답한다. sweep은 `metadataRetainUntil <= now`인
 room을 지우고, 지워진 room id에는 모든 수명주기 route와 session status가 404 `ROOM_NOT_FOUND`로 MUST 답한다.\
-근거: `src/server/peer-server.ts:693`, `src/server/peer-server.ts:1915`, `src/server/peer-server.ts:2719`, `src/server/peer-server.ts:2720`, `src/server/peer-server.ts:1360`, `src/server/types.ts:107`; 테스트: `test/server-room-lifecycle.test.ts` › `retains a rotated room, answering 410 ROOM_ROTATED with its replacement, until a day after its original expiry`; `test/server-room-lifecycle.test.ts` › `answers every lifecycle route of an expired room 410 ROOM_EXPIRED while it is retained, and 404 once it is deleted`
+근거: `src/server/peer-server.ts:715`, `src/server/peer-server.ts:2087`, `src/server/peer-server.ts:2909`, `src/server/peer-server.ts:2910`, `src/server/peer-server.ts:1421`, `src/server/types.ts:118`; 테스트: `test/server-room-lifecycle.test.ts` › `retains a rotated room, answering 410 ROOM_ROTATED with its replacement, until a day after its original expiry`; `test/server-room-lifecycle.test.ts` › `answers every lifecycle route of an expired room 410 ROOM_EXPIRED while it is retained, and 404 once it is deleted`
 
 **R-ROOM-070** 보존 중인 만료 room(`expiresAt <= now`, rotate되지 않음)의 id로 온 요청에 relay는 다음과 같이 MUST 답한다.
 수명주기 route는 같은 410 body(`sendRoomExpired`)를 인증과 body 자격보다 먼저 보내고(rotate 검사가 그보다 먼저다, R-ROOM-046),
@@ -1088,29 +1146,31 @@ R-ROOM-051)와, room 만료(`ROOM_EXPIRED`)를 살아 있는 room의 lease 만�
 | `GET /p/:id/mcp`, `GET /p/:id/mcp/tools` | `state:'expired'`, `roomValid:false`(R-ROOM-060, R-ROOM-063) |
 | provider·client WebSocket upgrade | 파기(R-WS-004) |
 
-근거: `src/server/peer-server.ts:1347`, `src/server/peer-server.ts:1348`, `src/server/peer-server.ts:1368`, `src/server/peer-server.ts:1369`, `src/server/peer-server.ts:2055`, `src/server/peer-server.ts:2444`, `src/server/peer-server.ts:2277`, `src/server/peer-server.ts:2278`, `src/server/peer-server.ts:2602`; 테스트: `test/server-room-lifecycle.test.ts` › `answers every lifecycle route of an expired room 410 ROOM_EXPIRED while it is retained, and 404 once it is deleted`; `test/server-error-model.test.ts` › `puts the code of an error's JSON-RPC namesake in its lifecycle body`
+근거: `src/server/peer-server.ts:1408`, `src/server/peer-server.ts:1409`, `src/server/peer-server.ts:1429`, `src/server/peer-server.ts:1430`, `src/server/peer-server.ts:2231`, `src/server/peer-server.ts:2622`, `src/server/peer-server.ts:2454`, `src/server/peer-server.ts:2455`, `src/server/peer-server.ts:2786`; 테스트: `test/server-room-lifecycle.test.ts` › `answers every lifecycle route of an expired room 410 ROOM_EXPIRED while it is retained, and 404 once it is deleted`; `test/server-error-model.test.ts` › `puts the code of an error's JSON-RPC namesake in its lifecycle body`
 
 ### 4.14 provider socket (`/p/{roomId}/provider`) 부착
 
 **R-ROOM-052** R-WS-001~R-WS-012를 통과한 provider socket에 relay는 먼저 `ready`(R-SIG-006)를 MUST 보낸다. 그 `send`가
 `sent`가 아니면 socket을 닫고 붙이지 않는다. 그래서 죽은 upgrade는 살아 있는 provider를 밀어내지 못한다. 그다음 다른
 provider socket이 붙어 있으면 그것을 분리한다: `providerSocket`을 비우고, room의 모든 pending 요청(어느 agent의 WebSocket이든
-HTTP든)을 −32001 `PROVIDER_DISCONNECTED`로 끝내고, 1000으로 닫는다. 새 socket을 붙이고 `roomState`를 정한 뒤(R-ROOM-003)
-승인 replay(R-ROOM-053)를 한다. room에는 provider socket이 하나뿐이다.\
-근거: `src/server/peer-server.ts:2899`, `src/server/peer-server.ts:2900`, `src/server/peer-server.ts:2906`, `src/server/peer-server.ts:2907`, `src/server/peer-server.ts:2908`, `src/server/peer-server.ts:2910`, `src/server/peer-server.ts:903`, `src/server/peer-server.ts:1166`; 테스트: `test/relay-message-limit.test.ts` › `does not let a dead provider upgrade displace the attached provider`; `test/relay-message-limit.test.ts` › `closes the provider socket a new one with the same token replaces, fails its pending requests, and ignores it from then on`
+HTTP든)을 −32001 `PROVIDER_DISCONNECTED`로 끝내고, 1000으로 닫는다. 새 socket을 붙이고, socket이 붙어 있는 동안 reconnect lease가
+만료되지 않도록 `reconnectLeaseExpiresAt = expiresAt`으로 두고(R-ROOM-018), `roomState`를 정한 뒤(R-ROOM-003) 승인 replay(R-ROOM-053)를
+한다. room에는 provider socket이 하나뿐이다.\
+근거: `src/server/peer-server.ts:3077`, `src/server/peer-server.ts:3078`, `src/server/peer-server.ts:3084`, `src/server/peer-server.ts:3085`, `src/server/peer-server.ts:3088`, `src/server/peer-server.ts:3089`, `src/server/peer-server.ts:3091`, `src/server/peer-server.ts:934`, `src/server/peer-server.ts:1227`; 테스트: `test/relay-message-limit.test.ts` › `does not let a dead provider upgrade displace the attached provider`; `test/relay-message-limit.test.ts` › `closes the provider socket a new one with the same token replaces, fails its pending requests, and ignores it from then on`
 
 **R-ROOM-053** `approvalRequired` room에서 provider가 (다시) 붙으면 relay는 `ready` 바로 뒤에 ticket 승인 상태를 MUST
 replay한다. `expiresAt > now`인 approved ticket마다 `approval.restored`(R-SIG-014, 전송 결과를 보지 않는다)를, pending ticket마다
 그 승인 요청(R-ROOM-025)을 보낸다. 순서는 approved는 `approvedAt ?? issuedAt`, pending은 요청의 `createdAt ?? now` 기준 오름차순이다.
 approved ticket을 하나라도 replay하면 `roomState = 'active'`다. `approvalRequired: false` room과 revoked·expired ticket은
 replay하지 않는다.\
-근거: `src/server/peer-server.ts:1728`, `src/server/peer-server.ts:1729`, `src/server/peer-server.ts:1733`, `src/server/peer-server.ts:1735`, `src/server/peer-server.ts:1740`, `src/server/peer-server.ts:1746`; 테스트: `test/server-provider-reattach.test.ts` › `re-sends a pending request and restores no revoked, expired or approval-free ticket`; `test/server-provider-reattach.test.ts` › `replays several tickets in the order they were requested or approved`
+근거: `src/server/peer-server.ts:1835`, `src/server/peer-server.ts:1836`, `src/server/peer-server.ts:1840`, `src/server/peer-server.ts:1842`, `src/server/peer-server.ts:1847`, `src/server/peer-server.ts:1853`; 테스트: `test/server-provider-reattach.test.ts` › `re-sends a pending request and restores no revoked, expired or approval-free ticket`; `test/server-provider-reattach.test.ts` › `replays several tickets in the order they were requested or approved`
 
 **R-ROOM-054** 붙어 있는 provider socket이 닫히면 relay는 그 socket이 남긴 평가 대기 register frame을 버리고,
-`providerSocket`을 비우고, room의 모든 pending 요청을 −32001 `PROVIDER_DISCONNECTED`로 MUST 끝낸다. agent socket은 열어
+`providerSocket`을 비우고, reconnect lease의 유예를 시작하고(R-ROOM-018), room의 모든 pending 요청을 −32001 `PROVIDER_DISCONNECTED`로
+MUST 끝낸다. agent socket은 열어
 두며 provider 존재에 관한 frame을 보내지 않는다(`providerConnected`는 HTTP descriptor로만 보인다). `roomState`는 바뀌지
 않는다.\
-근거: `src/server/peer-server.ts:2887`, `src/server/peer-server.ts:2888`, `src/server/peer-server.ts:2889`, `src/server/peer-server.ts:2891`; 테스트: `test/server-provider-reattach.test.ts` › `keeps an approved agent working after the provider socket drops and the host reclaims the room`
+근거: `src/server/peer-server.ts:3064`, `src/server/peer-server.ts:3065`, `src/server/peer-server.ts:3066`, `src/server/peer-server.ts:3068`, `src/server/peer-server.ts:3069`; 테스트: `test/server-provider-reattach.test.ts` › `keeps an approved agent working after the provider socket drops and the host reclaims the room`
 
 **R-ROOM-055** provider socket의 frame 처리기는 그 socket이 room에 붙어 있는 provider socket이 아니면 frame을 처리하지 않고 그
 socket을 1000으로 MUST 닫는다. 붙어 있는 socket의 frame이 만료된 room(`expiresAt <= now`)을 찾으면 frame을 처리하지 않고 room의 만료
@@ -1118,7 +1178,7 @@ socket을 1000으로 MUST 닫는다. 붙어 있는 socket의 frame이 만료된 
 닫는다. relay는 provider socket을 room에서 뗄 때(교체·분리, rotate, 만료 처리, `ready` 전송 실패) 언제나 먼저 닫으므로, 뗀 socket이 보낸
 frame은 codec이 버려(R-WS-027) 이 처리기에 닿지 않으므로 첫 검사는 방어용이다. 어느 경우든 늦은 답이나 register는
 처리하지 않는다.\
-근거: `src/server/peer-server.ts:2810`, `src/server/peer-server.ts:2811`, `src/server/peer-server.ts:2814`, `src/server/peer-server.ts:908`, `src/server/peer-server.ts:2900`, `src/server/peer-server.ts:1890`, `src/server/peer-server.ts:2737`, `src/server/peer-server.ts:2889`, `src/server/ws-upgrade.ts:580`; 테스트: `test/relay-message-limit.test.ts` › `closes the provider socket a new one with the same token replaces, fails its pending requests, and ignores it from then on`; `test/server-pending-settlement.test.ts` › `carries out the room's expiry where it is found first, not only at the sweep: %s`
+근거: `src/server/peer-server.ts:3000`, `src/server/peer-server.ts:3001`, `src/server/peer-server.ts:3004`, `src/server/peer-server.ts:940`, `src/server/peer-server.ts:3078`, `src/server/peer-server.ts:2062`, `src/server/peer-server.ts:2927`, `src/server/peer-server.ts:3066`, `src/server/ws-upgrade.ts:580`; 테스트: `test/relay-message-limit.test.ts` › `closes the provider socket a new one with the same token replaces, fails its pending requests, and ignores it from then on`; `test/server-pending-settlement.test.ts` › `carries out the room's expiry where it is found first, not only at the sweep: %s`
 
 ### 4.15 client socket (`/p/{roomId}/client`) 부착
 
@@ -1127,7 +1187,7 @@ frame은 codec이 버려(R-WS-027) 이 처리기에 닿지 않으므로 첫 검�
 오래된 것들을 새 socket을 포함해 4개(`MAX_CLIENT_SOCKETS_PER_TICKET`)가 넘지 않도록 1000으로 닫고 room에서 빼며, 그 pending
 요청은 오류 없이 버린다. 새 socket을 room과 ticket에 묶는다. ticket이 pending이면 승인 요청을 provider에 전달하고(R-ROOM-025)
 이 socket에 outbox로 `approval.pending`(R-SIG-013)을 보낸다.\
-근거: `src/server/peer-server.ts:3083`, `src/server/peer-server.ts:3087`, `src/server/peer-server.ts:3088`, `src/server/peer-server.ts:3093`, `src/server/peer-server.ts:3096`, `src/server/peer-server.ts:3099`, `src/server/peer-server.ts:3101`, `src/server/peer-server.ts:3103`; 테스트: `test/relay-message-limit.test.ts` › `holds at most 4 client sockets per ticket, closing the oldest for a new one`; `test/relay-message-limit.test.ts` › `does not attach a client socket whose client went away while a customUpgradeHandler was awaiting`
+근거: `src/server/peer-server.ts:3265`, `src/server/peer-server.ts:3269`, `src/server/peer-server.ts:3270`, `src/server/peer-server.ts:3275`, `src/server/peer-server.ts:3278`, `src/server/peer-server.ts:3281`, `src/server/peer-server.ts:3283`, `src/server/peer-server.ts:3285`; 테스트: `test/relay-message-limit.test.ts` › `holds at most 4 client sockets per ticket, closing the oldest for a new one`; `test/relay-message-limit.test.ts` › `does not attach a client socket whose client went away while a customUpgradeHandler was awaiting`
 
 **R-ROOM-057** client socket의 frame 처리기는 다음 순서로 MUST 검사한다. 그 socket이 room의 client socket 목록에 없으면 frame을
 처리하지 않고 1000으로 닫는다. room이 만료됐으면(`expiresAt <= now`) frame을 처리하지 않고 room의 만료 처리(R-ROOM-067, R-ROOM-050)를
@@ -1135,42 +1195,42 @@ frame은 codec이 버려(R-WS-027) 이 처리기에 닿지 않으므로 첫 검�
 1000으로 닫는다(ticket의 만료는 room의 원래 만료이고 rotate는 socket을 남기지 않으므로 방어용이다). relay는 client socket을 목록에서
 뺄 때(ticket 종료, 승인 만료, ticket당 socket 상한, rotate, 만료 처리) 언제나 먼저 닫고 `ready` 전송에 실패한 socket은 붙이지 않고
 닫으므로, 그런 socket이 보낸 frame은 codec이 버려(R-WS-027) 이 처리기에 닿지 않는다.\
-근거: `src/server/peer-server.ts:2939`, `src/server/peer-server.ts:2940`, `src/server/peer-server.ts:2943`, `src/server/peer-server.ts:2944`, `src/server/peer-server.ts:2945`, `src/server/peer-server.ts:1647`, `src/server/peer-server.ts:1797`, `src/server/peer-server.ts:3088`, `src/server/peer-server.ts:3096`, `src/server/ws-upgrade.ts:580`; 테스트: `test/server-pending-settlement.test.ts` › `carries out the room's expiry where it is found first, not only at the sweep: %s`
+근거: `src/server/peer-server.ts:3120`, `src/server/peer-server.ts:3121`, `src/server/peer-server.ts:3124`, `src/server/peer-server.ts:3125`, `src/server/peer-server.ts:3126`, `src/server/peer-server.ts:1756`, `src/server/peer-server.ts:1913`, `src/server/peer-server.ts:3270`, `src/server/peer-server.ts:3278`, `src/server/ws-upgrade.ts:580`; 테스트: `test/server-pending-settlement.test.ts` › `carries out the room's expiry where it is found first, not only at the sweep: %s`
 
 **R-ROOM-058** client socket이 닫히면 relay는 그 outbox에서 기다리던 frame을 버리고, room과 ticket 묶음에서 빼고, 그 socket의
 pending 요청을 답 없이 MUST 지운다. 이후 provider의 답은 버린다. room과 provider는 영향받지 않는다.\
-근거: `src/server/peer-server.ts:3077`, `src/server/peer-server.ts:3078`, `src/server/peer-server.ts:3080`, `src/server/peer-server.ts:2871`; 테스트: `test/relay-backpressure.test.ts` › `drops the replies waiting for an agent that goes away, and keeps the room serving`
+근거: `src/server/peer-server.ts:3259`, `src/server/peer-server.ts:3260`, `src/server/peer-server.ts:3262`, `src/server/peer-server.ts:3048`; 테스트: `test/relay-backpressure.test.ts` › `drops the replies waiting for an agent that goes away, and keeps the room serving`
 
 ### 4.16 `GET /p/:id/mcp`, `DELETE /p/:id/mcp`, `GET /p/:id/mcp/tools`, `GET /mcp/catalog`
 
 **R-ROOM-059** `GET /p/:id/mcp`의 `Accept`(소문자로)가 `text/event-stream`을 포함하고 `application/json`을 포함하지 않으면
 relay는 room 조회 전에 405, `Allow: POST`, `{jsonrpc:'2.0', id:null, error:{code:-32000, message:'SSE_STREAM_NOT_SUPPORTED'}}`로
 MUST 답한다. 다른 `Accept`(없음 포함)는 descriptor를 받는다(→ O-46).\
-근거: `src/server/peer-server.ts:777`, `src/server/peer-server.ts:2130`, `src/server/peer-server.ts:2135`; 테스트: `test/mcp-http-interop.test.ts` › `refuses the optional SSE GET with 405 while plain GETs keep returning the descriptor`
+근거: `src/server/peer-server.ts:807`, `src/server/peer-server.ts:2307`, `src/server/peer-server.ts:2312`; 테스트: `test/mcp-http-interop.test.ts` › `refuses the optional SSE GET with 405 while plain GETs keep returning the descriptor`
 
 **R-ROOM-060** `GET /p/:id/mcp`는 인증 없이, 문법에 맞는 모든 id(모르는 id 포함)에 200
 `{roomId, roomEpoch(모르면 0), alias(모르면 'unknown-room'), protocol:'webmcp-peer.v1'(WEBMCP_SUBPROTOCOL), status, state(둘 다 mcpRoomState),
 roomValid(entry가 있고 rotate되지 않았고 expiresAt > now), expiresAt(epoch ms 또는 null), catalogVersion, catalogHash,
 toolCount, catalogUpdatedAt, providerConnected, approvalRequired(기본 true), auth, pendingApprovalCount,
 activeClientCount(approved ticket 수), rotatedTo(또는 null)}`로 MUST 답한다. catalog 필드는 R-CAT-005의 snapshot이다.\
-근거: `src/server/peer-server.ts:2143`, `src/server/peer-server.ts:2149`, `src/server/peer-server.ts:2153`, `src/server/peer-server.ts:2162`, `src/server/peer-server.ts:2166`; 테스트: `test/mcp-http-interop.test.ts` › `refuses the optional SSE GET with 405 while plain GETs keep returning the descriptor`; `test/relay-backpressure.test.ts` › `answers agent requests PROVIDER_BUSY instead of closing the provider, and serves them again once it reads`; `test/relay-message-limit.test.ts` › `does not attach a provider socket whose client went away (%s) while a customUpgradeHandler was awaiting`
+근거: `src/server/peer-server.ts:2320`, `src/server/peer-server.ts:2326`, `src/server/peer-server.ts:2330`, `src/server/peer-server.ts:2339`, `src/server/peer-server.ts:2343`; 테스트: `test/mcp-http-interop.test.ts` › `refuses the optional SSE GET with 405 while plain GETs keep returning the descriptor`; `test/relay-backpressure.test.ts` › `answers agent requests PROVIDER_BUSY instead of closing the provider, and serves them again once it reads`; `test/relay-message-limit.test.ts` › `does not attach a provider socket whose client went away (%s) while a customUpgradeHandler was awaiting`
 
 **R-ROOM-061** `GET /p/:id/mcp`와 200인 `GET /p/:id/mcp/tools`는 `Cache-Control: public, max-age=5, s-maxage=30,
 stale-while-revalidate=60, stale-if-error=300`, `ETag: "mcp-descriptor-<응답 본문 JSON의 SHA-256 hex>"`,
 `X-MCP-Catalog-Version`, `X-MCP-Catalog-Hash`, `Vary: Origin, Accept-Encoding`을 MUST 보낸다. ETag는 본문 전체에서 나오므로
 state, providerConnected, 승인 수가 바뀌어도 바뀐다. 조건부 GET은 R-HTTP-014다(→ O-46).\
-근거: `src/server/peer-server.ts:1191`, `src/server/peer-server.ts:1194`, `src/server/peer-server.ts:1195`, `src/server/peer-server.ts:2169`, `src/server/peer-server.ts:2198`; 테스트: 없음
+근거: `src/server/peer-server.ts:1252`, `src/server/peer-server.ts:1255`, `src/server/peer-server.ts:1256`, `src/server/peer-server.ts:2346`, `src/server/peer-server.ts:2375`; 테스트: 없음
 
 **R-ROOM-062** `DELETE /p/:id/mcp`에는 405, `Allow: GET, POST`, `{jsonrpc:'2.0', id:null, error:{code:-32000,
 message:'SESSION_TERMINATION_NOT_SUPPORTED'}}`로 MUST 답한다. relay는 `Mcp-Session-Id`를 발급하지도 읽지도 않는다.\
-근거: `src/server/peer-server.ts:2138`, `src/server/peer-server.ts:2140`; 테스트: `test/mcp-http-interop.test.ts` › `answers DELETE with 405 because the relay issues no session`
+근거: `src/server/peer-server.ts:2315`, `src/server/peer-server.ts:2317`; 테스트: `test/mcp-http-interop.test.ts` › `answers DELETE with 405 because the relay issues no session`
 
 **R-ROOM-063** `GET /p/:id/mcp/tools`는 R-CAT-005 snapshot을 쓴다(모르는 id도 deployment catalog, state `unknown`). tool이
 없으면 503 `{error:'CATALOG_UNAVAILABLE', code:-32090, catalogVersion:0, catalogHash, auth}`, `Cache-Control: no-store`, ETag 없음이다
 (`catalogVersion: 0`은 고정값이다, → O-39). 아니면 200 `{roomId, tools, catalogVersion, catalogHash, updatedAt, state, roomValid,
 providerConnected, auth}`와 R-ROOM-061 header다. 보존 중인 rotate·만료 room은 `roomValid: false`로 마지막 catalog를 계속
 MUST 준다.\
-근거: `src/server/peer-server.ts:2175`, `src/server/peer-server.ts:2181`, `src/server/peer-server.ts:2192`, `src/server/peer-server.ts:2193`, `src/server/peer-server.ts:2198`; 테스트: `test/server-catalog-hash.test.ts` › `stamps a provider-registered catalog with the same hash as the deployment catalog`; `test/server-error-model.test.ts` › `puts the code of an error's JSON-RPC namesake in its lifecycle body`
+근거: `src/server/peer-server.ts:2352`, `src/server/peer-server.ts:2358`, `src/server/peer-server.ts:2369`, `src/server/peer-server.ts:2370`, `src/server/peer-server.ts:2375`; 테스트: `test/server-catalog-hash.test.ts` › `stamps a provider-registered catalog with the same hash as the deployment catalog`; `test/server-error-model.test.ts` › `puts the code of an error's JSON-RPC namesake in its lifecycle body`
 
 **R-ROOM-064** `GET /mcp/catalog`와 `GET /mcp/catalog/<64 소문자 hex>`는 room과 무관하게 deployment catalog를 MUST 준다.
 deployment tool이 없으면 503 `{error:'CATALOG_UNAVAILABLE', code:-32090, catalogVersion:0, catalogHash}`. hash가 현재 것이 아니면 404
@@ -1180,14 +1240,14 @@ deployment tool이 없으면 503 `{error:'CATALOG_UNAVAILABLE', code:-32090, cat
 `ETag: "mcp-catalog-<version>-<hash>"`, hash URL은 `Cache-Control: public, max-age=31536000, s-maxage=31536000, immutable`,
 `CDN-Cache-Control: public, max-age=31536000, immutable`, `ETag: "mcp-deployment-catalog-<version>-<hash>"`다. 둘 다
 `X-MCP-Catalog-Version`, `X-MCP-Catalog-Hash`, `Vary: Origin, Accept-Encoding`을 보낸다.\
-근거: `src/server/peer-server.ts:2102`, `src/server/peer-server.ts:2106`, `src/server/peer-server.ts:2110`, `src/server/peer-server.ts:2113`, `src/server/peer-server.ts:1170`, `src/server/peer-server.ts:1180`; 테스트: `test/webmcp-peer.test.ts` › `runs end-to-end 3-tier Peer-Based Server Routing MCP (Provider -> Server -> Client & PeerMcpService)`; `test/server-error-model.test.ts` › `puts the code of an error's JSON-RPC namesake in its lifecycle body`
+근거: `src/server/peer-server.ts:2279`, `src/server/peer-server.ts:2283`, `src/server/peer-server.ts:2287`, `src/server/peer-server.ts:2290`, `src/server/peer-server.ts:1231`, `src/server/peer-server.ts:1241`; 테스트: `test/webmcp-peer.test.ts` › `runs end-to-end 3-tier Peer-Based Server Routing MCP (Provider -> Server -> Client & PeerMcpService)`; `test/server-error-model.test.ts` › `puts the code of an error's JSON-RPC namesake in its lifecycle body`
 
 **R-ROOM-065** descriptor·catalog 응답의 `auth`는 MUST `{discovery:'public', execution:'client-ticket-and-approval',
 clientTokenRequired:true, approvalRequired: entry?.approvalRequired ?? true, state}`이다. GET route의 `state`는 언제나
 `not-joined`이고, MCP POST에서는 bearer ticket의 status, 없으면 `not-joined`다. 그래서 session status가 보고하지 않는 ticket status
 `room-rotated`(rotate된 room의 session status는 410이다, R-ROOM-032)도 rotate된 room에 bearer로 보낸 metadata method의
 `_meta.auth.state`에는 나온다. 이 값은 내부 상태가 아니라 wire 값이다.\
-근거: `src/server/peer-server.ts:1261`, `src/server/peer-server.ts:2164`, `src/server/peer-server.ts:2318`, `src/server/types.ts:15`; 테스트: 없음
+근거: `src/server/peer-server.ts:1322`, `src/server/peer-server.ts:2341`, `src/server/peer-server.ts:2495`, `src/server/types.ts:15`; 테스트: 없음
 
 `POST /p/:id/mcp`는 7장에서 다룬다.
 
@@ -1196,7 +1256,7 @@ clientTokenRequired:true, approvalRequired: entry?.approvalRequired ?? true, sta
 **R-ROOM-066** `WebMcpPeerServer.close()`는 모든 pending 요청을 `PROVIDER_DISCONNECTED`로 끝내고, 요청 timer를 지우고,
 모든 provider·client socket을 1000으로 닫고, room을 비우고 HTTP server를 MUST 닫는다. close를 무시하는 peer는 5000 ms 뒤
 파기되므로 종료가 끝난다.\
-근거: `src/server/peer-server.ts:635`, `src/server/peer-server.ts:639`, `src/server/peer-server.ts:642`, `src/server/peer-server.ts:645`, `src/server/peer-server.ts:647`; 테스트: `test/server-ws-frames.test.ts` › `closes within the close timeout while a provider ignores the relay's close`
+근거: `src/server/peer-server.ts:655`, `src/server/peer-server.ts:659`, `src/server/peer-server.ts:662`, `src/server/peer-server.ts:665`, `src/server/peer-server.ts:667`; 테스트: `test/server-ws-frames.test.ts` › `closes within the close timeout while a provider ignores the relay's close`
 
 ## 5. signaling frame
 
@@ -1211,10 +1271,10 @@ A(agent client socket)로 적는다.
 | `approval.decision` | P→R | 5.5 |
 | `approval.approved` | R→A, R→P(echo) | 5.6 |
 | `approval.rejected` | R→A, R→P(echo) | 5.7 |
-| `approval.expired` | R→A | 5.8 |
+| `approval.expired` | R→A, R→P | 5.8 |
 | `approval.pending` | R→A | 5.9 |
 | `approval.restored` | R→P | 5.10 |
-| `session.revoked` | R→A | 5.11 |
+| `session.revoked` | R→A, R→P | 5.11 |
 | `room.expired` | R→A | 5.11 |
 | `room.rotated` | R→P, R→A | 5.12 |
 | `offer` | A→R→P | 5.13 |
@@ -1230,34 +1290,72 @@ A(agent client socket)로 적는다.
 아닌 object, 문자열 `type`)로 MUST 검사한다. 그 밖(잘못된 JSON, 수, 배열, null, `type` 없음·문자열 아님)은 답하지 않고
 socket을 닫지 않고 broadcast하지도 않고 무시한다. frame 처리 중 예외도 삼킨다. provider도 relay frame에 같은 모양 규칙
 (`ProviderFrameSchema`)을 MUST 적용하고, 문자열이 아닌 data를 포함해 나머지는 무시한다.\
-근거: `src/server/wire-schemas.ts:23`, `src/server/wire-schemas.ts:36`, `src/server/peer-server.ts:2815`, `src/server/peer-server.ts:2885`, `src/server/peer-server.ts:2948`, `src/server/peer-server.ts:3074`, `src/provider/wire-schemas.ts:16`, `src/provider/peer-client.ts:121`; 테스트: `test/server-signaling-frames.test.ts` › `ignores provider frames that are not typed JSON objects instead of broadcasting them`
+근거: `src/server/wire-schemas.ts:23`, `src/server/wire-schemas.ts:36`, `src/server/peer-server.ts:3005`, `src/server/peer-server.ts:3062`, `src/server/peer-server.ts:3129`, `src/server/peer-server.ts:3256`, `src/provider/wire-schemas.ts:16`, `src/provider/peer-client.ts:123`; 테스트: `test/server-signaling-frames.test.ts` › `ignores provider frames that are not typed JSON objects instead of broadcasting them`
 
-**R-SIG-002** relay control frame(`approval.request`, `approval.approved`, `approval.rejected`, `approval.restored`,
-`session.revoked`, `room.rotated`, `room.expired`)과 승인 결정 echo(R-SIG-009)는 `protocol:'webmcp-peer/1'`(`WEBMCP_PROTOCOL`), `messageId`, `type`, `roomId`,
-`roomEpoch`, `sentAt`(ISO), `payload`를 MUST 가진다. 그 밖의 relay frame에는 이 envelope이 없다. `ready`와 `approval.pending`에는
-`protocol`·`messageId`·`sentAt`·`payload`가 없고, `approval.expired`에는 `sentAt`·`payload`가 없다. `pong`(`{type, timestamp}`),
+**R-SIG-002** relay control frame(`approval.request`, `approval.pending`, `approval.approved`, `approval.rejected`, `approval.expired`,
+`approval.restored`, `session.revoked`, `room.rotated`, `room.expired`)과 승인 결정 echo(R-SIG-009)는 `protocol:'webmcp-peer/1'`
+(`WEBMCP_PROTOCOL`), `messageId`, `type`, `roomId`, `roomEpoch`, `sentAt`(ISO)을 MUST 가진다. `approval.pending`과 `approval.expired`를 뺀
+control frame과 echo는 `payload`도 가진다. `messageId`는 message마다 새로 만드는 불투명한 고유 문자열이다(R-SIG-025). 그 밖의 relay
+frame에는 이 envelope이 없다: `ready`에는 `protocol`·`messageId`·`sentAt`·`payload`가 없고, `pong`(`{type, timestamp}`),
 `offer.refused`(`{type, requestId?, error}`), provider에 가는 `error`(`{type, code, message}`에 `reason`·`limitBytes`·`registerSeq`·
-`requestId` 중 해당하는 것, R-SIG-021)에는 `roomId`·`roomEpoch`도 없다. `messageId` 형식은 frame마다 다르다(→ O-17).\
-근거: `src/server/peer-server.ts:1668`, `src/server/peer-server.ts:1699`, `src/server/peer-server.ts:1775`, `src/server/peer-server.ts:1826`, `src/server/peer-server.ts:2849`, `src/server/peer-server.ts:1612`, `src/server/peer-server.ts:1646`, `src/server/peer-server.ts:2727`, `src/server/peer-server.ts:2821`, `src/server/peer-server.ts:3058`, `src/server/peer-server.ts:3069`, `src/server/peer-server.ts:1073`, `src/server/peer-server.ts:1075`, `src/server/peer-server.ts:2836`; 테스트: `test/server-provider-reattach.test.ts` › `restores an approved ticket to the new socket with an approval.restored frame`
+`requestId` 중 해당하는 것, R-SIG-021)에는 `roomId`·`roomEpoch`도 없다.\
+근거: `src/server/peer-server.ts:1775`, `src/server/peer-server.ts:1673`, `src/server/peer-server.ts:1742`, `src/server/peer-server.ts:1806`, `src/server/peer-server.ts:1886`, `src/server/peer-server.ts:1949`, `src/server/peer-server.ts:1998`, `src/server/peer-server.ts:2917`, `src/server/peer-server.ts:957`, `src/server/peer-server.ts:3011`, `src/server/peer-server.ts:3240`, `src/server/peer-server.ts:3251`, `src/server/peer-server.ts:1134`, `src/server/peer-server.ts:1136`, `src/server/peer-server.ts:3026`; 테스트: `test/server-provider-reattach.test.ts` › `restores an approved ticket to the new socket with an approval.restored frame`; `test/server-approval-lease.test.ts` › `ends with approval.expired to the agent and the provider, and a decision after it is refused`; `test/server-approval-lease.test.ts` › `echoes a decision made over HTTP (%s), with both expiries`
 
 **R-SIG-003** agent socket이 보낸 frame 중 relay가 다루는 type은 `mcp`(7장), `ping`(5.3), `offer`(5.13, approved ticket만)
 뿐이다(`CLIENT_SIGNALING_FRAME_TYPES = {'offer'}`). 그 밖의 type — `ice`, `answer`, `release`, `register`, `ready`, `error`,
 `pong`, `approval.*`, `session.*`, `room.*` 등 — 과 approved가 아닌 ticket의 `offer`는 답 없이 MUST 버린다. 그래서 agent는
 relay control frame을 provider에 주입할 수 없다.\
-근거: `src/server/peer-server.ts:113`, `src/server/peer-server.ts:3053`; 테스트: `test/server-signaling-frames.test.ts` › `drops forged control frames and only relays approved, allow-listed signaling stamped by the relay`
+근거: `src/server/peer-server.ts:126`, `src/server/peer-server.ts:3235`; 테스트: `test/server-signaling-frames.test.ts` › `drops forged control frames and only relays approved, allow-listed signaling stamped by the relay`
 
 **R-SIG-004** provider frame 중 `ping`, `approval.decision`, `register`, JSON-RPC 답을 담은 `mcp`가 아닌 것은 모두 relay가
 stamp 없이 수정하지 않고 room의 모든 client socket(pending ticket 포함)에 MUST broadcast(R-WS-032)한다. 여기에는 `answer`,
 `release`, 답이 아닌 `mcp`(notification, server→client 요청, id가 null인 답)와 relay 전용 type(`ready`, `error`,
 `session.revoked`, `room.rotated`, `room.expired`, `approval.*`)도 들어간다. relay는 이 frame들을 type으로 걸러 내지
 않는다(→ O-20).\
-근거: `src/server/peer-server.ts:2820`, `src/server/peer-server.ts:2824`, `src/server/peer-server.ts:2864`, `src/server/peer-server.ts:2868`, `src/server/peer-server.ts:2884`, `src/server/peer-server.ts:886`; 테스트: `test/server-signaling-frames.test.ts` › `ignores provider frames that are not typed JSON objects instead of broadcasting them`
+근거: `src/server/peer-server.ts:3010`, `src/server/peer-server.ts:3014`, `src/server/peer-server.ts:3041`, `src/server/peer-server.ts:3045`, `src/server/peer-server.ts:3061`, `src/server/peer-server.ts:916`; 테스트: `test/server-signaling-frames.test.ts` › `ignores provider frames that are not typed JSON objects instead of broadcasting them`
 
 **R-SIG-005** relay가 agent 대신 provider에 전달하는 frame(WebSocket `mcp` 요청과 notification, HTTP 요청과 notification,
 `offer`)에는 `from:'client'`와 ticket의 `sessionId`를 MUST 찍는다. agent가 frame에 넣은 `from`·`sessionId`는 덮어쓴다.
 WebSocket frame에 agent가 넣은 다른 envelope 필드는 그대로 전달된다. HTTP 요청은 `{type:'mcp', from:'client', sessionId?,
 message}`이며 `sessionId`는 ticket을 해석했을 때만 있다.\
-근거: `src/server/peer-server.ts:2981`, `src/server/peer-server.ts:2987`, `src/server/peer-server.ts:3042`, `src/server/peer-server.ts:3064`, `src/server/peer-server.ts:2386`, `src/server/peer-server.ts:2420`; 테스트: `test/relay-message-limit.test.ts` › `stamps every mcp frame it forwards to the provider with from: client and the ticket's sessionId`
+근거: `src/server/peer-server.ts:3162`, `src/server/peer-server.ts:3168`, `src/server/peer-server.ts:3224`, `src/server/peer-server.ts:3246`, `src/server/peer-server.ts:2563`, `src/server/peer-server.ts:2598`; 테스트: `test/relay-message-limit.test.ts` › `stamps every mcp frame it forwards to the provider with from: client and the ticket's sessionId`
+
+**R-SIG-024** relay는 provider socket에서 오지 않은 ticket 상태 변화도 room의 provider socket에 MUST 알린다. room당 ticket이 하나이므로
+ticket의 종료는 그 room의 agent 쪽 종료이고, provider는 이 frame으로 자기 승인 상태를 relay와 맞춘다(R-PEER-019, R-PEER-021).
+
+| 변화 | provider socket이 받는 frame |
+|---|---|
+| 승인 결정(HTTP route, 또는 provider socket의 `approval.decision`) | 결정 echo `approval.approved`·`approval.rejected`(R-SIG-009), 결정마다 한 번 |
+| 승인 요청 만료(R-ROOM-026) | `approval.expired`(R-SIG-012) |
+| revoke(provider 단일·전체, client 자기 revoke. 모두 HTTP) | `session.revoked`(R-SIG-015) |
+| rotate | provider용 `room.rotated`(R-SIG-016) |
+| room 만료 | frame 없이 socket close(R-ROOM-050, → O-23) |
+
+이 frame은 모두 plain `send`라 provider queue가 가득 차면 사라진다(R-WS-034). 그래서 provider는 결정 frame을 보내자마자 그 결정대로
+상태를 바꾸고, relay가 그 결정을 `INVALID_APPROVAL`로 거절하면 되돌린다(R-PEER-018).
+
+근거: `src/server/peer-server.ts:1974`, `src/server/peer-server.ts:1940`, `src/server/peer-server.ts:1998`, `src/server/peer-server.ts:1760`, `src/server/peer-server.ts:1920`, `src/server/peer-server.ts:2917`, `src/server/peer-server.ts:3036`; 테스트: `test/server-approval-lease.test.ts` › `echoes a decision made over HTTP (%s), with both expiries`; `test/server-approval-lease.test.ts` › `echoes a decision made on its own socket once`; `test/server-approval-lease.test.ts` › `ends with approval.expired to the agent and the provider, and a decision after it is refused`; `test/server-approval-lease.test.ts` › `tells it of %s with session.revoked`; `test/provider-approval-state.test.ts` › `learns an approval made over HTTP from the relay and serves the agent`
+
+**R-SIG-025** relay frame의 시각 필드는 아래 형식을 MUST 따른다. R-ROOM-072처럼 기존 필드의 형식은 바꾸지 않고, 새 시각 필드는
+epoch ms로만 만들며, frame마다 다른 시각을 가리키는 `expiresAt`은 새 필드로 뜻을 나눈다: 승인 요청 만료는 `approvalExpiresAt`, ticket
+만료는 `ticketExpiresAt`이다. `messageId`는 relay가 message마다 새로 만드는 불투명한 고유 문자열이다(`messageId(type)`. 한 frame을 여러
+socket에 보내면 같은 값이고, 같은 내용을 다시 보내면 새 값이다). 수신자는 `messageId`를 비교할 수 있을 뿐이고 그 형식에서 뜻을 MUST NOT
+읽는다.
+
+| frame | epoch ms | ISO |
+|---|---|---|
+| `ready` | `expiresAt`(provider용은 room 만료, client용은 ticket 만료) | — |
+| `pong` | `timestamp` | — |
+| `approval.request` | `expiresAt`, `payload.expiresAt`(승인 요청 만료) | `sentAt`, `payload.requestedAt` |
+| `approval.pending` | `expiresAt`(승인 요청 만료) | `sentAt` |
+| client용 `approval.approved` | `expiresAt`·`payload.expiresAt`(ticket 만료), `approvalExpiresAt`, `ticketExpiresAt`(top-level과 payload) | `sentAt`, `payload.decidedAt` |
+| 결정 echo `approval.approved`·`approval.rejected` | `expiresAt`·`payload.expiresAt`(승인 요청 만료), `approvalExpiresAt`, `ticketExpiresAt`(top-level과 payload) | `sentAt`, `payload.decidedAt` |
+| `approval.expired` | — | `sentAt` |
+| `approval.restored` | `payload.approvedAt`, `payload.expiresAt`(ticket 만료) | `sentAt` |
+| ticket 종료 frame(5.7) | — | `sentAt` |
+| provider용 `room.rotated` | — | `sentAt`, `payload.rotatedAt` |
+
+근거: `src/server/peer-server.ts:957`, `src/server/peer-server.ts:958`, `src/server/peer-server.ts:1675`, `src/server/peer-server.ts:1682`, `src/server/peer-server.ts:1683`, `src/server/peer-server.ts:1744`, `src/server/peer-server.ts:1750`, `src/server/peer-server.ts:1777`, `src/server/peer-server.ts:1783`, `src/server/peer-server.ts:1784`, `src/server/peer-server.ts:1808`, `src/server/peer-server.ts:1888`, `src/server/peer-server.ts:1894`, `src/server/peer-server.ts:1947`, `src/server/peer-server.ts:1951`, `src/server/peer-server.ts:1958`, `src/server/peer-server.ts:1959`, `src/server/peer-server.ts:2000`, `src/server/peer-server.ts:2006`, `src/server/peer-server.ts:2007`, `src/server/peer-server.ts:2008`, `src/server/peer-server.ts:1983`; 테스트: `test/server-approval-lease.test.ts` › `gives every message an id of its own, a repeated one included`; `test/server-approval-lease.test.ts` › `echoes a decision made over HTTP (%s), with both expiries`; `test/server-approval-lease.test.ts` › `ends with approval.expired to the agent and the provider, and a decision after it is refused`
 
 ### 5.2 `ready`
 
@@ -1274,7 +1372,7 @@ message}`이며 `sessionId`는 ticket을 해석했을 때만 있다.\
 **R-SIG-006** relay는 socket이 붙을 때 첫 frame으로 `ready`를 MUST 보낸다(R-ROOM-052, R-ROOM-056). client용 첫 `ready`는
 plain `send`다. ticket이 승인되면 relay는 `approval.approved` 뒤에 `approval:'approved'`인 `ready`를 outbox로 다시
 보낸다(R-ROOM-029).\
-근거: `src/server/peer-server.ts:2899`, `src/server/peer-server.ts:3087`, `src/server/peer-server.ts:1839`; 테스트: `test/relay-backpressure.test.ts` › `sends an agent that is behind its approval, then ready, after the replies queued before them`
+근거: `src/server/peer-server.ts:3077`, `src/server/peer-server.ts:3269`, `src/server/peer-server.ts:1971`; 테스트: `test/relay-backpressure.test.ts` › `sends an agent that is behind its approval, then ready, after the replies queued before them`
 
 ### 5.3 `ping`, `pong`
 
@@ -1286,21 +1384,21 @@ plain `send`다. ticket이 승인되면 relay는 `approval.approved` 뒤에 `app
 **R-SIG-007** 붙어 있는 provider socket이나 room의 client socket(ticket status 무관, 승인 검사보다 먼저)이 `{type:'ping'}`을
 보내면 relay는 `{type:'pong', timestamp: Date.now()}`로 MUST 답한다. 답은 plain `send`라서 queue가 가득 차면 사라진다. relay는
 JSON `ping`을 스스로 보내지 않고 ping을 요구하지 않는다. agent가 보낸 `pong`은 R-SIG-003에 따라 버린다.\
-근거: `src/server/peer-server.ts:2820`, `src/server/peer-server.ts:2821`, `src/server/peer-server.ts:2949`, `src/server/peer-server.ts:2950`; 테스트: `test/relay-backpressure.test.ts` › `skips announcements an agent that is not reading did not ask for, keeps its socket, and keeps room for the reply it asked for`
+근거: `src/server/peer-server.ts:3010`, `src/server/peer-server.ts:3011`, `src/server/peer-server.ts:3130`, `src/server/peer-server.ts:3131`; 테스트: `test/relay-backpressure.test.ts` › `skips announcements an agent that is not reading did not ask for, keeps its socket, and keeps room for the reply it asked for`
 
 ### 5.4 `approval.request` (R→P)
 
 | 필드 | 값 |
 |---|---|
 | `protocol`, `type` | `'webmcp-peer/1'`, `'approval.request'` |
-| `messageId` | `'approval-' + requestId`(requestId가 이미 `approval-`로 시작하므로 `approval-approval-…`) |
+| `messageId` | 불투명한 고유 문자열(R-SIG-025) |
 | `roomId`, `roomEpoch`, `sessionId`, `requestId` | room, ticket, 요청 값 |
 | `sentAt` | 요청 `createdAt`의 ISO |
 | `expiresAt` | 요청 만료(epoch ms) |
 | `payload` | `{requestId, sessionId, roomId, roomEpoch, clientLabel, capabilities, requestedAt(ISO), expiresAt}` |
 
 **R-SIG-008** relay는 승인 요청을 위 모양으로 provider socket마다 최대 한 번 MUST 보낸다(R-ROOM-025).\
-근거: `src/server/peer-server.ts:1667`, `src/server/peer-server.ts:1668`, `src/server/peer-server.ts:1678`; 테스트: `test/server-signaling-frames.test.ts` › `drops forged control frames and only relays approved, allow-listed signaling stamped by the relay`
+근거: `src/server/peer-server.ts:1774`, `src/server/peer-server.ts:1775`, `src/server/peer-server.ts:1785`; 테스트: `test/server-signaling-frames.test.ts` › `drops forged control frames and only relays approved, allow-listed signaling stamped by the relay`
 
 ### 5.5 `approval.decision` (P→R)
 
@@ -1319,28 +1417,32 @@ JSON `ping`을 스스로 보내지 않고 ping을 요구하지 않는다. agent�
 | `payload.reason` | 아니오 | 문자열 |
 
 **R-SIG-009** relay는 위 조건 중 하나라도 어긴 `approval.decision`에 `{type:'error', code:-32081, message:'INVALID_APPROVAL',
-requestId: <requestId 또는 null>}`로 MUST 답한다. 그 `requestId`의 pending 요청이 없거나 요청의 `sessionId`가 다르거나, ticket이
-더는 그 요청을 가리키지 않아도(이때 요청은 지운다) 같은 오류(requestId 포함)다. 받아들인 결정은 R-ROOM-029·R-ROOM-030대로
-처리하고, 결정한 provider socket에 `{protocol:'webmcp-peer/1', messageId:'approval-decision-<requestId>',
-type:'approval.approved'|'approval.rejected', roomId, roomEpoch, sessionId, requestId, sentAt, expiresAt:<요청 만료>,
-payload:{requestId, sessionId, roomId, roomEpoch, state:<decision>, clientTokenActive:<decision === 'approved'>, decidedAt,
-expiresAt:<요청 만료>}, reason?}`를 plain `send`로 echo한다.\
-근거: `src/server/peer-server.ts:2824`, `src/server/peer-server.ts:2825`, `src/server/peer-server.ts:2831`, `src/server/peer-server.ts:2836`, `src/server/peer-server.ts:2840`, `src/server/peer-server.ts:2841`, `src/server/peer-server.ts:2846`, `src/server/peer-server.ts:2849`, `src/server/peer-server.ts:1809`; 테스트: `test/server-provider-reattach.test.ts` › `keeps an approved agent working after the provider socket drops and the host reclaims the room`
+requestId: <requestId 또는 null>}`로 MUST 답한다. 이 frame에서 `payload.roomId`와 epoch는 필수다(HTTP route의 선택 binding, R-ROOM-071과
+다르다. provider는 언제나 보낸다). 그 `requestId`의 pending 요청이 없거나 요청의 `sessionId`가 다르거나, ticket이 더는 그 요청을
+가리키지 않아도(이때 요청은 지운다) 같은 오류(requestId 포함)다. 받아들인 결정은 R-ROOM-029·R-ROOM-030대로 처리한다. 결정 echo는
+결정 경로와 무관하게(이 frame이든 HTTP route든, R-SIG-024) room의 provider socket에 plain `send`로 한 번 MUST 간다:
+`{protocol:'webmcp-peer/1', messageId, type:'approval.approved'|'approval.rejected', roomId, roomEpoch, sessionId, requestId,
+sentAt:<decidedAt>, expiresAt:<요청 만료>, approvalExpiresAt:<요청 만료>, ticketExpiresAt:<ticket 만료>, payload:{requestId, sessionId,
+roomId, roomEpoch, state:<decision>, clientTokenActive:<decision === 'approved'>, decidedAt, expiresAt:<요청 만료>, approvalExpiresAt,
+ticketExpiresAt}, reason?}`. `decidedAt`은 ticket이 기록한 결정 시각(ISO)이고 `reason`은 결정의 비어 있지 않은 문자열 reason이다.\
+근거: `src/server/peer-server.ts:3014`, `src/server/peer-server.ts:3015`, `src/server/peer-server.ts:3021`, `src/server/peer-server.ts:3026`, `src/server/peer-server.ts:3030`, `src/server/peer-server.ts:3031`, `src/server/peer-server.ts:3036`, `src/server/peer-server.ts:3037`, `src/server/peer-server.ts:1936`, `src/server/peer-server.ts:1993`, `src/server/peer-server.ts:1996`, `src/server/peer-server.ts:1998`, `src/server/peer-server.ts:2007`, `src/server/peer-server.ts:2008`, `src/server/peer-server.ts:2013`; 테스트: `test/server-provider-reattach.test.ts` › `keeps an approved agent working after the provider socket drops and the host reclaims the room`; `test/server-approval-lease.test.ts` › `echoes a decision made over HTTP (%s), with both expiries`; `test/server-approval-lease.test.ts` › `echoes a decision made on its own socket once`
 
 ### 5.6 `approval.approved` (R→A)
 
 | 필드 | 값 |
 |---|---|
 | `protocol`, `type` | `'webmcp-peer/1'`, `'approval.approved'` |
-| `messageId` | `'approval-approved-' + requestId` |
+| `messageId` | 불투명한 고유 문자열(R-SIG-025) |
 | `roomId`, `roomEpoch`, `sessionId`, `requestId` | |
 | `sentAt` | `approvedAt`의 ISO |
 | `expiresAt` | ticket 만료(epoch ms) |
-| `payload` | `{requestId, sessionId, roomId, roomEpoch, state:'approved', clientTokenActive:true, decidedAt(ISO), expiresAt(ticket 만료)}` |
+| `approvalExpiresAt`, `ticketExpiresAt` | 승인 요청 만료, ticket 만료(epoch ms) |
+| `payload` | `{requestId, sessionId, roomId, roomEpoch, state:'approved', clientTokenActive:true, decidedAt(ISO), expiresAt(ticket 만료), approvalExpiresAt, ticketExpiresAt}` |
 
-**R-SIG-010** 승인(HTTP·WebSocket) 시 relay는 ticket에 묶인 client socket마다 위 frame을 outbox로 MUST 보낸다. provider용 echo는
-R-SIG-009의 모양이며 `expiresAt`이 승인 요청 만료라는 점이 다르다(→ O-17).\
-근거: `src/server/peer-server.ts:1826`, `src/server/peer-server.ts:1835`, `src/server/peer-server.ts:1836`; 테스트: `test/server-signaling-frames.test.ts` › `drops forged control frames and only relays approved, allow-listed signaling stamped by the relay`
+**R-SIG-010** 승인(HTTP·WebSocket) 시 relay는 ticket에 묶인 client socket마다 위 frame을 outbox로 MUST 보낸다. 이 frame의 `expiresAt`은
+ticket 만료이고, provider용 echo(R-SIG-009)의 같은 이름 필드는 승인 요청 만료다. 두 frame 모두 두 만료를 `approvalExpiresAt`(승인
+요청)과 `ticketExpiresAt`(ticket)으로 따로 싣으므로, 수신자는 `expiresAt` 대신 이 둘을 읽으면 된다(R-SIG-025).\
+근거: `src/server/peer-server.ts:1947`, `src/server/peer-server.ts:1948`, `src/server/peer-server.ts:1949`, `src/server/peer-server.ts:1958`, `src/server/peer-server.ts:1959`, `src/server/peer-server.ts:1962`, `src/server/peer-server.ts:1969`, `src/server/peer-server.ts:2007`, `src/server/peer-server.ts:2008`; 테스트: `test/server-signaling-frames.test.ts` › `drops forged control frames and only relays approved, allow-listed signaling stamped by the relay`; `test/server-approval-lease.test.ts` › `echoes a decision made over HTTP (%s), with both expiries`
 
 ### 5.7 `approval.rejected` (R→A)
 
@@ -1350,52 +1452,55 @@ ticket 종료(R-ROOM-047)가 보내는 frame 넷(`approval.rejected`, `session.r
 | 필드 | 값 |
 |---|---|
 | `protocol`, `type` | `'webmcp-peer/1'`, 해당 type |
-| `messageId` | `'<type>-<sessionId>-<Date.now()>'` |
+| `messageId` | 불투명한 고유 문자열(R-SIG-025). 한 종료의 frame은 모든 socket에 같은 값 |
 | `roomId`, `roomEpoch`, `sessionId` | |
 | `requestId` | ticket에 pending 승인 요청이 있을 때만 |
-| `sentAt` | ISO |
+| `sentAt` | ticket을 끝낸 시각(`revokedAt`)의 ISO |
 | `payload` | `{requestId?, sessionId, roomId, roomEpoch, reason}`. client용 `room.rotated`는 `replacementRoomId`, `replacementRoomEpoch`도 |
 | `rotatedTo` | client용 `room.rotated`만: 대체 roomId |
 | `reason` | reason 문자열 |
 
 **R-SIG-011** 거절 시 relay는 ticket에 묶인 client socket마다 reason이 비어 있지 않은 문자열 `body.reason`(HTTP) 또는
-`payload.reason`(WebSocket), 아니면 `CLIENT_APPROVAL_DENIED`인 `approval.rejected`를 위 모양으로 MUST 보낸다. provider용 echo는
-WebSocket 결정에만 있다(R-SIG-009).\
-근거: `src/server/peer-server.ts:1814`, `src/server/peer-server.ts:1766`, `src/server/peer-server.ts:1775`, `src/server/peer-server.ts:123`, `src/server/peer-server.ts:2541`, `src/server/peer-server.ts:2830`; 테스트: `test/live-demo.e2e.test.ts` › `a host rejection denies the session`
+`payload.reason`(WebSocket), 아니면 `CLIENT_APPROVAL_DENIED`인 `approval.rejected`를 위 모양으로 MUST 보낸다. provider socket은 결정
+경로와 무관하게 결정 echo `approval.rejected`(R-SIG-009)를 받는다.\
+근거: `src/server/peer-server.ts:1939`, `src/server/peer-server.ts:1940`, `src/server/peer-server.ts:1881`, `src/server/peer-server.ts:1910`, `src/server/peer-server.ts:136`, `src/server/peer-server.ts:2722`, `src/server/peer-server.ts:3020`; 테스트: `test/live-demo.e2e.test.ts` › `a host rejection denies the session`; `test/server-approval-lease.test.ts` › `echoes a decision made over HTTP (%s), with both expiries`
 
-### 5.8 `approval.expired` (R→A)
+### 5.8 `approval.expired` (R→A, R→P)
 
 | 필드 | 값 |
 |---|---|
 | `protocol`, `type` | `'webmcp-peer/1'`, `'approval.expired'` |
-| `messageId` | `'approval-expired-' + requestId` |
+| `messageId` | 불투명한 고유 문자열(R-SIG-025). agent와 provider에 같은 값 |
 | `roomId`, `roomEpoch`, `sessionId`, `requestId` | |
+| `sentAt` | ticket을 끝낸 시각(`revokedAt`)의 ISO |
 | `reason` | `'APPROVAL_EXPIRED'` |
 
-**R-SIG-012** 승인 요청이 만료되면(R-ROOM-026) relay는 ticket에 묶인 client socket마다 위 frame을 plain `send`로 보내고 1000으로
-MUST 닫는다. provider에는 보내지 않는다. timer가 요청의 `expiresAt` 전에 돌아 요청을 만료시키지 않은 경우(R-ROOM-026)에는 이
-frame이 가지 않는다.\
-근거: `src/server/peer-server.ts:1638`, `src/server/peer-server.ts:1646`, `src/server/peer-server.ts:1647`; 테스트: 없음
+**R-SIG-012** 승인 요청이 만료되면(R-ROOM-026) relay는 위 frame을 ticket에 묶인 client socket마다 plain `send`로 보내고 그 socket을
+1000으로 닫으며, room의 provider socket에도 같은 frame을 plain `send`로 MUST 보낸다(R-SIG-024). provider는 이 frame으로 승인 요청을
+내리고 session을 끝낸다(R-PEER-021).\
+근거: `src/server/peer-server.ts:1742`, `src/server/peer-server.ts:1750`, `src/server/peer-server.ts:1751`, `src/server/peer-server.ts:1755`, `src/server/peer-server.ts:1756`, `src/server/peer-server.ts:1760`; 테스트: `test/server-approval-lease.test.ts` › `ends with approval.expired to the agent and the provider, and a decision after it is refused`; `test/provider-approval-state.test.ts` › `takes an approval request nobody decided in time down when the relay expires it`
 
 ### 5.9 `approval.pending` (R→A)
 
 | 필드 | 값 |
 |---|---|
-| `type` | `'approval.pending'` |
+| `protocol`, `type` | `'webmcp-peer/1'`, `'approval.pending'` |
+| `messageId` | 불투명한 고유 문자열(R-SIG-025) |
 | `roomId`, `roomEpoch`, `requestId`, `sessionId`, `capabilities` | |
+| `sentAt` | 보낸 시각 ISO |
 | `expiresAt` | 승인 요청 만료(epoch ms) |
 
 **R-SIG-013** pending ticket의 client socket이 붙으면 relay는 그 socket에만 위 frame을 outbox로 MUST 보낸다. 붙은 뒤 그 socket이
 보내는 frame(`mcp`, `ping` 포함)은 승인 요청을 다시 보내지 않는다. 같은 pending ticket의 HTTP `POST /p/:id/mcp`와 session status
 poll은 다시 보낸다(R-ROOM-025; → O-30).\
-근거: `src/server/peer-server.ts:1611`, `src/server/peer-server.ts:1612`, `src/server/peer-server.ts:3103`, `src/server/peer-server.ts:2974`, `src/server/peer-server.ts:2266`, `src/server/peer-server.ts:2605`; 테스트: `test/relay-message-limit.test.ts` › `sends a pending ticket's approval request to each provider socket once, however often the agent calls`
+근거: `src/server/peer-server.ts:1672`, `src/server/peer-server.ts:1673`, `src/server/peer-server.ts:1682`, `src/server/peer-server.ts:3285`, `src/server/peer-server.ts:3155`, `src/server/peer-server.ts:2443`, `src/server/peer-server.ts:2789`; 테스트: `test/relay-message-limit.test.ts` › `sends a pending ticket's approval request to each provider socket once, however often the agent calls`; `test/server-approval-lease.test.ts` › `ends with approval.expired to the agent and the provider, and a decision after it is refused`
 
 ### 5.10 `approval.restored` (R→P)
 
 | 필드 | 값 |
 |---|---|
 | `protocol`, `type` | `'webmcp-peer/1'`, `'approval.restored'` |
-| `messageId` | `'approval-restored-' + sessionId` |
+| `messageId` | 불투명한 고유 문자열(R-SIG-025). 부착마다 새 값 |
 | `roomId`, `roomEpoch`, `sessionId` | |
 | `sentAt` | 보낸 시각 ISO |
 | `payload` | `{sessionId, roomId, roomEpoch, clientLabel(기본 'MCP client'), capabilities, approvedAt, expiresAt(ticket 만료)}` |
@@ -1403,21 +1508,21 @@ poll은 다시 보낸다(R-ROOM-025; → O-30).\
 **R-SIG-014** relay는 provider 부착 replay(R-ROOM-053)에서 approved ticket마다 위 frame을 plain `send`로 한 번 MUST 보내고 그 결과를
 보지 않는다. `busy`·`too-large`면 frame은 사라지고 전달 기록도 재전송도 없으며, `closed`여도 provider를 분리하지 않는다
 (`approval.request`와 다르다, R-ROOM-025). 그러면 그 provider socket은 그 ticket의 승인 상태를 받지 못한 채 남는다.\
-근거: `src/server/peer-server.ts:1698`, `src/server/peer-server.ts:1699`, `src/server/peer-server.ts:1707`, `src/server/peer-server.ts:1742`, `src/server/peer-server.ts:1689`, `src/server/peer-server.ts:1690`; 테스트: `test/server-provider-reattach.test.ts` › `restores an approved ticket to the new socket with an approval.restored frame`
+근거: `src/server/peer-server.ts:1805`, `src/server/peer-server.ts:1806`, `src/server/peer-server.ts:1814`, `src/server/peer-server.ts:1849`, `src/server/peer-server.ts:1796`, `src/server/peer-server.ts:1797`; 테스트: `test/server-provider-reattach.test.ts` › `restores an approved ticket to the new socket with an approval.restored frame`
 
-### 5.11 `session.revoked`, `room.expired` (R→A)
+### 5.11 `session.revoked` (R→A, R→P), `room.expired` (R→A)
 
-**R-SIG-015** revoke 시 relay는 ticket에 묶인 client socket마다 5.7 모양의 `session.revoked`를 MUST 보낸다. reason은 provider의
-단일 revoke면 `SESSION_REVOKED`, client 자기 revoke면 `CLIENT_REVOKED`, provider 전체 revoke면 `ROOM_REVOKED`다. room 만료는
-revoke가 아니므로 `session.revoked`를 보내지 않는다(R-SIG-023). HTTP revoke 응답의 `reason`(R-ROOM-039, R-ROOM-040)과는 다른 값이다
-(→ O-50).\
-근거: `src/server/peer-server.ts:1775`, `src/server/peer-server.ts:124`, `src/server/peer-server.ts:2647`, `src/server/peer-server.ts:2659`, `src/server/peer-server.ts:2683`; 테스트: `test/live-demo.e2e.test.ts` › `revoke pushes session.revoked and purges the host credentials`
+**R-SIG-015** revoke 시 relay는 ticket에 묶인 client socket마다, 그리고 room의 provider socket에도(R-SIG-024) 5.7 모양의
+`session.revoked`를 MUST 보낸다. reason은 provider의 단일 revoke면 `SESSION_REVOKED`, client 자기 revoke면 `CLIENT_REVOKED`, provider
+전체 revoke면 `ROOM_REVOKED`로 relay가 정한 고정값이다. 그래서 HTTP revoke 응답이 되돌리는 호출자의 `reason`(R-ROOM-039, R-ROOM-040)은
+어느 frame에도 실리지 않는다. room 만료는 revoke가 아니므로 `session.revoked`를 보내지 않는다(R-SIG-023).\
+근거: `src/server/peer-server.ts:1910`, `src/server/peer-server.ts:1920`, `src/server/peer-server.ts:137`, `src/server/peer-server.ts:2835`, `src/server/peer-server.ts:2849`, `src/server/peer-server.ts:2873`; 테스트: `test/live-demo.e2e.test.ts` › `revoke pushes session.revoked and purges the host credentials`; `test/server-approval-lease.test.ts` › `tells it of %s with session.revoked`
 
 **R-SIG-023** room 만료 처리(R-ROOM-050) 시 relay는 room의 ticket마다 그 ticket에 묶인 client socket에 5.7 모양의 `room.expired`
 (reason `ROOM_EXPIRED`)를 plain `send`로 MUST 보낸다. 그 뒤 그 socket의 pending 요청은 −32056 `ROOM_EXPIRED` `{roomId, roomEpoch}`로
 끝나고(HTTP 진행 요청과 같은 오류, R-ROOM-048) socket은 1000으로 닫힌다. 만료를 sweep이 처리하든 다른 자리가 먼저 처리하든
 (R-ROOM-067) 같은 frame이다. provider socket에는 이 frame을 보내지 않는다(→ O-23).\
-근거: `src/server/peer-server.ts:126`, `src/server/peer-server.ts:1766`, `src/server/peer-server.ts:1775`, `src/server/peer-server.ts:1796`, `src/server/peer-server.ts:1797`, `src/server/peer-server.ts:1854`, `src/server/peer-server.ts:1887`; 테스트: `test/server-pending-settlement.test.ts` › `ends a WebSocket agent's request with the ROOM_EXPIRED an HTTP one gets, after a room.expired frame`; `test/server-pending-settlement.test.ts` › `carries out the room's expiry where it is found first, not only at the sweep: %s`
+근거: `src/server/peer-server.ts:139`, `src/server/peer-server.ts:1881`, `src/server/peer-server.ts:1910`, `src/server/peer-server.ts:1912`, `src/server/peer-server.ts:1913`, `src/server/peer-server.ts:2026`, `src/server/peer-server.ts:2059`; 테스트: `test/server-pending-settlement.test.ts` › `ends a WebSocket agent's request with the ROOM_EXPIRED an HTTP one gets, after a room.expired frame`; `test/server-pending-settlement.test.ts` › `carries out the room's expiry where it is found first, not only at the sweep: %s`
 
 ### 5.12 `room.rotated`
 
@@ -1426,7 +1531,7 @@ provider용(R→P):
 | 필드 | 값 |
 |---|---|
 | `protocol`, `type` | `'webmcp-peer/1'`, `'room.rotated'` |
-| `messageId` | `'room-rotated-' + 이전 roomId` |
+| `messageId` | 불투명한 고유 문자열(R-SIG-025) |
 | `roomId`, `roomEpoch` | 이전 room |
 | `sentAt` | ISO |
 | `payload` | `{previousRoomId, previousRoomEpoch, previousState:'rotated', replacementRoomId, replacementRoomEpoch, rotatedAt(ISO), invalidatedSessionCount}` |
@@ -1439,7 +1544,7 @@ client용(R→A)은 5.7 모양이며 reason은 `ROOM_ROTATED`이고, 대체 room
 −32057 `ROOM_ROTATED` `{replacementRoomId, roomId, roomEpoch}`로 끝난다), 그다음 provider socket에 provider용 frame을 보내고 MUST
 닫는다. 그래서 WebSocket agent도 HTTP agent(R-ROOM-046)와 같이 대체 room을 안다. ticket 종료가 client socket을 모두 떼므로 rotate는
 client socket에 따로 frame을 보내지 않는다.\
-근거: `src/server/peer-server.ts:2726`, `src/server/peer-server.ts:2727`, `src/server/peer-server.ts:2734`, `src/server/peer-server.ts:2737`, `src/server/peer-server.ts:1768`, `src/server/peer-server.ts:1789`, `src/server/peer-server.ts:1792`, `src/server/peer-server.ts:1852`; 테스트: `test/live-demo.e2e.test.ts` › `rotation pushes room.rotated, voids old tickets, and issues a fresh single-use invite`; `test/server-pending-settlement.test.ts` › `names the replacement room to a WebSocket agent, in its room.rotated and its request's error, as to an HTTP one`
+근거: `src/server/peer-server.ts:2916`, `src/server/peer-server.ts:2917`, `src/server/peer-server.ts:2924`, `src/server/peer-server.ts:2927`, `src/server/peer-server.ts:1883`, `src/server/peer-server.ts:1900`, `src/server/peer-server.ts:1903`, `src/server/peer-server.ts:2024`; 테스트: `test/live-demo.e2e.test.ts` › `rotation pushes room.rotated, voids old tickets, and issues a fresh single-use invite`; `test/server-pending-settlement.test.ts` › `names the replacement room to a WebSocket agent, in its room.rotated and its request's error, as to an HTTP one`
 
 ### 5.13 `offer` (A→R→P)
 
@@ -1455,7 +1560,7 @@ client socket에 따로 frame을 보내지 않는다.\
 `{type:'offer.refused', error: REQUEST_ID_TOO_LARGE}`(requestId 없음)로 답한다. 받은 text나 `JSON.stringify(frame)`이 261120
 byte를 넘으면 `too-large`로 본다. 아니면 R-SIG-005대로 stamp해 provider에 MUST 보낸다. offer는 pending 상한에 세지 않고
 rate limit도 없다(→ O-58).\
-근거: `src/server/peer-server.ts:3053`, `src/server/peer-server.ts:3057`, `src/server/peer-server.ts:3058`, `src/server/peer-server.ts:3062`, `src/server/peer-server.ts:3064`; 테스트: `test/relay-backpressure.test.ts` › `forwards an offer of exactly the request limit and refuses one byte more with REQUEST_TOO_LARGE`; `test/relay-message-limit.test.ts` › `refuses an offer whose requestId is over 1 KiB of JSON without echoing or forwarding it, since the provider's answer repeats it`
+근거: `src/server/peer-server.ts:3235`, `src/server/peer-server.ts:3239`, `src/server/peer-server.ts:3240`, `src/server/peer-server.ts:3244`, `src/server/peer-server.ts:3246`; 테스트: `test/relay-backpressure.test.ts` › `forwards an offer of exactly the request limit and refuses one byte more with REQUEST_TOO_LARGE`; `test/relay-message-limit.test.ts` › `refuses an offer whose requestId is over 1 KiB of JSON without echoing or forwarding it, since the provider's answer repeats it`
 
 ### 5.14 `offer.refused` (R→A)
 
@@ -1469,7 +1574,7 @@ rate limit도 없다(→ O-58).\
 (−32600, `{limitBytes:261120}`), provider queue가 가득 차면 `PROVIDER_BUSY`(−32001, `{retryable:true}`, provider는 붙어 있음),
 provider가 없거나 닫히는 중이면 `PROVIDER_UNAVAILABLE`(−32001)이다. 닫히는 provider는 분리한다(모든 pending 요청이
 `PROVIDER_DISCONNECTED`).\
-근거: `src/server/peer-server.ts:345`, `src/server/peer-server.ts:3065`, `src/server/peer-server.ts:3066`, `src/server/peer-server.ts:3069`; 테스트: `test/relay-backpressure.test.ts` › `drops an agent notification it cannot queue and refuses an offer to its sender, keeping the provider`
+근거: `src/server/peer-server.ts:358`, `src/server/peer-server.ts:3247`, `src/server/peer-server.ts:3248`, `src/server/peer-server.ts:3251`; 테스트: `test/relay-backpressure.test.ts` › `drops an agent notification it cannot queue and refuses an offer to its sender, keeping the provider`
 
 ### 5.15 `answer`, `release` (P→R→A)
 
@@ -1480,7 +1585,7 @@ provider가 없거나 닫히는 중이면 `PROVIDER_UNAVAILABLE`(−32001)이다
 
 **R-SIG-019** relay는 provider의 `answer`와 `release`를 R-SIG-004대로 room의 모든 client socket에 MUST broadcast한다. offer를 보낸
 agent에게만 보내지 않는다(→ O-20). provider의 송신 규칙은 R-PEER-022, R-PEER-023이다.\
-근거: `src/server/peer-server.ts:2884`, `src/provider/peer-client.ts:1018`, `src/provider/peer-client.ts:1307`; 테스트: `test/server-signaling-frames.test.ts` › `ignores provider frames that are not typed JSON objects instead of broadcasting them`
+근거: `src/server/peer-server.ts:3061`, `src/provider/peer-client.ts:1036`, `src/provider/peer-client.ts:1366`; 테스트: `test/server-signaling-frames.test.ts` › `ignores provider frames that are not typed JSON objects instead of broadcasting them`
 
 ### 5.16 `register`
 
@@ -1498,7 +1603,7 @@ relay→agent announcement: `{type:'register', alias?, …provider의 다른 필
 `registerSeq`는 MUST NOT 포함한다.
 
 **R-SIG-020** relay는 `register`를 6장대로 MUST 처리한다. 받아들인 catalog는 provider에 알리지 않는다.\
-근거: `src/server/peer-server.ts:1012`, `src/server/peer-server.ts:1062`, `src/server/peer-server.ts:2864`; 테스트: `test/catalog-contract.test.ts` › `announces accepted catalogs with the relay's authoritative version and hash`
+근거: `src/server/peer-server.ts:1073`, `src/server/peer-server.ts:1123`, `src/server/peer-server.ts:3041`; 테스트: `test/catalog-contract.test.ts` › `announces accepted catalogs with the relay's authoritative version and hash`
 
 ### 5.17 `error` (R→P)
 
@@ -1515,7 +1620,7 @@ relay→agent announcement: `{type:'register', alias?, …provider의 다른 필
 **R-SIG-021** relay는 `error` frame을 provider socket에만, catalog 거절(R-CAT-009)과 `INVALID_APPROVAL`(R-SIG-009) 때만 plain
 `send`로 MUST 보낸다. agent는 relay 오류를 `mcp` frame의 JSON-RPC 오류로 받는다. 다만 provider가 보낸 `error` frame은 R-SIG-004로
 agent에게 broadcast된다.\
-근거: `src/server/peer-server.ts:1070`, `src/server/peer-server.ts:1073`, `src/server/peer-server.ts:1075`, `src/server/peer-server.ts:2836`; 테스트: `test/relay-message-limit.test.ts` › `refuses a register whose announcement is over PEER_RELAY_MAX_ANNOUNCEMENT_BYTES with CATALOG_TOO_LARGE for its registerSeq, and keeps the previous catalog`
+근거: `src/server/peer-server.ts:1131`, `src/server/peer-server.ts:1134`, `src/server/peer-server.ts:1136`, `src/server/peer-server.ts:3026`; 테스트: `test/relay-message-limit.test.ts` › `refuses a register whose announcement is over PEER_RELAY_MAX_ANNOUNCEMENT_BYTES with CATALOG_TOO_LARGE for its registerSeq, and keeps the previous catalog`
 
 ### 5.18 `mcp`
 
@@ -1528,7 +1633,7 @@ agent에게 broadcast된다.\
 | 그 밖 | A→R→P | 그대로 전달 |
 
 **R-SIG-022** `mcp` frame의 라우팅은 7장을 MUST 따른다.\
-근거: `src/server/peer-server.ts:2868`, `src/server/peer-server.ts:2953`; 테스트: `test/webmcp-peer.test.ts` › `runs end-to-end 3-tier Peer-Based Server Routing MCP (Provider -> Server -> Client & PeerMcpService)`
+근거: `src/server/peer-server.ts:3045`, `src/server/peer-server.ts:3134`; 테스트: `test/webmcp-peer.test.ts` › `runs end-to-end 3-tier Peer-Based Server Routing MCP (Provider -> Server -> Client & PeerMcpService)`
 
 ## 6. catalog
 
@@ -1548,12 +1653,12 @@ descriptor 필드는 MUST 유지한다. 그 밖(배열이 아닌 `tools`, `tools
 UTF-16 code unit 순서로 안정 정렬한 사본(`localeCompare` 쓰지 않음)이고, 모든 object의 key를 `Object.keys().sort()`로 재귀
 정렬하며 배열 순서는 유지한다. key는 `Object.defineProperty`로 넣어 자기 `__proto__` key도 hash에 들어간다. relay의 room hash,
 deployment hash, agent client의 `hashTools`는 이 알고리즘을 MUST 똑같이 쓴다. tool이 없는 catalog의 hash는 `SHA-256('[]')`다.\
-근거: `src/server/deployment-catalog.ts:25`, `src/server/deployment-catalog.ts:31`, `src/server/deployment-catalog.ts:45`, `src/server/deployment-catalog.ts:55`, `src/server/peer-server.ts:659`, `src/server/peer-server.ts:790`, `src/client/catalog-hash.ts:13`, `src/client/catalog-hash.ts:50`; 테스트: `test/server-catalog-hash.test.ts` › `hashes tools in code-unit name order, independent of input order`; `test/server-catalog-hash.test.ts` › `does not depend on the runtime's collation locale`; `test/client-catalog-hash.test.ts` › `hashTools equals hashDeploymentCatalog for every input order`; `test/client-catalog-hash.test.ts` › `hashes catalogs that differ only under a __proto__ key differently, on the relay and the client`
+근거: `src/server/deployment-catalog.ts:25`, `src/server/deployment-catalog.ts:31`, `src/server/deployment-catalog.ts:45`, `src/server/deployment-catalog.ts:55`, `src/server/peer-server.ts:679`, `src/server/peer-server.ts:820`, `src/client/catalog-hash.ts:13`, `src/client/catalog-hash.ts:50`; 테스트: `test/server-catalog-hash.test.ts` › `hashes tools in code-unit name order, independent of input order`; `test/server-catalog-hash.test.ts` › `does not depend on the runtime's collation locale`; `test/client-catalog-hash.test.ts` › `hashTools equals hashDeploymentCatalog for every input order`; `test/client-catalog-hash.test.ts` › `hashes catalogs that differ only under a __proto__ key differently, on the relay and the client`
 
 **R-CAT-003** room은 deployment catalog가 비었으면 `catalogVersion: 0`, `SHA-256('[]')`, catalog 없음으로, 아니면 deployment의
 tools·version·hash로 시작한다(R-ROOM-013). catalog가 바뀔 때마다(register나 listing 답) `catalogVersion`을 1 MUST 올린다.
 `catalogVersion`이 0이면 hash가 같아도(빈 catalog `[]`) 받아들여 version 1이 된다(→ O-39).\
-근거: `src/server/peer-server.ts:697`, `src/server/peer-server.ts:704`, `src/server/peer-server.ts:705`, `src/server/peer-server.ts:949`, `src/server/peer-server.ts:953`; 테스트: `test/server-register-evaluation.test.ts` › `evaluates a repeated frame again once the room catalog changed in between`
+근거: `src/server/peer-server.ts:719`, `src/server/peer-server.ts:726`, `src/server/peer-server.ts:727`, `src/server/peer-server.ts:1010`, `src/server/peer-server.ts:1014`; 테스트: `test/server-register-evaluation.test.ts` › `evaluates a repeated frame again once the room catalog changed in between`
 
 **R-CAT-004** deployment catalog는 option `deploymentCatalog`(source `injected`)이고, 없으면 `$WEBMCP_CATALOG_PATH`,
 `$FRAMEBOOK_MCP_CATALOG_PATH`, `<cwd>/api/webmcp-tools.json`, `<cwd>/../../api/webmcp-tools.json` 중 처음 존재하고 정규화한
@@ -1562,30 +1667,30 @@ tools·version·hash로 시작한다(R-ROOM-013). catalog가 바뀔 때마다(re
 무효한 tool 목록은 `[]`가 된다. `catalogVersion`은 입력의
 0보다 큰 safe integer(파일은 기본 1), 아니면 tool이 있으면 1, 없으면 0이다. 입력 `catalogHash`는 계산값과 같을 때만 쓴다.
 `catalogUpdatedAt`은 유한한 입력값, 아니면 `deployment`는 0, 그 밖은 `Date.now()`다.\
-근거: `src/server/deployment-catalog.ts:87`, `src/server/deployment-catalog.ts:97`, `src/server/deployment-catalog.ts:100`, `src/server/deployment-catalog.ts:103`, `src/server/deployment-catalog.ts:110`, `src/server/deployment-catalog.ts:122`, `src/server/deployment-catalog.ts:124`, `src/server/deployment-catalog.ts:129`, `src/server/peer-server.ts:543`, `src/server/peer-server.ts:577`; 테스트: `test/webmcp-peer.test.ts` › `runs end-to-end 3-tier Peer-Based Server Routing MCP (Provider -> Server -> Client & PeerMcpService)`; `test/server-config-optin.test.ts` › `loads the deployment catalog from the cwd option, not from the process's working directory`; `test/server-config-optin.test.ts` › `does not look for a deployment catalog in another package's directory`
+근거: `src/server/deployment-catalog.ts:87`, `src/server/deployment-catalog.ts:97`, `src/server/deployment-catalog.ts:100`, `src/server/deployment-catalog.ts:103`, `src/server/deployment-catalog.ts:110`, `src/server/deployment-catalog.ts:122`, `src/server/deployment-catalog.ts:124`, `src/server/deployment-catalog.ts:129`, `src/server/peer-server.ts:558`, `src/server/peer-server.ts:597`; 테스트: `test/webmcp-peer.test.ts` › `runs end-to-end 3-tier Peer-Based Server Routing MCP (Provider -> Server -> Client & PeerMcpService)`; `test/server-config-optin.test.ts` › `loads the deployment catalog from the cwd option, not from the process's working directory`; `test/server-config-optin.test.ts` › `does not look for a deployment catalog in another package's directory`
 
 **R-CAT-005** HTTP가 쓰는 catalog snapshot은 room에 catalog가 있으면 그 `cachedTools`의 사본과 room의 version·hash·updatedAt이고,
 없으면 deployment catalog의 사본(비어 있지 않을 때), 그것도 없으면 `tools: []`, `catalogVersion: 0`, `SHA-256('[]')`다. relay는
 이 규칙을 MUST 쓴다.\
-근거: `src/server/peer-server.ts:1248`, `src/server/peer-server.ts:1250`, `src/server/peer-server.ts:1254`; 테스트: `test/provider-register-limit.test.ts` › `gets a WebSocket agent of a new room the relay's CATALOG_UNAVAILABLE, not the catalog of the room before`
+근거: `src/server/peer-server.ts:1309`, `src/server/peer-server.ts:1311`, `src/server/peer-server.ts:1315`; 테스트: `test/provider-register-limit.test.ts` › `gets a WebSocket agent of a new room the relay's CATALOG_UNAVAILABLE, not the catalog of the room before`
 
 **R-CAT-006** 붙어 있는 provider socket의 `register` frame을 받으면 relay는 그것을 `registerSeq`와 나머지 `frame`(`type`, `alias`
 포함)으로 나누고, `frame`의 fingerprint를 `SHA-256(JSON.stringify(frame))` hex(key 순서에 민감)로 정하고, room에서 평가를
 기다리던 register frame을 답 없이 버린 뒤 처리(R-CAT-011~R-CAT-013)를 MUST 시작한다.\
-근거: `src/server/peer-server.ts:1011`, `src/server/peer-server.ts:1012`, `src/server/peer-server.ts:1018`, `src/server/peer-server.ts:1019`, `src/server/peer-server.ts:2864`; 테스트: `test/server-register-evaluation.test.ts` › `keeps the budget across the room's provider sockets and never evaluates a waiting frame from a replaced one`
+근거: `src/server/peer-server.ts:1072`, `src/server/peer-server.ts:1073`, `src/server/peer-server.ts:1079`, `src/server/peer-server.ts:1080`, `src/server/peer-server.ts:3041`; 테스트: `test/server-register-evaluation.test.ts` › `keeps the budget across the room's provider sockets and never evaluates a waiting frame from a replaced one`
 
 **R-CAT-007** catalog 평가(`acceptProviderCatalog`)는 다음 순서로 결과를 MUST 정한다. R-CAT-001에 어긋나면 `invalid`. 아니면 hash를
 계산하고 announcement `{...fields, tools:<정규화한 tools>, catalogVersion:<unchanged면 현재, 아니면 현재 + 1>, catalogHash}`를
 만든다(`fields`는 register frame에서 `registerSeq`를 뺀 것, listing 답이면 `{type:'register'}`). 그 JSON이 260096 byte
 (`PEER_RELAY_MAX_ANNOUNCEMENT_BYTES`)를 넘으면 `too-large`(unchanged 판정보다 먼저). `catalogVersion > 0`이고 hash가 room과 같으면
 `unchanged`. 아니면 `accepted`이고, 알리는 announcement는 잰 object 그대로다(그 `tools`가 room의 `cachedTools`다).\
-근거: `src/server/peer-server.ts:978`, `src/server/peer-server.ts:980`, `src/server/peer-server.ts:982`, `src/server/peer-server.ts:983`, `src/server/peer-server.ts:987`, `src/server/peer-server.ts:988`, `src/server/peer-server.ts:989`; 테스트: `test/relay-message-limit.test.ts` › `accepts an announcement of exactly PEER_RELAY_MAX_ANNOUNCEMENT_BYTES and sends it to agents in 128 KiB fragments`; `test/relay-message-limit.test.ts` › `announces only the catalog it measured, never one over the announcement limit`
+근거: `src/server/peer-server.ts:1039`, `src/server/peer-server.ts:1041`, `src/server/peer-server.ts:1043`, `src/server/peer-server.ts:1044`, `src/server/peer-server.ts:1048`, `src/server/peer-server.ts:1049`, `src/server/peer-server.ts:1050`; 테스트: `test/relay-message-limit.test.ts` › `accepts an announcement of exactly PEER_RELAY_MAX_ANNOUNCEMENT_BYTES and sends it to agents in 128 KiB fragments`; `test/relay-message-limit.test.ts` › `announces only the catalog it measured, never one over the announcement limit`
 
 **R-CAT-008** `accepted`면 relay는 room catalog를 바꾸고(`cachedTools`, `catalogSource: 'provider'`, `catalogHash`,
 `catalogVersion += 1`, `catalogUpdatedAt = Date.now()`) 모든 agent에게 이 순서로 MUST broadcast한다:
 `{type:'mcp', message:{jsonrpc:'2.0', method:'notifications/tools/list_changed', params:{catalogVersion, catalogHash}}}`, 그다음
 register frame에서 온 catalog일 때만 announcement. provider에는 ack를 보내지 않는다.\
-근거: `src/server/peer-server.ts:948`, `src/server/peer-server.ts:950`, `src/server/peer-server.ts:953`, `src/server/peer-server.ts:957`, `src/server/peer-server.ts:1062`; 테스트: `test/relay-message-limit.test.ts` › `refuses a register whose announcement is over PEER_RELAY_MAX_ANNOUNCEMENT_BYTES with CATALOG_TOO_LARGE for its registerSeq, and keeps the previous catalog`; `test/catalog-contract.test.ts` › `announces accepted catalogs with the relay's authoritative version and hash`
+근거: `src/server/peer-server.ts:1009`, `src/server/peer-server.ts:1011`, `src/server/peer-server.ts:1014`, `src/server/peer-server.ts:1018`, `src/server/peer-server.ts:1123`; 테스트: `test/relay-message-limit.test.ts` › `refuses a register whose announcement is over PEER_RELAY_MAX_ANNOUNCEMENT_BYTES with CATALOG_TOO_LARGE for its registerSeq, and keeps the previous catalog`; `test/catalog-contract.test.ts` › `announces accepted catalogs with the relay's authoritative version and hash`
 
 **R-CAT-009** 거절한 register(`invalid`, `too-large`)에 relay는 보낸 provider socket에만 plain `send`로 MUST 답한다(queue가 가득
 차면 사라진다). `invalid`는 `{type:'error', code:-32602, message:'CATALOG_INVALID', reason:'register.tools must be an array of at most 128
@@ -1593,27 +1698,27 @@ tools, each with a unique, non-empty name of at most 256 UTF-16 code units witho
 inputSchema object of type "object"'}`(`CATALOG_INVALID_REASON`, R-CAT-001의 계약을 상수에서 만든다), `too-large`는 `{type:'error', code:-32602, message:'CATALOG_TOO_LARGE',
 limitBytes:260096, reason:'the catalog announcement is <n> bytes, over the relay's 260096-byte announcement limit'}`다. frame의
 `registerSeq`가 수일 때만 그것을 echo한다(문자열은 echo하지 않음). room은 이전 catalog를 유지하고 agent는 아무것도 받지 않는다.\
-근거: `src/server/peer-server.ts:157`, `src/server/peer-server.ts:1070`, `src/server/peer-server.ts:1071`, `src/server/peer-server.ts:1073`, `src/server/peer-server.ts:1075`; 테스트: `test/server-register-evaluation.test.ts` › `evaluates a frame that repeats the last one once, and answers every repeat as that one was, under its own registerSeq`; `test/relay-message-limit.test.ts` › `refuses a register whose announcement is over PEER_RELAY_MAX_ANNOUNCEMENT_BYTES with CATALOG_TOO_LARGE for its registerSeq, and keeps the previous catalog`; `test/provider-reconnect.test.ts` › `surfaces CATALOG_INVALID as the session error until a new catalog is sent`
+근거: `src/server/peer-server.ts:170`, `src/server/peer-server.ts:1131`, `src/server/peer-server.ts:1132`, `src/server/peer-server.ts:1134`, `src/server/peer-server.ts:1136`; 테스트: `test/server-register-evaluation.test.ts` › `evaluates a frame that repeats the last one once, and answers every repeat as that one was, under its own registerSeq`; `test/relay-message-limit.test.ts` › `refuses a register whose announcement is over PEER_RELAY_MAX_ANNOUNCEMENT_BYTES with CATALOG_TOO_LARGE for its registerSeq, and keeps the previous catalog`; `test/provider-reconnect.test.ts` › `surfaces CATALOG_INVALID as the session error until a new catalog is sent`
 
 **R-CAT-010** `unchanged` register(tool 순서·key 순서와 무관하게 room과 같은 hash)에 relay는 답하지 않고, announcement와
 `list_changed`를 보내지 않으며, version을 MUST NOT 바꾼다. 그래서 alias 같은 tool 외 필드만 바뀐 register는 알리지 않는다.\
-근거: `src/server/peer-server.ts:949`, `src/server/peer-server.ts:988`, `src/server/peer-server.ts:1060`, `src/server/peer-server.ts:1063`; 테스트: `test/relay-message-limit.test.ts` › `announces a register only when its catalog changed`; `test/catalog-contract.test.ts` › `publishes the same descriptor via register and tools/list so the relay catalog never flaps`
+근거: `src/server/peer-server.ts:1010`, `src/server/peer-server.ts:1049`, `src/server/peer-server.ts:1121`, `src/server/peer-server.ts:1124`; 테스트: `test/relay-message-limit.test.ts` › `announces a register only when its catalog changed`; `test/catalog-contract.test.ts` › `publishes the same descriptor via register and tools/list so the relay catalog never flaps`
 
 **R-CAT-011** fingerprint가 마지막으로 평가한 frame과 같고 room의 `catalogVersion`·`catalogHash`가 그 평가가 남긴 값 그대로면
 relay는 다시 평가하지 않고 budget도 쓰지 않으며, 저장한 결과로 MUST 답한다(같은 거절을 이 frame의 `registerSeq`로, 받아들였거나
 unchanged였으면 답 없음). 그사이 room catalog가 바뀌었으면(예: listing 답) 같은 frame도 다시 평가한다.\
-근거: `src/server/peer-server.ts:1033`, `src/server/peer-server.ts:1034`, `src/server/peer-server.ts:1036`, `src/server/peer-server.ts:1061`; 테스트: `test/server-register-evaluation.test.ts` › `evaluates a frame that repeats the last one once, and answers every repeat as that one was, under its own registerSeq`; `test/server-register-evaluation.test.ts` › `evaluates a repeated frame again once the room catalog changed in between`
+근거: `src/server/peer-server.ts:1094`, `src/server/peer-server.ts:1095`, `src/server/peer-server.ts:1097`, `src/server/peer-server.ts:1122`; 테스트: `test/server-register-evaluation.test.ts` › `evaluates a frame that repeats the last one once, and answers every repeat as that one was, under its own registerSeq`; `test/server-register-evaluation.test.ts` › `evaluates a repeated frame again once the room catalog changed in between`
 
 **R-CAT-012** room마다 token bucket이 평가를 MUST 제한한다. 처음 8개(`REGISTER_EVALUATION_BURST`)로 시작하고 1000 ms
 (`REGISTER_EVALUATION_INTERVAL_MS`)마다 1개씩 연속으로 채워 8개까지 둔다. 평가마다 1개를 쓰고, catalog를 받아들이면 돌려준다.
 그래서 받아들인 catalog는 budget을 쓰지 않고, 거절·unchanged·예외 평가는 쓴 채로 남는다. token이 1 미만이면 frame은
 `ceil((1 − tokens) × 1000)` ms를 기다렸다가 처리된다(반복 shortcut을 다시 확인). 최신 frame은 rate 때문에 거절되지 않는다(→ O-40).\
-근거: `src/server/peer-server.ts:104`, `src/server/peer-server.ts:106`, `src/server/peer-server.ts:1015`, `src/server/peer-server.ts:1040`, `src/server/peer-server.ts:1042`, `src/server/peer-server.ts:1050`, `src/server/peer-server.ts:1057`, `src/server/peer-server.ts:1059`; 테스트: `test/server-register-evaluation.test.ts` › `evaluates at most ${BURST} at once and then one a second, always the latest, and still takes a changed catalog`
+근거: `src/server/peer-server.ts:117`, `src/server/peer-server.ts:119`, `src/server/peer-server.ts:1076`, `src/server/peer-server.ts:1101`, `src/server/peer-server.ts:1103`, `src/server/peer-server.ts:1111`, `src/server/peer-server.ts:1118`, `src/server/peer-server.ts:1120`; 테스트: `test/server-register-evaluation.test.ts` › `evaluates at most ${BURST} at once and then one a second, always the latest, and still takes a changed catalog`
 
 **R-CAT-013** 기다리는 frame은 더 새로운 register가 오거나, 보낸 socket이 더는 붙어 있는 provider가 아니거나(교체·닫힘), room이
 만료되면 답 없이 MUST 버린다. 평가할 차례에 room이 만료됐으면 그 room을 만료 처리한다(R-ROOM-067). budget 상태는 room entry에 속하므로 다시 붙거나 교체한 provider socket이 이어받고, rotate한 대체
 room은 새 budget으로 시작한다.\
-근거: `src/server/peer-server.ts:538`, `src/server/peer-server.ts:1018`, `src/server/peer-server.ts:1024`, `src/server/peer-server.ts:1046`, `src/server/peer-server.ts:2888`; 테스트: `test/server-register-evaluation.test.ts` › `keeps the budget across the room's provider sockets and never evaluates a waiting frame from a replaced one`
+근거: `src/server/peer-server.ts:553`, `src/server/peer-server.ts:1079`, `src/server/peer-server.ts:1085`, `src/server/peer-server.ts:1107`, `src/server/peer-server.ts:3065`; 테스트: `test/server-register-evaluation.test.ts` › `keeps the budget across the room's provider sockets and never evaluates a waiting frame from a replaced one`
 
 **R-CAT-014** relay는 WebSocket agent의 whole-catalog listing(`server/discover`, 또는 `params.cursor`가 `undefined`·`null`인
 `tools/list`)에 대한 provider 답에서만 catalog를 MUST 받아들인다. 오류가 없고 `result.nextCursor`가 `undefined`·`null`일 때
@@ -1621,7 +1726,7 @@ room은 새 budget으로 시작한다.\
 `list_changed`만 broadcast한다(announcement 없음, → O-40). `tools/call` 결과(그 안에 `tools`가 있어도), cursor로 요청한 page,
 `nextCursor`가 있는 첫 page는 room catalog를 바꾸지 않는다. 답의 처리는 R-MCP-038이다. HTTP listing은 relay가 직접 답하므로
 catalog를 바꾸지 않는다.\
-근거: `src/server/peer-server.ts:3030`, `src/server/peer-server.ts:3039`, `src/server/peer-server.ts:1103`, `src/server/peer-server.ts:1108`, `src/server/peer-server.ts:1109`; 테스트: `test/relay-message-limit.test.ts` › `takes a catalog only from a whole tools/list result, not from a tools/call result or a page of a listing`; `test/relay-message-limit.test.ts` › `takes a catalog from a server/discover result like a tools/list one, and answers a refused one from the relay's catalog`
+근거: `src/server/peer-server.ts:3211`, `src/server/peer-server.ts:3221`, `src/server/peer-server.ts:1164`, `src/server/peer-server.ts:1169`, `src/server/peer-server.ts:1170`; 테스트: `test/relay-message-limit.test.ts` › `takes a catalog only from a whole tools/list result, not from a tools/call result or a page of a listing`; `test/relay-message-limit.test.ts` › `takes a catalog from a server/discover result like a tools/list one, and answers a refused one from the relay's catalog`
 
 ## 7. MCP JSON-RPC 라우팅
 
@@ -1630,43 +1735,43 @@ catalog를 바꾸지 않는다.\
 **R-MCP-001** relay는 `jsonrpc === '2.0'`이고 `method`가 문자열이며 `id`가 없거나 `undefined`·`null`·문자열·수인 object만
 JSON-RPC 요청으로 MUST 본다. 문자열 id의 JSON text(따옴표 포함)가 1024 byte를 넘으면 요청이 아니다(REQUEST_ID_TOO_LARGE). 배열
 (batch)은 요청이 아니다. 수 id는 크기 검사를 받지 않는다.\
-근거: `src/server/peer-server.ts:795`, `src/server/peer-server.ts:797`, `src/server/peer-server.ts:804`, `src/server/peer-server.ts:806`, `src/server/peer-server.ts:237`; 테스트: `test/relay-message-limit.test.ts` › `refuses a request id over 1 KiB of JSON without echoing or forwarding it, over WebSocket and HTTP`
+근거: `src/server/peer-server.ts:825`, `src/server/peer-server.ts:827`, `src/server/peer-server.ts:834`, `src/server/peer-server.ts:836`, `src/server/peer-server.ts:250`; 테스트: `test/relay-message-limit.test.ts` › `refuses a request id over 1 KiB of JSON without echoing or forwarding it, over WebSocket and HTTP`
 
 **R-MCP-002** provider의 `mcp` frame은 `message`가 `jsonrpc === '2.0'`, 문자열이나 수인 `id`, `result`나 `error` member를 가질 때만
 답으로 MUST 본다. id가 null인 답은 답이 아니므로 R-MCP-041로 broadcast된다(→ O-03).\
-근거: `src/server/peer-server.ts:816`, `src/server/peer-server.ts:818`, `src/server/peer-server.ts:2868`; 테스트: 없음
+근거: `src/server/peer-server.ts:846`, `src/server/peer-server.ts:848`, `src/server/peer-server.ts:3045`; 테스트: 없음
 
 **R-MCP-003** pending 요청은 room마다 하나인 map에 `rpcKey(id) = '<typeof id>:<String(id)>'`로 둔다. WebSocket socket과 HTTP
 bridge가 이 map을 함께 쓴다. agent id의 key가 이미 pending이면 relay는 요청을 wire id
 `framebook:<n>:<typeof id>:<String(id)>`(n은 server 전체에서 증가하는 counter, 빈 key가 나올 때까지 증가)로 MUST 전달하고, 답의
 id를 agent의 id로 되돌린다. provider는 wire id만 본다. 그래서 수 1과 문자열 `"1"`은 다른 key다. 요청 상한 아래 1 KiB가 wire
 id와 stamp를 담는다.\
-근거: `src/server/peer-server.ts:822`, `src/server/peer-server.ts:826`, `src/server/peer-server.ts:830`, `src/server/peer-server.ts:1101`, `src/server/peer-server.ts:2397`, `src/server/peer-server.ts:3020`, `src/config/limits.ts:28`; 테스트: `test/relay-message-limit.test.ts` › `forwards and answers a body of exactly the request limit under a rewritten duplicate id, clears its pending slot, and refuses one byte more`; `test/client-request-limit.test.ts` › `forwards and answers a WebSocket request of exactly the request limit under a rewritten duplicate id, and refuses one byte more`
+근거: `src/server/peer-server.ts:852`, `src/server/peer-server.ts:856`, `src/server/peer-server.ts:860`, `src/server/peer-server.ts:1162`, `src/server/peer-server.ts:2574`, `src/server/peer-server.ts:3201`, `src/config/limits.ts:28`; 테스트: `test/relay-message-limit.test.ts` › `forwards and answers a body of exactly the request limit under a rewritten duplicate id, clears its pending slot, and refuses one byte more`; `test/client-request-limit.test.ts` › `forwards and answers a WebSocket request of exactly the request limit under a rewritten duplicate id, and refuses one byte more`
 
 **R-MCP-004** 전달한 요청마다 relay는 `mcpRequestTimeoutMs = max(1000, option ?? 30000)` ms timer를 MUST 둔다. 시간이 지나면
 pending 항목을 지우고 data 없는 −32001 `MCP_REQUEST_TIMEOUT`으로 답한다(HTTP는 200). 그 뒤 온 provider 답은 버린다.\
-근거: `src/server/peer-server.ts:572`, `src/server/peer-server.ts:2418`, `src/server/peer-server.ts:3026`, `src/server/peer-server.ts:2871`; 테스트: 없음
+근거: `src/server/peer-server.ts:587`, `src/server/peer-server.ts:2595`, `src/server/peer-server.ts:3207`, `src/server/peer-server.ts:3048`; 테스트: 없음
 
 **R-MCP-044** relay는 `mcpRequestTimeoutMs`가 유한한 수인지 검사하지 않는다. `max(1000, NaN)`은 `NaN`, `max(1000, Infinity)`는
 `Infinity`이고, Node timer는 `NaN`이나 2147483647 ms보다 긴 지연을 1 ms로 바꾼다. 그래서 `NaN`, `Infinity`, 2147483647보다 큰 값이면
-relay는 전달한 모든 요청을 약 1 ms 뒤 `MCP_REQUEST_TIMEOUT`(R-MCP-004)으로 MUST 끝낸다. `NaN`이면 승인 요청의 `expiresAt`도
-`NaN`이 되어 timer가 약 1 ms 뒤 요청을 만료시키고(R-ROOM-026의 `expiresAt > Date.now()` 검사가 거짓이다), `approval.request`·
-`approval.pending`의 `expiresAt`은 JSON `null`이다. `Infinity`면 승인 요청의 `expiresAt`은 room의 `expiresAt`이다.\
-근거: `src/server/peer-server.ts:572`, `src/server/peer-server.ts:1632`, `src/server/peer-server.ts:1638`, `src/server/peer-server.ts:1651`, `src/server/peer-server.ts:1614`, `src/server/peer-server.ts:1677`, `src/server/peer-server.ts:2418`, `src/server/peer-server.ts:3026`; 테스트: 없음
+relay는 전달한 모든 요청을 약 1 ms 뒤 `MCP_REQUEST_TIMEOUT`(R-MCP-004)으로 MUST 끝낸다. 승인 요청의 수명은 이 값과 무관하다
+(`approvalTimeoutMs`, R-LIM-043. 그 option은 `NaN`을 기본값으로, `Infinity`를 room 수명으로 읽고, timer는 2147483647 ms 이하로
+나눠 건다, R-ROOM-026).\
+근거: `src/server/peer-server.ts:587`, `src/server/peer-server.ts:2595`, `src/server/peer-server.ts:3207`, `src/server/peer-server.ts:590`, `src/server/peer-server.ts:1725`; 테스트: 없음
 
 **R-MCP-005** pending 요청은 다음과 같이 MUST 끝난다. provider socket이 닫히거나 교체·분리되면 room의 모든 pending 요청이
-data 없는 −32001 `PROVIDER_DISCONNECTED`(R-ROOM-052, R-ROOM-054). ticket 종료는 그 ticket socket의 WebSocket 요청(R-ROOM-047).
-전체 revoke·rotate·room 만료는 남은 HTTP 요청(R-ROOM-048)이며, 같은 종료에서 두 transport의 오류는 같다. agent socket이 닫히면 그 socket의 요청은 답 없이 지운다(R-ROOM-058).
-HTTP agent의 연결이 끊기면 그 요청 slot을 즉시 비운다(R-MCP-025). 단일 session revoke는 그 ticket의 진행 중인 HTTP 요청을
-끝내지 않는다(→ O-19).\
-근거: `src/server/peer-server.ts:1162`, `src/server/peer-server.ts:1166`, `src/server/peer-server.ts:1796`, `src/server/peer-server.ts:1865`, `src/server/peer-server.ts:3080`, `src/server/peer-server.ts:2415`; 테스트: `test/relay-message-limit.test.ts` › `closes the provider socket a new one with the same token replaces, fails its pending requests, and ignores it from then on`; `test/server-pending-settlement.test.ts` › `ends a WebSocket agent's request with the ROOM_EXPIRED an HTTP one gets, after a room.expired frame`
+data 없는 −32001 `PROVIDER_DISCONNECTED`(R-ROOM-052, R-ROOM-054). ticket 종료(단일 revoke, 거절, rotate, room 만료)는 그 ticket이
+인증한 모든 요청을 WebSocket이든 HTTP든 같은 오류로 끝낸다(R-ROOM-047, R-ROOM-048). agent socket이 닫히면 그 socket의 요청은 답 없이
+지운다(R-ROOM-058). HTTP agent의 연결이 끊기면 그 요청 slot을 즉시 비운다(R-MCP-025). relay가 이렇게 끝낸 요청이 이미 provider에
+갔다면 provider에서 실행될 수 있다. relay는 실행을 되돌리지 않고, pending 항목이 없는 늦은 답을 버릴 뿐이다.\
+근거: `src/server/peer-server.ts:1223`, `src/server/peer-server.ts:1227`, `src/server/peer-server.ts:1912`, `src/server/peer-server.ts:1918`, `src/server/peer-server.ts:2037`, `src/server/peer-server.ts:3262`, `src/server/peer-server.ts:2592`, `src/server/peer-server.ts:2597`, `src/server/peer-server.ts:3218`, `src/server/peer-server.ts:3048`; 테스트: `test/relay-message-limit.test.ts` › `closes the provider socket a new one with the same token replaces, fails its pending requests, and ignores it from then on`; `test/server-pending-settlement.test.ts` › `ends a WebSocket agent's request with the ROOM_EXPIRED an HTTP one gets, after a room.expired frame`; `test/server-pending-settlement.test.ts` › `answers SESSION_INVALID when %s alone, as a revoke of every session does`
 
 **R-MCP-006** relay는 provider 답으로 agent에게 넘길 frame을 이렇게 MUST 만든다. wire id가 agent id와 같으면 provider frame을 받은
 그대로, 다르면 `{...providerFrame, message:{...rpc, id:<agent id>}}`다. WebSocket agent는 이 frame을 그대로(provider가 넣은 envelope
 필드 포함) 받는다. HTTP bridge는 `type`이 `mcp`인 frame에서 `message`만 꺼내므로, HTTP agent의 응답 body는 id를 agent의 것으로
 되돌린 JSON-RPC message뿐이고 provider의 envelope 필드는 전달되지 않는다(R-MCP-023). whole-catalog listing이 아닌 답은 stamp 없이
 전달하고 room catalog를 바꾸지 않는다.\
-근거: `src/server/peer-server.ts:1100`, `src/server/peer-server.ts:1101`, `src/server/peer-server.ts:1102`, `src/server/peer-server.ts:1103`, `src/server/peer-server.ts:2404`, `src/server/peer-server.ts:2432`; 테스트: `test/relay-message-limit.test.ts` › `forwards an agent request of exactly the request limit under a rewritten id, and answers one byte more with REQUEST_TOO_LARGE on the agent's socket`; `test/relay-message-limit.test.ts` › `forwards and answers a body of exactly the request limit under a rewritten duplicate id, clears its pending slot, and refuses one byte more`
+근거: `src/server/peer-server.ts:1161`, `src/server/peer-server.ts:1162`, `src/server/peer-server.ts:1163`, `src/server/peer-server.ts:1164`, `src/server/peer-server.ts:2581`, `src/server/peer-server.ts:2610`; 테스트: `test/relay-message-limit.test.ts` › `forwards an agent request of exactly the request limit under a rewritten id, and answers one byte more with REQUEST_TOO_LARGE on the agent's socket`; `test/relay-message-limit.test.ts` › `forwards and answers a body of exactly the request limit under a rewritten duplicate id, clears its pending slot, and refuses one byte more`
 
 ### 7.2 HTTP `POST /p/:id/mcp`
 
@@ -1686,27 +1791,27 @@ HTTP agent의 연결이 끊기면 그 요청 slot을 즉시 비운다(R-MCP-025)
 12. provider가 없으면 503(R-MCP-021).
 13. notification은 전달하고 202(R-MCP-022), 요청은 전달하고 답을 기다린다(R-MCP-023).
 
-11단계 앞에 room이 없으면 404로 답하는 코드(`src/server/peer-server.ts:2356`)가 있지만 닿지 않는다. metadata method는 9·10단계에서
+11단계 앞에 room이 없으면 404로 답하는 코드(`src/server/peer-server.ts:2533`)가 있지만 닿지 않는다. metadata method는 9·10단계에서
 모두 끝나고, 그 밖의 method는 room이 없으면 7단계에서 이미 404를 받는다.
 
-근거: `src/server/peer-server.ts:2204`, `src/server/peer-server.ts:2210`, `src/server/peer-server.ts:2223`, `src/server/peer-server.ts:2233`, `src/server/peer-server.ts:2239`, `src/server/peer-server.ts:2246`, `src/server/peer-server.ts:2261`, `src/server/peer-server.ts:2269`, `src/server/peer-server.ts:2281`, `src/server/peer-server.ts:2289`, `src/server/peer-server.ts:2293`, `src/server/peer-server.ts:2356`, `src/server/peer-server.ts:2360`, `src/server/peer-server.ts:2380`, `src/server/peer-server.ts:2388`, `src/server/peer-server.ts:2397`; 테스트: 없음
+근거: `src/server/peer-server.ts:2381`, `src/server/peer-server.ts:2387`, `src/server/peer-server.ts:2400`, `src/server/peer-server.ts:2410`, `src/server/peer-server.ts:2416`, `src/server/peer-server.ts:2423`, `src/server/peer-server.ts:2438`, `src/server/peer-server.ts:2446`, `src/server/peer-server.ts:2458`, `src/server/peer-server.ts:2466`, `src/server/peer-server.ts:2470`, `src/server/peer-server.ts:2533`, `src/server/peer-server.ts:2537`, `src/server/peer-server.ts:2557`, `src/server/peer-server.ts:2565`, `src/server/peer-server.ts:2574`; 테스트: 없음
 
 **R-MCP-008** MCP POST body 상한은 261120 byte(`PEER_RELAY_MAX_REQUEST_BYTES`)이고 drain 상한은 4177920 byte다. 상한을 넘었고
 drain됐으면 413 `{jsonrpc:'2.0', id:null, error:{code:-32600, message:'REQUEST_TOO_LARGE', data:{limitBytes:261120}}}`, drain
 상한을 넘었으면 request가 파기되고 relay는 JSON body route(R-HTTP-008)처럼 response도 파기하므로 응답이 없다. `BODY_CONSUMED`는 request가
 끝난 뒤 500 `{jsonrpc:'2.0', id:null, error:{code:-32603, message:'BODY_CONSUMED'}}`, abort는 response 파기다. 어느 경우에도
 아무것도 MUST NOT 전달한다.\
-근거: `src/server/peer-server.ts:2210`, `src/server/peer-server.ts:2212`, `src/server/peer-server.ts:2215`, `src/server/peer-server.ts:2218`, `src/server/peer-server.ts:2219`, `src/server/peer-server.ts:173`, `src/server/peer-server.ts:1537`; 테스트: `test/relay-message-limit.test.ts` › `answers an MCP POST body one byte over the request limit with 413 REQUEST_TOO_LARGE, and the room keeps working`; `test/mcp-http-interop.test.ts` › `answers a body over the limit with 413 instead of a truncated parse`; `test/relay-message-limit.test.ts` › `answers 500 BODY_CONSUMED instead of acting on a body a customHttpHandler read, and reads one it only paused`
+근거: `src/server/peer-server.ts:2387`, `src/server/peer-server.ts:2389`, `src/server/peer-server.ts:2392`, `src/server/peer-server.ts:2395`, `src/server/peer-server.ts:2396`, `src/server/peer-server.ts:186`, `src/server/peer-server.ts:1598`; 테스트: `test/relay-message-limit.test.ts` › `answers an MCP POST body one byte over the request limit with 413 REQUEST_TOO_LARGE, and the room keeps working`; `test/mcp-http-interop.test.ts` › `answers a body over the limit with 413 instead of a truncated parse`; `test/relay-message-limit.test.ts` › `answers 500 BODY_CONSUMED instead of acting on a body a customHttpHandler read, and reads one it only paused`
 
 **R-MCP-009** body는 엄격한 UTF-8(`isUtf8`)이어야 하고 `JSON.parse`로 해석한다. UTF-8이 아니거나 JSON 문법 오류(빈 body, 앞의
 BOM 포함)면 400 `{code:-32700, message:'PARSE_ERROR'}`. 문자열 id가 1024 byte를 넘으면(다른 결함보다 먼저) 400
 `{code:-32600, message:'REQUEST_ID_TOO_LARGE', data:{limitBytes:1024}}`. R-MCP-001의 요청이 아니면(batch 배열 포함) 400
 `{code:-32600, message:'INVALID_REQUEST'}`. `id: null`도 400 `INVALID_REQUEST`다. 이 모두 `id: null`로 MUST 답한다(→ O-03, O-38).\
-근거: `src/server/peer-server.ts:222`, `src/server/peer-server.ts:2223`, `src/server/peer-server.ts:2224`, `src/server/peer-server.ts:2226`, `src/server/peer-server.ts:2229`, `src/server/peer-server.ts:2233`, `src/server/peer-server.ts:2234`; 테스트: `test/relay-message-limit.test.ts` › `answers a body that is not valid UTF-8 with 400 PARSE_ERROR instead of acting on altered content`; `test/mcp-http-interop.test.ts` › `rejects a request with id null as an invalid request`
+근거: `src/server/peer-server.ts:235`, `src/server/peer-server.ts:2400`, `src/server/peer-server.ts:2401`, `src/server/peer-server.ts:2403`, `src/server/peer-server.ts:2406`, `src/server/peer-server.ts:2410`, `src/server/peer-server.ts:2411`; 테스트: `test/relay-message-limit.test.ts` › `answers a body that is not valid UTF-8 with 400 PARSE_ERROR instead of acting on altered content`; `test/mcp-http-interop.test.ts` › `rejects a request with id null as an invalid request`
 
 **R-MCP-010** 해석한 요청의 `JSON.stringify` 결과가 261120 byte를 넘으면(`1e20` 확장, escape 증가 등) relay는 요청 id(`rpc.id ?? null`)로
 413 `REQUEST_TOO_LARGE`를 MUST 답한다. 읽기 단계의 413은 id null이므로 두 413의 id가 다르다(→ O-37).\
-근거: `src/server/peer-server.ts:2239`, `src/server/peer-server.ts:2240`; 테스트: `test/relay-message-limit.test.ts` › `applies the request limit to a request as the relay re-serializes it, over HTTP and WebSocket`
+근거: `src/server/peer-server.ts:2416`, `src/server/peer-server.ts:2417`; 테스트: `test/relay-message-limit.test.ts` › `applies the request limit to a request as the relay re-serializes it, over HTTP and WebSocket`
 
 **R-MCP-011** `initialize`가 아닌 요청(`ping`, `notifications/initialized` 포함)에 `MCP-Protocol-Version` header가 있고 그 값을
 trim한 것이 `MCP_INITIALIZE_PROTOCOL_VERSIONS`에 없으면 relay는 room 조회와 ticket 인증보다 먼저 400 `{jsonrpc:'2.0',
@@ -1715,18 +1820,18 @@ MUST 답한다. node:http는 반복된 이 header를 `, `로 합친 문자열 �
 거절하는 분기는 닿지 않는다). 그래서 지원하는 version을 두 번 보내도 trim한 값이 `2025-11-25, 2025-11-25`처럼 목록에 없어 400이고,
 `requested`도 그 합친 문자열이다. header가 없으면 받는다. `initialize`는 header로 막지 않는다. `2026-07-28` client가
 `server/discover`로 먼저 물으면 400을 받고 `initialize`로 물러난다.\
-근거: `src/server/peer-server.ts:2246`, `src/server/peer-server.ts:2247`, `src/server/peer-server.ts:2248`, `src/server/peer-server.ts:2251`, `src/provider/commit-receipt.ts:8`; 테스트: `test/mcp-http-interop.test.ts` › `rejects an unsupported MCP-Protocol-Version header and accepts a supported or missing one`; `test/mcp-http-interop.test.ts` › `serves the official MCP v2 client in %s negotiation mode`
+근거: `src/server/peer-server.ts:2423`, `src/server/peer-server.ts:2424`, `src/server/peer-server.ts:2425`, `src/server/peer-server.ts:2428`, `src/provider/commit-receipt.ts:8`; 테스트: `test/mcp-http-interop.test.ts` › `rejects an unsupported MCP-Protocol-Version header and accepts a supported or missing one`; `test/mcp-http-interop.test.ts` › `serves the official MCP v2 client in %s negotiation mode`
 
 **R-MCP-012** `initialize`, `server/discover`, `tools/list`, `ping`, `notifications/initialized`(metadata method)는 relay가 직접 답하고
 provider에 MUST NOT 전달한다. room이 없거나 rotate·만료됐어도, ticket이 없거나 어떤 status여도 답한다. `_meta.auth.state`는
 ticket status, 없으면 `not-joined`다(→ O-30).\
-근거: `src/server/peer-server.ts:2256`, `src/server/peer-server.ts:2269`, `src/server/peer-server.ts:2282`, `src/server/peer-server.ts:2318`; 테스트: `test/client-session.test.ts` › `revokes a ticket that is still waiting for approval`; `test/relay-message-limit.test.ts` › `sends a pending ticket's approval request to each provider socket once, however often the agent calls`
+근거: `src/server/peer-server.ts:2433`, `src/server/peer-server.ts:2446`, `src/server/peer-server.ts:2459`, `src/server/peer-server.ts:2495`; 테스트: `test/client-session.test.ts` › `revokes a ticket that is still waiting for approval`; `test/relay-message-limit.test.ts` › `sends a pending ticket's approval request to each provider socket once, however often the agent calls`
 
 **R-MCP-013** metadata method가 아니면 relay는 이 순서로 room을 MUST 검사한다. 모르는 room: 404
 `{code:-32004, message:'ROOM_NOT_FOUND', data:{roomId}}`. rotate된 room: 410 `{code:-32057, message:'ROOM_ROTATED',
 data:{replacementRoomId, roomId, roomEpoch}}`. `expiresAt <= now`: 410 `{code:-32056, message:'ROOM_EXPIRED', data:{roomId,
 roomEpoch}}`이고, 그 room을 아직 만료 처리하지 않았으면 이때 처리한다(R-ROOM-067). 모두 JSON-RPC 오류 body에 요청 id를 담는다.\
-근거: `src/server/peer-server.ts:2269`, `src/server/peer-server.ts:2270`, `src/server/peer-server.ts:2273`, `src/server/peer-server.ts:2274`, `src/server/peer-server.ts:2277`, `src/server/peer-server.ts:2278`; 테스트: `test/live-demo.e2e.test.ts` › `rotation pushes room.rotated, voids old tickets, and issues a fresh single-use invite`; `test/server-pending-settlement.test.ts` › `carries out the room's expiry where it is found first, not only at the sweep: %s`
+근거: `src/server/peer-server.ts:2446`, `src/server/peer-server.ts:2447`, `src/server/peer-server.ts:2450`, `src/server/peer-server.ts:2451`, `src/server/peer-server.ts:2454`, `src/server/peer-server.ts:2455`; 테스트: `test/live-demo.e2e.test.ts` › `rotation pushes room.rotated, voids old tickets, and issues a fresh single-use invite`; `test/server-pending-settlement.test.ts` › `carries out the room's expiry where it is found first, not only at the sweep: %s`
 
 **R-MCP-014** metadata method가 아니면 ticket은 Bearer 자격(R-HTTP-018)의 token으로 MUST 찾는다(token의 SHA-256 hex,
 R-WS-007). 오류는 두 transport가 함께 쓰는 `clientTicketError`로 정한다. Bearer 자격이 없으면 401 −32003 `CLIENT_TOKEN_REQUIRED`,
@@ -1735,12 +1840,12 @@ R-WS-007). 오류는 두 transport가 함께 쓰는 `clientTicketError`로 정�
 (room-rotated ticket의 room은 R-MCP-013에서 먼저 거절된다). 401은 R-HTTP-019의 `WWW-Authenticate` challenge를 가진다. data는
 `clientTicketErrorData`의 `{roomId, sessionId, approvalRequestId, approvalRequired}`이고, ticket이 없으면 `sessionId`와
 `approvalRequestId`가, 승인 요청이 없으면 `approvalRequestId`가 `null`이다. WebSocket도 같은 data다(R-MCP-029).\
-근거: `src/server/peer-server.ts:1568`, `src/server/peer-server.ts:1570`, `src/server/peer-server.ts:1571`, `src/server/peer-server.ts:1574`, `src/server/peer-server.ts:1582`, `src/server/peer-server.ts:1869`, `src/server/peer-server.ts:1870`, `src/server/peer-server.ts:2261`, `src/server/peer-server.ts:2263`, `src/server/peer-server.ts:2281`, `src/server/peer-server.ts:2285`, `src/server/peer-server.ts:2286`; 테스트: `test/live-demo.e2e.test.ts` › `reports a revoked session as SESSION_INVALID instead of catalog drift`; `test/live-demo.e2e.test.ts` › `a host rejection denies the session`; `test/server-room-lifecycle.test.ts` › `takes a Bearer token with a scheme of any case and one or more spaces on every route`; `test/server-error-model.test.ts` › `tells a missing Authorization credential from a wrong one, with a Bearer challenge`; `test/server-error-model.test.ts` › `gives an unapproved ticket's error the same data over HTTP and WebSocket`
+근거: `src/server/peer-server.ts:1629`, `src/server/peer-server.ts:1631`, `src/server/peer-server.ts:1632`, `src/server/peer-server.ts:1635`, `src/server/peer-server.ts:1643`, `src/server/peer-server.ts:2041`, `src/server/peer-server.ts:2042`, `src/server/peer-server.ts:2438`, `src/server/peer-server.ts:2440`, `src/server/peer-server.ts:2458`, `src/server/peer-server.ts:2462`, `src/server/peer-server.ts:2463`; 테스트: `test/live-demo.e2e.test.ts` › `reports a revoked session as SESSION_INVALID instead of catalog drift`; `test/live-demo.e2e.test.ts` › `a host rejection denies the session`; `test/server-room-lifecycle.test.ts` › `takes a Bearer token with a scheme of any case and one or more spaces on every route`; `test/server-error-model.test.ts` › `tells a missing Authorization credential from a wrong one, with a Bearer challenge`; `test/server-error-model.test.ts` › `gives an unapproved ticket's error the same data over HTTP and WebSocket`
 
 **R-MCP-015** catalog snapshot(R-CAT-005)에 tool이 없으면 relay는 `tools/list`와 `server/discover`에 503 `{code:-32090,
 message:'CATALOG_UNAVAILABLE', data:{catalogSource:<deployment catalog의 source>}}`로 MUST 답한다. 유효한 빈 catalog를 가진 room도
 마찬가지다(→ O-39). `initialize`는 catalog가 비어도 답한다.\
-근거: `src/server/peer-server.ts:2289`, `src/server/peer-server.ts:2290`; 테스트: `test/provider-register-limit.test.ts` › `gets a WebSocket agent of a new room the relay's CATALOG_UNAVAILABLE, not the catalog of the room before`
+근거: `src/server/peer-server.ts:2466`, `src/server/peer-server.ts:2467`; 테스트: `test/provider-register-limit.test.ts` › `gets a WebSocket agent of a new room the relay's CATALOG_UNAVAILABLE, not the catalog of the room before`
 
 **R-MCP-016** `initialize`에 relay는 200과 `result:{protocolVersion, capabilities:{tools:{listChanged:false}, stateless:true},
 serverInfo:{name, version}, tools, _meta}`로 MUST 답한다. `protocolVersion`은 `params.protocolVersion`이
@@ -1749,21 +1854,21 @@ serverInfo:{name, version}, tools, _meta}`로 MUST 답한다. `protocolVersion`�
 roomValid, catalogVersion, catalogHash, toolCount, bootstrapCatalog:{tools, catalogVersion, catalogHash, source:<room
 catalogSource ?? deployment source>}, auth}`다. header는 `Cache-Control: no-store`, `X-MCP-Catalog-Version`,
 `X-MCP-Catalog-Hash`, `Vary: Origin`이다. WebSocket의 `initialize`는 다르게 처리된다(R-MCP-036, → O-01).\
-근거: `src/server/peer-server.ts:767`, `src/server/peer-server.ts:2293`, `src/server/peer-server.ts:2297`, `src/server/peer-server.ts:2301`, `src/server/peer-server.ts:2304`, `src/server/peer-server.ts:1202`, `src/server/peer-server.ts:578`; 테스트: `test/mcp-http-interop.test.ts` › `negotiates initialize-era version %s as requested`; `test/mcp-http-interop.test.ts` › `answers 2026-07-28, unknown, and missing initialize versions with 2025-11-25`; `test/mcp-http-interop.test.ts` › `advertises tools.listChanged false because the HTTP endpoint has no server-to-client stream`
+근거: `src/server/peer-server.ts:797`, `src/server/peer-server.ts:2470`, `src/server/peer-server.ts:2474`, `src/server/peer-server.ts:2478`, `src/server/peer-server.ts:2481`, `src/server/peer-server.ts:1263`, `src/server/peer-server.ts:598`; 테스트: `test/mcp-http-interop.test.ts` › `negotiates initialize-era version %s as requested`; `test/mcp-http-interop.test.ts` › `answers 2026-07-28, unknown, and missing initialize versions with 2025-11-25`; `test/mcp-http-interop.test.ts` › `advertises tools.listChanged false because the HTTP endpoint has no server-to-client stream`
 
 **R-MCP-017** `ping`에는 id가 없어도 200 `{jsonrpc:'2.0', id:<id ?? null>, result:{}}`와 catalog header로 MUST 답한다(202가 아니다).
 `notifications/initialized`에는 id가 있어도 202, 빈 본문, `Content-Type` 없음, `Cache-Control: no-store`와 catalog header로 답하고
 전달하지 않는다(→ O-29).\
-근거: `src/server/peer-server.ts:2255`, `src/server/peer-server.ts:2326`, `src/server/peer-server.ts:2331`, `src/server/peer-server.ts:2332`; 테스트: `test/mcp-http-interop.test.ts` › `answers a notification with 202 and an empty body`
+근거: `src/server/peer-server.ts:2432`, `src/server/peer-server.ts:2503`, `src/server/peer-server.ts:2508`, `src/server/peer-server.ts:2509`; 테스트: `test/mcp-http-interop.test.ts` › `answers a notification with 202 and an empty body`
 
 **R-MCP-018** HTTP `tools/list`에 relay는 200 `result:{tools, _meta:{roomId, roomEpoch, roomState, roomValid, catalogVersion,
 catalogHash, auth}}`와 catalog header로 MUST 답한다. `tools`는 R-CAT-005 snapshot이다. `params.cursor`와 `params._meta`는
 무시하고(pagination 없음), catalog stamp는 언제나 `result._meta` 안에 있다(→ O-31).\
-근거: `src/server/peer-server.ts:2344`, `src/server/peer-server.ts:2349`, `src/server/peer-server.ts:1275`; 테스트: `test/relay-message-limit.test.ts` › `registers a catalog whose register frame is between 128 KiB and 256 KiB and lists it to agents`; `test/relay-message-limit.test.ts` › `keeps a fresh WebSocket PeerMcpSession listing and calling the relay's catalog after the relay refused the provider's newer one`
+근거: `src/server/peer-server.ts:2521`, `src/server/peer-server.ts:2526`, `src/server/peer-server.ts:1336`; 테스트: `test/relay-message-limit.test.ts` › `registers a catalog whose register frame is between 128 KiB and 256 KiB and lists it to agents`; `test/relay-message-limit.test.ts` › `keeps a fresh WebSocket PeerMcpSession listing and calling the relay's catalog after the relay refused the provider's newer one`
 
 **R-MCP-019** HTTP `server/discover`에 relay는 200 `result:{protocolVersion:<R-MCP-016과 같은 협상>, serverInfo, tools,
 _meta:<R-MCP-018과 같은 listing meta>}`로 MUST 답한다. `capabilities`와 `supportedProtocolVersions`는 없다(→ O-01).\
-근거: `src/server/peer-server.ts:2335`, `src/server/peer-server.ts:2338`, `src/server/peer-server.ts:1296`; 테스트: `test/relay-message-limit.test.ts` › `answers a WebSocket agent's tools/list and server/discover from the relay's catalog when the provider answers with an error`
+근거: `src/server/peer-server.ts:2512`, `src/server/peer-server.ts:2515`, `src/server/peer-server.ts:1357`; 테스트: `test/relay-message-limit.test.ts` › `answers a WebSocket agent's tools/list and server/discover from the relay's catalog when the provider answers with an error`
 
 **R-MCP-020** relay는 `tools/call`을 전달하기 전에 다음을 MUST 검사한다. (1) `params`는 비어 있지 않은 문자열 `name`을 가진
 object, 아니면 −32602 `tools/call params are invalid`. (2) `params._meta.catalogVersion`이 room `catalogVersion`과 다른 수이거나
@@ -1774,27 +1879,28 @@ notification 분기보다 앞이다) status는 400, 409, 400이다. id가 없는
 notification으로 전달된다(R-MCP-022). WebSocket은 id가 문자열이나 수인 `tools/call`만 검사한다. approved ticket의 id가 없거나 null인
 `tools/call`은 notification으로 보고 이 검사 없이 provider에 전달한다(R-MCP-030). relay는 `_meta.runtimeEpoch`와 `_meta.sessionId`를
 보지 않는다(→ O-34).\
-근거: `src/server/peer-server.ts:2360`, `src/server/peer-server.ts:2363`, `src/server/peer-server.ts:2367`, `src/server/peer-server.ts:2371`, `src/server/peer-server.ts:2375`, `src/server/peer-server.ts:2388`, `src/server/peer-server.ts:2983`, `src/server/peer-server.ts:2987`, `src/server/peer-server.ts:2990`, `src/server/peer-server.ts:2999`, `src/server/peer-server.ts:3007`; 테스트: `test/live-demo.e2e.test.ts` › `rejects stale writes with CATALOG_CHANGED without touching the host, then resyncs`; `test/live-demo.e2e.test.ts` › `surfaces relay catalog drift over HTTP as PeerMcpCatalogChangedError (no host write)`
+근거: `src/server/peer-server.ts:2537`, `src/server/peer-server.ts:2540`, `src/server/peer-server.ts:2544`, `src/server/peer-server.ts:2548`, `src/server/peer-server.ts:2552`, `src/server/peer-server.ts:2565`, `src/server/peer-server.ts:3164`, `src/server/peer-server.ts:3168`, `src/server/peer-server.ts:3171`, `src/server/peer-server.ts:3180`, `src/server/peer-server.ts:3188`; 테스트: `test/live-demo.e2e.test.ts` › `rejects stale writes with CATALOG_CHANGED without touching the host, then resyncs`; `test/live-demo.e2e.test.ts` › `surfaces relay catalog drift over HTTP as PeerMcpCatalogChangedError (no host write)`
 
 **R-MCP-021** room에 provider socket이 없으면 relay는 중계할 요청과 notification에 503 `{jsonrpc:'2.0', id:<id 또는 null>,
 error:{code:-32001, message:'PROVIDER_UNAVAILABLE'}}`(data·`Retry-After` 없음)로 MUST 답한다. relay가 닫은 provider socket(예:
 1009)도 여기서 답한다. codec의 `close()`는 그 자리에서 `onClose`를 부르고, relay의 `onClose`가 그 socket을 room에서 떼기
 때문이다(R-WS-027, R-ROOM-054).\
-근거: `src/server/peer-server.ts:2380`, `src/server/peer-server.ts:2381`, `src/server/ws-upgrade.ts:434`, `src/server/ws-upgrade.ts:452`, `src/server/peer-server.ts:2889`, `src/server/peer-server.ts:2890`; 테스트: `test/relay-message-limit.test.ts` › `answers a %s agent PROVIDER_UNAVAILABLE and lets a reclaim attach a new provider`; `test/server-ws-frames.test.ts` › `answers PROVIDER_UNAVAILABLE, not REQUEST_TOO_LARGE, while the closed provider has not hung up`
+근거: `src/server/peer-server.ts:2557`, `src/server/peer-server.ts:2558`, `src/server/ws-upgrade.ts:434`, `src/server/ws-upgrade.ts:452`, `src/server/peer-server.ts:3066`, `src/server/peer-server.ts:3067`; 테스트: `test/relay-message-limit.test.ts` › `answers a %s agent PROVIDER_UNAVAILABLE and lets a reclaim attach a new provider`; `test/server-ws-frames.test.ts` › `answers PROVIDER_UNAVAILABLE, not REQUEST_TOO_LARGE, while the closed provider has not hung up`
 
 **R-MCP-022** id가 없는 message(`id: null`은 R-MCP-009에서 거절)로 metadata method가 아닌 것은 room·ticket·`tools/call`(R-MCP-020)·
 provider 검사를 거쳐 `{type:'mcp', from:'client', sessionId, message}`로 전달한다. 중계 method는 approved ticket만 통과하므로
 (`room-rotated` ticket의 room은 R-MCP-013에서 먼저 거절된다) `sessionId`는 언제나 있다. ticket이 없을 때 `sessionId`를 빼는 분기
-(`src/server/peer-server.ts:2386`)는 닿지 않는다. provider socket이 받으면 202, 빈 본문, catalog header 없음으로 MUST 답한다. 못 받으면
+(`src/server/peer-server.ts:2563`)는 닿지 않는다. provider socket이 받으면 202, 빈 본문, catalog header 없음으로 MUST 답한다. 못 받으면
 id null로 `too-large`는 413 `REQUEST_TOO_LARGE`, `busy`는 503 `PROVIDER_BUSY`와 `Retry-After: 1`, `closed`는 503
 `PROVIDER_UNAVAILABLE`(provider 분리)이다(→ O-29).\
-근거: `src/server/peer-server.ts:1568`, `src/server/peer-server.ts:2281`, `src/server/peer-server.ts:2386`, `src/server/peer-server.ts:2388`, `src/server/peer-server.ts:2389`, `src/server/peer-server.ts:2391`, `src/server/peer-server.ts:2394`; 테스트: `test/mcp-http-interop.test.ts` › `forwards a provider notification and answers 202 with an empty body`; `test/relay-message-limit.test.ts` › `stamps every mcp frame it forwards to the provider with from: client and the ticket's sessionId`; `test/relay-message-limit.test.ts` › `forwards an HTTP notification of exactly the request limit, and answers one byte more with 413 and forwards nothing`; `test/relay-backpressure.test.ts` › `drops an agent notification it cannot queue and refuses an offer to its sender, keeping the provider`
+근거: `src/server/peer-server.ts:1629`, `src/server/peer-server.ts:2458`, `src/server/peer-server.ts:2563`, `src/server/peer-server.ts:2565`, `src/server/peer-server.ts:2566`, `src/server/peer-server.ts:2568`, `src/server/peer-server.ts:2571`; 테스트: `test/mcp-http-interop.test.ts` › `forwards a provider notification and answers 202 with an empty body`; `test/relay-message-limit.test.ts` › `stamps every mcp frame it forwards to the provider with from: client and the ticket's sessionId`; `test/relay-message-limit.test.ts` › `forwards an HTTP notification of exactly the request limit, and answers one byte more with 413 and forwards nothing`; `test/relay-backpressure.test.ts` › `drops an agent notification it cannot queue and refuses an offer to its sender, keeping the provider`
 
 **R-MCP-023** 중계하는 HTTP 요청마다 relay는 요청별 bridge socket을 만든다. bridge의 `send`는 언제나 `sent`를 돌려주고 크기 상한이
-없다. pending 항목 `{socket, timer, method, id, wireId}`를 두고 stamp한 frame을 보낸 뒤 기다린다. 답은 MUST 200과 provider의 JSON-RPC
+없다. pending 항목 `{socket, timer, method, id, wireId, ticket}`(ticket은 요청을 인증한 것이라 ticket 종료가 요청을 끝낸다, R-ROOM-047)을
+두고 stamp한 frame을 보낸 뒤 기다린다. 답은 MUST 200과 provider의 JSON-RPC
 message(id는 agent의 것으로 되돌림)이며 `X-MCP-Catalog-*` header가 없다. provider의 JSON-RPC 오류, 그리고 timeout·provider 끊김·
 rotate·만료처럼 진행 중에 생긴 relay 오류도 200이다(→ O-28).\
-근거: `src/server/peer-server.ts:2401`, `src/server/peer-server.ts:2403`, `src/server/peer-server.ts:2419`, `src/server/peer-server.ts:2420`, `src/server/peer-server.ts:2432`; 테스트: `test/relay-message-limit.test.ts` › `delivers a ~200 KB tool result to an HTTP agent intact while the provider stays connected`; `test/server-pending-settlement.test.ts` › `answers ROOM_ROTATED with the replacement room when the provider rotates`
+근거: `src/server/peer-server.ts:2578`, `src/server/peer-server.ts:2580`, `src/server/peer-server.ts:2597`, `src/server/peer-server.ts:2598`, `src/server/peer-server.ts:2610`; 테스트: `test/relay-message-limit.test.ts` › `delivers a ~200 KB tool result to an HTTP agent intact while the provider stays connected`; `test/server-pending-settlement.test.ts` › `answers ROOM_ROTATED with the replacement room when the provider rotates`
 
 **R-MCP-024** provider socket이 요청을 받지 못하면 relay는 pending 항목을 지우고 요청 id로 MUST 답한다. `too-large`: 413
 `REQUEST_TOO_LARGE {limitBytes:261120}`. `busy`: 503 `{code:-32001, message:'PROVIDER_BUSY', data:{retryable:true}}`와
@@ -1802,11 +1908,11 @@ rotate·만료처럼 진행 중에 생긴 relay 오류도 200이다(→ O-28).\
 `PROVIDER_UNAVAILABLE`. `send`가 `closed`를 돌려주는 것은 socket이 파기됐거나 writable이 아니지만 codec이 아직 멈추지 않은(그 event가
 아직 처리되지 않은) 짧은 사이뿐이다. codec이 멈추면 바로 `onClose`가 돌아 relay가 provider를 떼므로, 그 뒤의 요청은 R-MCP-021로 답을
 받는다.\
-근거: `src/server/peer-server.ts:2421`, `src/server/peer-server.ts:2425`, `src/server/peer-server.ts:2426`, `src/server/peer-server.ts:916`, `src/server/peer-server.ts:924`, `src/server/peer-server.ts:928`, `src/server/peer-server.ts:933`, `src/server/peer-server.ts:908`, `src/server/ws-upgrade.ts:366`, `src/server/ws-upgrade.ts:401`; 테스트: `test/relay-backpressure.test.ts` › `answers agent requests PROVIDER_BUSY instead of closing the provider, and serves them again once it reads`
+근거: `src/server/peer-server.ts:2599`, `src/server/peer-server.ts:2603`, `src/server/peer-server.ts:2604`, `src/server/peer-server.ts:977`, `src/server/peer-server.ts:985`, `src/server/peer-server.ts:989`, `src/server/peer-server.ts:994`, `src/server/peer-server.ts:940`, `src/server/ws-upgrade.ts:366`, `src/server/ws-upgrade.ts:401`; 테스트: `test/relay-backpressure.test.ts` › `answers agent requests PROVIDER_BUSY instead of closing the provider, and serves them again once it reads`
 
 **R-MCP-025** HTTP response가 쓰이기 전에 닫히면 relay는 그 요청의 pending 항목을 즉시 MUST 지운다. 그때 만드는 −32001
 `CLIENT_DISCONNECTED`는 bridge에만 전달되고 wire에 나가지 않으며, 이후 provider 답은 버린다.\
-근거: `src/server/peer-server.ts:2411`, `src/server/peer-server.ts:2415`, `src/server/peer-server.ts:2417`, `src/server/peer-server.ts:2431`; 테스트: `test/server-pending-settlement.test.ts` › `releases the pending slot as soon as the HTTP agent disconnects`
+근거: `src/server/peer-server.ts:2588`, `src/server/peer-server.ts:2592`, `src/server/peer-server.ts:2594`, `src/server/peer-server.ts:2609`; 테스트: `test/server-pending-settlement.test.ts` › `releases the pending slot as soon as the HTTP agent disconnects`
 
 ### 7.3 WebSocket `mcp` envelope (agent → relay)
 
@@ -1826,7 +1932,7 @@ HTTP(R-MCP-007)와 순서가 다른 곳이 둘 있다. HTTP는 body 크기를 �
 id 크기와 유효성 오류가 크기 오류보다 앞선다(R-MCP-027). HTTP는 `tools/call` 검사가 notification 분기보다 앞이지만 WebSocket은
 뒤다(R-MCP-020).
 
-근거: `src/server/peer-server.ts:2953`, `src/server/peer-server.ts:2957`, `src/server/peer-server.ts:2963`, `src/server/peer-server.ts:2974`, `src/server/peer-server.ts:2983`, `src/server/peer-server.ts:2990`, `src/server/peer-server.ts:3012`, `src/server/peer-server.ts:3016`, `src/server/peer-server.ts:3020`, `src/server/peer-server.ts:3022`, `src/server/peer-server.ts:3031`, `src/server/peer-server.ts:3042`; 테스트: `test/relay-backpressure.test.ts` › `sends an agent that is behind its approval, then ready, after the replies queued before them`
+근거: `src/server/peer-server.ts:3134`, `src/server/peer-server.ts:3138`, `src/server/peer-server.ts:3144`, `src/server/peer-server.ts:3155`, `src/server/peer-server.ts:3164`, `src/server/peer-server.ts:3171`, `src/server/peer-server.ts:3193`, `src/server/peer-server.ts:3197`, `src/server/peer-server.ts:3201`, `src/server/peer-server.ts:3203`, `src/server/peer-server.ts:3212`, `src/server/peer-server.ts:3224`; 테스트: `test/relay-backpressure.test.ts` › `sends an agent that is behind its approval, then ready, after the replies queued before them`
 
 **R-MCP-027** `message`가 유효한 요청(R-MCP-001)이고 받은 text나 `JSON.stringify(frame)`이 261120 byte를 넘으면, id가
 `undefined`·`null`이 아닌 요청에는 그 id로 `{code:-32600, message:'REQUEST_TOO_LARGE', data:{limitBytes:261120}}`를 보내고, 그 밖은
@@ -1835,12 +1941,12 @@ relay의 stamp와 wire id가 붙어 커져도 전달한다. 262144 byte를 넘�
 `message`는 크기를 재지 않고 R-MCP-028로 간다. 그래서 261121~262144 byte frame이라도 문자열 id가 1024 byte를 넘으면
 `REQUEST_ID_TOO_LARGE`(id null)를, 요청이 아니고 id가 문자열·수·null이면 그 id로 `INVALID_REQUEST`를 받는다. 같은 내용의 HTTP body는
 해석하기 전에 413 `REQUEST_TOO_LARGE`(id null)를 받는다(R-MCP-008, → O-37).\
-근거: `src/server/peer-server.ts:231`, `src/server/peer-server.ts:2957`, `src/server/peer-server.ts:2958`, `src/server/peer-server.ts:2959`, `src/server/peer-server.ts:2963`, `src/server/peer-server.ts:2966`, `src/server/peer-server.ts:2970`, `src/server/peer-server.ts:2215`; 테스트: `test/relay-message-limit.test.ts` › `forwards an agent request of exactly the request limit under a rewritten id, and answers one byte more with REQUEST_TOO_LARGE on the agent's socket`
+근거: `src/server/peer-server.ts:244`, `src/server/peer-server.ts:3138`, `src/server/peer-server.ts:3139`, `src/server/peer-server.ts:3140`, `src/server/peer-server.ts:3144`, `src/server/peer-server.ts:3147`, `src/server/peer-server.ts:3151`, `src/server/peer-server.ts:2392`; 테스트: `test/relay-message-limit.test.ts` › `forwards an agent request of exactly the request limit under a rewritten id, and answers one byte more with REQUEST_TOO_LARGE on the agent's socket`
 
 **R-MCP-028** `message`가 요청이 아니면: object이고 문자열 id가 1024 byte를 넘으면 id null로 `REQUEST_ID_TOO_LARGE`
 (`{limitBytes:1024}`). 아니면 id가 문자열·수·null이면 그 id로 data 없는 −32600 `INVALID_REQUEST`. id가 없거나 그 밖의 type이면,
 또는 `message`가 object가 아니면 답하지 않는다. 어느 경우에도 MUST NOT 전달한다.\
-근거: `src/server/peer-server.ts:2963`, `src/server/peer-server.ts:2964`, `src/server/peer-server.ts:2966`, `src/server/peer-server.ts:2969`, `src/server/peer-server.ts:2970`, `src/server/peer-server.ts:854`; 테스트: `test/relay-message-limit.test.ts` › `refuses a request id over 1 KiB of JSON without echoing or forwarding it, over WebSocket and HTTP`
+근거: `src/server/peer-server.ts:3144`, `src/server/peer-server.ts:3145`, `src/server/peer-server.ts:3147`, `src/server/peer-server.ts:3150`, `src/server/peer-server.ts:3151`, `src/server/peer-server.ts:884`; 테스트: `test/relay-message-limit.test.ts` › `refuses a request id over 1 KiB of JSON without echoing or forwarding it, over WebSocket and HTTP`
 
 **R-MCP-029** socket ticket이 approved가 아니면 relay는 method와 무관하게(`initialize`, `ping`, `tools/list` 포함) 전달하지 않고
 HTTP와 같은 `clientTicketError`의 오류와 같은 data `{roomId, sessionId, approvalRequestId, approvalRequired}`(승인 요청이 없으면
@@ -1850,7 +1956,7 @@ HTTP와 같은 `clientTicketError`의 오류와 같은 data `{roomId, sessionId,
 `CLIENT_APPROVAL_REQUIRED`뿐이다. ticket을 rejected·revoked·room-rotated·expired로 바꾸는 모든 경로(R-ROOM-047)와 승인
 만료(R-ROOM-026)는 그 ticket의 socket을 먼저 닫고 room에서 떼고, 목록에 없는 socket이나 ticket·room이 만료된 socket의 frame은
 해석하기 전에 닫거나 room을 만료 처리한다(R-ROOM-057). 나머지 세 분기는 방어용이다.\
-근거: `src/server/peer-server.ts:2974`, `src/server/peer-server.ts:2975`, `src/server/peer-server.ts:2976`, `src/server/peer-server.ts:1568`, `src/server/peer-server.ts:1582`, `src/server/peer-server.ts:855`, `src/server/peer-server.ts:2939`, `src/server/peer-server.ts:2943`, `src/server/peer-server.ts:1647`, `src/server/peer-server.ts:1649`, `src/server/peer-server.ts:1797`, `src/server/peer-server.ts:1799`; 테스트: `test/relay-backpressure.test.ts` › `sends an agent that is behind its approval, then ready, after the replies queued before them`; `test/server-error-model.test.ts` › `gives an unapproved ticket's error the same data over HTTP and WebSocket`
+근거: `src/server/peer-server.ts:3155`, `src/server/peer-server.ts:3156`, `src/server/peer-server.ts:3157`, `src/server/peer-server.ts:1629`, `src/server/peer-server.ts:1643`, `src/server/peer-server.ts:885`, `src/server/peer-server.ts:3120`, `src/server/peer-server.ts:3124`, `src/server/peer-server.ts:1756`, `src/server/peer-server.ts:1758`, `src/server/peer-server.ts:1913`, `src/server/peer-server.ts:1915`; 테스트: `test/relay-backpressure.test.ts` › `sends an agent that is behind its approval, then ready, after the replies queued before them`; `test/server-error-model.test.ts` › `gives an unapproved ticket's error the same data over HTTP and WebSocket`
 
 **R-MCP-030** approved ticket의 `message` id가 `undefined`나 `null`이면 relay는 method와 무관하게 notification으로 보고
 `{...frame, from:'client', sessionId}`로 provider에 MUST 전달한다. `tools/call`도 R-MCP-020의 검사 없이 전달된다. provider가 없거나
@@ -1858,18 +1964,18 @@ HTTP와 같은 `clientTicketError`의 오류와 같은 data `{roomId, sessionId,
 (→ O-03, O-29). 참조 provider는 id가 없는 message에는 답하지 않지만 id가 null인 요청은 처리해 id null로 답한다(R-PEER-012). 그래서
 id가 null인 `tools/call`은 relay의 catalog 검사 없이 승인 상태의 provider에서 host tool을 실행하고, 그 답은 room의 모든 agent
 WebSocket에 broadcast된다(R-MCP-041).\
-근거: `src/server/peer-server.ts:2981`, `src/server/peer-server.ts:2983`, `src/server/peer-server.ts:2987`, `src/server/peer-server.ts:2990`, `src/provider/peer-client.ts:1365`, `src/provider/peer-client.ts:1366`, `src/server/peer-server.ts:2884`; 테스트: `test/relay-backpressure.test.ts` › `drops an agent notification it cannot queue and refuses an offer to its sender, keeping the provider`
+근거: `src/server/peer-server.ts:3162`, `src/server/peer-server.ts:3164`, `src/server/peer-server.ts:3168`, `src/server/peer-server.ts:3171`, `src/provider/peer-client.ts:1424`, `src/provider/peer-client.ts:1425`, `src/server/peer-server.ts:3061`; 테스트: `test/relay-backpressure.test.ts` › `drops an agent notification it cannot queue and refuses an offer to its sender, keeping the provider`
 
 **R-MCP-031** 같은 agent socket에 id가 엄격히 같은(`===`) 요청이 provider를 기다리고 있으면 relay는 data 없는 −32600
 `DUPLICATE_REQUEST_ID`로 MUST 답하고 전달하지 않는다. outbox에서 기다리는 frame은 비교하지 않는다. HTTP에는 이 검사가 없고
 중복 id를 wire id로 바꾼다(→ O-36).\
-근거: `src/server/peer-server.ts:835`, `src/server/peer-server.ts:837`, `src/server/peer-server.ts:3012`, `src/server/peer-server.ts:3013`; 테스트: 없음
+근거: `src/server/peer-server.ts:865`, `src/server/peer-server.ts:867`, `src/server/peer-server.ts:3193`, `src/server/peer-server.ts:3194`; 테스트: 없음
 
 **R-MCP-032** socket의 pending 수(room map에서 그 socket의 항목 + 그 outbox에서 기다리는 frame)가 이미 64 이상이면 relay는
 `{code:-32087, message:'TOO_MANY_PENDING_REQUESTS', data:{limit:64}}`로 MUST 답한다. 답 하나가 slot 하나를 비운다. HTTP 요청은
 agent별로 세지 않는다(→ O-36). 이 상한은 요청을 provider에 전달할지만 정한다. relay가 그 agent에게 쌓아 두는 frame 수의 상한이
 아니다(R-MCP-042).\
-근거: `src/server/peer-server.ts:88`, `src/server/peer-server.ts:171`, `src/server/peer-server.ts:846`, `src/server/peer-server.ts:3016`, `src/server/peer-server.ts:3017`; 테스트: `test/relay-message-limit.test.ts` › `lets an agent socket have at most 64 requests waiting for the provider`; `test/client-pending-limit.test.ts` › `still refuses the 65th request of an agent that does not queue, so the session's queue is what keeps to it`
+근거: `src/server/peer-server.ts:101`, `src/server/peer-server.ts:184`, `src/server/peer-server.ts:876`, `src/server/peer-server.ts:3197`, `src/server/peer-server.ts:3198`; 테스트: `test/relay-message-limit.test.ts` › `lets an agent socket have at most 64 requests waiting for the provider`; `test/client-pending-limit.test.ts` › `still refuses the 65th request of an agent that does not queue, so the session's queue is what keeps to it`
 
 **R-MCP-042** relay가 client socket에 직접 만드는 답 — `REQUEST_TOO_LARGE`, `REQUEST_ID_TOO_LARGE`, `INVALID_REQUEST`, 승인 상태
 오류(R-MCP-029), `tools/call params are invalid`, `CATALOG_CHANGED`, `TOOL_NOT_FOUND`, `DUPLICATE_REQUEST_ID`,
@@ -1878,35 +1984,35 @@ agent별로 세지 않는다(→ O-36). 이 상한은 요청을 provider에 전�
 넘는 frame만 `too-large`로 거절한다). 그 agent에게서 더 읽지 않는 것(`pause`)만이 상한인데, codec은 이미 읽은 chunk의
 frame을 끝까지 처리하므로 한 번 읽은 chunk에 든 작은 요청마다 답이 queue에 쌓일 수 있다. 64(R-LIM-013)는 relay가 한 agent를 위해
 쥐는 frame 수를 묶지 않는다.\
-근거: `src/server/peer-server.ts:854`, `src/server/peer-server.ts:858`, `src/server/peer-server.ts:875`, `src/server/peer-server.ts:435`, `src/server/peer-server.ts:439`, `src/server/peer-server.ts:441`, `src/server/peer-server.ts:444`, `src/server/peer-server.ts:2974`, `src/server/peer-server.ts:3016`, `src/server/peer-server.ts:3069`, `src/server/ws-upgrade.ts:612`, `src/server/ws-upgrade.ts:614`; 테스트: `test/relay-backpressure.test.ts` › `sends an agent that is behind its approval, then ready, after the replies queued before them`
+근거: `src/server/peer-server.ts:884`, `src/server/peer-server.ts:888`, `src/server/peer-server.ts:905`, `src/server/peer-server.ts:448`, `src/server/peer-server.ts:452`, `src/server/peer-server.ts:454`, `src/server/peer-server.ts:457`, `src/server/peer-server.ts:3155`, `src/server/peer-server.ts:3197`, `src/server/peer-server.ts:3251`, `src/server/ws-upgrade.ts:612`, `src/server/ws-upgrade.ts:614`; 테스트: `test/relay-backpressure.test.ts` › `sends an agent that is behind its approval, then ready, after the replies queued before them`
 
 **R-MCP-033** 붙어 있는 provider가 없으면 relay는 data 없는 −32001 `PROVIDER_UNAVAILABLE`로 MUST 답한다.\
-근거: `src/server/peer-server.ts:3022`, `src/server/peer-server.ts:3023`; 테스트: `test/relay-message-limit.test.ts` › `answers a %s agent PROVIDER_UNAVAILABLE and lets a reclaim attach a new provider`
+근거: `src/server/peer-server.ts:3203`, `src/server/peer-server.ts:3204`; 테스트: `test/relay-message-limit.test.ts` › `answers a %s agent PROVIDER_UNAVAILABLE and lets a reclaim attach a new provider`
 
 **R-MCP-034** WebSocket pending 항목은 `includeCatalogMeta`(`params._meta`가 object면, `{}`도 참), `listsCatalog`(`server/discover`는
 cursor와 무관하게, `tools/list`는 `params.cursor`가 `undefined`·`null`일 때 참), `server/discover`이면 `params.protocolVersion`으로
 협상한 `protocolVersion`(R-MCP-016과 같은 규칙)을 MUST 기록한다.\
-근거: `src/server/peer-server.ts:3029`, `src/server/peer-server.ts:3030`, `src/server/peer-server.ts:3037`, `src/server/peer-server.ts:3039`, `src/server/peer-server.ts:3040`; 테스트: `test/relay-message-limit.test.ts` › `answers a tools/list whose catalog the relay refuses with the relay's own catalog, never the refused one`
+근거: `src/server/peer-server.ts:3210`, `src/server/peer-server.ts:3211`, `src/server/peer-server.ts:3219`, `src/server/peer-server.ts:3221`, `src/server/peer-server.ts:3222`; 테스트: `test/relay-message-limit.test.ts` › `answers a tools/list whose catalog the relay refuses with the relay's own catalog, never the refused one`
 
 **R-MCP-035** relay는 `{...frame, from:'client', sessionId, message:<wire id로 바꾼 요청>}`을 provider에 보낸다. provider socket이
 받지 못하면 pending 항목을 지우고 요청 id로 MUST 답한다. `too-large`는 `REQUEST_TOO_LARGE`, `busy`는 `PROVIDER_BUSY {retryable:true}`
 (provider 유지), `closed`는 `PROVIDER_UNAVAILABLE`이고, `closed`면 그 답 뒤에 provider를 분리하고 `close()`한다
 (`detachClosedProvider`: 다른 pending 요청은 `PROVIDER_DISCONNECTED`, codec이 이미 멈췄으면 close는 아무것도 하지 않는다).
 `busy`·`too-large`는 어느 socket도 닫지 않고, `closed`도 agent socket은 닫지 않는다. `closed`는 R-MCP-024와 같은 짧은 사이에만 나온다.\
-근거: `src/server/peer-server.ts:3042`, `src/server/peer-server.ts:3043`, `src/server/peer-server.ts:3046`, `src/server/peer-server.ts:3047`, `src/server/peer-server.ts:345`, `src/server/peer-server.ts:908`, `src/server/ws-upgrade.ts:438`; 테스트: `test/server-ws-frames.test.ts` › `answers the agent requests a provider that stops reading cannot take with a retryable PROVIDER_BUSY, and keeps the provider`
+근거: `src/server/peer-server.ts:3224`, `src/server/peer-server.ts:3225`, `src/server/peer-server.ts:3228`, `src/server/peer-server.ts:3229`, `src/server/peer-server.ts:358`, `src/server/peer-server.ts:940`, `src/server/ws-upgrade.ts:438`; 테스트: `test/server-ws-frames.test.ts` › `answers the agent requests a provider that stops reading cannot take with a retryable PROVIDER_BUSY, and keeps the provider`
 
 **R-MCP-036** WebSocket에서 relay는 어떤 MCP method에도 직접 답하지 않는다. `initialize`, `ping`, `tools/list`, `server/discover`,
 `notifications/initialized`를 포함해 모두 provider에 MUST 전달한다. 그래서 WebSocket agent의 `initialize`에 provider는 agent가 요청한
 version과 무관하게 `protocolVersion:'2026-07-28'`, `capabilities.tools.listChanged:true`로 답한다(R-PEER-015). relay가 개입하는 것은
 whole-catalog listing 답뿐이다(R-MCP-038). 이것은 HTTP의 R-MCP-016과 `MCP_INITIALIZE_PROTOCOL_VERSIONS`의 설명과 다르다(→ O-01).\
-근거: `src/server/peer-server.ts:2953`, `src/server/peer-server.ts:3042`, `src/provider/peer-client.ts:1416`, `src/provider/peer-client.ts:1421`, `src/provider/commit-receipt.ts:3`; 테스트: `test/relay-message-limit.test.ts` › `stamps every mcp frame it forwards to the provider with from: client and the ticket's sessionId`
+근거: `src/server/peer-server.ts:3134`, `src/server/peer-server.ts:3224`, `src/provider/peer-client.ts:1475`, `src/provider/peer-client.ts:1480`, `src/provider/commit-receipt.ts:3`; 테스트: `test/relay-message-limit.test.ts` › `stamps every mcp frame it forwards to the provider with from: client and the ticket's sessionId`
 
 ### 7.4 provider 답 처리
 
 **R-MCP-037** relay는 붙어 있는 provider socket의 답(R-MCP-002)을 `rpcKey(id)`로 pending 항목과 맞춘다. 맞는 항목이 없으면 조용히
 버린다. 맞으면 timer와 항목을 지우고 agent에게 `replyToAgent`(WebSocket은 outbox, HTTP는 bridge)로 MUST 보낸다. 모양은
 R-MCP-006, listing이면 R-MCP-038이다.\
-근거: `src/server/peer-server.ts:2868`, `src/server/peer-server.ts:2870`, `src/server/peer-server.ts:2871`, `src/server/peer-server.ts:2872`, `src/server/peer-server.ts:2877`; 테스트: `test/relay-message-limit.test.ts` › `delivers a ~200 KB tool result to a WebSocket agent (fragmented by the relay) and keeps both sockets`
+근거: `src/server/peer-server.ts:3045`, `src/server/peer-server.ts:3047`, `src/server/peer-server.ts:3048`, `src/server/peer-server.ts:3049`, `src/server/peer-server.ts:3054`; 테스트: `test/relay-message-limit.test.ts` › `delivers a ~200 KB tool result to a WebSocket agent (fragmented by the relay) and keeps both sockets`
 
 **R-MCP-038** `listsCatalog` 답은 다음과 같이 MUST 처리한다.
 
@@ -1918,22 +2024,22 @@ R-MCP-006, listing이면 R-MCP-038이다.\
 - room에 catalog가 없으면 거절은 −32603 `CATALOG_TOO_LARGE` `{limitBytes:260096, announcementBytes}` 또는 data 없는 −32603
   `CATALOG_INVALID`로, provider 오류(예: −32090 `CATALOG_UNAVAILABLE`)는 그대로 전달한다.
 
-근거: `src/server/peer-server.ts:1103`, `src/server/peer-server.ts:1108`, `src/server/peer-server.ts:1109`, `src/server/peer-server.ts:1111`, `src/server/peer-server.ts:1113`, `src/server/peer-server.ts:1115`, `src/server/peer-server.ts:1119`, `src/server/peer-server.ts:1122`; 테스트: `test/relay-message-limit.test.ts` › `answers a tools/list whose catalog the relay refuses with the relay's own catalog, never the refused one`; `test/relay-message-limit.test.ts` › `answers CATALOG_TOO_LARGE or CATALOG_INVALID to a tools/list whose catalog the relay refuses while it holds none`; `test/relay-message-limit.test.ts` › `passes on the provider's CATALOG_UNAVAILABLE to a WebSocket listing while the relay holds no catalog`
+근거: `src/server/peer-server.ts:1164`, `src/server/peer-server.ts:1169`, `src/server/peer-server.ts:1170`, `src/server/peer-server.ts:1172`, `src/server/peer-server.ts:1174`, `src/server/peer-server.ts:1176`, `src/server/peer-server.ts:1180`, `src/server/peer-server.ts:1183`; 테스트: `test/relay-message-limit.test.ts` › `answers a tools/list whose catalog the relay refuses with the relay's own catalog, never the refused one`; `test/relay-message-limit.test.ts` › `answers CATALOG_TOO_LARGE or CATALOG_INVALID to a tools/list whose catalog the relay refuses while it holds none`; `test/relay-message-limit.test.ts` › `passes on the provider's CATALOG_UNAVAILABLE to a WebSocket listing while the relay holds no catalog`
 
 **R-MCP-039** relay 자신의 WebSocket listing은 `tools/list`면 `result:{tools, catalogVersion?, catalogHash?}`(stamp는 agent가 `_meta`를
 보냈을 때만, `_meta` object 없음), `server/discover`면 HTTP 결과(R-MCP-019: 기록한 협상 version, `serverInfo`, `tools`, socket
 ticket status를 `auth.state`로 한 `_meta`)에 `_meta`를 보냈으면 최상위 stamp를 더한 것이다. relay는 이 모양을 MUST 쓴다.\
-근거: `src/server/peer-server.ts:1131`, `src/server/peer-server.ts:1132`, `src/server/peer-server.ts:1133`, `src/server/peer-server.ts:1134`, `src/server/peer-server.ts:1137`; 테스트: `test/relay-message-limit.test.ts` › `answers a WebSocket agent's tools/list and server/discover from the relay's catalog when the provider answers with an error`; `test/relay-message-limit.test.ts` › `takes a catalog from a server/discover result like a tools/list one, and answers a refused one from the relay's catalog`
+근거: `src/server/peer-server.ts:1192`, `src/server/peer-server.ts:1193`, `src/server/peer-server.ts:1194`, `src/server/peer-server.ts:1195`, `src/server/peer-server.ts:1198`; 테스트: `test/relay-message-limit.test.ts` › `answers a WebSocket agent's tools/list and server/discover from the relay's catalog when the provider answers with an error`; `test/relay-message-limit.test.ts` › `takes a catalog from a server/discover result like a tools/list one, and answers a refused one from the relay's catalog`
 
 **R-MCP-040** WebSocket agent에게 보낼 답 frame이 relay의 stamp 뒤 262144 byte를 넘어 outbox가 `too-large`를 돌려주면 relay는 대신
 agent의 id로 `{code:-32603, message:'RESULT_TOO_LARGE', data:{limitBytes:262144}}`를 MUST 보낸다. 어느 socket도 닫지 않는다.
 provider의 같은 이름의 오류도 같은 data key를 가진다(R-PEER-014). HTTP bridge에는 크기 상한이 없어 relay가 이 오류를 만들지 않는다.\
-근거: `src/server/peer-server.ts:161`, `src/server/peer-server.ts:2877`, `src/server/peer-server.ts:2878`, `src/server/peer-server.ts:441`, `src/server/peer-server.ts:2403`; 테스트: `test/relay-message-limit.test.ts` › `answers RESULT_TOO_LARGE when the relay's catalog metadata pushes a provider reply over the limit`
+근거: `src/server/peer-server.ts:174`, `src/server/peer-server.ts:3054`, `src/server/peer-server.ts:3055`, `src/server/peer-server.ts:454`, `src/server/peer-server.ts:2580`; 테스트: `test/relay-message-limit.test.ts` › `answers RESULT_TOO_LARGE when the relay's catalog metadata pushes a provider reply over the limit`
 
 **R-MCP-041** 답이 아닌 provider `mcp` message(notification, server→client 요청, id가 null인 답)는 R-SIG-004대로 pending ticket의
 socket을 포함한 모든 agent WebSocket에 MUST broadcast한다. HTTP agent는 이것을 받지 못한다. relay가 만드는
 `notifications/tools/list_changed`(R-CAT-008)와 provider가 보낸 것은 agent에게 구별되지 않는다.\
-근거: `src/server/peer-server.ts:2868`, `src/server/peer-server.ts:2884`, `src/server/peer-server.ts:957`; 테스트: 없음
+근거: `src/server/peer-server.ts:3045`, `src/server/peer-server.ts:3061`, `src/server/peer-server.ts:1018`; 테스트: 없음
 
 **R-MCP-043** relay는 수 id가 유한한지 보지 않으므로 agent는 `JSON.parse`가 유한한 수로 읽는 id를 SHOULD 쓴다. `JSON.parse`는
 `1e400`을 `Infinity`로 읽고, 그런 id는 R-MCP-001의 요청이며(수 id는 크기 검사도 없다) pending key는 `number:Infinity`다.
@@ -1942,7 +2048,7 @@ relay 자신의 답과 오류도 id null이다. 참조 provider는 id null 요�
 않아(R-MCP-002) room의 모든 agent WebSocket에 broadcast한다(R-MCP-041). 그래서 중계한 요청의 pending 항목은 timeout까지 남고,
 agent는 id null인 `MCP_REQUEST_TIMEOUT`을 받는다. HTTP와 WebSocket이 같다. `-0`은 key가 `number:0`이고 `0`으로 직렬화되며,
 2^53을 넘는 정수 id는 `JSON.parse`가 반올림한 값으로 되돌아간다.\
-근거: `src/server/peer-server.ts:806`, `src/server/peer-server.ts:238`, `src/server/peer-server.ts:822`, `src/server/peer-server.ts:818`, `src/server/peer-server.ts:2418`, `src/server/peer-server.ts:2420`, `src/server/peer-server.ts:2432`, `src/server/peer-server.ts:3026`, `src/server/peer-server.ts:3042`, `src/server/peer-server.ts:2884`, `src/provider/tool-call.ts:84`; 테스트: 없음
+근거: `src/server/peer-server.ts:836`, `src/server/peer-server.ts:251`, `src/server/peer-server.ts:852`, `src/server/peer-server.ts:848`, `src/server/peer-server.ts:2595`, `src/server/peer-server.ts:2598`, `src/server/peer-server.ts:2610`, `src/server/peer-server.ts:3207`, `src/server/peer-server.ts:3224`, `src/server/peer-server.ts:3061`, `src/provider/tool-call.ts:84`; 테스트: 없음
 
 ### 7.5 버전 협상 요약
 
@@ -1984,7 +2090,7 @@ canonical 이름이 없는 오류는 relay·provider의 `tools/call params are i
 나머지 code는 이름 하나에만 쓴다: −32004 `ROOM_NOT_FOUND`, −32010 `CATALOG_CHANGED`, −32053 `CLIENT_APPROVAL_REQUIRED`,
 −32054 `CLIENT_APPROVAL_DENIED`, −32057 `ROOM_ROTATED`, −32081 `INVALID_APPROVAL`, −32087 `TOO_MANY_PENDING_REQUESTS`, −32088
 `PUBLISH_RATE_LIMITED`, −32089 `PUBLISH_RATE_LIMIT_UNAVAILABLE`, −32090 `CATALOG_UNAVAILABLE`.\
-근거: `src/config/errors.ts:19`, `src/config/errors.ts:76`, `src/server/peer-server.ts:133`, `src/server/peer-server.ts:135`, `src/server/peer-server.ts:141`, `src/server/peer-server.ts:854`, `src/server/peer-server.ts:2363`, `src/provider/peer-client.ts:1368`, `src/provider/peer-client.ts:1437`, `src/provider/peer-client.ts:1452`, `src/client/errors.ts:62`, `src/client/session.ts:121`; 테스트: `test/live-demo.e2e.test.ts` › `resolves canonical error names from numeric JSON-RPC errors`; `test/live-demo.e2e.test.ts` › `reports a revoked session as SESSION_INVALID instead of catalog drift`; `test/client-busy-retry.test.ts` › `is the only kind retried: %s is reported at once`
+근거: `src/config/errors.ts:19`, `src/config/errors.ts:76`, `src/server/peer-server.ts:146`, `src/server/peer-server.ts:148`, `src/server/peer-server.ts:154`, `src/server/peer-server.ts:884`, `src/server/peer-server.ts:2540`, `src/provider/peer-client.ts:1427`, `src/provider/peer-client.ts:1496`, `src/provider/peer-client.ts:1511`, `src/client/errors.ts:62`, `src/client/session.ts:121`; 테스트: `test/live-demo.e2e.test.ts` › `resolves canonical error names from numeric JSON-RPC errors`; `test/live-demo.e2e.test.ts` › `reports a revoked session as SESSION_INVALID instead of catalog drift`; `test/client-busy-retry.test.ts` › `is the only kind retried: %s is reported at once`
 
 **R-ERR-002** relay의 수명주기 HTTP 오류 body는 `lifecycleErrorBody`의 `{error:<이름>, code?:<정수>, …문맥 필드}`이고 status는 아래
 표를 MUST 따른다. `code`는 이름이 JSON-RPC code를 가질 때만 있고, 그 이름의 JSON-RPC 오류와 같은 값이다(R-ERR-005).
@@ -1994,12 +2100,12 @@ MCP endpoint(`POST`·`GET`·`DELETE /p/:id/mcp`의 JSON-RPC 응답)는 `{jsonrpc
 않거나 method가 `OPTIONS`·`GET`·`POST`·`DELETE`가 아니면(예: `PUT`, `PATCH`, `HEAD`) 404 `{error:'NOT_FOUND'}`(R-HTTP-001,
 R-HTTP-002)다. 잡히지 않은 예외는 500 `{error:'PEER_REQUEST_FAILED'}` 또는 `formatHttpError`가 정한 `{error, requestId?}`(R-HTTP-003)다.
 `customHttpHandler`가 먼저 답한 응답은 이 규칙 밖이다.\
-근거: `src/server/peer-server.ts:320`, `src/server/peer-server.ts:321`, `src/server/peer-server.ts:1317`, `src/server/peer-server.ts:1931`, `src/server/peer-server.ts:1948`, `src/server/peer-server.ts:2010`, `src/server/peer-server.ts:2129`, `src/server/peer-server.ts:2135`, `src/server/peer-server.ts:2229`, `src/server/peer-server.ts:2283`, `src/server/peer-server.ts:2753`, `src/server/peer-server.ts:598`, `src/server/peer-server.ts:615`; 테스트: `test/client-request-limit.test.ts` › `surfaces the relay's HTTP 413 REQUEST_TOO_LARGE as a JSON-RPC error of that call only`; `test/server-error-model.test.ts` › `puts the code of an error's JSON-RPC namesake in its lifecycle body`
+근거: `src/server/peer-server.ts:333`, `src/server/peer-server.ts:334`, `src/server/peer-server.ts:1378`, `src/server/peer-server.ts:2103`, `src/server/peer-server.ts:2120`, `src/server/peer-server.ts:2182`, `src/server/peer-server.ts:2306`, `src/server/peer-server.ts:2312`, `src/server/peer-server.ts:2406`, `src/server/peer-server.ts:2460`, `src/server/peer-server.ts:2943`, `src/server/peer-server.ts:618`, `src/server/peer-server.ts:635`; 테스트: `test/client-request-limit.test.ts` › `surfaces the relay's HTTP 413 REQUEST_TOO_LARGE as a JSON-RPC error of that call only`; `test/server-error-model.test.ts` › `puts the code of an error's JSON-RPC namesake in its lifecycle body`
 
 **R-ERR-003** relay와 provider는 아래 표의 오류를 표의 code, status, close code, data로, 표의 조건에서 MUST 낸다. 표는 이 문서의
 다른 요건이 규정한 오류를 한곳에 모은 것이며, 둘이 어긋나면 해당 요건이 우선한다. "—"는 해당 없음, "200(진행)"은 진행 중인 HTTP
 요청에 200으로 전달된다는 뜻이다.\
-근거: `src/server/peer-server.ts:1568`, `src/server/peer-server.ts:1850`, `src/server/peer-server.ts:2974`; 테스트: `test/server-pending-settlement.test.ts` › `answers ROOM_EXPIRED when the sweeper expires the room %s`
+근거: `src/server/peer-server.ts:1629`, `src/server/peer-server.ts:2022`, `src/server/peer-server.ts:3155`; 테스트: `test/server-pending-settlement.test.ts` › `answers ROOM_EXPIRED when the sweeper expires the room %s`
 
 **R-ERR-004** agent client는 relay의 JSON-RPC 오류를 `PeerMcpRpcError`로 MUST 올린다. 그 `code`는 canonical 이름이다: 문자열
 `error.code`, 아니면 UPPER_SNAKE인 `data.code`, 아니면 UPPER_SNAKE인 `message`, 아니면 `MCP_RPC_ERROR`. HTTP transport는 JSON-RPC
@@ -2022,7 +2128,7 @@ message: body.error || statusText || 'MCP endpoint failed'}`로 만든다. 로�
 provider는 `provider`와 `reason`, R-MCP-015, R-PEER-011)다. 예외는 relay가 provider에게 보내는 signaling `error` frame(R-SIG-021)이며,
 수신자가 다른 family라 자기 code를 쓴다(`register` 거절 `CATALOG_INVALID`·`CATALOG_TOO_LARGE`는 frame에서 −32602, agent의 listing
 답에서는 −32603, R-MCP-038).\
-근거: `src/config/errors.ts:19`, `src/config/errors.ts:71`, `src/config/errors.ts:76`, `src/server/peer-server.ts:320`, `src/server/peer-server.ts:321`, `src/server/peer-server.ts:1568`, `src/server/peer-server.ts:1582`, `src/server/peer-server.ts:1116`, `src/provider/peer-client.ts:1378`, `src/provider/peer-client.ts:1397`, `src/provider/tool-call.ts:248`; 테스트: `test/server-error-model.test.ts` › `puts the code of an error's JSON-RPC namesake in its lifecycle body`; `test/server-error-model.test.ts` › `gives an unapproved ticket's error the same data over HTTP and WebSocket`; `test/server-error-model.test.ts` › `refuses a client revoke naming another session with SESSION_NOT_OWNED, not a binding error`; `test/provider-reconnect.test.ts` › `ignores a restored approval for another room epoch`; `test/provider-tool-call.test.ts` › `answers a non-tools/call request with a JSON-RPC error`; `test/provider-register-limit.test.ts` › `answers CATALOG_UNAVAILABLE, with the withheld catalog's error, when no catalog was sent to the room`
+근거: `src/config/errors.ts:19`, `src/config/errors.ts:71`, `src/config/errors.ts:76`, `src/server/peer-server.ts:333`, `src/server/peer-server.ts:334`, `src/server/peer-server.ts:1629`, `src/server/peer-server.ts:1643`, `src/server/peer-server.ts:1177`, `src/provider/peer-client.ts:1437`, `src/provider/peer-client.ts:1456`, `src/provider/tool-call.ts:248`; 테스트: `test/server-error-model.test.ts` › `puts the code of an error's JSON-RPC namesake in its lifecycle body`; `test/server-error-model.test.ts` › `gives an unapproved ticket's error the same data over HTTP and WebSocket`; `test/server-error-model.test.ts` › `refuses a client revoke naming another session with SESSION_NOT_OWNED, not a binding error`; `test/provider-reconnect.test.ts` › `ignores a restored approval for another room epoch`; `test/provider-tool-call.test.ts` › `answers a non-tools/call request with a JSON-RPC error`; `test/provider-register-limit.test.ts` › `answers CATALOG_UNAVAILABLE, with the withheld catalog's error, when no catalog was sent to the room`
 
 ### 8.1 오류 표
 
@@ -2032,89 +2138,89 @@ JSON-RPC code 또는 수명주기 body의 `code` 필드다.
 
 | 이름 | code (JSON-RPC·body) | HTTP status | close | data | 발신 | 조건 | 근거 |
 |---|---|---|---|---|---|---|---|
-| `PARSE_ERROR` | −32700 | 400 | — | 없음, id null | relay HTTP | MCP body가 UTF-8·JSON이 아님(빈 body, BOM 포함) | `src/server/peer-server.ts:2225` |
-| `INVALID_REQUEST` | −32600 | 400(HTTP) | — | 없음 | relay | JSON-RPC 요청이 아님, batch, HTTP `id: null`. HTTP는 id null, WS는 문자열·수·null id를 echo | `src/server/peer-server.ts:2228`, `src/server/peer-server.ts:2234`, `src/server/peer-server.ts:2970` |
-| `REQUEST_ID_TOO_LARGE` | −32600 | 400(HTTP) | — | `{limitBytes:1024}`, id null 또는 requestId 없음 | relay | 문자열 id·offer requestId의 JSON이 1024 byte 초과 | `src/server/peer-server.ts:166`, `src/server/peer-server.ts:2227`, `src/server/peer-server.ts:2966`, `src/server/peer-server.ts:3058` |
-| `REQUEST_TOO_LARGE` | −32600 | 413(HTTP) | — | `{limitBytes:261120}` | relay(HTTP, WS, `offer.refused`) | 요청이 받은 그대로나 재직렬화로 261120 byte 초과, 또는 provider `send`가 `too-large` | `src/server/peer-server.ts:133`, `src/server/peer-server.ts:2218`, `src/server/peer-server.ts:2240`, `src/server/peer-server.ts:2959` |
-| `DUPLICATE_REQUEST_ID` | −32600 | — | — | 없음 | relay WS | 같은 socket에 `===` 같은 id가 pending | `src/server/peer-server.ts:3013` |
-| `UNSUPPORTED_PROTOCOL_VERSION` | −32600 | 400 | — | `{supported:[4개], requested}` | relay HTTP | `initialize`가 아닌 POST의 지원하지 않는 `MCP-Protocol-Version` | `src/server/peer-server.ts:2251` |
-| `TOO_MANY_PENDING_REQUESTS` | −32087 | — | — | `{limit:64}` | relay WS | socket pending + outbox 대기가 64 이상 | `src/server/peer-server.ts:171`, `src/server/peer-server.ts:3017` |
-| `PROVIDER_UNAVAILABLE` | −32001 | 503 | — | 없음 | relay(HTTP, WS, `offer.refused`) | provider socket 없음, 또는 `send`가 `closed`(provider 분리) | `src/server/peer-server.ts:135`, `src/server/peer-server.ts:2381`, `src/server/peer-server.ts:3023` |
-| `PROVIDER_BUSY` | −32001 | 503 + `Retry-After: 1` | — | `{retryable:true}` | relay(HTTP, WS, `offer.refused`) | provider 송신 queue가 가득 참. provider 유지 | `src/server/peer-server.ts:141`, `src/server/peer-server.ts:928` |
-| `PROVIDER_DISCONNECTED` | −32001 | 200(진행) | — | 없음 | relay | pending 중 provider socket이 닫힘·교체·분리, server 종료 | `src/server/peer-server.ts:1166` |
-| `MCP_REQUEST_TIMEOUT` | −32001 | 200(진행) | — | 없음 | relay | `mcpRequestTimeoutMs` 안에 답 없음 | `src/server/peer-server.ts:2418`, `src/server/peer-server.ts:3027` |
-| `CLIENT_DISCONNECTED` | −32001 | wire에 안 나감 | — | 없음 | relay 내부 | HTTP response가 쓰기 전에 닫힘 | `src/server/peer-server.ts:2415` |
-| `SESSION_INVALID` | −32001 | 401(새 요청, `WWW-Authenticate: Bearer error="invalid_token"`), 200(진행) | — | 새 요청은 `{roomId, sessionId, approvalRequestId, approvalRequired}`(없는 값은 `null`, 두 transport 같음), 진행·종료는 없음 | relay | revoked·room-rotated ticket(room-rotated의 HTTP 요청은 R-MCP-013이 먼저 거절하고, 붙은 socket에서는 닿지 않음, R-MCP-029), 전체 revoke의 진행 요청, revoke된 ticket socket의 pending 요청 | `src/server/peer-server.ts:1574`, `src/server/peer-server.ts:1796`, `src/server/peer-server.ts:1856`, `src/server/peer-server.ts:2975` |
-| `CLIENT_TOKEN_REQUIRED` | −32003 | 401, `WWW-Authenticate: Bearer` | — | `{roomId, sessionId, approvalRequestId, approvalRequired}`(없는 값은 `null`, 두 transport 같음) | relay HTTP | 중계 method에 Bearer 자격이 없음 | `src/server/peer-server.ts:1570`, `src/server/peer-server.ts:2286` |
-| `CLIENT_TOKEN_INVALID` | −32003 | 401, `WWW-Authenticate: Bearer error="invalid_token"` | — | `{roomId, sessionId, approvalRequestId, approvalRequired}`(없는 값은 `null`, 두 transport 같음) | relay HTTP | 중계 method의 Bearer token을 room이 발급하지 않음 | `src/server/peer-server.ts:1570`, `src/server/peer-server.ts:2286` |
-| `ROOM_NOT_FOUND` | −32004 | 404 | — | `{roomId}` | relay HTTP | 중계 method의 모르는 room | `src/server/peer-server.ts:2270` |
-| `CATALOG_CHANGED` | −32010 | 409(HTTP) | — | `{catalogVersion, catalogHash}`(relay 현재 값) | relay | `tools/call`의 `_meta` catalog 값이 room과 다름(WS는 id가 있는 `tools/call`만) | `src/server/peer-server.ts:2371`, `src/server/peer-server.ts:3001` |
-| `CLIENT_APPROVAL_REQUIRED` | −32053 | 403 | — | `{roomId, sessionId, approvalRequestId, approvalRequired}`(없는 값은 `null`, 두 transport 같음) | relay | pending ticket | `src/server/peer-server.ts:1571`, `src/server/peer-server.ts:1582`, `src/server/peer-server.ts:2976` |
-| `CLIENT_APPROVAL_DENIED` | −32054 | 403 | — | 위와 같음, 종료 시 pending 요청은 없음 | relay | rejected ticket(WS는 붙은 socket에서 닿지 않음, R-MCP-029), 거절된 ticket socket의 pending 요청 | `src/server/peer-server.ts:1572`, `src/server/peer-server.ts:1796`, `src/server/peer-server.ts:1855` |
-| `SESSION_EXPIRED` | −32056 | 410 | — | 위와 같음 | relay | expired ticket(예: 승인 만료. WS는 붙은 socket에서 닿지 않음, R-MCP-029) | `src/server/peer-server.ts:1573`, `src/server/peer-server.ts:2976` |
-| `ROOM_EXPIRED` (MCP) | −32056 | 410(새 요청), 200(진행) | — | `{roomId, roomEpoch}`(두 transport 같음) | relay | 중계 method의 만료 room(HTTP), room 만료 처리가 끝낸 진행 요청(HTTP, 만료된 ticket socket의 WebSocket pending 요청) | `src/server/peer-server.ts:2278`, `src/server/peer-server.ts:1854`, `src/server/peer-server.ts:1796` |
-| `ROOM_ROTATED` (MCP) | −32057 | 410(새 요청), 200(진행) | — | `{replacementRoomId, roomId, roomEpoch}`(두 transport 같음) | relay | 중계 method의 rotate된 room, rotate가 끝낸 진행 요청, rotate된 ticket socket의 pending 요청 | `src/server/peer-server.ts:2274`, `src/server/peer-server.ts:1852`, `src/server/peer-server.ts:1796` |
-| `CATALOG_UNAVAILABLE` (relay) | −32090 | 503 | — | `{catalogSource}` | relay HTTP | `tools/list`·`server/discover`의 snapshot이 빔 | `src/server/peer-server.ts:2290` |
-| `tools/call params are invalid` | −32602 | 400(HTTP) | — | 없음 | relay, provider | `tools/call`에 비어 있지 않은 문자열 `name`이 없음 | `src/server/peer-server.ts:2363`, `src/server/peer-server.ts:2993`, `src/provider/peer-client.ts:1452` |
-| `TOOL_NOT_FOUND` | −32602 | 400(HTTP) | — | 없음 | relay | room catalog에 없는 tool 이름(WS는 id가 있는 `tools/call`만) | `src/server/peer-server.ts:2376`, `src/server/peer-server.ts:3008` |
-| `RESULT_TOO_LARGE` (relay) | −32603 | — | — | `{limitBytes:262144}` | relay WS | stamp 뒤 답 frame이 262144 byte 초과 | `src/server/peer-server.ts:161`, `src/server/peer-server.ts:2878` |
-| `CATALOG_TOO_LARGE` (listing 답) | −32603 | — | — | `{limitBytes:260096, announcementBytes}` | relay WS | catalog 없는 room에서 listing 답의 announcement 초과 | `src/server/peer-server.ts:1116` |
-| `CATALOG_INVALID` (listing 답) | −32603 | — | — | 없음 | relay WS | catalog 없는 room에서 listing 답의 catalog 무효 | `src/server/peer-server.ts:1117` |
-| `BODY_CONSUMED` (MCP) | −32603 | 500 | — | 없음, id null | relay HTTP | 앞선 reader가 MCP body를 읽음 | `src/server/peer-server.ts:173`, `src/server/peer-server.ts:2212` |
-| `SSE_STREAM_NOT_SUPPORTED` | −32000 | 405, `Allow: POST` | — | 없음, id null | relay HTTP | SSE만 받는 `GET /p/:id/mcp` | `src/server/peer-server.ts:2135` |
-| `SESSION_TERMINATION_NOT_SUPPORTED` | −32000 | 405, `Allow: GET, POST` | — | 없음, id null | relay HTTP | `DELETE /p/:id/mcp` | `src/server/peer-server.ts:2140` |
-| `Invalid Request` | −32600 | — | — | 없음, id null | provider | `jsonrpc:'2.0'`이지만 id가 문자열·수·null이 아닌 DataChannel 요청. relay는 id가 없거나 null·문자열·수인 message만 전달하므로(R-MCP-001) relay socket으로는 오지 않는다. 만들어져 relay에 가더라도 id null 답이라 답으로 보지 않고 broadcast한다(R-MCP-041) | `src/provider/peer-client.ts:1368`, `src/server/peer-server.ts:806`, `src/server/peer-server.ts:2884` |
-| `Method not found` | −32601 | 200 | — | 없음 | provider | 처리하지 않는 method | `src/provider/peer-client.ts:1437` |
-| `Internal error` | −32603 | 200 | — | 없음 | provider | 요청 처리 중 예외 | `src/provider/peer-client.ts:1349` |
-| `CLIENT_APPROVAL_REQUIRED` (provider) | −32053 | 200 | — | 없음 | provider | provider의 approvalState가 `approved`가 아님(relay와 같은 code, R-ERR-005) | `src/provider/peer-client.ts:1378` |
-| `PEER_SESSION_SUPERSEDED` | −32008 | 200 | — | 없음 | provider | 지난 connection generation의 요청 | `src/provider/peer-client.ts:1371` |
-| `OUTCOME_UNKNOWN` | −32008 | 200 | — | 없음 | provider | tool 실행 중 generation이 바뀌거나 run이 사라짐 | `src/provider/peer-client.ts:1544` |
-| `CATALOG_UNAVAILABLE` (provider) | −32090 | 200 | — | `{catalogSource:'provider', reason}` | provider | 중계된 `tools/list`·`server/discover`에 등록한 catalog가 없거나 거절됨 | `src/provider/peer-client.ts:1397` |
+| `PARSE_ERROR` | −32700 | 400 | — | 없음, id null | relay HTTP | MCP body가 UTF-8·JSON이 아님(빈 body, BOM 포함) | `src/server/peer-server.ts:2402` |
+| `INVALID_REQUEST` | −32600 | 400(HTTP) | — | 없음 | relay | JSON-RPC 요청이 아님, batch, HTTP `id: null`. HTTP는 id null, WS는 문자열·수·null id를 echo | `src/server/peer-server.ts:2405`, `src/server/peer-server.ts:2411`, `src/server/peer-server.ts:3151` |
+| `REQUEST_ID_TOO_LARGE` | −32600 | 400(HTTP) | — | `{limitBytes:1024}`, id null 또는 requestId 없음 | relay | 문자열 id·offer requestId의 JSON이 1024 byte 초과 | `src/server/peer-server.ts:179`, `src/server/peer-server.ts:2404`, `src/server/peer-server.ts:3147`, `src/server/peer-server.ts:3240` |
+| `REQUEST_TOO_LARGE` | −32600 | 413(HTTP) | — | `{limitBytes:261120}` | relay(HTTP, WS, `offer.refused`) | 요청이 받은 그대로나 재직렬화로 261120 byte 초과, 또는 provider `send`가 `too-large` | `src/server/peer-server.ts:146`, `src/server/peer-server.ts:2395`, `src/server/peer-server.ts:2417`, `src/server/peer-server.ts:3140` |
+| `DUPLICATE_REQUEST_ID` | −32600 | — | — | 없음 | relay WS | 같은 socket에 `===` 같은 id가 pending | `src/server/peer-server.ts:3194` |
+| `UNSUPPORTED_PROTOCOL_VERSION` | −32600 | 400 | — | `{supported:[4개], requested}` | relay HTTP | `initialize`가 아닌 POST의 지원하지 않는 `MCP-Protocol-Version` | `src/server/peer-server.ts:2428` |
+| `TOO_MANY_PENDING_REQUESTS` | −32087 | — | — | `{limit:64}` | relay WS | socket pending + outbox 대기가 64 이상 | `src/server/peer-server.ts:184`, `src/server/peer-server.ts:3198` |
+| `PROVIDER_UNAVAILABLE` | −32001 | 503 | — | 없음 | relay(HTTP, WS, `offer.refused`) | provider socket 없음, 또는 `send`가 `closed`(provider 분리) | `src/server/peer-server.ts:148`, `src/server/peer-server.ts:2558`, `src/server/peer-server.ts:3204` |
+| `PROVIDER_BUSY` | −32001 | 503 + `Retry-After: 1` | — | `{retryable:true}` | relay(HTTP, WS, `offer.refused`) | provider 송신 queue가 가득 참. provider 유지 | `src/server/peer-server.ts:154`, `src/server/peer-server.ts:989` |
+| `PROVIDER_DISCONNECTED` | −32001 | 200(진행) | — | 없음 | relay | pending 중 provider socket이 닫힘·교체·분리, server 종료 | `src/server/peer-server.ts:1227` |
+| `MCP_REQUEST_TIMEOUT` | −32001 | 200(진행) | — | 없음 | relay | `mcpRequestTimeoutMs` 안에 답 없음 | `src/server/peer-server.ts:2595`, `src/server/peer-server.ts:3208` |
+| `CLIENT_DISCONNECTED` | −32001 | wire에 안 나감 | — | 없음 | relay 내부 | HTTP response가 쓰기 전에 닫힘 | `src/server/peer-server.ts:2592` |
+| `SESSION_INVALID` | −32001 | 401(새 요청, `WWW-Authenticate: Bearer error="invalid_token"`), 200(진행) | — | 새 요청은 `{roomId, sessionId, approvalRequestId, approvalRequired}`(없는 값은 `null`, 두 transport 같음), 진행·종료는 없음 | relay | revoked·room-rotated ticket(room-rotated의 HTTP 요청은 R-MCP-013이 먼저 거절하고, 붙은 socket에서는 닿지 않음, R-MCP-029), 전체 revoke의 진행 요청, revoke된 ticket socket의 pending 요청 | `src/server/peer-server.ts:1635`, `src/server/peer-server.ts:1912`, `src/server/peer-server.ts:2028`, `src/server/peer-server.ts:3156` |
+| `CLIENT_TOKEN_REQUIRED` | −32003 | 401, `WWW-Authenticate: Bearer` | — | `{roomId, sessionId, approvalRequestId, approvalRequired}`(없는 값은 `null`, 두 transport 같음) | relay HTTP | 중계 method에 Bearer 자격이 없음 | `src/server/peer-server.ts:1631`, `src/server/peer-server.ts:2463` |
+| `CLIENT_TOKEN_INVALID` | −32003 | 401, `WWW-Authenticate: Bearer error="invalid_token"` | — | `{roomId, sessionId, approvalRequestId, approvalRequired}`(없는 값은 `null`, 두 transport 같음) | relay HTTP | 중계 method의 Bearer token을 room이 발급하지 않음 | `src/server/peer-server.ts:1631`, `src/server/peer-server.ts:2463` |
+| `ROOM_NOT_FOUND` | −32004 | 404 | — | `{roomId}` | relay HTTP | 중계 method의 모르는 room | `src/server/peer-server.ts:2447` |
+| `CATALOG_CHANGED` | −32010 | 409(HTTP) | — | `{catalogVersion, catalogHash}`(relay 현재 값) | relay | `tools/call`의 `_meta` catalog 값이 room과 다름(WS는 id가 있는 `tools/call`만) | `src/server/peer-server.ts:2548`, `src/server/peer-server.ts:3182` |
+| `CLIENT_APPROVAL_REQUIRED` | −32053 | 403 | — | `{roomId, sessionId, approvalRequestId, approvalRequired}`(없는 값은 `null`, 두 transport 같음) | relay | pending ticket | `src/server/peer-server.ts:1632`, `src/server/peer-server.ts:1643`, `src/server/peer-server.ts:3157` |
+| `CLIENT_APPROVAL_DENIED` | −32054 | 403 | — | 위와 같음, 종료 시 pending 요청은 없음 | relay | rejected ticket(WS는 붙은 socket에서 닿지 않음, R-MCP-029), 거절된 ticket socket의 pending 요청 | `src/server/peer-server.ts:1633`, `src/server/peer-server.ts:1912`, `src/server/peer-server.ts:2027` |
+| `SESSION_EXPIRED` | −32056 | 410 | — | 위와 같음 | relay | expired ticket(예: 승인 만료. WS는 붙은 socket에서 닿지 않음, R-MCP-029) | `src/server/peer-server.ts:1634`, `src/server/peer-server.ts:3157` |
+| `ROOM_EXPIRED` (MCP) | −32056 | 410(새 요청), 200(진행) | — | `{roomId, roomEpoch}`(두 transport 같음) | relay | 중계 method의 만료 room(HTTP), room 만료 처리가 끝낸 진행 요청(HTTP, 만료된 ticket socket의 WebSocket pending 요청) | `src/server/peer-server.ts:2455`, `src/server/peer-server.ts:2026`, `src/server/peer-server.ts:1912` |
+| `ROOM_ROTATED` (MCP) | −32057 | 410(새 요청), 200(진행) | — | `{replacementRoomId, roomId, roomEpoch}`(두 transport 같음) | relay | 중계 method의 rotate된 room, rotate가 끝낸 진행 요청, rotate된 ticket socket의 pending 요청 | `src/server/peer-server.ts:2451`, `src/server/peer-server.ts:2024`, `src/server/peer-server.ts:1912` |
+| `CATALOG_UNAVAILABLE` (relay) | −32090 | 503 | — | `{catalogSource}` | relay HTTP | `tools/list`·`server/discover`의 snapshot이 빔 | `src/server/peer-server.ts:2467` |
+| `tools/call params are invalid` | −32602 | 400(HTTP) | — | 없음 | relay, provider | `tools/call`에 비어 있지 않은 문자열 `name`이 없음 | `src/server/peer-server.ts:2540`, `src/server/peer-server.ts:3174`, `src/provider/peer-client.ts:1511` |
+| `TOOL_NOT_FOUND` | −32602 | 400(HTTP) | — | 없음 | relay | room catalog에 없는 tool 이름(WS는 id가 있는 `tools/call`만) | `src/server/peer-server.ts:2553`, `src/server/peer-server.ts:3189` |
+| `RESULT_TOO_LARGE` (relay) | −32603 | — | — | `{limitBytes:262144}` | relay WS | stamp 뒤 답 frame이 262144 byte 초과 | `src/server/peer-server.ts:174`, `src/server/peer-server.ts:3055` |
+| `CATALOG_TOO_LARGE` (listing 답) | −32603 | — | — | `{limitBytes:260096, announcementBytes}` | relay WS | catalog 없는 room에서 listing 답의 announcement 초과 | `src/server/peer-server.ts:1177` |
+| `CATALOG_INVALID` (listing 답) | −32603 | — | — | 없음 | relay WS | catalog 없는 room에서 listing 답의 catalog 무효 | `src/server/peer-server.ts:1178` |
+| `BODY_CONSUMED` (MCP) | −32603 | 500 | — | 없음, id null | relay HTTP | 앞선 reader가 MCP body를 읽음 | `src/server/peer-server.ts:186`, `src/server/peer-server.ts:2389` |
+| `SSE_STREAM_NOT_SUPPORTED` | −32000 | 405, `Allow: POST` | — | 없음, id null | relay HTTP | SSE만 받는 `GET /p/:id/mcp` | `src/server/peer-server.ts:2312` |
+| `SESSION_TERMINATION_NOT_SUPPORTED` | −32000 | 405, `Allow: GET, POST` | — | 없음, id null | relay HTTP | `DELETE /p/:id/mcp` | `src/server/peer-server.ts:2317` |
+| `Invalid Request` | −32600 | — | — | 없음, id null | provider | `jsonrpc:'2.0'`이지만 id가 문자열·수·null이 아닌 DataChannel 요청. relay는 id가 없거나 null·문자열·수인 message만 전달하므로(R-MCP-001) relay socket으로는 오지 않는다. 만들어져 relay에 가더라도 id null 답이라 답으로 보지 않고 broadcast한다(R-MCP-041) | `src/provider/peer-client.ts:1427`, `src/server/peer-server.ts:836`, `src/server/peer-server.ts:3061` |
+| `Method not found` | −32601 | 200 | — | 없음 | provider | 처리하지 않는 method | `src/provider/peer-client.ts:1496` |
+| `Internal error` | −32603 | 200 | — | 없음 | provider | 요청 처리 중 예외 | `src/provider/peer-client.ts:1408` |
+| `CLIENT_APPROVAL_REQUIRED` (provider) | −32053 | 200 | — | 없음 | provider | provider의 approvalState가 `approved`가 아님(relay와 같은 code, R-ERR-005) | `src/provider/peer-client.ts:1437` |
+| `PEER_SESSION_SUPERSEDED` | −32008 | 200 | — | 없음 | provider | 지난 connection generation의 요청 | `src/provider/peer-client.ts:1430` |
+| `OUTCOME_UNKNOWN` | −32008 | 200 | — | 없음 | provider | tool 실행 중 generation이 바뀌거나 run이 사라짐 | `src/provider/peer-client.ts:1603` |
+| `CATALOG_UNAVAILABLE` (provider) | −32090 | 200 | — | `{catalogSource:'provider', reason}` | provider | 중계된 `tools/list`·`server/discover`에 등록한 catalog가 없거나 거절됨 | `src/provider/peer-client.ts:1456` |
 | `RESULT_TOO_LARGE` (provider) | −32603(`tools/call` 외) | 200 | — | `{limitBytes:262144}`(relay와 같은 key). `tools/call`은 `isError` 결과의 `error.code:'RESULT_TOO_LARGE'`(문자열) | provider | provider 답 frame이 262144 byte 초과 | `src/provider/tool-call.ts:239`, `src/provider/tool-call.ts:248` |
-| `AI_RUN_TERMINAL`, `AI_RUN_LIMIT_EXCEEDED`, `AI_RUN_REJECTED`, `RECONCILIATION_REQUIRED` | — | 200 | — | `isError` 결과의 문자열 `error.code` | provider | 종료된 run, 128 run 모두 진행 중, 그 밖의 run 시작 실패, ledger의 outcome-unknown 기록 | `src/provider/peer-client.ts:1470`, `src/provider/peer-client.ts:1489`, `src/provider/peer-client.ts:1501` |
-| host 예외 | — | 200 | — | `isError` 결과의 `error.code: -32603`(수) | provider | host `invoke`가 던짐 | `src/provider/peer-client.ts:1570` |
-| `CATALOG_INVALID` (frame) | −32602 | — | — | `reason`, `registerSeq?` | relay→provider | register catalog 무효 | `src/server/peer-server.ts:1073` |
-| `CATALOG_TOO_LARGE` (frame) | −32602 | — | — | `limitBytes:260096`, `reason`, `registerSeq?` | relay→provider | announcement가 260096 byte 초과 | `src/server/peer-server.ts:1075` |
-| `INVALID_APPROVAL` (frame) | −32081 | — | — | `requestId`(문자열 또는 null) | relay→provider | `approval.decision`이 무효이거나 대상 요청이 없음 | `src/server/peer-server.ts:2836` |
-| `CORS_ORIGIN_DENIED` | — | 403 | — | `{origin}` | relay | 허용되지 않은 Origin의 preflight | `src/server/peer-server.ts:1931` |
-| `ORIGIN_NOT_ALLOWED` | — | 403 | — | `{origin}` | relay | 허용되지 않은 Origin의 그 밖 요청 | `src/server/peer-server.ts:1948` |
-| `NOT_FOUND` | — | 404 | — | — | relay | 맞는 route 없음(method·id 문법 불일치 포함) | `src/server/peer-server.ts:2753` |
-| `PEER_REQUEST_FAILED` | — | 500 | — | `{requestId?}` | relay | 처리되지 않은 예외(hook 없음) | `src/server/peer-server.ts:615` |
-| `INVALID_PATH` | — | 400 | — | — | relay | approval·session status·경로형 revoke의 경로 parameter가 잘못된 percent-encoding | `src/server/peer-server.ts:337`, `src/server/peer-server.ts:2519`, `src/server/peer-server.ts:2565`, `src/server/peer-server.ts:2628` |
-| `BODY_TOO_LARGE` | — | 413 | — | — | relay | JSON body가 65536 byte 초과(drain 안) | `src/server/peer-server.ts:1518` |
-| `INVALID_JSON_BODY` | — | 400 | — | — | relay | JSON body가 UTF-8·JSON·object가 아님 | `src/server/peer-server.ts:1525` |
-| `BODY_CONSUMED` | −32603 | 500 | — | — | relay | 앞선 reader가 JSON body를 읽음 | `src/server/peer-server.ts:1514` |
-| `PUBLISH_RATE_LIMITED` | −32088 | 429 | — | `{retryAfterMs}`, `Retry-After`, `X-RateLimit-*` | relay | `POST /p` rate 초과 | `src/server/peer-server.ts:2000` |
-| `PUBLISH_RATE_LIMIT_UNAVAILABLE` | −32089 | 503 | — | `{retryAfterMs:1000}`, `Retry-After: 1`, `X-RateLimit-*` | relay | rate-limit store 실패 | `src/server/peer-server.ts:1989` |
-| `PUBLISH_KEY_REQUIRED` | — | 401, `WWW-Authenticate: Bearer` | — | — | relay | publish key 설정 시 token 없음 | `src/server/peer-server.ts:1445`, `src/server/peer-server.ts:2010` |
-| `PUBLISH_KEY_INVALID` | — | 401, `WWW-Authenticate: Bearer error="invalid_token"` | — | — | relay | 틀린 publish key | `src/server/peer-server.ts:1447`, `src/server/peer-server.ts:2010` |
-| `PUBLISH_OWNER_BINDING_INVALID` | — | 403 | — | — | relay | owner 힌트 충돌 | `src/server/peer-server.ts:2023` |
-| `CAPABILITIES_INVALID` | — | 400 | — | — | relay | `POST /p`·join의 capabilities 무효 | `src/server/peer-server.ts:2033`, `src/server/peer-server.ts:2465` |
-| `ROOM_NOT_FOUND` | −32004 | 404 | — | — | relay | 수명주기 route의 room 없음·교체(보존 기한이 지나 지운 room 포함, R-ROOM-051) | `src/server/peer-server.ts:1361`, `src/server/peer-server.ts:2055`, `src/server/peer-server.ts:2444`, `src/server/peer-server.ts:2570` |
-| `ROOM_ROTATED` | −32057 | 410 | — | `{roomId, roomEpoch, replacementRoomId}` | relay | 모든 수명주기 route(join, session status, reclaim, approval, 두 revoke, rotate)의 rotate된 room(R-ROOM-046) | `src/server/peer-server.ts:1338`, `src/server/peer-server.ts:1365`, `src/server/peer-server.ts:2055`, `src/server/peer-server.ts:2444`, `src/server/peer-server.ts:2574` |
-| `ROOM_BINDING_INVALID` | −32002 | 409 | — | `{roomId, roomEpoch}`(현재 epoch) | relay | rotate되지 않은 room의 rotate body가 다른 roomId·roomEpoch를 지목 | `src/server/peer-server.ts:2706` |
-| `ROOM_EXPIRED` | −32056 | 410 | — | `{roomId, roomEpoch}` | relay | 보존 중인 만료 room의 join, reclaim, approval, 두 revoke, rotate(R-ROOM-070. rotate 검사가 먼저) | `src/server/peer-server.ts:1347`, `src/server/peer-server.ts:1348`, `src/server/peer-server.ts:1368` |
-| `ROOM_LEASE_EXPIRED` | — | 410 | — | `{roomId, roomEpoch}` | relay | 살아 있는 room의 reclaim에 reconnect lease 만료(R-ROOM-014) | `src/server/peer-server.ts:2056`, `src/server/peer-server.ts:2057` |
-| `ROOM_LEASE_REQUIRED` | — | 400 | — | — | relay | reclaim에 leaseToken 없음 | `src/server/peer-server.ts:2069` |
-| `ROOM_LEASE_BINDING_INVALID` | −32002 | 409 | — | `{roomId, roomEpoch}` | relay | reclaim body의 epoch·roomId 불일치 | `src/server/peer-server.ts:2074` |
-| `ROOM_LEASE_INVALID` | — | 403 | — | — | relay | lease hash 불일치 | `src/server/peer-server.ts:2079` |
-| `ROOM_PROVIDER_ACTIVE` | — | 409 | — | `{roomId, roomEpoch}` | relay | provider socket이 붙어 있는 room의 reclaim | `src/server/peer-server.ts:2083` |
-| `INVITE_TOKEN_REQUIRED` | — | 400 | — | — | relay | join에 invite 없음 | `src/server/peer-server.ts:2452` |
-| `INVITE_TOKEN_INVALID` | — | 403 | — | — | relay | 틀린 invite(소비 여부와 무관) | `src/server/peer-server.ts:2456` |
-| `INVITE_TOKEN_CONSUMED` | — | 409 | — | — | relay | 맞는 invite가 이미 소비됨 | `src/server/peer-server.ts:2460` |
-| `CRDT_CAPABILITY_NOT_GRANTED` | — | 403 | — | — | relay | room에 없는 `mcp-crdt` 요청 | `src/server/peer-server.ts:2469` |
-| `PROVIDER_TOKEN_REQUIRED` | — | 401, `WWW-Authenticate: Bearer` | — | — | relay | approval·rotate에 Bearer 자격 없음 | `src/server/peer-server.ts:1381` |
-| `PROVIDER_TOKEN_INVALID` | — | 401, `WWW-Authenticate: Bearer error="invalid_token"` | — | — | relay | approval·rotate의 token이 현재 providerToken이 아님 | `src/server/peer-server.ts:1385` |
-| `INVALID_APPROVAL` | −32081 | 409 | — | — | relay | HTTP 결정 body 불일치, 이미 결정됨 | `src/server/peer-server.ts:2538`, `src/server/peer-server.ts:2543` |
-| `CLIENT_TOKEN_REQUIRED` | −32003 | 401, `WWW-Authenticate: Bearer` | — | — | relay | session status·client revoke에 Bearer 자격 없음 | `src/server/peer-server.ts:2583`, `src/server/peer-server.ts:2664` |
-| `CLIENT_TOKEN_INVALID` | −32003 | 401, `WWW-Authenticate: Bearer error="invalid_token"` | — | — | relay | session status·client revoke의 token이 providerToken도 room의 client token도 아님 | `src/server/peer-server.ts:2588`, `src/server/peer-server.ts:2669` |
-| `SESSION_NOT_FOUND` | — | 404 | — | — | relay | providerToken으로 모르는 session | `src/server/peer-server.ts:2597`, `src/server/peer-server.ts:2653` |
-| `SESSION_BINDING_INVALID` | −32002 | 409 | — | — | relay | revoke의 roomId·roomEpoch 불일치 | `src/server/peer-server.ts:2640`, `src/server/peer-server.ts:2679` |
-| `SESSION_NOT_OWNED` | — | 403 | — | — | relay | client token이 자기 것이 아닌 session의 status를 묻거나 revoke를 지목 | `src/server/peer-server.ts:2592`, `src/server/peer-server.ts:2675` |
-| `CATALOG_UNAVAILABLE` (GET) | −32090 | 503 | — | `{catalogVersion:0, catalogHash, auth?}` | relay | `GET /p/:id/mcp/tools`·`GET /mcp/catalog`에 tool 없음 | `src/server/peer-server.ts:2106`, `src/server/peer-server.ts:2193` |
-| `CATALOG_HASH_NOT_FOUND` | — | 404 | — | `{catalogHash:<현재>}` | relay | 현재가 아닌 catalog hash | `src/server/peer-server.ts:2110` |
-| Origin not allowed (upgrade) | — | 403 raw text | — | 본문 `Origin not allowed` | relay | upgrade Origin 거절 | `src/server/peer-server.ts:2765` |
-| upgrade 거절 | — | 없음(파기) | — | — | relay | 경로·room·ticket 거절, 예외 | `src/server/peer-server.ts:2790`, `src/server/peer-server.ts:2797`, `src/server/peer-server.ts:2926`, `src/server/peer-server.ts:3107` |
+| `AI_RUN_TERMINAL`, `AI_RUN_LIMIT_EXCEEDED`, `AI_RUN_REJECTED`, `RECONCILIATION_REQUIRED` | — | 200 | — | `isError` 결과의 문자열 `error.code` | provider | 종료된 run, 128 run 모두 진행 중, 그 밖의 run 시작 실패, ledger의 outcome-unknown 기록 | `src/provider/peer-client.ts:1529`, `src/provider/peer-client.ts:1548`, `src/provider/peer-client.ts:1560` |
+| host 예외 | — | 200 | — | `isError` 결과의 `error.code: -32603`(수) | provider | host `invoke`가 던짐 | `src/provider/peer-client.ts:1629` |
+| `CATALOG_INVALID` (frame) | −32602 | — | — | `reason`, `registerSeq?` | relay→provider | register catalog 무효 | `src/server/peer-server.ts:1134` |
+| `CATALOG_TOO_LARGE` (frame) | −32602 | — | — | `limitBytes:260096`, `reason`, `registerSeq?` | relay→provider | announcement가 260096 byte 초과 | `src/server/peer-server.ts:1136` |
+| `INVALID_APPROVAL` (frame) | −32081 | — | — | `requestId`(문자열 또는 null) | relay→provider | `approval.decision`이 무효이거나 대상 요청이 없음 | `src/server/peer-server.ts:3026` |
+| `CORS_ORIGIN_DENIED` | — | 403 | — | `{origin}` | relay | 허용되지 않은 Origin의 preflight | `src/server/peer-server.ts:2103` |
+| `ORIGIN_NOT_ALLOWED` | — | 403 | — | `{origin}` | relay | 허용되지 않은 Origin의 그 밖 요청 | `src/server/peer-server.ts:2120` |
+| `NOT_FOUND` | — | 404 | — | — | relay | 맞는 route 없음(method·id 문법 불일치 포함) | `src/server/peer-server.ts:2943` |
+| `PEER_REQUEST_FAILED` | — | 500 | — | `{requestId?}` | relay | 처리되지 않은 예외(hook 없음) | `src/server/peer-server.ts:635` |
+| `INVALID_PATH` | — | 400 | — | — | relay | approval·session status·경로형 revoke의 경로 parameter가 잘못된 percent-encoding | `src/server/peer-server.ts:350`, `src/server/peer-server.ts:2697`, `src/server/peer-server.ts:2749`, `src/server/peer-server.ts:2812` |
+| `BODY_TOO_LARGE` | — | 413 | — | — | relay | JSON body가 65536 byte 초과(drain 안) | `src/server/peer-server.ts:1579` |
+| `INVALID_JSON_BODY` | — | 400 | — | — | relay | JSON body가 UTF-8·JSON·object가 아님 | `src/server/peer-server.ts:1586` |
+| `BODY_CONSUMED` | −32603 | 500 | — | — | relay | 앞선 reader가 JSON body를 읽음 | `src/server/peer-server.ts:1575` |
+| `PUBLISH_RATE_LIMITED` | −32088 | 429 | — | `{retryAfterMs}`, `Retry-After`, `X-RateLimit-*` | relay | `POST /p` rate 초과 | `src/server/peer-server.ts:2172` |
+| `PUBLISH_RATE_LIMIT_UNAVAILABLE` | −32089 | 503 | — | `{retryAfterMs:1000}`, `Retry-After: 1`, `X-RateLimit-*` | relay | rate-limit store 실패 | `src/server/peer-server.ts:2161` |
+| `PUBLISH_KEY_REQUIRED` | — | 401, `WWW-Authenticate: Bearer` | — | — | relay | publish key 설정 시 token 없음 | `src/server/peer-server.ts:1506`, `src/server/peer-server.ts:2182` |
+| `PUBLISH_KEY_INVALID` | — | 401, `WWW-Authenticate: Bearer error="invalid_token"` | — | — | relay | 틀린 publish key | `src/server/peer-server.ts:1508`, `src/server/peer-server.ts:2182` |
+| `PUBLISH_OWNER_BINDING_INVALID` | — | 403 | — | — | relay | owner 힌트 충돌 | `src/server/peer-server.ts:2198` |
+| `CAPABILITIES_INVALID` | — | 400 | — | — | relay | `POST /p`·join의 capabilities 무효 | `src/server/peer-server.ts:2208`, `src/server/peer-server.ts:2643` |
+| `ROOM_NOT_FOUND` | −32004 | 404 | — | — | relay | 수명주기 route의 room 없음·교체(보존 기한이 지나 지운 room 포함, R-ROOM-051) | `src/server/peer-server.ts:1422`, `src/server/peer-server.ts:2231`, `src/server/peer-server.ts:2622`, `src/server/peer-server.ts:2754` |
+| `ROOM_ROTATED` | −32057 | 410 | — | `{roomId, roomEpoch, replacementRoomId}` | relay | 모든 수명주기 route(join, session status, reclaim, approval, 두 revoke, rotate)의 rotate된 room(R-ROOM-046) | `src/server/peer-server.ts:1399`, `src/server/peer-server.ts:1426`, `src/server/peer-server.ts:2231`, `src/server/peer-server.ts:2622`, `src/server/peer-server.ts:2758` |
+| `ROOM_BINDING_INVALID` | −32002 | 409 | — | `{roomId, roomEpoch}`(현재 epoch) | relay | rotate되지 않은 room의 rotate body가 다른 roomId·roomEpoch를 지목 | `src/server/peer-server.ts:2896` |
+| `ROOM_EXPIRED` | −32056 | 410 | — | `{roomId, roomEpoch}` | relay | 보존 중인 만료 room의 join, reclaim, approval, 두 revoke, rotate(R-ROOM-070. rotate 검사가 먼저) | `src/server/peer-server.ts:1408`, `src/server/peer-server.ts:1409`, `src/server/peer-server.ts:1429` |
+| `ROOM_LEASE_EXPIRED` | — | 410 | — | `{roomId, roomEpoch}` | relay | 살아 있는 room의 reclaim에 reconnect lease 만료(R-ROOM-014) | `src/server/peer-server.ts:2232`, `src/server/peer-server.ts:2233` |
+| `ROOM_LEASE_REQUIRED` | — | 400 | — | — | relay | reclaim에 leaseToken 없음 | `src/server/peer-server.ts:2245` |
+| `ROOM_LEASE_BINDING_INVALID` | −32002 | 409 | — | `{roomId, roomEpoch}` | relay | reclaim body에 있는 epoch·roomId의 불일치(R-ROOM-071) | `src/server/peer-server.ts:2255` |
+| `ROOM_LEASE_INVALID` | — | 403 | — | — | relay | lease hash 불일치 | `src/server/peer-server.ts:2250` |
+| `ROOM_PROVIDER_ACTIVE` | — | 409 | — | `{roomId, roomEpoch}` | relay | provider socket이 붙어 있는 room의 reclaim | `src/server/peer-server.ts:2259` |
+| `INVITE_TOKEN_REQUIRED` | — | 400 | — | — | relay | join에 invite 없음 | `src/server/peer-server.ts:2630` |
+| `INVITE_TOKEN_INVALID` | — | 403 | — | — | relay | 틀린 invite(소비 여부와 무관) | `src/server/peer-server.ts:2634` |
+| `INVITE_TOKEN_CONSUMED` | — | 409 | — | — | relay | 맞는 invite가 이미 소비됨 | `src/server/peer-server.ts:2638` |
+| `CRDT_CAPABILITY_NOT_GRANTED` | — | 403 | — | — | relay | room에 없는 `mcp-crdt` 요청 | `src/server/peer-server.ts:2647` |
+| `PROVIDER_TOKEN_REQUIRED` | — | 401, `WWW-Authenticate: Bearer` | — | — | relay | approval·rotate에 Bearer 자격 없음 | `src/server/peer-server.ts:1442` |
+| `PROVIDER_TOKEN_INVALID` | — | 401, `WWW-Authenticate: Bearer error="invalid_token"` | — | — | relay | approval·rotate의 token이 현재 providerToken이 아님 | `src/server/peer-server.ts:1446` |
+| `INVALID_APPROVAL` | −32081 | 409 | — | — | relay | HTTP 결정 body 불일치, 이미 결정됨 | `src/server/peer-server.ts:2718`, `src/server/peer-server.ts:2724` |
+| `CLIENT_TOKEN_REQUIRED` | −32003 | 401, `WWW-Authenticate: Bearer` | — | — | relay | session status·client revoke에 Bearer 자격 없음 | `src/server/peer-server.ts:2767`, `src/server/peer-server.ts:2854` |
+| `CLIENT_TOKEN_INVALID` | −32003 | 401, `WWW-Authenticate: Bearer error="invalid_token"` | — | — | relay | session status·client revoke의 token이 providerToken도 room의 client token도 아님 | `src/server/peer-server.ts:2772`, `src/server/peer-server.ts:2859` |
+| `SESSION_NOT_FOUND` | — | 404 | — | — | relay | providerToken으로 모르는 session | `src/server/peer-server.ts:2781`, `src/server/peer-server.ts:2841` |
+| `SESSION_BINDING_INVALID` | −32002 | 409 | — | — | relay | revoke body에 있는 roomId·roomEpoch의 불일치(R-ROOM-071) | `src/server/peer-server.ts:2828`, `src/server/peer-server.ts:2869` |
+| `SESSION_NOT_OWNED` | — | 403 | — | — | relay | client token이 자기 것이 아닌 session의 status를 묻거나 revoke를 지목 | `src/server/peer-server.ts:2776`, `src/server/peer-server.ts:2865` |
+| `CATALOG_UNAVAILABLE` (GET) | −32090 | 503 | — | `{catalogVersion:0, catalogHash, auth?}` | relay | `GET /p/:id/mcp/tools`·`GET /mcp/catalog`에 tool 없음 | `src/server/peer-server.ts:2283`, `src/server/peer-server.ts:2370` |
+| `CATALOG_HASH_NOT_FOUND` | — | 404 | — | `{catalogHash:<현재>}` | relay | 현재가 아닌 catalog hash | `src/server/peer-server.ts:2287` |
+| Origin not allowed (upgrade) | — | 403 raw text | — | 본문 `Origin not allowed` | relay | upgrade Origin 거절 | `src/server/peer-server.ts:2955` |
+| upgrade 거절 | — | 없음(파기) | — | — | relay | 경로·room·ticket 거절, 예외 | `src/server/peer-server.ts:2980`, `src/server/peer-server.ts:2987`, `src/server/peer-server.ts:3107`, `src/server/peer-server.ts:3289` |
 | `BAD_UPGRADE` | — | 없음(파기) | — | — | relay codec | `Upgrade`·version·key 위반 | `src/server/ws-upgrade.ts:282` |
 | `RESERVED_BITS`, `RESERVED_OPCODE`, `UNMASKED_FRAME`, `BAD_CONTROL_FRAME`, `INTERLEAVED`, `BAD_CONTINUATION`, `BAD_CLOSE_PAYLOAD` | — | — | 1002 | — | relay codec | R-WS-013, R-WS-014, R-WS-019 | `src/server/ws-upgrade.ts:472`, `src/server/ws-upgrade.ts:477`, `src/server/ws-upgrade.ts:227` |
 | `TEXT_ONLY` | — | — | 1003 | — | relay codec | binary frame | `src/server/ws-upgrade.ts:474` |
@@ -2122,7 +2228,7 @@ JSON-RPC code 또는 수명주기 body의 `code` 필드다.
 | `FRAGMENT_LIMIT`, `FRAME_LIMIT`, `MESSAGE_LIMIT` | — | — | 1009 | — | relay codec | R-WS-015, R-WS-016 | `src/server/ws-upgrade.ts:483`, `src/server/ws-upgrade.ts:495`, `src/server/ws-upgrade.ts:503` |
 | owner 예외 | — | — | 1011 | — | relay codec | `onText` 예외(relay에서는 나오지 않음) | `src/server/ws-upgrade.ts:601` |
 | stall | — | — | 1013 | — | relay codec | R-WS-026 | `src/server/ws-upgrade.ts:393` |
-| 정상 close | — | — | 1000 | — | relay | 2.4 표 | `src/server/peer-server.ts:908` |
+| 정상 close | — | — | 1000 | — | relay | 2.4 표 | `src/server/peer-server.ts:940` |
 | `REQUEST_TOO_LARGE` (client) | 문자열 | — | — | `{bytes, limitBytes:261120}` | client | 보낼 frame·body가 261120 byte 초과 | `src/client/transport.ts:80` |
 | `REQUEST_ID_TOO_LARGE` (client) | 문자열 | — | — | `{bytes, limitBytes:1024}` | client | raw가 아닌 transport의 문자열 id가 1024 byte 초과 | `src/client/transport.ts:97` |
 | `REQUEST_TIMEOUT` | 문자열 | — | — | `{method, id}` | client | 요청(slot 대기 포함) 시간 초과 | `src/client/session.ts:628`, `src/client/session.ts:719` |
@@ -2134,8 +2240,8 @@ JSON-RPC code 또는 수명주기 body의 `code` 필드다.
 | `CATALOG_CHANGED` (`PeerMcpCatalogChangedError`) | 문자열 | — | — | catalog snapshot | client | drift 오류를 받고 catalog를 새로 읽은 뒤 | `src/client/session.ts:837` |
 | `SESSION_REVOKED`, `ROOM_ROTATED`, `ROOM_EXPIRED`, `APPROVAL_EXPIRED`, `SESSION_EXPIRED`, `CLIENT_APPROVAL_DENIED` (client) | 문자열 | — | — | 받은 frame | client | relay 종료 frame(R-PEER-038), `waitForPeerApproval` 상태(R-PEER-048) | `src/client/session.ts:105`, `src/client/session.ts:477`, `src/client/room-lifecycle.ts:236`, `src/client/room-lifecycle.ts:241` |
 | `CLIENT_TOKEN_REQUIRED`, `SESSION_REVOKE_FAILED`, `INVITE_TOKEN_REQUIRED`, `INVALID_JOIN_RESPONSE`, `SESSION_REQUIRED`, `INVALID_SESSION_STATUS`, `APPROVAL_ABORTED`, `APPROVAL_TIMEOUT`, `PROVIDER_TOKEN_REQUIRED`, `INVALID_ROTATE_RESPONSE`, `SESSION_NOT_FOUND` (service) | 문자열 | — | — | — | client | 수명주기 helper(R-PEER-046~R-PEER-051, R-PEER-055) | `src/client/session.ts:917`, `src/client/session.ts:948`, `src/client/room-lifecycle.ts:110`, `src/client/room-lifecycle.ts:146`, `src/client/room-lifecycle.ts:245`, `src/client/service.ts:74` |
-| `CATALOG_TOO_LARGE` (session error) | — | — | — | 문자열 | provider | register frame이 258048 byte 초과 | `src/provider/peer-client.ts:337` |
-| `Signaling connection timeout`, `Signaling WebSocket error`, `Signaling socket closed unexpectedly`, `ROOM_PROVIDER_ACTIVE`, `INVALID_ROOM_DESCRIPTOR`, `INVALID_RECLAIMED_ROOM_DESCRIPTOR`, `PEER_SESSION_NOT_CONFIGURED`, `PEER_SESSION_SUPERSEDED` | — | — | — | — | provider | R-PEER-001~R-PEER-005, R-PEER-024, R-PEER-026 | `src/provider/peer-client.ts:853`, `src/provider/peer-client.ts:876`, `src/provider/peer-client.ts:881`, `src/provider/peer-client.ts:814`, `src/provider/peer-client.ts:771`, `src/provider/peer-client.ts:805`, `src/provider/peer-client.ts:1918` |
+| `CATALOG_TOO_LARGE` (session error) | — | — | — | 문자열 | provider | register frame이 258048 byte 초과 | `src/provider/peer-client.ts:344` |
+| `Signaling connection timeout`, `Signaling WebSocket error`, `Signaling socket closed unexpectedly`, `ROOM_PROVIDER_ACTIVE`, `INVALID_ROOM_DESCRIPTOR`, `INVALID_RECLAIMED_ROOM_DESCRIPTOR`, `PEER_SESSION_NOT_CONFIGURED`, `PEER_SESSION_SUPERSEDED` | — | — | — | — | provider | R-PEER-001~R-PEER-005, R-PEER-024, R-PEER-026 | `src/provider/peer-client.ts:861`, `src/provider/peer-client.ts:884`, `src/provider/peer-client.ts:889`, `src/provider/peer-client.ts:822`, `src/provider/peer-client.ts:779`, `src/provider/peer-client.ts:813`, `src/provider/peer-client.ts:1988` |
 
 signaling frame의 reason 값: `approval.expired`는 `APPROVAL_EXPIRED`, `approval.rejected`는 결정 reason 또는 `CLIENT_APPROVAL_DENIED`,
 `session.revoked`는 `SESSION_REVOKED`·`CLIENT_REVOKED`·`ROOM_REVOKED`, client용 `room.rotated`는 `ROOM_ROTATED`, `room.expired`는
@@ -2152,7 +2258,7 @@ signaling frame의 reason 값: `approval.expired`는 `APPROVAL_EXPIRED`, `approv
 `capabilities`는 `enableCrdt === true`면 `['mcp-control','mcp-crdt']`, 아니면 `['mcp-control']`이다. `approvalRequired`와
 `ttlMs`는 보내지 않으므로 provider가 만든 room은 언제나 승인이 필요하고 기본 TTL이다. 520-526은 Cloudflare edge 오류로, 그 밖의
 non-2xx는 body `error` 또는 `HTTP <status>: Failed to create signaling room`으로 실패한다.\
-근거: `src/provider/peer-client.ts:718`, `src/provider/peer-client.ts:724`, `src/provider/peer-client.ts:746`, `src/provider/peer-client.ts:756`, `src/provider/peer-client.ts:761`, `src/provider/peer-client.ts:768`, `src/config/invitation.ts:13`; 테스트: `test/webmcp-peer.test.ts` › `runs end-to-end 3-tier Peer-Based Server Routing MCP (Provider -> Server -> Client & PeerMcpService)`; `test/provider-reconnect.test.ts` › `builds them like the agent client from a server URL of any scheme case`
+근거: `src/provider/peer-client.ts:726`, `src/provider/peer-client.ts:732`, `src/provider/peer-client.ts:754`, `src/provider/peer-client.ts:764`, `src/provider/peer-client.ts:769`, `src/provider/peer-client.ts:776`, `src/config/invitation.ts:13`; 테스트: `test/webmcp-peer.test.ts` › `runs end-to-end 3-tier Peer-Based Server Routing MCP (Provider -> Server -> Client & PeerMcpService)`; `test/provider-reconnect.test.ts` › `builds them like the agent client from a server URL of any scheme case`
 
 **R-PEER-002** provider는 `POST /p`, reclaim, rotate의 descriptor가 protocol의 room id 문법(`WEBMCP_ROOM_ID_PATTERN`,
 R-HTTP-002)에 맞는 `id`와 비어 있지 않은
@@ -2162,13 +2268,13 @@ R-HTTP-002)에 맞는 `id`와 비어 있지 않은
 `<descriptorUrl>#invite=<inviteToken>`(인코딩 없음)이다. 로컬 만료는 descriptor의 `expiresAt`이 미래면 그 값, 아니면 now + 30분
 (`ROOM_EXPIRY_FALLBACK_MS`)이다. 30분은 `expiresAt`을 보내지 않는 relay를 위한 fallback이다. 이 relay는 모든 room descriptor에
 `expiresAt`을 담으므로(R-ROOM-013) 그 값이 쓰인다.\
-근거: `src/config/types.ts:25`, `src/provider/wire-schemas.ts:93`, `src/provider/wire-schemas.ts:88`, `src/provider/peer-client.ts:144`, `src/provider/peer-client.ts:147`, `src/provider/peer-client.ts:839`, `src/provider/peer-client.ts:842`; 테스트: 없음
+근거: `src/config/types.ts:25`, `src/provider/wire-schemas.ts:93`, `src/provider/wire-schemas.ts:88`, `src/provider/peer-client.ts:146`, `src/provider/peer-client.ts:149`, `src/provider/peer-client.ts:847`, `src/provider/peer-client.ts:850`; 테스트: 없음
 
 **R-PEER-003** provider는 `<serverUrl의 앞 http를 ws로(대소문자 무시)>/p/<encodeURIComponent(id)>/provider`를 subprotocol
 `[WEBMCP_SUBPROTOCOL, 'ticket.<providerToken>']`(`['webmcp-peer.v1', 'ticket.<providerToken>']`)으로 MUST 연다. reclaim, rotate,
 session revoke의 URL도 같은 방법(`relayRoomUrl`)으로 roomId를 encode해 만든다. agent client의 `websocketUrl`(R-PEER-030)과 같은
 규칙이다.\
-근거: `src/provider/peer-client.ts:135`, `src/provider/peer-client.ts:136`, `src/provider/peer-client.ts:137`, `src/provider/peer-client.ts:794`, `src/provider/peer-client.ts:846`, `src/provider/peer-client.ts:847`; 테스트: `test/webmcp-peer.test.ts` › `runs end-to-end 3-tier Peer-Based Server Routing MCP (Provider -> Server -> Client & PeerMcpService)`; `test/provider-reconnect.test.ts` › `builds them like the agent client from a server URL of any scheme case`
+근거: `src/provider/peer-client.ts:137`, `src/provider/peer-client.ts:138`, `src/provider/peer-client.ts:139`, `src/provider/peer-client.ts:802`, `src/provider/peer-client.ts:854`, `src/provider/peer-client.ts:855`; 테스트: `test/webmcp-peer.test.ts` › `runs end-to-end 3-tier Peer-Based Server Routing MCP (Provider -> Server -> Client & PeerMcpService)`; `test/provider-reconnect.test.ts` › `builds them like the agent client from a server URL of any scheme case`
 
 **R-PEER-004** provider는 `type:'ready'` frame을 최대 10000 ms MUST 기다린다. 그 전의 다른 frame은 무시한다. 시간이 지나면
 `Signaling connection timeout`, socket 오류면 `Signaling WebSocket error`, `ready` 전에 socket이 닫히면(state가 아직 `creating`이거나,
@@ -2179,21 +2285,21 @@ generation이 바뀌었으면 `PEER_SESSION_SUPERSEDED`다. timeout이나 socket
 keepalive를 시작하고, 첫 `register`를 보내고, 같은 read에 이어 오는 승인 frame(pending 재전송, `approval.restored`)을 놓치지 않도록
 정상 상태 handler를 동기적으로 단다. `ready`의 roomEpoch·capabilities·expiresAt은 읽지 않고 descriptor 값을 쓴다. relay의 `pong`은
 무시한다.\
-근거: `src/provider/peer-client.ts:852`, `src/provider/peer-client.ts:853`, `src/provider/peer-client.ts:855`, `src/provider/peer-client.ts:857`, `src/provider/peer-client.ts:861`, `src/provider/peer-client.ts:863`, `src/provider/peer-client.ts:864`, `src/provider/peer-client.ts:867`, `src/provider/peer-client.ts:871`, `src/provider/peer-client.ts:874`, `src/provider/peer-client.ts:876`, `src/provider/peer-client.ts:878`, `src/provider/peer-client.ts:880`, `src/provider/peer-client.ts:881`, `src/provider/peer-client.ts:774`, `src/provider/peer-client.ts:904`, `src/provider/peer-client.ts:1109`; 테스트: `test/provider-reconnect.test.ts` › `are not lost when they arrive in the same read as ready`; `test/provider-reconnect.test.ts` › `serves an approved client announced right after ready, in the same read`
+근거: `src/provider/peer-client.ts:860`, `src/provider/peer-client.ts:861`, `src/provider/peer-client.ts:863`, `src/provider/peer-client.ts:865`, `src/provider/peer-client.ts:869`, `src/provider/peer-client.ts:871`, `src/provider/peer-client.ts:872`, `src/provider/peer-client.ts:875`, `src/provider/peer-client.ts:879`, `src/provider/peer-client.ts:882`, `src/provider/peer-client.ts:884`, `src/provider/peer-client.ts:886`, `src/provider/peer-client.ts:888`, `src/provider/peer-client.ts:889`, `src/provider/peer-client.ts:782`, `src/provider/peer-client.ts:912`, `src/provider/peer-client.ts:1166`; 테스트: `test/provider-reconnect.test.ts` › `are not lost when they arrive in the same read as ready`; `test/provider-reconnect.test.ts` › `serves an approved client announced right after ready, in the same read`
 
 **R-PEER-005** provider가 relay socket에 보내는 모든 frame(`register`, `mcp` 답, `answer`, `release`, `ping`, `approval.decision`)은
 `sendRelayFrame`을 거친다. 직렬화한 UTF-8 크기가 262144 byte를 넘으면 보내지 않고 `console.warn('[WebMCP] The <n>-byte <label>
 frame exceeds the relay's 262144-byte message limit; it was not sent.')`을 남긴다. `ws.send`가 던져도 보내지 않은 것이다. provider는
 262144 byte를 넘는 frame을 MUST NOT 보낸다.\
-근거: `src/provider/peer-client.ts:103`, `src/provider/peer-client.ts:106`, `src/provider/peer-client.ts:112`, `src/provider/tool-call.ts:48`; 테스트: `test/provider-register-limit.test.ts` › `does not send an approval decision over the limit, and leaves the request pending`; `test/provider-register-limit.test.ts` › `drops the answer to an offer whose requestId takes it over the limit, and keeps the provider socket`
+근거: `src/provider/peer-client.ts:105`, `src/provider/peer-client.ts:108`, `src/provider/peer-client.ts:114`, `src/provider/tool-call.ts:48`; 테스트: `test/provider-register-limit.test.ts` › `does not send an approval decision over the limit, and leaves the request pending`; `test/provider-register-limit.test.ts` › `drops the answer to an offer whose requestId takes it over the limit, and keeps the provider socket`
 
 **R-PEER-006** provider는 `ready` 뒤와 `syncTools()`마다 `{type:'register', alias, registerSeq, tools}`를 MUST 보낸다.
 `registerSeq`는 이전 값 + 1이고 client 객체 수명 동안(연결·room을 넘어) 계속 증가한다. host `listTools`가 던지면 아무것도 보내지
 않고 번호도 쓰지 않는다. 직렬화하고 나면 번호를 쓴 것이며, 보냈든 보류했든 socket이 거절했든 마찬가지다.\
-근거: `src/provider/peer-client.ts:316`, `src/provider/peer-client.ts:319`, `src/provider/peer-client.ts:323`, `src/provider/peer-client.ts:333`; 테스트: `test/provider-register-limit.test.ts` › `stamps every register frame with a registerSeq that keeps increasing, across connections too`
+근거: `src/provider/peer-client.ts:323`, `src/provider/peer-client.ts:326`, `src/provider/peer-client.ts:330`, `src/provider/peer-client.ts:340`; 테스트: `test/provider-register-limit.test.ts` › `stamps every register frame with a registerSeq that keeps increasing, across connections too`
 
 **R-PEER-007** `syncTools()`는 frame을 열린(readyState 1) socket에 넘겼을 때만 `true`를 MUST 돌려준다.\
-근거: `src/provider/peer-client.ts:284`, `src/provider/peer-client.ts:287`, `src/provider/peer-client.ts:290`, `src/provider/peer-client.ts:344`; 테스트: `test/relay-message-limit.test.ts` › `withholds a register frame over 256 KiB, reports CATALOG_TOO_LARGE on an open socket, and registers once the catalog shrinks`
+근거: `src/provider/peer-client.ts:291`, `src/provider/peer-client.ts:294`, `src/provider/peer-client.ts:297`, `src/provider/peer-client.ts:351`; 테스트: `test/relay-message-limit.test.ts` › `withholds a register frame over 256 KiB, reports CATALOG_TOO_LARGE on an open socket, and registers once the catalog shrinks`
 
 **R-PEER-008** register, `tools/list`, `server/discover`는 모두 `toWireToolDescriptor(tool)` = `{name, title?(truthy일 때만),
 description, inputSchema(기본 {type:'object', properties:{}}), outputSchema?, annotations?}`를 MUST 쓴다. 그래서 relay catalog가
@@ -2204,14 +2310,14 @@ description, inputSchema(기본 {type:'object', properties:{}}), outputSchema?, 
 열어 두고 relay에는 알리지 않으며, session error를 `CATALOG_TOO_LARGE: the register frame for N tool(s) is B bytes, over the relay
 protocol's 258048-byte catalog limit`로 정한다. 정확히 258048 byte면 보낸다. frame을 socket에 넘기면 `CATALOG_INVALID`·
 `CATALOG_TOO_LARGE`로 시작하는 session error를 지운다. session error가 바뀔 때마다 구독자에게 알린다.\
-근거: `src/provider/peer-client.ts:335`, `src/provider/peer-client.ts:337`, `src/provider/peer-client.ts:348`, `src/provider/peer-client.ts:378`; 테스트: `test/provider-register-limit.test.ts` › `sends a register frame of exactly the catalog limit and withholds one a byte larger`; `test/provider-register-limit.test.ts` › `notifies a CATALOG_TOO_LARGE set during connect() to a listener subscribed before it, and the cleared error later`
+근거: `src/provider/peer-client.ts:342`, `src/provider/peer-client.ts:344`, `src/provider/peer-client.ts:355`, `src/provider/peer-client.ts:385`; 테스트: `test/provider-register-limit.test.ts` › `sends a register frame of exactly the catalog limit and withholds one a byte larger`; `test/provider-register-limit.test.ts` › `notifies a CATALOG_TOO_LARGE set during connect() to a listener subscribed before it, and the cleared error later`
 
 **R-PEER-010** `message`가 정확히 `CATALOG_INVALID` 또는 `CATALOG_TOO_LARGE`인 relay `error` frame은 거절 문구
 `<message>: <reason ?? 'relay rejected the tool catalog'>`가 된다. provider는 frame의 `registerSeq`가 없거나 마지막으로 보낸
 catalog의 번호와 같으면 그 catalog에 거절을 기록하고, `registerSeq`가 없거나(이전 relay) 최신 번호(보냈든 보류했든)와 같을 때만
 session error로 MUST 삼는다. 더 오래된 번호의 거절은 무시한다. 다른 relay `error` frame(예: −32081 `INVALID_APPROVAL`)은 기록만
 하고 상태를 바꾸지 않는다.\
-근거: `src/provider/peer-client.ts:1061`, `src/provider/peer-client.ts:1063`, `src/provider/peer-client.ts:1066`, `src/provider/peer-client.ts:1069`, `src/provider/peer-client.ts:1073`; 테스트: `test/provider-register-limit.test.ts` › `ignores the late rejection of an earlier register once a newer one was sent`; `test/provider-register-limit.test.ts` › `takes a rejection without registerSeq, from a relay that predates it, to answer the latest register`; `test/provider-reconnect.test.ts` › `does not report unrelated relay errors as a catalog failure`
+근거: `src/provider/peer-client.ts:1079`, `src/provider/peer-client.ts:1081`, `src/provider/peer-client.ts:1084`, `src/provider/peer-client.ts:1087`, `src/provider/peer-client.ts:1095`; 테스트: `test/provider-register-limit.test.ts` › `ignores the late rejection of an earlier register once a newer one was sent`; `test/provider-register-limit.test.ts` › `takes a rejection without registerSeq, from a relay that predates it, to answer the latest register`; `test/provider-reconnect.test.ts` › `does not report unrelated relay errors as a catalog failure`
 
 **R-PEER-011** relay socket으로 온 `tools/list`·`server/discover`에 provider는 현재 (serverUrl, roomId)에 마지막으로 보낸 register
 frame의 tools(보낸 직렬화 그대로)로 MUST 답한다. live host catalog로 답하지 않는다. 이 room에 보낸 frame이 없거나 relay가 그것을
@@ -2219,7 +2325,7 @@ frame의 tools(보낸 직렬화 그대로)로 MUST 답한다. live host catalog�
 reason}}`이다. `catalogSource`는 없는 catalog가 provider가 등록하는 것임을 뜻한다. reason은 거절 문구, 현재 `CATALOG_*` session error,
 또는 `the provider has not registered a tool catalog with this relay room`이다. reclaim한 room(같은 roomId)은 끊기기 전 등록한
 catalog를 계속 쓴다. DataChannel로 온 요청에는 live host catalog로 답한다.\
-근거: `src/provider/peer-client.ts:364`, `src/provider/peer-client.ts:366`, `src/provider/peer-client.ts:373`, `src/provider/peer-client.ts:1389`, `src/provider/peer-client.ts:1397`; 테스트: `test/provider-register-limit.test.ts` › `answers tools/list and server/discover with the last registered catalog while a larger one is withheld`; `test/provider-register-limit.test.ts` › `answers CATALOG_UNAVAILABLE, with the withheld catalog's error, when no catalog was sent to the room`; `test/provider-register-limit.test.ts` › `answers CATALOG_UNAVAILABLE when the relay refused the last catalog sent, also after a newer one was withheld`; `test/provider-register-limit.test.ts` › `lists the catalog as it was sent, not host descriptors changed in place since`; `test/provider-register-limit.test.ts` › `lists the live host catalog to a DataChannel agent, which talks to the provider directly`
+근거: `src/provider/peer-client.ts:371`, `src/provider/peer-client.ts:373`, `src/provider/peer-client.ts:380`, `src/provider/peer-client.ts:1448`, `src/provider/peer-client.ts:1456`; 테스트: `test/provider-register-limit.test.ts` › `answers tools/list and server/discover with the last registered catalog while a larger one is withheld`; `test/provider-register-limit.test.ts` › `answers CATALOG_UNAVAILABLE, with the withheld catalog's error, when no catalog was sent to the room`; `test/provider-register-limit.test.ts` › `answers CATALOG_UNAVAILABLE when the relay refused the last catalog sent, also after a newer one was withheld`; `test/provider-register-limit.test.ts` › `lists the catalog as it was sent, not host descriptors changed in place since`; `test/provider-register-limit.test.ts` › `lists the live host catalog to a DataChannel agent, which talks to the provider directly`
 
 **R-PEER-012** provider는 `jsonrpc:'2.0'`이고 `id` member가 있는 object에만 MUST 답한다(id 없음은 notification, 답 없음). id가
 문자열·수·null이 아니면 `{id:null, error:{code:-32600, message:'Invalid Request'}}`. 지난 connection generation의 요청은 −32008
@@ -2228,7 +2334,7 @@ code의 −32053 `CLIENT_APPROVAL_REQUIRED`(R-ERR-005)다. relay가 승인했지
 이 오류를 그대로 받으므로 code로 분기하는 agent도 승인 대기로 읽는다. DataChannel은 승인 상태에서만 frame을 받으므로 그 전의 요청은 답 없이 버린다. relay가 찍은 `from`·`sessionId`나 `params._meta.sessionId`는 승인된 session과 비교하지 않는다
 (→ O-43). `ping`은 `result:{}`, 모르는 method는 −32601 `Method not found`, 예상하지 못한 예외는 −32603 `Internal error`다. id가
 null인 요청은 id null로 답한다(→ O-03).\
-근거: `src/provider/peer-client.ts:1364`, `src/provider/peer-client.ts:1365`, `src/provider/peer-client.ts:1368`, `src/provider/peer-client.ts:1371`, `src/provider/peer-client.ts:1378`, `src/provider/peer-client.ts:1269`, `src/provider/peer-client.ts:1429`, `src/provider/peer-client.ts:1437`, `src/provider/peer-client.ts:1349`; 테스트: `test/provider-reconnect.test.ts` › `ignores a restored approval for another room epoch`
+근거: `src/provider/peer-client.ts:1423`, `src/provider/peer-client.ts:1424`, `src/provider/peer-client.ts:1427`, `src/provider/peer-client.ts:1430`, `src/provider/peer-client.ts:1437`, `src/provider/peer-client.ts:1328`, `src/provider/peer-client.ts:1488`, `src/provider/peer-client.ts:1496`, `src/provider/peer-client.ts:1408`; 테스트: `test/provider-reconnect.test.ts` › `ignores a restored approval for another room epoch`
 
 **R-PEER-013** `tools/call`은 비어 있지 않은 문자열 `params.name`이 MUST 있어야 하고, 없으면 −32602 `tools/call params are invalid`다.
 `arguments`가 object가 아니면 `{}`다. host를 `invoke(name, args, {signal})`로 부른다(`stopAiRun`이 abort한다). host를 부른 결과와
@@ -2240,21 +2346,21 @@ host 값이 비어 있지 않은 MCP content block 목록(`text`, `image`, `audi
 만든다. 그 밖의 값은 payload P(object가 아니면 `{value}`)로 `{content:[text], structuredContent:P, data:P, isError:('ok' in P &&
 !P.ok)}`다. text block은 JSON(P)가 16384 byte 이하일 때만 P를 되풀이한다. host가 던지면 `{isError:true, content:[{type:'text',
 text}], structuredContent:{ok:false, error:{code:-32603, message}}, data, error}`다(→ O-59).\
-근거: `src/provider/peer-client.ts:1445`, `src/provider/peer-client.ts:1452`, `src/provider/peer-client.ts:1515`, `src/provider/peer-client.ts:1544`, `src/provider/peer-client.ts:1563`, `src/provider/peer-client.ts:1570`, `src/provider/tool-call.ts:37`, `src/provider/tool-call.ts:106`, `src/provider/tool-call.ts:151`, `src/provider/tool-call.ts:202`; 테스트: `test/provider-tool-call.test.ts` › `forwards a host CallToolResult as is instead of nesting it`; `test/provider-tool-call.test.ts` › `publishes a plain payload as structuredContent with a JSON text block`; `test/provider-tool-call.test.ts` › `gives a thrown host error a readable text block`
+근거: `src/provider/peer-client.ts:1504`, `src/provider/peer-client.ts:1511`, `src/provider/peer-client.ts:1574`, `src/provider/peer-client.ts:1603`, `src/provider/peer-client.ts:1622`, `src/provider/peer-client.ts:1629`, `src/provider/tool-call.ts:37`, `src/provider/tool-call.ts:106`, `src/provider/tool-call.ts:151`, `src/provider/tool-call.ts:202`; 테스트: `test/provider-tool-call.test.ts` › `forwards a host CallToolResult as is instead of nesting it`; `test/provider-tool-call.test.ts` › `publishes a plain payload as structuredContent with a JSON text block`; `test/provider-tool-call.test.ts` › `gives a thrown host error a readable text block`
 
 **R-PEER-014** relay socket으로 보낼 답 frame `{type:'mcp', message}`이 262144 byte를 넘으면 provider는 그것을 MUST 바꾼다.
 결과가 있는 `tools/call`은 `toolErrorResult({code:'RESULT_TOO_LARGE', message:'The result of tool "<name>" is <B> bytes, over the
 relay's 262144-byte message limit; the tool ran but its result was not delivered'})` 결과로, 그 밖은 relay의 같은 오류(R-MCP-040)와
 같은 data key의 `{code:-32603, message:'RESULT_TOO_LARGE', data:{limitBytes:262144}}`로 바꾼다. 대체한 것도 들어가지 않으면 보내지
 않는다(기록). socket은 열어 둔다. DataChannel 답은 크기를 검사하지 않는다.\
-근거: `src/provider/tool-call.ts:228`, `src/provider/tool-call.ts:239`, `src/provider/tool-call.ts:248`, `src/provider/tool-call.ts:250`, `src/provider/peer-client.ts:911`; 테스트: `test/provider-tool-call.test.ts` › `answers RESULT_TOO_LARGE for a result over the limit and keeps the socket open`; `test/provider-tool-call.test.ts` › `answers a non-tools/call request with a JSON-RPC error`; `test/provider-tool-call.test.ts` › `drops a reply when not even the error fits`
+근거: `src/provider/tool-call.ts:228`, `src/provider/tool-call.ts:239`, `src/provider/tool-call.ts:248`, `src/provider/tool-call.ts:250`, `src/provider/peer-client.ts:919`; 테스트: `test/provider-tool-call.test.ts` › `answers RESULT_TOO_LARGE for a result over the limit and keeps the socket open`; `test/provider-tool-call.test.ts` › `answers a non-tools/call request with a JSON-RPC error`; `test/provider-tool-call.test.ts` › `drops a reply when not even the error fits`
 
 **R-PEER-015** provider는 `initialize`에 요청 version과 무관하게 `{protocolVersion:'2026-07-28', capabilities:{tools:{listChanged:true},
 stateless:true}, serverInfo, instructions}`로, `server/discover`에 `{protocolVersion:'2026-07-28',
 supportedProtocolVersions:MCP_PROTOCOL_VERSIONS, capabilities:{tools:{listChanged:true}, stateless:true}, serverInfo, instructions,
 tools}`로 MUST 답한다. 기본 serverInfo는 `{name:'wireframe-storyboard-toolkit', version:'0.4.2'}`다. relay는 WebSocket에서 이 답을
 그대로(`server/discover`는 R-MCP-038에 따라) 전달한다(→ O-01).\
-근거: `src/provider/peer-client.ts:1384`, `src/provider/peer-client.ts:1400`, `src/provider/peer-client.ts:1416`, `src/provider/commit-receipt.ts:1`, `src/provider/commit-receipt.ts:2`; 테스트: 없음
+근거: `src/provider/peer-client.ts:1443`, `src/provider/peer-client.ts:1459`, `src/provider/peer-client.ts:1475`, `src/provider/commit-receipt.ts:1`, `src/provider/commit-receipt.ts:2`; 테스트: 없음
 
 **R-PEER-016** `tools/call`의 AI run id는 trim한 `params._meta.framebook.aiTrace.runId`(128자 이하), 없으면 암묵 run
 `remote-webmcp-<roomId 앞 6자>`다. stopped·completed·failed·rolled-back run의 호출은 `isError` 결과 `{code:'AI_RUN_TERMINAL'}`,
@@ -2263,40 +2369,47 @@ tools}`로 MUST 답한다. 기본 serverInfo는 `{name:'wireframe-storyboard-too
 `OUTCOME_UNKNOWN`이다. ledger가 설정됐고 `arguments.context.requestId`가 있으면 outcome-unknown 기록은 host를 부르지 않고
 `RECONCILIATION_REQUIRED`, durable·replicating·replicated 기록은 host를 부르지 않고 `{ok:true, receipt, data:{replayed:true}}`로
 되풀이한다. provider는 이 규칙을 MUST 따른다.\
-근거: `src/provider/peer-client.ts:1441`, `src/provider/peer-client.ts:1462`, `src/provider/peer-client.ts:1470`, `src/provider/peer-client.ts:1489`, `src/provider/peer-client.ts:1501`, `src/provider/peer-client.ts:1544`, `src/provider/ai-run-controller.ts:72`; 테스트: `test/provider-tool-call.test.ts` › `keeps answering untraced calls after a host throw and after an { ok: false } result`; `test/provider-tool-call.test.ts` › `still fails a run the agent named, and refuses later calls on it`; `test/provider-tool-call.test.ts` › `answers a call immediately when every tracked run has work in flight, then evicts idle runs`
+근거: `src/provider/peer-client.ts:1500`, `src/provider/peer-client.ts:1521`, `src/provider/peer-client.ts:1529`, `src/provider/peer-client.ts:1548`, `src/provider/peer-client.ts:1560`, `src/provider/peer-client.ts:1603`, `src/provider/ai-run-controller.ts:72`; 테스트: `test/provider-tool-call.test.ts` › `keeps answering untraced calls after a host throw and after an { ok: false } result`; `test/provider-tool-call.test.ts` › `still fails a run the agent named, and refuses later calls on it`; `test/provider-tool-call.test.ts` › `answers a call immediately when every tracked run has work in flight, then evicts idle runs`
 
 **R-PEER-017** `approval.request`를 받으면 provider는 `requestId`(`payload.requestId ?? frame.requestId`), `clientLabel`
 (`payload.clientLabel`, 기본 `AI Agent`), `sessionId`, `roomEpoch`(payload 먼저, 다음 frame, 없으면 room 값)를 읽고
 `approvalState = 'pending'`, state `waiting`으로 MUST 바꾸고 알린다. 새 `approval.request`는 `approved`를 포함한 이전 승인 상태를
 덮어쓴다(→ O-43).\
-근거: `src/provider/peer-client.ts:933`, `src/provider/peer-client.ts:936`, `src/provider/peer-client.ts:937`, `src/provider/peer-client.ts:948`, `src/provider/peer-client.ts:953`; 테스트: `test/provider-reconnect.test.ts` › `are not lost when they arrive in the same read as ready`
+근거: `src/provider/peer-client.ts:941`, `src/provider/peer-client.ts:944`, `src/provider/peer-client.ts:945`, `src/provider/peer-client.ts:956`, `src/provider/peer-client.ts:961`; 테스트: `test/provider-reconnect.test.ts` › `are not lost when they arrive in the same read as ready`
 
 **R-PEER-018** `approveClient(requestId)`와 `rejectClient`는 `approvalState`가 `pending`이고 socket이 열려 있을 때만
 `{protocol:'webmcp-peer/1', messageId:'approval-<requestId>-<Date.now()>', type:'approval.decision', roomId,
 roomEpoch: approvalRoomEpoch ?? roomEpoch ?? 0, sessionId?, requestId, sentAt, payload:{requestId, sessionId(없으면 ''),
 roomId(없으면 ''), roomEpoch, decision, decidedAt, reason?}}`를 MUST 보낸다. 거절의 reason은 `CLIENT_REJECTED`다. frame을 보내지
-못하면(크기 초과 등) `false`를 돌려주고 요청은 pending으로 남는다. 보내면 relay의 echo를 기다리지 않고 승인은 `approved`, 거절은
-`revoked`로 바꾼다(→ O-18).\
-근거: `src/provider/peer-client.ts:1858`, `src/provider/peer-client.ts:1862`, `src/provider/peer-client.ts:1863`, `src/provider/peer-client.ts:1868`, `src/provider/peer-client.ts:1890`; 테스트: `test/provider-register-limit.test.ts` › `does not send an approval decision over the limit, and leaves the request pending`
+못하면(크기 초과 등) `false`를 돌려주고 요청은 pending으로 남는다. 보내면 relay의 echo를 기다리지 않고(echo는 plain `send`라 사라질
+수 있다, R-SIG-024) 승인은 `approved`, 거절은 `revoked`로 바꾸고 그 결정을 기억한다. 그 결정이 relay의 echo, 새 `approval.request`,
+`approval.restored`로 정리되기 전에 같은 requestId의 `INVALID_APPROVAL` error frame(R-SIG-009)이 오면 결정은 효력이 없었으므로,
+provider는 상태를 그 requestId의 `pending`으로 되돌리고 session error를 `INVALID_APPROVAL`로 MUST 둔다. 정리된 뒤 온 같은 requestId의
+거절과 다른 requestId의 거절은 상태를 바꾸지 않는다. 다음 결정이나 relay가 알리는 다음 승인 상태가 이 session error를 지운다.\
+근거: `src/provider/peer-client.ts:1923`, `src/provider/peer-client.ts:1927`, `src/provider/peer-client.ts:1928`, `src/provider/peer-client.ts:1930`, `src/provider/peer-client.ts:1936`, `src/provider/peer-client.ts:1941`, `src/provider/peer-client.ts:1943`, `src/provider/peer-client.ts:1960`, `src/provider/peer-client.ts:1091`, `src/provider/peer-client.ts:1092`, `src/provider/peer-client.ts:1106`, `src/provider/peer-client.ts:1108`, `src/provider/peer-client.ts:1113`, `src/provider/peer-client.ts:1114`, `src/provider/peer-client.ts:1115`, `src/provider/peer-client.ts:963`, `src/provider/peer-client.ts:975`, `src/provider/peer-client.ts:982`; 테스트: `test/provider-register-limit.test.ts` › `does not send an approval decision over the limit, and leaves the request pending`; `test/provider-approval-state.test.ts` › `is undone: the %s did not take effect`; `test/provider-approval-state.test.ts` › `stands once the relay has confirmed it, so a refused repeat changes nothing`
 
-**R-PEER-019** relay의 `approval.approved` echo는 provider가 이미 스스로 `approved`일 때만 RTCPeerConnection을 MUST 준비한다.
-`approval.rejected`는 `approvalState`를 `revoked`로, state를 `waiting`으로 둔다.\
-근거: `src/provider/peer-client.ts:959`, `src/provider/peer-client.ts:960`, `src/provider/peer-client.ts:965`; 테스트: 없음
+**R-PEER-019** relay의 `approval.approved`를 받은 provider는 이미 스스로 `approved`면 그것을 자기 결정의 echo로 보고 결정을
+확정한다. 아니면 다른 경로(HTTP 등)로 한 승인이므로 R-PEER-020의 검사를 통과할 때만 MUST 받아들여 `approvalState = 'approved'`로
+한다. 어느 쪽이든 그다음 RTCPeerConnection을 준비하고, 검사를 통과하지 못한 frame은 무시한다. `approval.rejected`는 `approvalState`를
+`revoked`로, state를 `waiting`으로 두고 기억한 결정을 지운다.\
+근거: `src/provider/peer-client.ts:970`, `src/provider/peer-client.ts:975`, `src/provider/peer-client.ts:976`, `src/provider/peer-client.ts:977`, `src/provider/peer-client.ts:981`, `src/provider/peer-client.ts:982`, `src/provider/peer-client.ts:1134`; 테스트: `test/provider-approval-state.test.ts` › `is adopted when it was made over HTTP, so the agent is served`; `test/provider-approval-state.test.ts` › `is not adopted for %s`; `test/provider-approval-state.test.ts` › `learns an approval made over HTTP from the relay and serves the agent`
 
-**R-PEER-020** `approval.restored`는 `sessionId`가 비어 있지 않고, provider에 roomEpoch가 있고 frame의 roomEpoch(payload 먼저)와
-같고, `roomId`가 있으면 현재 room과 같고, `payload.expiresAt`이 수면 미래일 때만 MUST 받아들인다. 받아들이면
-`approvalState = 'approved'`, 그 session을 승인 session·carrier session으로, `clientLabel = payload ?? 이전 ?? 'AI Agent'`,
-`approvalRequestId = null`로 한다.\
-근거: `src/provider/peer-client.ts:1081`, `src/provider/peer-client.ts:1087`, `src/provider/peer-client.ts:1088`, `src/provider/peer-client.ts:1089`, `src/provider/peer-client.ts:1096`; 테스트: `test/provider-reconnect.test.ts` › `ignores a restored approval for another room epoch`; `test/provider-reconnect.test.ts` › `keeps an approved agent working across a lease reclaim`
+**R-PEER-020** `approval.restored`와 다른 경로의 `approval.approved`(R-PEER-019)는 `sessionId`가 비어 있지 않고, provider에 roomEpoch가
+있고 frame의 roomEpoch(payload 먼저)와 같고, `roomId`(payload 먼저)가 있으면 현재 room과 같고, 보고한 ticket 만료(`approval.restored`는
+`payload.expiresAt`, `approval.approved`는 `payload.ticketExpiresAt ?? ticketExpiresAt`)가 수면 미래일 때만 MUST 받아들인다
+(`adoptRelayApproval`). 받아들이면 `approvalState = 'approved'`, 그 session을 승인 session·carrier session으로,
+`clientLabel = payload ?? 이전 ?? 'AI Agent'`, `approvalRequestId = null`로 하고, 기억한 결정과 `INVALID_APPROVAL` session error를 지운다.\
+근거: `src/provider/peer-client.ts:936`, `src/provider/peer-client.ts:937`, `src/provider/peer-client.ts:1134`, `src/provider/peer-client.ts:1136`, `src/provider/peer-client.ts:1139`, `src/provider/peer-client.ts:1141`, `src/provider/peer-client.ts:1142`, `src/provider/peer-client.ts:1143`, `src/provider/peer-client.ts:1151`; 테스트: `test/provider-reconnect.test.ts` › `ignores a restored approval for another room epoch`; `test/provider-reconnect.test.ts` › `keeps an approved agent working across a lease reclaim`; `test/provider-approval-state.test.ts` › `is not adopted for %s`
 
 **R-PEER-021** provider는 `approval.expired`를 `APPROVAL_EXPIRED`, `collaboration.expired`를 `SESSION_EXPIRED`, `room.rotated`를
 `ROOM_ROTATED`로 session 만료(approvalState `expired`, state `disconnected`, transport 정리, 재접속 없음)로 MUST 처리한다.
 `session.revoked`, `collaboration.revoked`, `collaboration.role-updated`, `collaboration.guest-linked`는 `SESSION_REVOKED`로 revoke하고
 auto-reconnect를 끄며 localStorage `webmcp:auto-reconnect`를 `'false'`로 둔다. 그 밖의 type은 무시한다. 이 중 relay가 provider
-socket에 실제로 보내는 것은 rotate의 `room.rotated`뿐이다(결정 echo `approval.approved`·`approval.rejected`는 R-PEER-019, → O-18).
-room 만료에서 relay는 provider socket을 frame 없이 닫으며(R-ROOM-050, → O-23), provider는 자기 expiry timer(room `expiresAt`)로
-`SESSION_EXPIRED` 만료를 한다.\
-근거: `src/provider/peer-client.ts:973`, `src/provider/peer-client.ts:978`, `src/provider/peer-client.ts:983`, `src/provider/peer-client.ts:1156`, `src/provider/peer-client.ts:1165`, `src/provider/peer-client.ts:1969`, `src/server/peer-server.ts:2727`, `src/server/peer-server.ts:1890`; 테스트: 없음
+socket에 보내는 것은 승인 요청 만료의 `approval.expired`(R-SIG-012), revoke의 `session.revoked`(R-SIG-015), rotate의 `room.rotated`다
+(R-SIG-024. 결정 echo는 R-PEER-019). room당 ticket이 하나이고 invite가 소비됐으므로 승인 요청 만료나 revoke 뒤의 room은 다른 agent를
+받지 않는다. 그래서 이 처리는 host가 room을 새로 열게 한다. room 만료에서 relay는 provider socket을 frame 없이 닫으며(R-ROOM-050,
+→ O-23), provider는 자기 expiry timer(room `expiresAt`)로 `SESSION_EXPIRED` 만료를 한다.\
+근거: `src/provider/peer-client.ts:991`, `src/provider/peer-client.ts:992`, `src/provider/peer-client.ts:996`, `src/provider/peer-client.ts:1001`, `src/provider/peer-client.ts:1007`, `src/provider/peer-client.ts:1213`, `src/provider/peer-client.ts:1223`, `src/provider/peer-client.ts:2040`, `src/server/peer-server.ts:1760`, `src/server/peer-server.ts:1920`, `src/server/peer-server.ts:2917`, `src/server/peer-server.ts:2062`; 테스트: `test/provider-approval-state.test.ts` › `takes an approval request nobody decided in time down when the relay expires it`
 
 **R-PEER-022** provider는 `approvalState`가 `approved`일 때만 `offer`에 답한다. requestId는 `offer.requestId`가 비어 있지 않은
 문자열이면 그 값, 아니면 이 signaling socket에서 받은 마지막 `approval.request`의 requestId(`payload.requestId ?? frame.requestId`),
@@ -2306,17 +2419,19 @@ echo로 RTCPeerConnection을 준비할 때 쓰는 requestId도 같은 규칙이�
 `[{urls:'stun:stun.l.google.com:19302'}]`, `bundlePolicy:'max-bundle'`)을 만들거나 다시 쓰고, offer를 적용하고 answer를 만들고 ICE
 수집이 끝나거나 2000 ms가 될 때까지 기다린 뒤 `{type:'answer', requestId, sdp}`를 MUST 보낸다. trickle ICE frame은 없다. answer를
 보내지 못하면 반쯤 협상한 RTCPeerConnection을 닫는다. RTCPeerConnection이 없는 환경에서는 아무것도 하지 않는다.\
-근거: `src/provider/peer-client.ts:896`, `src/provider/peer-client.ts:935`, `src/provider/peer-client.ts:961`, `src/provider/peer-client.ts:993`, `src/provider/peer-client.ts:995`, `src/provider/peer-client.ts:1096`, `src/provider/peer-client.ts:1014`, `src/provider/peer-client.ts:1018`, `src/provider/peer-client.ts:1023`, `src/provider/peer-client.ts:1193`; 테스트: `test/provider-register-limit.test.ts` › `drops the answer to an offer whose requestId takes it over the limit, and keeps the provider socket`
+근거: `src/provider/peer-client.ts:904`, `src/provider/peer-client.ts:943`, `src/provider/peer-client.ts:977`, `src/provider/peer-client.ts:1011`, `src/provider/peer-client.ts:1013`, `src/provider/peer-client.ts:1150`, `src/provider/peer-client.ts:1032`, `src/provider/peer-client.ts:1036`, `src/provider/peer-client.ts:1041`, `src/provider/peer-client.ts:1252`; 테스트: `test/provider-register-limit.test.ts` › `drops the answer to an offer whose requestId takes it over the limit, and keeps the provider socket`
 
 **R-PEER-023** 승인 상태에서 DataChannel(원격이 만든 label `mcp`)로 `{type:'hello'}`가 오면 provider는 state를 `connected`로 하고
 채널에 `{type:'grant', protocol:'webmcp-peer/1', requestId, sessionId, expiresAt}`를 보낸 뒤 relay socket에 `{type:'release',
 requestId}`를 보내고 relay socket을 MUST 닫는다(재접속하지 않음). 그 뒤 relay에는 이 room의 provider socket이 없다. DataChannel이
 닫히면 state는 `disconnected`, `approved`는 `revoked`다. 이 package에는 offer·hello를 보내는 agent 구현이 없다(→ O-45).\
-근거: `src/provider/peer-client.ts:1271`, `src/provider/peer-client.ts:1283`, `src/provider/peer-client.ts:1286`, `src/provider/peer-client.ts:1305`, `src/provider/peer-client.ts:1307`, `src/provider/peer-client.ts:1308`; 테스트: 없음
+근거: `src/provider/peer-client.ts:1330`, `src/provider/peer-client.ts:1342`, `src/provider/peer-client.ts:1345`, `src/provider/peer-client.ts:1364`, `src/provider/peer-client.ts:1366`, `src/provider/peer-client.ts:1367`; 테스트: 없음
 
 **R-PEER-024** 브라우저(window 있음)에서 provider는 room lease를 localStorage `webmcp:room-lease:<encodeURIComponent(serverUrl)>:
 <encodeURIComponent(replicaId)>`에 `{serverUrl, roomId, roomEpoch, leaseToken:reconnectToken, expiresAt: reconnectTokenExpiresAt ??
-expiresAt, alias?}`로 저장한다(token과 roomId가 있고 roomEpoch가 safe integer ≥ 0이고 만료 전일 때만). `reclaimLease: true`이고
+expiresAt, alias?}`로 저장한다(token과 roomId가 있고 roomEpoch가 safe integer ≥ 0이고 만료 전일 때만). relay의
+`reconnectTokenExpiresAt`은 room `expiresAt`이므로(R-ROOM-013) 저장한 lease는 room 수명 동안 남고, 그 전에 유예가 지난 lease는 reclaim의
+410 `ROOM_LEASE_EXPIRED`가 지운다(R-ROOM-018). `reclaimLease: true`이고
 저장한 lease의 serverUrl이 현재 serverUrl과 같으면(끝 `/` 무시) `POST <serverUrl>/p/<encodeURIComponent(roomId)>/reclaim`을
 `Content-Type`만 단 채 body `{roomId, roomEpoch, leaseToken}`으로 MUST 보낸다. 2xx면 descriptor를 검사해
 (`INVALID_RECLAIMED_ROOM_DESCRIPTOR`) 그 room에 붙는다. 409 `ROOM_PROVIDER_ACTIVE`는 모두 4번 시도하도록 100, 200, 300 ms 뒤 다시
@@ -2325,7 +2440,7 @@ expiresAt, alias?}`로 저장한다(token과 roomId가 있고 roomEpoch가 safe 
 그 밖(예: 409 `ROOM_LEASE_BINDING_INVALID`)이면 lease를 둔 채, 어느 경우든 새 room을 `POST /p`로 조용히 만든다(새 초대 URL, → O-44).
 lease가 없거나 serverUrl이 다르면 reclaim 없이 `POST /p`다. reclaim `fetch`가 던지면(네트워크 오류) `POST /p`로 물러나지 않고
 `connect()`가 그 오류로 실패한다(state `error`). `reclaimLease`가 없는 수동 `connect()`는 먼저 lease를 지운다.\
-근거: `src/provider/peer-client.ts:435`, `src/provider/peer-client.ts:455`, `src/provider/peer-client.ts:722`, `src/provider/peer-client.ts:742`, `src/provider/peer-client.ts:743`, `src/provider/peer-client.ts:774`, `src/provider/peer-client.ts:776`, `src/provider/peer-client.ts:790`, `src/provider/peer-client.ts:792`, `src/provider/peer-client.ts:793`, `src/provider/peer-client.ts:794`, `src/provider/peer-client.ts:805`, `src/provider/peer-client.ts:809`, `src/provider/peer-client.ts:811`, `src/provider/peer-client.ts:814`, `src/provider/peer-client.ts:818`, `src/provider/peer-client.ts:821`; 테스트: `test/provider-reconnect.test.ts` › `keeps an approved agent working across a lease reclaim`; `test/provider-reconnect.test.ts` › `is forgotten, so the next auto-reconnect does not present it again`
+근거: `src/provider/peer-client.ts:442`, `src/provider/peer-client.ts:462`, `src/provider/peer-client.ts:466`, `src/provider/peer-client.ts:730`, `src/provider/peer-client.ts:750`, `src/provider/peer-client.ts:751`, `src/provider/peer-client.ts:782`, `src/provider/peer-client.ts:784`, `src/provider/peer-client.ts:798`, `src/provider/peer-client.ts:800`, `src/provider/peer-client.ts:801`, `src/provider/peer-client.ts:802`, `src/provider/peer-client.ts:813`, `src/provider/peer-client.ts:817`, `src/provider/peer-client.ts:819`, `src/provider/peer-client.ts:822`, `src/provider/peer-client.ts:826`, `src/provider/peer-client.ts:829`; 테스트: `test/provider-reconnect.test.ts` › `keeps an approved agent working across a lease reclaim`; `test/provider-reconnect.test.ts` › `is forgotten, so the next auto-reconnect does not present it again`
 
 **R-PEER-025** signaling socket이 닫히면(DataChannel로 넘긴 경우·지난 generation 제외) state `connected`·`waiting`은
 `disconnected`가 되고, `autoReconnect`가 켜져 있고 approvalState가 `expired`가 아니고 state가 `idle`이 아니면
@@ -2334,7 +2449,7 @@ lease가 없거나 serverUrl이 다르면 reclaim 없이 `POST /p`다. reclaim `
 auto-reconnect는 브라우저에서만 돈다: window가 없거나, `shouldSuppressAutoReconnect(window.location)`이 참이거나, localStorage
 `webmcp:auto-reconnect`가 `'false'`이거나, `webmcp:server-url`이 없으면 시도를 건너뛰고 반복이 끝난다. close code는 읽지 않는다
 (→ O-23, O-44).\
-근거: `src/provider/peer-client.ts:599`, `src/provider/peer-client.ts:619`, `src/provider/peer-client.ts:645`, `src/provider/peer-client.ts:649`, `src/provider/peer-client.ts:662`, `src/provider/peer-client.ts:1037`, `src/provider/types.ts:55`; 테스트: `test/provider-reconnect.test.ts` › `keeps retrying with growing delays while the relay is down, then reclaims the room`; `test/provider-reconnect.test.ts` › `stops retrying after a manual disconnect`
+근거: `src/provider/peer-client.ts:606`, `src/provider/peer-client.ts:626`, `src/provider/peer-client.ts:652`, `src/provider/peer-client.ts:656`, `src/provider/peer-client.ts:669`, `src/provider/peer-client.ts:1055`, `src/provider/types.ts:55`; 테스트: `test/provider-reconnect.test.ts` › `keeps retrying with growing delays while the relay is down, then reclaims the room`; `test/provider-reconnect.test.ts` › `stops retrying after a manual disconnect`
 
 **R-PEER-026** `refreshRoom(overrides)`는 이전 `connect()`가 없으면 `PEER_SESSION_NOT_CONFIGURED`로 실패하고, room이나
 providerToken이 없으면 이전 option에 overrides를 합쳐 그냥 연결한다. 있으면 현재 serverUrl로 `POST <serverUrl>/p/<encodeURIComponent(roomId)>/rotate`를
@@ -2344,27 +2459,28 @@ epoch(descriptor의 `roomEpoch`)일 때만 넣고, 모르면 member를 뺀다. r
 `body.error` 또는 `HTTP <status>: Failed to rotate peer room`으로 실패하고, 2xx body가 descriptor가 아니면 `INVALID_ROOM_DESCRIPTOR`로
 실패한다. 성공하면 끊고, 합친 option의 serverUrl을 `connect()`와 같은 `normalizePeerConfigUrl`(R-PEER-001)로 정규화한 뒤 대체
 descriptor로 붙는다(socket URL은 R-PEER-003). `disconnect(true)`(`revokeClient`)는 room, providerToken, 승인 sessionId를 알 때
-`POST <serverUrl>/p/<encodeURIComponent(roomId)>/sessions/<encodeURIComponent(sessionId)>/revoke`를 providerToken bearer와 body `{roomId, roomEpoch:
-roomEpoch ?? 0, sessionId, requestedAt, reason:'provider-request'}`로 기다리지 않고 보내고, auto-reconnect를 끄고 lease를 지운다.
+`POST <serverUrl>/p/<encodeURIComponent(roomId)>/sessions/<encodeURIComponent(sessionId)>/revoke`를 providerToken bearer와 body `{roomId,
+roomEpoch?, sessionId, requestedAt, reason:'provider-request'}`로 기다리지 않고 보내고, auto-reconnect를 끄고 lease를 지운다. 여기서도
+`roomEpoch`는 아는 epoch일 때만 넣는다(relay는 보낸 epoch만 비교한다, R-ROOM-071).
 provider는 이 요청 모양을 MUST 쓴다.\
-근거: `src/provider/peer-client.ts:1916`, `src/provider/peer-client.ts:1918`, `src/provider/peer-client.ts:1922`, `src/provider/peer-client.ts:1924`, `src/provider/peer-client.ts:1934`, `src/provider/peer-client.ts:1939`, `src/provider/peer-client.ts:1941`, `src/provider/peer-client.ts:1943`, `src/provider/peer-client.ts:1944`, `src/provider/peer-client.ts:1951`, `src/provider/peer-client.ts:1961`, `src/provider/peer-client.ts:718`, `src/provider/peer-client.ts:846`, `src/provider/peer-client.ts:1989`; 테스트: `test/provider-reconnect.test.ts` › `sends the room epoch the provider knows, and leaves out one it does not instead of guessing 0`
+근거: `src/provider/peer-client.ts:1986`, `src/provider/peer-client.ts:1988`, `src/provider/peer-client.ts:1992`, `src/provider/peer-client.ts:1994`, `src/provider/peer-client.ts:2004`, `src/provider/peer-client.ts:2009`, `src/provider/peer-client.ts:2011`, `src/provider/peer-client.ts:2013`, `src/provider/peer-client.ts:2014`, `src/provider/peer-client.ts:2021`, `src/provider/peer-client.ts:2032`, `src/provider/peer-client.ts:726`, `src/provider/peer-client.ts:854`, `src/provider/peer-client.ts:2060`, `src/provider/peer-client.ts:2071`; 테스트: `test/provider-reconnect.test.ts` › `sends the room epoch the provider knows, and leaves out one it does not instead of guessing 0`; `test/provider-approval-state.test.ts` › `names the room epoch only when it knows it (%s)`
 
 **R-PEER-027** provider는 `expiresAt`(descriptor 값 또는 now + 30분, DataChannel `hello`에서 다시 설정)에 timer를 두고, 시간이 되면
 `SESSION_EXPIRED`로 재접속 없이 transport를 MUST 정리한다.\
-근거: `src/provider/peer-client.ts:844`, `src/provider/peer-client.ts:1282`, `src/provider/peer-client.ts:1964`; 테스트: 없음
+근거: `src/provider/peer-client.ts:852`, `src/provider/peer-client.ts:1341`, `src/provider/peer-client.ts:2035`; 테스트: 없음
 
 **R-PEER-028** provider SDK는 write 동의 때문에 tool 호출을 거절하지 않는다. `writeEnabled`는 host adapter의 상태일 뿐이다.
 `connect()`는 `enableWrite`가 `true`이거나(option 없음 시) localStorage `webmcp:write-enabled`가 `'true'`일 때만
 `setWriteEnabled(true)`를 부르고, auto-reconnect는 그 값이 정확히 `'false'`가 아니면 켠다. provider는 이 규칙을 MUST 따른다
 (→ O-44).\
-근거: `src/provider/peer-client.ts:485`, `src/provider/peer-client.ts:609`, `src/provider/peer-client.ts:628`, `src/provider/peer-client.ts:704`; 테스트: 없음
+근거: `src/provider/peer-client.ts:492`, `src/provider/peer-client.ts:616`, `src/provider/peer-client.ts:635`, `src/provider/peer-client.ts:712`; 테스트: 없음
 
 **R-PEER-029** DataChannel framing(relay 밖): provider는 수신 chunk가 `{v:1, id:safe int, index:0..total−1, total:1..512,
 data:16384자 이하 문자열}`일 때만 MUST 받고, id별로 조립한다(같은 index는 무시, total이 바뀌면 다시 시작, 미완성 frame이 50개를
 넘으면 모두 버림). 조립한 text는 문자열 `type`을 가진 JSON object여야 한다. 송신은 2048 UTF-16 code unit chunk
 `{v:1, id:++frameSeq, index, total, data}`이고 total에 상한이 없으며 `readyState`가 `open`일 때만 보낸다. 승인 상태에서만 chunk를
 받는다(→ O-45).\
-근거: `src/provider/wire-schemas.ts:26`, `src/provider/wire-schemas.ts:28`, `src/provider/wire-schemas.ts:47`, `src/provider/wire-schemas.ts:53`, `src/provider/peer-client.ts:1238`, `src/provider/peer-client.ts:1577`; 테스트: 없음
+근거: `src/provider/wire-schemas.ts:26`, `src/provider/wire-schemas.ts:28`, `src/provider/wire-schemas.ts:47`, `src/provider/wire-schemas.ts:53`, `src/provider/peer-client.ts:1297`, `src/provider/peer-client.ts:1636`; 테스트: 없음
 
 ### 9.2 agent client (`PeerMcpSession`)
 
@@ -2397,7 +2513,7 @@ HTTP transport(raw)는 그대로 POST한다. client는 받은 message(`mcp` enve
 `result`·`error` member가 있는 것만 답으로 보고 key에 type을 넣으므로(R-MCP-002, R-MCP-003) 둘의 분류가 다르다. broadcast된 provider
 frame(R-MCP-041)이 pending id와 같은 id의 server→client 요청이면 client는 그 요청을 답이 아닌 message로 끝내고 slot을 비우지만, relay는
 그 요청을 계속 센다(→ O-20).\
-근거: `src/client/session.ts:675`, `src/client/session.ts:730`, `src/client/session.ts:512`, `src/client/session.ts:522`, `src/client/session.ts:525`, `src/client/session.ts:526`, `src/client/session.ts:530`, `src/client/session.ts:531`, `src/client/session.ts:63`, `src/client/session.ts:65`, `src/server/peer-server.ts:818`, `src/server/peer-server.ts:822`; 테스트: `test/client-request-limit.test.ts` › `sends a request of exactly the limit and refuses one byte more`
+근거: `src/client/session.ts:675`, `src/client/session.ts:730`, `src/client/session.ts:512`, `src/client/session.ts:522`, `src/client/session.ts:525`, `src/client/session.ts:526`, `src/client/session.ts:530`, `src/client/session.ts:531`, `src/client/session.ts:63`, `src/client/session.ts:65`, `src/server/peer-server.ts:848`, `src/server/peer-server.ts:852`; 테스트: `test/client-request-limit.test.ts` › `sends a request of exactly the limit and refuses one byte more`
 
 **R-PEER-033** 두 내장 transport는 wire에 놓을 것의 UTF-8 크기(WebSocket은 `{type:'mcp'}` envelope을 포함한 직렬화 frame, HTTP는
 `JSON.stringify(rpc)` body)를 재고, 261120 byte를 넘으면 아무것도 쓰지 않고 `PeerMcpError('Peer MCP request is <B> bytes, over the
@@ -2582,7 +2698,7 @@ null인 200 JSON을 받는다(R-MCP-016~R-MCP-019, → O-29). catalog 변경은 
 `catalogVersion`·`catalogHash`를 SHOULD 넣는다. 넣어야 −32010 `CATALOG_CHANGED`로 drift를 fail-closed로 알 수 있고, 이를 받으면
 `tools/list`를 다시 읽는다. 둘 다 넣지 않는 일반 MCP client에게 catalog 변경은 없어진 tool의 400 `TOOL_NOT_FOUND`나 새 catalog에 대한
 조용한 호출로만 드러난다(R-MCP-020). 503 `PROVIDER_BUSY`(`data.retryable: true`)는 다시 보낼 수 있다.\
-근거: `src/server/peer-server.ts:1870`, `src/server/peer-server.ts:2210`, `src/server/peer-server.ts:2218`, `src/server/peer-server.ts:2223`, `src/server/peer-server.ts:2227`, `src/server/peer-server.ts:2233`, `src/server/peer-server.ts:2239`, `src/server/peer-server.ts:2246`, `src/server/peer-server.ts:2256`, `src/server/peer-server.ts:2135`, `src/server/peer-server.ts:2140`, `src/server/peer-server.ts:2301`, `src/server/peer-server.ts:2326`, `src/server/peer-server.ts:2366`, `src/server/peer-server.ts:2367`, `src/server/peer-server.ts:2375`, `src/server/peer-server.ts:2432`, `src/server/peer-server.ts:141`; 테스트: `test/mcp-http-interop.test.ts` › `serves the official MCP v2 client in %s negotiation mode`
+근거: `src/server/peer-server.ts:2042`, `src/server/peer-server.ts:2387`, `src/server/peer-server.ts:2395`, `src/server/peer-server.ts:2400`, `src/server/peer-server.ts:2404`, `src/server/peer-server.ts:2410`, `src/server/peer-server.ts:2416`, `src/server/peer-server.ts:2423`, `src/server/peer-server.ts:2433`, `src/server/peer-server.ts:2312`, `src/server/peer-server.ts:2317`, `src/server/peer-server.ts:2478`, `src/server/peer-server.ts:2503`, `src/server/peer-server.ts:2543`, `src/server/peer-server.ts:2544`, `src/server/peer-server.ts:2552`, `src/server/peer-server.ts:2610`, `src/server/peer-server.ts:154`; 테스트: `test/mcp-http-interop.test.ts` › `serves the official MCP v2 client in %s negotiation mode`
 
 ## 10. 열린 문제
 
@@ -2625,16 +2741,19 @@ sweep 말고 만료를 먼저 발견한 자리(수명주기·MCP route의 room �
 관련: R-ROOM-014, R-ROOM-019, R-ROOM-027, R-ROOM-036, R-ROOM-041, R-ROOM-047, R-ROOM-048, R-ROOM-050, R-ROOM-067, R-ROOM-070,
 R-SIG-015, R-SIG-023, R-MCP-013, R-PEER-038, R-ERR-005.
 
-**O-06 (high) reconnect lease가 15분 뒤 늘어나지 않는다.** lease는 생성과 reclaim에서만 정해진다. 2시간 room에서 15분 넘게 지나 새로고침한
-browser는 room이 유효한데도 reclaim이 404 `ROOM_EXPIRED`이고, lease를 지우고 새 room을 만들어 agent의 ticket과 소비된 invite를
-잃는다. README의 F5 handoff·auto-reconnect 설명("until it succeeds")에는 이 창이 없다. 위치: `src/server/peer-server.ts:561`,
-`src/server/peer-server.ts:1790`, `src/server/peer-server.ts:1819`, `src/provider/peer-client.ts:801`, `README.md:196`. 관련: R-ROOM-018,
-R-LIM-027, R-PEER-024.
+**O-06 (결정 2026-10-20)** reconnect lease는 provider socket이 붙어 있는 동안 만료되지 않고, room에 provider socket이 없게 될 때
+(생성, reclaim, socket close, relay의 분리)부터 15분(`RECONNECT_GRACE_MS`) 또는 room 만료까지 남는다(`startReconnectGrace`). 그래서 room
+수명 내내 붙어 있던 host도 새로고침 뒤 reclaim할 수 있고, 새어 나간 lease를 쓸 수 있는 창은 여전히 provider가 떠난 뒤 15분이다. room
+descriptor는 `reconnectTokenExpiresAt`으로 room `expiresAt`을, 새 필드 `reconnectGraceMs`(900000)로 유예를 알린다. provider는 이미
+`reconnectTokenExpiresAt`까지 lease를 저장하므로 코드를 바꾸지 않았다. 관련: R-ROOM-013, R-ROOM-014, R-ROOM-017, R-ROOM-018,
+R-ROOM-052, R-ROOM-054, R-LIM-027, R-PEER-024.
 
-**O-07 (high) 승인 요청의 수명이 MCP request timeout(30 s)이다.** timer는 provider가 없어도 돈다. 만료되면 ticket은 영구히 `expired`,
-invite는 소비된 채라 rotate 전에는 다시 join할 수 없다. provider에는 아무 frame도 가지 않아 UI가 요청을 계속 보이고 뒤늦은 결정은
-`INVALID_APPROVAL`이다. README와 테스트 어디에도 이 창이 없다. 위치: `src/server/peer-server.ts:1391`, `src/server/peer-server.ts:1395`,
-`src/server/peer-server.ts:442`, `README.md:120`. 관련: R-ROOM-024, R-ROOM-026, R-LIM-025.
+**O-07 (결정 2026-10-20)** 승인 요청 수명을 `mcpRequestTimeoutMs`에서 떼어 새 option `approvalTimeoutMs`(기본 300000 ms, 최소 1000,
+`Infinity`는 room 수명, room `expiresAt`이 상한)로 정했다. 만료되면 agent의 client socket과 함께 provider socket도 `approval.expired`를
+받아 host가 요청을 내린다. 만료 timer는 만기 전에 돌면(Node timer의 이른 발화, 2147483647 ms 상한) 남은 시간으로 다시 걸리므로 요청이
+만료되지 않고 남는 경우가 없어졌고, room이 먼저 만료됐으면 room 만료를 처리한다. 만료 뒤에는 invite가 소비된 채라 rotate가 필요하다는
+점을 요건에 적었다. README의 설명은 후속 문서 단계에서 고친다. 관련: R-ROOM-024, R-ROOM-026, R-LIM-025, R-LIM-043(신규), R-SIG-012,
+R-MCP-044, R-PEER-021.
 
 **O-08 (결정 2026-10-20)** ticket 종료가 보내는 client용 `room.rotated`에 `rotatedTo`와 payload `replacementRoomId`·
 `replacementRoomEpoch`를 넣었다. 그 socket의 pending 요청은 HTTP 진행 요청과 같은 −32057 `ROOM_ROTATED` `{replacementRoomId,
@@ -2646,11 +2765,13 @@ route의 client socket loop는 지웠다. 관련: R-ROOM-044, R-ROOM-047, R-SIG-
 같은 body(`sendRoomRotated`)를 보내고, 동시에 온 두 번째 rotate도 대체 room을 받는다. 관련: R-ROOM-027, R-ROOM-036, R-ROOM-041,
 R-ROOM-046.
 
-**O-10 (medium) roomId·roomEpoch binding 규칙이 route마다 다르다.** reclaim은 둘 다 선택(409 `ROOM_LEASE_BINDING_INVALID` −32002),
-rotate는 선택(409 `ROOM_ROTATED` −32057), approval은 필수(409 `INVALID_APPROVAL` −32081), 경로형 revoke는 필수이고 token 검사보다
-먼저(409 `SESSION_BINDING_INVALID` −32002), provider의 `/session/revoke`는 검사 없음(빈 body가 전부 revoke), client revoke는 필수.
-위치: `src/server/peer-server.ts:1801`, `src/server/peer-server.ts:2424`, `src/server/peer-server.ts:2270`, `src/server/peer-server.ts:2357`,
-`src/server/peer-server.ts:2364`, `src/server/peer-server.ts:2390`. 관련: R-ROOM-015, R-ROOM-028, R-ROOM-037, R-ROOM-038, R-ROOM-040, R-ROOM-042.
+**O-10 (결정 2026-10-20)** body의 `roomId`·`roomEpoch`를 reclaim, approval, 두 revoke route, rotate에서 모두 선택으로 하고, 있으면
+엄격히 같아야 하는 한 규칙(`bodyNamesRoom`)으로 정했다. 검사는 route의 자격 검사 뒤라, token보다 먼저 보던 경로형 revoke와 lease보다
+먼저 보던 reclaim의 순서를 고쳤다. 불일치는 모두 409이고 이름은 route별 기존 것(`ROOM_LEASE_BINDING_INVALID`, `INVALID_APPROVAL`,
+`SESSION_BINDING_INVALID`, O-04의 `ROOM_BINDING_INVALID`)이다. 빈 body의 provider 전체 revoke는 명시적 요청으로 규범화했고, binding을
+보낸 전체 revoke는 binding이 맞아야 한다. provider의 `disconnect(true)` revoke는 모르는 epoch를 0으로 짐작하지 않고 뺀다. join은
+binding을 보지 않고, provider socket의 `approval.decision` frame은 route가 아니어서 `payload.roomId`·epoch를 계속 요구한다. 관련:
+R-ROOM-071(신규), R-ROOM-015, R-ROOM-028, R-ROOM-037, R-ROOM-038, R-ROOM-040, R-ROOM-042, R-SIG-009, R-PEER-026.
 
 **O-11 (결정 2026-10-20)** canonical 이름 하나에 code 하나를 규범으로 했다(R-ERR-005). 수명주기 body는 이름이 JSON-RPC code를
 가지면 그 code를 싣는다(`ROOM_NOT_FOUND` −32004, `ROOM_EXPIRED` −32056, `CLIENT_TOKEN_REQUIRED`·`CLIENT_TOKEN_INVALID` −32003,
@@ -2698,26 +2819,24 @@ caller가 준 잘못된 room id를 요청 전에 `ROOM_ID_INVALID`로 거절한�
 client의 `websocketUrl`과 같게 한다. 관련: R-HTTP-002, R-WS-001, R-PEER-001, R-PEER-002, R-PEER-003, R-PEER-026, R-PEER-030,
 R-PEER-054(신규).
 
-**O-17 (medium) 시각 형식과 frame envelope이 고르지 않다.** epoch ms(`expiresAt`, `reconnectTokenExpiresAt`, join `issuedAt`·
-`expiresAt`, frame `expiresAt`)와 ISO(`createdAt`, `updatedAt`, `reclaimedAt`, `rotatedAt`, session status, `decidedAt`, revoke
-`revokedAt`)가 섞인다. HTTP approval 응답의 `expiresAt`은 승인 요청 만료(ISO), client용 `approval.approved`는 ticket 만료(ms), provider
-echo는 승인 요청 만료(ms)다. `approval.pending`·`approval.expired`에는 공통 envelope 필드가 빠지고, `messageId`는 `room-rotated-…`와
-`room.rotated-<sessionId>-<ms>`가 섞이며 `approval.request`는 `approval-approval-…`가 된다. 위치: `src/server/peer-server.ts:604`,
-`src/server/peer-server.ts:608`, `src/server/peer-server.ts:2229`, `src/server/peer-server.ts:2288`, `src/server/peer-server.ts:1574`,
-`src/server/peer-server.ts:2585`, `src/server/peer-server.ts:1371`, `src/server/peer-server.ts:1405`, `src/server/peer-server.ts:1524`,
-`src/server/peer-server.ts:1429`. 관련: R-SIG-002, R-SIG-010, R-ROOM-031.
+**O-17 (결정 2026-10-20)** 기존 시각 필드의 형식은 바꾸지 않고, HTTP 응답과 frame의 형식을 표로 고정했으며 새 시각 필드는 epoch
+ms로만 만든다는 규칙을 두었다. `expiresAt`의 뜻이 수신자마다 다른 곳에는 `approvalExpiresAt`(승인 요청 만료)과 `ticketExpiresAt`(ticket
+만료)을 더했다: HTTP approval 응답, provider용 결정 echo, client용 `approval.approved`. `approval.pending`·`approval.expired`에 `protocol`·
+`messageId`·`sentAt`을 채웠다. `messageId`는 불투명한 고유 문자열로 규정했고, relay가 message마다 새로 만든다(`messageId(type)`.
+reattach마다 같은 값을 되풀이하던 `approval.restored`도 이제 매번 새 값이다). 관련: R-ROOM-072(신규), R-SIG-025(신규), R-ROOM-031,
+R-SIG-002, R-SIG-008, R-SIG-010, R-SIG-012, R-SIG-013.
 
-**O-18 (medium) provider가 남이 바꾼 승인 상태를 듣지 못한다.** HTTP 승인 결정, client 자기 revoke, provider의 HTTP 단일 revoke,
-승인 만료는 provider socket에 아무것도 보내지 않는다(WebSocket 결정만 echo). provider는 결정 frame을 보내자마자 `approved`가 되고
-`INVALID_APPROVAL`은 기록만 하므로 만료된 요청을 승인했다고 믿을 수 있다. relay가 provider에 보내지 않는 `session.revoked`,
-`approval.expired`, `collaboration.*` handler가 provider에 있다. 위치: `src/server/peer-server.ts:2275`, `src/server/peer-server.ts:2576`,
-`src/server/peer-server.ts:1405`, `src/server/peer-server.ts:1518`, `src/provider/peer-client.ts:1838`, `src/provider/peer-client.ts:1054`,
-`src/provider/peer-client.ts:954`. 관련: R-ROOM-026, R-ROOM-029, R-PEER-018, R-PEER-021.
+**O-18 (결정 2026-10-20)** relay는 provider socket에서 오지 않은 ticket 상태 변화도 provider socket에 알린다: HTTP 결정에는
+WebSocket 결정과 같은 echo를 한 번(`sendDecisionEcho`), 승인 만료에는 `approval.expired`, HTTP로 한 모든 revoke(provider 단일·전체,
+client 자기 revoke)에는 `session.revoked`를 보낸다. provider는 relay의 `approval.approved`를 다른 경로의 승인으로도 받아들이고
+(`approval.restored`와 같은 검사), 결정을 보낸 뒤 그 결정이 echo로 정리되기 전에 같은 requestId의 `INVALID_APPROVAL`을 받으면 결정을
+되돌려 `pending`으로 두고 session error `INVALID_APPROVAL`을 올린다. 관련: R-SIG-024(신규), R-ROOM-026, R-ROOM-029, R-ROOM-039,
+R-ROOM-040, R-ROOM-047, R-SIG-009, R-SIG-010, R-SIG-011, R-SIG-015, R-PEER-018, R-PEER-019, R-PEER-020, R-PEER-021.
 
-**O-19 (medium) 단일 session revoke가 진행 중인 HTTP 요청을 끝내지 않는다.** ticket 종료는 그 ticket socket의 WebSocket 요청만
-끝내고, 같은 ticket의 HTTP bridge 요청은 계속 돌아 revoke 뒤 provider의 답을 받는다. 전체 revoke, rotate, 만료는 HTTP 요청도 끝낸다.
-위치: `src/server/peer-server.ts:1518`, `src/server/peer-server.ts:1598`, `src/server/peer-server.ts:2377`, `src/server/peer-server.ts:2395`.
-관련: R-ROOM-047, R-MCP-005.
+**O-19 (결정 2026-10-20)** pending 항목에 그 요청을 인증한 ticket(`PendingMcpRequest.ticket`)을 기록하고, ticket 종료
+(`closeClientTicket`)가 그 ticket의 HTTP 진행 요청도 WebSocket 요청과 같은 오류(revoke −32001 `SESSION_INVALID`, 거절 −32054, rotate
+−32057과 data, room 만료 −32056)로 끝내게 했다. 그래서 단일 revoke와 전체 revoke가 진행 요청에 같은 결과를 낸다. 이미 provider에 간
+요청은 실행될 수 있고 relay는 늦게 온 답을 버릴 뿐이라고 적었다. 관련: R-ROOM-047, R-ROOM-048, R-MCP-005, R-MCP-023.
 
 **O-20 (medium) provider→agent broadcast를 거르지 않는다.** agent→provider는 `offer`만 허용하지만, provider frame은 `ready`, `error`,
 `session.revoked`, `room.rotated`, `approval.*`를 포함해 그대로 pending ticket을 포함한 모든 agent에 간다. `PeerMcpSession`은 `ready`로
@@ -2893,15 +3012,15 @@ R-ROOM-003, R-ROOM-034, R-ROOM-035, R-ROOM-048, R-ROOM-065, R-PEER-048.
 rotate로 보존 room이 쌓일 수 있는데, 이는 보존 기간이 아니라 rotate 빈도의 문제라 따로 다룬다. 관련: R-ROOM-044, R-ROOM-050,
 R-ROOM-051, R-LIM-028, R-LIM-029.
 
-**O-50 (low) revoke 응답 모양과 reason이 고르지 않다.** 전체 revoke는 `{roomId, revoked, revokedSessions}`뿐이다. 단일 revoke는
-`body.reason`을 검사 없이 되돌리고(어떤 JSON 값이든, 기본 `provider-request`·`client-request`), `session.revoked` frame은 고정 reason
-(`SESSION_REVOKED`, `CLIENT_REVOKED`, `ROOM_REVOKED`)을 쓴다. revoke는 멱등(`alreadyRevoked`)이지만 같은 승인 결정의 반복은 409다. 위치:
-`src/server/peer-server.ts:2366`, `src/server/peer-server.ts:2378`, `src/server/peer-server.ts:2396`, `src/server/peer-server.ts:2272`.
-관련: R-ROOM-028, R-ROOM-038, R-ROOM-039, R-SIG-015.
+**O-50 (결정 2026-10-20)** 현재 동작을 규범으로 정했다. 전체 revoke는 200 `{roomId, revoked:true, revokedSessions:true}`이고, 단일
+revoke는 멱등(`alreadyRevoked`)이며 `reason`은 호출자 body 값을 그대로 echo한다(기본 `provider-request`·`client-request`). echo는
+요청자에게만 돌아가고 저장·전달되지 않는다. `session.revoked`의 reason은 relay가 정한 고정값(`SESSION_REVOKED`, `CLIENT_REVOKED`,
+`ROOM_REVOKED`)이라 호출자가 agent 화면에 임의 문자열을 넣을 수 없다. 승인 결정은 1회성이라 반복 결정은 409 `INVALID_APPROVAL`이다.
+wire 동작은 바뀌지 않는다. 관련: R-ROOM-028, R-ROOM-038, R-ROOM-039, R-ROOM-040, R-SIG-015.
 
-**O-51 (low) owner 힌트는 검사만 하고 버린다.** publish key가 없어도 header·body owner가 충돌하면 403이지만, room의 `ownerId`는
-`publishKeyOwner`(또는 key가 있을 때 `publish-key-owner`)에서만 온다. 위치: `src/server/peer-server.ts:1745`, `src/server/peer-server.ts:1746`,
-`src/server/peer-server.ts:1760`. 관련: R-ROOM-011.
+**O-51 (결정 2026-10-20)** 현재 동작을 규범으로 정했다. publish key가 없으면 header·body owner는 인증되지 않은 주장이라 room
+`ownerId`에 넣지 않고, 둘이 서로 다르면 모순된 요청으로 보아 403 `PUBLISH_OWNER_BINDING_INVALID`로 답한다. key가 있으면
+`publishKeyOwner ?? 'publish-key-owner'`만 owner가 된다. wire 동작은 바뀌지 않으며, 이 규칙을 확인하는 테스트를 더했다. 관련: R-ROOM-011.
 
 **O-52 (결정 2026-10-20)** `POST /p`와 rotate의 `alias`를 join `clientLabel`처럼 trim한 뒤 처음 256 code point
 (`MAX_ROOM_ALIAS_CODE_POINTS`)로 잘라 저장한다. 거절하지 않는다. 관련: R-ROOM-012, R-ROOM-043, R-LIM-042(신규).
@@ -2981,3 +3100,4 @@ replay·`RECONCILIATION_REQUIRED`·`OUTCOME_UNKNOWN`·`PEER_SESSION_SUPERSEDED`(
 | 2026-10-20 | 공유 protocol 상수와 해석 규칙(O-14, O-15, O-16, O-32, O-52, O-53, O-54, O-55)을 결정대로 구현하고 요건을 고쳤다. protocol 식별자 상수, `Authorization` 해석 하나와 clientToken hash 조회, room id 문법 하나, 공유 catalog 계약, alias 상한, catalog loader의 `cwd`와 SQLite rate-limit 설정, `/config` defaults type, config library의 `descriptorUrl`. 새 요건 R-HTTP-018, R-LIM-042, R-PEER-054. 다른 요건의 `peer-server.ts` 등 근거 줄 번호를 코드에 맞게 옮겼다. | 사용자가 열린 문제의 권고안을 채택하고 breaking wire 변경을 0.1.0에서 내기로 했다. | relay·provider·agent client·config 코드와 테스트, api-index, changeset `webmcp-peer-protocol-c1-foundation`. README·guide·changelog는 후속 문서 단계에서 고친다. |
 | 2026-10-20 | 오류 모델(O-02, O-04, O-09, O-11, O-12, O-13, O-56, O-57)을 결정대로 구현하고 요건을 고쳤다. 이름 하나에 code 하나(relay와 provider가 함께 쓰는 `PEER_ERROR_CODES`, 수명주기 body의 `code`, 두 transport가 같은 ticket 오류 data), code는 class이고 식별자는 이름이라는 규칙, 자격 오류의 `_REQUIRED`·`_INVALID`와 401 challenge·body 자격의 400·403, 모든 수명주기 route의 rotate된 room 410과 rotate binding의 `ROOM_BINDING_INVALID`, 잘못된 경로 encoding의 400 `INVALID_PATH`, client revoke 오류 code와 `PeerMcpService` 등록 key. 새 요건 R-HTTP-019, R-ERR-005, R-PEER-055. 바뀐 코드에 맞춰 1~9장의 근거 줄 번호를 옮겼다. | 사용자가 열린 문제의 권고안을 채택하고 breaking wire 변경을 0.1.0에서 내기로 했다. | relay·provider·agent client 코드와 테스트, 새 내부 module `src/config/errors.ts`, api-index, changeset `webmcp-peer-protocol-c2-errors`. README·guide·changelog는 후속 문서 단계에서 고친다. |
 | 2026-10-20 | room 만료·rotate 신호와 보존(O-05, O-08, O-47, O-48, O-49)을 결정대로 구현하고 요건을 고쳤다. 만료는 한 번의 만료 처리로 ticket을 `expired`로 끝내고 `room.expired` frame과 두 transport에 같은 `ROOM_EXPIRED`를 보내며, sweep 말고 만료를 먼저 발견한 자리도 같은 처리를 한다. 보존 중인 만료 room은 410 `ROOM_EXPIRED`, lease 만료는 410 `ROOM_LEASE_EXPIRED`, join의 만료 비교는 `<=`, WebSocket agent도 rotate의 대체 room을 받고, rotate된 room은 만료 room과 같은 기한까지 보존한다. 새 요건 R-ROOM-070, R-SIG-023. R-ROOM-067은 새 규칙(만료를 먼저 발견한 자리의 처리)으로 다시 썼다. 바뀐 코드에 맞춰 1~9장의 근거 줄 번호를 옮겼다. | 사용자가 열린 문제의 권고안을 채택하고 breaking wire 변경을 0.1.0에서 내기로 했다. | relay·agent client 코드와 테스트, 라이브 데모 agent, type-registry baseline, changeset `webmcp-peer-protocol-c3-expiry-rotation`. README·guide·changelog는 후속 문서 단계에서 고친다. |
+| 2026-10-20 | 승인 수명·reconnect lease·binding·provider 통지(O-06, O-07, O-10, O-17, O-18, O-19, O-50, O-51)를 결정대로 구현하고 요건을 고쳤다. lease는 provider socket이 붙어 있는 동안 만료되지 않고 떠난 뒤 15분 남는다(`reconnectGraceMs`). 승인 요청은 `approvalTimeoutMs`(기본 5분)를 쓰고, 만료는 provider에도 `approval.expired`로 알리며 이른 timer는 다시 건다. body의 `roomId`·`roomEpoch`는 모든 상태 변경 route에서 선택이고 자격 뒤에 검사한다. HTTP 결정 echo, revoke의 `session.revoked`가 provider에 가고 provider는 relay의 승인을 받아들이며 거절된 결정을 되돌린다. 단일 revoke가 그 ticket의 HTTP 진행 요청도 끝낸다. 시각 필드 표, `approvalExpiresAt`·`ticketExpiresAt`, 고유 `messageId`. revoke 응답과 owner 힌트는 현재 동작을 규범화했다. 새 요건 R-ROOM-071, R-ROOM-072, R-SIG-024, R-SIG-025, R-LIM-043. 바뀐 코드에 맞춰 1~9장의 근거 줄 번호를 옮겼다. | 사용자가 열린 문제의 권고안을 채택하고 breaking wire 변경을 0.1.0에서 내기로 했다. | relay·provider·agent client(문서 주석) 코드와 테스트, 라이브 데모 host, api-index, type-registry baseline, changeset `webmcp-peer-protocol-c4-approval-lease`. README·guide·changelog는 후속 문서 단계에서 고친다. |

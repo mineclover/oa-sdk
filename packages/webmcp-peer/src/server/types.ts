@@ -45,6 +45,12 @@ export interface PendingMcpRequest {
   method: string;
   id: string | number;
   wireId: string | number;
+  /**
+   * The client ticket that authorized the request, over WebSocket or HTTP. When the ticket ends
+   * (revoked, rejected, ended by a rotation or the room's expiry), every request it authorized ends
+   * with it, an HTTP one too, although no client socket of the ticket carries it.
+   */
+  ticket?: ClientSessionTicket;
   includeCatalogMeta?: boolean;
   /**
    * True for an agent's `tools/list` without a `cursor` and its `server/discover`: the result lists
@@ -98,6 +104,11 @@ export interface RoomEntry {
   rotatedTo?: string;
   reconnectLeaseToken: string;
   reconnectLeaseHash: string;
+  /**
+   * When the reconnect lease expires as things stand. While a provider socket is attached the lease
+   * lasts as long as the room (`expiresAt`); from the moment none is (the room was created or
+   * reclaimed, or its provider socket went away) it expires 15 minutes later, or with the room.
+   */
   reconnectLeaseExpiresAt: number;
   /**
    * When the relay deletes the room, after which its id is answered 404 ROOM_NOT_FOUND: its original
@@ -124,7 +135,16 @@ export interface WebMcpPeerServerOptions {
    * keeps the limits in memory.
    */
   publishRateLimitStore?: PublishRateLimitStore;
+  /** How long a relayed MCP request waits for the provider's answer (default 30 s, at least 1 s). */
   mcpRequestTimeoutMs?: number;
+  /**
+   * How long an approval request waits for the host's decision (default 5 minutes, at least 1 s;
+   * `Infinity` waits as long as the room lives), never past the room's expiry. A person decides it,
+   * so it does not share the MCP request timeout. A request nobody decides in time ends its ticket
+   * as `expired`: the agent and the provider get `approval.expired`, and the room serves no other
+   * agent (its invite is used) until it is rotated.
+   */
+  approvalTimeoutMs?: number;
   roomSweepIntervalMs?: number;
   /**
    * Upper bound for a room's `ttlMs` on `POST /p` and `POST /p/:id/rotate` (default 24 hours,
