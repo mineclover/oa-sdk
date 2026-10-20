@@ -73,6 +73,8 @@ export class FakeRelay {
   creatable = true;
   /** Whether room descriptors report `roomEpoch`, which a relay is not required to. */
   reportsRoomEpoch = true;
+  /** When set, every `POST /p/:id/reclaim` is answered with this status and body instead. */
+  reclaimAnswer?: { status: number; body: Frame };
   afterReady?: (socket: FakeRelaySocket, room: IssuedRoom) => void;
   private room?: IssuedRoom;
   private issued = 0;
@@ -89,6 +91,7 @@ export class FakeRelay {
       return Response.json(this.descriptor(this.room), { status: 201 });
     }
     const reclaim = url.match(/\/p\/([^/]+)\/reclaim$/);
+    if (method === "POST" && reclaim && this.reclaimAnswer) return Response.json(this.reclaimAnswer.body, { status: this.reclaimAnswer.status });
     if (method === "POST" && reclaim) {
       const body = JSON.parse(String(init.body)) as { leaseToken?: string; roomEpoch?: number };
       if (!this.room || reclaim[1] !== this.room.id) return Response.json({ error: "ROOM_NOT_FOUND", code: -32004 }, { status: 404 });
@@ -244,15 +247,27 @@ export function replyTo(socket: FakeRelaySocket, id: string | number, timeoutMs?
   );
 }
 
-/** Relays one tools/call to the provider and returns its reply. */
+/** The session `approve` approves by default, which the relayed requests below come from. */
+export const AGENT_SESSION_ID = "peer-session-agent";
+
+/**
+ * The stamp the relay puts on every request it forwards to the provider: who sent it, and the session
+ * of the ticket that did (R-SIG-005).
+ */
+export function relayStamp(sessionId = AGENT_SESSION_ID): { from: "client"; sessionId: string } {
+  return { from: "client", sessionId };
+}
+
+/** Relays one tools/call, stamped for the session `sessionId`, to the provider and returns its reply. */
 export function callTool(
   socket: FakeRelaySocket,
   id: string | number,
   name: string,
-  options: { args?: Record<string, unknown>; runId?: string; phase?: string; timeoutMs?: number } = {},
+  options: { args?: Record<string, unknown>; runId?: string; phase?: string; timeoutMs?: number; sessionId?: string } = {},
 ): Promise<RpcReply> {
   socket.deliver({
     type: "mcp",
+    ...relayStamp(options.sessionId),
     message: {
       jsonrpc: "2.0",
       id,
@@ -270,7 +285,7 @@ export function callTool(
 }
 
 /** Delivers an approval request for `sessionId` and approves it from the host side. */
-export async function approve(provider: WebMcpPeerClient, socket: FakeRelaySocket, roomId: string, sessionId = "peer-session-agent"): Promise<void> {
+export async function approve(provider: WebMcpPeerClient, socket: FakeRelaySocket, roomId: string, sessionId = AGENT_SESSION_ID): Promise<void> {
   socket.deliver({
     protocol: "webmcp-peer/1",
     type: "approval.request",
@@ -282,4 +297,66 @@ export async function approve(provider: WebMcpPeerClient, socket: FakeRelaySocke
   });
   await until(() => (provider.getSession().approvalState === "pending" ? true : undefined), "approval request");
   if (!provider.approveClient()) throw new Error("approveClient() refused");
+}
+
+/** One chunk of a framed DataChannel message, as the provider sends it. */
+export interface DataChannelChunkFrame {
+  readonly v: number;
+  readonly id: number;
+  readonly index: number;
+  readonly total: number;
+  readonly data: string;
+}
+
+/** An agent's end of the provider's `mcp` DataChannel. */
+export class FakeDataChannel {
+  readonly label = "mcp";
+  readyState: "open" | "closed" = "open";
+  onmessage: ((event: { data: string }) => void) | null = null;
+  onclose: (() => void) | null = null;
+  /** The chunks the provider sent. */
+  readonly sent: string[] = [];
+  /** send() throws, as a channel that is closing does, once this many chunks were sent. */
+  failAfter = Number.POSITIVE_INFINITY;
+  private chunkId = 0;
+
+  send(data: string): void {
+    if (this.sent.length >= this.failAfter) throw new DOMException("The DataChannel is closing", "InvalidStateError");
+    this.sent.push(data);
+  }
+
+  close(): void {
+    this.readyState = "closed";
+  }
+
+  /** The agent sends one frame, as a single chunk. */
+  deliver(frame: Frame): void {
+    this.onmessage?.({ data: JSON.stringify({ v: 1, id: ++this.chunkId, index: 0, total: 1, data: JSON.stringify(frame) }) });
+  }
+
+  /** The chunks the provider sent, parsed. */
+  chunks(): DataChannelChunkFrame[] {
+    return this.sent.map((text) => JSON.parse(text) as DataChannelChunkFrame);
+  }
+
+  /** The frames the provider sent, reassembled from their chunks. */
+  frames(): Frame[] {
+    const parts = new Map<number, string[]>();
+    const frames: Frame[] = [];
+    for (const chunk of this.chunks()) {
+      const received = parts.get(chunk.id) ?? [];
+      received[chunk.index] = chunk.data;
+      parts.set(chunk.id, received);
+      if (received.filter((part) => part !== undefined).length === chunk.total) frames.push(JSON.parse(received.join("")) as Frame);
+    }
+    return frames;
+  }
+
+  /** The provider's reply to request `id`, once it was sent. */
+  replyTo(id: number): Promise<RpcReply> {
+    return until(
+      () => this.frames().find((frame) => frame.type === "mcp" && (frame.message as RpcReply | undefined)?.id === id)?.message as RpcReply | undefined,
+      `DataChannel reply to ${id}`,
+    );
+  }
 }

@@ -1,11 +1,12 @@
-// Regression tests for the provider's approval state against the relay's: an approval made over
-// HTTP that the relay echoes, a decision the relay refuses, an approval request the relay expires,
-// and the session revoke that names only the room epoch the provider knows.
+// Regression tests for the provider's approval state against the relay's: a relayed request of a
+// session the provider did not approve, an approval made over HTTP that the relay echoes, a
+// decision the relay refuses, an approval request the relay expires, and the session revoke that
+// names only the room epoch the provider knows.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PeerMcpSession, joinPeerRoom } from "../src/client.js";
 import { WebMcpPeerClient, type WebMcpHostAdapter } from "../src/provider.js";
 import { createWebMcpPeerServer, type WebMcpPeerServer, type WebMcpPeerServerOptions } from "../src/server.js";
-import { FakeRelay, callTool, installRelay, until, type FakeRelaySocket } from "./provider-fakes.js";
+import { FakeRelay, approve, callTool, installRelay, replyTo, until, type FakeRelaySocket } from "./provider-fakes.js";
 
 const providers: WebMcpPeerClient[] = [];
 const servers: WebMcpPeerServer[] = [];
@@ -75,6 +76,31 @@ function approvedEcho(roomId: string, overrides: Record<string, unknown> = {}): 
 
 const refusal = { type: "error", code: -32081, message: "INVALID_APPROVAL", requestId: REQUEST_ID };
 const unapproved = { code: -32053, message: "CLIENT_APPROVAL_REQUIRED" };
+
+describe("a relayed request of another session than the approved one", () => {
+  it("is answered CLIENT_APPROVAL_REQUIRED and not run, as one without the relay's session stamp is", async () => {
+    const invoked: string[] = [];
+    const relay = new FakeRelay();
+    installRelay(relay);
+    const host = new WebMcpPeerClient({
+      hostAdapter: { ...hostAdapter, invoke: async (name) => { invoked.push(name); return { ok: true }; } },
+      shouldSuppressAutoReconnect: () => false,
+    });
+    providers.push(host);
+    await host.connect({ serverUrl: relay.base, alias: "approvals" });
+    await approve(host, relay.latest, relay.roomId, SESSION_ID);
+
+    // The relay issues one ticket per room and stamps every request it forwards with its session.
+    expect((await callTool(relay.latest, 1, "read", { sessionId: "peer-session-other" })).error).toEqual(unapproved);
+    relay.latest.deliver({ type: "mcp", from: "client", message: { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "read", arguments: {} } } });
+    expect((await replyTo(relay.latest, 2)).error).toEqual(unapproved);
+    expect(invoked).toEqual([]);
+
+    // The approved session's request is served.
+    expect((await callTool(relay.latest, 3, "read", { sessionId: SESSION_ID })).result?.isError).toBe(false);
+    expect(invoked).toEqual(["read"]);
+  });
+});
 
 describe("an approval the relay echoes", () => {
   it("is adopted when it was made over HTTP, so the agent is served", async () => {

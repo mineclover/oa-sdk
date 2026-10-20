@@ -22,10 +22,27 @@ export const ProviderFrameSchema: PeerJsonSchema<ProviderFrame> = {
   },
 };
 
-/** Most chunks one framed DataChannel message may be split into. */
+/**
+ * The DataChannel framing, the same in both directions: a message (one JSON frame) travels as at
+ * most this many chunks `{ v: 1, id, index, total, data }`, each `data` a slice of the frame's JSON
+ * text of at most {@link MAX_DATA_CHANNEL_CHUNK_CHARS} UTF-16 code units. A peer takes no chunk
+ * outside these bounds, so neither side sends one.
+ */
 export const MAX_DATA_CHANNEL_CHUNKS = 512;
-/** Most characters one DataChannel chunk may carry. */
+/** Most UTF-16 code units one DataChannel chunk may carry (see {@link MAX_DATA_CHANNEL_CHUNKS}). */
 export const MAX_DATA_CHANNEL_CHUNK_CHARS = 16384;
+/**
+ * The UTF-16 code units of the chunks the provider sends: within {@link MAX_DATA_CHANNEL_CHUNK_CHARS},
+ * and small enough that a chunk, JSON-escaped and wrapped, stays well under the message size every
+ * browser's DataChannel takes.
+ */
+export const DATA_CHANNEL_SEND_CHUNK_CHARS = 2048;
+/**
+ * The longest frame the provider sends over the DataChannel, in UTF-16 code units of its JSON text:
+ * {@link MAX_DATA_CHANNEL_CHUNKS} chunks of {@link DATA_CHANNEL_SEND_CHUNK_CHARS} (1048576). A reply
+ * over it is replaced with RESULT_TOO_LARGE; any other frame over it is not sent.
+ */
+export const MAX_DATA_CHANNEL_FRAME_CHARS = MAX_DATA_CHANNEL_CHUNKS * DATA_CHANNEL_SEND_CHUNK_CHARS;
 
 /** One chunk of a framed DataChannel message (`{ v: 1, id, index, total, data }`). */
 export interface DataChannelChunk {

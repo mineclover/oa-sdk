@@ -114,7 +114,7 @@ async function recordedRoom(options: { approvalRequired?: boolean; tools?: unkno
 }
 
 describe("MCP revision negotiation over the agent WebSocket", { timeout: 20_000 }, () => {
-  it("negotiates initialize and server/discover as the HTTP route does, when the provider answers them", async () => {
+  it("negotiates initialize and server/discover as the HTTP route does in a provider's room, whichever answers them", async () => {
     const { relay, roomId, clientToken, agent } = await providedRoom();
 
     for (const [requested, negotiated] of [["2025-06-18", "2025-06-18"], ["2024-11-05", "2024-11-05"], ["2026-07-28", "2025-11-25"], [undefined, "2025-11-25"]] as const) {
@@ -130,12 +130,13 @@ describe("MCP revision negotiation over the agent WebSocket", { timeout: 20_000 
       expect(http.body?.result).toMatchObject({ protocolVersion: negotiated, capabilities: HTTP_CAPABILITIES });
     }
 
+    // The relay holds the catalog the provider registered, so it answers server/discover itself.
     const discovered = await ask(agent, "discover", { method: "server/discover", params: { protocolVersion: "2025-03-26" } });
     expect(discovered.message.result).toMatchObject({
       protocolVersion: "2025-03-26",
       supportedProtocolVersions: [...MCP_INITIALIZE_PROTOCOL_VERSIONS],
       capabilities: WS_CAPABILITIES,
-      serverInfo: { name: "routing-host", version: "9.9.9" },
+      serverInfo: { name: relay.server.serverName, version: relay.server.serverVersion },
       tools: [tool("echo")],
     });
     const http = await postMcp(relay, roomId, { jsonrpc: "2.0", id: 1, method: "server/discover", params: { protocolVersion: "2025-03-26" } }, clientToken);
@@ -276,28 +277,37 @@ describe("metadata requests over the agent WebSocket", { timeout: 20_000 }, () =
 
 describe("catalog stamps over the agent WebSocket", { timeout: 20_000 }, () => {
   it("stamps a forwarded listing in result._meta, keeping the provider's own _meta members", async () => {
-    const { relay, room, provider, agent } = await recordedRoom({ tools: [] });
-    provider.send({ type: "register", tools: [tool("a")] });
-    await until(() => relay.server.rooms.get(room.id)?.cachedTools, Boolean, "registered catalog");
-    const entry = relay.server.rooms.get(room.id)!;
-    const stamp = { catalogVersion: 1, catalogHash: entry.catalogHash };
-    provider.ws.addEventListener("message", (event) => {
-      const frame = JSON.parse(String(event.data)) as Frame;
-      if (frame.type !== "mcp" || frame.message?.method !== "tools/list") return;
-      provider.send({ type: "mcp", message: { jsonrpc: "2.0", id: frame.message.id, result: { tools: [tool("a")], _meta: { page: "all" } } } });
-    });
+    // The relay passes a listing on only while it holds no catalog, and then takes its catalog: each
+    // case is a room of its own.
+    const listedRoom = async () => {
+      const { relay, room, provider, agent } = await recordedRoom({ tools: [] });
+      provider.ws.addEventListener("message", (event) => {
+        const frame = JSON.parse(String(event.data)) as Frame;
+        if (frame.type !== "mcp" || frame.message?.method !== "tools/list") return;
+        provider.send({ type: "mcp", message: { jsonrpc: "2.0", id: frame.message.id, result: { tools: [tool("a")], _meta: { page: "all" } } } });
+      });
+      const stamp = () => ({ catalogVersion: 1, catalogHash: relay.server.rooms.get(room.id)!.catalogHash });
+      return { agent, stamp };
+    };
 
     // Where every HTTP listing has it, whether or not the agent sent _meta.
-    expect((await ask(agent, "plain", { method: "tools/list", params: {} })).message.result).toEqual({
+    const plain = await listedRoom();
+    expect((await ask(plain.agent, "plain", { method: "tools/list", params: {} })).message.result).toEqual({
       tools: [tool("a")],
-      _meta: { page: "all", ...stamp },
+      _meta: { page: "all", ...plain.stamp() },
     });
     // An agent that sent _meta also gets the stamp at the top of the result (deprecated).
-    expect((await ask(agent, "meta", { method: "tools/list", params: { _meta: {} } })).message.result).toEqual({
+    const meta = await listedRoom();
+    expect((await ask(meta.agent, "meta", { method: "tools/list", params: { _meta: {} } })).message.result).toEqual({
       tools: [tool("a")],
-      ...stamp,
-      _meta: { page: "all", ...stamp },
+      ...meta.stamp(),
+      _meta: { page: "all", ...meta.stamp() },
     });
+    // The catalog is the relay's from then on: it answers the next listing itself, as an HTTP
+    // agent's, with the stamp in its listing metadata.
+    const relayListing = (await ask(meta.agent, "again", { method: "tools/list", params: {} })).message.result;
+    expect(relayListing).toMatchObject({ tools: [tool("a")], _meta: meta.stamp() });
+    expect(relayListing._meta).not.toHaveProperty("page");
   });
 });
 

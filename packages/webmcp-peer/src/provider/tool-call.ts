@@ -7,6 +7,7 @@ import { peerRpcError } from "../config/errors.js";
 import { isJsonObject } from "../config/json.js";
 import { PEER_RELAY_MAX_MESSAGE_BYTES, utf8ByteLength } from "../config/limits.js";
 import type { AiRunPhase } from "./ai-run-controller.js";
+import { MAX_DATA_CHANNEL_FRAME_CHARS } from "./wire-schemas.js";
 
 export type JsonRpcId = string | number | null;
 /** The id of a JSON-RPC request: a string or a number, never null (MCP: an id MUST NOT be null). */
@@ -224,12 +225,45 @@ export interface RelayMcpReply {
   readonly oversizeBytes?: number;
 }
 
+/** A serialized `{ type: "mcp", message }` reply for the DataChannel (see {@link encodeDataChannelMcpReply}). */
+export interface DataChannelMcpReply {
+  /** The frame to send; undefined when not even the replacement error fits the limit. */
+  readonly frame: string | undefined;
+  /** The original reply's length in UTF-16 code units, when it was over the limit and was replaced. */
+  readonly oversizeCodeUnits?: number;
+}
+
+/**
+ * The reply that replaces `response` to `request` when it is too large to send, so the agent gets
+ * an answer it can read: for tools/call an `isError` result with code RESULT_TOO_LARGE (the tool did
+ * run; only its result is lost), for any other method the JSON-RPC error RESULT_TOO_LARGE with the
+ * limit as `data`. `size` says how large the reply is, against which limit.
+ */
+function oversizedReplyReplacement(
+  request: unknown,
+  response: ProviderRpcResponse,
+  size: string,
+  data: Readonly<Record<string, number>>,
+): ProviderRpcResponse {
+  const params = isJsonObject(request) && isJsonObject(request.params) ? request.params : undefined;
+  const isToolCall = isJsonObject(request) && request.method === "tools/call" && response.result !== undefined;
+  return isToolCall
+    ? {
+        jsonrpc: "2.0",
+        id: response.id,
+        result: toolErrorResult({
+          code: "RESULT_TOO_LARGE",
+          message: `The result of tool "${nonEmptyString(params?.name) ?? "unknown"}" is ${size}; the tool ran but its result was not delivered`,
+        }),
+      }
+    : { jsonrpc: "2.0", id: response.id, error: peerRpcError("RESULT_TOO_LARGE", data) };
+}
+
 /**
  * Serializes a reply to a relayed request for the relay WebSocket. A reply over `maxBytes` would
- * make the relay close the provider socket, so it is replaced by a small error the agent can read:
- * for tools/call an `isError` result with code RESULT_TOO_LARGE (the tool did run; only its result
- * is lost), for any other method the JSON-RPC error RESULT_TOO_LARGE with the limit as
- * `data.limitBytes`, as the relay sends it.
+ * make the relay close the provider socket, so it is replaced by a small error the agent can read
+ * (see {@link oversizedReplyReplacement}), whose JSON-RPC error has the limit as `data.limitBytes`,
+ * as the relay sends it.
  */
 export function encodeRelayMcpReply(
   request: unknown,
@@ -239,19 +273,36 @@ export function encodeRelayMcpReply(
   const frame = JSON.stringify({ type: "mcp", message: response });
   const bytes = utf8ByteLength(frame);
   if (bytes <= maxBytes) return { frame };
-  const params = isJsonObject(request) && isJsonObject(request.params) ? request.params : undefined;
-  const isToolCall = isJsonObject(request) && request.method === "tools/call" && response.result !== undefined;
-  const limit = `${bytes} bytes, over the relay's ${maxBytes}-byte message limit`;
-  const replacement: ProviderRpcResponse = isToolCall
-    ? {
-        jsonrpc: "2.0",
-        id: response.id,
-        result: toolErrorResult({
-          code: "RESULT_TOO_LARGE",
-          message: `The result of tool "${nonEmptyString(params?.name) ?? "unknown"}" is ${limit}; the tool ran but its result was not delivered`,
-        }),
-      }
-    : { jsonrpc: "2.0", id: response.id, error: peerRpcError("RESULT_TOO_LARGE", { limitBytes: maxBytes }) };
+  const replacement = oversizedReplyReplacement(
+    request,
+    response,
+    `${bytes} bytes, over the relay's ${maxBytes}-byte message limit`,
+    { limitBytes: maxBytes },
+  );
   const fallback = JSON.stringify({ type: "mcp", message: replacement });
   return { frame: utf8ByteLength(fallback) <= maxBytes ? fallback : undefined, oversizeBytes: bytes };
+}
+
+/**
+ * Serializes a reply to a DataChannel request. The provider sends a DataChannel message in at most
+ * `MAX_DATA_CHANNEL_CHUNKS` chunks, the most an agent of the same framing takes, so a reply over
+ * `maxCodeUnits` (`MAX_DATA_CHANNEL_FRAME_CHARS`) could not be sent whole; it is replaced as one
+ * over the relay limit is (see {@link oversizedReplyReplacement}), with the limit as
+ * `data.limitCodeUnits`: the DataChannel framing measures UTF-16 code units, not bytes.
+ */
+export function encodeDataChannelMcpReply(
+  request: unknown,
+  response: ProviderRpcResponse,
+  maxCodeUnits = MAX_DATA_CHANNEL_FRAME_CHARS,
+): DataChannelMcpReply {
+  const frame = JSON.stringify({ type: "mcp", message: response });
+  if (frame.length <= maxCodeUnits) return { frame };
+  const replacement = oversizedReplyReplacement(
+    request,
+    response,
+    `${frame.length} UTF-16 code units, over the DataChannel's ${maxCodeUnits}-code-unit message limit`,
+    { limitCodeUnits: maxCodeUnits },
+  );
+  const fallback = JSON.stringify({ type: "mcp", message: replacement });
+  return { frame: fallback.length <= maxCodeUnits ? fallback : undefined, oversizeCodeUnits: frame.length };
 }

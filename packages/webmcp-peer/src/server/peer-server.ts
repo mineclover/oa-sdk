@@ -113,12 +113,13 @@ const MAX_PENDING_REQUESTS_PER_SOCKET = PEER_RELAY_MAX_PENDING_REQUESTS;
  */
 const MAX_CLIENT_SOCKETS_PER_TICKET = 4;
 /**
- * How many `register` frames that change nothing the relay evaluates for one room at once: those
- * it refuses (CATALOG_INVALID, CATALOG_TOO_LARGE) and those that carry the catalog the room already
- * holds. Evaluating a catalog (normalizing, hashing and measuring it) costs far more than receiving
- * it, so a provider that kept sending such frames would otherwise spend relay CPU at the rate it
- * sends. One more is allowed every REGISTER_EVALUATION_INTERVAL_MS, up to this many; a frame that
- * changes the catalog is evaluated whenever one is allowed and uses none (see `receiveRegister`).
+ * How many `register` frames the relay evaluates for one room at once, whatever their outcome: a
+ * catalog it refuses (CATALOG_INVALID, CATALOG_TOO_LARGE), the catalog the room already holds, or a
+ * new one it takes. Evaluating a catalog (normalizing, hashing and measuring it) costs far more than
+ * receiving it, and taking one also versions it and broadcasts it to every agent, so a provider that
+ * kept sending frames, alternating two catalogs included, would otherwise spend relay CPU at the
+ * rate it sends. One more is allowed every REGISTER_EVALUATION_INTERVAL_MS, up to this many (see
+ * `receiveRegister`).
  */
 const REGISTER_EVALUATION_BURST = 8;
 /** How often one more `register` evaluation is allowed once REGISTER_EVALUATION_BURST is used up. */
@@ -130,6 +131,16 @@ const REGISTER_EVALUATION_INTERVAL_MS = 1_000;
  * `approval.*`, `register`, ...) into the provider's signaling channel.
  */
 const CLIENT_SIGNALING_FRAME_TYPES: ReadonlySet<string> = new Set(['offer']);
+
+/**
+ * Non-MCP frame types a provider socket may relay to an agent: the answers to an agent's `offer`,
+ * which go to the socket that sent it (see `deliverOfferOutcome`). With the provider's JSON-RPC
+ * notifications and requests (`mcp`), these are all a provider can pass on: every other type is
+ * dropped, so a provider can never inject relay-authored frames (`ready`, `error`, `session.*`,
+ * `room.*`, `approval.*`, ...) into an agent's channel either. The relay alone tells an agent the
+ * state of its session.
+ */
+const PROVIDER_SIGNALING_FRAME_TYPES: ReadonlySet<string> = new Set(['answer', 'release']);
 
 /** The status a ticket ends with (see `WebMcpPeerServer.closeClientTicket`). */
 type TicketEndStatus = Extract<ClientSessionStatus, 'rejected' | 'revoked' | 'room-rotated' | 'expired'>;
@@ -190,6 +201,33 @@ const REQUEST_ID_TOO_LARGE_ERROR: RpcErrorBody = peerRpcError('REQUEST_ID_TOO_LA
 const TOO_MANY_PENDING_REQUESTS_ERROR: RpcErrorBody = peerRpcError('TOO_MANY_PENDING_REQUESTS', { limit: MAX_PENDING_REQUESTS_PER_SOCKET });
 /** An MCP request whose body a `customHttpHandler` (or another reader) consumed before the relay. */
 const BODY_CONSUMED_ERROR: RpcErrorBody = peerRpcError('BODY_CONSUMED');
+/**
+ * The most offers one agent WebSocket may have waiting for the provider's `answer`. An offer makes
+ * the provider negotiate a peer connection (apply the offer, create an answer, gather ICE), so an
+ * agent offers again only once the last one was answered or refused.
+ */
+const MAX_PENDING_OFFERS_PER_SOCKET = 1;
+/** An offer from an agent socket whose previous offer still waits for the provider's answer. */
+const TOO_MANY_PENDING_OFFERS_ERROR: RpcErrorBody = peerRpcError('TOO_MANY_PENDING_REQUESTS', { limit: MAX_PENDING_OFFERS_PER_SOCKET });
+
+/**
+ * The offer an agent WebSocket last had forwarded to the provider (see `forwardOffer`): its
+ * `requestId`, which the provider's `answer` and `release` repeat and which routes them to this
+ * socket alone, and, while the provider has not answered it, the timer that refuses it after
+ * `mcpRequestTimeoutMs`.
+ */
+interface OfferRoute {
+  readonly requestId: string;
+  timer?: ReturnType<typeof setTimeout>;
+}
+
+/**
+ * True for a JSON-RPC message that is not a reply: `jsonrpc: '2.0'` with a string `method`, a
+ * notification or a request. A provider's such message is news for the room's agents.
+ */
+function isRpcCallMessage(value: unknown): value is Record<string, unknown> {
+  return isJsonObject(value) && value.jsonrpc === '2.0' && typeof value.method === 'string';
+}
 
 /**
  * What the relay did with a catalog a provider sent; see `acceptProviderCatalog`. `unchanged` is a
@@ -241,7 +279,7 @@ interface ProviderRegister {
 
 /** What the relay keeps about one room's `register` frames (see `WebMcpPeerServer.receiveRegister`). */
 interface RegisterState {
-  /** Evaluations of frames that change nothing allowed now, refilling continuously (so fractional). */
+  /** Evaluations allowed now, refilling continuously (so fractional). */
   tokens: number;
   /** When `tokens` was brought up to date, in `performance.now()` milliseconds. */
   updatedAt: number;
@@ -487,22 +525,28 @@ const AGENT_OUTBOX_RETRY_MS = 1_000;
  * What the relay sends one agent WebSocket (`peer`, upgraded from `raw`).
  *
  * A frame the agent asked for (a reply to one of its requests, the provider's or the relay's own;
- * the state of its approval; the refusal of its offer) is never dropped, and never closes the
- * socket, because the agent's outbound queue is full: an agent that pipelines calls may ask for far
- * more than the queue holds (MAX_PENDING_REQUESTS_PER_SOCKET replies of up to the message limit
- * each), and one that reads is not at fault. The frame waits here instead, in order with every frame
- * after it, and goes out as the agent reads. While frames wait:
+ * the state of its approval; the answer or refusal of its offer) is never dropped, and never
+ * closes the socket, because the agent's outbound queue is full: an agent that pipelines calls may
+ * ask for far more than the queue holds (MAX_PENDING_REQUESTS_PER_SOCKET replies of up to the
+ * message limit each), and one that reads is not at fault. The frame waits here instead, in order
+ * with every frame after it, and goes out as the agent reads. While frames wait:
  * - the relay reads nothing more from the agent, so one that does not read cannot make the relay
  *   answer (and hold) more than it already asked for;
  * - each waiting reply to one of the agent's requests (`isAgentReplyFrame`) counts toward the
  *   agent's MAX_PENDING_REQUESTS_PER_SOCKET, so at most that many of the provider's replies, each
  *   within the message limit, wait for one socket. The other frames that wait (the state of its
- *   approval, `ready`, an `offer.refused`) answer no request the agent counts, so they do not count:
- *   counted, they would make the relay refuse a request the agent rightly sent as its 64th;
+ *   approval, `ready`, the answer or refusal of its offer, the end of its session) answer no request
+ *   the agent counts, so they do not count: counted, they would make the relay refuse a request the
+ *   agent rightly sent as its 64th;
  * - the oldest one is offered to the socket again when its queue drains and every
  *   AGENT_OUTBOX_RETRY_MS, so a refusal keeps the codec's stall close armed.
  * The only close a full queue causes is the codec's: an agent that reads nothing for
  * `WEBSOCKET_STALLED_OUTBOUND_TIMEOUT_MS` is closed with 1013, and what waits for it is dropped.
+ *
+ * The relay ends an agent's session through here too (see `closeAfterFlush`): the frame that tells
+ * why (`approval.rejected`, `approval.expired`, `session.revoked`, `room.rotated`, `room.expired`)
+ * waits behind what the agent asked for before it, a provider's reply to a call that ran included,
+ * and the socket closes once all of it has gone out.
  *
  * A frame the agent did not ask for is `offer`ed instead, and skipped for an agent that is behind.
  */
@@ -511,6 +555,8 @@ class AgentOutbox {
   private readonly waiting: Array<{ frame: unknown; reply: boolean }> = [];
   private waitingReplyCount = 0;
   private retryTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Set by `closeAfterFlush`: the socket closes with `code` once nothing waits. */
+  private closing: { readonly code?: number } | undefined;
 
   constructor(private readonly peer: PeerSocket, private readonly raw: Duplex) {}
 
@@ -526,8 +572,10 @@ class AgentOutbox {
    * Sends `frame` if nothing waits and the outbound queue takes it; otherwise queues it behind the
    * frames already waiting (`queued`). `too-large` and `closed` are what `PeerSocket.send` reports
    * for a frame it would never send: nothing is sent or queued, and the caller can still answer it.
+   * A socket that is closing (see `closeAfterFlush`) takes nothing more: `closed`.
    */
   deliver(frame: unknown): AgentDelivery {
+    if (this.closing) return 'closed';
     if (this.waiting.length === 0) {
       const sent = this.peer.send(frame);
       if (sent !== 'busy') return sent;
@@ -548,9 +596,24 @@ class AgentOutbox {
    * agent is behind: the frame is skipped for it (`busy`) and its socket stays open.
    */
   offer(frame: unknown, bytes: number): PeerSendResult {
+    if (this.closing) return 'closed';
     if (this.waiting.length > 0) return 'busy';
     if (this.raw.writableLength + bytes + MAX_MESSAGE_HEADER_BYTES > MAX_UNREQUESTED_QUEUE_BYTES) return 'busy';
     return this.peer.send(frame);
+  }
+
+  /**
+   * Closes the socket with `code` (1000 when omitted) once every frame waiting for the agent has
+   * gone out, at once when none waits, and takes no frame after it. So the frame that ends the
+   * agent's session, delivered just before, reaches the agent after everything it asked for and
+   * just before the close, instead of being refused for a full queue or overtaking the replies
+   * that wait. An agent that reads nothing meanwhile is closed by the codec after
+   * `WEBSOCKET_STALLED_OUTBOUND_TIMEOUT_MS` as before, and what waits for it is dropped.
+   */
+  closeAfterFlush(code?: number): void {
+    if (this.closing) return;
+    this.closing = { code };
+    if (this.waiting.length === 0) this.peer.close(code);
   }
 
   /** Drops what waits once the socket has stopped, and lets the connection finish closing. */
@@ -575,7 +638,10 @@ class AgentOutbox {
     this.retryTimer = undefined;
   }
 
-  /** Sends what waits, in order, until the queue is full again; then reads from the agent again. */
+  /**
+   * Sends what waits, in order, until the queue is full again; then reads from the agent again, or,
+   * for a socket that is closing, closes it after the last frame.
+   */
   private readonly flush = (): void => {
     this.stopRetrying();
     while (this.waiting.length > 0) {
@@ -590,6 +656,8 @@ class AgentOutbox {
       }
       if (this.waiting.shift()!.reply) this.waitingReplyCount -= 1;
     }
+    if (this.closing) this.peer.close(this.closing.code);
+    // Read again: a closed connection finishes closing once the agent's close frame is read.
     this.raw.resume();
   };
 }
@@ -634,6 +702,13 @@ export class WebMcpPeerServer {
   private readonly approvalDeliveries = new WeakMap<PendingApprovalRequest, PeerSocket>();
   /** The outbox of every agent WebSocket the relay accepted (see `replyToAgent`). */
   private readonly agentOutboxes = new WeakMap<PeerSocket, AgentOutbox>();
+  /**
+   * The agent WebSockets the relay took out of their room and closes once what waits for them has
+   * gone out (see `closeAgentSocket`); the relay's own `close` closes them at once.
+   */
+  private readonly closingAgentSockets = new Set<PeerSocket>();
+  /** The offer each agent WebSocket last had forwarded (see `forwardOffer`). */
+  private readonly offerRoutes = new WeakMap<PeerSocket, OfferRoute>();
   /** What the relay keeps about each room's `register` frames (see `receiveRegister`). */
   private readonly registerStates = new WeakMap<RoomEntry, RegisterState>();
 
@@ -747,6 +822,7 @@ export class WebMcpPeerServer {
         room.providerSocket?.close();
         for (const cs of room.clientSockets) cs.close();
       }
+      for (const socket of [...this.closingAgentSockets]) socket.close();
       this.rooms.clear();
       try { this.ownedSqliteRateLimitStore?.close(); } catch { /* already closed */ }
       this.server.close((err) => (err ? reject(err) : resolveClose()));
@@ -985,11 +1061,11 @@ export class WebMcpPeerServer {
 
   /**
    * Sends an agent socket `frame`, the answer to something the agent asked for: a reply to its
-   * request (the provider's or the relay's own), the state of its approval, or the refusal of its
-   * offer. Such a frame is never dropped and never closes the socket for a full outbound queue: an
-   * agent WebSocket that is behind gets it, in order, once it has read what was sent before it
-   * (see `AgentOutbox`), so a reading agent that pipelines calls gets every reply. The HTTP bridge
-   * gets it in its HTTP response.
+   * request (the provider's or the relay's own), the state of its approval and the end of its
+   * session, the provider's answer to its offer, or the refusal of its offer. Such a frame is never
+   * dropped and never closes the socket for a full outbound queue: an agent WebSocket that is behind
+   * gets it, in order, once it has read what was sent before it (see `AgentOutbox`), so a reading
+   * agent that pipelines calls gets every reply. The HTTP bridge gets it in its HTTP response.
    */
   protected replyToAgent(socket: PeerSocket, frame: unknown): AgentDelivery {
     const outbox = this.agentOutboxes.get(socket);
@@ -997,18 +1073,155 @@ export class WebMcpPeerServer {
   }
 
   /**
-   * Sends `frame`, which no agent asked for (a catalog announcement, `list_changed`, a provider's
-   * notification), to every agent socket of the room that has room for it: an agent that is behind
-   * skips it and keeps its socket, and what it skips never takes the room a reply it asked for
-   * needs (see `AgentOutbox.offer`).
+   * Closes an agent WebSocket the relay took out of its room, with `code` (1000 when omitted), once
+   * what waits for it has gone out: the frame that ends its session, delivered just before with
+   * `replyToAgent`, and the replies it asked for before that (see `AgentOutbox.closeAfterFlush`).
    */
-  protected broadcastToAgents(entry: RoomEntry, frame: unknown): void {
+  protected closeAgentSocket(socket: PeerSocket, code?: number): void {
+    const outbox = this.agentOutboxes.get(socket);
+    if (!outbox) {
+      socket.close(code);
+      return;
+    }
+    this.closingAgentSockets.add(socket);
+    outbox.closeAfterFlush(code);
+  }
+
+  /**
+   * Takes the agent WebSocket `socket` out of the room `entry`: it is no longer the room's or its
+   * ticket's, gets no broadcast, and the offer it had forwarded is forgotten, so a late `answer` or
+   * `release` is dropped.
+   */
+  protected detachClientSocket(entry: RoomEntry, socket: PeerSocket): void {
+    entry.clientSockets.delete(socket);
+    entry.clientSocketTickets.delete(socket);
+    this.dropOfferRoute(socket);
+  }
+
+  /**
+   * Sends `frame`, which no agent asked for (a catalog announcement, `list_changed`, a provider's
+   * notification), to every agent socket of the room that has room for it, or with `approvedOnly`
+   * only to the sockets of an approved ticket: an agent that is behind skips it and keeps its
+   * socket, and what it skips never takes the room a reply it asked for needs (see
+   * `AgentOutbox.offer`).
+   */
+  protected broadcastToAgents(entry: RoomEntry, frame: unknown, { approvedOnly = false }: { approvedOnly?: boolean } = {}): void {
     if (entry.clientSockets.size === 0) return;
     const bytes = utf8ByteLength(JSON.stringify(frame));
     for (const socket of entry.clientSockets) {
+      if (approvedOnly && entry.clientSocketTickets.get(socket)?.status !== 'approved') continue;
       const outbox = this.agentOutboxes.get(socket);
       if (outbox) outbox.offer(frame, bytes);
       else socket.send(frame);
+    }
+  }
+
+  /**
+   * Forwards the `offer` frame `msg` (received as `text`) of the approved ticket `ticket` from its
+   * agent WebSocket `socket` to the room's provider, stamped like a request (R-SIG-005), or refuses
+   * it with `offer.refused`. An offer names, as `requestId`, a non-empty string of at most
+   * MAX_RPC_ID_BYTES of JSON, which the provider's `answer` and `release` repeat; one without it
+   * could not be matched to its answer (INVALID_REQUEST), one longer could not be answered within
+   * the relay's message limit (REQUEST_ID_TOO_LARGE), and neither echoes the requestId. A socket has
+   * at most MAX_PENDING_OFFERS_PER_SOCKET offer waiting for an answer, and a requestId routes to one
+   * socket of the room (DUPLICATE_REQUEST_ID). Like a request, an offer over the request limit, or
+   * one the provider cannot take now, is refused with the error a request gets. A forwarded offer
+   * the provider has not answered within `mcpRequestTimeoutMs` is refused with MCP_REQUEST_TIMEOUT.
+   */
+  protected forwardOffer(entry: RoomEntry, socket: PeerSocket, ticket: ClientSessionTicket, text: string, msg: Record<string, unknown>): void {
+    const refuse = (error: RpcErrorBody, requestId?: string): void => {
+      this.replyToAgent(socket, { type: 'offer.refused', ...(requestId !== undefined ? { requestId } : {}), error });
+    };
+    const requestId = msg.requestId;
+    if (typeof requestId !== 'string' || !requestId) {
+      refuse(peerRpcError('INVALID_REQUEST'));
+      return;
+    }
+    if (isOversizedEchoedId(requestId)) {
+      refuse(REQUEST_ID_TOO_LARGE_ERROR);
+      return;
+    }
+    if (this.offerRoutes.get(socket)?.timer) {
+      refuse(TOO_MANY_PENDING_OFFERS_ERROR, requestId);
+      return;
+    }
+    const routed = this.offerSocket(entry, requestId);
+    if (routed && routed !== socket) {
+      refuse(peerRpcError('DUPLICATE_REQUEST_ID'), requestId);
+      return;
+    }
+    // An offer is forwarded on the agent's behalf like a request, under the same limit.
+    const sent = exceedsRequestLimit(text, msg)
+      ? 'too-large'
+      : entry.providerSocket?.send({ ...msg, from: 'client', sessionId: ticket.sessionId }) ?? 'closed';
+    if (sent !== 'sent') {
+      if (sent === 'closed') this.detachClosedProvider(entry);
+      // The offer's sender waits for an answer that will not come: it is told why, with the error
+      // a request would get (PROVIDER_BUSY is retryable).
+      refuse(unforwardedRpcError(sent), requestId);
+      return;
+    }
+    const route: OfferRoute = { requestId };
+    route.timer = setTimeout(() => {
+      if (this.offerRoutes.get(socket) !== route) return;
+      this.offerRoutes.delete(socket);
+      refuse(peerRpcError('MCP_REQUEST_TIMEOUT'), requestId);
+    }, this.mcpRequestTimeoutMs);
+    route.timer.unref?.();
+    this.dropOfferRoute(socket);
+    this.offerRoutes.set(socket, route);
+  }
+
+  /** The agent WebSocket of the room whose last forwarded offer is `requestId`, if any. */
+  protected offerSocket(entry: RoomEntry, requestId: string): PeerSocket | undefined {
+    for (const socket of entry.clientSocketTickets.keys()) {
+      if (this.offerRoutes.get(socket)?.requestId === requestId) return socket;
+    }
+    return undefined;
+  }
+
+  /** Forgets the offer `socket` last had forwarded, and stops its timer. */
+  protected dropOfferRoute(socket: PeerSocket): void {
+    clearTimeout(this.offerRoutes.get(socket)?.timer);
+    this.offerRoutes.delete(socket);
+  }
+
+  /**
+   * Passes the provider's `answer` or `release` frame `msg` on, unchanged, to the one agent
+   * WebSocket whose forwarded offer it names by `requestId` (see `forwardOffer`), as the reply to
+   * that offer; a frame that names no such offer (a late one, or one with another requestId) is
+   * dropped. The first `answer` settles the offer, so the socket may offer again and a second
+   * `answer` is dropped; `release`, sent once the agent took the session over the DataChannel,
+   * ends the route.
+   */
+  protected deliverOfferOutcome(entry: RoomEntry, msg: Record<string, unknown>): void {
+    if (typeof msg.requestId !== 'string') return;
+    const socket = this.offerSocket(entry, msg.requestId);
+    const route = socket ? this.offerRoutes.get(socket) : undefined;
+    if (!socket || !route) return;
+    if (msg.type === 'answer') {
+      if (!route.timer) return;
+      clearTimeout(route.timer);
+      route.timer = undefined;
+    } else {
+      this.dropOfferRoute(socket);
+    }
+    this.replyToAgent(socket, msg);
+  }
+
+  /**
+   * Refuses, with PROVIDER_DISCONNECTED, every offer of the room still waiting for the answer of
+   * the provider socket that went away, and forgets the room's answered offers, whose `release`
+   * cannot come any more.
+   */
+  protected failOffersForProvider(entry: RoomEntry): void {
+    for (const socket of entry.clientSocketTickets.keys()) {
+      const route = this.offerRoutes.get(socket);
+      if (!route) continue;
+      this.dropOfferRoute(socket);
+      if (route.timer) {
+        this.replyToAgent(socket, { type: 'offer.refused', requestId: route.requestId, error: peerRpcError('PROVIDER_DISCONNECTED') });
+      }
     }
   }
 
@@ -1148,15 +1361,17 @@ export class WebMcpPeerServer {
    * answers and is not passed on to agents); a frame with the catalog the room already holds is not
    * announced again (see `acceptProviderCatalog`).
    *
-   * Evaluating a frame is what costs, so a provider cannot make the relay spend CPU at the rate it
-   * sends frames that change nothing:
+   * Evaluating a frame is what costs, and taking a catalog also versions it and broadcasts it to
+   * every agent, so a provider cannot make the relay do either at the rate it sends frames:
    * - a frame that announces exactly what the last evaluated one did (all fields but `registerSeq`),
    *   while the room catalog is still the one that frame left, is not evaluated again: it gets the
    *   same answer, under its own `registerSeq`;
-   * - frames that change nothing are evaluated at most REGISTER_EVALUATION_BURST at once, then one
-   *   per REGISTER_EVALUATION_INTERVAL_MS. A frame that arrives while none is allowed waits until one
+   * - every other frame, whether the relay refuses it, finds the catalog unchanged or takes it, is
+   *   evaluated at most REGISTER_EVALUATION_BURST at once, then one per
+   *   REGISTER_EVALUATION_INTERVAL_MS. A frame that arrives while none is allowed waits until one
    *   is, and the provider's next frame replaces it unevaluated, so the latest catalog a provider
-   *   sends is always evaluated (it only waits longer for the answer) and nothing is refused for it.
+   *   sends is always evaluated and, when valid, announced (it only waits longer), and nothing is
+   *   refused for the rate.
    */
   private receiveRegister(entry: RoomEntry, sender: PeerSocket, msg: Record<string, unknown>): void {
     const { registerSeq, ...frame } = msg;
@@ -1202,11 +1417,10 @@ export class WebMcpPeerServer {
       state.waiting = { register, timer };
       return;
     }
-    // A frame that takes a new catalog gives its evaluation back; one that changes nothing, or whose
-    // evaluation throws, keeps it used.
+    // Every evaluation uses one, whatever its outcome (an evaluation that throws included): a frame
+    // that takes a new catalog costs the relay more, not less, than one that changes nothing.
     state.tokens -= 1;
     const outcome = this.acceptProviderCatalog(entry, register.frame.tools, register.frame);
-    if (outcome.kind === 'accepted') state.tokens += 1;
     const idle: IdleCatalogOutcome = outcome.kind === 'accepted' ? { kind: 'unchanged' } : outcome;
     state.last = { fingerprint: register.fingerprint, catalogVersion: entry.catalogVersion, catalogHash: entry.catalogHash, outcome: idle };
     if (outcome.kind === 'accepted') this.broadcastToAgents(entry, outcome.announcement);
@@ -1232,51 +1446,50 @@ export class WebMcpPeerServer {
 
   /**
    * The frame that answers an agent's request with the provider's reply `rpc` (from the frame
-   * `msg`), under the agent's own id. Only the reply to a whole-catalog listing, a `tools/list`
-   * without a cursor or a `server/discover` (see `PendingMcpRequest.listsCatalog`), offers the relay
-   * a catalog; any other reply, such as a `tools/call` result that happens to have `tools` or a page
-   * of a paginated listing, is forwarded and leaves the room catalog alone. A catalog the relay
-   * takes is forwarded stamped with the relay's `catalogVersion`/`catalogHash` in `result._meta`,
-   * where every HTTP listing result has them (the provider's own `_meta` members are kept), and, for
-   * an agent that sent `_meta`, also at the top of `result` (deprecated, see `catalogStamp`). A
-   * listing the relay does not pass on is answered from the catalog the relay holds, which is what
-   * an HTTP agent is listed (see `relayCatalogListing`):
-   * - a catalog the relay refuses (invalid, or over the announcement limit), since the relay would
-   *   not enforce it: an agent that adopted it would have every later call refused
-   *   (CATALOG_CHANGED, TOOL_NOT_FOUND);
-   * - an error, such as the CATALOG_UNAVAILABLE of a provider whose last catalog the relay refused,
-   *   or that has sent none since it reloaded, while the relay still holds (and enforces) one.
-   * While the relay holds no catalog, the agent gets the provider's error as it was sent, or the
-   * relay's refusal of the catalog as a JSON-RPC error.
+   * `msg`), under the agent's own id. Any reply but one to a whole-catalog listing, a `tools/list`
+   * without a cursor or a `server/discover` (see `PendingMcpRequest.listsCatalog`), is forwarded and
+   * leaves the room catalog alone, such as a `tools/call` result that happens to have `tools`.
+   *
+   * While the relay holds a catalog (the room's, or the deployment's), it answers a whole-catalog
+   * listing from it, whatever the provider replied, without evaluating the reply: that is the
+   * catalog the relay enforces (CATALOG_CHANGED, TOOL_NOT_FOUND) and lists to an HTTP agent (see
+   * `relayCatalogListing`), and a provider changes it with a `register` frame, whose evaluations
+   * the relay bounds (see `receiveRegister`), not by answering listings, which the relay could not
+   * bound without failing the agent's request.
+   *
+   * While the relay holds no catalog, the reply offers one: a catalog the relay takes is forwarded
+   * stamped with the relay's `catalogVersion`/`catalogHash` in `result._meta`, where every HTTP
+   * listing result has them (the provider's own `_meta` members are kept), and, for an agent that
+   * sent `_meta`, also at the top of `result` (deprecated, see `catalogStamp`); one it refuses
+   * (invalid, or over the announcement limit) is answered with the refusal as a JSON-RPC error, since
+   * an agent that adopted it would have every later call refused; a first page of a paginated
+   * listing, which is not the whole catalog, and an error are forwarded as they were sent.
    */
   protected agentReplyFrame(entry: RoomEntry, pending: PendingMcpRequest, msg: Record<string, unknown>, rpc: RpcResponse): Record<string, unknown> {
     const message = pending.wireId === pending.id ? rpc : { ...rpc, id: pending.id };
     const forwarded = pending.wireId === pending.id ? msg : { ...msg, message };
     if (!pending.listsCatalog) return forwarded;
-    let refusal: RpcErrorBody | undefined;
-    if (rpc.error === undefined) {
-      const result = this.isRecord(rpc.result) ? rpc.result : undefined;
-      // The first page of a paginated listing is not the whole catalog either.
-      if (result && result.nextCursor !== undefined && result.nextCursor !== null) return forwarded;
-      const outcome = this.acceptProviderCatalog(entry, result?.tools, { type: 'register' });
-      if (result && (outcome.kind === 'accepted' || outcome.kind === 'unchanged')) {
-        const stamp = this.catalogStamp(entry);
-        const meta = { ...(this.isRecord(result._meta) ? result._meta : {}), ...stamp };
-        return {
-          ...forwarded,
-          message: { ...message, result: { ...result, ...(pending.includeCatalogMeta ? stamp : {}), _meta: meta } },
-        };
-      }
-      refusal = outcome.kind === 'too-large'
-        ? peerRpcError('CATALOG_TOO_LARGE', { limitBytes: PEER_RELAY_MAX_ANNOUNCEMENT_BYTES, announcementBytes: outcome.announcementBytes })
-        : peerRpcError('CATALOG_INVALID');
-    }
     const snapshot = this.mcpCatalogSnapshot(entry);
     if (snapshot.available) {
       const listing = { ...pending, ticketStatus: pending.ticket?.status ?? 'not-joined' };
       return { type: 'mcp', message: { jsonrpc: '2.0', id: pending.id, result: this.relayCatalogListing(entry, listing, snapshot) } };
     }
-    return refusal ? { type: 'mcp', message: { jsonrpc: '2.0', id: pending.id, error: refusal } } : forwarded;
+    if (rpc.error !== undefined) return forwarded;
+    const result = this.isRecord(rpc.result) ? rpc.result : undefined;
+    if (result && result.nextCursor !== undefined && result.nextCursor !== null) return forwarded;
+    const outcome = this.acceptProviderCatalog(entry, result?.tools, { type: 'register' });
+    if (result && (outcome.kind === 'accepted' || outcome.kind === 'unchanged')) {
+      const stamp = this.catalogStamp(entry);
+      const meta = { ...(this.isRecord(result._meta) ? result._meta : {}), ...stamp };
+      return {
+        ...forwarded,
+        message: { ...message, result: { ...result, ...(pending.includeCatalogMeta ? stamp : {}), _meta: meta } },
+      };
+    }
+    const refusal = outcome.kind === 'too-large'
+      ? peerRpcError('CATALOG_TOO_LARGE', { limitBytes: PEER_RELAY_MAX_ANNOUNCEMENT_BYTES, announcementBytes: outcome.announcementBytes })
+      : peerRpcError('CATALOG_INVALID');
+    return { type: 'mcp', message: { jsonrpc: '2.0', id: pending.id, error: refusal } };
   }
 
   /**
@@ -1354,12 +1567,17 @@ export class WebMcpPeerServer {
     }
   }
 
+  /**
+   * Ends everything the room's provider socket, which went away, was to answer: every request in
+   * flight and every offer waiting for its answer, each with PROVIDER_DISCONNECTED.
+   */
   protected failPendingForProvider(entry: RoomEntry): void {
     for (const [key, pending] of entry.mcpPending) {
       clearTimeout(pending.timer);
       entry.mcpPending.delete(key);
       this.sendPeerRpcError(pending.socket, pending.id, 'PROVIDER_DISCONNECTED');
     }
+    this.failOffersForProvider(entry);
   }
 
   protected mcpCatalogCacheHeaders(catalogVersion: number, catalogHash: string): Record<string, string> {
@@ -1928,8 +2146,9 @@ export class WebMcpPeerServer {
 
   /**
    * Ends `request`, which nobody decided in time: it is removed, and `ticket`, if it still waits for
-   * it, ends as `expired`. Each client socket of the ticket gets `approval.expired` and is closed,
-   * and the room's provider socket gets the same frame, so the host takes the request down instead of
+   * it, ends as `expired`. Each client socket of the ticket is taken out of the room and gets
+   * `approval.expired`, after what it asked for before (see `closeAgentSocket`), then is closed; the
+   * room's provider socket gets the same frame, so the host takes the request down instead of
    * offering a decision the relay would refuse. The invite stays used: the room serves no other agent
    * until it is rotated.
    */
@@ -1952,10 +2171,9 @@ export class WebMcpPeerServer {
     };
     for (const [clientSocket, boundTicket] of entry.clientSocketTickets) {
       if (boundTicket !== ticket) continue;
-      clientSocket.send(frame);
-      clientSocket.close();
-      entry.clientSocketTickets.delete(clientSocket);
-      entry.clientSockets.delete(clientSocket);
+      this.detachClientSocket(entry, clientSocket);
+      this.replyToAgent(clientSocket, frame);
+      this.closeAgentSocket(clientSocket);
     }
     entry.providerSocket?.send(frame);
   }
@@ -2059,11 +2277,14 @@ export class WebMcpPeerServer {
   /**
    * Ends the ticket whose client token hashes to `tokenHash` (its key in `clientTickets`) as
    * `status`: rejected by the provider, revoked, or ended with its room by a rotation or the room's
-   * expiry (`expired`; see `expireRoom`). Each client socket of the ticket is told why with the frame
-   * of `TICKET_END_FRAMES` (a rotation's names the replacement room), its requests in flight get the
-   * same error an HTTP request of the room would (see `ticketClosedRpcError`), and it is closed. The
-   * requests the ticket authorized over HTTP end with the same error: they are bound to no socket of
-   * the ticket. One the provider already took may still run there; its late answer is dropped.
+   * expiry (`expired`; see `expireRoom`). Each client socket of the ticket is taken out of the room
+   * and told why with the frame of `TICKET_END_FRAMES` (a rotation's names the replacement room),
+   * its requests in flight get the same error an HTTP request of the room would (see
+   * `ticketClosedRpcError`), and it is closed. All of it goes through the socket's outbox (see
+   * `closeAgentSocket`): the replies already waiting for the agent, a result of a call that ran
+   * included, go out first, then the frame, then the errors, then the close. The requests the ticket
+   * authorized over HTTP end with the same error: they are bound to no socket of the ticket. One the
+   * provider already took may still run there; its late answer is dropped.
    *
    * A revocation is also told to the room's provider socket, with the same `session.revoked`: every
    * revocation is an HTTP request (the agent's own, or the host's made outside its socket), and a room
@@ -2106,13 +2327,10 @@ export class WebMcpPeerServer {
     const error = this.ticketClosedRpcError(entry, status);
     for (const [socket, boundTicket] of entry.clientSocketTickets) {
       if (boundTicket !== ticket) continue;
-      try {
-        socket.send(frame);
-      } catch {}
+      this.detachClientSocket(entry, socket);
+      this.replyToAgent(socket, frame);
       this.failPendingForSocket(entry, socket, error);
-      socket.close();
-      entry.clientSocketTickets.delete(socket);
-      entry.clientSockets.delete(socket);
+      this.closeAgentSocket(socket);
     }
     for (const [key, pending] of entry.mcpPending) {
       if (pending.ticket === ticket) this.clearPending(entry, key, error);
@@ -3221,9 +3439,20 @@ export class WebMcpPeerServer {
                 }
                 return;
               }
-              // Everything else the provider sends (a notification, a request to the agents) goes to
-              // every agent of the room, which did not ask for it: an agent that is behind skips it.
-              this.broadcastToAgents(entry, msg);
+              // A notification or a request to the agents goes to every agent the provider serves,
+              // the sockets of an approved ticket, which did not ask for it: an agent that is behind
+              // skips it. An `mcp` frame that carries no JSON-RPC message is dropped.
+              if (msg.type === 'mcp') {
+                if (isRpcCallMessage(msg.message)) this.broadcastToAgents(entry, msg, { approvedOnly: true });
+                return;
+              }
+              // The answer to an offer goes to the socket that sent it.
+              if (PROVIDER_SIGNALING_FRAME_TYPES.has(msg.type)) {
+                this.deliverOfferOutcome(entry, msg);
+                return;
+              }
+              // Anything else, a frame of the relay's own types included, is dropped: only the relay
+              // tells an agent the state of its session.
             } catch { /* malformed frames ignored */ }
           },
           () => {
@@ -3280,10 +3509,11 @@ export class WebMcpPeerServer {
           (text) => {
             try {
               // A socket the relay dropped from the room (revoked, replaced, never attached) is
-              // closed instead of acting on it. A frame that finds the room expired carries out its
-              // expiry, which tells this socket with `room.expired` and closes it.
+              // closed instead of acting on it, once what waits for it has gone out (one whose
+              // session ended is already closing so). A frame that finds the room expired carries
+              // out its expiry, which tells this socket with `room.expired` and closes it.
               if (!entry.clientSockets.has(peer)) {
-                peer.close();
+                this.closeAgentSocket(peer);
                 return;
               }
               if (this.expireRoomIfDue(entry)) return;
@@ -3409,35 +3639,17 @@ export class WebMcpPeerServer {
                 }
                 return;
               }
-              // Only approved clients relay signaling, and only the allow-listed types. The relay
-              // stamps the origin and the authoritative sessionId, so a client cannot forge either.
+              // Only approved clients relay signaling, and only the allow-listed types (an `ice`
+              // frame among the rest: the protocol has no trickle ICE). The relay stamps the origin
+              // and the authoritative sessionId, so a client cannot forge either.
               if (clientTicket.status !== 'approved' || !CLIENT_SIGNALING_FRAME_TYPES.has(msg.type)) return;
-              // The provider answers an offer under its requestId, so one over MAX_RPC_ID_BYTES would
-              // be forwarded for an answer the provider cannot fit in a relay message. It is refused
-              // as a request with such an id is, without echoing the id.
-              if (isOversizedEchoedId(msg.requestId)) {
-                this.replyToAgent(peer, { type: `${msg.type}.refused`, error: REQUEST_ID_TOO_LARGE_ERROR });
-                return;
-              }
-              // An offer is forwarded on the agent's behalf like a request, under the same limit.
-              const sent = exceedsRequestLimit(text, msg)
-                ? 'too-large'
-                : entry.providerSocket?.send({ ...msg, from: 'client', sessionId: clientTicket.sessionId }) ?? 'closed';
-              if (sent === 'sent') return;
-              if (sent === 'closed') this.detachClosedProvider(entry);
-              // The offer's sender waits for an answer that will not come: it is told why, under the
-              // offer's requestId, with the error a request would get (PROVIDER_BUSY is retryable).
-              this.replyToAgent(peer, {
-                type: `${msg.type}.refused`,
-                ...(typeof msg.requestId === 'string' ? { requestId: msg.requestId } : {}),
-                error: unforwardedRpcError(sent),
-              });
+              this.forwardOffer(entry, peer, clientTicket, text, msg);
             } catch { /* malformed frames ignored */ }
           },
           () => {
             this.agentOutboxes.get(peer)?.discard();
-            entry.clientSockets.delete(peer);
-            entry.clientSocketTickets.delete(peer);
+            this.closingAgentSockets.delete(peer);
+            this.detachClientSocket(entry, peer);
             this.failPendingForSocket(entry, peer);
           },
         );
@@ -3455,8 +3667,7 @@ export class WebMcpPeerServer {
         const excess = ticketSockets.length + 1 - MAX_CLIENT_SOCKETS_PER_TICKET;
         for (const stale of ticketSockets.slice(0, Math.max(0, excess))) {
           stale.close();
-          entry.clientSockets.delete(stale);
-          entry.clientSocketTickets.delete(stale);
+          this.detachClientSocket(entry, stale);
           this.failPendingForSocket(entry, stale);
         }
         entry.clientSockets.add(peer);

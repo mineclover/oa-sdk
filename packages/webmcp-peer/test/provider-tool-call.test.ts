@@ -23,7 +23,7 @@ import {
   createWebMcpPeerServer,
   type WebMcpPeerServer,
 } from "../src/server.js";
-import { FakeRelay, approve, callTool, installRelay, replyTo, until, type FakeRelaySocket } from "./provider-fakes.js";
+import { FakeRelay, approve, callTool, installRelay, relayStamp, replyTo, until, type FakeRelaySocket } from "./provider-fakes.js";
 
 const providers: WebMcpPeerClient[] = [];
 
@@ -162,7 +162,7 @@ describe("tools/call results follow the MCP CallToolResult shape", () => {
 describe("MCP requests the relay forwards", () => {
   /** Relays one request with `method` and `params` to the provider and returns its reply. */
   function relayed(socket: FakeRelaySocket, id: string | number | null, method: string, params: Record<string, unknown> = {}) {
-    socket.deliver({ type: "mcp", message: { jsonrpc: "2.0", id, method, params } });
+    socket.deliver({ type: "mcp", ...relayStamp(), message: { jsonrpc: "2.0", id, method, params } });
     return replyTo(socket, id as string | number);
   }
 

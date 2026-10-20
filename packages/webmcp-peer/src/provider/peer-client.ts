@@ -42,6 +42,7 @@ import {
 } from "./types.js";
 import {
   RELAY_MAX_MESSAGE_BYTES,
+  encodeDataChannelMcpReply,
   encodeRelayMcpReply,
   errorMessage,
   hostPayload,
@@ -57,7 +58,9 @@ import {
   type ProviderRpcResponse,
 } from "./tool-call.js";
 import {
+  DATA_CHANNEL_SEND_CHUNK_CHARS,
   DataChannelChunkSchema,
+  MAX_DATA_CHANNEL_FRAME_CHARS,
   PeerRoomDescriptorSchema,
   ProviderFrameSchema,
   SavedRoomLeaseSchema,
@@ -69,6 +72,25 @@ const CATALOG_INVALID_ERROR = "CATALOG_INVALID";
 const CATALOG_TOO_LARGE_ERROR = "CATALOG_TOO_LARGE";
 /** The relay's refusal of an `approval.decision`, and the session error a refusal of the host's latest one sets. */
 const INVALID_APPROVAL_ERROR = "INVALID_APPROVAL";
+/**
+ * The session error of an auto-reconnect whose saved room lease the relay refused: the room is gone,
+ * rotated or expired, or the lease is no longer its. Auto-reconnect stops there instead of opening a
+ * new room, which would leave the agent on the old one and hand out a new invite nobody asked for.
+ */
+const ROOM_LEASE_LOST_ERROR = "ROOM_LEASE_LOST";
+/** The localStorage key of the host's write consent (see `WebMcpPeerClient.setWriteEnabled`). */
+const WRITE_ENABLED_STORAGE_KEY = "webmcp:write-enabled";
+
+/**
+ * True for a reclaim status that refuses the lease itself, so that presenting it again cannot
+ * succeed: none was sent (400), it is not one the relay accepts (401, 403), the room is gone (404),
+ * it names another room epoch (409 other than ROOM_PROVIDER_ACTIVE), or the room expired, was
+ * rotated or outlived the lease (410). Any other failure (a 5xx, 408, 429) may pass.
+ */
+function refusesRoomLease(status: number, error: unknown): boolean {
+  if (status === 409) return error !== "ROOM_PROVIDER_ACTIVE";
+  return status === 400 || status === 401 || status === 403 || status === 404 || status === 410;
+}
 
 /** True for a session error that reports a catalog the relay will not serve. */
 function isCatalogError(error: string | null): boolean {
@@ -236,6 +258,12 @@ export class WebMcpPeerClient {
 
   private frameSeq = 0;
   /**
+   * The `requestId` of the agent's offer the provider last answered on the current peer connection,
+   * so the session of the DataChannel opened on it: its `grant` and the relay `release` repeat it,
+   * and the relay routes the release, as it did the answer, to the agent socket that offered.
+   */
+  private offerRequestId: string | null = null;
+  /**
    * The `registerSeq` of the latest catalog sync: the last `register` frame sent, or one withheld
    * as too large. The relay echoes it in a rejection, so a rejection of an older catalog is told apart.
    */
@@ -315,10 +343,10 @@ export class WebMcpPeerClient {
    * (a room that never had a catalog answers tools/list with CATALOG_UNAVAILABLE). This lasts until
    * a catalog that fits is synced.
    *
-   * The relay passes a WebSocket agent's tools/list and server/discover to the provider and takes
-   * the tools of the reply as a catalog announcement, so those requests are answered from the last
-   * frame sent here (see {@link relayCatalogTools}), never from the live host catalog: a withheld
-   * catalog cannot reach the relay or its agents that way either.
+   * The relay passes a WebSocket agent's tools/list and server/discover to the provider, and in a
+   * room that holds no catalog takes the tools of the reply as one, so those requests are answered
+   * from the last frame sent here (see {@link relayCatalogTools}), never from the live host catalog:
+   * a withheld catalog cannot reach the relay or its agents that way either.
    *
    * Subscribers are notified of every change this makes to the session error.
    */
@@ -360,11 +388,11 @@ export class WebMcpPeerClient {
 
   /**
    * The tools to answer a relay-forwarded tools/list or server/discover with: those of the last
-   * `register` frame sent to the current room, which is the catalog the relay holds. The relay
-   * takes the tools of that reply as a catalog announcement, so answering with the live host
-   * catalog would hand it a catalog withheld as too large: the relay would adopt it, or (over its
-   * announcement limit) refuse it and forward it unstamped, so the agent would hold a catalog the
-   * relay does not and every tools/call would fail with CATALOG_CHANGED.
+   * `register` frame sent to the current room, which is the catalog the relay holds. A relay that
+   * holds no catalog takes the tools of that reply as one, so answering with the live host catalog
+   * would hand it a catalog withheld as too large: the relay would adopt it, or refuse it, and the
+   * agent would be listed a catalog other than the one this provider registered (a relay that holds
+   * a catalog answers the listing from it, whatever the provider replies).
    *
    * There is nothing to answer with when no frame was sent to this room, or the relay refused the
    * last one; the request is then answered CATALOG_UNAVAILABLE, with the reason, as the relay
@@ -576,16 +604,35 @@ export class WebMcpPeerClient {
     return result;
   }
 
+  /**
+   * Sets the host's write consent and saves the state it reports, so that an auto-reconnect, which
+   * restores it (see {@link readAutoReconnectOptions}), enables writes only when the user did.
+   */
   setWriteEnabled(enabled: boolean): boolean {
     const res = this.resolveHostAdapter()?.setWriteEnabled?.(enabled);
+    const writeEnabled = res?.writeEnabled ?? enabled;
+    this.saveWriteEnabled(writeEnabled);
     this.notify();
-    return res?.writeEnabled ?? enabled;
+    return writeEnabled;
   }
 
+  /** Toggles the host's write consent and saves the state it reports, as {@link setWriteEnabled} does. */
   toggleWrite(): boolean {
     const res = this.resolveHostAdapter()?.toggleWrite?.();
+    const writeEnabled = res?.writeEnabled ?? false;
+    this.saveWriteEnabled(writeEnabled);
     this.notify();
-    return res?.writeEnabled ?? false;
+    return writeEnabled;
+  }
+
+  /**
+   * Saves the write consent as localStorage `webmcp:write-enabled` (`"true"` or `"false"`), the one
+   * key `connect()` and auto-reconnect read it from; nothing is saved outside a browser.
+   */
+  private saveWriteEnabled(enabled: boolean): void {
+    try {
+      if (typeof window !== "undefined") localStorage.setItem(WRITE_ENABLED_STORAGE_KEY, enabled ? "true" : "false");
+    } catch {}
   }
 
   clearError(): void {
@@ -597,25 +644,33 @@ export class WebMcpPeerClient {
   }
 
   /**
-   * Reconnects from the settings a previous `connect()` saved, reclaiming the saved room lease.
-   * Resolves false when auto-reconnect is suppressed, nothing is saved, or the connect failed.
+   * Reconnects to the room a previous `connect()` saved, reclaiming its saved room lease; it never
+   * opens a new room. Resolves false when auto-reconnect is suppressed, nothing is saved (no lease
+   * for the saved relay included), or the connect failed: with the session error ROOM_LEASE_LOST
+   * when the relay refused the lease.
    */
   async autoReconnectIfSaved(): Promise<boolean> {
     return (await this.attemptAutoReconnect()) === "connected";
   }
 
-  /** The connect options a previous `connect()` saved, or null when auto-reconnect must not run. */
+  /**
+   * The connect options a previous `connect()` saved, or null when auto-reconnect must not run: it
+   * is suppressed or turned off, or no relay or no room lease for it is saved. Auto-reconnect
+   * returns to the saved room, so with no lease there is nothing to return to; opening a new room
+   * is the host's own call. Writes are enabled only when the saved write consent is `"true"`, the
+   * rule `connect()` reads it by.
+   */
   private readAutoReconnectOptions(): WebMcpPeerConnectOptions | null {
     if (typeof window === "undefined" || this.shouldSuppressAutoReconnect(window.location ?? {})) return null;
     if (localStorage.getItem("webmcp:auto-reconnect") === "false") return null;
     const serverUrl = localStorage.getItem("webmcp:server-url");
-    if (!serverUrl) return null;
+    if (!serverUrl || !this.readSavedRoomLease(serverUrl)) return null;
     return {
       serverUrl,
       alias: localStorage.getItem("webmcp:peer-alias") || this.alias,
       publishKey: localStorage.getItem("webmcp:publish-key") || "local-development-only",
       autoReconnect: true,
-      enableWrite: localStorage.getItem("webmcp:write-enabled") !== "false",
+      enableWrite: localStorage.getItem(WRITE_ENABLED_STORAGE_KEY) === "true",
       enableCrdt: localStorage.getItem("webmcp:crdt-enabled") === "true",
       reclaimLease: true,
     };
@@ -623,9 +678,10 @@ export class WebMcpPeerClient {
 
   /**
    * One auto-reconnect attempt: "skipped" when auto-reconnect is suppressed or nothing is saved,
-   * "failed" when the connect itself failed, "connected" otherwise.
+   * "lease-lost" when the relay refused the saved lease (ROOM_LEASE_LOST: no room is opened and the
+   * attempts stop), "failed" when the connect failed otherwise, "connected" when it succeeded.
    */
-  private async attemptAutoReconnect(): Promise<"connected" | "skipped" | "failed"> {
+  private async attemptAutoReconnect(): Promise<"connected" | "skipped" | "failed" | "lease-lost"> {
     let options: WebMcpPeerConnectOptions | null;
     try {
       options = this.readAutoReconnectOptions();
@@ -634,14 +690,14 @@ export class WebMcpPeerClient {
       return "skipped";
     }
     if (!options) return "skipped";
-    if (options.enableWrite) this.setWriteEnabled(true);
     console.log(`[WebMCP] Auto-reconnecting peer '${options.alias}' to ${options.serverUrl}...`);
     try {
-      await this.connect(options);
+      await this.openRoom(options, false);
       return "connected";
     } catch (error) {
-      console.warn("[WebMCP] Auto-reconnect failed:", errorMessage(error, "connect failed"));
-      return "failed";
+      const message = errorMessage(error, "connect failed");
+      console.warn("[WebMCP] Auto-reconnect failed:", message);
+      return message === ROOM_LEASE_LOST_ERROR ? "lease-lost" : "failed";
     }
   }
 
@@ -665,9 +721,10 @@ export class WebMcpPeerClient {
 
   private async runScheduledReconnect(attempts: number): Promise<void> {
     const outcome = await this.attemptAutoReconnect();
-    // Retry only a genuine connect failure. A skipped attempt (auto-reconnect turned off, nothing
-    // saved), a manual disconnect ("idle") or a newer connect that superseded this one (it owns
-    // the state, or has already scheduled its own retry) must not restart the loop.
+    // Retry only a connect failure that may pass. A skipped attempt (auto-reconnect turned off,
+    // nothing saved), a lease the relay refused, a manual disconnect ("idle") or a newer connect
+    // that superseded this one (it owns the state, or has already scheduled its own retry) must not
+    // restart the loop.
     if (outcome !== "failed" || this.state !== "error" || !this.autoReconnect || this.reconnectTimer) return;
     // connect() -> disconnect() reset the counter; restore it so the backoff keeps growing.
     this.reconnectAttempts = attempts;
@@ -690,12 +747,21 @@ export class WebMcpPeerClient {
   }
 
   /**
-   * Creates a relay room (or, with `reclaimLease`, reclaims the saved one) and attaches the
-   * provider socket. Resolves to the invitation URL to hand to an agent
-   * (`<descriptorUrl>#invite=<token>`); the full session state is available from `getSession()`
-   * and `subscribe()`.
+   * Creates a relay room (or, with `reclaimLease`, reclaims the saved one, and creates a room when
+   * the relay refuses it) and attaches the provider socket. Resolves to the invitation URL to hand
+   * to an agent (`<descriptorUrl>#invite=<token>`); the full session state is available from
+   * `getSession()` and `subscribe()`.
    */
   async connect(options: WebMcpPeerConnectOptions): Promise<string> {
+    return this.openRoom(options, true);
+  }
+
+  /**
+   * `connect()`, which may create a room (`mayCreateRoom`), or, for auto-reconnect, may only
+   * reclaim the saved one: a lease the relay refuses, or none saved, then fails with
+   * ROOM_LEASE_LOST (see {@link tryReclaimSavedRoom}).
+   */
+  private async openRoom(options: WebMcpPeerConnectOptions, mayCreateRoom: boolean): Promise<string> {
     this.disconnect();
     const generation = ++this.connectionGeneration;
     this.signalingReleased = false;
@@ -715,7 +781,7 @@ export class WebMcpPeerClient {
     try {
       enableWrite =
         options.enableWrite ??
-        (typeof localStorage !== "undefined" ? localStorage.getItem("webmcp:write-enabled") === "true" : false);
+        (typeof localStorage !== "undefined" ? localStorage.getItem(WRITE_ENABLED_STORAGE_KEY) === "true" : false);
     } catch {
       enableWrite = options.enableWrite ?? false;
     }
@@ -748,8 +814,8 @@ export class WebMcpPeerClient {
     this.notify();
 
     try {
-      if (options.reclaimLease === true) {
-        const reclaimed = await this.tryReclaimSavedRoom(options, generation);
+      if (options.reclaimLease === true || !mayCreateRoom) {
+        const reclaimed = await this.tryReclaimSavedRoom(options, generation, mayCreateRoom);
         if (reclaimed) return reclaimed;
       }
 
@@ -797,9 +863,25 @@ export class WebMcpPeerClient {
     }
   }
 
-  private async tryReclaimSavedRoom(options: WebMcpPeerConnectOptions, generation: number): Promise<string | null> {
+  /**
+   * Reclaims the room of the lease saved for the current relay and attaches to it. Returns null to
+   * have a room created instead, when that is allowed (`mayCreateRoom`): no lease is saved, the
+   * relay refused it (see {@link refusesRoomLease}; the lease is then forgotten), or the reclaim
+   * failed otherwise. When it is not, as for auto-reconnect, no lease or a refused one fails with
+   * ROOM_LEASE_LOST, and any other failure with an error the next attempt may not get, the lease
+   * kept. A provider socket the relay still holds (409 ROOM_PROVIDER_ACTIVE) is waited for, four
+   * attempts 100, 200 and 300 ms apart, then fails with ROOM_PROVIDER_ACTIVE.
+   */
+  private async tryReclaimSavedRoom(
+    options: WebMcpPeerConnectOptions,
+    generation: number,
+    mayCreateRoom: boolean,
+  ): Promise<string | null> {
     const lease = this.readSavedRoomLease(this.serverUrl);
-    if (!lease || lease.serverUrl.replace(/\/+$/, "") !== this.serverUrl.replace(/\/+$/, "")) return null;
+    if (!lease || lease.serverUrl.replace(/\/+$/, "") !== this.serverUrl.replace(/\/+$/, "")) {
+      if (!mayCreateRoom) throw new Error(ROOM_LEASE_LOST_ERROR);
+      return null;
+    }
     for (let attempt = 0; attempt < 4; attempt++) {
       const response = await fetch(relayRoomUrl(this.serverUrl, lease.roomId, "/reclaim"), {
         method: "POST",
@@ -815,18 +897,20 @@ export class WebMcpPeerClient {
         const reclaimed = readRoomDescriptor(await readResponseText(response), "INVALID_RECLAIMED_ROOM_DESCRIPTOR");
         return this.attachCreatedRoom(reclaimed, options, generation);
       }
-      if (response.status === 409) {
-        const body = parseJsonObject(await readResponseText(response));
-        if (body.error === "ROOM_PROVIDER_ACTIVE" && attempt < 3) {
-          await new Promise((resolve) => setTimeout(resolve, 100 * (attempt + 1)));
-          continue;
-        }
-        if (body.error === "ROOM_PROVIDER_ACTIVE") throw new Error("ROOM_PROVIDER_ACTIVE");
+      const body = parseJsonObject(await readResponseText(response));
+      if (response.status === 409 && body.error === "ROOM_PROVIDER_ACTIVE") {
+        if (attempt === 3) throw new Error("ROOM_PROVIDER_ACTIVE");
+        await new Promise((resolve) => setTimeout(resolve, 100 * (attempt + 1)));
+        continue;
       }
-      // The lease cannot be used again: none was sent (400), it is wrong (403), the room is gone
-      // (404), or it expired, was rotated or outlived the lease (410).
-      if (response.status === 400 || response.status === 403 || response.status === 404 || response.status === 410) {
+      if (refusesRoomLease(response.status, body.error)) {
+        // The lease cannot be used again.
         this.clearSavedRoomLease(this.serverUrl);
+        if (!mayCreateRoom) throw new Error(ROOM_LEASE_LOST_ERROR);
+        return null;
+      }
+      if (!mayCreateRoom) {
+        throw new Error(nonEmptyString(body.error) ?? `HTTP ${response.status}: Failed to reclaim the peer room`);
       }
       return null;
     }
@@ -903,8 +987,6 @@ export class WebMcpPeerClient {
     iceServers?: RTCIceServer[],
     generation = this.connectionGeneration,
   ): void {
-    let activeRequestId = "";
-
     ws.onmessage = async (event) => {
       try {
         if (generation !== this.connectionGeneration) return;
@@ -919,7 +1001,9 @@ export class WebMcpPeerClient {
         }
 
         if (msg.type === "mcp" && msg.message) {
-          const rpcRes = await this.answerMcpRpc(msg.message, generation, "relay");
+          // The relay stamps every request it forwards with the session of the ticket that sent it.
+          const sessionId = typeof msg.sessionId === "string" ? msg.sessionId : undefined;
+          const rpcRes = await this.answerMcpRpc(msg.message, generation, "relay", sessionId);
           if (rpcRes && ws.readyState === WebSocket.OPEN) {
             // A reply over the relay's message limit would make it close this socket and drop
             // every agent of the room; it is answered with RESULT_TOO_LARGE instead.
@@ -942,9 +1026,8 @@ export class WebMcpPeerClient {
 
         if (msg.type === "approval.request") {
           const payload = isJsonObject(msg.payload) ? msg.payload : msg;
-          activeRequestId = nonEmptyString(payload.requestId) ?? nonEmptyString(msg.requestId) ?? "";
           this.clientLabel = nonEmptyString(payload.clientLabel) ?? "AI Agent";
-          this.approvalRequestId = activeRequestId || null;
+          this.approvalRequestId = nonEmptyString(payload.requestId) ?? nonEmptyString(msg.requestId) ?? null;
           this.approvalSessionId =
             typeof payload.sessionId === "string"
               ? payload.sessionId
@@ -976,7 +1059,7 @@ export class WebMcpPeerClient {
           // session (see adoptRelayApproval).
           if (this.approvalState === "approved") this.sentDecision = null;
           else if (!this.adoptRelayApproval(msg)) return;
-          this.setupPeerConnection(ws, nonEmptyString(msg.requestId) ?? activeRequestId, iceServers, generation);
+          this.setupPeerConnection(ws, iceServers, generation);
           return;
         }
 
@@ -1012,9 +1095,13 @@ export class WebMcpPeerClient {
 
         if (msg.type === "offer") {
           if (this.approvalState !== "approved") return;
-          const offerRequestId = nonEmptyString(msg.requestId) ?? activeRequestId;
+          // An offer is answered under its own requestId, as the relay requires one: the relay routes
+          // the answer, and the release that ends the relay session, to the agent socket that
+          // offered by it. An offer without one could not be matched to its answer, so it is ignored.
+          const offerRequestId = nonEmptyString(msg.requestId);
+          if (!offerRequestId) return;
           if (!this.pc) {
-            this.setupPeerConnection(ws, offerRequestId, iceServers, generation);
+            this.setupPeerConnection(ws, iceServers, generation);
           }
           const pc = this.pc;
           if (!pc) return;
@@ -1040,7 +1127,9 @@ export class WebMcpPeerClient {
             { type: "answer", requestId: offerRequestId, sdp: pc.localDescription?.sdp || answer.sdp },
             "answer",
           );
-          if (!answered && this.pc === pc) {
+          if (answered && this.pc === pc) {
+            this.offerRequestId = offerRequestId;
+          } else if (!answered && this.pc === pc) {
             // The answer was not sent (the offer's requestId takes it over the relay's limit, or the
             // socket refused it), so drop the half-negotiated connection: a later offer starts afresh.
             this.pc = undefined;
@@ -1200,6 +1289,7 @@ export class WebMcpPeerClient {
     } catch {}
     this.dataChannel = undefined;
     this.pc = undefined;
+    this.offerRequestId = null;
     this.ws = undefined;
     this.providerToken = null;
     this.framePending.clear();
@@ -1236,9 +1326,13 @@ export class WebMcpPeerClient {
     this.notify();
   }
 
+  /**
+   * Prepares a new RTCPeerConnection for the approved agent, closing the one before, for the agent's
+   * next offer. The DataChannel the agent opens on it is the session of the offer the provider
+   * answered on it (see {@link offerRequestId}).
+   */
   private setupPeerConnection(
     ws: WebSocket,
-    requestId: string,
     iceServers?: RTCIceServer[],
     generation = this.connectionGeneration,
   ): void {
@@ -1255,6 +1349,7 @@ export class WebMcpPeerClient {
       bundlePolicy: "max-bundle",
     });
     this.pc = pc;
+    this.offerRequestId = null;
 
     pc.ondatachannel = (event) => {
       const channel = event.channel;
@@ -1263,7 +1358,7 @@ export class WebMcpPeerClient {
       this.dataChannel = channel;
 
       channel.onmessage = (e) => {
-        this.handleDataChannelFrame(channel, ws, requestId, e.data, generation);
+        this.handleDataChannelFrame(channel, ws, e.data, generation);
       };
 
       channel.onclose = () => {
@@ -1279,7 +1374,6 @@ export class WebMcpPeerClient {
   private handleDataChannelFrame(
     channel: RTCDataChannel,
     ws: WebSocket,
-    requestId: string,
     rawData: unknown,
     generation = this.connectionGeneration,
   ): void {
@@ -1310,7 +1404,7 @@ export class WebMcpPeerClient {
         this.framePending.delete(frame.id);
         const fullText = pending.parts.join("");
         const msg = ProviderFrameSchema.parse(JSON.parse(fullText));
-        void this.handlePeerMessage(channel, ws, requestId, msg, generation).catch((error) => {
+        void this.handlePeerMessage(channel, ws, msg, generation).catch((error) => {
           console.warn("[WebMCP] peer message handling failed:", error);
         });
       }
@@ -1322,7 +1416,6 @@ export class WebMcpPeerClient {
   private async handlePeerMessage(
     channel: RTCDataChannel,
     ws: WebSocket,
-    requestId: string,
     msg: ProviderFrame,
     generation = this.connectionGeneration,
   ): Promise<void> {
@@ -1343,11 +1436,13 @@ export class WebMcpPeerClient {
       this.scheduleExpiry(this.connectionGeneration, expiresAt);
       this.state = "connected";
       this.notify();
+      // The session the agent offered for: its offer's requestId, which the relay routes the release by.
+      const requestId = this.offerRequestId;
 
       await this.sendFrame(channel, {
         type: "grant",
         protocol: WEBMCP_PROTOCOL,
-        requestId,
+        ...(requestId ? { requestId } : {}),
         sessionId,
         expiresAt,
       });
@@ -1365,7 +1460,7 @@ export class WebMcpPeerClient {
         if (ws.readyState === WebSocket.OPEN) {
           this.signalingReleased = true;
           // The DataChannel carries the session from here on, so the socket closes either way.
-          sendRelayFrame(ws, { type: "release", requestId }, "release");
+          sendRelayFrame(ws, { type: "release", ...(requestId ? { requestId } : {}) }, "release");
           ws.close();
         }
       } catch {}
@@ -1388,10 +1483,16 @@ export class WebMcpPeerClient {
 
       const rpcRes = await this.answerMcpRpc(rpc, generation, "data-channel");
       if (rpcRes) {
-        await this.sendFrame(channel, {
-          type: "mcp",
-          message: rpcRes,
-        });
+        // A reply the framing cannot carry whole is answered with RESULT_TOO_LARGE instead.
+        const reply = encodeDataChannelMcpReply(rpc, rpcRes);
+        if (reply.oversizeCodeUnits !== undefined) {
+          console.warn(
+            `[WebMCP] A ${reply.oversizeCodeUnits}-code-unit DataChannel reply exceeds the ` +
+              `${MAX_DATA_CHANNEL_FRAME_CHARS}-code-unit message limit; ` +
+              (reply.frame !== undefined ? "answered RESULT_TOO_LARGE instead." : "dropped it."),
+          );
+        }
+        if (reply.frame !== undefined) await this.sendFrame(channel, reply.frame);
       }
     }
   }
@@ -1401,9 +1502,10 @@ export class WebMcpPeerClient {
     rpc: unknown,
     generation: number,
     channel: McpRequestChannel,
+    sessionId?: string,
   ): Promise<ProviderRpcResponse | null> {
     try {
-      return await this.handleMcpRpc(rpc, generation, channel);
+      return await this.handleMcpRpc(rpc, generation, channel, sessionId);
     } catch (error) {
       console.error("[WebMCP] MCP request handling failed:", error);
       const id = rpcRequestId(rpc);
@@ -1414,8 +1516,8 @@ export class WebMcpPeerClient {
   /**
    * Answers one JSON-RPC request. tools/list and server/discover list the live host catalog to a
    * DataChannel agent, which talks to the provider directly; on the relay socket they list the
-   * catalog the relay holds (see {@link relayCatalogTools}), since the relay takes their tools as a
-   * catalog announcement.
+   * catalog the relay holds (see {@link relayCatalogTools}), since a relay that holds none takes
+   * their tools as its catalog.
    *
    * `initialize` negotiates its revision on every channel as the relay's HTTP route does
    * ({@link negotiateInitializeProtocolVersion}): the requested initialize-era revision, otherwise
@@ -1423,11 +1525,17 @@ export class WebMcpPeerClient {
    * reports the same negotiation within those revisions, as the relay's own discover result does, so
    * an agent gets the same negotiation whether the provider or the relay answers; over the DataChannel
    * it reports 2026-07-28 and every revision the provider speaks.
+   *
+   * A request on the relay socket is served only for the session this provider approved: the
+   * `sessionId` the relay stamped on it (R-SIG-005) must be that session's. The relay issues one
+   * client ticket per room (its invite is single-use), so a request of any other session, or one
+   * without the stamp, is one the provider never approved.
    */
   private async handleMcpRpc(
     rpc: unknown,
     generation: number,
     channel: McpRequestChannel,
+    sessionId?: string,
   ): Promise<ProviderRpcResponse | null> {
     if (!isJsonObject(rpc) || rpc.jsonrpc !== "2.0") return null;
     if (rpc.id === undefined) return null;
@@ -1442,9 +1550,9 @@ export class WebMcpPeerClient {
     }
 
     // An agent the relay let through but this provider has not approved (an HTTP approval, a
-    // reattach before `approval.restored`) gets the relay's own error for a ticket waiting for
-    // approval, code included.
-    if (this.approvalState !== "approved") {
+    // reattach before `approval.restored`, a session other than the approved one) gets the relay's
+    // own error for a ticket waiting for approval, code included.
+    if (this.approvalState !== "approved" || (channel === "relay" && sessionId !== this.approvalSessionId)) {
       return { jsonrpc: "2.0", id, error: peerRpcError("CLIENT_APPROVAL_REQUIRED") };
     }
 
@@ -1642,15 +1750,29 @@ export class WebMcpPeerClient {
     }
   }
 
+  /**
+   * Sends one frame over the DataChannel, `payload` or its JSON text, in chunks of
+   * DATA_CHANNEL_SEND_CHUNK_CHARS UTF-16 code units, the framing an agent takes (at most
+   * MAX_DATA_CHANNEL_CHUNKS chunks of at most MAX_DATA_CHANNEL_CHUNK_CHARS each). A frame longer than
+   * MAX_DATA_CHANNEL_FRAME_CHARS would need more chunks than the agent assembles, so it is not sent,
+   * with a warning; a reply is first replaced to fit (see `encodeDataChannelMcpReply`). Nothing is
+   * sent on a channel that is not open.
+   */
   private async sendFrame(channel: RTCDataChannel, payload: unknown): Promise<void> {
     if (channel.readyState !== "open") return;
-    const text = JSON.stringify(payload);
-    const chunkSize = 2048;
-    const total = Math.max(1, Math.ceil(text.length / chunkSize));
+    const text = typeof payload === "string" ? payload : JSON.stringify(payload);
+    if (text.length > MAX_DATA_CHANNEL_FRAME_CHARS) {
+      console.warn(
+        `[WebMCP] The ${text.length}-code-unit DataChannel frame exceeds the ` +
+          `${MAX_DATA_CHANNEL_FRAME_CHARS}-code-unit message limit; it was not sent.`,
+      );
+      return;
+    }
+    const total = Math.max(1, Math.ceil(text.length / DATA_CHANNEL_SEND_CHUNK_CHARS));
     const id = ++this.frameSeq;
 
     for (let index = 0; index < total; index++) {
-      const data = text.slice(index * chunkSize, (index + 1) * chunkSize);
+      const data = text.slice(index * DATA_CHANNEL_SEND_CHUNK_CHARS, (index + 1) * DATA_CHANNEL_SEND_CHUNK_CHARS);
       channel.send(JSON.stringify({ v: 1, id, index, total, data }));
     }
   }
@@ -2125,6 +2247,7 @@ export class WebMcpPeerClient {
       } catch {}
       this.pc = undefined;
     }
+    this.offerRequestId = null;
     if (this.ws) {
       try {
         this.ws.close();

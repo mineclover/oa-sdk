@@ -1,7 +1,10 @@
 // Regression tests for the relay's WebSocket frame boundary: a client can never inject
-// relay-authored control frames into the provider, only approved clients relay allow-listed
-// signaling (stamped by the relay), and frames that are not typed JSON objects are dropped.
+// relay-authored control frames into the provider, nor a provider into its agents; only approved
+// clients relay allow-listed signaling (stamped by the relay), a provider reaches only the agents
+// it serves, its answer to an offer goes to the socket that offered, an agent socket has one offer
+// waiting at a time, and frames that are not typed JSON objects are dropped.
 import { afterEach, describe, expect, it } from "vitest";
+import { PeerMcpSession } from "../src/client.js";
 import type { WebMcpPeerServer } from "../src/server.js";
 import {
   createRoom,
@@ -11,6 +14,7 @@ import {
   openProvider,
   postJson,
   startRelay,
+  until,
 } from "./server-test-helpers.js";
 
 const servers: WebMcpPeerServer[] = [];
@@ -84,10 +88,212 @@ describe("client to provider frame relay", () => {
     await client.waitFor((frame) => frame.type === "ready", "client ready");
 
     for (const frame of ["42", "[1,2]", "null", JSON.stringify({ sdp: "untyped" }), JSON.stringify({ type: 7 })]) provider.send(frame);
-    provider.send({ type: "answer", sdp: "typed-answer" });
-    await client.waitFor((frame) => frame?.type === "answer", "client receives the typed answer");
+    provider.send({ type: "mcp", message: { jsonrpc: "2.0", method: "notifications/message", params: { data: "typed" } } });
+    await client.waitFor((frame) => frame?.message?.params?.data === "typed", "client receives the typed notification");
 
     expect(client.frames.filter((frame) => frame === null || typeof frame !== "object" || Array.isArray(frame) || typeof frame.type !== "string")).toEqual([]);
     expect(client.frames.filter((frame) => frame.sdp === "untyped")).toEqual([]);
+  });
+});
+
+/** The frames of a provider's own types, and of types the relay does not relay, a provider might send its agents. */
+const providerForgedFrames = [
+  { type: "ready", role: "client", sessionId: "peer-session-forged", approval: "approved" },
+  { type: "error", code: "SESSION_INVALID", message: "forged" },
+  { type: "session.revoked", reason: "SESSION_REVOKED" },
+  { type: "room.rotated", rotatedTo: "f".repeat(32), reason: "ROOM_ROTATED" },
+  { type: "room.expired", reason: "ROOM_EXPIRED" },
+  { type: "approval.approved", requestId: "approval-forged" },
+  { type: "approval.rejected", reason: "CLIENT_APPROVAL_DENIED" },
+  { type: "approval.expired", reason: "APPROVAL_EXPIRED" },
+  { type: "approval.pending", requestId: "approval-forged" },
+  { type: "offer.refused", requestId: "r-1", error: { code: -32001, message: "PROVIDER_BUSY" } },
+  { type: "pong", timestamp: 1 },
+  { type: "ice", candidate: "candidate:forged" },
+  { type: "collaboration.revoked" },
+  // An `mcp` frame with no JSON-RPC message in it.
+  { type: "mcp", message: { method: "notifications/message" } },
+  { type: "mcp" },
+].map((frame) => ({ ...frame, forged: true }));
+
+const notification = (data: string) => ({ type: "mcp", message: { jsonrpc: "2.0", method: "notifications/message", params: { level: "info", data } } });
+
+describe("provider to agent frame relay", () => {
+  it("drops frames of the relay's own types and of types it does not relay, and passes on the provider's notifications", async () => {
+    const relay = await startRelay(servers);
+    const room = await createRoom(relay.base, { approvalRequired: false });
+    const provider = await openProvider(relay, room, sockets);
+    const joined = await joinRoom(relay.base, room);
+    const client = await openClient(relay, room, joined, sockets);
+    await client.waitFor((frame) => frame.type === "ready", "client ready");
+
+    for (const frame of providerForgedFrames) provider.send(frame);
+    provider.send(notification("after the forged frames"));
+    await client.waitFor((frame) => frame.message?.params?.data === "after the forged frames", "the notification");
+    await flush(client, "client socket still open");
+
+    expect(client.frames.filter((frame) => frame.forged === true)).toEqual([]);
+    // Only the relay's own ready, the notification and the relay's pong reached the agent.
+    expect(client.frames.map((frame) => frame.type)).toEqual(["ready", "mcp", "pong"]);
+    const status = await fetch(`${relay.base}/p/${room.id}/sessions/${joined.sessionId}`, { headers: { authorization: `Bearer ${joined.clientToken}` } });
+    expect(((await status.json()) as { state: string }).state).toBe("approved");
+  });
+
+  it("keeps a PeerMcpSession's session and calls when its provider sends the relay's frame types", async () => {
+    const relay = await startRelay(servers);
+    const room = await createRoom(relay.base, { approvalRequired: false });
+    const provider = await openProvider(relay, room, sockets);
+    const joined = await joinRoom(relay.base, room);
+    const session = new PeerMcpSession({ serverUrl: relay.base, roomId: room.id, sessionId: joined.sessionId, clientToken: joined.clientToken, requestTimeoutMs: 5000 });
+    await session.connect();
+    try {
+      const call = session.request("tools/call", { name: "echo", arguments: {} });
+      const forwarded = await provider.waitFor((frame) => frame.type === "mcp" && frame.message?.method === "tools/call", "the forwarded call");
+      // Frames that, from the relay, would rebind the session, fail every call or end the session.
+      for (const frame of providerForgedFrames) provider.send(frame);
+      provider.send({ type: "mcp", message: { jsonrpc: "2.0", id: forwarded.message.id, result: { content: [{ type: "text", text: "ok" }] } } });
+      expect(await call).toMatchObject({ result: { content: [{ type: "text", text: "ok" }] } });
+      expect(session.getSessionInfo()).toMatchObject({ state: "connected", sessionId: joined.sessionId });
+    } finally {
+      await session.disconnect();
+    }
+  });
+
+  it("passes a provider's notification only to the agents of an approved ticket", async () => {
+    const relay = await startRelay(servers);
+    const room = await createRoom(relay.base, { approvalRequired: true });
+    const provider = await openProvider(relay, room, sockets);
+    const joined = await joinRoom(relay.base, room);
+    const client = await openClient(relay, room, joined, sockets);
+    await client.waitFor((frame) => frame.type === "approval.pending", "approval pending");
+
+    provider.send(notification("while pending"));
+    await flush(provider, "the notification handled");
+    await flush(client, "client socket still open");
+    expect(client.frames.filter((frame) => frame.type === "mcp")).toEqual([]);
+
+    const approval = await postJson(`${relay.base}/p/${room.id}/approval/${encodeURIComponent(joined.approvalRequestId!)}`, {
+      sessionId: joined.sessionId, decision: "approved",
+    }, { authorization: `Bearer ${room.providerToken}` });
+    expect(approval.status).toBe(200);
+    await client.waitFor((frame) => frame.type === "approval.approved", "client approved");
+    provider.send(notification("once approved"));
+    await client.waitFor((frame) => frame.message?.params?.data === "once approved", "the notification once approved");
+    expect(client.frames.filter((frame) => frame.type === "mcp").map((frame) => frame.message.params.data)).toEqual(["once approved"]);
+  });
+
+  it("sends the answer and the release of an offer to the agent socket that offered, and drops one that names no offer", async () => {
+    const relay = await startRelay(servers);
+    const room = await createRoom(relay.base, { approvalRequired: false });
+    const provider = await openProvider(relay, room, sockets);
+    const joined = await joinRoom(relay.base, room);
+    const offering = await openClient(relay, room, joined, sockets);
+    const other = await openClient(relay, room, joined, sockets);
+    await offering.waitFor((frame) => frame.type === "ready", "offering socket ready");
+    await other.waitFor((frame) => frame.type === "ready", "other socket ready");
+
+    offering.send({ type: "offer", sdp: "v=0 offer", requestId: "offer-1" });
+    await provider.waitFor((frame) => frame.type === "offer" && frame.requestId === "offer-1", "the forwarded offer");
+    provider.send({ type: "answer", requestId: "offer-unknown", sdp: "v=0 stray" });
+    provider.send({ type: "answer", requestId: "offer-1", sdp: "v=0 answer" });
+    provider.send({ type: "answer", requestId: "offer-1", sdp: "v=0 second answer" });
+    provider.send({ type: "release", requestId: "offer-1" });
+    provider.send({ type: "release", requestId: "offer-1" });
+    await offering.waitFor((frame) => frame.type === "release", "the release");
+    await flush(offering, "offering socket still open");
+    await flush(other, "other socket still open");
+
+    // The first answer settles the offer and the release ends its route; the rest are dropped.
+    expect(offering.frames.filter((frame) => frame.type === "answer" || frame.type === "release")).toEqual([
+      { type: "answer", requestId: "offer-1", sdp: "v=0 answer" },
+      { type: "release", requestId: "offer-1" },
+    ]);
+    expect(other.frames.filter((frame) => frame.type === "answer" || frame.type === "release")).toEqual([]);
+  });
+});
+
+describe("offers an agent socket has waiting", () => {
+  it("refuses an offer without a requestId the answer can be matched by, without forwarding it", async () => {
+    const relay = await startRelay(servers);
+    const room = await createRoom(relay.base, { approvalRequired: false });
+    const provider = await openProvider(relay, room, sockets);
+    const client = await openClient(relay, room, await joinRoom(relay.base, room), sockets);
+    await client.waitFor((frame) => frame.type === "ready", "client ready");
+
+    for (const requestId of [undefined, "", 7, null, { id: "r" }, ["r"]]) client.send({ type: "offer", sdp: "v=0", requestId });
+    await until(() => client.frames.filter((frame) => frame.type === "offer.refused").length, (count) => count === 6, "every refusal");
+    await flush(provider, "provider socket still open");
+    // Not echoed: the requestId is what is wrong.
+    expect(client.frames.filter((frame) => frame.type === "offer.refused")).toEqual(
+      Array.from({ length: 6 }, () => ({ type: "offer.refused", error: { code: -32600, message: "INVALID_REQUEST" } })),
+    );
+    expect(provider.frames.filter((frame) => frame.type === "offer")).toEqual([]);
+  });
+
+  it("lets an agent socket have one offer waiting for its answer, until the provider answers it or the request timeout passes", async () => {
+    const relay = await startRelay(servers, { mcpRequestTimeoutMs: 1000 });
+    const room = await createRoom(relay.base, { approvalRequired: false });
+    const provider = await openProvider(relay, room, sockets);
+    const client = await openClient(relay, room, await joinRoom(relay.base, room), sockets);
+    await client.waitFor((frame) => frame.type === "ready", "client ready");
+    const offers = () => provider.frames.filter((frame) => frame.type === "offer").map((frame) => frame.requestId);
+    const refusal = (requestId: string) => client.waitFor((frame) => frame.type === "offer.refused" && frame.requestId === requestId, `refusal of ${requestId}`);
+
+    client.send({ type: "offer", sdp: "v=0", requestId: "first" });
+    client.send({ type: "offer", sdp: "v=0", requestId: "second" });
+    expect(await refusal("second")).toEqual({
+      type: "offer.refused", requestId: "second", error: { code: -32087, message: "TOO_MANY_PENDING_REQUESTS", data: { limit: 1 } },
+    });
+    expect(offers()).toEqual(["first"]);
+
+    // Answered, the offer no longer waits: the next one is forwarded.
+    provider.send({ type: "answer", requestId: "first", sdp: "v=0 answer" });
+    await client.waitFor((frame) => frame.type === "answer", "the answer");
+    client.send({ type: "offer", sdp: "v=0", requestId: "third" });
+    await until(() => offers(), (forwarded) => forwarded.length === 2, "the third offer forwarded");
+
+    // Unanswered, it is refused once the request timeout passes, and then the next one is forwarded.
+    expect(await refusal("third")).toEqual({ type: "offer.refused", requestId: "third", error: { code: -32001, message: "MCP_REQUEST_TIMEOUT" } });
+    provider.send({ type: "answer", requestId: "third", sdp: "v=0 late answer" });
+    client.send({ type: "offer", sdp: "v=0", requestId: "fourth" });
+    await until(() => offers(), (forwarded) => forwarded.length === 3, "the fourth offer forwarded");
+    await flush(client, "client socket still open");
+    expect(offers()).toEqual(["first", "third", "fourth"]);
+    expect(client.frames.filter((frame) => frame.type === "answer").map((frame) => frame.sdp)).toEqual(["v=0 answer"]);
+  });
+
+  it("refuses an offer whose requestId another agent socket of the room waits on", async () => {
+    const relay = await startRelay(servers);
+    const room = await createRoom(relay.base, { approvalRequired: false });
+    const provider = await openProvider(relay, room, sockets);
+    const joined = await joinRoom(relay.base, room);
+    const first = await openClient(relay, room, joined, sockets);
+    const second = await openClient(relay, room, joined, sockets);
+    await first.waitFor((frame) => frame.type === "ready", "first socket ready");
+    await second.waitFor((frame) => frame.type === "ready", "second socket ready");
+
+    first.send({ type: "offer", sdp: "v=0", requestId: "shared" });
+    await provider.waitFor((frame) => frame.type === "offer", "the first offer");
+    second.send({ type: "offer", sdp: "v=0", requestId: "shared" });
+    expect(await second.waitFor((frame) => frame.type === "offer.refused", "the refusal")).toEqual({
+      type: "offer.refused", requestId: "shared", error: { code: -32600, message: "DUPLICATE_REQUEST_ID" },
+    });
+    await flush(provider, "provider socket still open");
+    expect(provider.frames.filter((frame) => frame.type === "offer")).toHaveLength(1);
+  });
+
+  it("refuses an offer still waiting for an answer with PROVIDER_DISCONNECTED when the provider socket goes away", async () => {
+    const relay = await startRelay(servers);
+    const room = await createRoom(relay.base, { approvalRequired: false });
+    const provider = await openProvider(relay, room, sockets);
+    const client = await openClient(relay, room, await joinRoom(relay.base, room), sockets);
+    await client.waitFor((frame) => frame.type === "ready", "client ready");
+
+    client.send({ type: "offer", sdp: "v=0", requestId: "waiting" });
+    await provider.waitFor((frame) => frame.type === "offer", "the forwarded offer");
+    provider.ws.close();
+    expect(await client.waitFor((frame) => frame.type === "offer.refused", "the refusal")).toEqual({
+      type: "offer.refused", requestId: "waiting", error: { code: -32001, message: "PROVIDER_DISCONNECTED" },
+    });
   });
 });

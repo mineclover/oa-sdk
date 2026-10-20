@@ -552,6 +552,68 @@ describe("an agent whose outbound queue is full", { timeout: 60_000 }, () => {
     expect(provider.closeCode).toBeUndefined();
   });
 
+  it.each([
+    ["its own revoke", "session.revoked", 200, (relay: Relay, room: RoomDescriptor, joined: JoinedSession) =>
+      postJson(`${relay.base}/p/${room.id}/session/revoke`, {}, { authorization: `Bearer ${joined.clientToken}` })],
+    ["the room's rotation", "room.rotated", 201, (relay: Relay, room: RoomDescriptor) =>
+      postJson(`${relay.base}/p/${room.id}/rotate`, {}, { authorization: `Bearer ${room.providerToken}` })],
+  ] as const)("ends the session of an agent that is behind on %s after the replies it asked for, then closes it", async (_label, endFrame, status, end) => {
+    const { relay, room, entry } = await catalogRoom();
+    const { called } = await rawProvider(relay, room, sizedResult(UNREAD_RESULT_BYTES));
+    const joined = await joinRoom(relay.base, room);
+    const slow = await RawPeer.open(relay, `/p/${room.id}/client`, joined.clientToken, rawPeers);
+    const slowSocket = [...entry().clientSockets].at(-1)!;
+    const sends = recordSends(slowSocket);
+
+    // The agent stops reading with every reply it asked for (calls that ran) still to come.
+    slow.pause();
+    for (let id = 1; id <= UNREAD_CALLS; id++) slow.send(call(id));
+    await until(() => called.length, (length) => length === UNREAD_CALLS, "the provider answers every call");
+    await until(() => pendingOf(entry, slowSocket).length, (length) => length === 0, "the relay has every reply");
+    expect(sends.some(({ sent }) => sent === "busy")).toBe(true);
+
+    // The session ends meanwhile: the agent is out of the room at once.
+    expect((await end(relay, room, joined)).status).toBe(status);
+    expect(entry().clientSockets.has(slowSocket)).toBe(false);
+
+    // Once it reads it gets every reply, then the frame that ends its session, then the close.
+    slow.resume();
+    await until(() => slow.closeCode, (code) => code !== undefined, "the close", 30_000);
+    expect(slow.closeCode).toBe(1000);
+    expect(resultIds(slow.messages)).toEqual(ids(UNREAD_CALLS));
+    expect(slow.messages.at(-1)).toMatchObject({ type: endFrame, sessionId: joined.sessionId });
+    expect(slow.messages.filter((message) => message.type === endFrame)).toHaveLength(1);
+  });
+
+  it("expires the approval of an agent that is behind after the answers it asked for, then closes it", async () => {
+    const relay = await startRelay(servers, { deploymentCatalog: { tools: [tool("echo")] }, approvalTimeoutMs: 1000 });
+    const room = await createRoom(relay.base, { approvalRequired: true });
+    const provider = await openProvider(relay, room, sockets);
+    await provider.waitFor((frame) => frame.type === "ready", "provider ready");
+    const joined = await joinRoom(relay.base, room);
+    const agent = await RawPeer.open(relay, `/p/${room.id}/client`, joined.clientToken, rawPeers);
+    await agent.waitFor((message) => message.type === "approval.pending", "approval pending");
+    const entry = relay.server.rooms.get(room.id)!;
+    const agentSocket = [...entry.clientSockets].at(-1)!;
+    let full = true;
+    refuseSends(agentSocket, ["mcp", "approval.expired"], () => full);
+
+    // A pending agent's discovery is the relay's to answer; its queue is full, so the answer waits.
+    agent.send({ type: "mcp", message: { jsonrpc: "2.0", id: "listing", method: "tools/list", params: {} } });
+    await provider.waitFor((frame) => frame.type === "approval.expired", "the approval request expires", 5000);
+    expect(entry.clientSockets.has(agentSocket)).toBe(false);
+    expect(agent.closeCode).toBeUndefined();
+
+    // Once its queue takes them: the answer, then approval.expired, then the close.
+    full = false;
+    await until(() => agent.closeCode, (code) => code !== undefined, "the close", 10_000);
+    expect(agent.closeCode).toBe(1000);
+    const after = agent.messages.slice(agent.messages.findIndex((message) => message.type === "approval.pending") + 1);
+    expect(after.map((message) => message.type)).toEqual(["mcp", "approval.expired"]);
+    expect(after[0]!.message).toMatchObject({ id: "listing", result: { tools: [tool("echo")] } });
+    expect(after[1]).toMatchObject({ sessionId: joined.sessionId, reason: "APPROVAL_EXPIRED" });
+  });
+
   it("skips announcements an agent that is not reading did not ask for, keeps its socket, and keeps room for the reply it asked for", async () => {
     const { relay, room, entry } = await catalogRoom();
     const provider = await RawPeer.open(relay, `/p/${room.id}/provider`, room.providerToken, rawPeers);
@@ -572,33 +634,45 @@ describe("an agent whose outbound queue is full", { timeout: 60_000 }, () => {
     await until(() => calls.length, (length) => length === 1, "the provider has the call");
     idle.pause();
 
-    // Meanwhile the provider publishes 60 distinct catalogs of about 200 KB each (every one is
-    // announced to every agent; 12 MB, more than the agent's kernel buffers take), then answers the
-    // call with a 250 KB result: more than the room an announcement that did not fit leaves.
-    const announcements = 60;
-    for (let version = 1; version <= announcements; version++) {
+    // Meanwhile the provider publishes 7 distinct catalogs of about 200 KB each, as many as the
+    // relay evaluates at once besides the first (each is announced to every agent), and sends 53
+    // notifications of the same size, which the relay passes on to every agent it serves the same
+    // way: 12 MB, more than the agent's kernel buffers take. Then it answers the call with a 250 KB
+    // result: more than the room a frame that did not fit leaves.
+    const catalogs = 7;
+    const notifications = 53;
+    for (let version = 1; version <= catalogs; version++) {
       provider.send({ type: "register", tools: [{ ...tool(`t${version}`), description: "d".repeat(200_000) }] });
     }
-    await until(() => entry().catalogVersion, (version) => version === announcements + 1, "every catalog accepted");
+    await until(() => entry().catalogVersion, (version) => version === catalogs + 1, "every catalog accepted");
+    for (let index = 1; index <= notifications; index++) {
+      provider.send({ type: "mcp", message: { jsonrpc: "2.0", method: "notifications/message", params: { level: "info", data: "n".repeat(200_000), index } } });
+    }
+    // The relay has handled every frame the provider sent before its ping once it answers it.
+    provider.send({ type: "ping" });
+    await provider.waitFor((message) => message.type === "pong", "every notification handled");
     provider.send({ type: "mcp", message: { jsonrpc: "2.0", id: "asked", result: sizedResult(250_000)("asked") } });
     await until(() => entry().mcpPending.size, (size) => size === 0, "the relay has the reply");
 
-    // The announcements stopped while they still left the queue room for a reply of the full
-    // limit: the rest were skipped for this agent, and the reply went straight into the queue.
-    const announced = sends.filter(({ frame }) => frame.type === "register")
+    // The announcements and notifications stopped while they still left the queue room for a reply
+    // of the full limit: the rest were skipped for this agent, and the reply went straight into the
+    // queue.
+    const unasked = (frame: Frame) => frame.type === "register" || frame.message?.method === "notifications/message";
+    const announced = sends.filter(({ frame }) => unasked(frame));
     expect(announced.length).toBeGreaterThan(0);
-    expect(announced.length).toBeLessThan(announcements);
+    expect(announced.length).toBeLessThan(catalogs + notifications);
     expect(announced.every(({ sent }) => sent === "sent")).toBe(true);
     expect(sends.filter(({ frame }) => frame.message?.id === "asked").map(({ sent }) => sent)).toEqual(["sent"]);
     expect(entry().clientSockets.has(idleSocket)).toBe(true);
     await flush(reading, "the reading agent still attached");
     expect(reading.frames.some((frame) => frame.type === "register")).toBe(true);
+    expect(reading.frames.some((frame) => frame.message?.method === "notifications/message")).toBe(true);
 
     // Once it reads it gets what was queued for it, the reply included, and its socket works.
     idle.resume();
     await until(() => resultIds(idle.messages), (received) => received.length === 1, "the reply it asked for");
     expect(resultIds(idle.messages)).toEqual(["asked"]);
-    expect(idle.messages.filter((message) => message.type === "register")).toHaveLength(announced.length);
+    expect(idle.messages.filter(unasked)).toHaveLength(announced.length);
     idle.send({ type: "ping" });
     await idle.waitFor((message) => message.type === "pong", "the idle agent's pong");
     expect(idle.closeCode).toBeUndefined();

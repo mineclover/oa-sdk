@@ -37,7 +37,9 @@ import {
   FakeRelaySocket,
   approve,
   flushMicrotasks,
+  FakeDataChannel,
   installRelay,
+  relayStamp,
   replyTo,
   type Frame,
   type RpcReply,
@@ -553,7 +555,7 @@ describe("every frame the provider sends on the relay socket fits the message li
 
 /** Delivers a request the relay forwards from a WebSocket agent and returns the provider's reply. */
 function relayRequest(socket: FakeRelaySocket, id: number, method: "tools/list" | "server/discover"): Promise<RpcReply> {
-  socket.deliver({ type: "mcp", message: { jsonrpc: "2.0", id, method, params: { _meta: {} } } });
+  socket.deliver({ type: "mcp", ...relayStamp(), message: { jsonrpc: "2.0", id, method, params: { _meta: {} } } });
   return replyTo(socket, id);
 }
 
@@ -566,57 +568,6 @@ const catalogUnavailable = (id: number, reason: string) => ({
   id,
   error: { code: -32090, message: "CATALOG_UNAVAILABLE", data: { catalogSource: "provider", reason } },
 });
-
-/** An agent's end of the provider's `mcp` DataChannel. */
-class FakeDataChannel {
-  readonly label = "mcp";
-  readyState: "open" | "closed" = "open";
-  onmessage: ((event: { data: string }) => void) | null = null;
-  onclose: (() => void) | null = null;
-  /** The chunks the provider sent. */
-  readonly sent: string[] = [];
-  /** send() throws, as a channel that is closing does, once this many chunks were sent. */
-  failAfter = Number.POSITIVE_INFINITY;
-  private chunkId = 0;
-
-  send(data: string): void {
-    if (this.sent.length >= this.failAfter) throw new DOMException("The DataChannel is closing", "InvalidStateError");
-    this.sent.push(data);
-  }
-
-  close(): void {
-    this.readyState = "closed";
-  }
-
-  /** The agent sends one frame, as a single chunk. */
-  deliver(frame: Frame): void {
-    this.onmessage?.({ data: JSON.stringify({ v: 1, id: ++this.chunkId, index: 0, total: 1, data: JSON.stringify(frame) }) });
-  }
-
-  /** The frames the provider sent, reassembled from their chunks. */
-  frames(): Frame[] {
-    const parts = new Map<number, string[]>();
-    const frames: Frame[] = [];
-    for (const text of this.sent) {
-      const chunk = JSON.parse(text) as { id: number; index: number; total: number; data: string };
-      const received = parts.get(chunk.id) ?? [];
-      received[chunk.index] = chunk.data;
-      parts.set(chunk.id, received);
-      if (received.filter((part) => part !== undefined).length === chunk.total) frames.push(JSON.parse(received.join("")) as Frame);
-    }
-    return frames;
-  }
-
-  /** The provider's reply to request `id`, once it was sent. */
-  replyTo(id: number): Promise<RpcReply> {
-    return until(
-      () => this.frames().find((frame) => frame.type === "mcp" && (frame.message as RpcReply | undefined)?.id === id),
-      (frame) => frame !== undefined,
-      `DataChannel reply to ${id}`,
-      5000,
-    ).then((frame) => frame!.message as RpcReply);
-  }
-}
 
 /**
  * A provider on a FakeRelay whose agent is approved and connected over a DataChannel. With

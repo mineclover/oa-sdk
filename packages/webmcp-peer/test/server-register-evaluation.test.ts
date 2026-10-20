@@ -4,10 +4,10 @@
 //     while the room catalog is still the one that frame left, is answered as that one was, under
 //     its own registerSeq, without being evaluated again; a change to the room catalog in between
 //     makes the same frame count as new;
-//   - frames that change nothing (refused, or the catalog the room already holds) are evaluated at
-//     most 8 at once per room, then one a second; a frame that arrives while none is allowed waits,
-//     and the provider's next frame replaces it, so only the latest one is evaluated, and a frame
-//     that changes the catalog still gets through;
+//   - frames are evaluated at most 8 at once per room, then one a second, whatever their outcome
+//     (refused, the catalog the room already holds, or a new catalog the relay takes); a frame that
+//     arrives while none is allowed waits, and the provider's next frame replaces it, so only the
+//     latest one is evaluated, and the latest catalog a provider sends is still announced;
 //   - the budget belongs to the room, so a new provider socket does not reset it, and a waiting
 //     frame from a provider socket the relay replaced is never evaluated.
 import { afterEach, describe, expect, it } from "vitest";
@@ -99,25 +99,26 @@ describe("register frames a provider repeats", { timeout: 20_000 }, () => {
 
   it("evaluates a repeated frame again once the room catalog changed in between", async () => {
     const { server, provider, agent } = await providerRoom();
-    const catalogA = [tool("a")];
     const catalogB = [tool("a"), tool("b")];
 
-    provider.send({ type: "register", tools: catalogA, registerSeq: 1 });
-    await agent.waitFor((frame) => frame.type === "register", "catalog A", 5000);
+    provider.send({ type: "register", tools: invalidCatalog("x"), registerSeq: 1 });
+    await until(() => refusals(provider).length, (count) => count === 1, "the refusal", 5000);
 
-    // The provider answers an agent's tools/list with catalog B, which the relay takes.
+    // While the room holds no catalog, the provider answers an agent's tools/list with catalog B,
+    // which the relay takes.
     agent.send({ type: "mcp", message: { jsonrpc: "2.0", id: 1, method: "tools/list", params: { _meta: {} } } });
     const listing = await provider.waitFor((frame) => frame.type === "mcp" && frame.message?.method === "tools/list", "forwarded tools/list", 5000);
     provider.send({ type: "mcp", message: { jsonrpc: "2.0", id: listing.message.id, result: { tools: catalogB } } });
     const listed = await agent.waitFor((frame) => frame.type === "mcp" && frame.message?.id === 1, "catalog B listed", 5000);
-    expect(listed.message.result).toMatchObject({ tools: catalogB, catalogVersion: 2 });
+    expect(listed.message.result).toMatchObject({ tools: catalogB, catalogVersion: 1 });
 
-    // Catalog A again is what the last register frame announced, but no longer what the room holds.
+    // The refused frame again is what the last register frame was, but the room catalog it left
+    // has changed since: it is evaluated, and refused, again.
     const evaluations = server.evaluations;
-    provider.send({ type: "register", tools: catalogA, registerSeq: 2 });
-    await until(() => announcements(agent).length, (count) => count === 2, "catalog A announced again", 5000);
+    provider.send({ type: "register", tools: invalidCatalog("x"), registerSeq: 2 });
+    await until(() => refusals(provider).length, (count) => count === 2, "the second refusal", 5000);
     expect(server.evaluations).toBe(evaluations + 1);
-    expect(announcements(agent)[1]).toMatchObject({ tools: catalogA, catalogVersion: 3 });
+    expect(refusals(provider)).toEqual([invalid(1), invalid(2)]);
   });
 });
 
@@ -126,20 +127,20 @@ describe("register frames that change nothing", { timeout: 20_000 }, () => {
     const { server, provider, agent } = await providerRoom();
     provider.send({ type: "register", tools: [tool("a")], registerSeq: 1 });
     await agent.waitFor((frame) => frame.type === "register", "first announcement", 5000);
-    // An accepted catalog uses none of the budget.
+    // An accepted catalog uses one of the budget, as every evaluation does.
     expect(server.evaluations).toBe(1);
 
-    // 20 different refused catalogs in a row: the first BURST are evaluated and refused at once.
+    // 20 different refused catalogs in a row: the first BURST - 1 are evaluated and refused at once.
     for (let seq = 2; seq <= 21; seq++) provider.send({ type: "register", tools: invalidCatalog(String(seq)), registerSeq: seq });
-    await until(() => refusals(provider).length, (count) => count === BURST, `${BURST} refusals`, 5000);
+    await until(() => refusals(provider).length, (count) => count === BURST - 1, `${BURST - 1} refusals`, 5000);
     await flush(provider, "every frame received");
-    expect(refusals(provider)).toEqual(Array.from({ length: BURST }, (_, index) => invalid(2 + index)));
-    expect(server.evaluations).toBe(1 + BURST);
+    expect(refusals(provider)).toEqual(Array.from({ length: BURST - 1 }, (_, index) => invalid(2 + index)));
+    expect(server.evaluations).toBe(BURST);
 
     // The rest wait, each replacing the one before: only the latest is evaluated, once allowed.
-    const latest = await until(() => refusals(provider).at(BURST), (frame) => frame !== undefined, "the latest frame's refusal", 3 * INTERVAL_MS);
+    const latest = await until(() => refusals(provider).at(BURST - 1), (frame) => frame !== undefined, "the latest frame's refusal", 3 * INTERVAL_MS);
     expect(latest).toEqual(invalid(21));
-    expect(server.evaluations).toBe(1 + BURST + 1);
+    expect(server.evaluations).toBe(BURST + 1);
 
     // A changed catalog is never lost: with the budget used up again it waits like any other, the
     // provider's next frame replaces it, and the latest is announced once allowed.
@@ -153,9 +154,37 @@ describe("register frames that change nothing", { timeout: 20_000 }, () => {
     await sleep(2 * INTERVAL_MS);
     await flush(provider, "nothing else evaluated");
     await flush(agent, "nothing else announced");
-    expect(refusals(provider)).toHaveLength(BURST + 1);
+    expect(refusals(provider)).toHaveLength(BURST);
     expect(announcements(agent)).toHaveLength(2);
-    expect(server.evaluations).toBe(1 + BURST + 2);
+    expect(server.evaluations).toBe(BURST + 2);
+  });
+
+  it(`evaluates and announces catalogs that change it at most ${BURST} at once and then one a second, the latest last`, async () => {
+    const { server, provider, agent } = await providerRoom();
+    const catalogA = [tool("a")];
+    const catalogB = [tool("a"), tool("b")];
+    const listChanged = () => agent.frames.filter((frame) => frame.type === "mcp" && frame.message?.method === "notifications/tools/list_changed");
+
+    // A provider that alternates two catalogs: each frame changes the room catalog, and taking one
+    // costs the relay a version and a broadcast to every agent, so these share the budget too.
+    for (let seq = 1; seq <= 21; seq++) provider.send({ type: "register", tools: seq % 2 ? catalogA : catalogB, registerSeq: seq });
+    await until(() => announcements(agent).length, (count) => count === BURST, `${BURST} announcements`, 5000);
+    await flush(provider, "every frame received");
+    await flush(agent, "nothing more announced at once");
+    expect(announcements(agent)).toHaveLength(BURST);
+    expect(listChanged()).toHaveLength(BURST);
+    expect(server.evaluations).toBe(BURST);
+
+    // The rest wait, each replacing the one before: the latest catalog (A, while the room holds the
+    // B of the last frame evaluated) is announced once allowed.
+    const latest = await until(() => announcements(agent).at(BURST), (frame) => frame !== undefined, "the latest catalog announced", 3 * INTERVAL_MS);
+    expect(latest).toMatchObject({ tools: catalogA, catalogVersion: BURST + 1 });
+    await sleep(2 * INTERVAL_MS);
+    await flush(agent, "nothing else announced");
+    expect(announcements(agent)).toHaveLength(BURST + 1);
+    expect(listChanged()).toHaveLength(BURST + 1);
+    expect(server.evaluations).toBe(BURST + 1);
+    expect(refusals(provider)).toEqual([]);
   });
 
   it("keeps the budget across the room's provider sockets and never evaluates a waiting frame from a replaced one", async () => {

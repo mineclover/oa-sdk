@@ -1,6 +1,7 @@
 // Regression tests for the provider's relay session lifecycle: the relay URLs it builds, approvals
 // the relay restores after a lease reclaim, the auto-reconnect backoff loop, a lease the relay
-// refuses, the rotate request, and relay catalog rejections.
+// refuses (auto-reconnect stops instead of opening a new room), the write consent auto-reconnect
+// restores, the rotate request, and relay catalog rejections.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WEBMCP_SUBPROTOCOL } from "../src/config.js";
 import { WebMcpPeerClient, type WebMcpHostAdapter } from "../src/provider.js";
@@ -9,6 +10,7 @@ import {
   callTool,
   flushMicrotasks,
   installRelay,
+  relayStamp,
   type FakeRelaySocket,
 } from "./provider-fakes.js";
 
@@ -123,7 +125,7 @@ async function approveWithFakeTimers(host: WebMcpPeerClient, socket: FakeRelaySo
 
 /** callTool without the real-time polling helper (fake timers are installed). */
 async function callToolWithFakeTimers(socket: FakeRelaySocket, id: number) {
-  socket.deliver({ type: "mcp", message: { jsonrpc: "2.0", id, method: "tools/call", params: { name: "read", arguments: {} } } });
+  socket.deliver({ type: "mcp", ...relayStamp(), message: { jsonrpc: "2.0", id, method: "tools/call", params: { name: "read", arguments: {} } } });
   await flushMicrotasks(20);
   const frame = socket.sent.find((sent) => sent.type === "mcp" && (sent.message as { id?: unknown })?.id === id);
   if (!frame) throw new Error(`no reply to ${id}`);
@@ -212,6 +214,143 @@ describe("a lease the relay refuses", () => {
     expect(reclaims()).toBe(1);
     expect(await host.autoReconnectIfSaved()).toBe(false);
     expect(reclaims()).toBe(1);
+  });
+});
+
+describe("an auto-reconnect whose lease the relay refuses", () => {
+  it.each([
+    [400, { error: "ROOM_LEASE_REQUIRED" }],
+    [403, { error: "ROOM_LEASE_INVALID" }],
+    [404, { error: "ROOM_NOT_FOUND", code: -32004 }],
+    [409, { error: "ROOM_LEASE_BINDING_INVALID", code: -32002 }],
+    [410, { error: "ROOM_EXPIRED", code: -32056 }],
+    [410, { error: "ROOM_LEASE_EXPIRED" }],
+  ] as const)("stops at ROOM_LEASE_LOST for %i %o, and opens no new room", async (status, body) => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const relay = new FakeRelay();
+    installRelay(relay, { browser: true });
+    const host = provider();
+    await host.connect({ serverUrl: relay.base, alias: "lost", autoReconnect: true });
+    const roomId = relay.roomId;
+    const created = () => relay.fetchCalls.filter((call) => call.url === `${relay.base}/p` && call.method === "POST").length;
+    const reclaims = () => relay.fetchCalls.filter((call) => call.url.endsWith("/reclaim")).length;
+
+    relay.reclaimAnswer = { status, body };
+    relay.latest.drop();
+    await vi.advanceTimersByTimeAsync(1000);
+    await flushMicrotasks();
+    expect(reclaims()).toBe(1);
+    expect(host.getSession()).toMatchObject({ state: "error", error: "ROOM_LEASE_LOST", invitationUrl: null });
+
+    // No attempt follows, and the lease is forgotten: the next page load has nothing to reconnect to.
+    const calls = relay.fetchCalls.length;
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(relay.fetchCalls.length).toBe(calls);
+    expect(await host.autoReconnectIfSaved()).toBe(false);
+    expect(relay.fetchCalls.length).toBe(calls);
+    expect(created()).toBe(1);
+    expect(relay.sockets).toHaveLength(1);
+    expect(relay.roomId).toBe(roomId);
+  });
+
+  it("keeps the lease and retries a reclaim that failed for another reason, without opening a new room", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const relay = new FakeRelay();
+    installRelay(relay, { browser: true });
+    const host = provider();
+    await host.connect({ serverUrl: relay.base, alias: "retry", autoReconnect: true });
+    const roomId = relay.roomId;
+    const reclaims = () => relay.fetchCalls.filter((call) => call.url.endsWith("/reclaim")).length;
+
+    relay.reclaimAnswer = { status: 503, body: { error: "RELAY_UNAVAILABLE" } };
+    relay.latest.drop();
+    await vi.advanceTimersByTimeAsync(1000);
+    await flushMicrotasks();
+    expect(reclaims()).toBe(1);
+    expect(host.getSession()).toMatchObject({ state: "error", error: "RELAY_UNAVAILABLE" });
+
+    relay.reclaimAnswer = undefined;
+    await vi.advanceTimersByTimeAsync(1500);
+    await flushMicrotasks();
+    expect(reclaims()).toBe(2);
+    expect(host.getSession()).toMatchObject({ state: "waiting", roomId, error: null });
+    expect(relay.fetchCalls.filter((call) => call.url === `${relay.base}/p`)).toHaveLength(1);
+  });
+
+  it("does not run without a saved lease, so a reload never opens a room by itself", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const relay = new FakeRelay();
+    installRelay(relay, { browser: true });
+    const host = provider();
+    await host.connect({ serverUrl: relay.base, alias: "no-lease", autoReconnect: true });
+    host.disconnect();
+    // The settings are saved, but the lease is gone (it expired with its room, say).
+    const leaseKey = `webmcp:room-lease:${encodeURIComponent(relay.base)}:${encodeURIComponent(host.getReplicaId())}`;
+    expect(localStorage.getItem(leaseKey)).not.toBeNull();
+    localStorage.removeItem(leaseKey);
+
+    expect(await host.autoReconnectIfSaved()).toBe(false);
+    expect(relay.fetchCalls.filter((call) => call.method === "POST")).toHaveLength(1);
+  });
+});
+
+describe("write consent across an auto-reconnect", () => {
+  it("is restored only as the user last set it, the rule connect() reads it by", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const relay = new FakeRelay();
+    installRelay(relay, { browser: true });
+    let writeEnabled = false;
+    const enabled: boolean[] = [];
+    const host = new WebMcpPeerClient({
+      hostAdapter: {
+        ...hostAdapter,
+        getStatus: () => ({ writeEnabled }),
+        setWriteEnabled: (value) => {
+          enabled.push(value);
+          writeEnabled = value;
+          return { writeEnabled };
+        },
+        toggleWrite: () => {
+          writeEnabled = !writeEnabled;
+          return { writeEnabled };
+        },
+      },
+      shouldSuppressAutoReconnect: () => false,
+    });
+    providers.push(host);
+    const reconnect = async () => {
+      const sockets = relay.sockets.length;
+      relay.latest.drop();
+      await vi.advanceTimersByTimeAsync(1000);
+      await flushMicrotasks();
+      expect(relay.sockets).toHaveLength(sockets + 1);
+    };
+
+    // Never enabled: neither the connect nor the auto-reconnect enables writes.
+    await host.connect({ serverUrl: relay.base, alias: "writes", autoReconnect: true });
+    await reconnect();
+    expect(enabled).toEqual([]);
+    expect(writeEnabled).toBe(false);
+
+    // Enabled by the user: saved, so the auto-reconnect enables it again.
+    expect(host.setWriteEnabled(true)).toBe(true);
+    expect(localStorage.getItem("webmcp:write-enabled")).toBe("true");
+    writeEnabled = false;
+    await reconnect();
+    expect(enabled).toEqual([true, true]);
+    expect(writeEnabled).toBe(true);
+
+    // Turned off by the user: saved as the state the host reports, so the auto-reconnect leaves it off.
+    expect(host.toggleWrite()).toBe(false);
+    expect(localStorage.getItem("webmcp:write-enabled")).toBe("false");
+    await reconnect();
+    expect(enabled).toEqual([true, true]);
+    expect(writeEnabled).toBe(false);
   });
 });
 
