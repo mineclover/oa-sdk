@@ -1,4 +1,5 @@
-// Regression tests for room TTL bounds, room expiry and retention, idempotent session revocation
+// Regression tests for room TTL bounds, room expiry (which ends only the sessions still live) and
+// retention, idempotent session revocation
 // responses, the room id grammar of the routes, and how every route reads its Authorization header;
 // the formats of the ids and tokens the relay issues, and the expiry sweep, from its timer and at the
 // start of every HTTP request.
@@ -95,6 +96,31 @@ describe("room expiry and retention", () => {
       const [code, body] = await answer(await request());
       expect([code, (body as { error?: string }).error], label).toEqual([404, "ROOM_NOT_FOUND"]);
     }
+  });
+
+  it.each(["rejected", "revoked"] as const)("keeps a session %s before its room expired as it ended, instead of reporting it expired", async (endedAs) => {
+    const relay = await startRelay(servers);
+    const room = await createRoom(relay.base, { approvalRequired: true });
+    const joined = await joinRoom(relay.base, room);
+    const ended = endedAs === "rejected"
+      ? await postJson(`${relay.base}/p/${room.id}/approval/${encodeURIComponent(joined.approvalRequestId!)}`, {
+        sessionId: joined.sessionId, decision: "rejected",
+      }, { authorization: `Bearer ${room.providerToken}` })
+      : await postJson(`${relay.base}/p/${room.id}/session/revoke`, {}, { authorization: `Bearer ${joined.clientToken}` });
+    expect(ended.status).toBe(200);
+    const status = async () => {
+      const response = await fetch(`${relay.base}/p/${room.id}/sessions/${joined.sessionId}`, { headers: { authorization: `Bearer ${joined.clientToken}` } });
+      expect(response.status).toBe(200);
+      return response.json();
+    };
+    const before = await status();
+    expect(before).toMatchObject({ state: endedAs, revokedAt: expect.any(String) });
+
+    // The sweep at the start of the next request carries out the room's expiry.
+    const entry = relay.server.rooms.get(room.id)!;
+    entry.expiresAt = Date.now() - 1;
+    expect(await status()).toEqual(before);
+    expect(entry.roomState).toBe("expired");
   });
 
   it("refuses a reclaim of a live room whose lease expired with 410 ROOM_LEASE_EXPIRED, not the room's ROOM_EXPIRED", async () => {

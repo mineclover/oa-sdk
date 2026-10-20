@@ -1,7 +1,8 @@
 // Regression tests for the provider's tools/call handling: the shared run of untraced calls,
-// the CallToolResult shape agents receive, the AI run limit, CommitReceipt gating, and the AI run
-// ledger, which answers a durable request again without calling the host and holds back one whose
-// outcome is unknown.
+// the CallToolResult shape agents receive, the AI run limit, CommitReceipt gating, a call the host
+// finishes after its connection ended (accounted for in its run, answered with nothing), and the AI
+// run ledger, which answers a durable request again without calling the host and holds back one
+// whose outcome is unknown.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AiRunController,
@@ -434,6 +435,49 @@ describe("CommitReceipt gating", () => {
     expect(reply.result?.isError).toBe(false);
     expect(provider.getAiRun("task-write")?.operationIds).toEqual([]);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("invalid CommitReceipt"), expect.anything());
+  });
+});
+
+describe("a tools/call in flight when its connection ends", () => {
+  const receipt: CommitReceipt = {
+    status: "durable",
+    requestId: "r1",
+    documentId: "d1",
+    transactionId: "t1",
+    committedAt: "2026-10-18T00:00:00.000Z",
+    operationId: "op1",
+    replicaId: "rep1",
+  };
+
+  it.each<[string, (socket: FakeRelaySocket, roomId: string) => void]>([
+    ["the relay revokes its session", (socket, roomId) => socket.deliver({ type: "session.revoked", roomId, roomEpoch: 1, reason: "CLIENT_REVOKED" })],
+    ["another provider socket replaces this one (4001)", (socket) => socket.drop(4001)],
+  ])("is accounted for in its run once the host is done, and answered with nothing, when %s", async (_label, end) => {
+    const relay = new FakeRelay();
+    installRelay(relay);
+    let finish: (() => void) | undefined;
+    const provider = new WebMcpPeerClient({
+      hostAdapter: { listTools: () => tools, invoke: () => new Promise((resolve) => (finish = () => resolve({ ok: true, receipt }))) },
+    });
+    providers.push(provider);
+    await provider.connect({ serverUrl: relay.base, alias: "ended-call" });
+    const socket = relay.latest;
+    await approve(provider, socket, relay.roomId);
+    void callTool(socket, 1, "write", { runId: "task-ended" }).catch(() => {});
+    await until(() => finish, "the host called");
+
+    end(socket, relay.roomId);
+    expect(provider.getSession().state).toBe("disconnected");
+    finish!();
+
+    // The host ran the call: its run records the step, so a rollback can undo it, and settles the
+    // action, so the run can be stopped and rolled back at all.
+    await until(() => (provider.getAiRun("task-ended")?.operationIds.length ? true : undefined), "the step recorded");
+    expect(provider.getAiRun("task-ended")).toMatchObject({ operationIds: ["op1"], transactionIds: { op1: "t1" } });
+    provider.stopAiRun("task-ended");
+    await expect(provider.rollbackAiRun("task-ended", () => "rolled-back")).resolves.toMatchObject({ phase: "rolled-back" });
+    // No answer was written to the socket of the connection that ended.
+    expect(socket.sent.filter((frame) => frame.type === "mcp")).toEqual([]);
   });
 });
 

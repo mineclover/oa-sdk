@@ -16,6 +16,7 @@
 //   - an agent WebSocket's request id is pending once per socket, a message that is not a request is
 //     refused under its id, and an id JSON.parse reads as Infinity reaches the wire as null,
 //   - the relay checks a WebSocket tools/call as it checks an HTTP one before the provider sees it,
+//     one without an id included, and drops one without an id it refuses over WebSocket unanswered,
 //   - a forwarded request is timed out after mcpRequestTimeoutMs, at least 1 s, and a value Node's
 //     timer cannot hold times every request out at once.
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -277,12 +278,38 @@ describe("the relay's checks of a WebSocket tools/call", { timeout: 20_000 }, ()
     await flush(provider, "provider socket processed");
     expect(forwarded(provider)).toEqual([]);
 
-    // The room's own stamp passes, and a notification is forwarded without these checks (the
-    // provider runs no message without an id).
+    // The room's own stamp passes, with or without an id.
     agent.send({ type: "mcp", message: { jsonrpc: "2.0", id: "current", method: "tools/call", params: { name: "echo", arguments: {}, _meta: current } } });
-    agent.send({ type: "mcp", message: { jsonrpc: "2.0", method: "tools/call", params: { name: "unknown" } } });
+    agent.send({ type: "mcp", message: { jsonrpc: "2.0", method: "tools/call", params: { name: "echo", arguments: {}, _meta: current } } });
     await until(() => forwarded(provider).length, (count) => count === 2, "the calls forwarded");
-    expect(forwarded(provider).map((frame) => [frame.message.id, frame.message.params.name])).toEqual([["current", "echo"], [undefined, "unknown"]]);
+    expect(forwarded(provider).map((frame) => [frame.message.id, frame.message.params.name])).toEqual([["current", "echo"], [undefined, "echo"]]);
+  });
+
+  it("checks a tools/call without an id as one with an id on both transports, and drops one it refuses over WebSocket unanswered", async () => {
+    const { relay, room, provider, joined, agent } = await recordedRoom();
+    const entry = relay.server.rooms.get(room.id)!;
+    const current = { catalogVersion: entry.catalogVersion, catalogHash: entry.catalogHash };
+    const refused = [
+      { params: { name: "" }, status: 400, error: { code: -32602, message: "tools/call params are invalid" } },
+      { params: { name: "echo", arguments: {}, _meta: { catalogVersion: current.catalogVersion + 1 } }, status: 409, error: { code: -32010, message: "CATALOG_CHANGED", data: current } },
+      { params: { name: "echo", arguments: {}, _meta: { catalogHash: "0".repeat(64) } }, status: 409, error: { code: -32010, message: "CATALOG_CHANGED", data: current } },
+      { params: { name: "unknown", arguments: {} }, status: 400, error: { code: -32602, message: "TOOL_NOT_FOUND" } },
+    ];
+    for (const { params, status, error } of refused) {
+      const call = { jsonrpc: "2.0", method: "tools/call", params };
+      expect(await postMcp(relay, room.id, call, joined.clientToken)).toEqual({ status, body: { jsonrpc: "2.0", id: null, error } });
+      agent.send({ type: "mcp", message: call });
+    }
+    // A call that passes is forwarded after them, and a ping the relay answers itself shows it has
+    // handled every frame sent before it: none of the refused calls reached the provider.
+    const passes = { jsonrpc: "2.0", method: "tools/call", params: { name: "echo", arguments: {}, _meta: current } };
+    agent.send({ type: "mcp", message: passes });
+    await ask(agent, "after", { method: "ping" });
+    await until(() => forwarded(provider).length, (count) => count >= 1, "the call that passes");
+    await flush(provider, "provider socket processed");
+    expect(forwarded(provider).map((frame) => frame.message)).toEqual([passes]);
+    // Nothing answers a notification.
+    expect(agent.frames.filter((frame) => frame.type === "mcp").map((frame) => frame.message.id)).toEqual(["after"]);
   });
 });
 

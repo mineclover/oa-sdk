@@ -1,5 +1,6 @@
 // Regression tests for the relay's error model: one code per error name on every route and
-// transport, how a refused credential is reported, what a rotated room and a rotate binding
+// transport, how a refused credential is reported (a Bearer challenge with no OAuth discovery
+// behind it), what a rotated room and a rotate binding
 // mismatch answer, and a malformed path parameter.
 import { afterEach, describe, expect, it } from "vitest";
 import type { WebMcpPeerServer } from "../src/server.js";
@@ -126,6 +127,26 @@ describe("credential errors", () => {
     expect(await reply(await mcp(bearer("guess")))).toMatchObject({ status: 401, ...wrong, body: { error: { code: -32003, message: "CLIENT_TOKEN_INVALID" } } });
     expect((await revoke(bearer(joined.clientToken))).status).toBe(200);
     expect(await reply(await mcp(bearer(joined.clientToken)))).toMatchObject({ status: 401, ...wrong, body: { error: { code: -32001, message: "SESSION_INVALID" } } });
+  });
+
+  it("offers no OAuth discovery: its Bearer challenge names no resource metadata, and every metadata path an OAuth client tries is 404", async () => {
+    const relay = await startRelay(servers);
+    const room = await createRoom(relay.base);
+    const refused = await reply(await postJson(`${relay.base}/p/${room.id}/mcp`, toolsCall(1)));
+    expect(refused).toMatchObject({ status: 401, challenge: "Bearer", body: { error: { message: "CLIENT_TOKEN_REQUIRED" } } });
+
+    // RFC 9728 protected resource metadata (at the root and under the resource's path), RFC 8414
+    // authorization server metadata, and OpenID Connect discovery: the relay has none of them, since
+    // its tokens are the tickets a join issues.
+    for (const path of [
+      "/.well-known/oauth-protected-resource",
+      `/.well-known/oauth-protected-resource/p/${room.id}/mcp`,
+      "/.well-known/oauth-authorization-server",
+      `/.well-known/oauth-authorization-server/p/${room.id}/mcp`,
+      "/.well-known/openid-configuration",
+    ]) {
+      expect((await fetch(`${relay.base}${path}`)).status, path).toBe(404);
+    }
   });
 
   it("answers a missing body credential with 400 and a wrong one with 403, without a challenge", async () => {

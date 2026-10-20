@@ -1620,14 +1620,14 @@ export class WebMcpPeerClient {
   ): Promise<ProviderRpcResponse | null> {
     if (!isJsonObject(rpc) || rpc.jsonrpc !== "2.0") return null;
     if (rpc.id === undefined) return null;
+    // A request of a connection that has ended is neither run nor answered: ending it closed the
+    // channel the request came on, so no answer could reach its agent.
+    if (generation !== this.connectionGeneration) return null;
     // An id that is not a string or a number, null included (MCP: an id MUST NOT be null), makes
     // the message an invalid request, which is answered and never run.
     const id = rpcRequestId(rpc);
     if (id === undefined) {
       return { jsonrpc: "2.0", id: null, error: { code: -32600, message: "Invalid Request" } };
-    }
-    if (generation !== this.connectionGeneration) {
-      return { jsonrpc: "2.0", id, error: peerRpcError("PEER_SESSION_SUPERSEDED") };
     }
 
     // An agent the relay let through but this provider has not approved (an HTTP approval, a
@@ -1702,12 +1702,23 @@ export class WebMcpPeerClient {
     return `remote-webmcp-${this.roomId ? this.roomId.slice(0, 6) : "remote"}`;
   }
 
+  /**
+   * Runs one `tools/call` of the connection `generation` (see R-PEER-013, R-PEER-016), and answers it
+   * while that connection lasts. A connection that ends while the call is in flight (a revocation, an
+   * expiry, a replaced or closed socket, `disconnect()`) closed the channel the call came on, so the
+   * call is answered with nothing (null): its agent learns of it from the relay, which ends a request
+   * in flight with PROVIDER_DISCONNECTED (it may have run), and, with a ledger, from the replay of a
+   * call made again under the same `context.requestId`. A call whose connection ended before the
+   * host was called is not run. One the host ran is still accounted for by the run that holds it,
+   * which only `disconnect()` clears: its action is settled, so the run can be stopped, rolled back
+   * and evicted, and its step recorded, so a rollback of the run undoes it.
+   */
   private async handleToolCall(
     id: JsonRpcRequestId,
     params: Record<string, unknown>,
     generation: number,
     webMcp: WebMcpHostAdapter | undefined,
-  ): Promise<ProviderRpcResponse> {
+  ): Promise<ProviderRpcResponse | null> {
     const name = nonEmptyString(params.name);
     if (!name) return { jsonrpc: "2.0", id, error: { code: -32602, message: "tools/call params are invalid" } };
     const args = isJsonObject(params.arguments) ? params.arguments : {};
@@ -1742,6 +1753,8 @@ export class WebMcpPeerClient {
         return { jsonrpc: "2.0", id, result: interpretHostResult(replay).result };
       }
     }
+    // The ledger lookup gave the connection time to end: a call of an ended connection does not run.
+    if (generation !== this.connectionGeneration) return null;
     const controller = new AbortController();
     let runSnapshot: AiRunSnapshot;
     try {
@@ -1771,6 +1784,7 @@ export class WebMcpPeerClient {
       };
     }
     this.aiRuns.registerAction(runId, requestId, controller);
+    let settled = false;
     try {
       const res = await webMcp?.invoke?.(name, args, { signal: controller.signal });
       const outcome = interpretHostResult(res);
@@ -1800,34 +1814,35 @@ export class WebMcpPeerClient {
           console.warn("[WebMCP] AI run ledger rejected receipt:", error);
         }
       }
-      if (generation !== this.connectionGeneration || !this.aiRuns.get(runId)) {
-        return { jsonrpc: "2.0", id, error: peerRpcError("OUTCOME_UNKNOWN") };
+      // The host ran the call: the run holding it accounts for it even when the call's connection
+      // ended meanwhile.
+      if (this.aiRuns.hasAction(runId, requestId)) {
+        settled = true;
+        this.aiRuns.settleAction(runId, requestId);
+        this.aiRuns.recordStep(runId, {
+          actionId: name,
+          stepIndex,
+          ...(operationId ? { operationId } : {}),
+          ...(transactionId ? { transactionId } : {}),
+          ...(receipt ? { requestId: receipt.requestId } : {}),
+        });
+        if (controller.signal.aborted) this.aiRuns.stop(runId, "stopped by host");
+        else if (explicitRunId && outcome.failed) this.aiRuns.fail(runId, outcome.failureMessage);
+        else if (explicitRunId && trace?.phase === "completed") this.aiRuns.complete(runId);
+        const updated = this.aiRuns.get(runId);
+        if (updated) this.publishAiRunAwareness(updated);
       }
-      this.aiRuns.settleAction(runId, requestId);
-      this.aiRuns.recordStep(runId, {
-        actionId: name,
-        stepIndex,
-        ...(operationId ? { operationId } : {}),
-        ...(transactionId ? { transactionId } : {}),
-        ...(receipt ? { requestId: receipt.requestId } : {}),
-      });
-      if (controller.signal.aborted) this.aiRuns.stop(runId, "stopped by host");
-      else if (explicitRunId && outcome.failed) this.aiRuns.fail(runId, outcome.failureMessage);
-      else if (explicitRunId && trace?.phase === "completed") this.aiRuns.complete(runId);
-      const updated = this.aiRuns.get(runId);
-      if (updated) this.publishAiRunAwareness(updated);
-      return { jsonrpc: "2.0", id, result: outcome.result };
+      return generation === this.connectionGeneration ? { jsonrpc: "2.0", id, result: outcome.result } : null;
     } catch (err) {
       const message = errorMessage(err, "Tool execution error");
-      if (generation !== this.connectionGeneration || !this.aiRuns.get(runId)) {
-        return { jsonrpc: "2.0", id, error: peerRpcError("OUTCOME_UNKNOWN") };
+      if (settled || this.aiRuns.hasAction(runId, requestId)) {
+        this.aiRuns.settleAction(runId, requestId);
+        if (controller.signal.aborted) this.aiRuns.stop(runId, "stopped by host");
+        else if (explicitRunId) this.aiRuns.fail(runId, message);
+        const updated = this.aiRuns.get(runId);
+        if (updated) this.publishAiRunAwareness(updated);
       }
-      this.aiRuns.settleAction(runId, requestId);
-      if (controller.signal.aborted) this.aiRuns.stop(runId, "stopped by host");
-      else if (explicitRunId) this.aiRuns.fail(runId, message);
-      const updated = this.aiRuns.get(runId);
-      if (updated) this.publishAiRunAwareness(updated);
-      return { jsonrpc: "2.0", id, result: toolErrorResult({ code: -32603, message }) };
+      return generation === this.connectionGeneration ? { jsonrpc: "2.0", id, result: toolErrorResult({ code: -32603, message }) } : null;
     }
   }
 

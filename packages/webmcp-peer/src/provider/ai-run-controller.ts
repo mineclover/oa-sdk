@@ -241,6 +241,15 @@ export class AiRunController {
     return this.cached(run);
   }
 
+  /**
+   * True while the run `runId` holds the action `requestId` in flight: registered with
+   * `registerAction` and neither settled nor cleared since. A run of the same id begun after `clear`
+   * does not hold an action registered before it.
+   */
+  hasAction(runId: string, requestId: string): boolean {
+    return this.runs.get(requireRunId(runId))?.controllers.has(requestId) ?? false;
+  }
+
   recordStep(runId: string, step: AiRunStep): AiRunSnapshot {
     const run = this.require(runId);
     if (!step.actionId.trim()) throw new Error("AI actionId is required");
