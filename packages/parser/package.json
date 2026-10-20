@@ -40,7 +40,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "tsup": "^8.0.0",
-    "vitest": "^4.1.4"
+    "tsup": "^8.5.1",
+    "vitest": "^4.1.12"
   }
 }

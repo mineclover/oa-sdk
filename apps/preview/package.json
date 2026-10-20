@@ -25,7 +25,7 @@
   "devDependencies": {
     "vite": "^8.0.8",
     "typescript": "5.9.3",
-    "vitest": "^4.1.4"
+    "vitest": "^4.1.12"
   },
   "msw": {
     "workerDirectory": [
