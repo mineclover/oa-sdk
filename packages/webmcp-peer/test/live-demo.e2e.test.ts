@@ -35,8 +35,8 @@ const rigs: DemoRig[] = [];
 const extraAgents: Array<ReturnType<typeof createAgentClient>> = [];
 const sessions: PeerMcpSession[] = [];
 
-async function createRig(): Promise<DemoRig> {
-  const demo = await startLiveDemoServer({ port: 0 });
+async function createRig(options: { approvalTimeoutMs?: number } = {}): Promise<DemoRig> {
+  const demo = await startLiveDemoServer({ port: 0, ...options });
   const events: WireEvent[] = [];
   const autoRefresh = { enabled: true };
   const host = createHostRuntime();
@@ -282,29 +282,50 @@ describe("live demo — room lifecycle security", () => {
     expect(await rig.agent.callTool("scene_list", {})).toMatchObject({ ok: false, code: "CLIENT_APPROVAL_DENIED", status: 403 });
   });
 
+  /** The time of the room `roomId` runs out, and with it its ticket's, which expires with the room. */
+  async function expireRoom(rig: DemoRig, roomId: string): Promise<void> {
+    const entry = rig.demo.server.rooms.get(roomId)!;
+    entry.expiresAt = Date.now() - 1;
+    for (const ticket of entry.clientTickets.values()) ticket.expiresAt = entry.expiresAt;
+    // The relay's next request sweeps the room.
+    await fetch(`${rig.demo.url}/status`);
+  }
+
   it("shows a room that expires as ROOM_EXPIRED, not as an expired approval request", async () => {
     const rig = await createRig();
-    const expireRoom = async (roomId: string) => {
-      // The room's time runs out, and with it its ticket's, which expires with the room.
-      const entry = rig.demo.server.rooms.get(roomId)!;
-      entry.expiresAt = Date.now() - 1;
-      for (const ticket of entry.clientTickets.values()) ticket.expiresAt = entry.expiresAt;
-      // The relay's next request sweeps the room.
-      await fetch(`${rig.demo.url}/status`);
-    };
 
     // An approved agent learns it from the relay's room.expired push.
     await connectApproved(rig);
-    await expireRoom(rig.provider.state.room.id);
+    await expireRoom(rig, rig.provider.state.room.id);
     await waitUntil(() => rig.agent.state.status === "room-expired", { label: "room.expired push" });
 
     // An agent still waiting for approval ends its join with the same name.
     await rig.provider.createRoom();
     const joined = rig.agent.join(rig.provider.state.room.invitationUrl);
     await waitUntil(() => rig.provider.state.pendingApproval, { label: "approval.request" });
-    await expireRoom(rig.provider.state.room.id);
+    await expireRoom(rig, rig.provider.state.room.id);
     expect(await joined).toMatchObject({ ok: false, error: "ROOM_EXPIRED" });
     expect(rig.agent.state.status).toBe("room-expired");
+  });
+
+  it.each<[string, { approvalTimeoutMs?: number }, string, string]>([
+    ["a room that expires as ROOM_EXPIRED", {}, "room-expired", "ROOM_EXPIRED"],
+    ["an approval request that expires as EXPIRED", { approvalTimeoutMs: 1_000 }, "expired", "EXPIRED"],
+  ])("shows %s when only its session status polling can tell it", async (_label, options, status, error) => {
+    const rig = await createRig(options);
+    await rig.provider.createRoom();
+    const roomId = rig.provider.state.room.id;
+    const entry = rig.demo.server.rooms.get(roomId)!;
+    const joined = rig.agent.join(rig.provider.state.room.invitationUrl);
+    // The agent loses its socket, so no push of the relay tells it how its session ended.
+    await waitUntil(() => entry.clientSockets.size === 1, { label: "the agent socket" });
+    for (const socket of entry.clientSockets) socket.close(1001);
+    await waitUntil(() => entry.clientSockets.size === 0, { label: "the agent socket closed" });
+
+    // The room expires now, or the approval request when nobody decided it in time.
+    if (status === "room-expired") await expireRoom(rig, roomId);
+    expect(await joined).toMatchObject({ ok: false, error });
+    expect(rig.agent.state.status).toBe(status);
   });
 
   it("revoke pushes session.revoked and purges the host credentials", async () => {

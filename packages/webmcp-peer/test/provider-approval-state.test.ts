@@ -1,7 +1,7 @@
 // Regression tests for the provider's approval state against the relay's: a relayed request of a
 // session the provider did not approve, an approval made over HTTP that the relay echoes, a
-// decision the relay refuses, an approval request the relay expires, and the session revoke that
-// names only the room epoch the provider knows.
+// decision the relay refuses, a rejection the relay confirms, an approval request the relay
+// expires, and the session revoke that names only the room epoch the provider knows.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PeerMcpSession, joinPeerRoom } from "../src/client.js";
 import { WebMcpPeerClient, type WebMcpHostAdapter } from "../src/provider.js";
@@ -179,7 +179,7 @@ describe("a provider on the relay", () => {
     const roomId = host.getSession().roomId!;
     const joined = await joinPeerRoom({ invitationUrl, clientLabel: "Agent" });
     await until(() => (host.getSession().approvalState === "pending" ? true : undefined), "the approval request");
-    return { server, serverUrl, host, roomId, joined };
+    return { server, serverUrl, host, roomId, invitationUrl, joined };
   }
 
   it("learns an approval made over HTTP from the relay and serves the agent", async () => {
@@ -196,6 +196,31 @@ describe("a provider on the relay", () => {
     sessions.push(session);
     await session.connect();
     expect(await session.callTool("read", {})).toMatchObject({ isError: false });
+  });
+
+  it.each<[string, (room: Awaited<ReturnType<typeof hostedRoom>>) => Promise<unknown>]>([
+    ["by the host", async ({ host }) => expect(host.rejectClient()).toBe(true)],
+    [
+      "over HTTP",
+      async ({ server, serverUrl, roomId, joined }) => {
+        const rejection = await fetch(`${serverUrl}/p/${roomId}/approval/${joined.approvalRequestId}`, {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: `Bearer ${server.rooms.get(roomId)!.providerToken}` },
+          body: JSON.stringify({ sessionId: joined.sessionId, decision: "rejected" }),
+        });
+        expect(rejection.status).toBe(200);
+      },
+    ],
+  ])("ends the session when the relay confirms a rejection %s, since the rejected agent spent the room's one invite", async (_label, reject) => {
+    const room = await hostedRoom();
+    await reject(room);
+    await until(() => (room.host.getSession().state === "disconnected" ? true : undefined), "the relay's approval.rejected");
+    expect(room.host.getSession()).toMatchObject({ approvalState: "revoked", approvalRequestId: null, error: "CLIENT_APPROVAL_DENIED" });
+
+    // Nobody else can join the room.
+    await expect(joinPeerRoom({ invitationUrl: room.invitationUrl, clientLabel: "Another agent" })).rejects.toMatchObject({
+      code: "INVITE_TOKEN_CONSUMED",
+    });
   });
 
   it("takes an approval request nobody decided in time down when the relay expires it", async () => {

@@ -267,6 +267,7 @@ describe("a session the relay ends", () => {
 
   it.each<[string, Record<string, unknown>, string]>([
     ["an approval request that expired", { type: "approval.expired", reason: "APPROVAL_EXPIRED" }, "APPROVAL_EXPIRED"],
+    ["a rejected approval request", { type: "approval.rejected", reason: "CLIENT_REJECTED" }, "CLIENT_APPROVAL_DENIED"],
     ["a revoked session, the agent's own revoke included", { type: "session.revoked", reason: "CLIENT_REVOKED" }, "SESSION_REVOKED"],
     ["a rotated room", { type: "room.rotated", rotatedTo: "fedcba9876543210" }, "ROOM_ROTATED"],
   ])("forgets the room's lease after %s, so a reloaded page reclaims no room nobody can join", async (_label, frame, error) => {

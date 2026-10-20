@@ -89,6 +89,11 @@ const SESSION_SUPERSEDED_ERROR = "PEER_SESSION_SUPERSEDED";
  * auto-reconnect does not retry, see `isReconnectableCloseCode`), such as a 1000 whose frame was lost.
  */
 const SIGNALING_CLOSED_ERROR = "SIGNALING_CLOSED";
+/**
+ * The session error of a session whose approval request the relay rejected (`approval.rejected`),
+ * the name the relay and the agent client give a rejected ticket.
+ */
+const CLIENT_APPROVAL_DENIED_ERROR = "CLIENT_APPROVAL_DENIED";
 /** The localStorage key of the host's write consent (see `WebMcpPeerClient.setWriteEnabled`). */
 const WRITE_ENABLED_STORAGE_KEY = "webmcp:write-enabled";
 
@@ -1075,12 +1080,9 @@ export class WebMcpPeerClient {
         }
 
         if (msg.type === "approval.rejected") {
-          this.sentDecision = null;
-          this.clearDecisionError();
-          this.approvalState = "revoked";
-          this.approvalRequestId = null;
-          this.state = "waiting";
-          this.notify();
+          // The relay ended the ticket, whoever rejected it (the echo of the host's own rejection
+          // or of one over HTTP): its agent spent the room's one invite, so the room is done.
+          this.revokePeerSession(CLIENT_APPROVAL_DENIED_ERROR);
           return;
         }
 
@@ -1356,11 +1358,12 @@ export class WebMcpPeerClient {
 
   /**
    * Ends the session as revoked, for `reason`: the relay revoked the room's ticket, whoever asked
-   * (the agent itself, the host over HTTP, another tab). The room takes no other agent (its one
-   * invite is spent), so the saved lease is forgotten and nothing reconnects to the room: the
-   * transport's generation ends, so its close schedules nothing, and a reloaded host page finds no
-   * lease to reclaim. The host's auto-reconnect preference is the host's own and stays as it was,
-   * for the rooms it opens next; only the host's own `revokeClient()` turns it off.
+   * (the agent itself, the host over HTTP, another tab), or rejected its approval request, whoever
+   * decided. The room takes no other agent (its one invite is spent), so the saved lease is
+   * forgotten and nothing reconnects to the room: the transport's generation ends, so its close
+   * schedules nothing, and a reloaded host page finds no lease to reclaim. The host's auto-reconnect
+   * preference is the host's own and stays as it was, for the rooms it opens next; only the host's
+   * own `revokeClient()` turns it off.
    */
   private revokePeerSession(reason: string): void {
     this.approvalState = "revoked";
