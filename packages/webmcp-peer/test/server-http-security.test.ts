@@ -11,8 +11,9 @@
 //     maxRooms, retained rooms included;
 //   - CORS exposes the headers the relay sends for its clients, a preflight names the methods the
 //     routes take, every response names Origin in Vary and the descriptor also Accept;
-//   - a route asked with a method it does not take is 405 with its Allow, /health tells live rooms
-//     from retained ones, and conditional GETs answer 304 with the route's cache headers;
+//   - a route asked with a method it does not take is 405 with its Allow, /status, /health and
+//     /ping take every method but OPTIONS, which is the preflight on every path, /health tells live
+//     rooms from retained ones, and conditional GETs answer 304 with the route's cache headers;
 //   - a route is matched on the request target as a WHATWG URL normalizes it, and node:http's
 //     header limit stays in place for requests and upgrades alike.
 import fs from "node:fs";
@@ -435,6 +436,31 @@ describe("methods, health and conditional GETs", () => {
       expect(await response.json()).toEqual({ error: "NOT_FOUND" });
     }
     expect(relay.server.rooms.get(room.id)?.roomState).toBe("provisioned");
+  });
+
+  it("answers /status, /health and /ping for every method but OPTIONS, which is the preflight on every path", async () => {
+    const relay = await startRelay(servers);
+    const room = await createRoom(relay.base);
+    const elsewhere = "https://elsewhere.example";
+    for (const route of ["/status", "/health", "/ping"]) {
+      for (const method of ["GET", "POST", "PUT", "PATCH", "DELETE"]) {
+        const response = await fetch(`${relay.base}${route}`, { method });
+        expect(response.status, `${method} ${route}`).toBe(200);
+        expect(await response.json(), `${method} ${route}`).toMatchObject({ status: "healthy" });
+      }
+      // OPTIONS is answered before any route: the preflight, or the Origin refusal.
+      const preflight = await fetch(`${relay.base}${route}`, { method: "OPTIONS", headers: { origin: BROWSER, "access-control-request-method": "GET" } });
+      expect(preflight.status, route).toBe(204);
+      expect(preflight.headers.get("access-control-allow-methods"), route).toBe("GET, POST, DELETE, OPTIONS");
+      expect(await preflight.text(), route).toBe("");
+      const refused = await fetch(`${relay.base}${route}`, { method: "OPTIONS", headers: { origin: elsewhere } });
+      expect(refused.status, route).toBe(403);
+      expect(await refused.json(), route).toEqual({ error: "ORIGIN_NOT_ALLOWED", origin: elsewhere });
+    }
+    // So an OPTIONS is no route's 405 either, of a route that does not take it included.
+    const join = await fetch(`${relay.base}/p/${room.id}/join`, { method: "OPTIONS", headers: { origin: BROWSER } });
+    expect(join.status).toBe(204);
+    expect(join.headers.get("allow")).toBeNull();
   });
 
   it("reports the live rooms as activeRooms and the expired or rotated ones it retains as retainedRooms", async () => {

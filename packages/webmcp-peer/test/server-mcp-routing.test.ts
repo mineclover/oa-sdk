@@ -4,8 +4,9 @@
 //     revisions and capabilities,
 //   - a null id makes an invalid request on both transports, never a notification, and a provider
 //     reply the relay cannot match to a request is dropped instead of broadcast to every agent,
-//   - an HTTP notification is answered 202 whatever its method, and a notification method takes no
-//     id on either transport,
+//   - an HTTP notification of a method the relay answers itself is answered 202 without the room
+//     and ticket checks, any other is checked as a request and answered 202 once the provider takes
+//     it, and a notification method takes no id on either transport,
 //   - an agent WebSocket's ping is the relay's to answer, and a ticket waiting for approval gets the
 //     relay's public discovery (initialize, tools/list, server/discover) as an HTTP agent does,
 //   - every WebSocket listing carries the relay's catalog stamp in result._meta,
@@ -321,17 +322,44 @@ describe("the timeout of a forwarded request", { timeout: 20_000 }, () => {
 });
 
 describe("notifications", { timeout: 20_000 }, () => {
-  it("answers every HTTP notification 202 with an empty body, also one for a method the relay answers itself", async () => {
-    // No catalog and no provider: a listing request would be 503, a relayed one 503.
+  it("answers a notification of a method the relay answers itself 202 with an empty body, without checking the room, the ticket or the catalog", async () => {
+    // No catalog and no provider: a listing request would be 503, a relayed one 503. No ticket
+    // either, and a room that does not exist is not checked.
     const relay = await startRelay(servers, { deploymentCatalog: { tools: [] } });
     const room = await createRoom(relay.base);
-    for (const method of ["ping", "initialize", "tools/list", "server/discover", "notifications/initialized"]) {
-      const reply = await postMcp(relay, room.id, { jsonrpc: "2.0", method, params: {} });
-      expect({ method, ...reply }).toEqual({ method, status: 202, body: null });
+    for (const roomId of [room.id, "nowhere"]) {
+      for (const method of ["ping", "initialize", "tools/list", "server/discover", "notifications/initialized"]) {
+        const reply = await postMcp(relay, roomId, { jsonrpc: "2.0", method, params: {} });
+        expect({ roomId, method, ...reply }).toEqual({ roomId, method, status: 202, body: null });
+      }
     }
+    // What the relay checks before the method, the MCP-Protocol-Version header among it, still applies.
+    const unsupported = await postJson(`${relay.base}/p/${room.id}/mcp`, { jsonrpc: "2.0", method: "notifications/initialized" }, { "mcp-protocol-version": "1999-01-01" });
+    expect(unsupported.status).toBe(400);
+    expect(await unsupported.json()).toMatchObject({ jsonrpc: "2.0", id: null, error: { code: -32600, message: "UNSUPPORTED_PROTOCOL_VERSION" } });
     // With an id they are requests, answered as before.
     expect((await postMcp(relay, room.id, { jsonrpc: "2.0", id: 1, method: "ping" })).body).toEqual({ jsonrpc: "2.0", id: 1, result: {} });
     expect((await postMcp(relay, room.id, { jsonrpc: "2.0", id: 2, method: "tools/list" })).status).toBe(503);
+  });
+
+  it("checks a notification of any other method as it checks a request, and answers it 202 once the provider takes it", async () => {
+    const relay = await startRelay(servers, { deploymentCatalog: { tools: [tool("echo")] } });
+    const room = await createRoom(relay.base);
+    const joined = await joinRoom(relay.base, room);
+    const cancelled = { jsonrpc: "2.0", method: "notifications/cancelled", params: { requestId: 1 } };
+    // Refused as a request of the same ticket would be, with its status, under id null.
+    const refused = (status: number, message: string) => ({
+      status,
+      body: { jsonrpc: "2.0", id: null, error: expect.objectContaining({ message }) },
+    });
+    expect(await postMcp(relay, "nowhere", cancelled, joined.clientToken)).toEqual(refused(404, "ROOM_NOT_FOUND"));
+    expect(await postMcp(relay, room.id, cancelled)).toEqual(refused(401, "CLIENT_TOKEN_REQUIRED"));
+    expect(await postMcp(relay, room.id, cancelled, joined.clientToken)).toEqual(refused(503, "PROVIDER_UNAVAILABLE"));
+
+    const provider = await openProvider(relay, room, sockets);
+    expect(await postMcp(relay, room.id, cancelled, joined.clientToken)).toEqual({ status: 202, body: null });
+    await until(() => forwarded(provider).length, (count) => count === 1, "the notification forwarded");
+    expect(forwarded(provider)[0]).toMatchObject({ from: "client", sessionId: joined.sessionId, message: cancelled });
   });
 
   it("refuses a notification method sent with an id as an invalid request, over HTTP and WebSocket", async () => {
