@@ -834,7 +834,8 @@ describe('Milestone 4 Adversarial Verification & Empirical Stress Suite', () => 
       expect(code).toContain('export async function getItem(')
       expect(code).toContain('options: RequestOptions<GetItemData>')
       expect(code).toContain('export const itemsGetItem = getItem;')
-      expect(code).toContain('Promise<ClientResult<ItemsGetItemResponse, ItemsGetItemError>>')
+      // The third type argument is the per-status error map that isErrorStatus narrows with.
+      expect(code).toContain('Promise<ClientResult<ItemsGetItemResponse, ItemsGetItemError, GetItemErrors>>')
     })
   })
 })

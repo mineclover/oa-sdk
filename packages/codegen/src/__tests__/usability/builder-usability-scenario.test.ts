@@ -4,7 +4,7 @@
  * Comprehensive end-to-end DX evaluation across 5 core developer journey areas:
  * 1. Area 1: Programmable Introspection Ergonomics (getOperations, getModels, route counts, latency benchmarks)
  * 2. Area 2: openapi-ts Calling Convention & Discriminated Union DX (single object params, mutually exclusive data/error, isErrorStatus narrowing, signal cancellation)
- * 3. Area 3: TanStack Query v5 3-Tier Integration DX (Tier 1 keys, Tier 2 queryOptions/infiniteQueryOptions, Tier 3 hooks, modular split)
+ * 3. Area 3: TanStack Query v5 3-Tier Integration DX (Tier 1 keys, Tier 2 queryOptions/infiniteQueryOptions, Tier 3 hooks, modular split, api-client.ts adapter over pluginClient)
  * 4. Area 4: Vite HMR Dev Loop Lifecycle DX (buildStart, configureServer, watch full-reload, deterministic closeBundle teardown)
  * 5. Area 5: Binary Wire Compression & Protobuf Codec DX (zero-eval CSP, resolveBinaryCodec, lossless roundtrip, >70% compression)
  *
@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, vi, beforeAll, afterEach } from 'vitest'
-import { resolve, join } from 'node:path'
+import { resolve, join, posix } from 'node:path'
 import { mkdirSync, mkdtempSync, copyFileSync, appendFileSync, rmSync } from 'node:fs'
 import { createContext, runInContext } from 'node:vm'
 import ts from 'typescript'
@@ -27,8 +27,51 @@ import {
   pluginTanstackQuery,
   pluginWire,
   vitePluginTsp,
+  type PluginTanstackQueryOptions,
   type TspIntrospectionReport,
 } from '../../plugin/index.js'
+
+/**
+ * Transpiles a generated TypeScript module to CommonJS and evaluates it in a Node VM context with the
+ * standard Web APIs (fetch Response, Headers, ...). `modules` maps every specifier the module requires
+ * at runtime to the exports of an already loaded module; type-only imports are erased by transpilation.
+ */
+function loadGeneratedModule(
+  source: string,
+  modules: Readonly<Record<string, Record<string, any>>> = {},
+): Record<string, any> {
+  const transpiled = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+    },
+  }).outputText
+
+  const exportsContainer: Record<string, any> = {}
+  const sandbox = {
+    exports: exportsContainer,
+    module: { exports: exportsContainer },
+    require: (specifier: string) => {
+      const loaded = modules[specifier]
+      if (!loaded) throw new Error(`Generated module requires '${specifier}' at runtime, which the test did not provide`)
+      return loaded
+    },
+    Response,
+    Headers,
+    DOMException,
+    URLSearchParams,
+    TextEncoder,
+    TextDecoder,
+    console,
+  }
+  runInContext(transpiled, createContext(sandbox))
+  return exportsContainer
+}
+
+/** Relative module specifiers (`./x.js`, `../x.js`) a generated module imports from. */
+function relativeImports(code: string): string[] {
+  return Array.from(code.matchAll(/from '(\.{1,2}\/[^']+)'/g), match => match[1]!)
+}
 
 describe('TypeSpec Builder Platform: Real-World Usability Scenarios', () => {
   const monorepoRoot = resolve(__dirname, '../../../../..')
@@ -210,29 +253,7 @@ describe('TypeSpec Builder Platform: Real-World Usability Scenarios', () => {
       clientSourceCode = ctx.getFile('client.ts')!.content
 
       // Transpile the generated client code with TypeScript to execute in Node VM
-      const transpiled = ts.transpileModule(clientSourceCode, {
-        compilerOptions: {
-          module: ts.ModuleKind.CommonJS,
-          target: ts.ScriptTarget.ES2022,
-        },
-      }).outputText
-
-      // Prepare sandbox with standard Web APIs (fetch, Response, Headers)
-      const exportsContainer: Record<string, any> = {}
-      const sandbox = {
-        exports: exportsContainer,
-        module: { exports: exportsContainer },
-        require: () => ({}),
-        Response,
-        Headers,
-        DOMException,
-        URLSearchParams,
-        TextEncoder,
-        TextDecoder,
-        console,
-      }
-      runInContext(transpiled, createContext(sandbox))
-      moduleExports = exportsContainer
+      moduleExports = loadGeneratedModule(clientSourceCode)
     })
 
     it('2.1: enforces single-object calling convention { path, query, body, headers } with mock fetch', async () => {
@@ -367,7 +388,11 @@ describe('TypeSpec Builder Platform: Real-World Usability Scenarios', () => {
   // Area 3: TanStack Query v5 3-Tier Integration DX
   // ──────────────────────────────────────────────────────────────────────────
   describe('Area 3: TanStack Query v5 3-Tier Integration DX', () => {
-    it('3.1: verifies modular split emission (split: true) into keys.ts, queries.ts, hooks.ts', async () => {
+    /**
+     * Runs the documented stack on the Petstore fixture: real pluginTypescript and pluginClient output
+     * upstream of pluginTanstackQuery, in dependency order.
+     */
+    async function generateTanstackStack(tanstackOptions: PluginTanstackQueryOptions) {
       const compileRes = await compileTypeSpecInMemory(petstoreFile)
       const ctx = createPluginContext({
         entrypoint: petstoreFile,
@@ -375,38 +400,48 @@ describe('TypeSpec Builder Platform: Real-World Usability Scenarios', () => {
         document: compileRes.document,
         config: { input: petstoreFile },
       })
+      for (const plugin of [pluginTypescript(), pluginClient(), pluginTanstackQuery(tanstackOptions)]) {
+        await plugin.generate!(ctx)
+      }
+      return ctx
+    }
 
-      // Add upstream virtual files so context.resolveImport succeeds cleanly
-      ctx.addFile({
-        path: 'types.ts',
-        content: 'export interface Pet { id: string; name: string }',
-        sourcePlugin: 'typescript',
-      })
-      ctx.addFile({
-        path: 'client.ts',
-        content: 'export class ApiClient {}',
-        sourcePlugin: 'client',
-      })
+    it('3.1: verifies modular split emission (split: true) into keys.ts, queries.ts, hooks.ts over the api-client.ts adapter', async () => {
+      const ctx = await generateTanstackStack({ split: true })
+      expect(ctx.diagnostics).toEqual([])
 
-      const plugin = pluginTanstackQuery({ split: true })
-      await plugin.generate!(ctx)
-
-      expect(ctx.hasFile('keys.ts')).toBe(true)
-      expect(ctx.hasFile('queries.ts')).toBe(true)
-      expect(ctx.hasFile('hooks.ts')).toBe(true)
+      expect(ctx.getFiles().map(file => file.path).sort())
+        .toEqual(['api-client.ts', 'client.ts', 'hooks.ts', 'keys.ts', 'queries.ts', 'types.ts'])
 
       const keysFile = ctx.getFile('keys.ts')!
       const queriesFile = ctx.getFile('queries.ts')!
       const hooksFile = ctx.getFile('hooks.ts')!
+      const adapterFile = ctx.getFile('api-client.ts')!
 
       expect(keysFile.kind).toBe('keys')
       expect(queriesFile.kind).toBe('queries')
       expect(hooksFile.kind).toBe('hooks')
+      expect(adapterFile.kind).toBe('client-adapter')
+      expect(adapterFile.exports).toEqual(expect.arrayContaining(['ApiClient', 'createApiClient', 'ApiClientResponseError']))
 
       // Verify relative ESM import resolution between virtual files
-      expect(queriesFile.content).toContain('./keys.js')
-      expect(hooksFile.content).toContain('./keys.js')
-      expect(hooksFile.content).toContain('./queries.js')
+      expect(queriesFile.content).toContain("from './keys.js'")
+      expect(hooksFile.content).toContain("from './keys.js'")
+      expect(hooksFile.content).toContain("from './queries.js'")
+
+      // The option factories and hooks take the adapter's ApiClient, which forwards to pluginClient's standalone functions
+      expect(queriesFile.content).toContain("import type { ApiClient } from './api-client.js'")
+      expect(hooksFile.content).toContain("import type { ApiClient } from './api-client.js'")
+      expect(adapterFile.content).toMatch(/^import \{ type Client, [^}]*\bpetsGetPetById\b[^}]*\} from '\.\/client\.js'$/m)
+      expect(adapterFile.content).toContain("from './types.js'")
+
+      // Every relative import targets an emitted virtual file
+      for (const file of ctx.getFiles()) {
+        for (const specifier of relativeImports(file.content)) {
+          const target = posix.normalize(posix.join(posix.dirname(file.path), specifier)).replace(/\.js$/, '.ts')
+          expect(ctx.hasFile(target), `${file.path} -> ${specifier}`).toBe(true)
+        }
+      }
     })
 
     it('3.2: verifies Tier 1 queryKey factories emit pure tuples with zero external runtime dependencies', async () => {
@@ -481,6 +516,58 @@ describe('TypeSpec Builder Platform: Real-World Usability Scenarios', () => {
       expect(code).toContain('usePetsGetPetByIdQuery')
       expect(code).toContain('usePetsCreatePetMutation')
       expect(code).toContain('usePetsListPetsInfiniteQuery')
+    })
+
+    it('3.5: calls the API through createApiClient(createClient(...)) and rejects undeclared failures with ApiClientResponseError', async () => {
+      const ctx = await generateTanstackStack({})
+      expect(ctx.diagnostics).toEqual([])
+
+      // PetError is not an @error model, so the Petstore operations declare no error models: their
+      // TanStack error type is Error, and every failed response rejects with ApiClientResponseError.
+      expect(ctx.getFile('queries.ts')!.content)
+        .toContain('UndefinedInitialDataOptions<JsonPrimitive<PetsGetPetByIdResponse>, Error,')
+
+      const sdk = loadGeneratedModule(ctx.getFile('client.ts')!.content)
+      const adapter = loadGeneratedModule(ctx.getFile('api-client.ts')!.content, { './client.js': sdk })
+
+      const respond = vi.fn<() => Response>()
+      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => respond())
+      const api = adapter.createApiClient(sdk.createClient({ baseUrl: 'https://api.test', fetch: fetchMock }))
+
+      // 2xx: the positional TanStack call (params, headers, { signal }) resolves to the response payload
+      const pet = { id: 'pet-1', name: 'Rex', status: 'available' }
+      respond.mockReturnValueOnce(new Response(JSON.stringify(pet), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      const controller = new AbortController()
+      await expect(api.petsGetPetById({ petId: 'pet-1' }, { 'x-request-id': 'req-1' }, { signal: controller.signal }))
+        .resolves.toEqual(pet)
+      expect(fetchMock).toHaveBeenLastCalledWith('https://api.test/pets/pet-1', expect.objectContaining({
+        method: 'GET',
+        signal: controller.signal,
+        headers: expect.objectContaining({ 'x-request-id': 'req-1' }),
+      }))
+
+      // A failed response with a JSON body: ApiClientResponseError carries status, parsed body and response
+      const notFoundBody = { code: 'NOT_FOUND', message: 'Pet pet-999 not found' }
+      respond.mockReturnValueOnce(new Response(JSON.stringify(notFoundBody), { status: 404 }))
+      const notFound = await api.petsGetPetById({ petId: 'pet-999' }).catch((error: unknown) => error)
+      expect(notFound).toBeInstanceOf(adapter.ApiClientResponseError)
+      expect(notFound.name).toBe('ApiClientResponseError')
+      expect(notFound.status).toBe(404)
+      expect(notFound.body).toEqual(notFoundBody)
+      expect(notFound.response.status).toBe(404)
+
+      // A failed response with an empty body: the error has no body
+      respond.mockReturnValueOnce(new Response(null, { status: 503 }))
+      const unavailable = await api.petsListPets().catch((error: unknown) => error)
+      expect(unavailable).toBeInstanceOf(adapter.ApiClientResponseError)
+      expect(unavailable.status).toBe(503)
+      expect(unavailable.body).toBeUndefined()
+      expect(unavailable.message).toBe('HTTP Error 503')
+
+      // 204 No Content resolves to undefined
+      respond.mockReturnValueOnce(new Response(null, { status: 204 }))
+      await expect(api.petsDeletePet({ petId: 'pet-1' })).resolves.toBeUndefined()
+      expect(fetchMock).toHaveBeenLastCalledWith('https://api.test/pets/pet-1', expect.objectContaining({ method: 'DELETE' }))
     })
   })
 

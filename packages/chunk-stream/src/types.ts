@@ -170,7 +170,13 @@ export interface PlaybackVirtualizerOptions {
 }
 
 export interface StorageTierOptions {
+  /** L1 (memory) byte budget. Wins over `memoryPreset` when both are given. */
   readonly maxL1MemoryBytes?: number | undefined;
+  /**
+   * Derives the L1 budget from a memory preset with the same rule as
+   * `defineChunkStreamConfig` (50% of the preset's resident budget). With
+   * neither option the L1 budget is 32 MiB.
+   */
   readonly memoryPreset?: MemoryPresetName | undefined;
   readonly l2DatabaseName?: string | undefined;
   readonly fetchRemoteChunk?: ((id: string, signal?: AbortSignal) => Promise<ArrayBuffer | Uint8Array | string>) | undefined;

@@ -2,10 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { resolve } from 'node:path'
 import {
   type TspPlugin,
-  type TspGeneratedFile,
   TspFileConflictError,
   createPluginContext,
-  sortPlugins,
+  runTspPluginPipeline,
 } from '../../../../packages/codegen/src/plugin/index.js'
 import type { OasDocument } from '@oa-sdk/parser'
 
@@ -50,19 +49,11 @@ describe('Tier 1: F9 - Plugin Runner & Virtual File Flusher', () => {
       emit: () => { trace.push('B:emit') },
     }
 
-    const sorted = sortPlugins([pluginB, pluginA])
-    const context = createPluginContext({
-      entrypoint: resolve('test/e2e/typespec-plugin/fixtures/petstore/main.tsp'),
-      outputDir: resolve('dist/generated'),
-      document: mockDoc,
-      config: { input: 'main.tsp', output: 'dist/generated', plugins: sorted },
-    })
-
-    // Pipeline orchestration lifecycle
-    for (const p of sorted) await p.setup?.(context)
-    for (const p of sorted) await p.transform?.(context)
-    for (const p of sorted) await p.generate?.(context)
-    for (const p of sorted) await p.emit?.(context)
+    // The real runner orders the plugins (beta depends on alpha) and drives every lifecycle phase.
+    const result = await runTspPluginPipeline(
+      { input: 'main.tsp', dryRun: true, plugins: [pluginB, pluginA] },
+      { document: mockDoc },
+    )
 
     expect(trace).toEqual([
       'A:setup', 'B:setup',
@@ -70,7 +61,9 @@ describe('Tier 1: F9 - Plugin Runner & Virtual File Flusher', () => {
       'A:generate', 'B:generate',
       'A:emit', 'B:emit',
     ])
-    expect(context.getFiles().length).toBe(2)
+    expect(result.success).toBe(true)
+    expect(result.files.map(file => file.path)).toEqual(['alpha.ts', 'beta.ts'])
+    expect(result.emittedFiles).toEqual([])
   })
 
   it('F9.2: accurately computes relative ESM import specifiers between virtual files', () => {

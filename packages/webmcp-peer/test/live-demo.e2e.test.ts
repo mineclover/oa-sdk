@@ -35,8 +35,8 @@ const rigs: DemoRig[] = [];
 const extraAgents: Array<ReturnType<typeof createAgentClient>> = [];
 const sessions: PeerMcpSession[] = [];
 
-async function createRig(): Promise<DemoRig> {
-  const demo = await startLiveDemoServer({ port: 0 });
+async function createRig(options: { approvalTimeoutMs?: number } = {}): Promise<DemoRig> {
+  const demo = await startLiveDemoServer({ port: 0, ...options });
   const events: WireEvent[] = [];
   const autoRefresh = { enabled: true };
   const host = createHostRuntime();
@@ -126,6 +126,46 @@ describe("live demo — catalog integrity", () => {
 
     const tampered = server.tools.map((tool, index) => (index === 0 ? { ...tool, description: "tampered" } : tool));
     expect(await computeCatalogHash(tampered)).not.toBe(server.catalogHash);
+  });
+
+  it("numbers every register frame and matches a relay refusal to the latest one by its registerSeq", async () => {
+    const rig = await createRig();
+    await rig.provider.createRoom();
+    const roomId = rig.provider.state.room.id;
+    const hostToolNames = rig.host.listTools().map((tool: { name: string }) => tool.name);
+    // The relay holds the host surface once it has taken register #1.
+    let accepted = await roomCatalog(rig, roomId);
+    for (const deadline = Date.now() + 5000; ; accepted = await roomCatalog(rig, roomId)) {
+      if (accepted.tools.map((tool) => tool.name).join() === hostToolNames.join()) break;
+      if (Date.now() > deadline) throw new Error("the relay never took register #1");
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    const registers = () => rig.events.filter((event) => event.title?.startsWith("WS register #"));
+    const refusals = () => rig.events.filter((event) => event.title?.startsWith("WS CATALOG_INVALID"));
+    expect(registers().map((event) => event.title)).toEqual([expect.stringMatching(/^WS register #1 · /)]);
+
+    // A host surface that names one tool twice is refused, and the refusal names that frame.
+    const listTools = rig.host.listTools;
+    rig.host.listTools = () => {
+      const tools = listTools();
+      return [...tools, tools[0]];
+    };
+    expect(rig.provider.broadcastCatalog("duplicate")).toBe(true);
+    await waitUntil(() => refusals().length === 1, { label: "refusal of register #2" });
+    expect(refusals()[0]).toMatchObject({ title: "WS CATALOG_INVALID · register #2", tone: "err" });
+    expect(rig.provider.state.catalogRefusal).toMatch(/^CATALOG_INVALID: /);
+
+    // The same refused surface again, at once replaced by the valid one: the refusal that arrives
+    // after the valid frame was sent names the older frame and is ignored.
+    expect(rig.provider.broadcastCatalog("duplicate again")).toBe(true);
+    rig.host.listTools = listTools;
+    expect(rig.provider.broadcastCatalog("fixed")).toBe(true);
+    expect(rig.provider.state.catalogRefusal).toBeNull();
+    await waitUntil(() => refusals().length === 2, { label: "refusal of register #3" });
+    expect(refusals()[1]).toMatchObject({ title: "WS CATALOG_INVALID · register #3 (이미 #4로 대체됨, 무시)", tone: "warn" });
+    expect(rig.provider.state.catalogRefusal).toBeNull();
+    expect(registers().map((event) => event.title)).toEqual([1, 2, 3, 4].map((seq) => expect.stringMatching(new RegExp(`^WS register #${seq} · `))));
+    expect(await roomCatalog(rig, roomId)).toMatchObject({ catalogVersion: accepted.catalogVersion, catalogHash: accepted.catalogHash });
   });
 
   it("blocks calls locally while the relay catalog hash is unverified", async () => {
@@ -240,6 +280,52 @@ describe("live demo — room lifecycle security", () => {
 
     expect(await joined).toMatchObject({ ok: false, error: "REJECTED" });
     expect(await rig.agent.callTool("scene_list", {})).toMatchObject({ ok: false, code: "CLIENT_APPROVAL_DENIED", status: 403 });
+  });
+
+  /** The time of the room `roomId` runs out, and with it its ticket's, which expires with the room. */
+  async function expireRoom(rig: DemoRig, roomId: string): Promise<void> {
+    const entry = rig.demo.server.rooms.get(roomId)!;
+    entry.expiresAt = Date.now() - 1;
+    for (const ticket of entry.clientTickets.values()) ticket.expiresAt = entry.expiresAt;
+    // The relay's next request sweeps the room.
+    await fetch(`${rig.demo.url}/status`);
+  }
+
+  it("shows a room that expires as ROOM_EXPIRED, not as an expired approval request", async () => {
+    const rig = await createRig();
+
+    // An approved agent learns it from the relay's room.expired push.
+    await connectApproved(rig);
+    await expireRoom(rig, rig.provider.state.room.id);
+    await waitUntil(() => rig.agent.state.status === "room-expired", { label: "room.expired push" });
+
+    // An agent still waiting for approval ends its join with the same name.
+    await rig.provider.createRoom();
+    const joined = rig.agent.join(rig.provider.state.room.invitationUrl);
+    await waitUntil(() => rig.provider.state.pendingApproval, { label: "approval.request" });
+    await expireRoom(rig, rig.provider.state.room.id);
+    expect(await joined).toMatchObject({ ok: false, error: "ROOM_EXPIRED" });
+    expect(rig.agent.state.status).toBe("room-expired");
+  });
+
+  it.each<[string, { approvalTimeoutMs?: number }, string, string]>([
+    ["a room that expires as ROOM_EXPIRED", {}, "room-expired", "ROOM_EXPIRED"],
+    ["an approval request that expires as EXPIRED", { approvalTimeoutMs: 1_000 }, "expired", "EXPIRED"],
+  ])("shows %s when only its session status polling can tell it", async (_label, options, status, error) => {
+    const rig = await createRig(options);
+    await rig.provider.createRoom();
+    const roomId = rig.provider.state.room.id;
+    const entry = rig.demo.server.rooms.get(roomId)!;
+    const joined = rig.agent.join(rig.provider.state.room.invitationUrl);
+    // The agent loses its socket, so no push of the relay tells it how its session ended.
+    await waitUntil(() => entry.clientSockets.size === 1, { label: "the agent socket" });
+    for (const socket of entry.clientSockets) socket.close(1001);
+    await waitUntil(() => entry.clientSockets.size === 0, { label: "the agent socket closed" });
+
+    // The room expires now, or the approval request when nobody decided it in time.
+    if (status === "room-expired") await expireRoom(rig, roomId);
+    expect(await joined).toMatchObject({ ok: false, error });
+    expect(rig.agent.state.status).toBe(status);
   });
 
   it("revoke pushes session.revoked and purges the host credentials", async () => {

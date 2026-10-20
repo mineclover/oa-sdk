@@ -42,10 +42,16 @@ export class PeerMcpCatalogChangedError extends PeerMcpError {
   }
 }
 
-/** JSON-RPC codes of the peer error registry that require a tools/list rediscovery. */
+/**
+ * JSON-RPC codes of the peer error registry that require a tools/list rediscovery. This relay sends
+ * -32010 CATALOG_CHANGED. -32027 (SOURCE_CHANGED / RUNTIME_EPOCH_MISMATCH) and the name CATALOG_STALE
+ * are reserved: this relay and provider never send them, nor use the code for anything else, and
+ * they are classified as drift for relays that do. Likewise the `_meta.runtimeEpoch` the session
+ * sends with every listing and call is information only: neither the relay nor the provider reads it.
+ */
 const CATALOG_REDISCOVERY_RPC_CODES: ReadonlySet<number> = new Set([
   -32010, // CATALOG_CHANGED / CATALOG_STALE
-  -32027, // SOURCE_CHANGED / RUNTIME_EPOCH_MISMATCH
+  -32027, // SOURCE_CHANGED / RUNTIME_EPOCH_MISMATCH (reserved)
 ]);
 const CATALOG_REDISCOVERY_NAMES: ReadonlySet<string> = new Set([
   "CATALOG_CHANGED",

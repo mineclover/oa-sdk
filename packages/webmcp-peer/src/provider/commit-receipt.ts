@@ -1,3 +1,5 @@
+import { isJsonObject } from "../config/json.js";
+
 export const MCP_PROTOCOL_VERSION = "2026-07-28";
 export const MCP_PROTOCOL_VERSIONS = ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"] as const;
 /**
@@ -6,6 +8,26 @@ export const MCP_PROTOCOL_VERSIONS = ["2026-07-28", "2025-11-25", "2025-06-18", 
  * with 2026-07-28. The official SDK aborts when the server answers a version it does not know.
  */
 export const MCP_INITIALIZE_PROTOCOL_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"] as const;
+
+/** An initialize-era MCP revision (see {@link MCP_INITIALIZE_PROTOCOL_VERSIONS}). */
+export type McpInitializeProtocolVersion = (typeof MCP_INITIALIZE_PROTOCOL_VERSIONS)[number];
+
+/** True for one of {@link MCP_INITIALIZE_PROTOCOL_VERSIONS}. Internal to the package. */
+export function isInitializeProtocolVersion(version: unknown): version is McpInitializeProtocolVersion {
+  return (MCP_INITIALIZE_PROTOCOL_VERSIONS as readonly unknown[]).includes(version);
+}
+
+/**
+ * The MCP revision an `initialize` with `params` is answered with, and a `server/discover` asked
+ * through the relay reports: `params.protocolVersion` when it is an initialize-era revision (MCP
+ * requires a server to answer a version it supports with that version), otherwise the newest one
+ * (2025-11-25). The relay and the provider both negotiate with it, so a request gets the same
+ * revision over HTTP and WebSocket whichever of them answers. Internal to the package.
+ */
+export function negotiateInitializeProtocolVersion(params: unknown): McpInitializeProtocolVersion {
+  const requested = isJsonObject(params) ? params.protocolVersion : undefined;
+  return isInitializeProtocolVersion(requested) ? requested : MCP_INITIALIZE_PROTOCOL_VERSIONS[0];
+}
 
 export type CommitReceipt =
   | {
@@ -21,14 +43,35 @@ export type CommitReceipt =
       documentId: string;
       transactionId: string;
     }
+  /**
+   * A durable commit that carries metadata only. It names no operation, so it is not
+   * rollback-eligible, and carries none of the document-commit fields.
+   */
   | {
       status: "durable";
       requestId: string;
       documentId: string;
       transactionId: string;
       committedAt: string;
-      operationId?: string;
-      replicaId?: string;
+      operationId?: never;
+      replicaId?: never;
+      partial?: never;
+      appliedCommandCount?: never;
+      requestedCommandCount?: never;
+    }
+  /**
+   * A durable document commit: it names the operation and the replica that committed it, and may
+   * report a partial application (`partial: true` requires `appliedCommandCount <
+   * requestedCommandCount`).
+   */
+  | {
+      status: "durable";
+      requestId: string;
+      documentId: string;
+      transactionId: string;
+      committedAt: string;
+      operationId: string;
+      replicaId: string;
       partial?: boolean;
       appliedCommandCount?: number;
       requestedCommandCount?: number;
@@ -112,6 +155,38 @@ function hasDurableFields(value: Record<string, unknown>): boolean {
   );
 }
 
+function isCommandCount(value: unknown): boolean {
+  return value === undefined || (typeof value === "number" && Number.isSafeInteger(value) && value >= 0);
+}
+
+/** The metadata-only `durable` member: exactly the five base keys. */
+function isDurableMetadataReceipt(value: Record<string, unknown>): boolean {
+  return (
+    hasKeys(value, ["status", "requestId", "documentId", "transactionId", "committedAt"]) &&
+    isAuthorityText(value.transactionId) &&
+    isUtcTimestamp(value.committedAt)
+  );
+}
+
+/** The document-commit `durable` member: operation and replica ids, optional partial counts. */
+function isDurableDocumentReceipt(value: Record<string, unknown>): boolean {
+  return (
+    hasKeys(
+      value,
+      ["status", "requestId", "documentId", "transactionId", "committedAt", "operationId", "replicaId"],
+      ["partial", "appliedCommandCount", "requestedCommandCount"],
+    ) &&
+    hasDurableFields(value) &&
+    (value.partial === undefined || typeof value.partial === "boolean") &&
+    isCommandCount(value.appliedCommandCount) &&
+    isCommandCount(value.requestedCommandCount) &&
+    (value.partial !== true ||
+      (typeof value.appliedCommandCount === "number" &&
+        typeof value.requestedCommandCount === "number" &&
+        value.appliedCommandCount < value.requestedCommandCount))
+  );
+}
+
 export function isCommitReceipt(value: unknown): value is CommitReceipt {
   if (!isPlainRecord(value) || !hasReceiptBase(value)) return false;
   switch (value.status) {
@@ -126,33 +201,8 @@ export function isCommitReceipt(value: unknown): value is CommitReceipt {
         hasKeys(value, ["status", "requestId", "documentId", "transactionId"]) &&
         isAuthorityText(value.transactionId)
       );
-    case "durable": {
-      const metadata =
-        hasKeys(value, ["status", "requestId", "documentId", "transactionId", "committedAt"]) &&
-        isAuthorityText(value.transactionId) &&
-        isUtcTimestamp(value.committedAt);
-      const document =
-        hasKeys(
-          value,
-          ["status", "requestId", "documentId", "transactionId", "committedAt", "operationId", "replicaId"],
-          ["partial", "appliedCommandCount", "requestedCommandCount"],
-        ) &&
-        hasDurableFields(value) &&
-        (value.partial === undefined || typeof value.partial === "boolean") &&
-        (value.appliedCommandCount === undefined ||
-          (typeof value.appliedCommandCount === "number" &&
-            Number.isSafeInteger(value.appliedCommandCount) &&
-            value.appliedCommandCount >= 0)) &&
-        (value.requestedCommandCount === undefined ||
-          (typeof value.requestedCommandCount === "number" &&
-            Number.isSafeInteger(value.requestedCommandCount) &&
-            value.requestedCommandCount >= 0)) &&
-        (value.partial !== true ||
-          (typeof value.appliedCommandCount === "number" &&
-            typeof value.requestedCommandCount === "number" &&
-            value.appliedCommandCount < value.requestedCommandCount));
-      return metadata || document;
-    }
+    case "durable":
+      return isDurableMetadataReceipt(value) || isDurableDocumentReceipt(value);
     case "replicating":
       return (
         hasKeys(value, [

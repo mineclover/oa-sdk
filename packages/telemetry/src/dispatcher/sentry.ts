@@ -10,8 +10,27 @@ export interface SentryLikeClient {
     level?: string;
   }): void;
   setContext(name: string, context: Record<string, unknown> | null): void;
-  captureException(exception: unknown, hint?: any): string;
-  withScope?(callback: (scope: any) => void): void;
+  captureException(exception: unknown, hint?: unknown): string;
+  withScope?(callback: (scope: SentryLikeScope) => void): unknown;
+}
+
+/** The subset of a Sentry `Scope` the dispatcher uses. */
+export interface SentryLikeScope {
+  setTag(key: string, value: string): unknown;
+  setExtra(key: string, extra: unknown): unknown;
+}
+
+function isSentryLikeClient(value: unknown): value is SentryLikeClient {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'addBreadcrumb' in value &&
+    typeof value.addBreadcrumb === 'function' &&
+    'setContext' in value &&
+    typeof value.setContext === 'function' &&
+    'captureException' in value &&
+    typeof value.captureException === 'function'
+  );
 }
 
 export interface SentryDispatcherOptions {
@@ -21,10 +40,8 @@ export interface SentryDispatcherOptions {
 export function createSentryDispatcher(options: SentryDispatcherOptions = {}): TelemetryDispatcher {
   function getClient(): SentryLikeClient | undefined {
     if (options.client) return options.client;
-    if (typeof globalThis !== 'undefined' && (globalThis as any).Sentry) {
-      return (globalThis as any).Sentry;
-    }
-    return undefined;
+    const globalSentry: unknown = (globalThis as { Sentry?: unknown }).Sentry;
+    return isSentryLikeClient(globalSentry) ? globalSentry : undefined;
   }
 
   return {
@@ -43,11 +60,12 @@ export function createSentryDispatcher(options: SentryDispatcherOptions = {}): T
         client.addBreadcrumb({
           category,
           message: envelope.symbol,
+          // Context keys are written after the payload so payload fields cannot spoof them.
           data: {
+            ...envelope.payload,
             actorId: envelope.context.actorId,
             stateNode: envelope.context.stateNode,
             traceId: envelope.context.traceId,
-            ...envelope.payload,
           },
           level: sentryConfig?.level || 'info',
         });
@@ -68,7 +86,7 @@ export function createSentryDispatcher(options: SentryDispatcherOptions = {}): T
       if (!client) return;
 
       if (typeof client.withScope === 'function') {
-        client.withScope((scope: any) => {
+        client.withScope((scope) => {
           if (stateNode) scope.setTag('xstate.state_node', stateNode);
           if (context.actorId) scope.setTag('xstate.actor_id', context.actorId);
           if (context.traceId) scope.setTag('trace_id', context.traceId);

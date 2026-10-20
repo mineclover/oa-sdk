@@ -80,7 +80,7 @@ archi-adr validate/render`다.
 | Tier | Workspaces | Policy |
 | --- | --- | --- |
 | Core Platform | `core`, `openapi-projection-contract`, `typespec-decorators`, `schemas`, `parser`, `surface-ir`, `codegen`, `spec-lens`, `spec-lens-contract`, `ast-sync`, `tools` (11개) | 제품 방향과 신규 기능 투자의 기본 범위 (Downstream은 `devDependencies`로만 참조 가능) |
-| Downstream Integration | `router`, `client`, `mock-server`, `chunk-stream`, `chunk-stream-crdt`, `chunk-stream-ui`, `chunk-stream-timeseries`, `chunk-stream-react`, `peer-transport`, `peer-server`, `collab-workspace`, `mcp-mesh`, `telemetry`, `rpc` (14개) | Core 계약을 소비하고 end-to-end로 증명하는 release-tracked integration surface (`rpc`를 제외하고 `distributionCandidates` 승격 완료) |
+| Downstream Integration | `router`, `client`, `mock-server`, `chunk-stream`, `chunk-stream-crdt`, `chunk-stream-ui`, `chunk-stream-timeseries`, `chunk-stream-react`, `peer-transport`, `peer-server`, `webmcp-peer`, `collab-workspace`, `mcp-mesh`, `telemetry`, `rpc` (15개) | Core 계약을 소비하고 end-to-end로 증명하는 release-tracked integration surface (`rpc`를 제외하고 `distributionCandidates` 승격 완료) |
 | Maintenance-only | `dpm`, `personas`, `typia-mock`, `logical-erd-contract`, `typespec-erd`, `typespec-tooling`, `ttsc-compile-fixture` (7개) | security, compatibility, migration 작업만 허용하는 분리 후보 또는 승인된 독립 prototype. `@oa-sdk/typia-mock`은 Core Platform에서 TS 컴파일러 변환기 복잡도를 격리하면서 Samchon ILlmApplication 통합점을 유지하는 유지보수 경계다. |
 | Apps and references | `nestjs-ref`, `playground`, `preview`, `spec-lens-ui` (4개) | 배포 라이브러리가 아닌 검증, reference, UI workspace |
 
@@ -111,6 +111,23 @@ scope-reactivation decision을 남겨야 한다. 최소한 다음 내용을 기�
 
 결정이 없으면 non-core feature request는 착수하지 않고 backlog에도 active goal로 올리지
 않는다. 버그 수정처럼 보이는 요청도 실제로 새 capability를 추가하면 feature로 분류한다.
+
+### WebMCP peer unified package — 2026-10-18
+
+브라우저/호스트 웹앱과 외부 AI 에이전트를 하나의 peer 기반 MCP 라우팅 계층으로 연결하는
+통합 패키지 `@oa-sdk/webmcp-peer`를 Downstream Integration에 추가한다. 기존
+`peer-transport`, `peer-server`, `collab-workspace`, `mcp-mesh` 강화 결정(2026-09-22)과 별개의
+신규 workspace에 대한 결정이다.
+
+| Decision item | Recorded decision |
+| --- | --- |
+| User problem | 브라우저 앱이 노출한 도구를 외부 AI 에이전트가 MCP로 호출하려면 room 라우팅, WebSocket signaling/relay, 승인 게이트, 카탈로그 드리프트 감지를 매번 직접 조립해야 한다. |
+| Core relation | Core 패키지에 runtime 의존성을 두지 않는 독립 downstream 라이브러리다. MCP 도구 descriptor(JSON Schema `inputSchema`)를 3계층 topology(room router/WebSocket signaling server, browser provider, external agent client)로 라우팅해, Core가 만든 도구 surface가 외부 에이전트까지 도달하는 end-to-end 경로를 증명한다. 도구 계약의 모양은 결정하지 않는다. |
+| Owner | OA SDK maintainers가 wire protocol(`webmcp-peer.v1`), 승인·카탈로그 fail-closed 경계, API 호환성, downstream 테스트와 문서를 유지한다. |
+| Release/CI | Downstream Integration release-tracked distribution candidate(`0.1.0`)로 등록하고 downstream build/test/typecheck에 포함한다. 실제 publish는 활성화하지 않는다. |
+| Location | `packages/webmcp-peer`에 두고 공개 entrypoint는 `.`, `./config`, `./client`, `./provider`, `./server`다. |
+| Exit condition | room lease/승인, Streamable HTTP(`/p/:id/mcp`)와 WebSocket(`/p/:id/client`) 경로, 카탈로그 드리프트 fail-closed가 회귀 테스트로 고정된다. 호스팅형 signaling 서비스나 별도 제품으로 확대할 때 별도 결정을 기록한다. |
+| Boundary | 외부 runtime 의존성 없이 표준 Web API(`fetch`, `WebSocket`, `RTCPeerConnection`)와 Node built-in만 사용하는 라이브러리 범위다. 호스팅형 signaling 서비스, 다중 테넌트 계정/인증 서비스, TURN/STUN 운영 인프라를 제공한다고 주장하지 않는다. |
 
 ### TypeSpec contract RPC runtime — 2026-10-12
 

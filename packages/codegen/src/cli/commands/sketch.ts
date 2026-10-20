@@ -9,7 +9,7 @@
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
-import { compareSketchCandidates, parseTypeSpecSketch } from '@oa-sdk/surface-ir'
+import { compareSketchCandidates, parseTypeSpecSketch, type InterfaceSketchIr } from '@oa-sdk/surface-ir'
 import { emitSketchArtifacts } from '../../sketch-emitter/index.js'
 import { optStr, str } from '../lib/args.js'
 import { CliExitError } from '../lib/errors.js'
@@ -53,6 +53,21 @@ function resolveComparePaths(specArg: string, root: string): string[] {
     }
   }
   return rawParts.map((item) => resolve(root, item))
+}
+
+/**
+ * Reports the IR's `error` diagnostics on stderr and returns true when there are any: such an
+ * IR may be missing declarations, so no action may treat it as the whole contract.
+ */
+function reportSketchErrors(ir: InterfaceSketchIr, specPath: string): boolean {
+  const errors = ir.diagnostics.filter((diagnostic) => diagnostic.severity === 'error')
+  for (const diagnostic of errors) {
+    console.error(`${specPath}:${diagnostic.line}:${diagnostic.column} ${diagnostic.code} ${diagnostic.message}`)
+  }
+  if (errors.length > 0) {
+    console.error(`TypeSpec 스케치를 끝까지 읽지 못했습니다 (오류 ${errors.length}개). 오류를 고친 뒤 다시 실행하세요.`)
+  }
+  return errors.length > 0
 }
 
 export const sketch: Command = {
@@ -105,9 +120,15 @@ export const sketch: Command = {
       }
       const candidates = specPaths.map((filePath) => ({
         name: basename(filePath, '.tsp'),
+        path: filePath,
         source: readFileSync(filePath, 'utf-8'),
       }))
-      const result = compareSketchCandidates(candidates)
+      // A candidate the parser could not read completely would be scored on a partial IR.
+      const unreadable = candidates.filter((candidate) =>
+        reportSketchErrors(parseTypeSpecSketch(candidate.source, candidate.name), candidate.path),
+      )
+      if (unreadable.length > 0) throw new CliExitError(1)
+      const result = compareSketchCandidates(candidates.map(({ name, source }) => ({ name, source })))
       if (format === 'json') {
         console.log(JSON.stringify(result, null, 2))
       } else {
@@ -126,22 +147,27 @@ export const sketch: Command = {
     const tspSource = readFileSync(specPath, 'utf-8')
     const domain = optStr(args, 'domain') ?? basename(specPath, '.tsp')
 
+    // The IR is named by the domain slug, not the spec path, so `verify`, `check-contract` and
+    // `emit` give the same `specName` and `versionHash` for the same source on every machine.
     if (action === 'verify') {
-      const ir = parseTypeSpecSketch(tspSource, specPath)
+      const ir = parseTypeSpecSketch(tspSource, domain)
       if (format === 'json') {
         console.log(JSON.stringify(ir, null, 2))
       } else {
         console.log(
-          `[oa-gen sketch verify] namespace=${ir.namespace} profile=${ir.profile} depth=${ir.depthMetrics.interfaceDepth} (isDeep=${ir.depthMetrics.isDeep}) redFlags=${ir.redFlags.length}`,
+          `[oa-gen sketch verify] namespace=${ir.namespace} profile=${ir.profile} depth=${ir.depthMetrics.interfaceDepth} (isDeep=${ir.depthMetrics.isDeep}) redFlags=${ir.redFlags.length} diagnostics=${ir.diagnostics.length}`,
         )
       }
+      if (reportSketchErrors(ir, specPath)) throw new CliExitError(1)
       return
     }
 
     if (action === 'emit') {
+      const ir = parseTypeSpecSketch(tspSource, domain)
+      if (reportSketchErrors(ir, specPath)) throw new CliExitError(1)
       const outDir = resolve(root, optStr(args, 'out-dir') ?? dirname(specPath))
       mkdirSync(outDir, { recursive: true })
-      const emitted = emitSketchArtifacts(tspSource, domain)
+      const emitted = emitSketchArtifacts(ir)
       const schemaFile = join(outDir, `${domain}.schema.json`)
       const openapiFile = join(outDir, `${domain}.openapi.json`)
       const mermaidFile = join(outDir, `${domain}.mmd`)
@@ -191,7 +217,8 @@ export const sketch: Command = {
       const language: 'typescript' | 'python' = implPath.endsWith('.py') ? 'python' : 'typescript'
       // Command-scoped: @oa-sdk/ast-sync loads the TypeScript compiler, which must not load at CLI startup.
       const { checkImplementationContract } = await import('@oa-sdk/ast-sync')
-      const ir = parseTypeSpecSketch(tspSource, specPath)
+      const ir = parseTypeSpecSketch(tspSource, domain)
+      if (reportSketchErrors(ir, specPath)) throw new CliExitError(1)
       const contractedOperations = ir.interfaces.flatMap((iface) =>
         iface.operations.map((op) => op.name),
       )

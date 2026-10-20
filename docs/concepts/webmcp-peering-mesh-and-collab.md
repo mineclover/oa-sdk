@@ -30,8 +30,13 @@ graph TD
 | `@oa-sdk/peer-server` | `@oa-sdk/peer-transport`, `ws` | 기본 포트 8787의 HTTP registry, `/p/:id/mcp` descriptor, Home MCP 진단 도구, 로컬 peer store, WebSocket signaling 및 패킷 중계(`@oa-sdk/peer-server/relay`), Cloud Transit Proxy(`/transit/:peer/mcp`, `@oa-sdk/peer-server/cloud`) | `createPeerServer()`, `SignalingRoom`, `PeerRelayManager`, `CloudTransitProxy`, `FilePeerStore`, `PeerRoomManager` |
 | `@oa-sdk/peer-transport` | 외부 npm 의존성 없음; Node.js 및 브라우저 API 사용 | HTTP bridge client, 주입된 전송 함수를 사용하는 3채널 패킷 추상화, 제한된 메모리 큐, WebSocket 전송 어댑터 및 Cloud Transit 클라이언트(`@oa-sdk/peer-transport/adapters`), signaling wire protocol 계약 | `P2pTransportChannel`, `WebMcpBridgeClient`, `WebSocketTransportAdapter`, `CloudTransitClient`, `parseSignalMessage` |
 | `@oa-sdk/collab-workspace` | `@oa-sdk/chunk-stream-crdt` | 인메모리 파일·라인 상태 병합, AI line/block edit, IntentLock, delta/presence 이벤트 | `WorkspaceTreeLattice`, `AiEditorActor`, `WorkspaceSyncer` |
-| `@oa-sdk/mcp-mesh` | `tools`, `peer-server`, `peer-transport`, `collab-workspace`, Commander | 도메인별 스킬과 복수 세션 등록, namespace 라우팅, 메타 스킬 준비성 검사, CLI | `SkillRegistry`, `MeshRouter`, `hydratePeerSession()` |
+| `@oa-sdk/mcp-mesh` | `tools`, `peer-server`, `peer-transport`, `collab-workspace`, Commander | 도메인별 스킬과 복수 세션 등록, namespace 라우팅, 메타 스킬 준비성 검사, CLI | `SkillRegistry`, `MeshRouter`, `SkillRegistry#hydratePeerSession()` |
 | `@oa-sdk/tools` | Hono, MCP SDK, Commander, Ajv, ajv-formats 등 | MCP/HTTP/CLI adapter, JSON Schema Draft 2020-12 검증 | `defineTool()`, `createMcpServer()`, `createHttpApp()` |
+| `@oa-sdk/webmcp-peer` | 없음; Node.js 내장 모듈과 Web API 사용 | room relay(room·ticket·승인 gate, Streamable HTTP `/p/:id/mcp`, WebSocket `/p/:id/provider`·`/p/:id/client`), 브라우저 provider, 외부 agent client, 초대·설정 프로필 | `WebMcpPeerServer`, `WebMcpPeerClient`, `PeerMcpSession`, `PeerMcpService` |
+
+`@oa-sdk/webmcp-peer`는 위 그래프의 패키지에 의존하지 않는 독립 3계층 패키지다. 경로가 `@oa-sdk/peer-server`와 닮았지만
+protocol은 다르며(`webmcp-peer/1`), relay·provider·agent가 지킬 규칙은 [WebMCP relay protocol](../internal/webmcp-relay-protocol.md)이
+요건 단위로 정한다.
 
 `P2pTransportChannel`은 기본적으로 네트워크 비의존 추상화이며, `@oa-sdk/peer-transport/adapters`의
 `WebSocketTransportAdapter`를 통해 WebSocket 릴레이 서버로 중계 연결하거나 사용자 정의 WebRTC DataChannel을
@@ -62,6 +67,10 @@ graph TD
   aggregate catalog는 여러 domain에 중복된 tool의 bare alias를 만들지 않는다.
 - `tools` HTTP/MCP adapter는 auth/origin/body 정책을 공유한다. HTTP schema/docs도 인증 대상이며,
   `/health`는 기본 공개이고 `publicHealth: false`로 보호할 수 있다. JSON Schema 검증은 Ajv 기반이다.
+- `webmcp-peer` relay는 room마다 1회용 invite로 client ticket을 하나 발급하고, 승인되기 전의 ticket에는 공개 discovery만
+  답한다. provider도 relay가 찍은 session이 자기가 승인한 session일 때만 요청을 실행한다. loopback relay는 목록 밖 host를
+  거절하고(DNS rebinding), 메시지·요청·room 수·생성 빈도에 상한이 있다. 경계 전체는 [보안 감사](../security/webmcp-hardening.md)의
+  webmcp-peer 절과 [relay protocol](../internal/webmcp-relay-protocol.md)에 있다.
 
 ## 주요 흐름
 

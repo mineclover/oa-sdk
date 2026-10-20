@@ -7,6 +7,9 @@
  *   parameters, and encodes and decodes Protobuf / MessagePack messages with the `BinaryCodecAdapter`s
  *   it is given (JSON bodies need no codec)
  *
+ * Model types are imported under the names `types.ts` declares (`Inventory.Widget` is
+ * `InventoryWidget`); codecs are still looked up by component name.
+ *
  * For JSON contracts called as dotted-name procedures over JSON-RPC 2.0 or REST, use `pluginRpc`
  * and `@oa-sdk/rpc` instead.
  *
@@ -15,8 +18,10 @@
 
 import { quoteTypeScriptString, toTypeScriptIdentifier } from '@oa-sdk/core/browser'
 import { formatJSDoc } from '../../typegen/jsdoc.js'
+import { emptyMessageName } from '../proto-identifiers.js'
 import type { TypeSpecWireTargetAdapter } from '../wire-adapter-types.js'
 import type { WireMethod, WireParameter, WireSchemaModel, WireService } from '../wire-schema-model.js'
+import { wireTypeNames } from '../wire-type-names.js'
 
 export interface RpcContractAdapterOptions {
   readonly typesImport?: string | undefined
@@ -92,9 +97,11 @@ function __rpcPathSegment(method: string, name: string, value: unknown): string 
   const segment = Array.isArray(value)
     ? value.map(item => encodeURIComponent(__rpcScalar(item))).join(',')
     : encodeURIComponent(__rpcScalar(value))
-  // URL resolution would turn these into another route.
-  if (segment === '.' || segment === '..') {
-    throw new TypeError('RPC call ' + method + ' cannot use "' + segment + '" as path parameter "' + name + '"')
+  // Each would call another route: an empty segment (an empty string or array) leaves the
+  // parent path, and URL resolution walks dot segments.
+  if (segment === '' || segment === '.' || segment === '..') {
+    const shown = segment === '' ? 'an empty value' : '"' + segment + '"'
+    throw new TypeError('RPC call ' + method + ' cannot use ' + shown + ' as path parameter "' + name + '"')
   }
   return segment
 }
@@ -228,20 +235,22 @@ export class RpcContractTargetAdapter implements TypeSpecWireTargetAdapter<strin
   transform(model: WireSchemaModel, options: RpcContractAdapterOptions = {}): string {
     const lines: string[] = []
     const modelNames = new Set(model.models.map(m => m.name))
+    const typeNames = wireTypeNames(model)
+    const empty = emptyMessageName(model)
 
     lines.push('// Auto-generated RPC Service Contracts & Client from TypeSpec SSOT.')
     lines.push('// @oa-sdk/codegen RpcContractTargetAdapter')
     lines.push('')
     lines.push(`import type { BinaryCodecAdapter } from ${quoteTypeScriptString(options.clientImport ?? '@oa-sdk/client')}`)
     if (options.typesImport && modelNames.size > 0) {
-      lines.push(`import type { ${[...modelNames].join(', ')} } from ${quoteTypeScriptString(options.typesImport)}`)
+      lines.push(`import type { ${[...modelNames].map(name => typeNames.get(name) ?? name).join(', ')} } from ${quoteTypeScriptString(options.typesImport)}`)
     }
     lines.push('')
     lines.push(RUNTIME_HELPERS)
     lines.push('')
 
     for (const svc of model.services) {
-      const types: TypeContext = { model, modelNames, typed: Boolean(options.typesImport) }
+      const types: TypeContext = { model, modelNames, typeNames, empty, typed: Boolean(options.typesImport) }
       lines.push(...this.renderParamsTypes(svc, types))
       lines.push(...this.renderServerHandlers(svc, types))
       lines.push('')
@@ -372,6 +381,10 @@ export class RpcContractTargetAdapter implements TypeSpecWireTargetAdapter<strin
 type TypeContext = {
   model: WireSchemaModel
   modelNames: ReadonlySet<string>
+  /** Component name to TypeScript declaration name. */
+  typeNames: ReadonlyMap<string, string>
+  /** Name of the empty message, the `inputType`/`outputType` of a method without one. */
+  empty: string
   /** Whether model types are imported; without them, model references are typed `unknown`. */
   typed: boolean
 }
@@ -394,16 +407,16 @@ function modelType(typeName: string | undefined, types: TypeContext): string {
   if (typeName === undefined) return 'unknown'
   const enumType = types.model.enums.find(e => e.name === typeName)
   if (enumType) return enumUnion(enumType.values ?? enumType.members.map(member => member.name))
-  return types.typed && types.modelNames.has(typeName) ? typeName : 'unknown'
+  return types.typed && types.modelNames.has(typeName) ? types.typeNames.get(typeName) ?? typeName : 'unknown'
 }
 
 function inputType(m: WireMethod, types: TypeContext): string {
-  if (m.requestBody === undefined) return m.inputType === 'Empty' ? 'void' : modelType(m.inputType, types)
+  if (m.requestBody === undefined) return m.inputType === types.empty ? 'void' : modelType(m.inputType, types)
   return modelType(m.requestBody.typeName, types)
 }
 
 function outputType(m: WireMethod, types: TypeContext): string {
-  if (m.response === undefined) return m.outputType === 'Empty' ? 'void' : modelType(m.outputType, types)
+  if (m.response === undefined) return m.outputType === types.empty ? 'void' : modelType(m.outputType, types)
   if (m.response.mediaType === '') return 'void'
   return modelType(m.response.typeName, types)
 }

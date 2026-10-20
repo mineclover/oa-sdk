@@ -8,7 +8,7 @@
 - `SkillRegistry`는 하나의 canonical domain skill에 여러 `McpSessionInstance`를 연결합니다.
   활성 session을 선택하고 사용할 수 없으면 같은 domain의 사용 가능한 session으로 fallback합니다.
   라운드로빈 부하 분산은 제공하지 않습니다.
-- `hydratePeerSession(peer, bridgeClient)`는 peer alias에서 domain을 추출하고 catalog와 session을 등록합니다.
+- `SkillRegistry#hydratePeerSession(peer, bridgeClient)`(동기 메서드)는 peer alias에서 domain을 추출하고 catalog와 session을 등록합니다.
   생성된 session의 호출에는 HTTP bridge client가 필요하며, 네이티브 WebRTC 연결을 생성하지 않습니다.
 - `MeshRouter`는 `{domain}__{tool}`을 라우팅하고 모호한 bare 호출을 거부합니다.
   `getAggregatedTools()`는 여러 domain에 중복된 이름의 bare alias를 방출하지 않습니다.

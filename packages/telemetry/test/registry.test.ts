@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createSymbolRegistry } from '../src/symbols/registry.js';
-import { SymbolDefinition } from '../src/symbols/types.js';
+import type { SymbolDefinition } from '../src/symbols/types.js';
 
 describe('SymbolRegistry', () => {
   const sampleDef: SymbolDefinition = {

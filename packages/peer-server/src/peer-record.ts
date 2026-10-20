@@ -25,6 +25,11 @@ export function isPlainRecord(value: unknown): value is Record<string, unknown> 
   return prototype === Object.prototype || prototype === null
 }
 
+/** A peer alias: 1-128 characters, letters, digits, `.`, `_` and `-`, starting with a letter or digit. */
+export function isSafeAlias(alias: unknown): alias is string {
+  return typeof alias === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(alias)
+}
+
 export function isSafeToolName(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0 && value.length <= 256 && !/[\u0000-\u001f\u007f]/.test(value)
 }

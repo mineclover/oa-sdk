@@ -8,10 +8,7 @@ import {
   resolveRefGraph,
   unescapeJsonPointerToken,
   type OasDocument,
-  type OasOperation,
-  type OasPathItem,
-  type OasResponse,
-  type OasSchema,
+  type OasParameter,
 } from '@oa-sdk/parser'
 import type { BuildSpecMetadataRegistry } from '../cli/lib/metadata-registry.js'
 import type { BuildSpecProvenanceMap } from '../cli/lib/provenance-report.js'
@@ -25,6 +22,7 @@ import { toCamelCase, type OaManifest } from '../routing/index.js'
 import { computeSha256, stableStringify } from '../spec-projector.js'
 import type { TypegenProvenanceEntry } from '../typegen/generate-types.js'
 import { createComponentTypeNameMap } from '../typegen/type-names.js'
+import { createSpecTraceabilityGraphSchema, type SpecTraceManifest } from './trace-inputs.js'
 
 export const SPEC_TRACEABILITY_SCHEMA_VERSION = 'oa-sdk.spec-traceability.v1' as const
 export const DEFAULT_TRACE_SIDECAR_FILENAME = '.oa-trace.json' as const
@@ -73,10 +71,22 @@ export type SpecTraceSourceCoordinates = {
 }
 
 export type SpecTraceGovernanceCapabilities = {
+  /**
+   * Persona ids from `x-persona`, trimmed, de-duplicated and sorted. `x-persona` may be one id
+   * or the id array `@oa-sdk/personas` `applyBindings` writes.
+   */
+  personas: string[]
+  /** @deprecated The first entry of `personas`; read `personas`, which holds every persona. */
   persona?: string
   personaTraits: string[]
+  /**
+   * `x-oa-sdk-dpm-projection`: a string, or the `@pseudonymize` object rendered as
+   * `transform` or `transform:role`.
+   */
   dpmProjection?: string
+  /** `x-oa-sdk-storage-ref`: a string, or the `target` of the `@storageRef` object `{ target }`. */
   storageRef?: string
+  /** `x-oa-sdk-behavior-ref`: a string, or the `behaviorId` of the `@behaviorRef` object `{ behaviorId }`. */
   behaviorRef?: string
   requirements: string[]
 }
@@ -181,8 +191,11 @@ export type BuildSpecTraceabilityOptions = {
   provenanceMap?: BuildSpecProvenanceMap
   /** Definition Builder 메타데이터 레지스트리 */
   metadataRegistry?: BuildSpecMetadataRegistry
-  /** 코드 생성 매니페스트 (.oa-manifest.json) — 생성된 파일 경로 연결용 */
-  manifest?: OaManifest
+  /**
+   * 코드 생성 매니페스트 (.oa-manifest.json) — 생성된 파일 경로 연결용. 읽는 것은 `artifacts[].path`와
+   * `artifacts[].kind`뿐이므로 `OaManifest` 전체나 그 두 필드만 담은 `SpecTraceManifest`를 넘긴다.
+   */
+  manifest?: OaManifest | SpecTraceManifest
   /** 아티팩트 종류별 파일 경로 오버라이드 */
   artifactFilePaths?: Partial<Record<SpecTraceArtifactKind, string>>
 }
@@ -200,7 +213,7 @@ export type SpecTraceQuery = {
   sourceFile?: string
   /** 요구사항 ID (예: REQ-AUTH-101) */
   requirement?: string
-  /** 페르소나 ID */
+  /** 페르소나 ID (`governance.personas` 중 하나와 일치) */
   persona?: string
   /** 페르소나 capability trait */
   personaTrait?: string
@@ -284,6 +297,10 @@ export function buildSpecTraceabilityGraph(
   )
   const allOperations = [...parsedDoc.operations, ...parsedDoc.webhooks]
   const operationTypeNames = createOperationTypeNameMap(allOperations)
+  // Parameters as typegen sees them: path-item and operation parameters merged, `$ref`s resolved.
+  const parsedParametersByOperation = new Map<string, readonly OasParameter[]>(
+    allOperations.map(operation => [operationKey(operation.openApiPath, operation.method), operation.parameters]),
+  )
 
   const rawNodes = new Map<string, SpecTraceabilityNode>()
   const diagnostics: SpecTraceabilityDiagnostic[] = []
@@ -309,7 +326,7 @@ export function buildSpecTraceabilityGraph(
     if (!map || typeof map !== 'object') continue
 
     for (const [name, definition] of Object.entries(map).sort(([a], [b]) => a.localeCompare(b))) {
-      if (!definition || typeof definition !== 'object') continue
+      if (!isRecord(definition)) continue
       const pointer = `#/components/${section}/${escapeJsonPointerToken(name)}`
       const canonicalId = `${kind}.${name}`
       const symbol =
@@ -322,7 +339,7 @@ export function buildSpecTraceabilityGraph(
         canonicalId,
         kind,
         symbol,
-        rawDefinition: definition as Record<string, unknown>,
+        rawDefinition: definition,
         specPath,
         tspDecl: tspDeclByPointer.get(pointer),
         provenanceEntry: options.provenanceMap?.[pointer],
@@ -337,36 +354,37 @@ export function buildSpecTraceabilityGraph(
   }
 
   // 2. paths/* 오퍼레이션 수집
-  for (const [openApiPath, rawPathItem] of Object.entries(spec.paths ?? {}).sort(([a], [b]) =>
+  const paths: unknown = spec.paths
+  for (const [openApiPath, pathItem] of Object.entries(isRecord(paths) ? paths : {}).sort(([a], [b]) =>
     a.localeCompare(b),
   )) {
-    if (!rawPathItem || typeof rawPathItem !== 'object' || '$ref' in rawPathItem) continue
-    const pathItem = rawPathItem as OasPathItem
+    if (!isRecord(pathItem) || '$ref' in pathItem) continue
     for (const method of HTTP_METHODS) {
-      const rawOp = pathItem[method]
-      if (!rawOp || typeof rawOp !== 'object') continue
-      const op = rawOp as OasOperation
+      const op = pathItem[method]
+      if (!isRecord(op)) continue
+      const declaredOperationId = typeof op.operationId === 'string' ? op.operationId : undefined
       const pointer = `#/paths/${escapeJsonPointerToken(openApiPath)}/${method}`
       const fallbackOpId = `${method}_${openApiPath.replace(/[^A-Za-z0-9]+/g, '_')}`
-      const operationId = op.operationId ?? fallbackOpId
+      const operationId = declaredOperationId ?? fallbackOpId
       const canonicalId = `operation.${operationId}`
       const baseTypeName =
-        (op.operationId ? operationTypeNames.get(op.operationId) : undefined) ??
+        (declaredOperationId ? operationTypeNames.get(declaredOperationId) : undefined) ??
         pascalCase(operationId)
 
       const node = createTraceNode({
         pointer,
         canonicalId,
         kind: 'operation',
-        symbol: op.operationId ?? baseTypeName,
-        rawDefinition: op as unknown as Record<string, unknown>,
+        symbol: declaredOperationId ?? baseTypeName,
+        rawDefinition: op,
         specPath,
         tspDecl: tspDeclByPointer.get(pointer),
         provenanceEntry: options.provenanceMap?.[pointer],
         metadataEntry: options.metadataRegistry?.entries[pointer],
         generatedArtifacts: buildOperationGeneratedArtifacts(
           op,
-          pathItem,
+          parsedParametersByOperation.get(operationKey(openApiPath, method))
+            ?? inlineParameters(pathItem, op),
           baseTypeName,
           method,
           artifactPathsByKind,
@@ -379,35 +397,36 @@ export function buildSpecTraceabilityGraph(
   }
 
   // 3. webhooks/* 오퍼레이션 수집
-  for (const [webhookName, rawPathItem] of Object.entries(spec.webhooks ?? {}).sort(([a], [b]) =>
+  const webhooks: unknown = spec.webhooks
+  for (const [webhookName, pathItem] of Object.entries(isRecord(webhooks) ? webhooks : {}).sort(([a], [b]) =>
     a.localeCompare(b),
   )) {
-    if (!rawPathItem || typeof rawPathItem !== 'object' || '$ref' in rawPathItem) continue
-    const pathItem = rawPathItem as OasPathItem
+    if (!isRecord(pathItem) || '$ref' in pathItem) continue
     for (const method of HTTP_METHODS) {
-      const rawOp = pathItem[method]
-      if (!rawOp || typeof rawOp !== 'object') continue
-      const op = rawOp as OasOperation
+      const op = pathItem[method]
+      if (!isRecord(op)) continue
+      const declaredOperationId = typeof op.operationId === 'string' ? op.operationId : undefined
       const pointer = `#/webhooks/${escapeJsonPointerToken(webhookName)}/${method}`
-      const operationId = op.operationId ?? `webhook_${webhookName}_${method}`
+      const operationId = declaredOperationId ?? `webhook_${webhookName}_${method}`
       const canonicalId = `webhook.${operationId}`
       const baseTypeName =
-        (op.operationId ? operationTypeNames.get(op.operationId) : undefined) ??
+        (declaredOperationId ? operationTypeNames.get(declaredOperationId) : undefined) ??
         pascalCase(operationId)
 
       const node = createTraceNode({
         pointer,
         canonicalId,
         kind: 'webhook',
-        symbol: op.operationId ?? baseTypeName,
-        rawDefinition: op as unknown as Record<string, unknown>,
+        symbol: declaredOperationId ?? baseTypeName,
+        rawDefinition: op,
         specPath,
         tspDecl: tspDeclByPointer.get(pointer),
         provenanceEntry: options.provenanceMap?.[pointer],
         metadataEntry: options.metadataRegistry?.entries[pointer],
         generatedArtifacts: buildOperationGeneratedArtifacts(
           op,
-          pathItem,
+          parsedParametersByOperation.get(operationKey(`/webhooks/${webhookName}`, method))
+            ?? inlineParameters(pathItem, op),
           baseTypeName,
           method,
           artifactPathsByKind,
@@ -428,33 +447,36 @@ export function buildSpecTraceabilityGraph(
   const edges: SpecTraceabilityEdge[] = []
 
   for (const refNode of refGraph.nodes) {
-    const ownerPointer = findOwningNodePointer(refNode.sourcePointer, knownPointers)
+    const ownerPointers = findRefOwnerPointers(refNode.sourcePointer, knownPointers, rawNodes)
     if (!refNode.resolved) {
       diagnostics.push({
         code: 'traceability/unresolved-ref',
         severity: 'warning',
-        pointer: ownerPointer ?? refNode.sourcePointer,
+        pointer: ownerPointers[0] ?? refNode.sourcePointer,
         message: `해소되지 않은 $ref 참조입니다: ${refNode.ref} (source: ${refNode.sourcePointer})`,
       })
       continue
     }
 
     const targetPointer = normalizeInternalTargetPointer(refNode.pointer ?? refNode.ref)
-    if (!ownerPointer || !targetPointer || ownerPointer === targetPointer) continue
+    if (!targetPointer) continue
 
-    const owner = rawNodes.get(ownerPointer)
-    const target = rawNodes.get(targetPointer)
-    if (owner && !owner.references.includes(targetPointer)) {
-      owner.references.push(targetPointer)
-      edges.push({
-        kind: 'references',
-        from: ownerPointer,
-        to: targetPointer,
-        detail: refNode.sourcePointer,
-      })
-    }
-    if (target && !target.referencedBy.includes(ownerPointer)) {
-      target.referencedBy.push(ownerPointer)
+    for (const ownerPointer of ownerPointers) {
+      if (ownerPointer === targetPointer) continue
+      const owner = rawNodes.get(ownerPointer)
+      const target = rawNodes.get(targetPointer)
+      if (owner && !owner.references.includes(targetPointer)) {
+        owner.references.push(targetPointer)
+        edges.push({
+          kind: 'references',
+          from: ownerPointer,
+          to: targetPointer,
+          detail: refNode.sourcePointer,
+        })
+      }
+      if (target && !target.referencedBy.includes(ownerPointer)) {
+        target.referencedBy.push(ownerPointer)
+      }
     }
   }
 
@@ -610,7 +632,7 @@ export function querySpecTrace(
 
     if (query.persona) {
       const q = query.persona.trim()
-      if (node.governance.persona !== q) return false
+      if (!node.governance.personas.includes(q)) return false
     }
 
     if (query.personaTrait) {
@@ -686,8 +708,8 @@ export function analyzeSpecImpact(
   const affectedGeneratedSymbols = new Set<string>()
 
   for (const node of affectedNodes) {
-    if (node.governance.persona) {
-      affectedPersonas.add(node.governance.persona)
+    for (const persona of node.governance.personas) {
+      affectedPersonas.add(persona)
     }
     for (const req of node.governance.requirements) {
       affectedRequirements.add(req)
@@ -740,16 +762,15 @@ export function saveSpecTraceabilitySidecar(
  */
 export function loadSpecTraceabilitySidecar(filePath: string): SpecTraceabilityGraph {
   const resolved = resolve(filePath)
-  const raw = JSON.parse(readFileSync(resolved, 'utf-8')) as SpecTraceabilityGraph
-  if (!raw || raw.schemaVersion !== SPEC_TRACEABILITY_SCHEMA_VERSION) {
-    throw new Error(
-      `유효하지 않은 스펙 추적성 사이드카 버전입니다: ${String(
-        (raw as { schemaVersion?: unknown } | undefined)?.schemaVersion,
-      )} (expected: ${SPEC_TRACEABILITY_SCHEMA_VERSION})`,
-    )
+  try {
+    return SpecTraceabilityGraphSchema.parse(JSON.parse(readFileSync(resolved, 'utf-8')))
+  } catch (error) {
+    if (!(error instanceof TypeError || error instanceof SyntaxError)) throw error
+    throw new Error(`유효하지 않은 스펙 추적성 사이드카입니다 (${resolved}): ${error.message}`)
   }
-  return raw
 }
+
+const SpecTraceabilityGraphSchema = createSpecTraceabilityGraphSchema(SPEC_TRACEABILITY_SCHEMA_VERSION)
 
 /**
  * 터미널 출력용 사람이 읽기 쉬운 추적성 리포트를 포맷팅합니다.
@@ -784,12 +805,12 @@ export function formatSpecTraceabilityHumanReport(
     if (node.governance.requirements.length > 0) {
       lines.push(`  Requirements: ${node.governance.requirements.join(', ')}`)
     }
-    if (node.governance.persona || node.governance.personaTraits.length > 0) {
+    if (node.governance.personas.length > 0 || node.governance.personaTraits.length > 0) {
       const traits =
         node.governance.personaTraits.length > 0
           ? ` [${node.governance.personaTraits.join(', ')}]`
           : ''
-      lines.push(`  Persona     : ${node.governance.persona ?? 'default'}${traits}`)
+      lines.push(`  Persona     : ${node.governance.personas.join(', ') || 'default'}${traits}`)
     }
     if (node.references.length > 0) {
       lines.push(`  References  : ${node.references.join(', ')}`)
@@ -1053,10 +1074,16 @@ function extractGovernanceCapabilities(
   record: Record<string, unknown>,
   requirements: string[],
 ): SpecTraceGovernanceCapabilities {
-  const persona =
-    typeof record['x-persona'] === 'string' && record['x-persona'].trim().length > 0
-      ? record['x-persona'].trim()
-      : undefined
+  const rawPersona = record['x-persona']
+  const personas = Array.from(
+    new Set(
+      (Array.isArray(rawPersona) ? rawPersona : [rawPersona])
+        .filter((item): item is string => typeof item === 'string')
+        .map(item => item.trim())
+        .filter(item => item.length > 0),
+    ),
+  ).sort()
+  const persona = personas[0]
 
   const personaTraits: string[] = []
   const rawTraits = record['x-oa-sdk-persona-traits']
@@ -1068,20 +1095,12 @@ function extractGovernanceCapabilities(
     }
   }
 
-  const dpmProjection =
-    typeof record['x-oa-sdk-dpm-projection'] === 'string'
-      ? record['x-oa-sdk-dpm-projection']
-      : undefined
-  const storageRef =
-    typeof record['x-oa-sdk-storage-ref'] === 'string'
-      ? record['x-oa-sdk-storage-ref']
-      : undefined
-  const behaviorRef =
-    typeof record['x-oa-sdk-behavior-ref'] === 'string'
-      ? record['x-oa-sdk-behavior-ref']
-      : undefined
+  const dpmProjection = readDpmProjection(record['x-oa-sdk-dpm-projection'])
+  const storageRef = readStringOrMember(record['x-oa-sdk-storage-ref'], 'target')
+  const behaviorRef = readStringOrMember(record['x-oa-sdk-behavior-ref'], 'behaviorId')
 
   return {
+    personas,
     ...(persona ? { persona } : {}),
     personaTraits: Array.from(new Set(personaTraits)).sort(),
     ...(dpmProjection ? { dpmProjection } : {}),
@@ -1089,6 +1108,21 @@ function extractGovernanceCapabilities(
     ...(behaviorRef ? { behaviorRef } : {}),
     requirements: Array.from(new Set(requirements)).sort(),
   }
+}
+
+/** A non-empty string extension, or the non-empty string `member` of an object extension. */
+function readStringOrMember(value: unknown, member: string): string | undefined {
+  const raw = isRecord(value) ? value[member] : value
+  return typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : undefined
+}
+
+/** `x-oa-sdk-dpm-projection` as a string, or the `@pseudonymize` object as `transform[:role]`. */
+function readDpmProjection(value: unknown): string | undefined {
+  if (!isRecord(value)) return readStringOrMember(value, 'transform')
+  const transform = readStringOrMember(value, 'transform')
+  if (!transform) return undefined
+  const role = readStringOrMember(value, 'role')
+  return role ? `${transform}:${role}` : transform
 }
 
 function stripTraceAndGovernanceExtensions(
@@ -1140,16 +1174,13 @@ function indexTypeSpecDeclarationsByPointer(
 }
 
 function resolveArtifactPathsByKind(
-  manifest?: OaManifest,
+  manifest?: OaManifest | SpecTraceManifest,
   overrides?: Partial<Record<SpecTraceArtifactKind, string>>,
 ): Partial<Record<SpecTraceArtifactKind, string>> {
   const result: Partial<Record<SpecTraceArtifactKind, string>> = {}
-  if (manifest?.artifacts) {
-    for (const [filePath, entry] of Object.entries(manifest.artifacts)) {
-      const kind = entry.kind as SpecTraceArtifactKind
-      if (!result[kind]) {
-        result[kind] = filePath
-      }
+  for (const artifact of manifest?.artifacts ?? []) {
+    if (!result[artifact.kind]) {
+      result[artifact.kind] = artifact.path
     }
   }
   if (overrides) {
@@ -1185,32 +1216,36 @@ function buildSchemaGeneratedArtifacts(
   ]
 }
 
+/**
+ * Generated symbols of one operation. `parameters` are the operation's effective parameters
+ * (path-item and operation parameters merged, `$ref`s resolved), as typegen reads them.
+ */
 function buildOperationGeneratedArtifacts(
-  op: OasOperation,
-  pathItem: OasPathItem,
+  op: Record<string, unknown>,
+  parameters: readonly OasParameter[],
   baseTypeName: string,
   method: string,
   artifactPathsByKind: Partial<Record<SpecTraceArtifactKind, string>>,
 ): SpecTraceGeneratedArtifactMapping[] {
   const typeSymbols: string[] = []
-  const mergedParams = [...(pathItem.parameters ?? []), ...(op.parameters ?? [])]
-  const hasPathParam = mergedParams.some(p => !('$ref' in p) && p.in === 'path')
-  const hasQueryParam = mergedParams.some(p => !('$ref' in p) && p.in === 'query')
-  const hasHeaderParam = mergedParams.some(p => !('$ref' in p) && p.in === 'header')
-  const hasQuerystringParam = mergedParams.some(p => !('$ref' in p) && p.in === 'querystring')
+  const hasPathParam = parameters.some(p => p.in === 'path')
+  const hasQueryParam = parameters.some(p => p.in === 'query')
+  const hasHeaderParam = parameters.some(p => p.in === 'header')
+  const hasQuerystringParam = parameters.some(p => p.in === 'querystring')
+  const responses = isRecord(op.responses) ? op.responses : undefined
 
   if (hasPathParam) typeSymbols.push(`${baseTypeName}PathParams`)
   if (hasQueryParam) typeSymbols.push(`${baseTypeName}QueryParams`)
   if (hasQuerystringParam) typeSymbols.push(`${baseTypeName}QueryString`)
   if (hasHeaderParam) typeSymbols.push(`${baseTypeName}HeaderParams`)
   if (hasJsonMediaSchema(op.requestBody)) typeSymbols.push(`${baseTypeName}Body`)
-  if (hasSuccessResponseJsonSchema(op.responses)) typeSymbols.push(`${baseTypeName}Response`)
-  if (hasErrorResponseJsonSchema(op.responses)) {
+  if (hasSuccessResponseJsonSchema(responses)) typeSymbols.push(`${baseTypeName}Response`)
+  if (hasErrorResponseJsonSchema(responses)) {
     typeSymbols.push(`${baseTypeName}Error`, `${baseTypeName}ErrorByStatus`)
   }
   typeSymbols.push(`${baseTypeName}Op`)
 
-  const methodIdent = op.operationId ? toCamelCase(op.operationId) : toCamelCase(baseTypeName)
+  const methodIdent = typeof op.operationId === 'string' ? toCamelCase(op.operationId) : toCamelCase(baseTypeName)
   const isQueryMethod = method.toLowerCase() === 'get' || method.toLowerCase() === 'head'
   const queryHookSymbol = isQueryMethod
     ? `use${baseTypeName}Query`
@@ -1266,7 +1301,7 @@ function hasSuccessResponseJsonSchema(responses: Record<string, unknown> | undef
     .filter(code => /^2\d{2}$/.test(code))
     .sort()
   const key = statusCodes[0] ?? 'default'
-  return hasJsonMediaSchema(responses[key] as OasResponse | undefined)
+  return hasJsonMediaSchema(responses[key])
 }
 
 function hasErrorResponseJsonSchema(responses: Record<string, unknown> | undefined): boolean {
@@ -1275,6 +1310,47 @@ function hasErrorResponseJsonSchema(responses: Record<string, unknown> | undefin
     ([status, response]) =>
       (/^[45]\d{2}$/.test(status) || status === 'default') && hasJsonMediaSchema(response),
   )
+}
+
+/**
+ * Trace nodes that own the `$ref` at `sourcePointer`: the node whose pointer contains it, or,
+ * for a ref inside a path item's (or webhook's) `parameters`, every operation of that path
+ * item, since OpenAPI applies path-item parameters to all of them.
+ */
+function findRefOwnerPointers(
+  sourcePointer: string,
+  knownPointersDescLength: readonly string[],
+  nodes: ReadonlyMap<string, SpecTraceabilityNode>,
+): string[] {
+  const direct = findOwningNodePointer(sourcePointer, knownPointersDescLength)
+  if (direct) return [direct]
+  // An escaped path token never contains `/`, so the segment after `paths/` is the whole path key.
+  const match = /^#\/(paths|webhooks)\/([^/]+)\/parameters(?:\/|$)/.exec(sourcePointer)
+  if (!match) return []
+  const pathItemPointer = `#/${match[1]}/${match[2]}`
+  return HTTP_METHODS.map(method => `${pathItemPointer}/${method}`)
+    .filter(pointer => nodes.has(pointer))
+    .sort()
+}
+
+/** Path-item and operation parameters without `$ref`s, for an operation the parser did not list. */
+function inlineParameters(pathItem: Record<string, unknown>, op: Record<string, unknown>): OasParameter[] {
+  const declared = [
+    ...(Array.isArray(pathItem.parameters) ? pathItem.parameters : []),
+    ...(Array.isArray(op.parameters) ? op.parameters : []),
+  ]
+  return declared.filter(
+    (parameter: unknown): parameter is OasParameter =>
+      isRecord(parameter) && !('$ref' in parameter) && typeof parameter.in === 'string' && typeof parameter.name === 'string',
+  )
+}
+
+function operationKey(openApiPath: string, method: string): string {
+  return `${openApiPath}\u0000${method.toLowerCase()}`
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function findOwningNodePointer(

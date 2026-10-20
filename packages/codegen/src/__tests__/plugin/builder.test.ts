@@ -1,8 +1,58 @@
-import { describe, it, expect, vi } from 'vitest'
-import { resolve } from 'node:path'
-import { createTspBuilder, TspProjectBuilder } from '../../plugin/builder.js'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
+import { createTspBuilder, TspProjectBuilder, type TspWatchEvent } from '../../plugin/builder.js'
 import { pluginTypescript } from '../../plugin/plugins/typescript.js'
 import { pluginClient } from '../../plugin/plugins/client.js'
+import type { TspPlugin } from '../../plugin/types.js'
+
+const scratchDirs: string[] = []
+
+/**
+ * Creates `<tmp>/project/main.tsp` with the given routes; `<tmp>/node_modules` links to this
+ * package's dependencies so the TypeSpec libraries resolve (and stay outside the watched project).
+ */
+function createTspProject(routes: readonly string[]): { root: string; project: string; main: string; write(routes: readonly string[]): void } {
+  const root = mkdtempSync(join(tmpdir(), 'tsp-builder-project-'))
+  scratchDirs.push(root)
+  symlinkSync(resolve(__dirname, '../../../node_modules'), join(root, 'node_modules'), 'junction')
+  const project = join(root, 'project')
+  mkdirSync(project)
+  const main = join(project, 'main.tsp')
+  const write = (nextRoutes: readonly string[]) => writeFileSync(main, [
+    'import "@typespec/http";',
+    'using Http;',
+    '@service(#{ title: "Builder Probe" })',
+    'namespace BuilderProbe;',
+    ...nextRoutes.map((route, index) => `@route("${route}") @get op op${index}(): { @statusCode code: 204 };`),
+  ].join('\n'))
+  write(routes)
+  return { root, project, main, write }
+}
+
+function pathRecorder(seen: string[][]): TspPlugin {
+  return {
+    name: 'path-recorder',
+    generate(ctx) {
+      seen.push(Object.keys(ctx.document.paths ?? {}).sort())
+    },
+  }
+}
+
+async function waitFor<T>(read: () => T | undefined, timeoutMs = 30_000): Promise<T> {
+  const deadline = Date.now() + timeoutMs
+  for (;;) {
+    const value = read()
+    if (value !== undefined) return value
+    if (Date.now() > deadline) throw new Error('timed out waiting for watch event')
+    await new Promise(resolveDelay => setTimeout(resolveDelay, 50))
+  }
+}
+
+afterEach(() => {
+  for (const dir of scratchDirs.splice(0)) rmSync(dir, { recursive: true, force: true })
+})
 
 describe('TypeSpec Builder Platform: TspProjectBuilder & createTspBuilder', () => {
   const monorepoRoot = resolve(__dirname, '../../../../..')
@@ -113,9 +163,91 @@ describe('TypeSpec Builder Platform: TspProjectBuilder & createTspBuilder', () =
     })
 
     expect(result.success).toBe(true)
+    expect(result.outputDir).toBe(resolve('dist/test-builder-output'))
     expect(result.files.length).toBeGreaterThanOrEqual(2)
     expect(result.files.some(f => f.path === 'types.ts')).toBe(true)
     expect(result.files.some(f => f.path === 'client.ts')).toBe(true)
+  })
+
+  it('honors an outputDir or output override in build()', async () => {
+    const builder = createTspBuilder(petstoreFile)
+    const absolute = resolve(tmpdir(), 'oa-sdk-builder-custom-out')
+    expect((await builder.build({ dryRun: true, outputDir: absolute })).outputDir).toBe(absolute)
+    expect((await builder.build({ dryRun: true, output: absolute })).outputDir).toBe(absolute)
+    // `output` wins over `outputDir`, as in validateTspConfig.
+    expect((await builder.build({ dryRun: true, output: absolute, outputDir: '/ignored' })).outputDir).toBe(absolute)
+
+    const ctorBuilder = createTspBuilder({ input: petstoreFile, outputDir: absolute })
+    expect((await ctorBuilder.build({ dryRun: true })).outputDir).toBe(absolute)
+  })
+
+  it('build() recompiles the TypeSpec sources after introspect() (no stale document)', async () => {
+    const tsp = createTspProject(['/a'])
+    const seen: string[][] = []
+    const builder = createTspBuilder({ input: tsp.main, plugins: [pathRecorder(seen)] })
+
+    const report = await builder.introspect()
+    expect(report.operations.map(op => op.path)).toEqual(['/a'])
+
+    tsp.write(['/a', '/b'])
+    const result = await builder.build({ dryRun: true })
+    expect(seen.at(-1)).toEqual(['/a', '/b'])
+    expect(result.routesCount).toBe(2)
+
+    // Config overrides apply to the compilation as well.
+    const downgraded = await builder.build({ dryRun: true, openApiVersion: '3.1.0' })
+    expect(downgraded.context.document.openapi).toBe('3.1.0')
+  })
+
+  it('resolves a relative input against options.cwd in build(), introspect() and watch()', async () => {
+    const tsp = createTspProject(['/a'])
+    const builder = createTspBuilder({ input: 'main.tsp' }, { cwd: tsp.project })
+
+    const report = await builder.introspect()
+    const result = await builder.build({ dryRun: true })
+    expect(report.entrypoint).toBe(tsp.main)
+    expect(result.entrypoint).toBe(tsp.main)
+
+    const handle = builder.watch(() => {}, { buildOnChange: false })
+    handle.unwatch()
+
+    const objectInput = createTspBuilder({ input: { entrypoint: 'main.tsp', tspDir: 'project' } }, { cwd: tsp.root })
+    expect((await objectInput.introspect()).entrypoint).toBe(tsp.main)
+  })
+
+  it('watch() rebuilds from the edited sources even after introspect()', async () => {
+    const tsp = createTspProject(['/a'])
+    const builder = createTspBuilder({ input: tsp.main })
+    await builder.introspect()
+
+    const events: TspWatchEvent[] = []
+    const handle = builder.watch(event => { events.push(event) }, { debounceMs: 50 })
+    try {
+      tsp.write(['/a', '/b'])
+      const event = await waitFor(() => events.find(e => e.result?.routesCount === 2 || e.error !== undefined))
+      expect(event.error).toBeUndefined()
+      expect(Object.keys(event.result!.context.document.paths ?? {}).sort()).toEqual(['/a', '/b'])
+      // The introspection cache was invalidated together with the compiled document.
+      expect((await builder.introspect()).routesCount).toBe(2)
+    } finally {
+      handle.unwatch()
+    }
+  })
+
+  it('watch() reports TypeSpec compilation failures as event.error', async () => {
+    const tsp = createTspProject(['/a'])
+    const builder = createTspBuilder({ input: tsp.main })
+    const events: TspWatchEvent[] = []
+    const handle = builder.watch(event => { events.push(event) }, { debounceMs: 50 })
+    try {
+      writeFileSync(tsp.main, 'this is not typespec {{{')
+      const event = await waitFor(() => events.find(e => e.error !== undefined || e.result !== undefined))
+      expect(event.result).toBeUndefined()
+      expect(event.error).toBeInstanceOf(Error)
+      expect(String((event.error as Error).message)).toContain('TypeSpec compilation failed')
+    } finally {
+      handle.unwatch()
+    }
   })
 
   it('supports watcher lifecycle with graceful unwatch', () => {

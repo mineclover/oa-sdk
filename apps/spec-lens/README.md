@@ -46,10 +46,13 @@ pnpm exec tsx packages/spec-lens/src/cli.ts
 
 ## 대시보드 쉘 & UX 패턴
 
-- **URL SearchParams 양방향 동기화**: `view`, `base`, `head`, `revision`, `search`, `scope`, `domain`, `scenario` 등의 모든 상태가 쿼리 파라미터에 실시간 반영되어 딥링크 공유 및 브라우저 뒤로가기/앞으로가기 네비게이션 완벽 지원.
+- **URL SearchParams 동기화**: `useUrlState`는 창(window)마다 하나뿐인 URL 스토어(`getUrlStateStore`)를 구독하므로, `ScenarioProvider`와 `AppShell`을 포함한 모든 소비자가 같은 URL 상태를 봅니다. 갱신(`update`)은 항상 최신 상태 위에서 한 번에 적용되어 히스토리 항목을 하나만 남기고, URL이 바뀌지 않으면 항목을 추가하지 않습니다. `view`, `base`, `head`, `scenario`는 FSM이 쓰고, 딥링크의 `revision`과 `search`는 시나리오 컨텍스트 초기값(`revisionId`, `pathPattern`)으로 읽습니다. `scope`, `domain`은 URL에 보존되지만 Path Provenance의 필터는 아직 화면 로컬 상태입니다.
 - **유저 시나리오 네비게이션 FSM 엔진 (`?scenario=<id>`)**:
-  - `ScenarioSelector`: 사이드바 상단에서 `🌐 자유 탐색`과 4대 표준 유저 시나리오(`spec-drift-triage`, `endpoint-exploration`, `breaking-impact-analysis`, `circular-ref-diagnostic`)를 즉시 전환.
-  - `ScenarioProgressHUD`: 활성 시나리오의 페르소나, 목표 진행 상태, 완료 CTA 버튼, 원자적 되돌리기(`← 이전 단계`)를 상단 헤더 바로 실시간 안내.
+  - 모든 화면 이동은 FSM(`scenarioTransitionReducer`)을 거칩니다. 자유 탐색 모드에서는 리듀서가 그대로 허용하고, 시나리오 안에서는 현재 뷰에서 허용된 전이만 화면을 바꿉니다. 렌더링 뷰, `machineState.currentView`, URL은 항상 같습니다.
+  - `ScenarioSelector`: 사이드바 상단에서 `🌐 자유 탐색`과 4대 표준 유저 시나리오(`spec-drift-triage`, `endpoint-exploration`, `breaking-impact-analysis`, `circular-ref-diagnostic`)를 전환합니다. 시나리오는 자신의 초기 뷰에서 시작합니다.
+  - `ScenarioProgressHUD`: 페르소나, 현재 단계, **다음 단계 버튼**(현재 뷰에서 허용된 전이), 완료 CTA, `← 이전 단계`(`STEP_BACK`: 직전 단계의 뷰와, diff 단계이면 그 단계가 기록한 리비전 쌍 복원), 거절된 전이의 사유를 표시합니다. 다음 단계의 페이로드는 현재 뷰의 선택에서 옵니다. Timeline의 리비전 비교는 `REQUEST_DIFF`를 바로 보내고, Diff 항목(경로/컴포넌트 포인터), Path Provenance 행(경로와 canonical ID), Fragment Graph 노드(심볼 ID와 이름)는 선택을 게시합니다. 가드가 거절할 단계는 사유와 함께 비활성화됩니다.
+  - 딥링크 `?scenario=<id>`의 `view`가 시나리오의 `boundedViews` 밖이면 시나리오 초기 뷰로 시작하고 URL을 그 뷰로 교체(`replaceState`)합니다. 알 수 없는 시나리오 ID는 URL에서 제거됩니다.
+  - 브라우저 뒤로가기로 직전 히스토리 항목에 돌아가면, 그 URL을 보여 준 가장 최근 단계까지 `STEP_BACK`으로 되돌립니다. URL을 바꾸지 않은 단계(목표 완료, `FILTER_BREAKING_CHANGES` 같은 자기 전이)는 히스토리 항목을 남기지 않으므로 함께 건너뛰고, `SWITCH_SCENARIO` 이전 시나리오로도 같은 방식으로 돌아갑니다. diff 단계는 브레드크럼에 기록된 리비전 쌍으로 구분하며, 그 쌍은 `STEP_BACK`이 복원하므로 HUD `← 이전 단계`, Diff 뒤로 버튼, 브라우저 뒤로가기 중 무엇으로 돌아가도 같은 단계는 같은 리비전 쌍을 보여 줍니다. 그 밖의 이동(앞으로가기, 직전 항목을 넘는 이동, 직접 고친 뷰)은 URL을 현재 단계로 되돌립니다(`replaceState`). 시나리오 안에서 사이드바 이동은 허용된 전이가 아니면 거절되고 HUD에 사유가 표시되며, 시나리오를 종료하면 자유롭게 이동할 수 있습니다.
   - `ScenarioFlowModal`: 현재 시나리오의 전체 FSM 전이 행렬과 Mermaid 흐름도를 시각화하고 현재 뷰 위치 하이라이트.
 - **접이식 사이드바 (Collapsible Sidebar)**: 60px 컴팩트 아이콘 모드로 축소하여 Monaco Editor 가로 해상도 극대화.
 - **피드백 시스템**: `FeedbackContext`를 통한 인라인 비동기 `Dialog` 및 알림 `Toast` (네이티브 `alert`/`confirm` 완전 대체).

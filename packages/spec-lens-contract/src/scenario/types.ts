@@ -73,6 +73,15 @@ export interface ScenarioStepProvenance {
   actionType: LensBehaviorAction['type']
   timestamp: number
   summary?: string | undefined
+  /**
+   * The revision pair the step showed. Recorded only on a `diff` step whose
+   * context holds both ids, so two `diff` steps can be told apart (for example
+   * when matching a step to the URL it was displayed under). `STEP_BACK` onto
+   * such a step puts this pair back in the context. Declared alongside the
+   * other fields in `scenario.tsp`.
+   */
+  baseId?: string | undefined
+  headId?: string | undefined
 }
 
 export interface ScenarioMachineContext {

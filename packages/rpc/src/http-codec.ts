@@ -210,9 +210,13 @@ export function buildHttpRequestParts(procedure: RpcProcedure, input: Record<str
       throw new RpcError('INVALID_INPUT', `Missing path parameter "${field}" for ${procedure.name}.`)
     }
     const segment = serializePathParameter(binding, value)
-    // URL resolution would turn these into another route.
-    if (/^(?:\.|%2e){1,2}$/i.test(segment)) {
-      throw new RpcError('INVALID_INPUT', `Path parameter "${field}" of ${procedure.name} cannot be "${segment}".`)
+    // An empty segment (`/users/`) matches the parent route once a trailing slash is ignored, and
+    // URL resolution turns dot segments into another route: either would call another procedure.
+    if (segment === '' || /^(?:\.|%2e){1,2}$/i.test(segment)) {
+      throw new RpcError(
+        'INVALID_INPUT',
+        `Path parameter "${field}" of ${procedure.name} cannot be empty or a dot segment ("${segment}").`,
+      )
     }
     return segment
   })
@@ -365,8 +369,10 @@ export class SchemaResolver {
     const result: Record<string, unknown> = {}
     for (const [key, value] of Object.entries(raw)) {
       const propertySchema = this.propertySchema(schema, key)
-      setOwn(result, key, Array.isArray(value)
-        ? value.map(item => typeof item === 'string' ? this.coerce(item, this.itemSchema(propertySchema) ?? propertySchema) : item)
+      // A repeated form field is collected into an array only once it occurs twice.
+      const items = Array.isArray(value) ? value : this.kind(propertySchema) === 'array' ? [value] : undefined
+      setOwn(result, key, items !== undefined
+        ? items.map(item => typeof item === 'string' ? this.coerce(item, this.itemSchema(propertySchema) ?? propertySchema) : item)
         : typeof value === 'string' ? this.coerce(value, propertySchema) : value)
     }
     return result

@@ -629,26 +629,26 @@ describe('Tier 1: Feature Coverage (Features 1–14)', () => {
   // Feature 13: Agent Skill Synchronization
   // =========================================================================
   describe('Feature 13: Agent Skill Synchronization', () => {
-    it('T1-F13-1: verifies .agents/skills/oa-codegen/SKILL.md exists', async () => {
-      const skillPath = path.resolve(process.cwd(), '.agents/skills/oa-codegen/SKILL.md')
+    it('T1-F13-1: verifies .agents/skills-optional/oa-codegen/SKILL.md exists', async () => {
+      const skillPath = path.resolve(process.cwd(), '.agents/skills-optional/oa-codegen/SKILL.md')
       const exists = await fs.stat(skillPath).catch(() => null)
       expect(exists).not.toBeNull()
     })
 
-    it('T1-F13-2: verifies .agents/skills/oa-onboarding/SKILL.md exists', async () => {
-      const skillPath = path.resolve(process.cwd(), '.agents/skills/oa-onboarding/SKILL.md')
+    it('T1-F13-2: verifies .agents/skills-optional/oa-onboarding/SKILL.md exists', async () => {
+      const skillPath = path.resolve(process.cwd(), '.agents/skills-optional/oa-onboarding/SKILL.md')
       const exists = await fs.stat(skillPath).catch(() => null)
       expect(exists).not.toBeNull()
     })
 
     it('T1-F13-3: verifies oa-codegen skill contains valid YAML frontmatter', async () => {
-      const skillPath = path.resolve(process.cwd(), '.agents/skills/oa-codegen/SKILL.md')
+      const skillPath = path.resolve(process.cwd(), '.agents/skills-optional/oa-codegen/SKILL.md')
       const content = await fs.readFile(skillPath, 'utf8')
       expect(content).toMatch(/^---\s*\nname:\s*oa-codegen/m)
     })
 
     it('T1-F13-4: verifies oa-onboarding skill contains valid YAML frontmatter', async () => {
-      const skillPath = path.resolve(process.cwd(), '.agents/skills/oa-onboarding/SKILL.md')
+      const skillPath = path.resolve(process.cwd(), '.agents/skills-optional/oa-onboarding/SKILL.md')
       const content = await fs.readFile(skillPath, 'utf8')
       expect(content).toMatch(/^---\s*\nname:\s*oa-onboarding/m)
     })

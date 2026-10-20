@@ -6,6 +6,7 @@ import type {
   RpcHandlers,
   RpcProcedure,
   RpcProcedureShape,
+  RpcProcedureTypes,
   RpcSchemaCheck,
   RpcValidationIssue,
   RpcValidator,
@@ -39,9 +40,12 @@ export type RpcServer<TContext = undefined> = {
   call(procedureName: string, input: unknown, ...args: RpcServerCallArgs<TContext>): Promise<unknown>
 }
 
+/** A handler as the server calls it: the typed handler map was checked by `createRpcServer`. */
+type BoundHandler = RpcHandler<RpcProcedureTypes, unknown>
+
 type CompiledProcedure = {
   procedure: RpcProcedure
-  handler: RpcHandler<{ input: any; output: any }, any> | undefined
+  handler: BoundHandler | undefined
   checkInput: RpcSchemaCheck | undefined
   checkOutput: RpcSchemaCheck | undefined
 }
@@ -101,7 +105,7 @@ export function createRpcServer<P extends RpcProcedureShape<P> = UntypedProcedur
       try {
         output = await handler(normalizedInput, {
           procedure,
-          context: callOptions.context as TContext,
+          context: callOptions.context,
           ...(callOptions.request === undefined ? {} : { request: callOptions.request }),
           ...(callOptions.signal === undefined ? {} : { signal: callOptions.signal }),
         })
@@ -123,16 +127,13 @@ export function createRpcServer<P extends RpcProcedureShape<P> = UntypedProcedur
   }
 }
 
-function lookupHandler(
-  handlers: unknown,
-  path: readonly string[],
-): RpcHandler<{ input: any; output: any }, any> | undefined {
+function lookupHandler(handlers: unknown, path: readonly string[]): BoundHandler | undefined {
   let current: unknown = handlers
   for (const segment of path) {
     if (typeof current !== 'object' || current === null || !Object.hasOwn(current, segment)) return undefined
     current = (current as Record<string, unknown>)[segment]
   }
-  return typeof current === 'function' ? current as RpcHandler<{ input: any; output: any }, any> : undefined
+  return typeof current === 'function' ? current as BoundHandler : undefined
 }
 
 function compileCheck(

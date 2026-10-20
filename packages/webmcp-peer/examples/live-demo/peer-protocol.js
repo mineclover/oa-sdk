@@ -1,6 +1,8 @@
 // Wire-level constants and helpers shared by the demo's Tier 1 and Tier 3 runtimes.
 // Uses only Web-standard APIs (URL, crypto.subtle) so the same module runs in the browser and Node.
 
+// The package's WEBMCP_SUBPROTOCOL and WEBMCP_PROTOCOL: these browser modules are served as they are
+// and cannot import the package, so they keep copies, which test/client-config.test.ts checks.
 export const WS_SUBPROTOCOL = "webmcp-peer.v1";
 export const PEER_PROTOCOL = "webmcp-peer/1";
 
@@ -35,18 +37,34 @@ function canonicalize(value) {
   return Object.keys(value)
     .sort()
     .reduce((result, key) => {
-      result[key] = canonicalize(value[key]);
+      // defineProperty, not assignment, so an own `__proto__` key is hashed like the relay hashes it.
+      Object.defineProperty(result, key, { value: canonicalize(value[key]), enumerable: true, writable: true, configurable: true });
       return result;
     }, {});
 }
 
+function toolName(tool) {
+  return tool !== null && typeof tool === "object" && !Array.isArray(tool) ? String(tool.name ?? "") : "";
+}
+
 /**
- * Order-independent SHA-256 catalog hash, byte-compatible with the server's `catalogHash()` and
- * the client library's `hashTools()`: tools sorted by name, object keys sorted recursively.
+ * Orders tools by name in UTF-16 code-unit order, like the relay. `localeCompare` would follow the
+ * browser's locale and disagree with the relay's hash for mixed-case or punctuated names.
+ */
+function compareToolNames(left, right) {
+  const leftName = toolName(left);
+  const rightName = toolName(right);
+  return leftName < rightName ? -1 : leftName > rightName ? 1 : 0;
+}
+
+/**
+ * Order- and locale-independent SHA-256 catalog hash, byte-compatible with the relay's
+ * `hashDeploymentCatalog()` (its room `catalogHash`) and the client library's `hashTools()`:
+ * tools sorted by name in code-unit order, object keys sorted recursively.
  * Lets the agent independently prove the catalogHash reported by the relay.
  */
 export async function computeCatalogHash(tools) {
-  const ordered = [...tools].sort((left, right) => String(left?.name ?? "").localeCompare(String(right?.name ?? "")));
+  const ordered = [...tools].sort(compareToolNames);
   const bytes = new TextEncoder().encode(JSON.stringify(canonicalize(ordered)));
   const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");

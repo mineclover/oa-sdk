@@ -280,12 +280,12 @@ describe('Tier 4: Real-World Application Scenarios (Scenarios 1–5)', () => {
 
     // 4. Skills existence
     const codegenSkillExists = await fs
-      .stat(path.resolve(process.cwd(), '.agents/skills/oa-codegen/SKILL.md'))
+      .stat(path.resolve(process.cwd(), '.agents/skills-optional/oa-codegen/SKILL.md'))
       .catch(() => null)
     expect(codegenSkillExists).not.toBeNull()
 
     const onboardingSkillExists = await fs
-      .stat(path.resolve(process.cwd(), '.agents/skills/oa-onboarding/SKILL.md'))
+      .stat(path.resolve(process.cwd(), '.agents/skills-optional/oa-onboarding/SKILL.md'))
       .catch(() => null)
     expect(onboardingSkillExists).not.toBeNull()
   })

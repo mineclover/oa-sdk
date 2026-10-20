@@ -9,6 +9,26 @@ import type {
 } from '../../shared-context-harness/contracts/types.js'
 import { computeEnvelopeContentHash } from '../canonical/canonical-json.js'
 
+type SourceProvider = SourceReference['source']['provider']
+
+/** Every `source.provider` the Issue #2 reference schema allows (reference.schema.json). */
+const SOURCE_PROVIDERS: readonly SourceProvider[] = ['github', 'drive', 'nes', 'semantic', 'web']
+
+function isSourceProvider(value: unknown): value is SourceProvider {
+  return typeof value === 'string' && (SOURCE_PROVIDERS as readonly string[]).includes(value)
+}
+
+/**
+ * Fallback mapping for envelopes that carry no `_originalSourceReference`
+ * side-channel. The EWIC SSOT provider enum has no `semantic` / `web`
+ * members (both map to `local`), so this direction is lossy for them.
+ */
+function providerFromSsot(provider: EntitySSOT['provider']): SourceProvider {
+  if (provider === 'github') return 'github'
+  if (provider === 'nes') return 'nes'
+  return 'drive'
+}
+
 export interface SourceReferenceAdapterOptions {
   parentChain?: string[]
   fileId?: string
@@ -21,7 +41,13 @@ export interface SourceReferenceAdapterOptions {
  * Adapter between Issue #2 SourceReference / ReferenceIndexItem and EWIC v0.1 EntitySourceEnvelope<ResourceContent>.
  * Strictly preserves:
  * - Drive fileId, revision, contentHash, parentChain, locator
+ * - The original `source.provider` (including `semantic` / `web`, which the EWIC
+ *   SSOT enum collapses to `local`) via the `_originalSourceReference` side-channel
  * - Forward-compatible unknown fields in both directions (lossless round-trip)
+ *
+ * The round trip is lossless for envelopes produced by `toResourceEnvelope`.
+ * An envelope that arrives without `_originalSourceReference` is restored from
+ * its SSOT fields alone, where `local` cannot be told apart and maps to `drive`.
  */
 export class SourceReferenceAdapter {
   /**
@@ -123,6 +149,7 @@ export class SourceReferenceAdapter {
         requiredScopeRef: ref.requiredScopeRef,
         provenance: ref.provenance,
         sourceKind: ref.source.snapshot.kind,
+        sourceProvider: ref.source.provider,
       },
     }
 
@@ -131,7 +158,8 @@ export class SourceReferenceAdapter {
 
   /**
    * Convert an EWIC Resource EntitySourceEnvelope back to a SourceReference.
-   * Completely restores unknown fields.
+   * Completely restores unknown fields; the provider comes from the
+   * `_originalSourceReference` side-channel when present, else from the SSOT.
    */
   static fromResourceEnvelope(
     envelope: EntitySourceEnvelope<ResourceContent>
@@ -139,10 +167,9 @@ export class SourceReferenceAdapter {
     const orig = (envelope._originalSourceReference as Record<string, unknown> | undefined) ?? {}
     const ssot = envelope.provenance.ssot
 
-    let provider: 'github' | 'drive' | 'nes' | 'semantic' | 'web' = 'drive'
-    if (ssot.provider === 'github') provider = 'github'
-    else if (ssot.provider === 'nes') provider = 'nes'
-    else if (ssot.provider === 'google_drive') provider = 'drive'
+    const provider: SourceProvider = isSourceProvider(orig.sourceProvider)
+      ? orig.sourceProvider
+      : providerFromSsot(ssot.provider)
 
     // Extract any extra top-level unknown fields on the envelope
     const envelopeReservedKeys = new Set([

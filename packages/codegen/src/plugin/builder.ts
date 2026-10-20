@@ -1,8 +1,21 @@
-import { existsSync, statSync, watch, type FSWatcher } from 'node:fs'
+import { statSync, watch, type FSWatcher } from 'node:fs'
 import { dirname, resolve } from 'node:path'
-import type { OasDocument, OasParameter, OasResponse, OasSchema } from '@oa-sdk/parser'
-import type { Program } from '@typespec/compiler'
-import { compileTypeSpecInMemory, resolveTypeSpecEntrypoint, type TypeSpecCompilerResult } from './compiler.js'
+import type {
+  OasDocument,
+  OasOperation,
+  OasParameter,
+  OasParameterIn,
+  OasReference,
+  OasRequestBody,
+  OasResponse,
+  OasSchema,
+} from '@oa-sdk/parser'
+import {
+  absolutizeTspInput,
+  compileTypeSpecInMemory,
+  resolveTypeSpecEntrypoint,
+  type TypeSpecCompilerResult,
+} from './compiler.js'
 import { validateTspConfig } from './config.js'
 import { runTspPluginPipeline, type TspPipelineResult } from './runner.js'
 import type { TspConfig, TspPluginEntry } from './types.js'
@@ -12,7 +25,8 @@ import type { TspConfig, TspPluginEntry } from './types.js'
  */
 export interface TspIntrospectedParameter {
   name: string
-  in: 'path' | 'query' | 'header' | 'cookie'
+  /** Parameter location; 'querystring' is the OpenAPI 3.2 whole-query-string parameter */
+  in: OasParameterIn
   required: boolean
   description?: string | undefined
   type?: string | undefined
@@ -100,6 +114,7 @@ export interface TspIntrospectionReport {
  * Configuration options for initializing a TspProjectBuilder.
  */
 export interface CreateTspBuilderOptions {
+  /** Base directory for relative `input`/`output` paths in build(), introspect() and watch(). Default: process.cwd() */
   cwd?: string | undefined
   openApiVersion?: '3.0.0' | '3.1.0' | '3.2.0' | undefined
 }
@@ -110,7 +125,10 @@ export interface CreateTspBuilderOptions {
 export interface TspWatchEvent {
   eventType: 'change' | 'rename'
   filePath: string
+  /** Pipeline result of the rebuild (undefined when buildOnChange is false or the rebuild threw) */
   result?: TspPipelineResult | undefined
+  /** Error thrown by the rebuild, e.g. a TypeSpec compilation failure */
+  error?: unknown
 }
 
 /**
@@ -130,21 +148,167 @@ export interface TspWatcherHandle {
   unwatch(): void
 }
 
-function extractWireFormat(op: any): 'json' | 'protobuf' | 'msgpack' {
-  const reqContent = Object.keys(op.requestBody?.content ?? {})
-  const resContent = Object.values(op.responses ?? {}).flatMap((r: any) => Object.keys(r?.content ?? {}))
-  const allContentTypes = [...reqContent, ...resContent]
+const INTROSPECTED_VERBS = ['get', 'post', 'put', 'delete', 'patch', 'head', 'options', 'query'] as const
+
+function isReference(value: object): value is OasReference {
+  return '$ref' in value && typeof value.$ref === 'string'
+}
+
+/**
+ * Resolves a value that may be a local component reference (`#/components/<section>/<name>`),
+ * following reference chains. Returns undefined for unresolvable or external references.
+ */
+function resolveComponentRef<T extends object>(
+  value: T | OasReference | undefined,
+  section: Readonly<Record<string, T | OasReference>> | undefined,
+  prefix: string,
+): T | undefined {
+  const seen = new Set<string>()
+  let current = value
+  while (current && isReference(current)) {
+    const ref = current.$ref
+    if (!ref.startsWith(prefix) || seen.has(ref)) return undefined
+    seen.add(ref)
+    current = section?.[decodeURIComponent(ref.slice(prefix.length)).replace(/~1/g, '/').replace(/~0/g, '~')]
+  }
+  return current
+}
+
+function schemaTypeName(type: string | string[] | undefined): string | undefined {
+  return Array.isArray(type) ? type.join(' | ') : type
+}
+
+function contentTypes(content: Record<string, unknown> | undefined): string[] {
+  return Object.keys(content ?? {})
+}
+
+function extractWireFormat(
+  requestBody: OasRequestBody | undefined,
+  responses: readonly OasResponse[],
+): 'json' | 'protobuf' | 'msgpack' {
+  const allContentTypes = [
+    ...contentTypes(requestBody?.content),
+    ...responses.flatMap(response => contentTypes(response.content)),
+  ]
   if (allContentTypes.some(c => c.includes('protobuf') || c.includes('x-protobuf'))) return 'protobuf'
   if (allContentTypes.some(c => c.includes('msgpack') || c.includes('x-msgpack'))) return 'msgpack'
   return 'json'
 }
 
-function resolveSchemaRefName(schema: any): string | undefined {
+function resolveSchemaRefName(schema: OasSchema | undefined): string | undefined {
   if (!schema) return undefined
   if (typeof schema.$ref === 'string') {
     return schema.$ref.replace('#/components/schemas/', '')
   }
-  return schema.title ?? schema.type
+  return schema.title ?? schemaTypeName(schema.type)
+}
+
+function firstMediaSchema(
+  content: OasRequestBody['content'] | undefined,
+): { contentType: string | undefined; schema: OasSchema | undefined } {
+  const contentType = Object.keys(content ?? {})[0]
+  const media = contentType ? content?.[contentType] : undefined
+  return { contentType, schema: media && !isReference(media) ? media.schema : undefined }
+}
+
+function introspectOperation(
+  document: OasDocument,
+  openApiPath: string,
+  verb: (typeof INTROSPECTED_VERBS)[number],
+  op: OasOperation,
+): TspIntrospectedOperation {
+  const components = document.components
+
+  const parameters: TspIntrospectedParameter[] = []
+  for (const rawParam of op.parameters ?? []) {
+    const p: OasParameter | undefined = resolveComponentRef(rawParam, components?.parameters, '#/components/parameters/')
+    if (!p) continue
+    parameters.push({
+      name: p.name,
+      in: p.in,
+      required: p.required === true,
+      description: p.description,
+      type: schemaTypeName(p.schema?.type) ?? (p.schema?.$ref ? resolveSchemaRefName(p.schema) : 'unknown'),
+    })
+  }
+
+  const body = resolveComponentRef(op.requestBody, components?.requestBodies, '#/components/requestBodies/')
+  let requestBody: TspIntrospectedOperation['requestBody'] = undefined
+  if (body) {
+    const { contentType, schema } = firstMediaSchema(body.content)
+    requestBody = {
+      required: body.required === true,
+      contentType,
+      schemaName: resolveSchemaRefName(schema),
+      description: body.description,
+    }
+  }
+
+  const responses: TspIntrospectedResponse[] = []
+  const resolvedResponses: OasResponse[] = []
+  const errorStatusMap: Record<string, string> = {}
+  for (const [code, rawResponse] of Object.entries(op.responses ?? {})) {
+    const res = resolveComponentRef(rawResponse, components?.responses, '#/components/responses/')
+    if (!res) continue
+    resolvedResponses.push(res)
+    const { contentType, schema } = firstMediaSchema(res.content)
+    const schemaName = resolveSchemaRefName(schema)
+    const isError = /^[45]\d{2}$/.test(code) || code === 'default'
+
+    responses.push({
+      statusCode: code,
+      description: res.description,
+      contentType,
+      schemaName,
+      isError,
+    })
+
+    if (isError && schemaName) {
+      errorStatusMap[code] = schemaName
+    }
+  }
+
+  return {
+    id: op.operationId ?? `${verb}_${openApiPath.replace(/[{}/]/g, '_')}`,
+    method: verb.toUpperCase(),
+    path: openApiPath,
+    summary: op.summary,
+    description: op.description,
+    deprecated: op.deprecated === true,
+    tags: op.tags ?? [],
+    parameters,
+    requestBody,
+    responses,
+    errorStatusMap,
+    wireFormat: extractWireFormat(body, resolvedResponses),
+  }
+}
+
+function introspectModels(document: OasDocument): TspIntrospectedModel[] {
+  const models: TspIntrospectedModel[] = []
+  for (const [name, schema] of Object.entries(document.components?.schemas ?? {})) {
+    const requiredList = schema.required ?? []
+    const properties: TspIntrospectedModelProperty[] = []
+    for (const [propName, propSchema] of Object.entries(schema.properties ?? {})) {
+      properties.push({
+        name: propName,
+        type: schemaTypeName(propSchema.type) ?? resolveSchemaRefName(propSchema) ?? 'unknown',
+        required: requiredList.includes(propName),
+        format: propSchema.format,
+        description: propSchema.description,
+        constraints: {
+          minimum: propSchema.minimum ?? propSchema.exclusiveMinimum,
+          maximum: propSchema.maximum ?? propSchema.exclusiveMaximum,
+          minLength: propSchema.minLength,
+          maxLength: propSchema.maxLength,
+          pattern: propSchema.pattern,
+          enumValues: propSchema.enum,
+        },
+      })
+    }
+    models.push({ name, description: schema.description, properties })
+  }
+  return models
 }
 
 /**
@@ -211,7 +375,7 @@ export class TspProjectBuilder {
     }
 
     const config = this.getConfig()
-    const entrypoint = resolveTypeSpecEntrypoint(config.input)
+    const entrypoint = this.resolveEntrypoint(config)
     const openApiVersion = config.openApiVersion ?? '3.2.0'
 
     const compilerResult = await compileTypeSpecInMemory(entrypoint, {
@@ -224,125 +388,18 @@ export class TspProjectBuilder {
     const operations: TspIntrospectedOperation[] = []
     const tagsSet = new Set<string>()
 
-    const paths = (document.paths ?? {}) as Record<string, any>
-    const verbs = ['get', 'post', 'put', 'delete', 'patch', 'head', 'options', 'query']
-
-    for (const [openApiPath, pathItem] of Object.entries(paths)) {
-      if (!pathItem || typeof pathItem !== 'object') continue
-
-      for (const verb of verbs) {
-        if (!(verb in pathItem)) continue
+    for (const [openApiPath, pathItem] of Object.entries(document.paths ?? {})) {
+      if (isReference(pathItem)) continue
+      for (const verb of INTROSPECTED_VERBS) {
         const op = pathItem[verb]
-        if (!op || typeof op !== 'object') continue
-
-        const id = op.operationId ?? `${verb}_${openApiPath.replace(/[{}/]/g, '_')}`
-        const tags = Array.isArray(op.tags) ? op.tags : []
-        for (const t of tags) tagsSet.add(t)
-
-        const parameters: TspIntrospectedParameter[] = []
-        const rawParams = Array.isArray(op.parameters) ? op.parameters : []
-        for (const p of rawParams) {
-          if (!p || typeof p !== 'object') continue
-          parameters.push({
-            name: p.name ?? '',
-            in: p.in ?? 'query',
-            required: p.required === true,
-            description: p.description,
-            type: p.schema?.type ?? (p.schema?.$ref ? resolveSchemaRefName(p.schema) : 'unknown'),
-          })
-        }
-
-        let requestBody: TspIntrospectedOperation['requestBody'] = undefined
-        if (op.requestBody && typeof op.requestBody === 'object') {
-          const contents = op.requestBody.content ?? {}
-          const firstContentType = Object.keys(contents)[0]
-          const bodySchema = firstContentType ? contents[firstContentType]?.schema : undefined
-          requestBody = {
-            required: op.requestBody.required === true,
-            contentType: firstContentType,
-            schemaName: resolveSchemaRefName(bodySchema),
-            description: op.requestBody.description,
-          }
-        }
-
-        const responses: TspIntrospectedResponse[] = []
-        const errorStatusMap: Record<string, string> = {}
-        const rawResponses = (op.responses ?? {}) as Record<string, any>
-
-        for (const [code, res] of Object.entries(rawResponses)) {
-          if (!res || typeof res !== 'object') continue
-          const resContents = res.content ?? {}
-          const resContentType = Object.keys(resContents)[0]
-          const resSchema = resContentType ? resContents[resContentType]?.schema : undefined
-          const schemaName = resolveSchemaRefName(resSchema)
-          const isError = /^[45]\d{2}$/.test(code) || code === 'default'
-
-          responses.push({
-            statusCode: code,
-            description: res.description,
-            contentType: resContentType,
-            schemaName,
-            isError,
-          })
-
-          if (isError && schemaName) {
-            errorStatusMap[code] = schemaName
-          }
-        }
-
-        operations.push({
-          id,
-          method: verb.toUpperCase(),
-          path: openApiPath,
-          summary: op.summary,
-          description: op.description,
-          deprecated: op.deprecated === true,
-          tags,
-          parameters,
-          requestBody,
-          responses,
-          errorStatusMap,
-          wireFormat: extractWireFormat(op),
-        })
+        if (!op) continue
+        const introspected = introspectOperation(document, openApiPath, verb, op)
+        for (const tag of introspected.tags) tagsSet.add(tag)
+        operations.push(introspected)
       }
     }
 
-    const models: TspIntrospectedModel[] = []
-    const rawSchemas = (document.components?.schemas ?? {}) as Record<string, any>
-
-    for (const [name, schema] of Object.entries(rawSchemas)) {
-      if (!schema || typeof schema !== 'object') continue
-
-      const properties: TspIntrospectedModelProperty[] = []
-      const rawProps = (schema.properties ?? {}) as Record<string, any>
-      const requiredList = Array.isArray(schema.required) ? schema.required : []
-
-      for (const [propName, propSchema] of Object.entries(rawProps)) {
-        if (!propSchema || typeof propSchema !== 'object') continue
-
-        properties.push({
-          name: propName,
-          type: propSchema.type ?? resolveSchemaRefName(propSchema) ?? 'unknown',
-          required: requiredList.includes(propName),
-          format: propSchema.format,
-          description: propSchema.description,
-          constraints: {
-            minimum: propSchema.minimum ?? propSchema.exclusiveMinimum,
-            maximum: propSchema.maximum ?? propSchema.exclusiveMaximum,
-            minLength: propSchema.minLength,
-            maxLength: propSchema.maxLength,
-            pattern: propSchema.pattern,
-            enumValues: propSchema.enum,
-          },
-        })
-      }
-
-      models.push({
-        name,
-        description: schema.description,
-        properties,
-      })
-    }
+    const models = introspectModels(document)
 
     this.cachedReport = {
       entrypoint,
@@ -397,17 +454,29 @@ export class TspProjectBuilder {
    */
   public async build(overrideConfig?: Partial<TspConfig>): Promise<TspPipelineResult> {
     const config = this.getConfig()
+    // getConfig() fills both output aliases with the default, so an override of either alias must
+    // replace both (`output` wins when both are given, as in validateTspConfig).
+    const overrideOutput = overrideConfig?.output ?? overrideConfig?.outputDir
     const mergedConfig: TspConfig = {
       ...config,
       ...overrideConfig,
+      ...(overrideOutput !== undefined ? { output: overrideOutput, outputDir: overrideOutput } : {}),
       plugins: overrideConfig?.plugins ?? this.plugins,
     }
 
+    // Always compile the (possibly overridden) input: the cached program is only an incremental hint,
+    // never a substitute document, so edits made after introspect() are picked up.
     return runTspPluginPipeline(mergedConfig, {
       cwd: this.options?.cwd,
-      program: this.cachedCompilerResult?.program,
-      document: this.cachedCompilerResult?.document,
+      oldProgram: this.cachedCompilerResult?.program,
     })
+  }
+
+  /**
+   * Resolves the configured input to the TypeSpec entrypoint, relative to the builder's `cwd`.
+   */
+  private resolveEntrypoint(config: TspConfig): string {
+    return resolveTypeSpecEntrypoint(absolutizeTspInput(config.input, this.options?.cwd ?? process.cwd()))
   }
 
   /**
@@ -419,7 +488,7 @@ export class TspProjectBuilder {
     watchOptions?: TspWatchOptions,
   ): TspWatcherHandle {
     const config = this.getConfig()
-    const entrypoint = resolveTypeSpecEntrypoint(config.input)
+    const entrypoint = this.resolveEntrypoint(config)
     const targetDir = statSync(entrypoint).isDirectory() ? entrypoint : dirname(entrypoint)
     const debounceMs = watchOptions?.debounceMs ?? 150
     const buildOnChange = watchOptions?.buildOnChange !== false
@@ -437,24 +506,29 @@ export class TspProjectBuilder {
 
       debounceTimer = setTimeout(async () => {
         if (isClosed) return
+        // The sources changed: neither the report nor the compiled document may be served again.
         this.cachedReport = undefined
+        this.cachedCompilerResult = undefined
 
         const fullPath = resolve(targetDir, filename)
         let result: TspPipelineResult | undefined = undefined
+        let error: unknown = undefined
 
         if (buildOnChange) {
           try {
             result = await this.build()
-          } catch {
-            // Error captured in pipeline diagnostics
+          } catch (err) {
+            // Compilation failures throw (they are not pipeline diagnostics); hand them to the listener.
+            error = err
           }
         }
 
         try {
           await listener({
-            eventType: eventType as 'change' | 'rename',
+            eventType,
             filePath: fullPath,
             result,
+            ...(error !== undefined ? { error } : {}),
           })
         } catch {
           // Listener error suppression

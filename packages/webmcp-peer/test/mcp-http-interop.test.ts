@@ -1,11 +1,14 @@
 // Streamable HTTP interoperability of the relay's `/p/:id/mcp` endpoint with stock MCP hosts
 // (Claude, Cursor, ...) built on the official SDK. Both behaviours were found by a staging deploy
-// test where the SDK client could not connect, and later polled the relay once per second.
+// test where the SDK client could not connect, and later polled the relay once per second. The
+// endpoint's other answers a stock host meets are pinned too: the JSON-RPC bodies of its 405s, a
+// refused batch, the bootstrap catalog of initialize, and a POST read whatever its Content-Type.
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { afterEach, describe, expect, it } from "vitest";
 import { joinPeerRoom, waitForPeerApproval } from "../src/client.js";
+import { PEER_RELAY_MAX_REQUEST_BYTES } from "../src/config.js";
 import { MCP_INITIALIZE_PROTOCOL_VERSIONS, MCP_PROTOCOL_VERSION, WebMcpPeerClient } from "../src/provider.js";
-import { createWebMcpPeerServer, type WebMcpPeerServer } from "../src/server.js";
+import { createWebMcpPeerServer, hashDeploymentCatalog, type WebMcpPeerServer } from "../src/server.js";
 
 const servers: WebMcpPeerServer[] = [];
 const providers: WebMcpPeerClient[] = [];
@@ -185,7 +188,7 @@ describe("MCP Streamable HTTP interoperability", () => {
   it("answers a body over the limit with 413 instead of a truncated parse", async () => {
     const { base, roomId } = await startRoom();
     const response = await post(`${base}/p/${roomId}/mcp`,
-      JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: { padding: "x".repeat(200_000) } }));
+      JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: { padding: "x".repeat(PEER_RELAY_MAX_REQUEST_BYTES) } }));
     expect(response.status).toBe(413);
     expect(((await response.json()) as { error: { message: string } }).error.message).toBe("REQUEST_TOO_LARGE");
   });
@@ -233,11 +236,82 @@ describe("MCP Streamable HTTP interoperability", () => {
 
     const sse = await fetch(`${base}/p/${roomId}/mcp`, { headers: { accept: "text/event-stream" } });
     expect(sse.status).toBe(405);
-    expect(sse.headers.get("allow")).toBe("POST");
+    // The endpoint's methods, as its other 405s name them: GET itself is served, with another Accept.
+    expect(sse.headers.get("allow")).toBe("GET, POST");
 
     const descriptor = await fetch(`${base}/p/${roomId}/mcp`, { headers: { accept: "application/json" } });
     expect(descriptor.status).toBe(200);
     const mixed = await fetch(`${base}/p/${roomId}/mcp`, { headers: { accept: "application/json, text/event-stream" } });
     expect(mixed.status).toBe(200);
+  });
+
+  it("answers the SSE GET and DELETE with a JSON-RPC error of id null that is never cached", async () => {
+    const { base, roomId } = await startRoom();
+    const sse = await fetch(`${base}/p/${roomId}/mcp`, { headers: { accept: "text/event-stream" } });
+    const deleted = await fetch(`${base}/p/${roomId}/mcp`, { method: "DELETE" });
+
+    for (const [response, message] of [[sse, "SSE_STREAM_NOT_SUPPORTED"], [deleted, "SESSION_TERMINATION_NOT_SUPPORTED"]] as const) {
+      expect(response.status).toBe(405);
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      expect(await response.json()).toEqual({ jsonrpc: "2.0", id: null, error: { code: -32000, message } });
+    }
+  });
+
+  it("refuses a batch with 400 INVALID_REQUEST under id null, and runs none of it", async () => {
+    const { base, roomId, clientToken } = await startProvidedRoom();
+    const call = (id: number) => ({ jsonrpc: "2.0", id, method: "tools/call", params: { name: echoTool.name, arguments: { text: String(id) } } });
+    const response = await post(`${base}/p/${roomId}/mcp`, [call(1), call(2)], { authorization: `Bearer ${clientToken}` });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ jsonrpc: "2.0", id: null, error: { code: -32600, message: "INVALID_REQUEST" } });
+    // The room still serves a single request.
+    const single = await post(`${base}/p/${roomId}/mcp`, call(3), { authorization: `Bearer ${clientToken}` });
+    expect(((await single.json()) as { result: { structuredContent: unknown } }).result.structuredContent).toEqual({ echoed: "echo:3" });
+  });
+
+  it("answers initialize with the bootstrap catalog in _meta and the catalog headers, never cached", async () => {
+    const server = createWebMcpPeerServer({ port: 0, host: "127.0.0.1", roomSweepIntervalMs: 0, deploymentCatalog: { tools: [echoTool] } });
+    servers.push(server);
+    const base = `http://127.0.0.1:${await server.listen()}`;
+    const created = await fetch(`${base}/p`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ approvalRequired: false }) });
+    const roomId = ((await created.json()) as { id: string }).id;
+    const catalogHash = hashDeploymentCatalog([echoTool]);
+
+    const response = await post(`${base}/p/${roomId}/mcp`, {
+      jsonrpc: "2.0", id: 1, method: "initialize",
+      params: { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "t", version: "1" } },
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get("vary")).toContain("Origin");
+    expect(response.headers.get("x-mcp-catalog-version")).toBe("1");
+    expect(response.headers.get("x-mcp-catalog-hash")).toBe(catalogHash);
+    const { result } = (await response.json()) as { result: Record<string, unknown> };
+    expect(result.serverInfo).toEqual({ name: "framebook-peer-server", version: "0.4.0" });
+    expect(result._meta).toEqual({
+      roomId,
+      roomEpoch: 1,
+      roomState: "provisioned",
+      roomValid: true,
+      catalogVersion: 1,
+      catalogHash,
+      toolCount: 1,
+      bootstrapCatalog: { tools: [echoTool], catalogVersion: 1, catalogHash, source: "deployment" },
+      auth: { discovery: "public", execution: "client-ticket-and-approval", clientTokenRequired: true, approvalRequired: false, state: "not-joined" },
+    });
+  });
+
+  it("takes a POST whatever its Content-Type, and reads Accept only on the descriptor GET", async () => {
+    const { base, roomId } = await startRoom();
+    const created = await fetch(`${base}/p`, { method: "POST", headers: { "content-type": "text/plain" }, body: JSON.stringify({ approvalRequired: false }) });
+    expect(created.status).toBe(201);
+
+    // A body sent as a form, and one asking only for an event stream, are still read as JSON-RPC.
+    const ping = { jsonrpc: "2.0", id: 1, method: "ping" };
+    for (const headers of [{ "content-type": "application/x-www-form-urlencoded" }, { accept: "text/event-stream" }]) {
+      const response = await post(`${base}/p/${roomId}/mcp`, ping, headers);
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ jsonrpc: "2.0", id: 1, result: {} });
+    }
   });
 });

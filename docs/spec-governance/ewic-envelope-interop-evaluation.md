@@ -7,7 +7,7 @@
 - [EWIC-v0.1.md](https://drive.google.com/file/d/12azN_IsoWeV1FfmuoWYgXKJaHYB9lrlx/view) (File ID: `12azN_IsoWeV1FfmuoWYgXKJaHYB9lrlx`)  
 **Evaluation Date:** 2026-10-13  
 **Status:** **VERIFIED & ACCEPTED (READ-ONLY INTEROP)**  
-**Integration Test Suite:** `test/integration/ewic-envelope/ewic-envelope.test.ts` (26/26 Tests Passing, 100% Exit Code 0)
+**Integration Test Suite:** `test/integration/ewic-envelope/ewic-envelope.test.ts` (38/38 Tests Passing, 100% Exit Code 0)
 
 ---
 
@@ -17,7 +17,7 @@ This report evaluates and validates the interoperability contract between the Sh
 
 The evaluation proves that:
 1. **Full Envelope Fidelity**: TypeSpec and JSON Schema Draft 2020-12 accurately model the 6 canonical entity kinds (`spec`, `framework`, `resource`, `workflow`, `execution`, `evidence`) and the derived / execution packet schemas.
-2. **Lossless Adapter & Drive Preservation**: Adapters (`SourceReferenceAdapter`, `CollaborationManifestAdapter`, `KindAdapters`) strictly preserve Drive `fileId`, `revision`, `contentHash`, `parentChain`, and `locator`. All unknown/custom fields round-trip without loss (forward-compatibility guarantee).
+2. **Lossless Adapter & Drive Preservation**: Adapters (`SourceReferenceAdapter`, `CollaborationManifestAdapter`, `KindAdapters`) strictly preserve Drive `fileId`, `revision`, `contentHash`, `parentChain`, and `locator`. All unknown/custom fields round-trip without loss (forward-compatibility guarantee). For envelopes produced by the adapter, `source.provider` also round-trips (see §3.4 for the one lossy case: envelopes without the `_originalSourceReference` side-channel).
 3. **Execution Snapshot Reproducibility**: `execution` envelopes pin `workflowRef` and `resolvedRefs` snapshots (`snapshotId` and `contentHash`). When reference drift occurs, execution is rejected with a typed stale error identifying the drifted refs.
 4. **RFC 8785 Canonical Digest Readback**: Implements deterministic JSON canonicalization (JCS) and SHA-256 digest computation (`sha256:<hex>`). All envelopes pass 100% digest readback verification; tampered payloads are immediately detected.
 5. **Universal Tool Surface (@oa-sdk/tools)**: 3 read-only tools (`ewic_validate_envelope`, `ewic_adapt_source_reference`, `ewic_verify_execution`) deploy seamlessly to MCP Server, Commander CLI, and Hono REST HTTP app.
@@ -36,7 +36,7 @@ The evaluation proves that:
 | **R1** | **TypeSpec Schema AST Ingestion** | In-memory compilation of EWIC envelope and kind contracts without disk I/O; 4 OpenAPI 3.1.0 routes. | `schema/typespec/*.tsp` | **PASSED (100%)** |
 | **R2** | **JSON Schema Draft 2020-12 Fidelity** | Structural and identity invariant validation across all 6 entity kinds, derived envelope, and Colab run packets. | `schema/json-schema/*.schema.json`<br>`validator/ewic-validator.ts` | **PASSED (100%)** |
 | **R3** | **RFC 8785 Canonical Digest Readback** | Deterministic JCS stringification, `sha256:<hex>` computation, and 100% digest verification on readback. | `canonical/canonical-json.ts` | **PASSED (100%)** |
-| **R4** | **Lossless Adapters & Drive SSOT Preservation** | Full round-trip preservation of Drive `fileId`, `parentChain`, `locator`, `revision`, `contentHash`, and unknown fields. | `adapters/source-reference-adapter.ts`<br>`adapters/collaboration-manifest-adapter.ts` | **PASSED (100%)** |
+| **R4** | **Lossless Adapters & Drive SSOT Preservation** | Full round-trip preservation of Drive `fileId`, `parentChain`, `locator`, `revision`, `contentHash`, and unknown fields. `source.provider` round-trips through `_originalSourceReference.sourceProvider` for adapter-produced envelopes; an envelope without that side-channel is restored from the SSOT alone, where `local` (the SSOT value for `semantic` and `web`) comes back as `drive`. | `adapters/source-reference-adapter.ts`<br>`adapters/collaboration-manifest-adapter.ts` | **PASSED (100%)** |
 | **R5** | **Execution Snapshot Reproducibility** | Verification of pinned `workflowRef` and `resolvedRefs`; typed rejection (`{ status: 'stale' }`) on snapshot drift. | `validator/ewic-validator.ts`<br>`tools/ewic-verify-execution.ts` | **PASSED (100%)** |
 | **R6** | **Universal Tool Surface Bridge** | 3 read-only tools generated via `@oa-sdk/tools` deployed across MCP Server, Commander CLI, and Hono REST. | `tools/*.ts` | **PASSED (100%)** |
 | **R7** | **Fail-Closed & No-Leak Security** | Indistinguishable ACL denial vs. non-existent resource responses; provider exception masking. | `tools/ewic-verify-execution.ts` | **PASSED (100%)** |
@@ -76,6 +76,10 @@ The evaluation proves that:
   - Attached custom extension properties (`customExtension: { traceId, priorityScore, labels }`, `upstreamMirrorUrl`).
   - Round-tripped `SourceReference -> Resource Envelope -> SourceReference`.
   - Verified 0 missing keys and 0 value alterations.
+- **Source Provider Round-Trip**:
+  - The EWIC SSOT provider enum (`google_drive`, `github`, `nes`, `local`) is narrower than the `reference.schema.json` `source.provider` enum (`github`, `drive`, `nes`, `semantic`, `web`): `semantic` and `web` both map to `local`.
+  - `toResourceEnvelope` therefore also stores the original value in `_originalSourceReference.sourceProvider`, and `fromResourceEnvelope` restores it from there when it is one of the schema's providers. All five providers round-trip (test: `round-trips source.provider "%s" through the Resource Envelope`, with `covers every provider allowed by reference.schema.json in the round-trip cases` pinning the enum).
+  - An envelope that lacks the side-channel (for example one produced outside this adapter) is restored from the SSOT alone: `github` -> `github`, `nes` -> `nes`, and everything else, including `local`, -> `drive`. This direction is lossy for `semantic` and `web` (test: `falls back to the SSOT provider mapping for envelopes without the side-channel`).
 
 ### 3.5 Execution Snapshot Reproducibility & Stale Denial (Tier 5)
 - Execution envelope referencing `workflowRef` and `resolvedRefs`:
@@ -92,8 +96,11 @@ The evaluation proves that:
   - Unauthorized actor -> `{ status: 'unavailable' }`.
   - Non-existent resource -> `{ status: 'unavailable' }`.
   - Both responses are identical, preventing attackers from probing for envelope existence.
+  - The denial holds because `ewic_verify_execution` authorizes before it verifies: it reads the `workflowRef` envelope and every `resolvedRefs` envelope with `readSourceEnvelope` and checks each with `canReadEnvelope(actorId, envelope)` before any `verifySnapshot` call. A denied actor therefore never reaches the stale/reproducible paths, and no current hash is computed or returned for it.
+  - **Actor binding (host requirement)**: the actor checked is the transport-bound `ctx.meta.actorId` when the host sets one; an input `actorId` that contradicts it is denied as `unavailable` without any ACL call. Without a binding the input `actorId` is trusted as-is, so a host that exposes this tool must bind `ctx.meta.actorId` from its own authentication for the ACL check to mean anything (test: `uses the transport-bound ctx.meta.actorId and denies a contradicting input actorId`).
 - **Exception Concealment**:
   - Database error leaking `/Users/private/secure/tokens.db` was masked to `{ status: 'unavailable' }`.
+  - A throwing ACL check or envelope read is concealed the same way.
 
 ---
 

@@ -235,7 +235,22 @@ export function centerOnNode(
   return { scale, tx, ty }
 }
 
-export function FragmentGraph() {
+export interface FragmentGraphProps {
+  /** Symbol to select once the graph is loaded (matched by node id, then by local name). */
+  focusSymbolId?: string | undefined
+  /** Called whenever the selected node changes (`null` when cleared). */
+  onSelectNode?: ((node: SpecGraph['nodes'][number] | null) => void) | undefined
+}
+
+/** The node a focus request refers to: an exact node id first, then a local name. */
+export function findFocusNode<T extends { id: string; localName: string }>(
+  nodes: readonly T[],
+  symbolId: string,
+): T | undefined {
+  return nodes.find(n => n.id === symbolId) ?? nodes.find(n => n.localName === symbolId)
+}
+
+export function FragmentGraph({ focusSymbolId, onSelectNode }: FragmentGraphProps = {}) {
   const svgRef = useRef<SVGSVGElement>(null)
   const zoomBehaviorRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null)
   const simulationRef = useRef<d3.Simulation<NodeDatum, LinkDatum> | null>(null)
@@ -464,6 +479,26 @@ export function FragmentGraph() {
     }
   }, [focusedNodeId])
 
+  // Report the selection to the host (scenario steps use it as their payload)
+  const onSelectNodeRef = useRef(onSelectNode)
+  onSelectNodeRef.current = onSelectNode
+  useEffect(() => {
+    onSelectNodeRef.current?.(selected)
+  }, [selected])
+
+  // Select the requested focus symbol once its graph is rendered
+  useEffect(() => {
+    if (!focusSymbolId || !graph) return
+    const target: NodeDatum | undefined =
+      findFocusNode(currentNodesRef.current, focusSymbolId) ?? findFocusNode(graph.nodes, focusSymbolId)
+    if (!target) return
+    setSelected(target)
+    setFocusedNodeId(target.id)
+    if (svgRef.current && zoomBehaviorRef.current) {
+      centerOnNode(svgRef.current, zoomBehaviorRef.current, target)
+    }
+  }, [focusSymbolId, graph])
+
   // Selected pulse-ring halo effect
   useEffect(() => {
     if (!svgRef.current) return
@@ -488,13 +523,13 @@ export function FragmentGraph() {
   const handleZoomIn = useCallback(() => {
     if (!svgRef.current || !zoomBehaviorRef.current) return
     const svg = d3.select(svgRef.current)
-    zoomBehaviorRef.current.scaleBy(svg.transition().duration(300) as any, 1.3)
+    zoomBehaviorRef.current.scaleBy(svg.transition().duration(300), 1.3)
   }, [])
 
   const handleZoomOut = useCallback(() => {
     if (!svgRef.current || !zoomBehaviorRef.current) return
     const svg = d3.select(svgRef.current)
-    zoomBehaviorRef.current.scaleBy(svg.transition().duration(300) as any, 1 / 1.3)
+    zoomBehaviorRef.current.scaleBy(svg.transition().duration(300), 1 / 1.3)
   }, [])
 
   const handleFitToViewport = useCallback(() => {

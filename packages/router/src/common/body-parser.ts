@@ -2,6 +2,11 @@ export type RouterTarget = 'hono' | 'express' | 'fastify' | 'elysia'
 
 /**
  * Determine the body-parsing expression based on the request content type(s).
+ *
+ * Only the legacy stub renderers use these lines; their module-level `app`/`router` has no options
+ * binding, so a binary body (`application/octet-stream`, protobuf, msgpack) is read as raw bytes and
+ * left to the implementation to decode. It is not asserted to the generated `<Op>Body` type,
+ * which describes the decoded payload rather than the bytes.
  */
 export function buildBodyParseLine(
   target: RouterTarget,
@@ -14,14 +19,8 @@ export function buildBodyParseLine(
 
   if (target === 'hono') {
     if (isBinaryContentType(primary)) {
-      if (!required) {
-        return typed
-          ? `  const body = c.req.raw.body === null ? undefined : (options?.codecs ? await options.codecs.resolve(${JSON.stringify(primary)})?.decode(await c.req.arrayBuffer(), ${JSON.stringify(primary)}) : await c.req.arrayBuffer()) as ${typeName}Body`
-          : `  const body = c.req.raw.body === null ? undefined : (options?.codecs ? await options.codecs.resolve(${JSON.stringify(primary)})?.decode(await c.req.arrayBuffer(), ${JSON.stringify(primary)}) : await c.req.arrayBuffer()) // ${typeName}Body`
-      }
-      return typed
-        ? `  const body = (options?.codecs ? await options.codecs.resolve(${JSON.stringify(primary)})?.decode(await c.req.arrayBuffer(), ${JSON.stringify(primary)}) : await c.req.arrayBuffer()) as ${typeName}Body`
-        : `  const body = (options?.codecs ? await options.codecs.resolve(${JSON.stringify(primary)})?.decode(await c.req.arrayBuffer(), ${JSON.stringify(primary)}) : await c.req.arrayBuffer()) // ${typeName}Body`
+      const read = required ? 'await c.req.arrayBuffer()' : 'c.req.raw.body === null ? undefined : await c.req.arrayBuffer()'
+      return `  const body = ${read} // ${typeName}Body (raw ${primary} bytes)`
     }
     if (primary === 'application/json') {
       if (!required) {
@@ -47,7 +46,7 @@ export function buildBodyParseLine(
 
   // express — body is already parsed by middleware
   if (isBinaryContentType(primary)) {
-    return `  const body = (options?.codecs ? await options.codecs.resolve(${JSON.stringify(primary)})?.decode(req.body, ${JSON.stringify(primary)}) : req.body)${typed ? ` as ${typeName}Body${required ? '' : ' | undefined'}` : ''} // ${typeName}Body`
+    return `  const body = req.body${typed ? ` as Uint8Array${required ? '' : ' | undefined'}` : ''} // ${typeName}Body (raw ${primary} bytes; use express.raw() middleware)`
   }
   if (primary === 'multipart/form-data') {
     return `  const body = req.body${typed ? ` as ${typeName}Body${required ? '' : ' | undefined'}` : ''} // ${typeName}Body (use multer middleware)`

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { runScenarioCli, verifyAllScenarios } from '../scenario-cli.js'
-import { ScenarioRegistry } from '@oa-sdk/spec-lens-contract'
+import { ScenarioRegistry, type ScenarioTopicDefinition } from '@oa-sdk/spec-lens-contract'
 
 describe('spec-lens scenario CLI', () => {
   it('lists registered scenarios', async () => {
@@ -68,6 +68,77 @@ describe('spec-lens scenario CLI', () => {
     expect(valid).toBe(true)
     const combined = logs.join('\n')
     expect(combined).toContain('Verification PASSED')
+  })
+
+  it('fails scenarios with unreachable bounded views, out-of-bounds goals/transitions and undeclared guards', () => {
+    // 'graph' is reached outside boundedViews, so a count-only check would hide the unreachable 'paths'.
+    const bad: ScenarioTopicDefinition = {
+      id: 'bad',
+      title: 'Bad scenario',
+      description: 'Broken on purpose',
+      persona: 'GenericUser',
+      initialView: 'timeline',
+      boundedViews: ['timeline', 'diff', 'paths'],
+      terminalGoals: [{ id: 'goal-out', description: 'Out of bounds goal', targetView: 'graph' }],
+      transitions: [
+        { fromView: 'timeline', actionType: 'NAVIGATE_VIEW', toView: 'diff', guardIds: ['undeclared-guard'] },
+        { fromView: 'diff', actionType: 'NAVIGATE_VIEW', toView: 'graph' },
+        { fromView: 'paths', actionType: 'NAVIGATE_VIEW', toView: 'diff' },
+      ],
+    }
+    const out: string[] = []
+    const err: string[] = []
+    const valid = verifyAllScenarios(new ScenarioRegistry([bad]), (m) => out.push(m), (m) => err.push(m))
+
+    expect(valid).toBe(false)
+    const errors = err.join('\n')
+    expect(errors).toContain('Unreachable declared bounded views: paths')
+    expect(errors).toContain('Transitions reference views outside boundedViews: graph')
+    expect(errors).toContain('Terminal goals target views outside boundedViews: goal-out->graph')
+    expect(errors).toContain('Transitions reference undeclared guards: undeclared-guard')
+    expect(errors).toContain('Verification FAILED')
+    expect(out.join('\n')).not.toContain('Verification PASSED')
+  })
+
+  it('fails a scenario whose initialView is outside boundedViews', () => {
+    const bad: ScenarioTopicDefinition = {
+      id: 'bad-initial',
+      title: 'Bad initial view',
+      description: 'Starts outside its bounds',
+      persona: 'GenericUser',
+      initialView: 'timeline',
+      boundedViews: ['diff'],
+      terminalGoals: [{ id: 'done', description: 'Done', targetView: 'diff' }],
+      transitions: [{ fromView: 'timeline', actionType: 'NAVIGATE_VIEW', toView: 'diff' }],
+    }
+    const err: string[] = []
+    const valid = verifyAllScenarios(new ScenarioRegistry([bad]), () => {}, (m) => err.push(m))
+
+    expect(valid).toBe(false)
+    expect(err.join('\n')).toContain('Initial view "timeline" is not in boundedViews')
+  })
+
+  it('exits non-zero from `scenario verify` when a registered scenario is invalid', async () => {
+    const bad: ScenarioTopicDefinition = {
+      id: 'bad-guard',
+      title: 'Undeclared guard',
+      description: 'Guard id has no declaration',
+      persona: 'GenericUser',
+      initialView: 'timeline',
+      boundedViews: ['timeline', 'diff'],
+      terminalGoals: [{ id: 'done', description: 'Done', targetView: 'diff' }],
+      transitions: [{ fromView: 'timeline', actionType: 'NAVIGATE_VIEW', toView: 'diff', guardIds: ['missing'] }],
+    }
+    let exitCode: number | null = null
+    await runScenarioCli(['verify'], {
+      registry: new ScenarioRegistry([bad]),
+      stdout: () => {},
+      stderr: () => {},
+      exit: (code) => {
+        exitCode = code
+      },
+    })
+    expect(exitCode).toBe(1)
   })
 
   it('exports flowcharts in various formats (mermaid, dot, json, markdown)', async () => {

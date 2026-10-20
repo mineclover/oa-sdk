@@ -105,9 +105,13 @@ function validStep(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 }
 
+/**
+ * Deep-copies ledger records so callers can never mutate stored state. `structuredClone` is part
+ * of every supported runtime (Node.js >= 22 and evergreen browsers), so no JSON round-trip
+ * fallback is needed.
+ */
 function cloneJson<T>(value: T): T {
-  if (typeof structuredClone === "function") return structuredClone(value);
-  return JSON.parse(JSON.stringify(value)) as T;
+  return structuredClone(value);
 }
 
 function stableJson(value: unknown): string {

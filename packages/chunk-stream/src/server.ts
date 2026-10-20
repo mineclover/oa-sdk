@@ -44,6 +44,73 @@ function computeFastETag(textOrBytes: string | Uint8Array): string {
   return `W/"${textOrBytes.byteLength.toString(16)}-${(hash >>> 0).toString(16)}"`;
 }
 
+const JSON_CONTENT_TYPE = "application/json; charset=utf-8";
+
+function badRequest(message: string): ChunkStreamRouteResponse<ChunkStreamBadRequestError> {
+  return {
+    status: 400,
+    headers: { "content-type": JSON_CONTENT_TYPE },
+    body: { code: "BAD_REQUEST", message },
+  };
+}
+
+const DECIMAL_DIGITS = /^\d+$/;
+
+/**
+ * Strictly parses a seek frame: a non-negative safe integer, given as a number
+ * or as a string of decimal digits. An absent frame (`undefined`) means frame 0.
+ * Every other value yields `undefined` so the caller rejects the request instead
+ * of silently seeking somewhere else.
+ */
+function parseSeekFrame(raw: unknown): number | undefined {
+  if (raw === undefined) return 0;
+  const frame =
+    typeof raw === "number"
+      ? raw
+      : typeof raw === "string" && DECIMAL_DIGITS.test(raw)
+        ? Number(raw)
+        : Number.NaN;
+  return Number.isSafeInteger(frame) && frame >= 0 ? frame : undefined;
+}
+
+/** Decodes one percent-encoded path segment; `undefined` when the encoding is malformed. */
+function decodePathSegment(segment: string): string | undefined {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return undefined;
+  }
+}
+
+interface SeekRequestBody {
+  readonly frame?: number | string | undefined;
+}
+
+/** JSON body of `POST /streams/:streamId/seek`: an object whose optional `frame` is a number or a string. */
+const SeekRequestBodySchema = {
+  parse(value: unknown): SeekRequestBody {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      throw new TypeError("Seek request body must be a JSON object");
+    }
+    const frame = "frame" in value ? value.frame : undefined;
+    if (frame !== undefined && typeof frame !== "number" && typeof frame !== "string") {
+      throw new TypeError("Seek request body frame must be a number or a string");
+    }
+    return frame === undefined ? {} : { frame };
+  },
+};
+
+/**
+ * Exposes a byte view to `Response` as an `ArrayBuffer`-backed view without
+ * copying; only a view over a `SharedArrayBuffer` is copied.
+ */
+function toArrayBufferView(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
+  const { buffer } = bytes;
+  return buffer instanceof ArrayBuffer
+    ? new Uint8Array(buffer, bytes.byteOffset, bytes.byteLength)
+    : Uint8Array.from(bytes);
+}
+
 /**
  * Resolves declarative Chunk Stream transmission and memory parameters into
  * a standardized configuration object compatible with `@oa-sdk/typespec-decorators`
@@ -96,7 +163,7 @@ export function defineChunkStreamConfig(
 }
 
 export interface ChunkStreamRouteResponse<TBody = unknown> {
-  readonly status: 200 | 206 | 304 | 404 | 416;
+  readonly status: 200 | 206 | 304 | 400 | 404 | 416;
   readonly headers: Record<string, string>;
   readonly body: TBody;
 }
@@ -116,14 +183,25 @@ export interface GetPlaybackSnapshotContext {
   readonly query?: { readonly revision?: string | undefined } | undefined;
 }
 
+/**
+ * Seek request. `frame` (from the body first, then the query) must be a
+ * non-negative safe integer, given as a number or as a string of decimal
+ * digits. An absent frame seeks to frame 0; any other value is rejected with
+ * `400 BAD_REQUEST` and never reaches `seekFrame`.
+ */
 export interface SeekStreamFrameContext {
   readonly params: { readonly streamId: string };
-  readonly body?: { readonly frame: number } | undefined;
+  readonly body?: { readonly frame?: number | string | undefined } | undefined;
   readonly query?: { readonly frame?: number | string | undefined } | undefined;
 }
 
 export interface ChunkStreamNotFoundError {
   readonly code: "NOT_FOUND";
+  readonly message: string;
+}
+
+export interface ChunkStreamBadRequestError {
+  readonly code: "BAD_REQUEST";
   readonly message: string;
 }
 
@@ -145,7 +223,9 @@ export interface ChunkStreamServerHandlers<
   ): Promise<ChunkStreamRouteResponse<TSnapshot | ChunkStreamNotFoundError>>;
   seekStreamFrame(
     ctx: SeekStreamFrameContext
-  ): Promise<ChunkStreamRouteResponse<TSeekResult | ChunkStreamNotFoundError>>;
+  ): Promise<
+    ChunkStreamRouteResponse<TSeekResult | ChunkStreamNotFoundError | ChunkStreamBadRequestError>
+  >;
 }
 
 export interface DefineChunkStreamServerOptions<
@@ -208,7 +288,7 @@ export function defineChunkStreamServer<
       if (!manifest) {
         return {
           status: 404,
-          headers: { "content-type": "application/json; charset=utf-8" },
+          headers: { "content-type": JSON_CONTENT_TYPE },
           body: {
             code: "NOT_FOUND",
             message: `Stream '${ctx.params.streamId}' not found`,
@@ -243,7 +323,7 @@ export function defineChunkStreamServer<
       return {
         status: 200,
         headers: {
-          "content-type": "application/json; charset=utf-8",
+          "content-type": JSON_CONTENT_TYPE,
           etag,
           "cache-control": "public, max-age=5",
           "x-chunk-preset": config.preset,
@@ -258,7 +338,7 @@ export function defineChunkStreamServer<
       if (raw === undefined || raw === null) {
         return {
           status: 404,
-          headers: { "content-type": "application/json; charset=utf-8" },
+          headers: { "content-type": JSON_CONTENT_TYPE },
           body: {
             code: "NOT_FOUND",
             message: `Chunk '${ctx.params.chunkId}' in stream '${ctx.params.streamId}' not found`,
@@ -268,7 +348,7 @@ export function defineChunkStreamServer<
 
       const jsonObj: Record<string, unknown> | undefined =
         raw instanceof RuntimeChunkEnvelope
-          ? (raw.toJSON() as unknown as Record<string, unknown>)
+          ? { ...raw.toJSON() }
           : typeof raw === "object" && !(raw instanceof Uint8Array)
             ? (raw as Record<string, unknown>)
             : undefined;
@@ -331,7 +411,7 @@ export function defineChunkStreamServer<
         status: 200,
         headers: {
           "content-type": jsonObj
-            ? "application/json; charset=utf-8"
+            ? JSON_CONTENT_TYPE
             : "application/octet-stream",
           "content-length": String(bytes.byteLength),
           "accept-ranges": "bytes",
@@ -347,7 +427,7 @@ export function defineChunkStreamServer<
       if (!options.resolveSnapshot) {
         return {
           status: 404,
-          headers: { "content-type": "application/json; charset=utf-8" },
+          headers: { "content-type": JSON_CONTENT_TYPE },
           body: {
             code: "NOT_FOUND",
             message: `Playback snapshot resolver not configured for stream '${ctx.params.streamId}'`,
@@ -361,7 +441,7 @@ export function defineChunkStreamServer<
       if (!snapshot) {
         return {
           status: 404,
-          headers: { "content-type": "application/json; charset=utf-8" },
+          headers: { "content-type": JSON_CONTENT_TYPE },
           body: {
             code: "NOT_FOUND",
             message: `Playback snapshot for '${ctx.params.streamId}' not found`,
@@ -371,7 +451,7 @@ export function defineChunkStreamServer<
       return {
         status: 200,
         headers: {
-          "content-type": "application/json; charset=utf-8",
+          "content-type": JSON_CONTENT_TYPE,
           "cache-control": "no-store",
         },
         body: snapshot,
@@ -382,20 +462,24 @@ export function defineChunkStreamServer<
       if (!options.seekFrame) {
         return {
           status: 404,
-          headers: { "content-type": "application/json; charset=utf-8" },
+          headers: { "content-type": JSON_CONTENT_TYPE },
           body: {
             code: "NOT_FOUND",
             message: `Seek handler not configured for stream '${ctx.params.streamId}'`,
           },
         };
       }
-      const rawFrame = ctx.body?.frame ?? ctx.query?.frame ?? 0;
-      const frame = Math.max(0, Number(rawFrame) || 0);
+      const frame = parseSeekFrame(ctx.body?.frame ?? ctx.query?.frame);
+      if (frame === undefined) {
+        return badRequest(
+          `Invalid seek frame for stream '${ctx.params.streamId}': expected a non-negative integer`
+        );
+      }
       const result = await options.seekFrame(ctx.params.streamId, frame);
       if (!result) {
         return {
           status: 404,
-          headers: { "content-type": "application/json; charset=utf-8" },
+          headers: { "content-type": JSON_CONTENT_TYPE },
           body: {
             code: "NOT_FOUND",
             message: `Stream '${ctx.params.streamId}' not found for seek`,
@@ -405,7 +489,7 @@ export function defineChunkStreamServer<
       return {
         status: 200,
         headers: {
-          "content-type": "application/json; charset=utf-8",
+          "content-type": JSON_CONTENT_TYPE,
           "cache-control": "no-store",
         },
         body: result,
@@ -418,13 +502,10 @@ export function defineChunkStreamServer<
       return new Response(null, { status: routeRes.status, headers: routeRes.headers });
     }
     if (routeRes.body instanceof Uint8Array) {
-      return new Response(
-        routeRes.body as unknown as ConstructorParameters<typeof Response>[0],
-        {
-          status: routeRes.status,
-          headers: routeRes.headers,
-        }
-      );
+      return new Response(toArrayBufferView(routeRes.body), {
+        status: routeRes.status,
+        headers: routeRes.headers,
+      });
     }
     return new Response(JSON.stringify(routeRes.body), {
       status: routeRes.status,
@@ -438,7 +519,12 @@ export function defineChunkStreamServer<
     handlers,
     async fetch(request: Request): Promise<Response> {
       const url = new URL(request.url, "http://localhost");
-      const pathname = decodeURIComponent(url.pathname);
+      // Routes match the raw (still percent-encoded) path, and each captured
+      // segment is decoded on its own: an encoded "/" stays inside its id, and
+      // a malformed escape becomes a 400 instead of a rejected promise.
+      const pathname = url.pathname;
+      const malformedPath = (): Response =>
+        toWebResponse(badRequest("Malformed percent-encoding in request path"));
       const headersObj: Record<string, string | undefined> = {};
       request.headers.forEach((value, key) => {
         headersObj[key.toLowerCase()] = value;
@@ -446,8 +532,10 @@ export function defineChunkStreamServer<
 
       const manifestMatch = /^\/streams\/([^/]+)\/(?:manifest|index\.json)$/.exec(pathname);
       if (request.method === "GET" && manifestMatch) {
+        const streamId = decodePathSegment(manifestMatch[1]!);
+        if (streamId === undefined) return malformedPath();
         const res = await handlers.getStreamManifest({
-          params: { streamId: manifestMatch[1]! },
+          params: { streamId },
           headers: headersObj,
         });
         return toWebResponse(res);
@@ -455,8 +543,11 @@ export function defineChunkStreamServer<
 
       const chunkMatch = /^\/streams\/([^/]+)\/chunks\/([^/]+?)(?:\.json)?$/.exec(pathname);
       if (request.method === "GET" && chunkMatch) {
+        const streamId = decodePathSegment(chunkMatch[1]!);
+        const chunkId = decodePathSegment(chunkMatch[2]!);
+        if (streamId === undefined || chunkId === undefined) return malformedPath();
         const res = await handlers.getStreamChunk({
-          params: { streamId: chunkMatch[1]!, chunkId: chunkMatch[2]! },
+          params: { streamId, chunkId },
           headers: headersObj,
         });
         return toWebResponse(res);
@@ -464,9 +555,11 @@ export function defineChunkStreamServer<
 
       const snapshotMatch = /^\/playback\/([^/]+)\/snapshot$/.exec(pathname);
       if (request.method === "GET" && snapshotMatch) {
+        const streamId = decodePathSegment(snapshotMatch[1]!);
+        if (streamId === undefined) return malformedPath();
         const revision = url.searchParams.get("revision") ?? undefined;
         const res = await handlers.getPlaybackSnapshot({
-          params: { streamId: snapshotMatch[1]! },
+          params: { streamId },
           query: { revision },
         });
         return toWebResponse(res);
@@ -474,29 +567,33 @@ export function defineChunkStreamServer<
 
       const seekMatch = /^\/streams\/([^/]+)\/seek$/.exec(pathname);
       if (seekMatch && (request.method === "POST" || request.method === "GET")) {
-        let frameParam: number | string | undefined =
-          url.searchParams.get("frame") ?? undefined;
+        const streamId = decodePathSegment(seekMatch[1]!);
+        if (streamId === undefined) return malformedPath();
+        let body: SeekRequestBody | undefined;
         if (request.method === "POST") {
-          try {
-            const parsed = (await request.json()) as { frame?: number };
-            if (parsed && typeof parsed.frame === "number") {
-              frameParam = parsed.frame;
+          // An empty body is allowed (the frame may come from the query); a
+          // non-empty body must be a JSON object with an optional frame.
+          const text = await request.text();
+          if (text.trim() !== "") {
+            try {
+              body = SeekRequestBodySchema.parse(JSON.parse(text));
+            } catch (error) {
+              const reason = error instanceof Error ? error.message : String(error);
+              return toWebResponse(badRequest(`Invalid seek request body: ${reason}`));
             }
-          } catch {
-            // Fallback to query parameter
           }
         }
         const res = await handlers.seekStreamFrame({
-          params: { streamId: seekMatch[1]! },
-          body: frameParam !== undefined ? { frame: Number(frameParam) } : undefined,
-          query: { frame: frameParam },
+          params: { streamId },
+          body,
+          query: { frame: url.searchParams.get("frame") ?? undefined },
         });
         return toWebResponse(res);
       }
 
       return new Response(
         JSON.stringify({ code: "NOT_FOUND", message: `Route not found: ${pathname}` }),
-        { status: 404, headers: { "content-type": "application/json; charset=utf-8" } }
+        { status: 404, headers: { "content-type": JSON_CONTENT_TYPE } }
       );
     },
   };

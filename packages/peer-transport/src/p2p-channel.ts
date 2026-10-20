@@ -4,6 +4,7 @@
  * Multiplexes MCP JSON-RPC, CRDT Deltatrees, and Presence over a resilient peer stream.
  */
 import { TRANSPORT_CHANNELS, type DataChannelPacket, type TransportChannelType } from './types.js'
+import { utf8ByteLength } from './byte-length.js'
 
 /**
  * Packet listener. Payloads arrive from a remote peer, so the default payload
@@ -49,7 +50,7 @@ function packetByteLength(packet: unknown): number {
   } catch {
     return Number.POSITIVE_INFINITY
   }
-  return Buffer.byteLength(serialized, 'utf8')
+  return utf8ByteLength(serialized)
 }
 
 function isPacketChannel(value: unknown): value is TransportChannelType {

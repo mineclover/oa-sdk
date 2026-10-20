@@ -58,7 +58,7 @@ bun add -d @oa-sdk/codegen
 
 | 패키지 | 필요한 산출물 |
 |---|---|
-| `@oa-sdk/router` | `oa-gen generate`의 핸들러 계약(`*.contract.ts`)과 CRDT 계약/라우터 모듈. 프레임워크 라우터 코드는 `oa-gen` 명령이 아니라 이 패키지의 `generateRouter()`를 빌드 스크립트에서 호출해 만듭니다. |
+| `@oa-sdk/router` | `oa-gen generate`의 핸들러 계약(`*.contract.ts`), 대상 프레임워크가 Fastify·Express·Hono·Elysia일 때의 라우터(`*.router.ts`), CRDT 계약/라우터 모듈. 요청·응답 타입이 있는 계약과 라우터는 빌드 스크립트에서 이 패키지의 `generateHandlerContract()`·`generateRouter()`를 호출해 만듭니다([Backend Handler Contracts](./backend-handler-contracts.md#31-빌드-스크립트로-생성-권장)). |
 | `@oa-sdk/client` | `oa-gen generate:client`, `pack:client`, `generate:tanstack`, 그리고 `oa-gen generate`의 클라이언트 SDK, TanStack Query 옵션, CRDT 클라이언트/훅 모듈 |
 | `@oa-sdk/mock-server` | `oa-gen mock`. `msw`는 필요하지 않습니다. `msw`는 MSW 어댑터(`@oa-sdk/mock-server/adapters/msw`, `@oa-sdk/mock-server/browser`)를 쓸 때만 설치합니다. |
 
@@ -133,12 +133,12 @@ yarn oa-gen --help
 
 | 스크립트 | 추가하는 경우 | 명령 | 동작 |
 |---|---|---|---|
-| `generate` | 모든 대상 | `oa-gen generate` | `oa.config.ts`에 선언한 산출물(OpenAPI 문서, 핸들러 계약, 클라이언트 SDK, TanStack Query 키·옵션) 일괄 생성. 라우터 파일은 만들지 않습니다. |
+| `generate` | 모든 대상 | `oa-gen generate` | `oa.config.ts`에 선언한 산출물(OpenAPI 문서, 핸들러 계약, 클라이언트 SDK, TanStack Query 키·옵션) 일괄 생성. fastify·express·hono·elysia 대상이면 그 프레임워크용 라우터(`<id>.router.ts`)도 만듭니다. |
 | `mock` | 모든 대상 | `oa-gen mock --watch` | `oa.config.ts`의 spec target(하나일 때)을 mock 서버로 서빙 |
 | `validate` | `mvp` 아키타입 | `oa-gen validate` | `oa.config.ts`의 모든 spec target 검증 |
 | `lint:spec`, `diff`, `baseline:update`, `ci:gate` | `enterprise` 아키타입 | `oa-gen lint`, `oa-gen diff`, `oa-gen normalize`, `oa-gen validate`(`oa.config.ts`의 `schemaEntry`와 계약 기준선 `openapi.baseline.yaml` 대상) | 스펙 린트와 기준선 대비 breaking change gate. [CLI 명령 레퍼런스](./cli-command-reference.md#enterprise의-breaking-change-gate) |
 
-Bun 런타임 대상(elysia)에서는 `oa-gen` 대신 `bun x oa-gen`을 씁니다. 프레임워크 대상은 개발 서버 스크립트(fastify `dev: tsx watch src/server.ts`와 `build: tsc`, express `tsx watch src/app.ts`, hono `tsx watch src/index.ts`, elysia `bun --watch src/index.ts`, nestjs `start:dev: nest start --watch`)와 프레임워크 의존성도 추가하지만, 서버 진입 파일과 `tsconfig.json`은 만들지 않으므로 이 스크립트는 직접 작성한 서버 코드가 있어야 실행됩니다. Fastify·Express·Hono·Elysia 라우터 코드는 빌드 스크립트에서 `@oa-sdk/router`의 `generateRouter()`로 씁니다.
+Bun 런타임 대상(elysia)에서는 `oa-gen` 대신 `bun x oa-gen`을 씁니다. 프레임워크 대상은 개발 서버 스크립트(fastify `dev: tsx watch src/server.ts`와 `build: tsc`, express `tsx watch src/app.ts`, hono `tsx watch src/index.ts`, elysia `bun --watch src/index.ts`, nestjs `start:dev: nest start --watch`)와 프레임워크 의존성도 추가하지만, 서버 진입 파일과 `tsconfig.json`은 만들지 않으므로 이 스크립트는 직접 작성한 서버 코드가 있어야 실행됩니다. fastify·express·hono·elysia 대상에서는 서버 진입 파일에서 직접 작성한 핸들러를 `generate` 스크립트가 만든 라우터(기본 라우팅에서 `src/api/<id>/<id>.router.ts`)에 넘겨 연결합니다([라우터 연결](./backend-handler-contracts.md#5-라우터-연결)). nestjs·generic 대상은 라우터를 받지 않습니다. 라우터 생성 규칙은 [선언적 스펙 설정 2.2절](./declarative-spec-configuration.md#22-서버-쪽-생성물의-범위)을 따릅니다.
 
 이전 버전의 `init`이 추가한 `generate:router`·`generate:client`·`generate:contract`(`oa-gen generate`와 같은 일만 함)와 `test:contract`·`audit:wire`·`audit:csp`·`audit:shape`·`personas:check`(그대로는 동작하지 않음)는 지금의 `init`이 추가하지 않습니다. `init --force`도 이 스크립트를 지우지 않으므로 `package.json`에서 직접 지웁니다. `init`은 이전 `init`이 쓴 명령 그대로 남은 스크립트를 이유와 할 일과 함께 출력합니다([CLI 명령 레퍼런스](./cli-command-reference.md#아키타입---archetype)).
 

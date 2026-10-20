@@ -16,11 +16,23 @@ export type {
   WireService,
   WireMethod,
   WireFieldKind,
+  WireModelKind,
   WireMapValue,
   WireParameter,
   WireParameterLocation,
   WirePayload,
 } from './wire-schema-model.js'
+
+export {
+  isProtobufMessage,
+} from './wire-schema-model.js'
+
+export {
+  emptyMessageName,
+} from './proto-identifiers.js'
+export type {
+  WireNameScope,
+} from './proto-identifiers.js'
 
 export type {
   TypeSpecWireTargetAdapter,

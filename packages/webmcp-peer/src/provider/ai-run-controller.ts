@@ -68,6 +68,23 @@ interface MutableRun {
 
 type AiRunListener = () => void;
 
+/** The most runs a controller tracks at once; `begin` evicts an idle run to stay within it. */
+const MAX_TRACKED_RUNS = 128;
+
+/** Thrown by `AiRunController.begin` when every tracked run still has work in flight. */
+export class AiRunLimitExceededError extends Error {
+  readonly code = "AI_RUN_LIMIT_EXCEEDED";
+
+  constructor() {
+    super("AI run limit exceeded");
+    this.name = "AiRunLimitExceededError";
+  }
+}
+
+function isTerminalPhase(phase: AiRunPhase): boolean {
+  return phase === "completed" || phase === "failed" || phase === "rolled-back";
+}
+
 function requireRunId(runId: string): string {
   if (typeof runId !== "string" || !runId.trim() || runId.trim().length > 128) {
     throw new Error("AI runId is required and bounded");
@@ -134,17 +151,18 @@ export class AiRunController {
   private readonly listeners = new Set<AiRunListener>();
   private readonly rollbackInFlight = new Set<string>();
 
+  /**
+   * Returns the run with this id, creating it when it is new. At the run limit the oldest
+   * terminal run is evicted first, then the oldest idle run (stopped or never settled, with no
+   * action in flight and no rollback running). A run with in-flight work is never evicted, so a
+   * completing call can always find its run; when every run is busy this throws
+   * {@link AiRunLimitExceededError}.
+   */
   begin(runId: string, actionId = "run", stepIndex = 0): AiRunSnapshot {
     const id = requireRunId(runId);
     const existing = this.runs.get(id);
     if (existing) return this.cached(existing);
-    if (this.runs.size >= 128) {
-      const terminal = [...this.runs.values()].find((candidate) =>
-        ["completed", "failed", "rolled-back"].includes(candidate.phase),
-      );
-      if (terminal) this.runs.delete(terminal.runId);
-      else throw new Error("AI run limit exceeded");
-    }
+    if (this.runs.size >= MAX_TRACKED_RUNS) this.evictOne();
     const run: MutableRun = {
       runId: id,
       phase: "queued",
@@ -385,6 +403,21 @@ export class AiRunController {
     this.snapshotCache.clear();
     this.allSnapshot = [];
     for (const listener of this.listeners) listener();
+  }
+
+  private evictOne(): void {
+    let idle: MutableRun | undefined;
+    for (const candidate of this.runs.values()) {
+      if (candidate.controllers.size > 0 || this.rollbackInFlight.has(candidate.runId)) continue;
+      if (isTerminalPhase(candidate.phase)) {
+        idle = candidate;
+        break;
+      }
+      idle ??= candidate;
+    }
+    if (!idle) throw new AiRunLimitExceededError();
+    this.runs.delete(idle.runId);
+    this.snapshotCache.delete(idle.runId);
   }
 
   private cached(run: MutableRun): AiRunSnapshot {

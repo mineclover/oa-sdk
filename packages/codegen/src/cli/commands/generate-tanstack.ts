@@ -193,10 +193,10 @@ export const generateTanstackCommand: Command = {
         basePath: loadedSpec.path,
       })
 
-      let content = generated.combinedCode
-      if (tier === 'keys') content = generated.keysCode
-      else if (tier === 'options') content = generated.queriesCode
-      else if (tier === 'hooks') content = generated.hooksCode
+      // combinedCode is self-contained for every tier: it inlines the keys and, for 'hooks', the options.
+      // queriesCode and hooksCode are split-mode modules that import './keys.js' and './queries.js',
+      // which a single combined file does not have.
+      let content = tier === 'keys' ? generated.keysCode : generated.combinedCode
 
       // Ensure clientImport and typesImport are properly reflected in combined mode
       if (clientImport && !content.includes(clientImport)) {

@@ -35,6 +35,19 @@ export function isSecurePeerTransport(value: string): boolean {
   }
 }
 
+/**
+ * Percent-decodes an invite token for masking. A token with malformed percent-encoding (which
+ * `parseInvitationUrl` still accepts, because URLSearchParams decodes leniently) is masked in its
+ * raw form instead of throwing: a redaction helper used for logging must never crash its caller.
+ */
+function decodeInviteToken(token: string): string {
+  try {
+    return decodeURIComponent(token);
+  } catch {
+    return token;
+  }
+}
+
 export function redactInvitationUrl(value: string): string {
   const raw = value.trim();
   if (!raw) return "";
@@ -43,8 +56,8 @@ export function redactInvitationUrl(value: string): string {
     return `${token.slice(0, 4)}...${token.slice(-2)}`;
   };
   return raw
-    .replace(/(#invite=)([^&\s]+)/i, (_m, prefix, token) => `${prefix}${maskToken(decodeURIComponent(token))}`)
-    .replace(/([?&]invite=)([^&#\s]+)/i, (_m, prefix, token) => `${prefix}${maskToken(decodeURIComponent(token))}`);
+    .replace(/(#invite=)([^&\s]+)/i, (_m, prefix, token) => `${prefix}${maskToken(decodeInviteToken(token))}`)
+    .replace(/([?&]invite=)([^&#\s]+)/i, (_m, prefix, token) => `${prefix}${maskToken(decodeInviteToken(token))}`);
 }
 
 export function externalConsentKey(value: string, prefix: string = DEFAULT_EXTERNAL_CONSENT_PREFIX): string {
@@ -56,6 +69,13 @@ export function externalConsentKey(value: string, prefix: string = DEFAULT_EXTER
   }
 }
 
+/**
+ * Reads an invitation URL: `<origin>/p/<roomId>` or `<origin>/p/<roomId>/mcp` (a trailing `/`
+ * allowed) with the invite token in `#invite=` (or `?invite=`). Both forms give the same result,
+ * whose `descriptorUrl` is the relay's room descriptor route `<origin>/p/<roomId>/mcp`, the URL the
+ * relay reports as `descriptorUrl` and the provider shares, and also the room's `mcpEndpoint`.
+ * Null when the URL names no room or carries no invite token.
+ */
 export function parseInvitationUrl(value: string): WebMcpParsedInvitationUrl | null {
   const raw = value.trim();
   if (!raw) return null;
@@ -67,19 +87,24 @@ export function parseInvitationUrl(value: string): WebMcpParsedInvitationUrl | n
     const inviteToken = (hashParams.get("invite") || parsed.searchParams.get("invite") || "").trim();
     if (!roomId || !inviteToken) return null;
     const serverUrl = normalizePeerConfigUrl(parsed.origin);
-    const encodedRoom = encodeURIComponent(roomId);
+    const roomEndpoint = `${serverUrl}/p/${encodeURIComponent(roomId)}/mcp`;
     return {
       serverUrl,
       roomId,
-      descriptorUrl: `${serverUrl}/p/${encodedRoom}`,
+      descriptorUrl: roomEndpoint,
       inviteToken,
-      mcpEndpoint: `${serverUrl}/p/${encodedRoom}/mcp`,
+      mcpEndpoint: roomEndpoint,
     };
   } catch {
     return null;
   }
 }
 
+/**
+ * Builds `<descriptorUrl>#invite=<token>`. `descriptorUrl` (its fragment and trailing `/` removed)
+ * is used as given, typically the relay's `descriptorUrl`; without one it is the room descriptor
+ * route `<serverUrl>/p/<roomId>/mcp` (`serverUrl` default `http://127.0.0.1:8787`).
+ */
 export function buildInvitationUrl(input: {
   descriptorUrl?: string;
   serverUrl?: string;
@@ -93,6 +118,6 @@ export function buildInvitationUrl(input: {
   }
   const baseDescriptor = input.descriptorUrl?.trim()
     ? input.descriptorUrl.trim().replace(/#.*$/, "").replace(/\/+$/, "")
-    : `${normalizePeerConfigUrl(input.serverUrl || "http://127.0.0.1:8787")}/p/${encodeURIComponent(roomId)}`;
+    : `${normalizePeerConfigUrl(input.serverUrl || "http://127.0.0.1:8787")}/p/${encodeURIComponent(roomId)}/mcp`;
   return `${baseDescriptor}#invite=${encodeURIComponent(inviteToken)}`;
 }

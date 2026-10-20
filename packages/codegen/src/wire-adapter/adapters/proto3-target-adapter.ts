@@ -6,8 +6,9 @@
  * @oa-sdk/codegen
  */
 
+import { emptyMessageName, protoIdentifier } from '../proto-identifiers.js'
 import type { TypeSpecWireTargetAdapter } from '../wire-adapter-types.js'
-import type { WireSchemaModel, WireModel, WireEnum, WireField, WireService } from '../wire-schema-model.js'
+import { isProtobufMessage, type WireSchemaModel, type WireModel, type WireEnum, type WireField, type WireService } from '../wire-schema-model.js'
 
 export interface Proto3AdapterOptions {
   readonly packageName?: string | undefined
@@ -48,25 +49,15 @@ export class Proto3TargetAdapter implements TypeSpecWireTargetAdapter<string, Pr
       lines.push('')
     }
 
-    // Track if Empty message is needed
-    let needsEmpty = false
-    if (includeServices) {
-      for (const svc of model.services) {
-        for (const m of svc.methods) {
-          if (m.inputType === 'Empty' || m.outputType === 'Empty') {
-            needsEmpty = true
-            break
-          }
-        }
-      }
-    }
+    const names = new ProtoNames(model)
 
-    if (needsEmpty || options.emitEmptyMessage) {
-      lines.push('message Empty {}')
+    // The empty message of methods without a message payload; named apart from user models.
+    const needsEmpty = includeServices && model.services.some(svc =>
+      svc.methods.some(m => m.inputType === names.empty || m.outputType === names.empty))
+    if (needsEmpty || opts.emitEmptyMessage) {
+      lines.push(`message ${names.empty} {}`)
       lines.push('')
     }
-
-    const names = new ProtoNames(model)
 
     // Enums
     for (const enm of model.enums) {
@@ -74,8 +65,8 @@ export class Proto3TargetAdapter implements TypeSpecWireTargetAdapter<string, Pr
       lines.push('')
     }
 
-    // Messages
-    for (const mdl of model.models) {
+    // Messages; `object` models (maps, free-form objects) have none.
+    for (const mdl of model.models.filter(isProtobufMessage)) {
       lines.push(...this.renderModel(mdl, names))
       lines.push('')
     }
@@ -145,21 +136,18 @@ function comment(text: string): string {
   return text.replace(/\s+/g, ' ').trim()
 }
 
-/** A valid proto identifier: letters, digits, and underscores, not starting with a digit. */
-function protoIdentifier(name: string): string {
-  const cleaned = name.replace(/[^A-Za-z0-9_]/g, '_')
-  return /^[A-Za-z_]/.test(cleaned) ? cleaned : `_${cleaned}`
-}
-
 /** Resolves model, enum, and enum member names as they appear in the schema. */
 class ProtoNames {
+  /** Name of the empty message; see `emptyMessageName`. */
+  readonly empty: string
   private readonly messages: ReadonlyMap<string, string>
   private readonly enumNames: ReadonlySet<string>
   /** Enum member names used by more than one enum; proto3 enum values share the package scope. */
   private readonly sharedMembers: ReadonlySet<string>
 
   constructor(model: WireSchemaModel) {
-    this.messages = new Map(model.models.map(m => [m.name, protoIdentifier(m.messageName ?? m.name)]))
+    this.empty = emptyMessageName(model)
+    this.messages = new Map(model.models.filter(isProtobufMessage).map(m => [m.name, protoIdentifier(m.messageName ?? m.name)]))
     this.enumNames = new Set(model.enums.map(e => e.name))
     const seen = new Map<string, number>()
     for (const enm of model.enums) {
@@ -174,8 +162,9 @@ class ProtoNames {
     return this.messages.get(name) ?? protoIdentifier(name)
   }
 
+  /** A method's input or output message: a model's message, or the empty message. */
   message(name: string): string {
-    return name === 'Empty' ? 'Empty' : this.type(name)
+    return name === this.empty ? this.empty : this.type(name)
   }
 
   enumMember(enm: WireEnum, member: string): string {

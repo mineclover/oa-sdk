@@ -316,7 +316,10 @@ decorator별 인자, 허용 값, 진단 코드는 [패키지 README](../../../pa
 | `@storageRef(target)`, `@storageCatalog(catalog)` | Model / ModelProperty, Namespace | `x-oa-sdk-storage-*` (`./storage`, Ariga Atlas 물리 DB 드리프트 대조) |
 | `@chunkStream(options?)` | Model, Operation, Interface | `x-oa-sdk-chunk-stream` (`./chunk-stream`, 스트리밍 프리셋·메모리 리스 정책) |
 
-`@traceId`, `@replaces`, `@requirement`가 방출하는 `x-oa-sdk-trace`와 `@samchon/typespec-evidence`(`@evidence`, `@evidenceExclude`, Heading-Form `## @evidence`)가 방출하는 `x-samchon-evidence`는 `oa-gen trace`, `oa-gen typegen`, `oa-gen generate` 실행 시 `.oa-trace.json` 매니페스트와 생성된 TypeScript 인터페이스의 JSDoc(`@oa-source`, `@oa-requirement`, `@evidence`, `## @evidence`, `@evidenceExclude`)으로 무손실 통합됩니다(`ttsc@0.33.1` / `@wrtnlabs/evidence@0.8.0` 호환).
+`@traceId`, `@replaces`, `@requirement`가 방출하는 `x-oa-sdk-trace`와 `@samchon/typespec-evidence`(`@evidence`, `@evidenceExclude`, Heading-Form `## @evidence`)가 방출하는 `x-samchon-evidence`는 두 경로로만 모입니다(`ttsc@0.33.1` / `@wrtnlabs/evidence@0.8.0` 호환).
+
+- `.oa-trace.json` 추적성 사이드카: `oa-gen trace --spec <openapi> -o .oa-trace.json`만 이 파일을 씁니다. `oa-gen typegen`과 `oa-gen generate`는 쓰지 않습니다.
+- 생성된 TypeScript 타입의 출처 JSDoc 태그(`@oa-pointer`, `@oa-source`, `@oa-id`, `@oa-trace-id`, `@oa-replaces`, `@oa-requirement`, `@evidence`, `## @evidence`, `@evidenceExclude`): `@oa-sdk/codegen`의 라이브러리 호출 `generateTypes(parsed, { includeProvenanceAnnotations: true })` 또는 `generateTypesFromSpec(document, { includeProvenanceAnnotations: true })`에서만 붙습니다. `oa-gen typegen`과 `oa-gen generate`는 이 옵션을 넘기지 않으므로 출력에 이 태그가 없습니다.
 
 `@oaUseResponseComponent`는 참조만 기록합니다. 재사용 응답(`#/components/responses/<name>`)으로 바뀌는 곳은 bundle restore(`oa-gen tsp-bundle-check`, 저장소의 `pnpm schema:typespec-check`)뿐이고, `oa-gen mock --tsp`나 `.tsp`를 넣은 `generate`·`typegen`에는 응답이 생기지 않습니다. 일반 프로젝트에서 4xx 응답을 선언할 때는 `ErrorResponse<Status>`나 `StandardHttpErrors`를 씁니다.
 

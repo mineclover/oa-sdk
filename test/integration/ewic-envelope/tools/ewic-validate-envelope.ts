@@ -52,7 +52,16 @@ export function createValidateEnvelopeTool() {
         if (!validation.ok) {
           return { valid: false, issues: validation.issues }
         }
-        const digestCheck = verifyCanonicalDigest(envelope as unknown as EntitySourceEnvelope)
+        let digestCheck: ReturnType<typeof verifyCanonicalDigest>
+        try {
+          digestCheck = verifyCanonicalDigest(envelope as unknown as EntitySourceEnvelope)
+        } catch (error) {
+          // Content with no RFC 8785 form (e.g. a lone surrogate) cannot carry a valid digest.
+          if (error instanceof TypeError) {
+            return { valid: false, issues: ['CONTENT_NOT_CANONICAL_JSON'] }
+          }
+          throw error
+        }
         return {
           valid: digestCheck.valid,
           issues: digestCheck.valid ? undefined : ['CANONICAL_DIGEST_MISMATCH'],

@@ -10,10 +10,30 @@ import {
   evaluateDesignRedFlags,
   scoreSketchCandidatesWithParser,
 } from './interface-sketch-arena.js'
+import {
+  scanTypeSpecSketch,
+  type RawDecorator,
+  type RawField,
+  type RawInterface,
+  type RawMetadata,
+  type RawModel,
+  type RawOperation,
+  type RawParam,
+  type RawSpread,
+  type RawUnionOrEnum,
+  type RawVariant,
+  type SketchDiagnostic,
+  type SketchDiagnosticCode,
+} from './interface-sketch-scanner.js'
 
 export { computeInterfaceDepth, evaluateDesignRedFlags }
+export type { SketchDiagnostic, SketchDiagnosticCode }
 
-export const INTERFACE_SKETCH_IR_VERSION = 'oa-sdk.interface-sketch-ir.v1' as const
+/**
+ * Schema id of `InterfaceSketchIr`. `v2` added `SketchUnionOrEnumIr.members` (member names with
+ * their values) and `InterfaceSketchIr.diagnostics`, both always present; `v1` IR has neither.
+ */
+export const INTERFACE_SKETCH_IR_VERSION = 'oa-sdk.interface-sketch-ir.v2' as const
 
 export type TypeSpecProfileKind = 'openapi-http' | 'interface-sketch' | 'hybrid'
 
@@ -37,6 +57,9 @@ export type SketchFieldIr = {
 
 export type SketchModelIr = {
   name: string
+  /** Template parameter names of a templated model (`model Page<T>` -> `['T']`) */
+  templateParameters?: string[]
+  /** Base of `model X extends Base` or `model X is Base` (with template arguments, e.g. `Page<User>`) */
   baseModel?: string
   derivedFrom?: {
     baseSymbol: string
@@ -81,10 +104,21 @@ export type SketchInterfaceIr = {
   operations: SketchOperationIr[]
 }
 
+/**
+ * One union variant or enum member. `name` is the text before `:` (or the whole member when
+ * there is no `:`); `value` is the text after `:`, verbatim (`"red"`, `1`, `Cat`).
+ */
+export type SketchVariantIr = {
+  name: string
+  value?: string
+}
+
 export type SketchUnionOrEnumIr = {
   name: string
   kind: 'union' | 'enum'
+  /** Member names (`members[].name`), kept for counting and duplicate checks */
   variants: string[]
+  members: SketchVariantIr[]
   doc?: string
   evidence: string[]
 }
@@ -122,6 +156,14 @@ export type InterfaceSketchIr = {
   graftedSymbols: string[]
   depthMetrics: InterfaceDepthMetrics
   redFlags: DesignRedFlagFinding[]
+  /**
+   * What the parser could not read or resolve. An `error` means a declaration may be missing
+   * or incomplete in this IR (unterminated string or comment, unbalanced delimiter, unreadable
+   * declaration or member, circular spread); consumers must not treat such an IR as the whole
+   * contract. Warnings note constructs the IR does not model (top-level operations, spreads of
+   * symbols declared elsewhere, `op x is y` signatures).
+   */
+  diagnostics: SketchDiagnostic[]
   versionHash: string
 }
 
@@ -154,7 +196,7 @@ export function detectTypeSpecProfile(source: string): TypeSpecProfileKind {
     /\busing\s+(?:TypeSpec\.)?Http\b/.test(source)
 
   const hasSketchMarkers =
-    /\binterface\s+[A-Za-z_][A-Za-z0-9_]*\s*\{/.test(source) ||
+    /\binterface\s+[A-Za-z_][A-Za-z0-9_]*\s*(?:<[^>]*>\s*)?(?:extends\b|\{)/.test(source) ||
     /@intent\s*\(/.test(source) ||
     /@derivedFrom\s*\(/.test(source) ||
     /\bmodel\s+[A-Za-z_][A-Za-z0-9_]*\s+is\s+[A-Za-z_][A-Za-z0-9_]*/.test(source) ||
@@ -165,98 +207,75 @@ export function detectTypeSpecProfile(source: string): TypeSpecProfileKind {
   return 'interface-sketch'
 }
 
+
 /**
  * Parses a standard `.tsp` specification into an `InterfaceSketchIr`, extracting
- * models, `model B is A` lineage (`@derivedFrom`), `@intent`, `@evidence` / `## @evidence`,
- * interfaces, operations, Interface Depth ($\ge 2.5$), and all 8 Design Red Flags.
+ * models (including `extends`, `is` and templates), `model B is A` lineage (`@derivedFrom`),
+ * `@intent`, `@evidence` / `## @evidence`, interfaces, operations, unions, enums,
+ * Interface Depth ($\ge 2.5$), all 8 Design Red Flags, and diagnostics for anything the
+ * parser could not read.
+ *
+ * Metadata (doc comments and decorators) belongs to the declaration directly after it.
+ * Spreads (`...Base`), interface `extends` and enum spreads are expanded when their target
+ * is declared in the same source; other targets are reported as warnings.
  */
 export function parseTypeSpecSketch(source: string, specName = 'domain'): InterfaceSketchIr {
   const profile = detectTypeSpecProfile(source)
-  const nsMatch = /\bnamespace\s+([A-Za-z0-9_.]+)\s*;/.exec(source)
-  const namespace = nsMatch?.[1]
+  const scan = scanTypeSpecSketch(source)
+  const diagnostics: SketchDiagnostic[] = [...scan.diagnostics]
+  const resolver = new SketchReferenceResolver(scan.models, scan.interfaces, scan.unionsAndEnums, diagnostics)
 
   const models: SketchModelIr[] = []
-  const interfaces: SketchInterfaceIr[] = []
-  const unionsAndEnums: SketchUnionOrEnumIr[] = []
   const derivedLineage: DerivedLineageEdge[] = []
-
-  const modelRegex =
-    /((?:\/\*\*[\s\S]*?\*\/\s*|@[A-Za-z0-9_]+(?:\([^)]*\))?\s*)*)\bmodel\s+([A-Za-z_][A-Za-z0-9_]*)(?:\s+is\s+([A-Za-z_][A-Za-z0-9_]*))?\s*\{([\s\S]*?)\}/g
-  let match: RegExpExecArray | null
-  while ((match = modelRegex.exec(source)) !== null) {
-    const prefix = match[1] ?? ''
-    const name = match[2] ?? ''
-    const baseModel = match[3]
-    const body = match[4] ?? ''
-    const meta = parseLeadingMetadata(prefix)
-    const fields = parseModelFields(body)
-
-    const derivedFrom = meta.derivedFrom ?? (baseModel ? { baseSymbol: baseModel, reason: 'model inheritance' } : undefined)
+  for (const raw of scan.models) {
+    const meta = extractMetadata(raw.meta)
+    const baseModel = raw.heritage?.ref
+    const derivedFrom =
+      meta.derivedFrom ?? (baseModel ? { baseSymbol: baseModel, reason: 'model inheritance' } : undefined)
     if (derivedFrom) {
       derivedLineage.push({
-        derivedSymbol: name,
+        derivedSymbol: raw.name,
         baseSymbol: derivedFrom.baseSymbol,
         reason: derivedFrom.reason,
-        usesModelIsSyntax: Boolean(baseModel),
+        usesModelIsSyntax: raw.heritage?.kind === 'is',
       })
     }
-
     models.push({
-      name,
+      name: raw.name,
+      ...(raw.templateParameters.length > 0 ? { templateParameters: raw.templateParameters } : {}),
       ...(baseModel ? { baseModel } : {}),
       ...(derivedFrom ? { derivedFrom } : {}),
       ...(meta.intent ? { intent: meta.intent } : {}),
       ...(meta.traceId ? { traceId: meta.traceId } : {}),
       ...(meta.doc ? { doc: meta.doc } : {}),
       evidence: meta.evidence,
-      fields,
+      fields: resolver.ownFields(raw),
     })
   }
 
-  const ifaceRegex =
-    /((?:\/\*\*[\s\S]*?\*\/\s*|@[A-Za-z0-9_]+(?:\([^)]*\))?\s*)*)\binterface\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{([\s\S]*?)\}/g
-  while ((match = ifaceRegex.exec(source)) !== null) {
-    const prefix = match[1] ?? ''
-    const name = match[2] ?? ''
-    const body = match[3] ?? ''
-    const meta = parseLeadingMetadata(prefix)
-    const operations = parseInterfaceOperations(body)
-
-    interfaces.push({
-      name,
+  const interfaces: SketchInterfaceIr[] = scan.interfaces.map(raw => {
+    const meta = extractMetadata(raw.meta)
+    return {
+      name: raw.name,
       ...(meta.doc ? { doc: meta.doc } : {}),
       ...(meta.intent ? { intent: meta.intent } : {}),
       evidence: meta.evidence,
-      operations,
-    })
-  }
+      operations: resolver.operations(raw),
+    }
+  })
 
-  const unionEnumRegex =
-    /((?:\/\*\*[\s\S]*?\*\/\s*|@[A-Za-z0-9_]+(?:\([^)]*\))?\s*)*)\b(union|enum)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{([\s\S]*?)\}/g
-  while ((match = unionEnumRegex.exec(source)) !== null) {
-    const prefix = match[1] ?? ''
-    const kind = (match[2] as 'union' | 'enum') ?? 'union'
-    const name = match[3] ?? ''
-    const body = match[4] ?? ''
-    const meta = parseLeadingMetadata(prefix)
-    const variants = body
-      .split(/[;,\n]/)
-      .map(line => line.replace(/\/\/.*$/, '').replace(/\/\*[\s\S]*?\*\//g, '').trim())
-      .filter(Boolean)
-      .map(line => {
-        const colonIdx = line.indexOf(':')
-        return (colonIdx >= 0 ? line.slice(0, colonIdx) : line).trim()
-      })
-      .filter(v => /^[A-Za-z_"']/.test(v))
-
-    unionsAndEnums.push({
-      name,
-      kind,
-      variants,
+  const unionsAndEnums: SketchUnionOrEnumIr[] = scan.unionsAndEnums.map(raw => {
+    const meta = extractMetadata(raw.meta)
+    const members = resolver.variants(raw)
+    return {
+      name: raw.name,
+      kind: raw.kind,
+      variants: members.map(member => member.name),
+      members,
       ...(meta.doc ? { doc: meta.doc } : {}),
       evidence: meta.evidence,
-    })
-  }
+    }
+  })
 
   const depthMetrics = computeInterfaceDepth(models, interfaces, unionsAndEnums)
   const redFlags = evaluateDesignRedFlags(models, interfaces, unionsAndEnums, depthMetrics)
@@ -270,7 +289,7 @@ export function parseTypeSpecSketch(source: string, specName = 'domain'): Interf
     schemaVersion: INTERFACE_SKETCH_IR_VERSION,
     specName,
     profile,
-    ...(namespace ? { namespace } : {}),
+    ...(scan.namespace ? { namespace: scan.namespace } : {}),
     models,
     interfaces,
     unionsAndEnums,
@@ -278,6 +297,7 @@ export function parseTypeSpecSketch(source: string, specName = 'domain'): Interf
     graftedSymbols,
     depthMetrics,
     redFlags,
+    diagnostics: dedupeDiagnostics(diagnostics),
   }
 
   return {
@@ -292,58 +312,64 @@ export function compareSketchCandidates(
   return scoreSketchCandidatesWithParser(candidates, parseTypeSpecSketch)
 }
 
-function parseLeadingMetadata(prefix: string): {
+/** One entry per distinct finding (a spread reached through several paths reports once), in source order. */
+function dedupeDiagnostics(diagnostics: readonly SketchDiagnostic[]): SketchDiagnostic[] {
+  const unique = new Map<string, SketchDiagnostic>()
+  for (const diagnostic of diagnostics) {
+    unique.set(`${diagnostic.line}:${diagnostic.column}:${diagnostic.code}:${diagnostic.message}`, diagnostic)
+  }
+  return [...unique.values()].sort((left, right) => left.line - right.line || left.column - right.column)
+}
+
+type SketchMetadata = {
   doc?: string
   evidence: string[]
   intent?: { intentId: string; docAnchor?: string }
   derivedFrom?: { baseSymbol: string; reason: string }
   traceId?: string
-} {
+}
+
+/**
+ * Reads doc, evidence, intent, lineage and trace id from the doc comments and decorators of
+ * one declaration. `@doc("...")` wins over the first doc-comment line; evidence collects
+ * Heading-Form `## @evidence <locator>` lines and every string argument of `@evidence(...)`.
+ */
+function extractMetadata(meta: RawMetadata): SketchMetadata {
   const evidence = new Set<string>()
-  let doc: string | undefined
+  let doc = firstStringArgument(findDecorator(meta.decorators, 'doc'))?.trim() || undefined
 
-  const docDecMatch = /@doc\(\s*"([^"]+)"\s*\)/.exec(prefix)
-  if (docDecMatch?.[1]) doc = docDecMatch[1].trim()
-
-  const jsdocRegex = /\/\*\*([\s\S]*?)\*\//g
-  let m: RegExpExecArray | null
-  while ((m = jsdocRegex.exec(prefix)) !== null) {
-    const block = m[1] ?? ''
-    const headingEvRegex = /^\s*(?:\*\s*)?##\s+@evidence\s+([^\s*]+)/gm
-    let evMatch: RegExpExecArray | null
-    while ((evMatch = headingEvRegex.exec(block)) !== null) {
-      if (evMatch[1]) evidence.add(evMatch[1].trim())
+  for (const block of meta.docs) {
+    const headingEvidence = /^\s*(?:\*\s*)?##\s+@evidence\s+([^\s*]+)/gm
+    for (let match = headingEvidence.exec(block); match; match = headingEvidence.exec(block)) {
+      if (match[1]) evidence.add(match[1].trim())
     }
     if (!doc) {
       const firstLine = block
         .split('\n')
-        .map(l => l.replace(/^\s*\*\s?/, '').trim())
-        .find(l => l.length > 0 && !l.startsWith('## @evidence') && !l.startsWith('- ['))
+        .map(line => line.replace(/^\s*\*\s?/, '').trim())
+        .find(line => line.length > 0 && !line.startsWith('## @evidence') && !line.startsWith('- ['))
       if (firstLine) doc = firstLine
     }
   }
 
-  const evDecRegex = /@evidence\(([^)]*)\)/g
-  while ((m = evDecRegex.exec(prefix)) !== null) {
-    const strRegex = /"([^"]+)"/g
-    let sMatch: RegExpExecArray | null
-    while ((sMatch = strRegex.exec(m[1] ?? '')) !== null) {
-      if (sMatch[1]) evidence.add(sMatch[1].trim())
+  for (const decorator of meta.decorators) {
+    if (decorator.name !== 'evidence') continue
+    for (const arg of decorator.args) {
+      if (arg.kind === 'string' && arg.value.trim()) evidence.add(arg.value.trim())
     }
   }
 
-  const intentMatch = /@intent\(\s*"([^"]+)"(?:\s*,\s*"([^"]+)")?\s*\)/.exec(prefix)
-  const intent = intentMatch?.[1]
-    ? { intentId: intentMatch[1].trim(), ...(intentMatch[2] ? { docAnchor: intentMatch[2].trim() } : {}) }
-    : undefined
+  const intentArgs = stringArguments(findDecorator(meta.decorators, 'intent'))
+  const intentId = intentArgs[0]?.trim()
+  const docAnchor = intentArgs[1]?.trim()
+  const intent = intentId ? { intentId, ...(docAnchor ? { docAnchor } : {}) } : undefined
 
-  const derivedMatch = /@derivedFrom\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\)/.exec(prefix)
-  const derivedFrom =
-    derivedMatch?.[1] && derivedMatch?.[2]
-      ? { baseSymbol: derivedMatch[1].trim(), reason: derivedMatch[2].trim() }
-      : undefined
+  const derivedArgs = stringArguments(findDecorator(meta.decorators, 'derivedFrom'))
+  const baseSymbol = derivedArgs[0]?.trim()
+  const reason = derivedArgs[1]?.trim()
+  const derivedFrom = baseSymbol && reason ? { baseSymbol, reason } : undefined
 
-  const traceId = /@traceId\(\s*"([^"]+)"\s*\)/.exec(prefix)?.[1]?.trim()
+  const traceId = firstStringArgument(findDecorator(meta.decorators, 'traceId'))?.trim() || undefined
 
   return {
     ...(doc ? { doc } : {}),
@@ -354,57 +380,264 @@ function parseLeadingMetadata(prefix: string): {
   }
 }
 
-function parseModelFields(body: string): SketchFieldIr[] {
-  const fields: SketchFieldIr[] = []
-  let pendingPrefix = ''
-
-  for (const rawLine of body.split('\n')) {
-    const line = rawLine.trim()
-    if (!line || line.startsWith('//')) continue
-    if (line.startsWith('/**') || line.startsWith('*') || line.startsWith('@')) {
-      pendingPrefix += line + '\n'
-      if (!/([A-Za-z_][A-Za-z0-9_]*)(\?)?\s*:\s*([^;,]+)[;,]?$/.exec(line)) continue
-    }
-    const fieldMatch = /([A-Za-z_][A-Za-z0-9_]*)(\?)?\s*:\s*([^;,]+)[;,]?$/.exec(line)
-    if (fieldMatch?.[1] && fieldMatch?.[3]) {
-      const meta = parseLeadingMetadata(pendingPrefix)
-      fields.push({
-        name: fieldMatch[1],
-        optional: fieldMatch[2] === '?',
-        typeName: fieldMatch[3].trim(),
-        ...(meta.doc ? { doc: meta.doc } : {}),
-        evidence: meta.evidence,
-      })
-      pendingPrefix = ''
-    }
-  }
-  return fields
+function findDecorator(decorators: readonly RawDecorator[], name: string): RawDecorator | undefined {
+  return decorators.find(decorator => decorator.name === name)
 }
 
-function parseInterfaceOperations(body: string): SketchOperationIr[] {
-  const ops: SketchOperationIr[] = []
-  const opRegex =
-    /((?:\/\*\*[\s\S]*?\*\/\s*|@[A-Za-z0-9_]+(?:\([^)]*\))?\s*)*)(?:op\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*:\s*([^;]+);/g
-  let match: RegExpExecArray | null
-  while ((match = opRegex.exec(body)) !== null) {
-    const meta = parseLeadingMetadata(match[1] ?? '')
-    const params: SketchParamIr[] = (match[3] ?? '')
-      .split(',')
-      .map(p => p.trim())
-      .filter(Boolean)
-      .map(p => {
-        const pm = /^([A-Za-z_][A-Za-z0-9_]*)(\?)?\s*:\s*(.+)$/.exec(p)
-        return { name: pm?.[1] ?? p, optional: pm?.[2] === '?', typeName: pm?.[3]?.trim() ?? 'unknown' }
-      })
+function stringArguments(decorator: RawDecorator | undefined): string[] {
+  return (decorator?.args ?? []).map(arg => (arg.kind === 'string' ? arg.value : ''))
+}
 
-    ops.push({
-      name: match[2] ?? '',
-      params,
-      returnType: (match[4] ?? 'void').trim(),
+function firstStringArgument(decorator: RawDecorator | undefined): string | undefined {
+  const first = decorator?.args[0]
+  return first?.kind === 'string' ? first.value : undefined
+}
+
+/**
+ * Expands spreads, interface `extends` and enum spreads against the declarations of the same
+ * source, substituting template arguments (`...Page<User>` binds `T` to `User`).
+ */
+class SketchReferenceResolver {
+  private readonly modelsByName: Map<string, RawModel>
+  private readonly interfacesByName: Map<string, RawInterface>
+  private readonly unionsByName: Map<string, RawUnionOrEnum>
+
+  constructor(
+    models: readonly RawModel[],
+    interfaces: readonly RawInterface[],
+    unionsAndEnums: readonly RawUnionOrEnum[],
+    private readonly diagnostics: SketchDiagnostic[],
+  ) {
+    this.modelsByName = new Map(models.map(model => [model.name, model]))
+    this.interfacesByName = new Map(interfaces.map(iface => [iface.name, iface]))
+    this.unionsByName = new Map(unionsAndEnums.map(union => [union.name, union]))
+  }
+
+  /** The model's own fields with spreads inlined; `is`/`extends` base fields stay on the base. */
+  ownFields(model: RawModel): SketchFieldIr[] {
+    return this.expandMembers(model.members, model.name, new Map(), [model.name])
+  }
+
+  operations(iface: RawInterface): SketchOperationIr[] {
+    return this.collectOperations(iface, new Map(), [iface.name])
+  }
+
+  variants(declaration: RawUnionOrEnum): SketchVariantIr[] {
+    return this.collectVariants(declaration, [declaration.name])
+  }
+
+  private expandMembers(
+    members: ReadonlyArray<RawField | RawSpread>,
+    owner: string,
+    bindings: ReadonlyMap<string, string>,
+    visiting: readonly string[],
+  ): SketchFieldIr[] {
+    const fields = new Map<string, SketchFieldIr>()
+    for (const member of members) {
+      if (member.kind === 'field') {
+        const meta = extractMetadata(member.meta)
+        fields.set(member.name, {
+          name: member.name,
+          typeName: substituteTypeParameters(member.typeName, bindings),
+          optional: member.optional,
+          ...(meta.doc ? { doc: meta.doc } : {}),
+          evidence: meta.evidence,
+        })
+        continue
+      }
+      for (const field of this.spreadFields(member, owner, bindings, visiting)) {
+        fields.set(field.name, field)
+      }
+    }
+    return [...fields.values()]
+  }
+
+  /** All properties a spread of `ref` copies: an `is` base's properties, then the model's own. */
+  private spreadFields(
+    spread: RawSpread,
+    owner: string,
+    bindings: ReadonlyMap<string, string>,
+    visiting: readonly string[],
+  ): SketchFieldIr[] {
+    const ref = substituteTypeParameters(spread.ref, bindings)
+    const target = this.lookup(this.modelsByName, ref)
+    if (!target) {
+      this.warnUnresolved(spread, owner, `Spread \`...${ref}\` in ${owner} refers to a model not declared in this sketch; its properties are not included.`)
+      return []
+    }
+    if (visiting.includes(target.declaration.name)) {
+      this.report('error', 'sketch/circular-reference', spread, `Spread \`...${ref}\` in ${owner} is circular (${[...visiting, target.declaration.name].join(' -> ')}).`, owner)
+      return []
+    }
+    return this.allFields(target.declaration, bindTemplateArguments(target.declaration.templateParameters, target.args), [...visiting, target.declaration.name])
+  }
+
+  private allFields(model: RawModel, bindings: ReadonlyMap<string, string>, visiting: readonly string[]): SketchFieldIr[] {
+    const inherited: SketchFieldIr[] = []
+    if (model.heritage?.kind === 'is') {
+      const ref = substituteTypeParameters(model.heritage.ref, bindings)
+      const base = this.lookup(this.modelsByName, ref)
+      if (base && !visiting.includes(base.declaration.name)) {
+        inherited.push(
+          ...this.allFields(base.declaration, bindTemplateArguments(base.declaration.templateParameters, base.args), [...visiting, base.declaration.name]),
+        )
+      }
+    }
+    const own = this.expandMembers(model.members, model.name, bindings, visiting)
+    const ownNames = new Set(own.map(field => field.name))
+    return [...inherited.filter(field => !ownNames.has(field.name)), ...own]
+  }
+
+  private collectOperations(
+    iface: RawInterface,
+    bindings: ReadonlyMap<string, string>,
+    visiting: readonly string[],
+  ): SketchOperationIr[] {
+    const operations = new Map<string, SketchOperationIr>()
+    for (const extended of iface.extends) {
+      const ref = substituteTypeParameters(extended, bindings)
+      const target = this.lookup(this.interfacesByName, ref)
+      if (!target) {
+        this.warnUnresolved(iface, iface.name, `Interface ${iface.name} extends \`${ref}\`, which is not declared in this sketch; its operations are not included.`)
+        continue
+      }
+      if (visiting.includes(target.declaration.name)) {
+        this.report('error', 'sketch/circular-reference', iface, `Interface ${iface.name} extends itself through ${[...visiting, target.declaration.name].join(' -> ')}.`, iface.name)
+        continue
+      }
+      for (const op of this.collectOperations(
+        target.declaration,
+        bindTemplateArguments(target.declaration.templateParameters, target.args),
+        [...visiting, target.declaration.name],
+      )) {
+        operations.set(op.name, op)
+      }
+    }
+    for (const op of iface.operations) {
+      operations.set(op.name, this.operation(op, iface.name, bindings))
+    }
+    return [...operations.values()]
+  }
+
+  private operation(op: RawOperation, owner: string, bindings: ReadonlyMap<string, string>): SketchOperationIr {
+    const meta = extractMetadata(op.meta)
+    const symbol = `${owner}.${op.name}`
+    return {
+      name: op.name,
+      params: op.params.flatMap(param => this.params(param, symbol, bindings)),
+      returnType: substituteTypeParameters(op.returnType, bindings),
       ...(meta.doc ? { doc: meta.doc } : {}),
       ...(meta.intent ? { intent: meta.intent } : {}),
       evidence: meta.evidence,
-    })
+    }
   }
-  return ops
+
+  private params(param: RawParam, symbol: string, bindings: ReadonlyMap<string, string>): SketchParamIr[] {
+    if (param.kind === 'param') {
+      return [{ name: param.name, optional: param.optional, typeName: substituteTypeParameters(param.typeName, bindings) }]
+    }
+    return this.spreadFields(param, symbol, bindings, [symbol]).map(field => ({
+      name: field.name,
+      optional: field.optional,
+      typeName: field.typeName,
+    }))
+  }
+
+  private collectVariants(declaration: RawUnionOrEnum, visiting: readonly string[]): SketchVariantIr[] {
+    const members: SketchVariantIr[] = []
+    for (const member of declaration.members) {
+      if (member.kind === 'variant') {
+        members.push(variant(member))
+        continue
+      }
+      const target = this.lookup(this.unionsByName, member.ref)
+      if (!target || target.declaration.kind !== declaration.kind) {
+        this.warnUnresolved(member, declaration.name, `Spread \`...${member.ref}\` in ${declaration.kind} ${declaration.name} refers to a ${declaration.kind} not declared in this sketch; its members are not included.`)
+        continue
+      }
+      if (visiting.includes(target.declaration.name)) {
+        this.report('error', 'sketch/circular-reference', member, `Spread \`...${member.ref}\` in ${declaration.name} is circular.`, declaration.name)
+        continue
+      }
+      members.push(...this.collectVariants(target.declaration, [...visiting, target.declaration.name]))
+    }
+    return members
+  }
+
+  private lookup<T>(byName: ReadonlyMap<string, T>, ref: string): { declaration: T; args: string[] } | undefined {
+    const { name, args } = splitTemplateReference(ref)
+    const declaration = byName.get(name) ?? byName.get(name.slice(name.lastIndexOf('.') + 1))
+    return declaration ? { declaration, args } : undefined
+  }
+
+  private warnUnresolved(at: { line: number; column: number }, symbol: string, message: string): void {
+    this.report('warning', 'sketch/unresolved-reference', at, message, symbol)
+  }
+
+  private report(
+    severity: SketchDiagnostic['severity'],
+    code: SketchDiagnosticCode,
+    at: { line: number; column: number },
+    message: string,
+    symbol: string,
+  ): void {
+    this.diagnostics.push({ severity, code, message, line: at.line, column: at.column, symbol })
+  }
+}
+
+function variant(member: RawVariant): SketchVariantIr {
+  return { name: member.name, ...(member.value !== undefined ? { value: member.value } : {}) }
+}
+
+/** `Page<User, Order>` -> `{ name: 'Page', args: ['User', 'Order'] }`; nested brackets and strings stay intact. */
+function splitTemplateReference(ref: string): { name: string; args: string[] } {
+  const open = ref.indexOf('<')
+  if (open < 0 || !ref.trimEnd().endsWith('>')) return { name: ref.trim(), args: [] }
+  const name = ref.slice(0, open).trim()
+  const inner = ref.trimEnd().slice(open + 1, -1)
+  const args: string[] = []
+  let depth = 0
+  let current = ''
+  let quoted = false
+  for (let index = 0; index < inner.length; index++) {
+    const char = inner[index] ?? ''
+    if (quoted) {
+      current += char
+      if (char === '\\') {
+        current += inner[index + 1] ?? ''
+        index++
+      } else if (char === '"') {
+        quoted = false
+      }
+      continue
+    }
+    if (char === '"') quoted = true
+    else if ('<({['.includes(char)) depth++
+    else if ('>)}]'.includes(char)) depth--
+    else if (char === ',' && depth === 0) {
+      args.push(current.trim())
+      current = ''
+      continue
+    }
+    current += char
+  }
+  if (current.trim()) args.push(current.trim())
+  return { name, args }
+}
+
+function bindTemplateArguments(parameters: readonly string[], args: readonly string[]): Map<string, string> {
+  const bindings = new Map<string, string>()
+  parameters.forEach((parameter, index) => {
+    const arg = args[index]
+    if (arg !== undefined) bindings.set(parameter, arg)
+  })
+  return bindings
+}
+
+/** Replaces template parameter identifiers (outside string literals) with their bound arguments. */
+function substituteTypeParameters(typeName: string, bindings: ReadonlyMap<string, string>): string {
+  if (bindings.size === 0) return typeName
+  return typeName.replace(/("(?:[^"\\]|\\.)*")|([A-Za-z_$][\w$]*)/g, (match, literal: string | undefined, ident: string | undefined) =>
+    literal !== undefined ? match : (bindings.get(ident ?? '') ?? match),
+  )
 }

@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -414,5 +414,196 @@ describe('SpecTraceabilityEngine', () => {
     )
     expect(tsCode).toContain('## @evidence docs/security.md#req-account-audit')
     expect(tsCode).toContain('Line 2 checklist')
+  })
+
+  function sharedParameterSpec(): OasDocument {
+    const pathItem = (prefix: string) => ({
+      parameters: [{ $ref: '#/components/parameters/UserId' }],
+      get: {
+        operationId: `${prefix}Get`,
+        responses: {
+          '200': { description: 'OK', content: { 'application/json': { schema: { $ref: '#/components/schemas/Id' } } } },
+        },
+      },
+      delete: { operationId: `${prefix}Delete`, responses: { '204': { description: 'Deleted' } } },
+    })
+    return {
+      openapi: '3.2.0',
+      info: { title: 'Shared parameters', version: '1.0.0' },
+      paths: { '/users/{id}': pathItem('user') },
+      webhooks: { userChanged: pathItem('hook') },
+      components: {
+        schemas: { Id: { type: 'string' } },
+        parameters: { UserId: { name: 'id', in: 'path', required: true, schema: { $ref: '#/components/schemas/Id' } } },
+      },
+    } as unknown as OasDocument
+  }
+
+  it('attributes path-item and webhook `parameters` refs to every operation of that item', () => {
+    const graph = buildSpecTraceabilityGraph({ spec: sharedParameterSpec() })
+    const userIdPointer = '#/components/parameters/UserId'
+    const operations = [
+      '#/paths/~1users~1{id}/delete',
+      '#/paths/~1users~1{id}/get',
+      '#/webhooks/userChanged/delete',
+      '#/webhooks/userChanged/get',
+    ]
+
+    for (const pointer of operations) {
+      expect(graph.nodes[pointer]?.references, pointer).toContain(userIdPointer)
+    }
+    expect(graph.nodes[userIdPointer]?.referencedBy).toEqual(operations)
+    expect(graph.diagnostics).toEqual([])
+
+    for (const seed of [userIdPointer, 'Id']) {
+      expect(analyzeSpecImpact(graph, [seed]).affectedOperations.map(node => node.symbol).sort(), seed).toEqual([
+        'hookDelete',
+        'hookGet',
+        'userDelete',
+        'userGet',
+      ])
+    }
+  })
+
+  it('maps `$ref` path, query and header parameters to the *Params types typegen generates', () => {
+    const spec = {
+      openapi: '3.2.0',
+      info: { title: 'Ref parameters', version: '1.0.0' },
+      paths: {
+        '/users/{id}': {
+          delete: {
+            operationId: 'deleteUser',
+            parameters: [
+              { $ref: '#/components/parameters/UserId' },
+              { $ref: '#/components/parameters/Limit' },
+              { $ref: '#/components/parameters/XTrace' },
+            ],
+            responses: { '204': { description: 'Deleted' } },
+          },
+        },
+      },
+      components: {
+        parameters: {
+          UserId: { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          Limit: { name: 'limit', in: 'query', schema: { type: 'integer' } },
+          XTrace: { name: 'x-trace', in: 'header', schema: { type: 'string' } },
+        },
+      },
+    } as unknown as OasDocument
+
+    const graph = buildSpecTraceabilityGraph({ spec })
+    const typeSymbols = graph.nodes['#/paths/~1users~1{id}/delete']?.generatedArtifacts.find(a => a.kind === 'types')?.exportedSymbols
+    expect(typeSymbols).toEqual(['DeleteUserPathParams', 'DeleteUserQueryParams', 'DeleteUserHeaderParams', 'DeleteUserOp'])
+
+    const generated = generateTypes(parseDocument(spec, []))
+    for (const symbol of typeSymbols ?? []) {
+      expect(generated, symbol).toContain(`export type ${symbol} `)
+    }
+    expect(querySpecTrace(graph, { symbol: 'DeleteUserPathParams' }).map(node => node.pointer)).toEqual([
+      '#/paths/~1users~1{id}/delete',
+    ])
+    expect(analyzeSpecImpact(graph, ['#/components/parameters/UserId']).affectedGeneratedSymbols).toContain(
+      'DeleteUserPathParams',
+    )
+  })
+
+  it('reads the array x-persona of @oa-sdk/personas and the object storage, behavior and DPM extensions', () => {
+    const spec = {
+      openapi: '3.2.0',
+      info: { title: 'Governance shapes', version: '1.0.0' },
+      paths: {
+        '/users': {
+          get: {
+            operationId: 'listUsers',
+            // The shape `applyBindings` from @oa-sdk/personas writes.
+            'x-persona': ['customer-admin', ' support-agent ', 'customer-admin'],
+            responses: {
+              '200': { description: 'OK', content: { 'application/json': { schema: { $ref: '#/components/schemas/User' } } } },
+            },
+          },
+        },
+      },
+      components: {
+        schemas: {
+          User: {
+            type: 'object',
+            // The shapes @storageRef, @behaviorRef and @pseudonymize emit.
+            'x-oa-sdk-storage-ref': { target: 'users' },
+            'x-oa-sdk-behavior-ref': { behaviorId: 'beh.user' },
+            'x-oa-sdk-dpm-projection': { transform: 'hash', role: 'direct_identifier' },
+          },
+        },
+      },
+    } as unknown as OasDocument
+
+    const graph = buildSpecTraceabilityGraph({ spec })
+    const operation = graph.nodes['#/paths/~1users/get']!
+    expect(operation.governance.personas).toEqual(['customer-admin', 'support-agent'])
+    expect(graph.nodes['#/components/schemas/User']?.governance).toEqual({
+      personas: [],
+      personaTraits: [],
+      storageRef: 'users',
+      behaviorRef: 'beh.user',
+      dpmProjection: 'hash:direct_identifier',
+      requirements: [],
+    })
+
+    expect(querySpecTrace(graph, { persona: 'support-agent' }).map(node => node.pointer)).toEqual(['#/paths/~1users/get'])
+    expect(analyzeSpecImpact(graph, ['User']).affectedPersonas).toEqual(['customer-admin', 'support-agent'])
+    expect(formatSpecTraceabilityHumanReport([operation])).toContain('Persona     : customer-admin, support-agent')
+  })
+
+  it('links generated files from the artifact array of .oa-manifest.json', () => {
+    const graph = buildSpecTraceabilityGraph({
+      spec: createSampleSpec(),
+      manifest: {
+        $schema: 'https://oa-sdk.dev/schemas/v1/oa-manifest.schema.json',
+        version: 1,
+        generator: '@oa-sdk/codegen',
+        lastRun: '2026-01-01T00:00:00.000Z',
+        artifacts: [
+          { path: 'src/api/api.contract.ts', kind: 'contract', contentHash: 'sha256:0', generatedAt: '2026-01-01T00:00:00.000Z' },
+          { path: 'src/api/api.queries.ts', kind: 'queries', contentHash: 'sha256:1', generatedAt: '2026-01-01T00:00:00.000Z' },
+        ],
+      },
+    })
+
+    expect(analyzeSpecImpact(graph, ['Address']).affectedFiles).toEqual([
+      'src/api/api.contract.ts',
+      'src/api/api.queries.ts',
+    ])
+  })
+
+  it('rejects a trace sidecar whose nodes do not have the documented shape', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'oa-trace-sidecar-'))
+    tempDirs.push(dir)
+    const tracePath = join(dir, '.oa-trace.json')
+    saveSpecTraceabilitySidecar(tracePath, buildSpecTraceabilityGraph({ spec: createSampleSpec() }))
+
+    const valid = loadSpecTraceabilitySidecar(tracePath)
+    expect(valid.nodes['#/components/schemas/User']?.governance.personas).toEqual(['customer-admin'])
+
+    const raw = JSON.parse(readFileSync(tracePath, 'utf-8')) as { nodes: Record<string, { referencedBy: unknown }> }
+    raw.nodes['#/components/schemas/User']!.referencedBy = 'not-an-array'
+    writeFileSync(tracePath, JSON.stringify(raw), 'utf-8')
+    expect(() => loadSpecTraceabilitySidecar(tracePath)).toThrow(/referencedBy must be an array of strings/)
+
+    writeFileSync(tracePath, JSON.stringify({ ...raw, schemaVersion: 'oa-sdk.spec-traceability.v0' }), 'utf-8')
+    expect(() => loadSpecTraceabilitySidecar(tracePath)).toThrow(/schemaVersion/)
+  })
+
+  it('rejects trace CLI inputs that are not an OpenAPI document or manifest', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'oa-trace-inputs-'))
+    tempDirs.push(dir)
+    const specPath = join(dir, 'openapi.json')
+    writeFileSync(specPath, JSON.stringify({ paths: {} }), 'utf-8')
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    await expect(traceCommand.run({ spec: specPath })).rejects.toThrow(/openapi must be a version string/)
+
+    writeFileSync(specPath, JSON.stringify(createSampleSpec()), 'utf-8')
+    const manifestPath = join(dir, '.oa-manifest.json')
+    writeFileSync(manifestPath, JSON.stringify({ artifacts: { 'src/a.ts': { kind: 'contract' } } }), 'utf-8')
+    await expect(traceCommand.run({ spec: specPath, manifest: manifestPath })).rejects.toThrow(/artifacts must be an array/)
   })
 })

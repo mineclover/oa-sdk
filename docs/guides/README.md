@@ -28,7 +28,7 @@ oa-sdk는 고칠 곳을 하나로 정하고 나머지는 다시 만들 수 있�
 | 고칠 곳은 한 곳 | 계약은 원본에서만 고치고, 생성물은 언제든 다시 만듭니다. | `oa.config.ts`의 spec target이 원본(`schemaEntry`)을 정합니다. TypeSpec(`.tsp`, Microsoft의 API 정의 언어)을 권장하고, OpenAPI YAML/JSON 문서나 Zod 스키마를 export하는 TypeScript 모듈도 받습니다([선언적 스펙 설정](./declarative-spec-configuration.md)). `oa-gen check-artifact`는 생성된 OpenAPI 문서(`<id>.openapi.json`)가 원본에서 다시 만든 결과와 다르면 종료 코드 1로 실패하므로 CI에 걸 수 있습니다. 이 저장소의 production 계약은 같은 원칙을 TypeSpec 원본, 승인 snapshot, CI gate로 지킵니다([기본 스펙 사용 기준](./basic-spec-usage.md)). |
 | 이미 있는 스키마에서 시작 | TypeSpec으로 옮기지 않아도 기존 OpenAPI 문서로 검증, 타입 생성, mock부터 시작합니다. NestJS·FastAPI가 런타임에 내보내는 OpenAPI도 같은 검증·diff·drift 도구로 관리합니다. | `oa-gen collect`는 원본 문서를 그대로 두고 정규화본과 OpenAPI 3.2 분석본을 따로 씁니다(`--profile nestjs-swagger`, `fastapi`). 수집한 문서는 그 서비스의 계약으로 따로 관리하며 TypeSpec 원본과 합치지 않습니다. `oa-gen scaffold-governance`는 서비스별 수집·검사 스크립트를 만들고, Drizzle 테이블은 `oa-gen generate:drizzle`로 OpenAPI 컴포넌트를 만들어 기존 스펙에 병합합니다(`--merge-into`). [NestJS Swagger / FastAPI Governance](./use-cases/nestjs-swagger-governance.md) |
 | 같은 parser로 해석 | 타입·Zod 스키마 생성, 클라이언트·핸들러 계약 생성, mock 서버가 같은 route 목록과 `$ref` 해석을 씁니다. OpenAPI 3.2 문법(`additionalOperations`, `querystring` 파라미터, 스트리밍 응답의 `itemSchema`)도 읽습니다. | `@oa-sdk/parser`가 파싱, `$ref` 해석, 린트, 검증을 맡습니다. `oa-gen validate --require-32`는 구조·참조·린트 오류가 있거나 문서가 OpenAPI 3.2.x가 아니면 실패합니다. 남은 차이도 있습니다. `$ref` 옆에 `summary`·`description` 외의 필드를 적은 경우, 응답 헤더나 media type 안의 `$ref`, 다른 파일을 가리키는 operation 수준 `$ref`에서는 생성된 타입과 클라이언트가 다를 수 있습니다([parser CHANGELOG 0.4.0](../../packages/parser/CHANGELOG.md)). [OpenAPI 3.2 계약 관리](./openapi32-contract-management.md) |
-| 계약에서 소비자 코드까지 | CLI 하나로 TypeScript 타입, Zod 4 스키마, 런타임 라이브러리 없이 동작하는 타입 가드, fetch 클라이언트, TanStack Query v5 키·옵션·훅을 만듭니다. 서버 쪽에는 프레임워크와 무관한 핸들러 인터페이스(`*.contract.ts`)를 만듭니다. 생성기는 구현 파일을 쓰지 않으므로 다시 생성해도 구현 코드는 그대로입니다. | `oa-gen`(`@oa-sdk/codegen`)이 명령을 제공하고, 핸들러 계약·클라이언트·mock은 동반 패키지(`@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`)가 만듭니다. 설정에서 켠 산출물과 그 산출물 전용 명령(`generate:client`, `generate:tanstack`, `mock`)은 동반 패키지가 없으면 설치 명령을 출력하고 종료 코드 1로 실패합니다. 기본값으로만 켜진 산출물은 경고와 설치 명령을 남기고 건너뜁니다. Fastify·Express·Hono·Elysia 라우터 코드가 필요하면 빌드 스크립트에서 `@oa-sdk/router`의 `generateRouter()`를 호출합니다. `oa-gen` 명령은 라우터 파일을 만들지 않습니다. [동반 패키지](./cli-setup.md#동반-패키지-companion-packages) |
+| 계약에서 소비자 코드까지 | CLI 하나로 TypeScript 타입, Zod 4 스키마, 런타임 라이브러리 없이 동작하는 타입 가드, fetch 클라이언트, TanStack Query v5 키·옵션·훅을 만듭니다. 서버 쪽에는 프레임워크와 무관한 핸들러 인터페이스(`*.contract.ts`)를 만들고, 대상 프레임워크가 정해지면 그 프레임워크용 라우터(`*.router.ts`)도 만듭니다. 생성기는 구현 파일을 쓰지 않으므로 다시 생성해도 구현 코드는 그대로입니다. | `oa-gen`(`@oa-sdk/codegen`)이 명령을 제공하고, 핸들러 계약·클라이언트·mock은 동반 패키지(`@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`)가 만듭니다. 설정에서 켠 산출물과 그 산출물 전용 명령(`generate:client`, `generate:tanstack`, `mock`)은 동반 패키지가 없으면 설치 명령을 출력하고 종료 코드 1로 실패합니다. 기본값으로만 켜진 산출물은 경고와 설치 명령을 남기고 건너뜁니다. 라우터 대상(`core.router.target`, 없으면 `specs[].target`, 그다음 `product.framework`)이 Fastify·Express·Hono·Elysia이면 `oa-gen generate`가 `<id>.router.ts`도 쓰고, 빌드 스크립트에서 `@oa-sdk/router`의 `generateRouter()`로 직접 만들 때는 `core.router.target: 'generic'`으로 끕니다([선언적 스펙 설정 2.2절](./declarative-spec-configuration.md#22-서버-쪽-생성물의-범위)). [동반 패키지](./cli-setup.md#동반-패키지-companion-packages) |
 | 프로그래머블 빌더 플랫폼 | TypeSpec 단일 정본에서 디스크 I/O 없이 openapi-ts 스타일 클라이언트, TanStack Query, 멀티 타깃 코드를 프로그래머블하게 생성하고 Vite HMR과 연동합니다. | `@oa-sdk/codegen`의 `createTspBuilder()` API와 플러그인 파이프라인(`pluginTypeScript`, `pluginClient`, `pluginTanStackQuery`, `pluginRouter`, `pluginWire`)을 제공합니다. `vitePluginTsp`로 개발 루프 내에서 가상 모듈로 즉시 소비하며, 결과물은 openapi-ts 단일 객체 인자 규약 및 `isErrorStatus` 멀티 상태 에러 유니온을 완벽히 지원합니다. [TypeSpec Builder Platform](./typespec-builder-platform.md), [사용성 평가 리포트](../reports/typespec-builder-usability-report.md) |
 | 같은 계약으로 mock과 테스트 | 백엔드 구현 전에도 계약대로 응답하고 계약에 맞지 않는 요청은 거절하는 서버로 개발·테스트합니다. | `oa-gen mock`은 `.tsp`나 OpenAPI 문서를 디스크에 산출물을 쓰지 않고 서빙하며, 경로를 생략하면 `oa.config.ts`의 spec target(하나일 때)을 씁니다. `--watch`를 주면 원본이 바뀔 때 서버를 재시작하지 않고 route를 교체합니다. 요청은 파라미터·본문·보안 요구사항으로 검증해 잘못되면 422, 인증 정보가 없으면 401로 답하고, 응답은 문서의 예제나 스키마로 만듭니다. 테스트 코드에서는 `createNodeMockServer`(`@oa-sdk/mock-server/adapters/node-http`)를 씁니다. `msw`는 MSW 어댑터(`@oa-sdk/mock-server/adapters/msw`, `/browser`)를 쓸 때만 설치합니다. [Mock 서버 사용법](./mock-server-usage.md) |
 | 변경을 기계가 먼저 분류 | breaking change, 원본과 어긋난 생성물, runtime drift가 리뷰 전에 종료 코드와 PR 리포트로 드러납니다. | `oa-gen diff --fail-on-breaking`은 두 OpenAPI 문서를 endpoint 단위로 비교합니다. 요청·응답·파라미터 스키마가 바뀌면 선택 필드 추가도 breaking으로 판정하는 보수적 규칙입니다. TypeSpec 원본은 `oa-gen tsp diff`가 선택 속성 추가 같은 호환 변경을 non-breaking으로 구분합니다. `oa-gen drift`는 실행 중인 서버가 내보내는 OpenAPI(`--runtime-openapi-url`)를 관리 중인 계약과 비교하고, drift가 있으면 종료 코드 1로 실패합니다. `oa-gen review-bundle`은 breaking diff와 생성물 비교에 drift·inventory·provenance 결과를 더해 PR 리포트 하나로 묶습니다. [OpenAPI Governance Workflow](./use-cases/openapi-governance-workflow.md) |
@@ -184,7 +184,7 @@ HTTP 전송 계층 없이 브라우저 확장프로그램(MV3), Worker IPC, WebS
 TypeSpec(`.tsp`)을 단일 정본(SSOT)으로 삼아 디스크 I/O 없이 인메모리 컴파일, 플러그인 변환, Vite dev loop 실시간 HMR을 연결하는 최신 아키텍처 가이드입니다.
 - **[TypeSpec Builder Platform 종합 가이드](./typespec-builder-platform.md) (★ 권장)**:
   - `createTspBuilder` 프로그래머블 빌더 API 및 플러그인 파이프라인(`pluginTypeScript`, `pluginClient`, `pluginTanStackQuery`, `pluginRouter`, `pluginWire`).
-  - openapi-ts 스타일 단일 객체 호출 규약(`client.GET('/users', { query })`) 및 `isErrorStatus(res, 404)` 멀티 상태 에러 식별 유니온.
+  - openapi-ts 스타일 단일 객체 호출 규약(오퍼레이션별 독립 함수 `listUsers({ query })`·`getUserById({ path: { userId } })`, `Client` 인스턴스의 소문자 HTTP 메서드 `client.get({ url: '/users', query })`) 및 `isErrorStatus(res, 404)` 멀티 상태 에러 식별 유니온.
   - Vite HMR 플러그인(`vitePluginTsp`) 및 인메모리 가상 모듈 연동.
 - **[TypeSpec Builder 사용성 평가 및 DX 벤치마크 리포트](../reports/typespec-builder-usability-report.md)**:
   - 18개 E2E 실전 시나리오 검증, 콜드 컴파일 95ms / 웜 캐시 0.18ms, Wire 직렬화 73.74% 압축률, DX 종합 만족도 4.92 / 5.0 벤치마크.
@@ -212,7 +212,7 @@ TypeSpec(`.tsp`)을 단일 정본(SSOT)으로 삼아 디스크 I/O 없이 인메
   - Model A: 로컬 온디맨드 소스 공급 (`devDependencies` + `oa-gen generate:client`)
   - Model B: 독립 사전 빌드 패키지 배포 (`oa-gen generate:client --pack`, 런타임 의존성 0개, `dist/index.js` + `.d.ts`)
 - **[TypeSpec Builder Platform 및 openapi-ts 파이프라인](./typespec-builder-platform.md)**:
-  - openapi-ts 스타일 단일 객체 인자 규약(`client.GET('/users', { query })`), `isErrorStatus` 멀티 상태 에러 유니온 분기, TanStack Query v5 3계층 통합.
+  - openapi-ts 스타일 단일 객체 인자 규약(독립 함수 `listUsers({ query })`, 또는 `client.get({ url: '/users', query })`처럼 소문자 HTTP 메서드를 가진 `Client` 인스턴스), `isErrorStatus` 멀티 상태 에러 유니온 분기, TanStack Query v5 3계층 통합.
   - 디스크 I/O 없는 인메모리 빌더 및 Vite dev server HMR 연동.
   - 실전 사용성 평가 및 성능 벤치마크: [TypeSpec Builder Usability Report](../reports/typespec-builder-usability-report.md).
 
@@ -220,7 +220,7 @@ TypeSpec(`.tsp`)을 단일 정본(SSOT)으로 삼아 디스크 I/O 없이 인메
 - **[백엔드 핸들러 계약 구현 가이드](./backend-handler-contracts.md) (★ 권장)**:
   - 핸들러 계약(`*.contract.ts`) 구현 방법. 비즈니스 로직 파일은 생성기가 쓰지 않으므로 다시 생성해도 덮어쓰이지 않습니다.
   - 순수 데이터 컨텍스트(`{ params, query, body }`)와 멀티 상태 에러 유니온(`HandlerResponse`).
-  - `@oa-sdk/router`의 `generateRouter()`로 만든 Fastify·Express·Hono·Elysia 라우터 코드에 핸들러를 연결하는 방법(`oa-gen` 명령은 라우터 파일을 만들지 않습니다).
+  - 라우터 코드에 핸들러를 연결하는 방법. 대상 프레임워크가 Fastify·Express·Hono·Elysia이면 `oa-gen generate`가 계약 옆에 라우터(`<id>.router.ts`)도 만들고, 빌드 스크립트에서는 `@oa-sdk/router`의 `generateRouter()`로 직접 만들 수도 있습니다([선언적 스펙 설정 2.2절](./declarative-spec-configuration.md#22-서버-쪽-생성물의-범위)).
 - **[프로젝트 온보딩 & 점진적 도입 플레이북](./onboarding-playbook.md)**:
   - 도입 단계(1단계 검증·타입 $\rightarrow$ 2단계 계약 분리 $\rightarrow$ 3단계 CI gate)와 각 단계에서 쓰는 명령.
   - Fastify, Express, Hono, Elysia, NestJS 연결 레시피.
@@ -254,7 +254,8 @@ TypeSpec(`.tsp`)을 단일 정본(SSOT)으로 삼아 디스크 I/O 없이 인메
   - 5단계 시나리오 라이프사이클(선언 $\rightarrow$ 정적 컴파일 $\rightarrow$ 런타임 실행 $\rightarrow$ 핸드오프 $\rightarrow$ CI 검증).
   - `spec-lens scenario` CLI(`list`, `inspect`, `preview`, `verify`, `export`), `docs/artifacts/scenarios/` 아티팩트 규격, 듀얼 프리뷰어(터미널 ASCII & 웹 UI) 및 거버넌스 컨벤션.
 - **[Ariga Atlas 물리 DB 스키마 드리프트 거버넌스 가이드](./use-cases/atlas-schema-drift-governance.md)**:
-  - `atlas schema inspect --format json` 출력을 읽기 전용 카탈로그 증거로 소비하여 `@storageRef` 매핑과 물리 컬럼 간의 불일치를 CI에서 100% 정적 탐지 (Zero DB Write).
+  - `@oa-sdk/typespec-decorators/governance`의 `verifyAtlasSchemaDrift(evidence, mappings)`가 `atlas schema inspect --format json` 출력을 읽기 전용 카탈로그 증거로 받아, 호출자가 `@storageRef` 대상을 옮겨 적은 매핑의 테이블·컬럼 누락(오류)과 타입 불일치(경고)를 CI에서 정적으로 탐지 (Zero DB Write).
+  - 검증기는 TypeSpec 소스나 `x-oa-sdk-storage-ref`를 읽지 않으며, `@oa-sdk/dpm`과 `oa-erd check`도 Atlas 증거를 읽지 않습니다.
 - **[TypeSpec Behavior / 런타임 데이터 스키마 작성 연구 및 PoC](../spec-governance/typespec-behavior-schema-authoring-research.md)**:
   - TypeSpec data shape $\rightarrow$ Draft 2020-12 $\rightarrow$ Standard Schema v1 어댑터 $\rightarrow$ XState v5(`setup.types`) 및 v6(`setup.schemas` / state-level schemas) 검증 (14/14 tests pass, Partial adopt 판정).
 - **[공유 컨텍스트 협업 하네스 계약 평가 리포트](../spec-governance/shared-context-harness-contract-evaluation.md)**:
@@ -265,7 +266,7 @@ TypeSpec(`.tsp`)을 단일 정본(SSOT)으로 삼아 디스크 I/O 없이 인메
   - 브라우저 인-페이지 런타임(Wireframe/Storyboard 툴킷, 캔버스 에디터 등)의 도구와 상태를 외부 AI 에이전트에 노출하는 3계층 프로젝션 토폴로지.
   - `createPeerServer({ enableRelay: true, enableCloudTransit: true })`를 통한 단 15줄 로컬 게이트웨이 데몬 구동.
   - `P2pTransportChannel` + `createWebSocketTransportAdapter` 기반 브라우저 Page Connector 구현 (도구 포트 개설).
-  - `createCloudTransitClient` 및 `@oa-sdk/mcp-mesh`(`hydratePeerSession`)를 통한 투명한 브라우저 도구 원격 호출 및 오케스트레이션.
+  - `createCloudTransitClient` 및 `@oa-sdk/mcp-mesh`(`SkillRegistry#hydratePeerSession`)를 통한 투명한 브라우저 도구 원격 호출 및 오케스트레이션.
   - 새로고침(F5) 시 3채널 메모리 버퍼링 및 우선순위 플러시(`mcp-jsonrpc` > `crdt-delta` > `presence`), 48-hex 단일 사용 티켓 및 32-프레임 플러딩 차단 등 보안 강화.
 
 ### 2.8 계약 기반 RPC (JSON-RPC 2.0 · REST binding · Protobuf)

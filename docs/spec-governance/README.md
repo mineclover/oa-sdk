@@ -40,6 +40,7 @@ TypeSpec 계약에서는 `packages/schemas/typespec/**/*.tsp`가 사람이 작�
 | 로드맵 | [`docs/internal/plan.md`](../internal/plan.md) | 앞으로 할 일; 완료 기능의 증거가 아님 |
 | API 표면 | [`docs/internal/api-index.md`](../internal/api-index.md) | 타입·함수·export 상세 |
 | 기능과 테스트 | [`docs/internal/feature-test-matrix.md`](../internal/feature-test-matrix.md) | 기능별 검증 경로 |
+| WebMCP relay protocol | [`docs/internal/webmcp-relay-protocol.md`](../internal/webmcp-relay-protocol.md) | `@oa-sdk/webmcp-peer` relay·provider·agent client의 wire 규칙(요건 `R-*`)과 결정 기록. README·api-index·guide·보안 문서는 요약하고 이 문서를 링크하며, `packages/webmcp-peer/test/protocol-spec.test.ts`가 코드·테스트와의 일치를 검사 |
 | 릴리스 분류·버전 정책 | [`docs/internal/release-policy.json`](../internal/release-policy.json) | workspace track, publish, Changesets 기준 |
 | 계약 작성 | [`packages/schemas/typespec/`](../../packages/schemas/typespec/) | TypeSpec source와 bundle manifest |
 | 계약 검토 baseline | [`approved.openapi.yaml`](../../packages/schemas/typespec/approved.openapi.yaml) | TypeSpec에서 생성된 승인 snapshot |

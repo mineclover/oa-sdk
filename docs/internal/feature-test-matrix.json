@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-13",
+  "updatedAt": "2026-10-20",
   "description": "Feature-to-test mapping for oa-sdk. Each feature lists representative automated coverage and the commands that maintain it.",
   "features": [
     {
@@ -84,7 +84,7 @@
       "name": "TypeSpec contract RPC procedures",
       "category": "projection",
       "package": "@oa-sdk/surface-ir, @oa-sdk/codegen, @oa-sdk/rpc",
-      "description": "RPC contract projection of OpenAPI operations (dotted procedure names, merged object input, HTTP binding, diagnostics), generated procedure types and contract module, and the typed client/server runtime over JSON-RPC 2.0 and the original REST routes.",
+      "description": "RPC contract projection of OpenAPI operations (dotted procedure names, merged object input, HTTP binding, diagnostics), generated procedure types and contract module, and the typed client/server runtime over JSON-RPC 2.0 and the original REST routes, including wire hardening: empty and dot-segment path values, responses JSON cannot represent, strict JSON-RPC response validation, cancellation, and binary values under Ajv.",
       "capabilities": [
         "buildRpcContract",
         "toRpcContract",
@@ -97,16 +97,22 @@
         "handleJsonRpc",
         "createJsonRpcFetchHandler",
         "createJsonRpcTransport",
-        "createAjvValidator"
+        "createAjvValidator",
+        "empty and dot-segment path value rejection",
+        "INTERNAL answers for results JSON cannot represent",
+        "strict JSON-RPC response validation",
+        "format: binary values under createAjvValidator"
       ],
       "testPaths": [
         "packages/surface-ir/test/rpc-contract.test.ts",
         "packages/rpc/test/rpc.test.ts",
+        "packages/rpc/test/wire-hardening.test.ts",
         "packages/codegen/src/__tests__/plugin/plugin-rpc.test.ts"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/surface-ir test",
         "pnpm --filter @oa-sdk/rpc test",
+        "pnpm --filter @oa-sdk/rpc typecheck",
         "pnpm --filter @oa-sdk/codegen test"
       ]
     },
@@ -114,23 +120,29 @@
       "id": "wire-binary-codecs",
       "name": "Binary wire codecs and wire RPC client",
       "category": "projection",
-      "package": "@oa-sdk/codegen",
-      "description": "Wire schema extraction, proto3 schema, Protobuf codecs wire-compatible with the emitted .proto (verified against protobufjs), MessagePack codecs, and the rpc-contract service client and handler contracts of pluginWire.",
+      "package": "@oa-sdk/codegen, @oa-sdk/typespec-decorators",
+      "description": "Wire schema extraction, proto3 schema, Protobuf codecs wire-compatible with the emitted .proto (verified against protobufjs), MessagePack codecs, the rpc-contract service client and handler contracts of pluginWire, TypeScript names that match types.ts, and the TypeSpec @protobuf/@field/@rpc/@wireFormat decorators that feed the wire model.",
       "capabilities": [
         "extractWireSchemaFromOas",
         "Proto3TargetAdapter",
         "ProtobufCodecTargetAdapter",
         "MessagePackTargetAdapter",
         "RpcContractTargetAdapter",
-        "pluginWire"
+        "pluginWire",
+        "emptyMessageName",
+        "types.ts-aligned wire TypeScript names",
+        "@field number validation and @rpc/@wireFormat interface propagation"
       ],
       "testPaths": [
         "packages/codegen/src/__tests__/wire-adapter/*.test.ts",
-        "packages/codegen/src/__tests__/plugin/plugin-wire.test.ts"
+        "packages/codegen/src/__tests__/plugin/plugin-wire.test.ts",
+        "packages/typespec-decorators/src/protobuf.test.ts",
+        "packages/typespec-decorators/src/protobuf.emitter.test.ts"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/codegen test",
-        "pnpm --filter @oa-sdk/codegen typecheck"
+        "pnpm --filter @oa-sdk/codegen typecheck",
+        "pnpm --filter @oa-sdk/typespec-decorators test"
       ]
     },
     {
@@ -1404,13 +1416,16 @@
       "name": "Router generation",
       "category": "runtime-generation",
       "package": "@oa-sdk/router",
-      "description": "OpenAPI to Hono/Express router stubs, typed response/body hints, security hints, webhooks, and edge cases.",
+      "description": "OpenAPI to Hono/Express router stubs, typed response/body hints, security hints, webhooks, response media type negotiation, null-body statuses, and edge cases.",
       "capabilities": [
         "Hono stubs",
         "Express stubs",
         "typed response helpers",
         "security hints",
-        "webhook stubs"
+        "webhook stubs",
+        "RFC 9110 Accept negotiation (negotiateResponseMediaType)",
+        "204/205/304 null-body responses in the Hono contract router",
+        "raw binary request bodies in legacy stubs"
       ],
       "testPaths": [
         "packages/router/src/__tests__/*.test.ts",
@@ -1426,13 +1441,14 @@
       "name": "Client SDK generation",
       "category": "runtime-generation",
       "package": "@oa-sdk/client",
-      "description": "OpenAPI to fetch client generation, middleware, withResponse helpers, SSE, NDJSON/SSE streaming, and execution checks.",
+      "description": "OpenAPI to fetch client generation, middleware, withResponse helpers, SSE, NDJSON/SSE streaming, the MessagePack binary codec, and execution checks.",
       "capabilities": [
         "fetch client generation",
         "middleware hooks",
         "typed headers",
         "SSE client",
-        "stream handling"
+        "stream handling",
+        "MessagePack codec (bigint, toJSON, strict decoding, own map keys)"
       ],
       "testPaths": [
         "packages/client/src/__tests__/*.test.ts",
@@ -1642,11 +1658,14 @@
       "name": "WebMCP peering, mesh, and collaborative workspace",
       "category": "downstream-security",
       "package": "@oa-sdk/peer-server, @oa-sdk/peer-transport, @oa-sdk/collab-workspace, @oa-sdk/mcp-mesh, @oa-sdk/tools",
-      "description": "Authenticated peer bridge and signaling, bounded packet transport, validated mesh routing, scoped CRDT editing, and MCP/HTTP tool boundaries.",
+      "description": "Authenticated peer bridge and signaling, relay approval gate and session limits, Cloud Transit access policy, bounded packet transport, validated mesh routing, scoped CRDT editing, and MCP/HTTP tool boundaries.",
       "capabilities": [
         "peer authentication and origin policy",
         "bounded request and packet processing",
         "peer RPC correlation and retry behavior",
+        "relay approval gate, allow-listed tools, and relay session limits",
+        "Cloud Transit publishKey/allowedOrigins policy and JSON-RPC tools/list",
+        "WebSocket transport adapter ready/approved lifecycle",
         "validated domain/session tool routing",
         "CRDT path and lock validation",
         "MCP and HTTP schema/auth boundaries"
@@ -1669,6 +1688,217 @@
         "pnpm --filter @oa-sdk/collab-workspace typecheck",
         "pnpm --filter @oa-sdk/mcp-mesh typecheck",
         "pnpm --filter @oa-sdk/tools typecheck"
+      ]
+    },
+    {
+      "id": "webmcp-peer-routing",
+      "name": "WebMCP peer room routing, browser provider, and agent client",
+      "category": "downstream-security",
+      "package": "@oa-sdk/webmcp-peer",
+      "description": "Three-tier peer MCP routing: the room router and WebSocket signaling/relay server, the browser provider, and the external agent client. Covers room leases, TTL bounds, rotation and revocation, the client approval gate and its restore on provider reattach, Streamable HTTP (/p/:id/mcp) and WebSocket (/p/:id/client) paths, catalog hash parity and drift fail-closed, MCP CallToolResult replies within the relay frame limit, reconnect backoff, publish rate limits, and durable AI run ledgers.",
+      "capabilities": [
+        "provider -> room router -> agent client routing (PeerMcpService)",
+        "room lease, TTL clamp, rotation, and session revocation",
+        "client approval gate and approval.restored replay on provider reattach",
+        "catalog hash parity between the relay, hashTools, and the live demo",
+        "catalog drift fail-closed (CATALOG_CHANGED, CATALOG_INVALID)",
+        "MCP Streamable HTTP protocol version negotiation",
+        "MCP CallToolResult replies and RESULT_TOO_LARGE",
+        "provider auto-reconnect backoff",
+        "forged signaling frame rejection",
+        "publish rate limiting",
+        "durable AI run ledger torn-row recovery",
+        "embedded server argv/.env opt-in"
+      ],
+      "testPaths": [
+        "packages/webmcp-peer/test/*.test.ts",
+        "packages/webmcp-peer/test/provider-fakes.ts",
+        "packages/webmcp-peer/test/server-test-helpers.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/webmcp-peer test",
+        "pnpm --filter @oa-sdk/webmcp-peer typecheck"
+      ]
+    },
+    {
+      "id": "webmcp-relay-protocol-conformance",
+      "name": "WebMCP relay protocol spec conformance",
+      "category": "governance",
+      "package": "@oa-sdk/webmcp-peer",
+      "description": "The relay protocol spec (docs/internal/webmcp-relay-protocol.md) is the single source of the webmcp-peer wire rules. A conformance test reads it in its own format and fails when a requirement ID is defined twice or referenced but undefined, a requirement states no evidence or a malformed one, a cited source line is missing or blank, a cited test file or it()/test() title does not exist, the limits table disagrees with an exported constant or leaves out a limit the config tier exports, the close code table disagrees with WEBMCP_CLOSE_CODES, the error class table disagrees with PEER_ERROR_CODES, or a document linking to the spec cites an undefined requirement ID.",
+      "capabilities": [
+        "requirement IDs defined once and every mentioned ID defined",
+        "one evidence line per requirement, in the spec's citation format",
+        "cited source lines exist and are not blank",
+        "cited test files and it()/test() titles exist",
+        "limits table values equal the exported limit constants",
+        "close code table equals WEBMCP_CLOSE_CODES",
+        "error class table equals PEER_ERROR_CODES",
+        "documents linking to the spec cite defined requirement IDs"
+      ],
+      "testPaths": [
+        "packages/webmcp-peer/test/protocol-spec.test.ts",
+        "docs/internal/webmcp-relay-protocol.md"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/webmcp-peer test",
+        "pnpm --filter @oa-sdk/webmcp-peer typecheck"
+      ]
+    },
+    {
+      "id": "telemetry-runtime",
+      "name": "Design-driven telemetry, DPM pseudonymization, and dispatchers",
+      "category": "downstream-security",
+      "package": "@oa-sdk/telemetry",
+      "description": "Design-driven telemetry runtime: TrackSymbol grammar and registry, the telemetry envelope builder, the DPM pseudonymization adapter with keyed HMAC-SHA-256 tokens (sensitive and identifier key handling, object graph safety), the isomorphic SHA-256 and HMAC-SHA-256 primitives checked against FIPS 180-4, RFC 4231, and node:crypto, GTM/Sentry/OTel/composite dispatchers with reserved keys and failure isolation, and the XState v5 inspector that never breaks the machine it observes.",
+      "capabilities": [
+        "parseTrackSymbol, formatTrackSymbol, isValidTrackSymbol",
+        "SymbolRegistry",
+        "createTelemetryEnvelope",
+        "createDpmTelemetryAdapter keyed HMAC-SHA-256 tokenizer",
+        "sensitive and identifier key sanitization, object graph safety",
+        "sha256 and createHmacSha256 test vectors (FIPS 180-4, RFC 4231)",
+        "createGtmDispatcher, createSentryDispatcher, createOtelDispatcher",
+        "createCompositeDispatcher failure isolation and span fan-out",
+        "setGlobalTelemetryIdentity",
+        "createTelemetryInspector (XState v5) failure isolation"
+      ],
+      "testPaths": [
+        "packages/telemetry/test/*.test.ts",
+        "packages/telemetry/test/support/*.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/telemetry test",
+        "pnpm --filter @oa-sdk/telemetry typecheck"
+      ]
+    },
+    {
+      "id": "chunk-stream-runtime",
+      "name": "Chunk Stream runtime packages and @chunkStream decorator",
+      "category": "runtime-generation",
+      "package": "@oa-sdk/chunk-stream, @oa-sdk/chunk-stream-crdt, @oa-sdk/chunk-stream-react, @oa-sdk/chunk-stream-timeseries, @oa-sdk/chunk-stream-ui, @oa-sdk/typespec-decorators",
+      "description": "Chunk Stream runtime and adapters: the core engine (residency leases, playback virtualizer) with defineChunkStreamServer request validation, CRDT delta-state merge laws and vector clocks, React playback hooks, time-series LTTB downsampling and decimation, UI action adapters with revision fences and the storyboard playback bridge, and the @chunkStream TypeSpec decorator whose resolved config stays in parity with defineChunkStreamConfig (preset defaults, explicit byte overrides, Numeric option values).",
+      "capabilities": [
+        "defineChunkStreamConfig",
+        "defineChunkStreamServer request validation",
+        "ResidencyController",
+        "PlaybackVirtualizer",
+        "CrdtDeltaAdapter and mergeVectorClocks",
+        "useChunkPlayback",
+        "TimeSeriesAdapter and largestTriangleThreeBuckets",
+        "UiActionAdapter and RevisionFence",
+        "ChunkPlaybackBridge",
+        "@chunkStream resolved config parity with defineChunkStreamConfig"
+      ],
+      "testPaths": [
+        "packages/chunk-stream/test/*.test.ts",
+        "packages/chunk-stream-crdt/test/*.test.ts",
+        "packages/chunk-stream-react/test/*.test.ts",
+        "packages/chunk-stream-timeseries/test/*.test.ts",
+        "packages/chunk-stream-ui/test/*.test.ts",
+        "packages/typespec-decorators/src/chunk-stream.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/chunk-stream test",
+        "pnpm --filter @oa-sdk/chunk-stream-crdt test",
+        "pnpm --filter @oa-sdk/chunk-stream-react test",
+        "pnpm --filter @oa-sdk/chunk-stream-timeseries test",
+        "pnpm --filter @oa-sdk/chunk-stream-ui test",
+        "pnpm --filter @oa-sdk/typespec-decorators test",
+        "pnpm --filter @oa-sdk/chunk-stream typecheck",
+        "pnpm --filter @oa-sdk/chunk-stream-crdt typecheck",
+        "pnpm --filter @oa-sdk/chunk-stream-react typecheck",
+        "pnpm --filter @oa-sdk/chunk-stream-timeseries typecheck",
+        "pnpm --filter @oa-sdk/chunk-stream-ui typecheck"
+      ]
+    },
+    {
+      "id": "spec-traceability-governance",
+      "name": "Spec traceability graph and @traceId governance decorators",
+      "category": "governance",
+      "package": "@oa-sdk/codegen, @oa-sdk/typespec-decorators",
+      "description": "SpecTraceabilityEngine and oa-gen trace (traceability graph with $ref edges, governance capabilities and artifact symbol mappings, TypeSpec AST source coordinates, multi-criteria queries, reverse-dependency impact, JSDoc provenance, .oa-trace.json sidecar shape validation, duplicate trackingId detection under --verify), the TypeSpec governance decorators ($traceId ownership and uniqueness through the compiler, @@traceId augments on copied members and mutator clones, @traceId in the emitted OpenAPI document), and TypeSpec is/extends copies passing the trace gate without duplicate ids.",
+      "capabilities": [
+        "buildSpecTraceabilityGraph",
+        "oa-gen trace --verify",
+        ".oa-trace.json sidecar load, save, and shape rejection",
+        "reverse-dependency impact analysis",
+        "duplicate trackingId diagnostics",
+        "$traceId ownership and uniqueness",
+        "@@traceId augment on copied members",
+        "@traceId on mutator clones",
+        "@traceId in the emitted OpenAPI document",
+        "TypeSpec copies through the trace gate"
+      ],
+      "testPaths": [
+        "packages/codegen/src/__tests__/traceability/*.test.ts",
+        "packages/typespec-decorators/src/governance*.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/codegen test",
+        "pnpm --filter @oa-sdk/typespec-decorators test",
+        "pnpm --filter @oa-sdk/codegen typecheck",
+        "pnpm --filter @oa-sdk/typespec-decorators typecheck"
+      ]
+    },
+    {
+      "id": "typespec-plugin-pipeline",
+      "name": "TypeSpec plugin pipeline",
+      "category": "codegen",
+      "package": "@oa-sdk/codegen",
+      "description": "TypeSpec SSOT plugin pipeline outside the rpc and wire plugins, which keep their own rows: TspProjectBuilder and createTspBuilder, the in-memory compiler, the plugin context and virtual file system, the topological plugin sorter, runTspPluginPipeline lifecycle, config validation, dry-run and output-directory clean safety, vitePluginTsp, and the shipped pluginTypescript, pluginClient/pluginSdk, pluginRouter, and pluginTanstackQuery output, with tiered E2E scenarios over petstore, storefront, edge-case, and reserved-name fixtures and a gate that type-checks the output of every shipped plugin together.",
+      "capabilities": [
+        "createTspBuilder",
+        "runTspPluginPipeline",
+        "topological plugin sorting and cycle rejection",
+        "in-memory TypeSpec compilation without disk writes",
+        "virtual file system context and output-directory clean safety",
+        "vitePluginTsp",
+        "pluginTypescript",
+        "pluginClient and pluginSdk",
+        "pluginRouter",
+        "pluginTanstackQuery",
+        "multi-status error unions",
+        "shipped plugin output type-checks together"
+      ],
+      "testPaths": [
+        "packages/codegen/src/__tests__/plugin/*.test.ts",
+        "packages/codegen/src/__tests__/plugin/helpers/*.ts",
+        "test/e2e/typespec-plugin/**/*.test.ts",
+        "test/e2e/typespec-plugin/fixtures/**"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/codegen test",
+        "pnpm --filter @oa-sdk/codegen typecheck",
+        "pnpm test:e2e:typespec-plugin"
+      ]
+    },
+    {
+      "id": "spec-lens-scenario-navigation",
+      "name": "Spec-Lens scenario navigation",
+      "category": "ui",
+      "package": "@oa-sdk/spec-lens-ui",
+      "description": "Spec-Lens UI scenario navigation: ScenarioProvider keeps the scenario FSM, the ?scenario= URL state, and the rendered view equal; deep-link initialization, browser-back reconciliation over steps that wrote no history entry, goal reachability through the UI handlers, intent and shell view resolution, selection helpers, rejection of sidebar navigation the scenario does not permit, and the ScenarioFlowModal transition matrix and Mermaid diagram.",
+      "capabilities": [
+        "initialMachineStateFromUrl",
+        "machineUrlPatch and machineMatchesUrl",
+        "reconcileMachineWithUrl",
+        "resolveScenarioIntents",
+        "resolveShellView",
+        "availableGoalsFor",
+        "ScenarioProvider FSM, URL, and view consistency",
+        "AppShell scenario wiring (deep link, browser back, blocked navigation)",
+        "ScenarioFlowModal"
+      ],
+      "testPaths": [
+        "apps/spec-lens/src/App.test.tsx",
+        "apps/spec-lens/src/scenario/navigation.test.ts",
+        "apps/spec-lens/src/scenario/scenario.test.tsx",
+        "apps/spec-lens/src/scenario/views/ScenarioFlowModal.test.tsx"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/spec-lens-ui test",
+        "pnpm --filter @oa-sdk/spec-lens-ui typecheck"
       ]
     },
     {

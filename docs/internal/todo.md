@@ -47,6 +47,44 @@ artifact 경로는 현재 rollback/reference evidence로 유지한다.
 `.builder/local-parity-api.3.1.yaml` compatibility, downstream compatibility report, rollback-safe script
 boundaries를 확인했다. 현재 production source의 기준은 TypeSpec validation이다.
 
+## 2026-10-19 안정화 후속
+
+2026-10-19 안정화 pass([최근 완료](#x-2026-10-19-시스템-안정화-pass))에서 고치지 않고 남긴 항목이다.
+
+### [ ] `@traceId` trackingId를 공유하는 OpenAPI variant (설계 결정 필요)
+배경: `x-oa-sdk-trace.trackingId`는 선언한 type과 그 mutator clone에 붙는다. 그래서 한 OpenAPI 문서 안에서 `@typespec/openapi3`의 visibility variant(`WidgetCreate`, `WidgetUpdate`)와 `MergePatchUpdate<T>` variant(`WidgetMergePatchUpdate`, 참조된 model의 `PartMergePatchUpdate`)가 원본과 같은 id를 갖고, `oa-gen trace --verify`가 `traceability/duplicate-tracking-id`를 보고한다. decorator 시점에는 merge-patch clone과 versioned snapshot clone을 구분할 수 없다. 이 한계는 [`packages/typespec-decorators/README.md`](../../packages/typespec-decorators/README.md)에 적혀 있다. 이 repo에는 `@traceId`와 `MergePatchUpdate`·`@versioned`를 함께 쓰는 `.tsp`가 없어 CI gate는 영향을 받지 않는다.
+작업:
+1. 같은 선언에서 나온 variant가 id를 공유하는 것을 허용할지, variant별 id를 파생할지 결정한다.
+2. 공유를 허용하면 `packages/codegen/src/traceability/spec-traceability.ts`의 duplicate grouping이 TypeSpec provenance가 같은 선언으로 해소되는 중복 explicit id를 받아들이게 한다.
+완료 기준: `@traceId`를 visibility·`MergePatchUpdate` variant와 함께 쓰는 fixture에서 `oa-gen trace --verify`가 결정한 정책대로 동작하는 테스트가 있다.
+
+### [ ] 공유 type과 파생 scalar로 퍼지는 `@traceId`
+배경: TypeSpec은 `interface B extends A`가 복제한 operation의 `parameters`와 `op b is a`·`model B is A`의 익명 body·return·property type을 복제하지 않고 공유한다. 그래서 그런 type의 member에 붙인 `@traceId`가 파생된 모든 operation·schema 아래에 나타난다. inline parameter와 property는 trace graph node가 아니라 `oa-gen trace --verify`도 이를 보고하지 않는다. 또 `@typespec/openapi3`는 `scalar B extends A`의 schema를 A의 extension과 함께 만들어 두 schema가 같은 trackingId를 갖고, `oa-gen trace --verify`가 `traceability/duplicate-tracking-id`를 보고한다. 두 경우 모두 이번 pass 전부터 있었고, [`packages/typespec-decorators/README.md`](../../packages/typespec-decorators/README.md)와 `lib/governance.tsp`에 known limit으로 적었다.
+작업:
+1. id를 가진 parameters model이나 익명 type이 둘 이상의 concrete operation·model에서 도달 가능하면 `$onValidate`에서 진단할지 결정한다(`operationsByParameters`가 공유 관계를 이미 안다).
+2. 파생 scalar는 trace 쪽에서 base scalar provenance로 중복을 해소할지, decorator가 경고할지 결정한다.
+완료 기준: 두 경우의 fixture에서 결정한 정책대로 진단하거나 `oa-gen trace --verify`가 통과하는 테스트가 있다.
+
+### [ ] `@oa-sdk/client` TanStack `TError`에 transport 오류 포함
+배경: `packages/client/src/tanstack/options-factory-generator.ts`와 `hook-factory-generator.ts`는 error model이 있으면 query·mutation error 타입을 `<Op>Error`로만 둔다. 실제로 reject될 수 있는 네트워크 오류, abort, `ApiClientResponseError`는 `TError`에 없다. 지금은 [client and query consumption](../guides/client-and-query-consumption.md) 가이드가 `instanceof`로 좁히는 방법을 안내한다.
+작업: `TError`를 `<Op>Error | Error`로 넓힐지 결정하고, 넓히면 두 생성기, 생성 결과 테스트, 가이드를 함께 바꾼다.
+완료 기준: 생성된 query·mutation option과 hook의 error 타입이 transport 오류를 포함하고, consumer narrowing 예제가 type-check된다.
+
+### [ ] `ScenarioMachineContext.customData`의 TypeSpec 정의
+배경: `packages/spec-lens-contract/src/scenario/types.ts`의 `ScenarioMachineContext`에는 `customData?: Record<string, unknown>`이 있지만 `scenario.tsp`의 `model ScenarioMachineContext`에는 없다. 이번 pass 전부터 있던 TS·TypeSpec drift다.
+작업: `scenario.tsp`에 `customData?: Record<unknown>;`(필요하면 `@doc`)을 추가할지, TS field를 없앨지 결정한다.
+완료 기준: 두 정의의 field 집합이 같다.
+
+### [ ] ast-sync에 남은 type boundary
+배경: 이번 pass의 대상 밖이라 그대로 둔 boundary다. `packages/ast-sync/src/adapters/json-schema.ts`의 `read()`·`patch()`와 `adapters/typia.ts`의 `default` tag 값은 `JSON.parse` 결과를 검증 없이 쓴다. `checker/cycle-detector.ts`(TypeScript `symbol.id`, `__tempDir`), `checker/program.ts`(`__tempDir`), `guards/generator.ts`(Ajv·standalone default export, format validator)에는 명시적 `any`가 남아 있다.
+작업: `JSON.parse` 결과를 이름 있는 validator로 검증하고, `any` 접근을 modeled type이나 guard로 바꾼다.
+완료 기준: `pnpm type-registry:check`의 boundary evidence에 이 파일들이 나오지 않는다.
+
+### [ ] `oa-gen generate:tanstack --tier hooks`의 vue·svelte hook
+배경: `packages/codegen/src/cli/commands/generate-tanstack.ts`는 `--tier hooks`이면 `--framework vue|svelte`에서도 `includeHooks`를 켠다. `@oa-sdk/client`의 hook 생성기는 React 형식의 `use*` hook을 만들기 때문에, 그 출력이 `@tanstack/vue-query`·`@tanstack/svelte-query`를 import하면서 React 전용 API 형태를 쓴다. 이번 pass 전부터 있던 동작이며 문서에 없다.
+작업: vue·svelte에서 `--tier hooks`를 거부할지, framework별 hook 생성기를 둘지 결정하고 CLI 도움말과 [CLI command reference](../guides/cli-command-reference.md)를 맞춘다.
+완료 기준: vue·svelte target의 `--tier hooks` 결과가 해당 패키지에 대해 type-check되거나, 명확한 오류로 거부된다.
+
 ## spec-lens 잔여 항목
 
 ### [x] RefreshTimeline 병렬 revision 처리
@@ -270,6 +308,54 @@ REST vs bare-clone 결정: REST API 방식 유지. 이유는 (1) 4 케이스 모
 ---
 
 ## 최근 완료
+
+### [x] WebMCP relay protocol 안정화
+배경: `packages/webmcp-peer`의 코드와 테스트에서 relay protocol 초안 [webmcp-relay-protocol.md](./webmcp-relay-protocol.md)를 추출했고, 초안은 코드끼리, 또는 코드와 문서가 어긋난 곳 60건(O-01~O-60)을 열린 문제로 올렸다.
+결정과 완료 (2026-10-20): 권고안을 모두 채택하고 0.1.0에서 breaking wire 변경을 냈다. 8개 cluster(공유 상수, 오류 모델, 만료·rotate, 승인·lease, MCP 라우팅, signaling, WebSocket, HTTP 보안)가 O-01~O-58을 구현했고, 문서 단계가 O-59·O-60을 마쳤다: spec을 [정본 표](../spec-governance/README.md)와 `.ai/spec-loader.yaml`에 올리고, README·api-index·relay guide·개념 문서·보안 감사가 요약하며 spec을 링크하게 했으며, spec 10장을 결정 기록(결정마다 commit·changeset)과 남은 열린 문제 O-61~O-68로 바꿨다. 테스트가 없던 요건에 회귀 테스트를 더했고 남은 둘(R-HTTP-016, R-HTTP-017)의 이유를 O-60에 적었다. `packages/webmcp-peer/test/protocol-spec.test.ts`가 spec과 코드·테스트의 일치를 검사하고, [feature-test matrix](./feature-test-matrix.md)에 `webmcp-relay-protocol-conformance` row로 올렸다. 동작 변경은 [changelog](../changelog.md)와 `.changeset/webmcp-peer-protocol-c1-foundation.md`~`c9-docs.md`에 있다.
+검증: `pnpm --filter @oa-sdk/webmcp-peer typecheck`·`test:ci`, `check:docs`, `check:spec-governance`, `test:docs-gates`, `check:feature-tests`, `check:api-index`, `type-registry:check`가 통과한다. 적합성 검사는 spec에 결함(중복·미정의 ID, 없는 테스트 제목, 틀린 상한 값 등)을 하나씩 넣었을 때 해당 검사가 실패함을 확인했다.
+후속: O-61(rotate의 rate limit)은 review 수정에서 결정하고 구현했다(spec 10.1). spec 10.2의 O-62~O-69(WebSocket id 없는 `tools/call`, provider의 `list_changed`, client와 relay의 pending 수, 만료가 덮어쓰는 ticket status, 401 challenge와 OAuth discovery, revoke의 왕복, provider의 방어용 오류, 두 번째 session이 다시 쓰는 넘겨받은 `transport`의 `onMessage`)은 결정이 필요하다.
+
+### [x] Feature-test matrix에 없는 영역
+배경: [feature-test-matrix.json](./feature-test-matrix.json)에 row가 없어 이번 pass에 추가한 회귀 테스트 일부가 matrix에 연결되지 않는다.
+- `@oa-sdk/telemetry`: `packages/telemetry/test/*.test.ts`(새 `hmac-sha256.test.ts` 포함)
+- chunk-stream 계열 5개 package와 `@chunkStream` decorator: 새 `packages/typespec-decorators/src/chunk-stream.test.ts`
+- spec traceability와 governance decorator: `packages/codegen/src/__tests__/traceability/*.test.ts`(새 `typespec-trace-id-copies.test.ts`), `packages/typespec-decorators/src/governance*.test.ts`
+- TypeSpec plugin pipeline 중 rpc·wire 밖의 부분: `packages/codegen/src/__tests__/plugin/*.test.ts`, `test/e2e/typespec-plugin/**`(새 `tier3-combinations/shipped-plugins-typecheck.test.ts`)
+- Spec-Lens UI scenario navigation: 새 `apps/spec-lens/src/App.test.tsx`, `scenario/navigation.test.ts`, `scenario/views/ScenarioFlowModal.test.tsx`
+작업: 영역마다 feature row를 추가하고 [feature-test-matrix.md](./feature-test-matrix.md)에 대표 테스트를 적은 뒤 `pnpm check:feature-tests`를 실행한다.
+완료 (2026-10-20): `feature-test-matrix.json`에 `telemetry-runtime`, `chunk-stream-runtime`, `spec-traceability-governance`, `typespec-plugin-pipeline`, `spec-lens-scenario-navigation` row 5개를 추가하고 `feature-test-matrix.md`에 같은 순서로 대표 테스트를 적음. `typespec-plugin-pipeline`의 plugin glob은 `plugin-rpc`·`plugin-wire` 테스트도 매칭하지만 그 기능의 소유 row는 기존 `typespec-rpc-contract-runtime`, `wire-binary-codecs`로 유지한다.
+완료 기준: 이번 pass의 새 테스트 파일이 모두 matrix row에 연결된다.
+
+### [x] WebMCP relay 남은 강화 항목
+배경: 2026-10-19 relay 메시지 상한 작업([최근 완료](#x-webmcp-relay-메시지-상한과-register-크기)) 뒤에 남은 다섯 항목이다.
+완료 (2026-10-20, [changelog](../changelog.md)):
+1. relay는 room마다 마지막으로 평가한 `register` frame의 fingerprint(`registerSeq`를 뺀 frame의 SHA-256)와 그 frame이 남긴 room catalog(version·hash)를 기억한다. 같은 frame은 room catalog가 그대로인 동안 다시 정규화·hash하지 않고 같은 답(거부면 그 frame의 `registerSeq`를 담은 같은 거부)을 돌려준다. catalog를 바꾸지 않는 frame(거부되거나 이미 가진 catalog)은 room마다 한 번에 8개(`REGISTER_EVALUATION_BURST`), 그 뒤로 초당 1개까지만 평가하고, 그 사이에 온 frame은 기다리다가 provider의 다음 `register`로 바뀐다. 마지막 frame은 늦게라도 항상 평가되므로 rate 때문에 거부하는 새 오류가 없고 provider SDK는 바뀌지 않는다. budget은 room에 속해 provider socket을 바꿔도 초기화되지 않는다. 테스트: `server-register-evaluation.test.ts`.
+2. relay는 `requestId`가 JSON 1 KiB(JSON-RPC id와 같은 상한, 이제 `PEER_RELAY_MAX_REQUEST_ID_BYTES`로 server·client가 공유하는 내부 상수)를 넘는 offer를 전달하지 않고 `{ type: "offer.refused", error: REQUEST_ID_TOO_LARGE }`(id는 되돌려 주지 않음)로 답한다. provider의 `answer`·`release`가 그 id를 되풀이한다. 테스트: `relay-message-limit.test.ts`. provider 쪽 방어(상한을 넘는 `answer`를 보내지 않음)는 그 bound가 없는 relay를 가정한 `provider-register-limit.test.ts`가 계속 확인한다.
+3. 결정: queue한다. `PeerMcpSession`은 relay socket(`raw`가 아닌 transport)에서 진행 중 요청을 `PEER_RELAY_MAX_PENDING_REQUESTS`(64, `./config`와 root에서 export하고 relay도 같은 값을 쓴다)개까지만 보내고, 나머지는 순서대로 기다렸다 앞선 요청이 답을 받으면 보낸다. relay가 답할 때까지 요청을 세므로 호출자가 timeout으로 포기한 요청도 답이 올 때까지 자리를 차지한다(client 기본 timeout 10초가 relay의 30초보다 짧다). 기다린 시간은 요청 timeout에 들어가고 `disconnect()`·transport 종료는 기다리는 요청도 끝낸다. relay가 id 없이 답하는 1 KiB 초과 id는 자리를 영영 돌려받지 못하므로 보내기 전에 `REQUEST_ID_TOO_LARGE`로 거부한다. Streamable HTTP transport(`raw`)는 POST마다 답을 받으므로 제한하지 않는다. 테스트: `client-pending-limit.test.ts`.
+4. `upgradeWebSocket`은 호출 시점에 파기됐거나, peer가 이미 FIN을 보냈거나(`readableEnded`), 더 쓸 수 없는 socket에 101을 보내지 않고 파기하며, `send`는 곧바로 `'closed'`를 돌려주고 `onClose`는 반환 뒤 한 번 실행된다. 테스트: `server-ws-frames.test.ts`.
+5. 결정: 넣는다. live demo provider의 `register`는 SDK처럼 증가하는 `registerSeq`를 담고, 거부를 그 번호로 frame에 맞춘다. 1번 이후 relay는 반복된 frame에 마지막 답을 다시 보내고 기다리는 동안 대체된 frame에는 답하지 않으므로 답의 순서로는 frame을 맞출 수 없다. 마지막 frame에 대한 거부만 Provider 배지(`catalogRefusal`)에 표시하고, 대체된 frame에 대한 거부는 wire log에 무시했다고 남긴다. 테스트: `live-demo.e2e.test.ts`.
+검증: `pnpm --filter @oa-sdk/webmcp-peer test:ci`·`typecheck`, `type-registry:check`, `check:api-index`, `check:docs`, `check:feature-tests`가 통과하고, 새 테스트는 이전 코드에서 실패함을 확인했다.
+
+### [x] root-level operationId `client`와 `client.ts`의 `ClientResponse` 충돌
+배경: `pluginClient`는 예약어나 `client.ts`가 선언하는 binding과 겹치는 함수 이름에 `_`를 붙이므로 root-level operation `client`의 함수는 `client_`가 된다. 하지만 type 이름은 escape하지 않았다. 성공 응답이 있으면 `client.ts`가 types 파일에서 import하는 `ClientResponse`가 `client.ts`의 generic helper `ClientResponse<...>` 선언과 충돌하고, 성공 응답이 없으면 fallback `export type ClientResponse = void`가 같은 helper와 중복됐다.
+결정과 완료 (2026-10-20): typegen이 아니라 client renderer에서 고쳤다. typegen의 operation type 이름(`<Base>Response` 등)은 `@oa-sdk/client`, router target, TanStack adapter, traceability가 `createOperationTypeNameMap()`으로 같은 규칙을 다시 계산해 쓰므로, typegen에서 바꾸면 그 소비자 모두를 함께 바꿔야 하고 `pluginClient`를 쓰지 않는 사용자의 types 파일도 달라진다. 대신 `client.ts`의 per-operation type(types 파일에서 import하는 이름과 `client.ts`가 선언하는 `<Fn>Data`·`<Fn>Response`·`<Fn>Errors`·fallback 등)은 module-scope type 예약 집합(`clientModuleScopeTypeNames(clientName)`: client class, helper type 8개, `client.ts`가 type 위치에서 참조하는 global type)과 겹치면 함수 이름처럼 `_`(이어서 `_2`, ...)를 붙인다. 겹치는 import는 `import type { ClientResponse as ClientResponse_ }`로 alias하고, star re-export에서 helper에 가려지므로 `export type { ClientResponse_ }`로 다시 export한다. 성공 응답이 없으면 fallback은 `export type ClientResponse_ = void`다. 예약 집합은 함수 이름 집합처럼 TypeScript checker로 생성 module에서 도출해 테스트가 고정한다. `clientName`과 같은 operation type 이름(`clientName: 'ListItemsResponse'`)도 같은 규칙으로 escape된다.
+검증: `packages/codegen/src/__tests__/plugin/plugin-client.test.ts`의 root-level `client` fixture(성공 응답 있음·없음 × `clientClass` true·false)가 types 파일·`client.ts`·consumer 파일과 함께 type-check되고(escape를 끄면 실패), `test/e2e/typespec-plugin/fixtures/reserved-names`에 root-level `op client`를 더해 types·client·TanStack·adapter·hono router 조합이 type-check된다.
+
+### [x] `pluginClient({ clientName })` 이름 검증
+배경: `pluginClient`는 operation 함수 이름이 생성 module이 참조하는 global(`fetch`, `Response`, `Headers` 등)과 module binding을 가리지 않도록 escape하지만, 사용자가 준 `clientName`은 검증하지 않았다. `clientName: 'Response'`는 global `Response`를 가리는 class를 선언했다.
+완료 (2026-10-20): `clientName`이 식별자가 아니거나, 예약어·TypeScript predefined type 이름(`string` 등)이거나, `client.ts`가 선언하는 다른 이름(value: `createClient`·`defaultClient` 등, type: `ClientConfig`·`ClientResponse` 등)이거나, 참조하는 global value·type(`fetch`, `Response`, `Record`, `RequestInit` 등)이거나, `client.ts`가 class를 참조하는 자리에서 묶는 이름(`TData`·`TError` type parameter, `createClient`의 `config` parameter)이면 `pluginClient`가 `CLIENT_INVALID_CLIENT_NAME` 오류 진단을 내고 `client.ts`와 `client:sdk` manifest를 만들지 않는다. renderer도 같은 메시지로 throw한다. operation 이름과 겹치는 `clientName`은 허용하고 operation 쪽 이름을 escape한다.
+검증: `plugin-client.test.ts`의 `pluginClient clientName` 테스트가 `clientName: 'Response'`의 진단 전체를 확인하고, 예약 value·type 집합, checker로 도출한 class 참조 위치의 이름, 예약어, predefined type 이름, 식별자가 아닌 이름이 모두 거부되며, 그 밖의 이름(Unicode 식별자, operation과 같은 이름 포함)은 생성 코드가 type-check됨을 확인한다.
+
+### [x] WebMCP relay 메시지 상한과 `register` 크기
+배경: relay는 fragment로 나눈 message를 256 KiB까지 받았지만 frame 하나가 128 KiB를 넘으면 socket을 닫았다. 브라우저와 Node WebSocket client는 message를 frame 하나로 보내므로 실제 상한은 128 KiB였고, provider socket이 닫히면 room의 모든 agent가 끊겼다. provider는 `register` 크기를 확인하지 않아 큰 catalog가 auto-reconnect 아래에서 ready → register → close를 반복할 수 있었다.
+결정과 완료 (2026-10-19): 상한은 하나다. relay 메시지는 단일 frame이든 단편화든 양방향 모두 `PEER_RELAY_MAX_MESSAGE_BYTES`(256 KiB)이고(`MAX_WEBSOCKET_FRAME_BYTES` = `MAX_WEBSOCKET_MESSAGE_BYTES`), relay는 받은 쪽에서 넘는 message에 RFC 6455 close code 1009로 socket을 닫는다. 대신 relay는 남의 message 때문에 받는 쪽 socket을 닫지 않는다. `PeerSocket.send`가 `'sent' | 'too-large' | 'busy' | 'closed'`를 돌려주고, relay는 보낸 쪽에 `REQUEST_TOO_LARGE`(HTTP 413)·`RESULT_TOO_LARGE`·재시도 가능한 `PROVIDER_BUSY`(HTTP 503)·`PROVIDER_UNAVAILABLE`로 답하며 agent traffic 때문에 provider를 끊지 않는다. agent 요청 상한은 보낸 그대로 `PEER_RELAY_MAX_REQUEST_BYTES`(256 KiB - 1 KiB)로, relay의 stamp와 wire id 재작성을 항상 담는다. `PeerMcpSession`은 `PROVIDER_BUSY`를 요청 timeout 안에서 재시도한다. provider는 relay 소켓으로 보내는 모든 frame을 미리 재고, `PEER_RELAY_MAX_CATALOG_BYTES`(256 KiB - 4 KiB)를 넘는 `register`를 보내지 않으며 `CATALOG_TOO_LARGE`를 남긴다. relay는 알림이 `PEER_RELAY_MAX_ANNOUNCEMENT_BYTES`(256 KiB - 2 KiB)를 넘는 catalog를 거부하고, 거부는 `registerSeq`로 해당 `register`에 매칭된다. 같은 작업에서 relay WebSocket codec을 streaming parser로 다시 썼고(fragment 수 상한, 1002/1003/1007/1011 close code, 송신 queue 상한 1 MiB에서 닫지 않는 `'busy'`와 30초 정체 뒤 1013, 반쯤 닫힌 socket 파기와 close timeout, 한 번만 호출되는 `onClose`), agent가 요청한 응답을 늦게 읽는 agent에게도 순서대로 전달하는 outbox, 전달하는 모든 `mcp` envelope의 `from`/`sessionId` stamp, WebSocket `tools/list`의 relay catalog fallback, async upgrade hook 중 연결 reset으로 process가 죽던 문제를 더했으며, HTTP body를 끝까지 읽어 버려 413·`BODY_TOO_LARGE`가 실제로 도착하게 했으며, 크기를 넘거나 JSON object가 아닌 body로 approval·revoke·rotate가 실행되던 문제, request id·socket당 pending·ticket당 socket 상한, catalog hash의 `__proto__` 누락, client의 unhandled rejection을 함께 고쳤다. 동작은 [webmcp-peer README](../../packages/webmcp-peer/README.md)와 [changelog](../changelog.md)에 있다.
+검증: `packages/webmcp-peer`의 `tsc --noEmit`과 vitest 전체(22 file)가 통과하고, 새 테스트(`server-ws-frames`, `relay-message-limit`, `relay-backpressure`, `server-http-body`, `provider-register-limit`, `client-request-limit`, `client-busy-retry`)는 이전 코드에서 실패함을 확인했다.
+
+### [x] 2026-10-19 시스템 안정화 pass
+배경: 전수 코드 리뷰에서 확인한 결함 146건(F001–F146)을 10개 cluster로 나눠 고쳤다. cluster는 TypeSpec plugin(`@oa-sdk/codegen/plugin`), codegen governance(trace·sketch·storage drift·`@traceId`), 바이너리 wire, webmcp-peer client·provider, webmcp-peer server, peer-server·peer-transport·mcp-mesh, telemetry, chunk-stream, rpc·router·client codec, Spec-Lens scenario·EWIC interop이다.
+완료 (2026-10-19): 134건은 수정했고, 11건은 cluster 소유 파일 안에서 부분 수정한 뒤 다른 파일의 잔여분을 central 정리와 후속 cluster 작업으로 마무리했으며, 1건(F064, api-index 위치)은 문서 정리로 분류했다. 신규 테스트 파일 34개와 기존 suite 보강으로 회귀를 고정했다. `@oa-sdk/telemetry`, `@oa-sdk/webmcp-peer`, `@oa-sdk/peer-server`, `@oa-sdk/peer-transport`, `@oa-sdk/typespec-decorators`에는 Type Registry boundary evidence(명시적 `any`, 이중 assertion, 미검증 deserialize)가 남지 않았다. Type Registry gate는 명시적 `any` 249 → 134, 이중 assertion 37 → 27, 미검증 deserialize 175 → 118로 줄었고, budget을 그 값으로 낮췄다. 남은 detector false positive 9건(string→string percent-decoder `decode`, `TextDecoder.decode`, `unknown`을 돌려주는 generic JSON body codec)은 owner·만료일(2027-04-30)과 함께 [type-registry-policy.json](./type-registry-policy.json) allowlist에 올렸고, baseline은 review 후 `pnpm type-registry:write`로 갱신했다. `test/e2e/typespec-plugin`은 root script `pnpm test:e2e:typespec-plugin`으로 CI에 연결했다. `tests/e2e/output-routing-tanstack`이 2026-10-18 skill 재배치 뒤에도 옛 `.agents/skills/` 경로를 보던 것을 `.agents/skills-optional/`로 맞췄다. 동작 변경과 API 변경은 [changelog 2026-10-19 항목](../changelog.md)에, 구현 현황은 [spec.md](./spec.md)의 TypeSpec 계약 RPC와 바이너리 wire 절에, 새 테스트 등록은 [feature-test-matrix.md](./feature-test-matrix.md)(새 `webmcp-peer-routing` row 포함)에 반영했다.
+검증 (2026-10-19 working tree): `build:all`(35 task), `build:scripts`, `typecheck:all`(56 task), `test:core:ci`, `test:downstream:ci`, `test:maintenance:ci`, `test:internal:ci`, `test:integration`, `test:e2e:typespec-plugin`, `test:e2e`가 통과한다. CI gate인 `type-registry:check`, `check:docs`·`test:docs-gates`, `check:cli-spec`, `check:api-index`·`test:api-index`, `check:codegen-boundaries`, `check:feature-tests`, `check:spec-governance`, `check:workspace-scope`(release policy·preflight), `check:dpm-surface`, codegen `smoke:pack`, schema validate(Spectral·Redocly·`--require-32`)·schemas test·freshness·rollback·`schema:downstream-check`, browser runtime smoke, `bench:parser`, public runtime smoke(Node 24·26), `check:ts7`, NestJS·FastAPI reference governance(`openapi-governance.sh ci`)도 통과한다.
+잔여: 고치지 않은 후속은 [2026-10-19 안정화 후속](#2026-10-19-안정화-후속)에 둔다.
 
 ### [x] Links 응답 관계 메타데이터
 성공 응답의 Link Object를 typegen `XxxResponseLinks` 타입과 Op bundle `responseLinks` 필드로 생성한다.

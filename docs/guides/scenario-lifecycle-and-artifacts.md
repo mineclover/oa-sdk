@@ -60,14 +60,14 @@ oa-sdk 시나리오 거버넌스는 다음 3대 설계 철학을 따릅니다:
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ Stage 4. 시나리오 간 핸드오프 (Cross-Scenario Hand-off)                      │
 │   • SWITCH_SCENARIO 액션을 통한 페르소나 및 공유 컨텍스트 인계              │
-│   • 이전 시나리오 완료 상태(isCompleted) 보존 및 원활한 여정 연결            │
+│   • breadcrumbs 감사 기록은 이어지고 completedGoals는 새 시나리오에서 초기화 │
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
                                        ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ Stage 5. CI 검증 및 무결성 게이트 (CI Verification & Build Gate)             │
-│   • spec-lens scenario verify 명령을 통한 회귀 방지                         │
-│   • 고아 뷰 탐지 또는 도달 불가 시 빌드 즉시 실패 (Exit Code 1)             │
+│   • CI: @oa-sdk/spec-lens vitest(scenario-cli.test.ts)가 verify 검사 실행   │
+│   • 로컬: spec-lens scenario verify (결함 시 Exit Code 1)                    │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -77,20 +77,25 @@ oa-sdk 시나리오 거버넌스는 다음 3대 설계 철학을 따릅니다:
 
 ### Stage 2: 정적 컴파일 및 도달성 분석 (Static Compilation & Reachability)
 - `ScenarioFlowEnumerator.enumerate(scenario)`를 호출하여 시나리오 그래프를 빌드 타임에 검사합니다.
-- 선언된 모든 제한 뷰가 실제로 도달 가능한지(`reachableViews === boundedViews`), 목표에 도달하지 못하고 갇히는 고아 뷰가 없는지(`deadEnds.length === 0`), 최소 1개 이상의 터미널 패스가 존재하는지 정적으로 증명합니다.
+- 선언된 모든 제한 뷰가 실제로 도달 가능한지(`boundedViews ⊆ reachableViews`), 목표에 도달하지 못하고 갇히는 고아 뷰가 없는지(`deadEnds.length === 0`), 최소 1개 이상의 터미널 패스가 존재하는지 정적으로 증명합니다.
+- `scenario verify`는 여기에 더해 초기 뷰·전이 양 끝·완료 목표의 뷰가 모두 `boundedViews` 안에 있는지, 전이의 모든 `guardIds`가 시나리오 `guards`에 선언되어 있는지도 검사합니다(선언되지 않은 가드 ID는 런타임에 그 전이를 항상 거절합니다).
 
 ### Stage 3: 런타임 실행 및 가드 보호 (Runtime Execution & Guard Protection)
 - 사용자가 Spec-Lens 대시보드에서 행동(Action)을 트리거하면 순수 FSM 리듀서(`scenarioTransitionReducer`)가 동작합니다.
 - 전이 규칙에 등록된 가드(`require-diff-pair`, `require-path-pattern` 등)가 컨텍스트 데이터를 검증하며, 가드 미충족 시 상태 변경을 차단하고 상세 사유를 사용자에게 안내합니다.
-- 모든 성공적인 전이는 `breadcrumbs` 스택에 기록되어 무손실 뒤로가기(`STEP_BACK`)를 지원합니다.
+- 페이로드를 가진 액션의 전이는 `transformContext`로 그 페이로드를 컨텍스트에 기록합니다(`applyDiffPair`, `applyPathPattern`, `applySelectedSymbol` 등). 같은 뷰로 다시 들어오는 전이(예: `paths → diff` 재진입)도 새 값으로 갱신됩니다.
+- 모든 성공적인 전이는 `breadcrumbs` 스택에 기록됩니다. diff 뷰 단계의 브레드크럼은 그 단계가 보여 준 `baseId`/`headId`를 함께 기록합니다(컨텍스트에 두 값이 모두 있을 때만).
+- `STEP_BACK`은 브레드크럼 하나를 꺼내 직전 단계로 돌아갑니다. 그 단계의 `currentView`와 `activeScenarioId`를 복원하고, 그 단계가 리비전 쌍을 기록한 diff 단계이면 `baseId`/`headId`도 그 쌍으로 복원합니다. 그 밖의 컨텍스트(`pathPattern`/`selectedSymbol`/`revisionId`/`onlyBreaking` 등, 쌍을 기록하지 않은 단계의 `baseId`/`headId`)와 `completedGoals`는 되돌리지 않습니다. HUD의 `← 이전 단계`, Diff 화면의 뒤로 버튼, 브라우저 뒤로가기가 모두 이 `STEP_BACK`을 쓰므로, 어느 쪽으로 돌아가도 같은 단계는 같은 뷰와 같은 리비전 쌍을 보여 줍니다.
+- `?scenario=<id>` 딥링크는 URL의 `view`가 시나리오의 `boundedViews` 안에 있을 때만 그 뷰에서 시작하고, 아니면 시나리오의 `initialView`에서 시작합니다(`createInitialScenarioState`).
 
 ### Stage 4: 시나리오 간 핸드오프 (Cross-Scenario Hand-off)
 - 한 시나리오(예: `spec-drift-triage`)의 목표를 완료한 후 관련된 후속 시나리오(예: `breaking-impact-analysis`)로 즉시 컨텍스트를 인계할 수 있습니다.
-- `SWITCH_SCENARIO` 액션은 기존 시나리오의 완료 이력을 보존하면서 차기 시나리오의 초기 뷰와 페르소나로 매끄럽게 전환합니다.
+- `SWITCH_SCENARIO` 액션은 공유 컨텍스트(`baseId`/`headId` 등과 `handoffContext`)와 `breadcrumbs` 감사 기록(이전 `COMPLETE_GOAL` 항목 포함)을 그대로 이어 받은 채 차기 시나리오의 초기 뷰와 페르소나로 전환합니다.
+- `completedGoals`는 새 시나리오 기준으로 `[]`로 초기화됩니다. 이전 시나리오의 목표 완료 여부는 `breadcrumbs`의 `COMPLETE_GOAL` 항목으로만 확인할 수 있습니다.
 
 ### Stage 5: CI 검증 및 무결성 게이트 (CI Verification & Build Gate)
-- 지속적 통합(CI) 환경에서 `spec-lens scenario verify`를 수행합니다.
-- 임의의 PR이 전이 규칙이나 뷰 정의를 변경하여 도달성 깨짐, 가드 모순, 고아 뷰가 발생하면 즉시 빌드가 차단(Fail-Closed)됩니다.
+- CI는 `scenario verify` CLI를 별도 단계로 실행하지 않습니다. 같은 검사(`verifyAllScenarios`)를 `@oa-sdk/spec-lens` vitest 스위트의 `scenario-cli.test.ts`가 기본 레지스트리에 대해 실행하며, 이 스위트는 CI의 `pnpm test:core:ci`에 포함됩니다.
+- 따라서 기본 시나리오의 전이 규칙이나 뷰 정의를 바꿔 도달성 깨짐, 고아 뷰, 경계 밖 전이/목표, 선언되지 않은 가드 ID가 생기면 CI가 실패합니다. 가드의 의미 충돌(서로 모순되는 조건)은 정적으로 검사하지 않습니다.
 
 ---
 
@@ -181,7 +186,7 @@ Persona: ApiConsumer | Start: [paths]
   ┌─────────────────────────────┐
   │  View: paths                │
   └──────────────┬──────────────┘
-                 │ VIEW_SCHEMA_DEPENDENCIES [require-selected-endpoint]
+                 │ SELECT_FRAGMENT_SYMBOL [require-symbol-id]
                  ▼
   ┌─────────────────────────────┐
   │  View: graph                │
@@ -194,7 +199,7 @@ Persona: ApiConsumer | Start: [paths]
 ```
 
 ### 3.4 `verify` (전체 시나리오 무결성 CI 게이트)
-등록된 모든 시나리오의 정적 모델을 검사하여 고아 뷰, 미도달 뷰, 목표 결손 여부를 판정합니다:
+등록된 모든 시나리오의 정적 모델을 검사하여 고아 뷰, 미도달 제한 뷰, 목표 결손, `boundedViews` 밖의 초기 뷰·전이·완료 목표, 선언되지 않은 가드 ID를 판정합니다:
 
 ```bash
 pnpm exec tsx packages/spec-lens/src/cli.ts scenario verify
@@ -303,12 +308,15 @@ Spec-Lens 웹 대시보드(`apps/spec-lens`)는 Context-Action 패턴 기반의 
    - 사이드바 상단에 배치되어 `🌐 자유 탐색 모드`와 4대 시나리오 간 전환을 제어합니다.
 2. **`ScenarioProgressHUD` (진행 상황 헤드업 디스플레이)**:
    - 시나리오가 활성화되면 메인 헤더 상단에 고정 표시됩니다.
-   - 현재 단계(Step Number), 담당 페르소나 뱃지, 목표 완료(`COMPLETE_GOAL`) CTA 버튼, 무손실 단계 복귀(`STEP_BACK`) 버튼 제공.
+   - 현재 단계(Step Number), 담당 페르소나 뱃지, 목표 완료(`COMPLETE_GOAL`) CTA 버튼, 단계 복귀(`STEP_BACK`, 직전 단계의 뷰와 diff 단계이면 그 리비전 쌍 복원) 버튼 제공.
+   - 현재 뷰에서 허용된 전이를 **다음 단계 버튼**으로 보여 줍니다. 페이로드는 현재 뷰의 선택(Timeline 리비전 비교, Diff 항목, Path Provenance 행, Fragment Graph 노드)에서 오며, 선택이 없거나 가드가 거절하면 사유와 함께 비활성화됩니다. 거절된 전이(예: 시나리오 안의 사이드바 이동)의 사유도 표시합니다.
 3. **`ScenarioFlowModal` (실시간 FSM 상태 다이어그램 모달)**:
    - 언제든 `흐름도 보기` 버튼을 누르면 열리며, 전체 전이 규칙과 전이 행렬 테이블을 시각화합니다.
    - 현재 사용자가 머무르고 있는 뷰(Active View)가 실시간으로 펄스 하이라이트(Pulse Highlight)되어 유저 여정 상의 위치를 직관적으로 파악할 수 있습니다.
 4. **URL 상태 동기화 (`useUrlState`)**:
-   - `?scenario=spec-drift-triage` 쿼리 파라미터를 통해 브라우저 히스토리 및 북마크와 100% 동기화됩니다.
+   - 창마다 하나의 URL 스토어를 공유하므로 `ScenarioProvider`와 대시보드 셸이 같은 URL 상태를 봅니다. 전이 하나는 `scenario`·`view`(diff이면 `base`/`head`)를 한 번에 갱신하여 히스토리 항목 하나를 남깁니다.
+   - 브라우저 뒤로가기로 직전 히스토리 항목에 돌아가면, 그 URL을 보여 준 가장 최근 단계까지 `STEP_BACK`으로 되돌립니다. URL을 바꾸지 않은 단계(`COMPLETE_GOAL`, `FILTER_BREAKING_CHANGES`·`HIGHLIGHT_DEPENDENCY_CYCLE` 같은 자기 전이)는 히스토리 항목을 남기지 않으므로 함께 건너뜁니다. `SWITCH_SCENARIO` 이전 시나리오로도 같은 방식으로 돌아가며, diff 단계끼리는 브레드크럼에 기록된 `baseId`/`headId`로 구분합니다. 되돌아간 diff 단계의 리비전 쌍은 `STEP_BACK`이 복원하므로 HUD의 `← 이전 단계`로 돌아간 결과와 같습니다.
+   - 그 밖의 이동(앞으로가기, 직전 항목을 넘는 이동, 직접 고친 뷰)은 FSM이 허용하는 전이가 아니므로 URL을 현재 단계로 되돌립니다(`replaceState`). 렌더링 뷰, `machineState.currentView`, URL은 항상 같습니다.
 
 ---
 
@@ -343,7 +351,7 @@ Spec-Lens 웹 대시보드(`apps/spec-lens`)는 Context-Action 패턴 기반의 
 1. **Rule of 5 (제한 뷰 5개 이하)**: 단일 시나리오의 제한 뷰는 최대 5개 이하로 유지하십시오. 화면 수가 초과되면 시나리오를 분할하고 `SWITCH_SCENARIO` 핸드오프를 적용합니다.
 2. **Kebab-Case 식별자 컨벤션**: 가드는 `require-<condition>`, 완료 목표는 `<domain>-<action_past>` 표준을 엄격히 준수하십시오.
 3. **가드의 순수 함수화 (Pure Guard Evaluation)**: 가드의 `evaluate` 함수는 외부 네트워크 요청이나 DOM 조작 없이 오직 전달된 컨텍스트와 액션 페이로드만을 비교 평가해야 합니다.
-4. **가역적 내비게이션 보존 (Preserve Reversibility)**: 모든 순방향 전이는 필수 컨텍스트를 보존하여 `STEP_BACK` 시 100% 원복될 수 있어야 합니다.
+4. **가역적 내비게이션 보존 (Preserve Reversibility)**: `STEP_BACK`은 뷰와 시나리오, 그리고 diff 단계가 기록한 리비전 쌍(`baseId`/`headId`)만 되돌리고 나머지 컨텍스트는 되돌리지 않으므로, `transformContext`는 값을 덮어쓰거나 추가만 하고 직전 뷰의 가드가 의존하는 필드를 지우지 마십시오. 그래야 되돌아간 뷰에서도 다음 전이가 유효합니다.
 
 #### 2) 피해야 할 4대 안티패턴 (Anti-Patterns to Avoid)
 1. ❌ **무제약 뷰 선언 (Unbounded Views)**: `boundedViews`에 4개 이상의 전체 화면을 다 열어두어 평면 모델로 회귀시키는 행위.
@@ -355,17 +363,10 @@ Spec-Lens 웹 대시보드(`apps/spec-lens`)는 Context-Action 패턴 기반의 
 
 ## 7. 검증 및 CI 통합 가이드
 
-모노레포 빌드 파이프라인에서 시나리오 무결성을 보장하기 위해 `package.json` 스크립트에 통합되어 있습니다:
+전용 `package.json` 스크립트나 CI 단계는 없습니다. 시나리오 무결성은 다음 두 경로로 검증합니다:
 
-```json
-{
-  "scripts": {
-    "test:scenarios": "pnpm --filter @oa-sdk/spec-lens test && pnpm exec tsx packages/spec-lens/src/cli.ts scenario verify"
-  }
-}
-```
-
-CI 단계에서 `pnpm exec tsx packages/spec-lens/src/cli.ts scenario verify`가 실행되며, 모든 시나리오의 완결성(도달 가능성 100%, 0 Dead-Ends)이 검증됩니다.
+- **CI**: `pnpm test:core:ci`가 `@oa-sdk/spec-lens`의 `test:ci`를 실행하고, 그 안의 `scenario-cli.test.ts`가 `verifyAllScenarios`로 기본 시나리오 전체를 검사합니다(도달 가능성, 0 Dead-Ends, 터미널 패스, `boundedViews` 경계, 가드 선언). 리듀서·전이 계약은 `@oa-sdk/spec-lens-contract` 테스트가, 대시보드 연동은 `@oa-sdk/spec-lens-ui` 테스트가 검증합니다.
+- **로컬**: `pnpm exec tsx packages/spec-lens/src/cli.ts scenario verify`를 실행하면 같은 검사를 출력과 함께 수행하고, 결함이 있으면 종료 코드 `1`로 실패합니다.
 
 ---
 

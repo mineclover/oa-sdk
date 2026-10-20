@@ -9,8 +9,11 @@ export type RpcProcedureTypes = { input: unknown; output: unknown }
 /** Procedure types keyed by dotted procedure name, e.g. `{ 'users.getUserById': { input; output } }`. */
 export type RpcProcedureShape<P> = { [K in keyof P]: RpcProcedureTypes }
 
-/** Procedure map used when no generated procedure types are given. */
-export type UntypedProcedures = Record<string, { input: any; output: any }>
+/**
+ * Procedure map used when no generated procedure types are given: any input is accepted and
+ * results are `unknown` until the caller narrows them.
+ */
+export type UntypedProcedures = Record<string, RpcProcedureTypes>
 
 export type RpcCallOptions = {
   signal?: AbortSignal

@@ -1,139 +1,14 @@
+import { execFileSync } from 'node:child_process'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import * as governance from './governance.js'
 import { STORAGE_CATALOG_EXTENSION, STORAGE_REF_EXTENSION } from './storage.js'
-
-/**
- * Standard Atlas Schema Inspect JSON format (produced by `atlas schema inspect --format '{{ json . }}'`).
- */
-export interface AtlasSchemaInspectOutput {
-  schemas?: Array<{
-    name: string
-    tables?: AtlasTable[]
-  }>
-  tables?: AtlasTable[]
-}
-
-export interface AtlasTable {
-  name: string
-  columns: AtlasColumn[]
-  primary_key?: { columns: string[] }
-  indexes?: Array<{ name: string; columns: string[] }>
-}
-
-export interface AtlasColumn {
-  name: string
-  type: string
-  null?: boolean
-}
-
-export interface StorageMapping {
-  entityName: string
-  tableName: string
-  columns: Record<string, { columnName: string; expectedType: string }>
-}
-
-export interface DriftIssue {
-  severity: 'error' | 'warning'
-  category: 'missing-table' | 'missing-column' | 'type-mismatch'
-  message: string
-  entity: string
-  property?: string
-}
-
-/**
- * Pure, read-only static verification function that compares TypeSpec storageRef mappings
- * against Atlas physical schema evidence without touching the live database.
- */
-export function verifyAtlasSchemaDrift(
-  evidence: AtlasSchemaInspectOutput,
-  mappings: StorageMapping[],
-): { passed: boolean; issues: DriftIssue[] } {
-  const issues: DriftIssue[] = []
-
-  // Flatten tables from Atlas schemas or root tables array
-  const tableMap = new Map<string, AtlasTable>()
-  if (Array.isArray(evidence.tables)) {
-    for (const table of evidence.tables) {
-      tableMap.set(table.name.toLowerCase(), table)
-    }
-  }
-  if (Array.isArray(evidence.schemas)) {
-    for (const schema of evidence.schemas) {
-      for (const table of schema.tables ?? []) {
-        tableMap.set(table.name.toLowerCase(), table)
-        // Also support qualified schema.table name
-        tableMap.set(`${schema.name.toLowerCase()}.${table.name.toLowerCase()}`, table)
-      }
-    }
-  }
-
-  for (const mapping of mappings) {
-    const table = tableMap.get(mapping.tableName.toLowerCase())
-    if (!table) {
-      issues.push({
-        severity: 'error',
-        category: 'missing-table',
-        message: `Entity "${mapping.entityName}" references physical table "${mapping.tableName}", but it was not found in Atlas schema evidence.`,
-        entity: mapping.entityName,
-      })
-      continue
-    }
-
-    const columnMap = new Map<string, AtlasColumn>()
-    for (const col of table.columns) {
-      columnMap.set(col.name.toLowerCase(), col)
-    }
-
-    for (const [propName, colRef] of Object.entries(mapping.columns)) {
-      const col = columnMap.get(colRef.columnName.toLowerCase())
-      if (!col) {
-        issues.push({
-          severity: 'error',
-          category: 'missing-column',
-          message: `Property "${mapping.entityName}.${propName}" references physical column "${colRef.columnName}" on table "${mapping.tableName}", but the column is missing in Atlas evidence.`,
-          entity: mapping.entityName,
-          property: propName,
-        })
-        continue
-      }
-
-      // Basic dialect-tolerant type compatibility checking
-      const physicalType = col.type.toLowerCase()
-      const expectedType = colRef.expectedType.toLowerCase()
-
-      const isStringCompat =
-        expectedType === 'string' &&
-        (physicalType.includes('char') ||
-          physicalType.includes('text') ||
-          physicalType.includes('varchar') ||
-          physicalType.includes('uuid'))
-      const isNumberCompat =
-        (expectedType === 'number' || expectedType === 'integer') &&
-        (physicalType.includes('int') ||
-          physicalType.includes('numeric') ||
-          physicalType.includes('decimal') ||
-          physicalType.includes('float') ||
-          physicalType.includes('real'))
-      const isBooleanCompat =
-        expectedType === 'boolean' &&
-        (physicalType.includes('bool') || physicalType === 'tinyint(1)')
-
-      if (!isStringCompat && !isNumberCompat && !isBooleanCompat) {
-        issues.push({
-          severity: 'warning',
-          category: 'type-mismatch',
-          message: `Property "${mapping.entityName}.${propName}" expects type "${colRef.expectedType}", but physical column "${colRef.columnName}" has type "${col.type}".`,
-          entity: mapping.entityName,
-          property: propName,
-        })
-      }
-    }
-  }
-
-  return {
-    passed: issues.filter(i => i.severity === 'error').length === 0,
-    issues,
-  }
-}
+import {
+  AtlasSchemaInspectOutputSchema,
+  verifyAtlasSchemaDrift,
+  type AtlasSchemaInspectOutput,
+  type StorageMapping,
+} from './storage-drift.js'
 
 describe('Atlas DB Schema Drift Static Verification', () => {
   it('exposes the standard storage extension keys', () => {
@@ -249,5 +124,84 @@ describe('Atlas DB Schema Drift Static Verification', () => {
     expect(result.issues).toHaveLength(1)
     expect(result.issues[0]?.category).toBe('type-mismatch')
     expect(result.issues[0]?.message).toContain('expects type "number", but physical column "price" has type "varchar(32)"')
+  })
+
+  it('resolves schema-qualified tables from Atlas schemas[] evidence', () => {
+    const evidence = AtlasSchemaInspectOutputSchema.parse({
+      schemas: [
+        {
+          name: 'public',
+          tables: [{ name: 'users', columns: [{ name: 'user_id', type: 'uuid', null: false }] }],
+        },
+      ],
+    })
+    const mappings: StorageMapping[] = [
+      { entityName: 'UserEntity', tableName: 'public.users', columns: { id: { columnName: 'user_id', expectedType: 'string' } } },
+      { entityName: 'UserByBareName', tableName: 'USERS', columns: { id: { columnName: 'USER_ID', expectedType: 'string' } } },
+    ]
+
+    expect(verifyAtlasSchemaDrift(evidence, mappings)).toEqual({ passed: true, issues: [] })
+  })
+})
+
+describe('AtlasSchemaInspectOutputSchema', () => {
+  it('keeps the members the verifier reads and drops other Atlas fields', () => {
+    const parsed = AtlasSchemaInspectOutputSchema.parse(JSON.parse(JSON.stringify({
+      tables: [
+        {
+          name: 'users',
+          columns: [{ name: 'user_id', type: 'varchar(64)', null: false, charset: 'utf8' }],
+          primary_key: { parts: [{ column: 'user_id' }] },
+        },
+      ],
+      realm: 'local',
+    })))
+
+    expect(parsed).toEqual({
+      tables: [{ name: 'users', columns: [{ name: 'user_id', type: 'varchar(64)', null: false }] }],
+    })
+  })
+
+  it('rejects evidence whose shape the verifier cannot read, naming the bad field', () => {
+    expect(() => AtlasSchemaInspectOutputSchema.parse([])).toThrow(TypeError)
+    expect(() => AtlasSchemaInspectOutputSchema.parse({ tables: {} })).toThrow('tables must be an array')
+    expect(() => AtlasSchemaInspectOutputSchema.parse({ tables: [{ name: 'users' }] })).toThrow(
+      'tables[0].columns must be an array',
+    )
+    expect(() =>
+      AtlasSchemaInspectOutputSchema.parse({ tables: [{ name: 'users', columns: [{ name: 'id', type: 3 }] }] }),
+    ).toThrow('tables[0].columns[0].type must be a non-empty string')
+    expect(() =>
+      AtlasSchemaInspectOutputSchema.parse({ schemas: [{ name: 'public', tables: [{ columns: [] }] }] }),
+    ).toThrow('schemas[0].tables[0].name must be a non-empty string')
+  })
+})
+
+describe('documented entry point of the Atlas drift check', () => {
+  const packageDirectory = resolve(import.meta.dirname, '..')
+
+  it('is exported from the `./governance` subpath source', () => {
+    expect(governance.verifyAtlasSchemaDrift).toBe(verifyAtlasSchemaDrift)
+    expect(governance.AtlasSchemaInspectOutputSchema).toBe(AtlasSchemaInspectOutputSchema)
+  })
+
+  it('resolves `@oa-sdk/typespec-decorators/governance` through the package export map, as the guide imports it', () => {
+    // Runs Node in the package scope, so the specifier goes through package.json `exports`
+    // to the built `dist/governance.js` exactly as a consumer's CI script would.
+    const script = [
+      "import { AtlasSchemaInspectOutputSchema, verifyAtlasSchemaDrift } from '@oa-sdk/typespec-decorators/governance'",
+      "const evidence = AtlasSchemaInspectOutputSchema.parse({ schemas: [{ name: 'main', tables: [{ name: 'users', columns: [{ name: 'user_id', type: 'varchar(64)' }] }] }] })",
+      "const mappings = [{ entityName: 'UserEntity', tableName: 'users', columns: { id: { columnName: 'user_id', expectedType: 'string' }, email: { columnName: 'email_address', expectedType: 'string' } } }]",
+      'console.log(JSON.stringify(verifyAtlasSchemaDrift(evidence, mappings)))',
+    ].join('\n')
+    const output = execFileSync(process.execPath, ['--input-type=module', '-e', script], {
+      cwd: packageDirectory,
+      encoding: 'utf8',
+    })
+    const report: unknown = JSON.parse(output)
+    expect(report).toMatchObject({
+      passed: false,
+      issues: [{ severity: 'error', category: 'missing-column', entity: 'UserEntity', property: 'email' }],
+    })
   })
 })

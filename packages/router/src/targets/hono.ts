@@ -40,6 +40,16 @@ export interface HonoTargetOptions {
   contextTypeName?: string | undefined
 }
 
+/**
+ * Statuses a Fetch `Response` cannot carry a body with (101 and 103 are outside the 200-599 range a
+ * `Response` accepts at all). Answering them through `c.json()` makes the constructor throw.
+ */
+const NULL_BODY_STATUSES: readonly number[] = [204, 205, 304]
+
+function isNullBodyStatus(status: number): boolean {
+  return NULL_BODY_STATUSES.includes(status)
+}
+
 export function renderHonoRouter(
   doc: ParsedDocument,
   options: HonoTargetOptions = {},
@@ -157,8 +167,8 @@ function renderLegacyHonoStub(
       lines.push(`    const responseHeaders: Partial<${baseName}ResponseHeaders> = {}`)
       lines.push(`    __setOaResponseHeaders<${baseName}ResponseHeaders>((name, value) => c.header(name, value), responseHeaders)`)
     }
-    if (status === 204) {
-      lines.push(`    return c.body(null, 204)`)
+    if (isNullBodyStatus(status)) {
+      lines.push(`    return c.body(null, ${status})`)
     } else if (hasTypedResponseBody) {
       lines.push(`    return c.json({} as ${baseName}Response, ${status})`)
     } else {
@@ -386,9 +396,14 @@ function renderContractHono(
     lines.push(`          }`)
     lines.push(`        }`)
     lines.push(`        if (resp.status === 204) return c.body(null, 204)`)
+    lines.push(`        const respStatus = resp.status ?? ${status}`)
+    lines.push(`        // 204, 205 and 304 cannot carry a body (Response rejects one), e.g. a 304 revalidation.`)
+    lines.push(`        if (${NULL_BODY_STATUSES.map(code => `respStatus === ${code}`).join(' || ')}) return c.body(null, respStatus)`)
     lines.push(`        const b = resp.body`)
+    lines.push(`        // An error envelope without a body (e.g. 416 with body: null) answers with no body, not a JSON null.`)
+    lines.push(`        if ((b === null || b === undefined) && (respStatus < 200 || respStatus >= 300)) return c.body(null, respStatus as any)`)
     lines.push(`        const isStream = b instanceof Uint8Array || (typeof ReadableStream !== 'undefined' && b instanceof ReadableStream)`)
-    lines.push(`        if (isStream) return c.body(b as any, (resp.status ?? ${status}) as any)`)
+    lines.push(`        if (isStream) return c.body(b as any, respStatus as any)`)
     lines.push(`        if (b !== null && b !== undefined && typeof b === 'object' && Symbol.asyncIterator in (b as any)) {`)
     lines.push(`          const it = (b as any)[Symbol.asyncIterator]()`)
     lines.push(`          const stream = new ReadableStream({`)
@@ -400,12 +415,12 @@ function renderContractHono(
     lines.push(`              await it.return?.(reason)`)
     lines.push(`            }`)
     lines.push(`          })`)
-    lines.push(`          return c.body(stream, (resp.status ?? ${status}) as any)`)
+    lines.push(`          return c.body(stream, respStatus as any)`)
     lines.push(`        }`)
-    lines.push(`        return c.json(resp.body, (resp.status ?? ${status}) as any)`)
+    lines.push(`        return c.json(resp.body, respStatus as any)`)
     lines.push(`      }`)
-    if (status === 204) {
-      lines.push(`      return c.body(null, 204)`)
+    if (isNullBodyStatus(status)) {
+      lines.push(`      return c.body(null, ${status})`)
     } else {
       lines.push(`      const isStream = result instanceof Uint8Array || (typeof ReadableStream !== 'undefined' && result instanceof ReadableStream)`)
       lines.push(`      if (isStream) return c.body(result as any, ${status} as any)`)

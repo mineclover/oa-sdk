@@ -2,11 +2,47 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  applyUrlStatePatch,
+  createUrlStateStore,
+  getUrlStateStore,
   parseUrlState,
   serializeUrlState,
   useUrlState,
   type DashboardUrlState,
+  type UrlStateWindow,
 } from './useUrlState.js'
+
+/** A window stub whose history writes move `location`, like a browser. */
+function createFakeWindow(search = '', pathname = '/') {
+  const location = { pathname, search }
+  const listeners = new Set<() => void>()
+  const moveTo = (url?: string | null) => {
+    if (!url) return
+    const next = new URL(url, 'http://spec-lens.test')
+    location.pathname = next.pathname
+    location.search = next.search
+  }
+  const win = {
+    location,
+    history: {
+      pushState: vi.fn((_data: unknown, _unused: string, url?: string | null) => moveTo(url)),
+      replaceState: vi.fn((_data: unknown, _unused: string, url?: string | null) => moveTo(url)),
+    },
+    addEventListener: vi.fn((_type: 'popstate', listener: () => void) => {
+      listeners.add(listener)
+    }),
+    removeEventListener: vi.fn((_type: 'popstate', listener: () => void) => {
+      listeners.delete(listener)
+    }),
+    /** Simulates the browser moving to `nextSearch` via back/forward. */
+    popTo(nextSearch: string) {
+      location.search = nextSearch
+      for (const listener of [...listeners]) listener()
+    },
+    listenerCount: () => listeners.size,
+  } satisfies UrlStateWindow & Record<string, unknown>
+  return win
+}
 
 describe('parseUrlState', () => {
   it('defaults to timeline view for empty query string', () => {
@@ -188,7 +224,7 @@ describe('useUrlState Hook', () => {
     })
   })
 
-  it('triggers pushState for setView and setDiff, and replaceState for setFilters', () => {
+  it('triggers pushState for setView and setDiff, and replaceState for setFilters, composing on the latest state', () => {
     const pushState = vi.fn()
     const replaceState = vi.fn()
 
@@ -214,54 +250,106 @@ describe('useUrlState Hook', () => {
     renderToStaticMarkup(createElement(Consumer))
     expect(actions).not.toBeNull()
 
-    // Test setView
+    // Setters captured from one render still build on the latest state (no stale closure).
     actions!.setView('paths', true)
-    expect(pushState).toHaveBeenCalledWith(null, '', '/?view=paths')
+    expect(pushState).toHaveBeenLastCalledWith(null, '', '/?view=paths')
 
-    // Test setDiff
     actions!.setDiff('commitA', 'commitB', true)
-    expect(pushState).toHaveBeenCalledWith(null, '', '/?view=diff&base=commitA&head=commitB')
+    expect(pushState).toHaveBeenLastCalledWith(null, '', '/?view=diff&base=commitA&head=commitB')
 
-    // Test setFilters with replaceState
     actions!.setFilters({ search: 'users', scope: 'public' }, true)
-    expect(replaceState).toHaveBeenCalledWith(null, '', '/?search=users&scope=public')
+    expect(replaceState).toHaveBeenLastCalledWith(
+      null,
+      '',
+      '/?view=diff&base=commitA&head=commitB&search=users&scope=public',
+    )
 
-    // Test setRevision
     actions!.setRevision('rev-123', true)
-    expect(pushState).toHaveBeenCalledWith(null, '', '/?revision=rev-123')
+    expect(pushState).toHaveBeenLastCalledWith(
+      null,
+      '',
+      '/?view=diff&base=commitA&head=commitB&revision=rev-123&search=users&scope=public',
+    )
+
+    // Leaving the diff view drops the diff ids.
+    actions!.setView('graph', true)
+    expect(pushState).toHaveBeenLastCalledWith(null, '', '/?view=graph&revision=rev-123&search=users&scope=public')
   })
 
-  it('registers popstate listener on mount and unregisters on unmount', () => {
-    const addEventListener = vi.fn()
-    const removeEventListener = vi.fn()
+  it('applies a multi-field update as one history entry', () => {
+    const win = createFakeWindow('?view=diff&base=a&head=b')
+    const store = createUrlStateStore(win)
 
-    vi.stubGlobal('window', {
-      location: {
-        pathname: '/',
-        search: '?view=paths',
-      },
-      history: {
-        pushState: vi.fn(),
-        replaceState: vi.fn(),
-      },
-      addEventListener,
-      removeEventListener,
+    store.update({ view: 'paths', baseId: undefined, headId: undefined, scenario: 'endpoint-exploration' }, 'push')
+
+    expect(win.history.pushState).toHaveBeenCalledTimes(1)
+    expect(win.history.pushState).toHaveBeenCalledWith(null, '', '/?scenario=endpoint-exploration&view=paths')
+    expect(store.getState()).toEqual({ view: 'paths', scenario: 'endpoint-exploration' })
+  })
+
+  it('does not add a history entry when an update leaves the URL unchanged', () => {
+    const win = createFakeWindow('?view=graph')
+    const store = createUrlStateStore(win)
+    store.update({ view: 'graph' }, 'push')
+    expect(win.history.pushState).not.toHaveBeenCalled()
+  })
+
+  it('shares one store per window, so every consumer sees updates made by any of them', () => {
+    const win = createFakeWindow('')
+    const a = getUrlStateStore(win)
+    const b = getUrlStateStore(win)
+    expect(a).toBe(b)
+    expect(getUrlStateStore(createFakeWindow(''))).not.toBe(a)
+
+    const seen: string[] = []
+    const unsubscribe = b.subscribe(() => seen.push(b.getState().view))
+    a.update({ view: 'paths' })
+    expect(seen).toEqual(['paths'])
+    expect(b.getState().view).toBe('paths')
+    unsubscribe()
+  })
+
+  it('listens to popstate only while subscribed and re-reads the location on back/forward', () => {
+    const win = createFakeWindow('?view=paths')
+    const store = createUrlStateStore(win)
+    expect(win.addEventListener).not.toHaveBeenCalled()
+
+    const notified = vi.fn()
+    const unsubscribe = store.subscribe(notified)
+    expect(win.addEventListener).toHaveBeenCalledWith('popstate', expect.any(Function))
+    expect(win.listenerCount()).toBe(1)
+
+    win.popTo('?view=graph&scenario=circular-ref-diagnostic')
+    expect(notified).toHaveBeenCalledTimes(1)
+    expect(store.getState()).toEqual({ view: 'graph', scenario: 'circular-ref-diagnostic' })
+
+    unsubscribe()
+    expect(win.removeEventListener).toHaveBeenCalledWith('popstate', win.addEventListener.mock.calls[0]![1])
+    expect(win.listenerCount()).toBe(0)
+  })
+})
+
+describe('applyUrlStatePatch', () => {
+  it('removes keys patched to undefined or empty and keeps alias pairs in sync', () => {
+    const prev = parseUrlState('?view=diff&base=a&head=b&revision=r&search=s')
+    expect(applyUrlStatePatch(prev, { search: '', revisionId: undefined })).toEqual({
+      view: 'diff',
+      baseId: 'a',
+      headId: 'b',
+      base: 'a',
+      head: 'b',
     })
+    expect(applyUrlStatePatch(prev, { base: 'c' })).toMatchObject({ baseId: 'c', base: 'c' })
+  })
 
-    function Consumer() {
-      useUrlState()
-      return createElement('div')
-    }
+  it('drops diff ids off the diff view and falls back to timeline for a diff without a pair', () => {
+    expect(applyUrlStatePatch(parseUrlState('?view=diff&base=a&head=b'), { view: 'paths' })).toEqual({ view: 'paths' })
+    expect(applyUrlStatePatch({ view: 'timeline' }, { view: 'diff' })).toEqual({ view: 'timeline' })
+  })
 
-    renderToStaticMarkup(createElement(Consumer))
-    // In React 19 SSR, useEffect is not executed during renderToStaticMarkup,
-    // but the hook can be directly tested for popstate registration in a simulated effect
-    const onPopState = vi.fn()
-    window.addEventListener('popstate', onPopState)
-    expect(addEventListener).toHaveBeenCalledWith('popstate', onPopState)
-
-    window.removeEventListener('popstate', onPopState)
-    expect(removeEventListener).toHaveBeenCalledWith('popstate', onPopState)
+  it('round-trips through serialize/parse', () => {
+    const next = applyUrlStatePatch({ view: 'timeline' }, { view: 'diff', baseId: 'a', headId: 'b', scenario: 'x' })
+    expect(parseUrlState(serializeUrlState(next, '').replace(/^[^?]*/, ''))).toEqual(next)
   })
 })
 

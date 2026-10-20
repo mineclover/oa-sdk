@@ -216,6 +216,24 @@ paths:
     expect(fs.existsSync(path.join(optionsDir, 'hooks.ts'))).toBe(false)
   })
 
+  it('keeps a combined --tier options/hooks file self-contained (no split-module imports)', async () => {
+    for (const tier of ['options', 'hooks'] as const) {
+      const file = path.join(tmpDir, `combined-${tier}.ts`)
+      await generateTanstackCommand.run(
+        { spec: sampleSpecPath, output: file, tier },
+        { projectRoot: tmpDir, cwd: tmpDir },
+      )
+      const content = fs.readFileSync(file, 'utf8')
+      // A combined file has no sibling keys/queries modules to import from.
+      expect(content).not.toMatch(/from '\.\/(?:keys|queries)(?:\.js)?'/)
+      expect(content).toContain('listUsersQueryOptions')
+      // The key factory the options use is defined in the same file.
+      expect(content).toContain('export const usersKeys')
+      if (tier === 'hooks') expect(content).toContain('useListUsers')
+      else expect(content).not.toContain('useListUsers')
+    }
+  })
+
   it('supports --framework vue and svelte target packages', async () => {
     const vueFile = path.join(tmpDir, 'vue-queries.ts')
     await generateTanstackCommand.run(

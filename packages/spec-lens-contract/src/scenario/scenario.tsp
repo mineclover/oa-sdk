@@ -45,6 +45,12 @@ model ScenarioStepProvenance {
   actionType: string;
   timestamp: int64;
   summary?: string;
+
+  @doc("단계가 보여준 비교 기준 리비전. view가 diff이고 컨텍스트에 baseId/headId가 모두 있는 단계에만 기록되며, STEP_BACK이 이 단계로 돌아올 때 복원된다.")
+  baseId?: string;
+
+  @doc("단계가 보여준 비교 대상 리비전. view가 diff이고 컨텍스트에 baseId/headId가 모두 있는 단계에만 기록되며, STEP_BACK이 이 단계로 돌아올 때 복원된다.")
+  headId?: string;
 }
 
 @doc("시나리오 시작 액션 입력")

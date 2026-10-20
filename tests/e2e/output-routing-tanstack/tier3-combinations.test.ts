@@ -389,8 +389,8 @@ describe('Tier 3: Cross-Feature Combinations (Pairwise & Multi-Feature)', () => 
   })
 
   it('T3-20: Monorepo Governance Manifest Parity + Skill Syntax Validation', async () => {
-    const codegenSkillPath = path.resolve(process.cwd(), '.agents/skills/oa-codegen/SKILL.md')
-    const onboardingSkillPath = path.resolve(process.cwd(), '.agents/skills/oa-onboarding/SKILL.md')
+    const codegenSkillPath = path.resolve(process.cwd(), '.agents/skills-optional/oa-codegen/SKILL.md')
+    const onboardingSkillPath = path.resolve(process.cwd(), '.agents/skills-optional/oa-onboarding/SKILL.md')
 
     const codegenContent = await fs.readFile(codegenSkillPath, 'utf8')
     const onboardingContent = await fs.readFile(onboardingSkillPath, 'utf8')

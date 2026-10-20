@@ -429,39 +429,77 @@ CLI를 통한 파일 생성(`oa-gen generate:client`) 외에도, TypeSpec(`.tsp`
 
 | 항목 | CLI 생성 클라이언트 (`@oa-sdk/client`) | openapi-ts 스타일 클라이언트 (`pluginClient`) |
 |---|---|---|
-| 메서드 형태 | `client.getUserById({ userId }, { signal })` | `client.GET('/users/{userId}', { path: { userId }, signal })` |
-| 엔드포인트 명시성 | operationId 기반 메서드 | HTTP Method + URL Path 경로 기반 매핑 |
+| 메서드 형태 | `client.getUserById({ userId }, { signal })` | 독립 함수 `getUserById({ path: { userId }, signal })` 또는 `client.get({ url: '/users/{userId}', path: { userId }, signal })` |
+| 클라이언트 생성 | `createClient(config)` | `createClient(config)` (`setDefaultClient(client)`로 기본 클라이언트 교체) |
+| 엔드포인트 명시성 | operationId 기반 메서드 | operationId 기반 독립 함수(짧은 이름 `getUserById`와 전체 이름 `usersGetUserById`) 또는 HTTP 메서드 + URL 경로 |
 | 인자 바인딩 | 파라미터별 분리 인자 | `{ path, query, body, headers }` 단일 객체 |
-| 오류 식별 패턴 | try-catch + `<Op>ClientError` | `{ data, error, response }` + `isErrorStatus(res, code)` 판별 유니온 |
+| 오류 식별 패턴 | try-catch + `<Op>ClientError` | `{ data, error, response }` + `isErrorStatus(res, code)` (선언된 상태는 `res.error`까지 축소) |
 | 빌드 파이프라인 | CLI 사전 생성 파일 디스크 저장 | 인메모리 프로그래머블 빌더 / Vite dev loop 실시간 HMR |
 
 ### 8.2 멀티 상태 에러 식별 유니온 (`isErrorStatus`)
 
-openapi-ts 스타일 클라이언트는 TypeScript 판별 유니온(discriminated union)을 활용하여 HTTP 상태 코드별로 에러 페이로드를 타입 가드로 좁힐 수 있습니다:
+openapi-ts 스타일 클라이언트의 결과 타입 `ClientResult<TData, TError, TErrors>`는 오퍼레이션이 선언한 에러 상태마다 분기를 가집니다. `isErrorStatus(res, status)`는 선언된 상태라면 `res.error`를 그 상태의 모델(`<Op>Errors[status]`)로, 선언되지 않은 상태라면 `response.status`만 좁힙니다. 아래 예시는 TypeSpec `Users` 네임스페이스에 `op getUserById(@path userId: string): User | NotFound | Conflict`(`NotFound`는 `@statusCode code: 404`, `Conflict`는 `@statusCode code: 409`인 `@error` 모델)를 선언한 경우입니다(operationId `Users_getUserById`):
 
 ```typescript
-import { createTspClient, isErrorStatus } from './api/client.js'
+import { createClient, getUserById, isErrorStatus } from './api/client.js'
 
-const client = createTspClient({ baseUrl: 'https://api.example.com' })
+const client = createClient({ baseUrl: 'https://api.example.com' })
 
-const res = await client.GET('/users/{userId}', {
+const res = await getUserById({
+  client,
   path: { userId: 'user-123' },
 })
 
 if (res.error) {
   if (isErrorStatus(res, 404)) {
-    // res.error는 { message: string, code: 'NOT_FOUND' }로 자동 축소(narrowing)
+    // res.error는 NotFound (= GetUserByIdErrors[404])로 축소됩니다
     console.error('사용자를 찾을 수 없습니다:', res.error.message)
   } else if (isErrorStatus(res, 409)) {
-    // res.error는 { conflictKey: string, reason: string }으로 자동 축소
+    // res.error는 Conflict (= GetUserByIdErrors[409])로 축소됩니다
     console.warn('충돌 발생:', res.error.conflictKey)
+  } else {
+    // 그 밖의 상태: res.error는 에러 유니온 NotFound | Conflict
+    console.error(`HTTP ${res.response.status}`, res.error)
   }
   return
 }
 
-// res.data는 200 OK User 페이로드로 완벽 추론
+// res.data는 200 OK User 페이로드로 추론됩니다
 console.log('조회 성공:', res.data.name)
 ```
+
+- `GetUserByIdErrors`는 `pluginTypescript`가 만든 `<BaseName>ErrorByStatus`(예: `UsersGetUserByIdErrorByStatus`)의 별칭이고, `GetUserByIdErrorUnion`(`ErrorUnion<GetUserByIdErrors>`)은 `{ status: 404; error: NotFound } | { status: 409; error: Conflict }`입니다. `default` 응답이 있으면 `{ status: number; error: ... }` 멤버가 추가됩니다.
+- `isErrorStatus`는 에러 본문이 있는 응답(`res.error !== undefined`)에서만 참입니다. `fetch`와 `axios` 전송 모두 빈 본문을 `undefined`로, JSON 본문을 파싱한 값으로, 그 밖의 텍스트를 문자열로 읽으므로 전송 방식과 관계없이 같은 결과가 나옵니다(`axios`는 이를 위해 `responseType: 'text'`로 요청합니다).
+
+### 8.2.1 TanStack Query와 함께 쓰기
+
+빌더에서 `pluginTanstackQuery`를 `pluginClient`와 함께 쓰면, 생성된 TanStack 코드가 받는 오퍼레이션 메서드 클라이언트(`ApiClient`)를 `pluginClient` SDK 위에 구현한 `api-client.ts`가 함께 생성됩니다. TanStack 심볼은 operationId의 전체 이름(`usersGetUserById*`)을 씁니다:
+
+```typescript
+import { createClient } from './api/client.js'
+import { ApiClientResponseError, createApiClient } from './api/api-client.js'
+import { usersGetUserByIdQueryOptions } from './api/queries.js'
+
+const apiClient = createApiClient(createClient({ baseUrl: 'https://api.example.com' }))
+
+try {
+  // 성공 응답은 payload로 resolve됩니다
+  const user = await queryClient.fetchQuery(usersGetUserByIdQueryOptions(apiClient, { userId: 'user-123' }))
+  console.log(user.name)
+} catch (error) {
+  if (error instanceof ApiClientResponseError) {
+    // 에러 모델이 선언되지 않은 상태(예: 500)나 빈 본문: status, body, response를 가집니다
+    console.error(`HTTP ${error.status}`, error.body)
+  } else {
+    // 선언된 상태(404/409)는 파싱한 에러 본문 자체로 reject됩니다: NotFound | Conflict (= UsersGetUserByIdError)
+    console.error(error)
+  }
+}
+```
+
+- reject 값은 생성된 TanStack 코드가 선언한 에러 타입(`UndefinedInitialDataOptions<..., UsersGetUserByIdError, ...>`)과 맞춰집니다. 응답 상태에 `application/json` 에러 모델이 선언되어 있으면(명시적 4xx/5xx, 또는 다른 응답 항목이 다루지 않는 상태의 `default`) 파싱한 본문으로, 아니면 `ApiClientResponseError`로 reject됩니다. 에러 모델이 없는 오퍼레이션의 TanStack 에러 타입은 `Error`이고 항상 `ApiClientResponseError`로 reject됩니다.
+- `ApiClientResponseError`(그리고 네트워크 오류·abort)는 에러 모델을 선언한 오퍼레이션의 TanStack 에러 타입에 포함되지 않으므로, `query.error`/`onError`에서는 `instanceof ApiClientResponseError`로 먼저 좁힙니다.
+- 어댑터는 SDK 함수를 `throwOnError: false`로 호출하므로 `createClient({ throwOnError: true })` 설정과 무관하게 같은 값으로 reject됩니다.
 
 ### 8.3 Vite dev loop 통합 및 상세 가이드
 

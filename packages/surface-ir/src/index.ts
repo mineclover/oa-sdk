@@ -559,12 +559,15 @@ export type {
   InterfaceSketchIr,
   SketchArenaCandidateScore,
   SketchArenaComparison,
+  SketchDiagnostic,
+  SketchDiagnosticCode,
   SketchFieldIr,
   SketchInterfaceIr,
   SketchModelIr,
   SketchOperationIr,
   SketchParamIr,
   SketchUnionOrEnumIr,
+  SketchVariantIr,
   TypeSpecProfileKind,
 } from './interface-sketch.js'
 

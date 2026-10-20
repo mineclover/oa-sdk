@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Timeline } from './views/Timeline.js'
@@ -13,6 +13,12 @@ import {
   ScenarioProgressHUD,
   ScenarioFlowModal,
   ScenarioSelector,
+  createScenarioActionHelpers,
+  resolveShellView,
+  selectionFromDiffPointer,
+  selectionFromGraphNode,
+  selectionFromPathEntry,
+  useScenario,
 } from './scenario/index.js'
 
 export function App() {
@@ -27,8 +33,13 @@ export function App() {
 
 function AppShell() {
   const { t, i18n } = useTranslation()
-  const { state: urlState, setView, setDiff } = useUrlState()
-  const view = urlState.view
+  // Same shared URL store the ScenarioProvider writes; the provider keeps the URL equal to
+  // machineState.currentView, and resolveShellView picks the view to render from the two.
+  const { state: urlState } = useUrlState()
+  const { activeScenario, machineState, canStepBack, dispatch, publishSelection } = useScenario()
+  const shell = resolveShellView(urlState, machineState)
+  const view = shell.view
+  const scenarioActions = useMemo(() => createScenarioActionHelpers(dispatch), [dispatch])
 
   const { data: serverConfig } = useQuery({
     queryKey: ['config'],
@@ -62,10 +73,7 @@ function AppShell() {
     })
   }
 
-  const diffIds =
-    view === 'diff' && urlState.baseId && urlState.headId
-      ? { base: urlState.baseId, head: urlState.headId }
-      : null
+  const diffIds = shell.diff ? { base: shell.diff.baseId, head: shell.diff.headId } : null
 
   const NAV_ITEMS: Array<{ id: Exclude<DashboardUrlState['view'], 'diff'>; label: string; icon: string }> = [
     { id: 'timeline', label: t('navTimeline'), icon: '⏱' },
@@ -73,15 +81,27 @@ function AppShell() {
     { id: 'graph',    label: t('navGraph'),    icon: '◎' },
   ]
 
+  // Every navigation goes through the FSM: in free mode the reducer accepts it, inside a
+  // scenario only permitted transitions move the view (a rejection shows in the HUD).
   function openDiff(baseId: string, headId: string) {
-    setDiff(baseId, headId, true)
+    scenarioActions.requestDiff(baseId, headId)
+  }
+
+  function navigate(target: DashboardUrlState['view']) {
+    scenarioActions.navigateView(target)
   }
 
   function goBack() {
+    if (activeScenario) {
+      // Inside a scenario "back" is the previous step; at its origin the FSM decides (and explains).
+      if (canStepBack) scenarioActions.stepBack()
+      else navigate('timeline')
+      return
+    }
     if (typeof window !== 'undefined' && window.history.length > 1) {
       window.history.back()
     } else {
-      setView('timeline', true)
+      navigate('timeline')
     }
   }
 
@@ -254,7 +274,7 @@ function AppShell() {
             <button
               key={item.id}
               type="button"
-              onClick={() => setView(item.id)}
+              onClick={() => navigate(item.id)}
               className={`nav-item${collapsed ? ' collapsed' : ''}${activeNav === item.id ? ' active' : ''}`}
               aria-current={activeNav === item.id ? 'page' : undefined}
               title={collapsed ? item.label : undefined}
@@ -312,11 +332,28 @@ function AppShell() {
         <ScenarioFlowModal />
         {view === 'timeline' && <Timeline onSelectDiff={openDiff} />}
         {view === 'diff' && diffIds && (
-          <DiffView baseId={diffIds.base} headId={diffIds.head} onBack={goBack} />
+          <DiffView
+            baseId={diffIds.base}
+            headId={diffIds.head}
+            onBack={goBack}
+            onSelectEntry={(pointer) => publishSelection(selectionFromDiffPointer(pointer))}
+            breakingOnly={activeScenario ? machineState.onlyBreaking === true : undefined}
+          />
         )}
         {view === 'diff' && !diffIds && <Timeline onSelectDiff={openDiff} />}
-        {view === 'paths' && <PathProvenance />}
-        {view === 'graph' && <FragmentGraph />}
+        {view === 'paths' && (
+          <PathProvenance
+            key={activeScenario ? `scenario:${machineState.pathPattern ?? ''}` : 'free'}
+            initialSearch={activeScenario ? machineState.pathPattern : undefined}
+            onSelectEntry={(entry) => publishSelection(entry ? selectionFromPathEntry(entry) : null)}
+          />
+        )}
+        {view === 'graph' && (
+          <FragmentGraph
+            focusSymbolId={activeScenario ? machineState.selectedSymbol : undefined}
+            onSelectNode={(node) => publishSelection(node ? selectionFromGraphNode(node) : null)}
+          />
+        )}
       </main>
     </div>
   )

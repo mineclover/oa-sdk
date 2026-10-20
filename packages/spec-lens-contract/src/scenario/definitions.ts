@@ -5,6 +5,7 @@ import type {
   ScenarioMachineContext,
   ScenarioTopicDefinition,
   ScenarioTopicId,
+  ScenarioTransitionRule,
 } from './types.js'
 
 // Standard Reusable Guards
@@ -60,6 +61,37 @@ export const guardRequireSymbolId: ScenarioGuard = {
   },
 }
 
+// Standard Reusable Context Transforms
+//
+// A guard validates the payload an action carries; the paired transform is what
+// lands that payload in the machine context. Every rule whose action carries a
+// payload must use one, otherwise a re-entry transition (e.g. paths -> diff with
+// a new revision pair) passes its guard but leaves the context on stale values.
+export type ScenarioContextTransform = NonNullable<ScenarioTransitionRule['transformContext']>
+
+/** REQUEST_DIFF -> `baseId` / `headId`. */
+export const applyDiffPair: ScenarioContextTransform = (_ctx, action) =>
+  action.type === 'REQUEST_DIFF' ? { baseId: action.baseId, headId: action.headId } : {}
+
+/** INSPECT_ENDPOINT_PROVENANCE -> `pathPattern`. */
+export const applyPathPattern: ScenarioContextTransform = (_ctx, action) =>
+  action.type === 'INSPECT_ENDPOINT_PROVENANCE' ? { pathPattern: action.pathPattern } : {}
+
+/** SELECT_FRAGMENT_SYMBOL / HIGHLIGHT_DEPENDENCY_CYCLE -> `selectedSymbol`. */
+export const applySelectedSymbol: ScenarioContextTransform = (_ctx, action) => {
+  if (action.type === 'SELECT_FRAGMENT_SYMBOL') return { selectedSymbol: action.symbolId }
+  if (action.type === 'HIGHLIGHT_DEPENDENCY_CYCLE') return { selectedSymbol: action.rootSymbolId }
+  return {}
+}
+
+/** SELECT_REVISION -> `revisionId`. */
+export const applyRevision: ScenarioContextTransform = (_ctx, action) =>
+  action.type === 'SELECT_REVISION' ? { revisionId: action.revisionId } : {}
+
+/** FILTER_BREAKING_CHANGES -> `onlyBreaking`. */
+export const applyBreakingFilter: ScenarioContextTransform = (_ctx, action) =>
+  action.type === 'FILTER_BREAKING_CHANGES' ? { onlyBreaking: action.onlyBreaking } : {}
+
 // 1. Spec Drift Triage Scenario
 export const SPEC_DRIFT_TRIAGE_SCENARIO: ScenarioTopicDefinition = {
   id: 'spec-drift-triage',
@@ -86,12 +118,7 @@ export const SPEC_DRIFT_TRIAGE_SCENARIO: ScenarioTopicDefinition = {
       toView: 'diff',
       guardIds: ['require-diff-pair'],
       description: '드리프트 리비전과 기준 스펙 간의 Diff 화면으로 진입합니다.',
-      transformContext: (_ctx, action) => {
-        if (action.type === 'REQUEST_DIFF') {
-          return { baseId: action.baseId, headId: action.headId }
-        }
-        return {}
-      },
+      transformContext: applyDiffPair,
     },
     {
       fromView: 'diff',
@@ -99,12 +126,7 @@ export const SPEC_DRIFT_TRIAGE_SCENARIO: ScenarioTopicDefinition = {
       toView: 'paths',
       guardIds: ['require-path-pattern'],
       description: '파손된 엔드포인트 단편의 생성 및 수정 이력을 역추적합니다.',
-      transformContext: (_ctx, action) => {
-        if (action.type === 'INSPECT_ENDPOINT_PROVENANCE') {
-          return { pathPattern: action.pathPattern }
-        }
-        return {}
-      },
+      transformContext: applyPathPattern,
     },
     {
       fromView: 'paths',
@@ -118,18 +140,14 @@ export const SPEC_DRIFT_TRIAGE_SCENARIO: ScenarioTopicDefinition = {
       toView: 'diff',
       guardIds: ['require-diff-pair'],
       description: '단편 확인 후 다시 Diff 화면으로 복귀하여 잔여 변경 검토.',
+      transformContext: applyDiffPair,
     },
     {
       fromView: 'diff',
       actionType: 'SELECT_REVISION',
       toView: 'timeline',
       description: '다른 리비전을 추가 검토하기 위해 타임라인으로 복귀합니다.',
-      transformContext: (_ctx, action) => {
-        if (action.type === 'SELECT_REVISION') {
-          return { revisionId: action.revisionId }
-        }
-        return {}
-      },
+      transformContext: applyRevision,
     },
   ],
 }
@@ -160,12 +178,7 @@ export const ENDPOINT_EXPLORATION_SCENARIO: ScenarioTopicDefinition = {
       toView: 'graph',
       guardIds: ['require-symbol-id'],
       description: '선택한 엔드포인트가 사용하는 스키마 DTO의 의존 그래프를 엽니다.',
-      transformContext: (_ctx, action) => {
-        if (action.type === 'SELECT_FRAGMENT_SYMBOL') {
-          return { selectedSymbol: action.symbolId }
-        }
-        return {}
-      },
+      transformContext: applySelectedSymbol,
     },
     {
       fromView: 'graph',
@@ -173,6 +186,7 @@ export const ENDPOINT_EXPLORATION_SCENARIO: ScenarioTopicDefinition = {
       toView: 'paths',
       guardIds: ['require-path-pattern'],
       description: '스키마 노드에서 해당 모델을 사용하는 엔드포인트 목록으로 복귀.',
+      transformContext: applyPathPattern,
     },
     {
       fromView: 'graph',
@@ -209,24 +223,14 @@ export const BREAKING_IMPACT_ANALYSIS_SCENARIO: ScenarioTopicDefinition = {
       toView: 'diff',
       guardIds: ['require-diff-pair'],
       description: '비교 대상 리비전 간의 변경사항 분석 화면으로 진입.',
-      transformContext: (_ctx, action) => {
-        if (action.type === 'REQUEST_DIFF') {
-          return { baseId: action.baseId, headId: action.headId }
-        }
-        return {}
-      },
+      transformContext: applyDiffPair,
     },
     {
       fromView: 'diff',
       actionType: 'FILTER_BREAKING_CHANGES',
       toView: 'diff',
       description: '파괴적 변경사항(Breaking changes)만 필터링 활성화.',
-      transformContext: (_ctx, action) => {
-        if (action.type === 'FILTER_BREAKING_CHANGES') {
-          return { onlyBreaking: action.onlyBreaking }
-        }
-        return {}
-      },
+      transformContext: applyBreakingFilter,
     },
     {
       fromView: 'diff',
@@ -234,12 +238,7 @@ export const BREAKING_IMPACT_ANALYSIS_SCENARIO: ScenarioTopicDefinition = {
       toView: 'graph',
       guardIds: ['require-symbol-id'],
       description: '변경된 DTO 심볼의 다운스트림 파급 영향 그래프 탐색.',
-      transformContext: (_ctx, action) => {
-        if (action.type === 'SELECT_FRAGMENT_SYMBOL') {
-          return { selectedSymbol: action.symbolId }
-        }
-        return {}
-      },
+      transformContext: applySelectedSymbol,
     },
     {
       fromView: 'graph',
@@ -253,6 +252,7 @@ export const BREAKING_IMPACT_ANALYSIS_SCENARIO: ScenarioTopicDefinition = {
       toView: 'diff',
       guardIds: ['require-diff-pair'],
       description: '영향 확인 후 다른 변경 필드 검토를 위해 Diff로 복귀.',
+      transformContext: applyDiffPair,
     },
   ],
 }
@@ -283,12 +283,7 @@ export const CIRCULAR_REF_DIAGNOSTIC_SCENARIO: ScenarioTopicDefinition = {
       toView: 'graph',
       guardIds: ['require-symbol-id'],
       description: '순환 참조를 유발하는 루트 심볼 노드와 폐곡선 하이라이트.',
-      transformContext: (_ctx, action) => {
-        if (action.type === 'HIGHLIGHT_DEPENDENCY_CYCLE') {
-          return { selectedSymbol: action.rootSymbolId }
-        }
-        return {}
-      },
+      transformContext: applySelectedSymbol,
     },
     {
       fromView: 'graph',
@@ -296,12 +291,7 @@ export const CIRCULAR_REF_DIAGNOSTIC_SCENARIO: ScenarioTopicDefinition = {
       toView: 'paths',
       guardIds: ['require-path-pattern'],
       description: '순환 참조에 연루된 엔드포인트/모델 파일의 소스 출처 및 커밋 이력 추적.',
-      transformContext: (_ctx, action) => {
-        if (action.type === 'INSPECT_ENDPOINT_PROVENANCE') {
-          return { pathPattern: action.pathPattern }
-        }
-        return {}
-      },
+      transformContext: applyPathPattern,
     },
     {
       fromView: 'paths',
@@ -315,6 +305,7 @@ export const CIRCULAR_REF_DIAGNOSTIC_SCENARIO: ScenarioTopicDefinition = {
       toView: 'graph',
       guardIds: ['require-symbol-id'],
       description: '추적 후 그래프로 복귀하여 폐곡선 분리 검증.',
+      transformContext: applySelectedSymbol,
     },
   ],
 }
