@@ -3591,13 +3591,13 @@ room을 만든 요청의 key를 다시 확인하지 않고, relay에 설정된 p
 **O-62 (결정 2026-10-21)** relay의 두 transport는 `tools/call` 검사 하나(`toolCallRefusal`)를 함께 쓰고, WebSocket도 HTTP처럼 id가 없는
 `tools/call`을 notification 분기보다 먼저 검사한다. 거절한 notification에는 답할 수 없으므로 WebSocket은 답 없이 버린다(HTTP는 같은 경우를
 id null의 오류와 status로 알린다). 그래서 참조 provider처럼 id 없는 message를 실행하지 않는 provider뿐 아니라 실행하는 provider에도 catalog가
-맞지 않는 호출은 닿지 않는다. 관련: R-MCP-007, R-MCP-020, R-MCP-026, R-MCP-030. 구현: changeset `webmcp-peer-protocol-c10-open-problems`.
+맞지 않는 호출은 닿지 않는다. 관련: R-MCP-007, R-MCP-020, R-MCP-026, R-MCP-030. 구현: commit `f167735a`, changeset `webmcp-peer-protocol-c10-open-problems`.
 
 **O-63 (결정 2026-10-21)** relay는 provider가 보낸 `notifications/tools/list_changed`를 agent에게 전달하지 않고 버린다. 그 notification은
 relay가 받아들인 catalog를 relay의 `catalogVersion`·`catalogHash`와 함께 알리는 relay의 것이고, provider는 catalog를 `register`로 알린다.
 그래서 agent가 받는 이 notification의 stamp는 언제나 relay가 `tools/call`을 검사하는 값이다. provider의 다른 notification과 server→client
 요청은 전처럼 approved ticket의 socket에 broadcast한다. 참조 provider는 relay socket으로 이 notification을 보내지 않는다. 관련: R-SIG-004,
-R-MCP-041, R-CAT-008. 구현: changeset `webmcp-peer-protocol-c10-open-problems`.
+R-MCP-041, R-CAT-008. 구현: commit `f167735a`, changeset `webmcp-peer-protocol-c10-open-problems`.
 
 **O-64 (결정 2026-10-21)** client는 relay와 같은 규칙(R-MCP-002)으로 답을 가린다: `jsonrpc:'2.0'`, 문자열이나 수인 id, `result`나 `error`
 member. method가 있는 message는 id와 무관하게 답이 아니므로 provider의 server→client 요청이 진행 중인 요청을 끝내거나 relay가 아직 세는
@@ -3606,14 +3606,14 @@ slot을 비우지 않는다. 권고를 넘어, client가 답을 `String(id)`로 
 요청이 첫 요청의 답을 가로채거나(HTTP transport), relay socket에서는 relay가 두 번째를 `DUPLICATE_REQUEST_ID`로 거절하는 답이 relay가 아직
 세는 첫 요청의 slot을 비웠다. 수 1과 문자열 `"1"`도 relay에서는 다른 key지만 client에서는 slot 하나라 같은 일이 생겼다. MCP도 한 session에서
 요청 id를 다시 쓰지 않게 한다. 그래서 client가 진행 중으로 세는 요청은 relay가 세는 요청을 모두 포함한다. 관련: R-PEER-032, R-PEER-035,
-R-MCP-031, R-MCP-032. 구현: changeset `webmcp-peer-protocol-c10-open-problems`.
+R-MCP-031, R-MCP-032. 구현: commit `f167735a`, changeset `webmcp-peer-protocol-c10-open-problems`.
 
 **O-65 (결정 2026-10-21)** room 만료 처리는 아직 끝나지 않은(`pending`, `approved`) ticket만 `expired`로 끝내고, 그 전에 끝난 ticket
 (`rejected`, `revoked`, 승인 요청이 만료된 `expired`)의 status와 `revokedAt`은 그대로 둔다. ticket 자신의 `expiresAt`이 지날 때 `revoked`·
 `rejected`를 덮어쓰지 않는 규칙(R-ROOM-034)과 같다. 그래서 보존 중인 만료 room의 session status는 만료 전에 거절·revoke된 session을 그때의
 state와 시각으로 보고한다. 끝난 ticket에는 socket도 진행 요청도 없으므로 만료가 그 ticket에 할 일은 없다. revoke-all과 rotate는 전처럼 모든
 ticket을 덮어쓴다. rotate된 room의 session status는 410이라 보이지 않고, revoke-all이 덮어쓰는 것은 단일 revoke(R-ROOM-039)와 같은 규칙이다.
-관련: R-ROOM-030, R-ROOM-035, R-ROOM-048, R-ROOM-050. 구현: changeset `webmcp-peer-protocol-c10-open-problems`.
+관련: R-ROOM-030, R-ROOM-035, R-ROOM-048, R-ROOM-050. 구현: commit `f167735a`, changeset `webmcp-peer-protocol-c10-open-problems`.
 
 **O-66 (결정 2026-10-21)** 사용자는 relay가 bearer ticket만 쓰고 OAuth discovery를 제공하지 않는 안을 골랐다(RFC 9728 protected resource
 metadata를 제공하는 안 대신). MCP authorization은 선택이고, MCP가 요구하는 protected resource metadata는 authorization server를 하나 이상
@@ -3622,11 +3622,11 @@ client는 한 단계 뒤에서 실패하고, 맞추려면 invite를 token으로 
 요구하는 `WWW-Authenticate: Bearer` challenge를 계속 보내되 `resource_metadata`·`scope` 같은 discovery 매개변수를 싣지 않고, RFC 9728·RFC 8414·
 OpenID Connect의 well-known 경로는 404로 둔다는 것을 규범으로 적었다. 일반 Streamable HTTP agent는 clientToken을 정적 bearer 자격으로 보내고
 401로 OAuth discovery를 시작하지 않는다(공식 SDK라면 auth provider 없이 `requestInit.headers`). wire 동작은 바뀌지 않았고, 테스트가 challenge와
-그 경로들의 404를 고정한다. 관련: R-HTTP-019, R-PEER-053. 구현: changeset `webmcp-peer-protocol-c10-open-problems`.
+그 경로들의 404를 고정한다. 관련: R-HTTP-019, R-PEER-053. 구현: commit `f167735a`, changeset `webmcp-peer-protocol-c10-open-problems`.
 
 **O-67 (결정 2026-10-21)** `PeerMcpSession.revoke`는 POST 하나만 보낸다. body의 `roomId`·`roomEpoch`는 session이 이미 아는 값일 때만 싣고,
 모르는 roomEpoch를 알아내려고 session status나 metadata `initialize`를 먼저 보내지 않는다. relay는 둘을 요구하지 않고 있을 때만
-검사한다(R-ROOM-071). 그 왕복을 위한 `#learnRoomEpoch`와 두 helper를 지웠다. 관련: R-PEER-046, R-PEER-037. 구현: changeset
+검사한다(R-ROOM-071). 그 왕복을 위한 `#learnRoomEpoch`와 두 helper를 지웠다. 관련: R-PEER-046, R-PEER-037. 구현: commit `f167735a`, changeset
 `webmcp-peer-protocol-c10-open-problems`.
 
 **O-68 (결정 2026-10-21)** 두 답의 분기를 지우고 결과를 전할 새 방법은 두지 않았다. provider는 끝난 connection generation의 요청을 실행하지도
@@ -3639,13 +3639,13 @@ provider의 session error 이름으로 남는다). 분기를 지우며 드러난
 rollback할 수 없었고(`AI run still has in-flight actions`) 내보낼 수도 없었으며, 그 호출의 step이 기록되지 않아 rollback이 되돌리지 못했다.
 이제 run이 그 action을 쥐고 있으면(새 `AiRunController.hasAction`. `disconnect()` 뒤 같은 id로 새로 시작한 run은 쥐지 않는다) action을
 settle하고 step을 기록한다. ledger를 기다리는 동안 generation이 끝난 호출은 host를 부르지 않는다. 관련: R-PEER-012, R-PEER-013, R-PEER-016,
-R-ERR-001. 구현: changeset `webmcp-peer-protocol-c10-open-problems`.
+R-ERR-001. 구현: commit `f167735a`, changeset `webmcp-peer-protocol-c10-open-problems`.
 
 **O-69 (결정 2026-10-21)** `onMessage`가 없는 넘겨받은 transport에 session이 다는 `onMessage`를 transport 객체마다 하나인 dispatcher로
 바꿨다. 그것은 같은 transport 객체를 받은 session 가운데 그 transport로 마지막에 connect한 session으로 가고, 그 session이 `disconnect()`로
 놓으면 다음 connect까지 아무것에도 가지 않는다. 그래서 `PeerMcpService({ transport })`의 `connect()`, `disconnect()`, `connect()`에서 두
 번째 session이 `ready`와 답을 받아 `TRANSPORT_TIMEOUT`으로 끝나지 않고, 두 session이 함께 transport를 쥐면 마지막에 connect한 session이 받는다.
-caller 자신의 `onMessage`는 전처럼 바꾸지 않는다. 관련: R-PEER-031, R-PEER-055. 구현: changeset `webmcp-peer-protocol-c10-open-problems`.
+caller 자신의 `onMessage`는 전처럼 바꾸지 않는다. 관련: R-PEER-031, R-PEER-055. 구현: commit `f167735a`, changeset `webmcp-peer-protocol-c10-open-problems`.
 
 ### 10.2 남은 열린 문제
 
