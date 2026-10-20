@@ -1,8 +1,13 @@
 // Regression tests for the `./config` helpers agents and hosts use before connecting.
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { PEER_PROTOCOL, WS_SUBPROTOCOL } from "../examples/live-demo/peer-protocol.js";
 import * as client from "../src/client.js";
 import * as config from "../src/config.js";
 import {
+  WEBMCP_PROTOCOL,
+  WEBMCP_SUBPROTOCOL,
+  buildInvitationUrl,
+  createPeerConfigProfile,
   fetchPeerServerConfig,
   parseInvitationUrl,
   parsePeerConfig,
@@ -11,6 +16,11 @@ import {
 import * as root from "../src/index.js";
 import * as provider from "../src/provider.js";
 import * as server from "../src/server.js";
+
+const relays: server.WebMcpPeerServer[] = [];
+afterEach(async () => {
+  for (const relay of relays.splice(0)) await relay.close();
+});
 
 describe("fetchPeerServerConfig", () => {
   it("rejects an already-aborted signal without sending a request", async () => {
@@ -42,9 +52,51 @@ describe("fetchPeerServerConfig", () => {
     );
   });
 
+  it("rejects a config document whose defaults.maxRoomTtlMs is not a finite number", async () => {
+    // 1e999 is JSON for a number that parses to Infinity.
+    for (const maxRoomTtlMs of ['"600000"', "null", "1e999"]) {
+      const fetchImpl = (async () => new Response(`{"defaults":{"maxRoomTtlMs":${maxRoomTtlMs}}}`)) as typeof fetch;
+      await expect(fetchPeerServerConfig("https://peer.example.com", { fetchImpl }), maxRoomTtlMs).rejects.toThrow(
+        "피어 서버 설정 응답 형식이 올바르지 않습니다",
+      );
+    }
+  });
+
   it("reports the relay's error text for a failed response", async () => {
     const fetchImpl = (async () => Response.json({ error: "ORIGIN_DENIED" }, { status: 403 })) as typeof fetch;
     await expect(fetchPeerServerConfig("https://peer.example.com", { fetchImpl })).rejects.toThrow("ORIGIN_DENIED");
+  });
+});
+
+describe("invitation URLs", () => {
+  it("name the relay's room descriptor route as descriptorUrl, from either invitation form", async () => {
+    const relay = server.createWebMcpPeerServer({ port: 0, host: "127.0.0.1", roomSweepIntervalMs: 0 });
+    relays.push(relay);
+    const base = `http://127.0.0.1:${await relay.listen()}`;
+    const created = await fetch(`${base}/p`, { method: "POST", body: JSON.stringify({ approvalRequired: false }) });
+    const room = (await created.json()) as { id: string; descriptorUrl: string; inviteToken: string };
+
+    const built = buildInvitationUrl({ serverUrl: base, roomId: room.id, inviteToken: room.inviteToken });
+    expect(built).toBe(`${room.descriptorUrl}#invite=${room.inviteToken}`);
+    for (const invitation of [built, `${base}/p/${room.id}#invite=${room.inviteToken}`, `${base}/p/${room.id}/?invite=${room.inviteToken}`]) {
+      const parsed = parseInvitationUrl(invitation);
+      expect(parsed, invitation).toMatchObject({ roomId: room.id, descriptorUrl: room.descriptorUrl, mcpEndpoint: room.descriptorUrl });
+      const descriptor = await fetch(parsed!.descriptorUrl);
+      expect(descriptor.status).toBe(200);
+      expect(await descriptor.json()).toMatchObject({ roomId: room.id, roomValid: true });
+    }
+    expect(createPeerConfigProfile({ serverUrl: base, roomId: room.id, inviteToken: room.inviteToken }).invitationUrl).toBe(built);
+  });
+});
+
+describe("protocol identifiers", () => {
+  it("are webmcp-peer/1 and its subprotocol webmcp-peer.v1 in the package and in the live demo", () => {
+    expect(WEBMCP_PROTOCOL).toBe("webmcp-peer/1");
+    expect(WEBMCP_SUBPROTOCOL).toBe("webmcp-peer.v1");
+    // The demo's browser modules cannot import the package, so they keep their own copies.
+    expect(PEER_PROTOCOL).toBe(WEBMCP_PROTOCOL);
+    expect(WS_SUBPROTOCOL).toBe(WEBMCP_SUBPROTOCOL);
+    expect(createPeerConfigProfile().protocol).toBe(WEBMCP_PROTOCOL);
   });
 });
 

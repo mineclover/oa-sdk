@@ -1,5 +1,7 @@
+import { normalizePeerConfigUrl } from "../config/invitation.js";
 import { isJsonObject, JsonObjectSchema, parseJsonObject, readResponseText } from "../config/json.js";
 import { PEER_RELAY_MAX_CATALOG_BYTES, utf8ByteLength } from "../config/limits.js";
+import { WEBMCP_PROTOCOL, WEBMCP_SUBPROTOCOL } from "../config/types.js";
 import {
   AiRunController,
   AiRunLimitExceededError,
@@ -125,6 +127,22 @@ function parseProviderFrame(data: unknown): ProviderFrame | null {
     return null;
   }
 }
+
+/**
+ * The relay URL of room `roomId`'s `route` (`/provider`, `/rotate`, ...), built like the agent
+ * client builds its own (`websocketUrl`): the room id URL-encoded, and for a socket the scheme
+ * `http`/`https` turned into `ws`/`wss` whatever its case. `serverUrl` is already normalized.
+ */
+function relayRoomUrl(serverUrl: string, roomId: string, route: string, socket = false): string {
+  const base = socket ? serverUrl.replace(/^http/i, "ws") : serverUrl;
+  return `${base}/p/${encodeURIComponent(roomId)}${route}`;
+}
+
+/**
+ * How long the provider assumes a room lives when its descriptor names no `expiresAt` (30 minutes).
+ * This relay always sends `expiresAt`, so the fallback is only for a relay that does not.
+ */
+const ROOM_EXPIRY_FALLBACK_MS = 30 * 60_000;
 
 /** Parses a relay room descriptor, reporting any malformed one under `invalidCode`. */
 function readRoomDescriptor(text: string, invalidCode: string): PeerRoomDescriptor {
@@ -696,11 +714,9 @@ export class WebMcpPeerClient {
       this.setWriteEnabled(true);
     }
 
-    let base = options.serverUrl.replace(/\/+$/, "");
-    if (!base.startsWith("http://") && !base.startsWith("https://")) {
-      base = `http://${base}`;
-    }
-    this.serverUrl = base;
+    // Normalized as `refreshRoom` and the agent client do: trimmed, no trailing `/`, and `http://`
+    // in front unless it already has an `http://` or `https://` scheme, in any case.
+    this.serverUrl = normalizePeerConfigUrl(options.serverUrl);
     if (options.alias) this.alias = options.alias;
     if (options.autoReconnect !== undefined) this.autoReconnect = options.autoReconnect;
 
@@ -776,7 +792,7 @@ export class WebMcpPeerClient {
     const lease = this.readSavedRoomLease(this.serverUrl);
     if (!lease || lease.serverUrl.replace(/\/+$/, "") !== this.serverUrl.replace(/\/+$/, "")) return null;
     for (let attempt = 0; attempt < 4; attempt++) {
-      const response = await fetch(`${this.serverUrl}/p/${encodeURIComponent(lease.roomId)}/reclaim`, {
+      const response = await fetch(relayRoomUrl(this.serverUrl, lease.roomId, "/reclaim"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -822,12 +838,14 @@ export class WebMcpPeerClient {
     this.invitationUrl = `${created.descriptorUrl}#invite=${created.inviteToken}`;
     const serverExpiry = created.expiresAt;
     this.expiresAt =
-      serverExpiry !== undefined && serverExpiry > Date.now() ? serverExpiry : Date.now() + 30 * 60000;
+      serverExpiry !== undefined && serverExpiry > Date.now() ? serverExpiry : Date.now() + ROOM_EXPIRY_FALLBACK_MS;
     this.approvalState = "none";
     this.scheduleExpiry(generation, this.expiresAt);
 
-    const wsUrl = `${this.serverUrl.replace(/^http/, "ws")}/p/${created.id}/provider`;
-    const ws = new WebSocket(wsUrl, ["webmcp-peer.v1", `ticket.${created.providerToken}`]);
+    const ws = new WebSocket(relayRoomUrl(this.serverUrl, created.id, "/provider", true), [
+      WEBMCP_SUBPROTOCOL,
+      `ticket.${created.providerToken}`,
+    ]);
     this.ws = ws;
 
     await new Promise<void>((resolve, reject) => {
@@ -1257,7 +1275,7 @@ export class WebMcpPeerClient {
       this.remoteCarrierReplicaId = null;
       this.receivedCarrierMessages.clear();
       this.bindActiveTransport();
-      const expiresAt = this.expiresAt ?? Date.now() + 30 * 60000;
+      const expiresAt = this.expiresAt ?? Date.now() + ROOM_EXPIRY_FALLBACK_MS;
       this.connectedAt = Date.now();
       this.expiresAt = expiresAt;
       this.scheduleExpiry(this.connectionGeneration, expiresAt);
@@ -1266,7 +1284,7 @@ export class WebMcpPeerClient {
 
       await this.sendFrame(channel, {
         type: "grant",
-        protocol: "webmcp-peer/1",
+        protocol: WEBMCP_PROTOCOL,
         requestId,
         sessionId,
         expiresAt,
@@ -1863,7 +1881,7 @@ export class WebMcpPeerClient {
     return sendRelayFrame(
       ws,
       {
-        protocol: "webmcp-peer/1",
+        protocol: WEBMCP_PROTOCOL,
         messageId: `approval-${requestId}-${Date.now()}`,
         type: "approval.decision",
         roomId: this.roomId,
@@ -1897,7 +1915,7 @@ export class WebMcpPeerClient {
     const previousProviderToken = this.providerToken;
     if (!previousRoomId || !previousProviderToken) return this.connect(nextOptions);
 
-    const response = await fetch(`${this.serverUrl.replace(/\/+$/, "")}/p/${previousRoomId}/rotate`, {
+    const response = await fetch(relayRoomUrl(this.serverUrl, previousRoomId, "/rotate"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -1922,7 +1940,7 @@ export class WebMcpPeerClient {
     this.remoteCarrierReplicaId = null;
     this.receivedCarrierMessages.clear();
     this.lastConnectOptions = nextOptions;
-    this.serverUrl = nextOptions.serverUrl.replace(/\/+$/, "").replace(/^(?!https?:\/\/)/i, "http://");
+    this.serverUrl = normalizePeerConfigUrl(nextOptions.serverUrl);
     if (nextOptions.alias) this.alias = nextOptions.alias;
     this.approvalState = "none";
     this.approvalRequestId = null;
@@ -1960,7 +1978,7 @@ export class WebMcpPeerClient {
       typeof fetch === "function"
     ) {
       void fetch(
-        `${this.serverUrl.replace(/\/+$/, "")}/p/${revokeRoomId}/sessions/${encodeURIComponent(revokeSessionId)}/revoke`,
+        relayRoomUrl(this.serverUrl, revokeRoomId, `/sessions/${encodeURIComponent(revokeSessionId)}/revoke`),
         {
           method: "POST",
           headers: {

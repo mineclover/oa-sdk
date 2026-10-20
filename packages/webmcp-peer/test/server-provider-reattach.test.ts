@@ -1,6 +1,7 @@
 // Regression tests for a provider socket that (re)attaches to a room it already served (browser F5
 // lease reclaim, auto-reconnect): the relay replays the client approvals it holds, so an approved
 // agent keeps working instead of being refused with CLIENT_APPROVAL_REQUIRED.
+import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WebMcpPeerClient, type WebMcpHostAdapter } from "../src/provider.js";
 import type { ClientSessionTicket, WebMcpPeerServer } from "../src/server.js";
@@ -21,6 +22,9 @@ import {
 } from "./server-test-helpers.js";
 
 const servers: WebMcpPeerServer[] = [];
+
+/** The key of a client token's ticket in `RoomEntry.clientTickets`: the token's SHA-256 hex. */
+const tokenHash = (token: string): string => createHash("sha256").update(token, "utf8").digest("hex");
 const sockets: WebSocket[] = [];
 const providers: WebMcpPeerClient[] = [];
 
@@ -70,7 +74,7 @@ describe("provider socket reattach", () => {
     const room = await roomWithProvider(relay, true);
     const joined = await joinRoom(relay.base, room, { clientLabel: "Approved agent" });
     await approveOverHttp(relay, room, joined);
-    const ticket = relay.server.rooms.get(room.id)?.clientTokens.get(joined.clientToken);
+    const ticket = relay.server.rooms.get(room.id)?.clientTickets.get(tokenHash(joined.clientToken));
     expect(ticket?.approvedAt).toEqual(expect.any(Number));
 
     const replay = await reattach(relay, room);
@@ -119,7 +123,7 @@ describe("provider socket reattach", () => {
     const expiredRoom = await roomWithProvider(relay, true);
     const expired = await joinRoom(relay.base, expiredRoom);
     await approveOverHttp(relay, expiredRoom, expired);
-    const expiredTicket = relay.server.rooms.get(expiredRoom.id)?.clientTokens.get(expired.clientToken);
+    const expiredTicket = relay.server.rooms.get(expiredRoom.id)?.clientTickets.get(tokenHash(expired.clientToken));
     expect(expiredTicket?.status).toBe("approved");
     expiredTicket!.expiresAt = Date.now() - 1;
     expect((await reattach(relay, expiredRoom)).map((frame) => frame.type)).toEqual(["ready"]);
@@ -139,14 +143,14 @@ describe("provider socket reattach", () => {
       ...(status === "approved" ? { approvedAt: at } : {}),
     });
     // Tickets issued by an extension, inserted in a different order than they were decided.
-    entry.clientTokens.set("token-late-approval", ticket("session-late-approval", "approved", now - 1_000));
-    entry.clientTokens.set("token-pending", ticket("session-pending", "pending", 0));
-    entry.clientTokens.set("token-early-approval", ticket("session-early-approval", "approved", now - 9_000));
+    entry.clientTickets.set("token-late-approval", ticket("session-late-approval", "approved", now - 1_000));
+    entry.clientTickets.set("token-pending", ticket("session-pending", "pending", 0));
+    entry.clientTickets.set("token-early-approval", ticket("session-early-approval", "approved", now - 9_000));
     entry.pendingApprovals.set("approval-pending", {
-      requestId: "approval-pending", clientToken: "token-pending", sessionId: "session-pending", roomId: room.id,
+      requestId: "approval-pending", clientTokenHash: "token-pending", sessionId: "session-pending", roomId: room.id,
       roomEpoch: room.roomEpoch, clientLabel: "MCP client", identity: {}, createdAt: now - 5_000, expiresAt: now + 60_000,
     });
-    entry.clientTokens.get("token-pending")!.approvalRequestId = "approval-pending";
+    entry.clientTickets.get("token-pending")!.approvalRequestId = "approval-pending";
 
     const replay = await reattach(relay, room);
 
@@ -180,7 +184,7 @@ describe("provider socket reattach", () => {
 
     await until(() => host.getSession().approvalState, (state) => state === "pending", "approval request reached the host");
     expect(host.approveClient()).toBe(true);
-    await until(() => relay.server.rooms.get(roomId)?.clientTokens.get(joined.clientToken)?.status, (status) => status === "approved", "relay approved the ticket");
+    await until(() => relay.server.rooms.get(roomId)?.clientTickets.get(tokenHash(joined.clientToken))?.status, (status) => status === "approved", "relay approved the ticket");
 
     let nextId = 0;
     const callRead = async () => {

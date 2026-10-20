@@ -12,8 +12,11 @@ import {
   getPeerSessionStatus,
   hashTools,
   joinPeerRoom,
+  parseRoomId,
+  PROTOCOL_VERSION,
   type PeerMcpTransportCallbacks,
 } from "../src/client.js";
+import { WEBMCP_SUBPROTOCOL } from "../src/config.js";
 import { createWebMcpPeerServer, type WebMcpPeerServer } from "../src/server.js";
 
 const servers: WebMcpPeerServer[] = [];
@@ -81,6 +84,16 @@ describe("discoverPeerCatalog over the bootstrap /mcp/catalog route", () => {
     expect(catalog).toMatchObject({ catalogVersion: "v7", catalogHash: "abc" });
   });
 
+  it("reports the relay protocol as protocol, not as the MCP revision", async () => {
+    const server = createWebMcpPeerServer({ port: 0, host: "127.0.0.1", roomSweepIntervalMs: 0, deploymentCatalog: { tools: [tool] } });
+    servers.push(server);
+    const catalog = await discoverPeerCatalog({ serverUrl: `http://127.0.0.1:${await server.listen()}` });
+
+    expect(catalog.protocol).toBe(WEBMCP_SUBPROTOCOL);
+    expect(catalog.protocolVersion).toBe(PROTOCOL_VERSION);
+    expect(catalog.tools.map((entry) => entry.name)).toEqual(["doc_read"]);
+  });
+
   for (const catalogVersion of [{}, [], null, Number.NaN, "  ", true]) {
     it(`falls back to version 1 for a non-scalar catalogVersion (${JSON.stringify(catalogVersion)})`, async () => {
       const catalog = await discoverPeerCatalog({
@@ -91,6 +104,43 @@ describe("discoverPeerCatalog over the bootstrap /mcp/catalog route", () => {
       expect(catalog.catalogHash).toBe(hashTools([tool]));
     });
   }
+});
+
+describe("room ids", () => {
+  it("are taken only in the protocol's grammar, from an id, a room path or a room URL", () => {
+    const longest = "a".repeat(128);
+    expect(parseRoomId("Room_1-a")).toBe("Room_1-a");
+    expect(parseRoomId(longest)).toBe(longest);
+    expect(parseRoomId("/p/room1/mcp")).toBe("room1");
+    expect(parseRoomId("http://relay.test/p/ROOM_1/mcp/")).toBe("ROOM_1");
+    expect(parseRoomId("  ")).toBeUndefined();
+    for (const invalid of ["a/b", "a b", "a.b", "a".repeat(129), "http://relay.test/p/a%20b/mcp", "http://relay.test/p/a.b"]) {
+      expect(parseRoomId(invalid), invalid).toBeUndefined();
+    }
+  });
+
+  it("refuses an id outside the grammar with ROOM_ID_INVALID before any request", async () => {
+    let fetched = 0;
+    const fetchImpl = (async () => {
+      fetched += 1;
+      return Response.json({});
+    }) as typeof fetch;
+    const failures = await Promise.all([
+      joinPeerRoom({ serverUrl: "http://relay.test", roomId: "a/b", inviteToken: "invite", fetchImpl }).catch((error: unknown) => error),
+      joinPeerRoom({ invitationUrl: "http://relay.test/p/a.b#invite=secret-invite", fetchImpl }).catch((error: unknown) => error),
+      getPeerSessionStatus({ roomId: "a b", sessionId: "s", clientToken: "t", fetchImpl }).catch((error: unknown) => error),
+      // Not read as "no room": the deployment catalog of /mcp/catalog would answer for a room it is not.
+      discoverPeerCatalog({ serverUrl: "http://relay.test", roomId: "a/b", fetchImpl }).catch((error: unknown) => error),
+    ]);
+
+    for (const failure of failures) {
+      expect(failure).toBeInstanceOf(PeerMcpError);
+      expect(failure).toMatchObject({ code: "ROOM_ID_INVALID" });
+      expect(String((failure as Error).message)).not.toContain("secret-invite");
+    }
+    expect(() => new PeerMcpSession({ roomId: "a".repeat(129) })).toThrow(expect.objectContaining({ code: "ROOM_ID_INVALID" }));
+    expect(fetched).toBe(0);
+  });
 });
 
 /** A WebSocket that opens asynchronously, sends `ready`, and answers tools/list and tools/call. */

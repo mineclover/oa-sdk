@@ -8,7 +8,7 @@ import {
   asCatalogVersion,
   asNonEmptyString,
   normalizeServerUrl,
-  parseRoomId,
+  roomIdOption,
   websocketUrl,
 } from "./transport.js";
 import {
@@ -34,7 +34,7 @@ export async function discoverPeerCatalog(
   }
   const parsedInvite = options.invitationUrl ? parseInvitationUrl(options.invitationUrl) : null;
   const serverUrl = normalizeServerUrl(options.serverUrl ?? parsedInvite?.serverUrl);
-  const roomId = parseRoomId(options.roomId ?? parsedInvite?.roomId);
+  const roomId = roomIdOption(options.roomId ?? parsedInvite?.roomId);
   const endpoint =
     asNonEmptyString(options.mcpEndpoint) ||
     parsedInvite?.mcpEndpoint ||
@@ -58,8 +58,11 @@ export async function discoverPeerCatalog(
       );
     }
     const tools = normalizeTools({ result: { tools: body.tools } });
+    // `body.protocol` names the relay protocol (`webmcp-peer.v1`), not an MCP revision.
+    const protocol = asNonEmptyString(body.protocol);
     return {
-      protocolVersion: (typeof body.protocol === "string" ? body.protocol : undefined) || PROTOCOL_VERSION,
+      ...(protocol ? { protocol } : {}),
+      protocolVersion: PROTOCOL_VERSION,
       tools,
       catalogVersion: asCatalogVersion(body.catalogVersion) ?? 1,
       catalogHash: asNonEmptyString(body.catalogHash) || hashTools(tools),
@@ -100,7 +103,7 @@ export async function joinPeerRoom(options: JoinPeerRoomOptions = {}): Promise<J
   }
   const parsedInvite = options.invitationUrl ? parseInvitationUrl(options.invitationUrl) : null;
   const serverUrl = normalizeServerUrl(options.serverUrl ?? parsedInvite?.serverUrl);
-  const roomId = parseRoomId(options.roomId ?? parsedInvite?.roomId);
+  const roomId = roomIdOption(options.roomId ?? parsedInvite?.roomId);
   const inviteToken = asNonEmptyString(options.inviteToken) ?? parsedInvite?.inviteToken;
   if (!roomId) throw new PeerMcpError("A roomId or invitationUrl is required to join a peer room", "ROOM_ID_REQUIRED");
   if (!inviteToken) {
@@ -178,7 +181,7 @@ export async function getPeerSessionStatus(
     throw new PeerMcpError("fetch is unavailable; provide fetchImpl", "TRANSPORT_UNAVAILABLE");
   }
   const serverUrl = normalizeServerUrl(options.serverUrl);
-  const roomId = parseRoomId(options.roomId);
+  const roomId = roomIdOption(options.roomId);
   const sessionId = asNonEmptyString(options.sessionId);
   const clientToken = asNonEmptyString(options.clientToken);
   if (!roomId) throw new PeerMcpError("roomId is required", "ROOM_ID_REQUIRED");
@@ -250,7 +253,7 @@ export async function rotatePeerRoom(
     throw new PeerMcpError("fetch is unavailable; provide fetchImpl", "TRANSPORT_UNAVAILABLE");
   }
   const serverUrl = normalizeServerUrl(options.serverUrl);
-  const roomId = parseRoomId(options.roomId);
+  const roomId = roomIdOption(options.roomId);
   const providerToken = asNonEmptyString(options.providerToken);
   if (!roomId) throw new PeerMcpError("roomId is required to rotate a peer room", "ROOM_ID_REQUIRED");
   if (!providerToken) {

@@ -6,9 +6,11 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   PeerMcpSession,
   joinPeerRoom,
+  normalizeTools,
   waitForPeerApproval,
   type PeerMcpTransportCallbacks,
 } from "../src/client.js";
+import { PEER_CATALOG_MAX_TOOL_NAME_LENGTH, PEER_CATALOG_MAX_TOOLS } from "../src/config.js";
 import { WebMcpPeerClient, toWireToolDescriptor, type WebMcpToolSummary } from "../src/provider.js";
 import { createWebMcpPeerServer, normalizeToolCatalog, type WebMcpPeerServer } from "../src/server.js";
 
@@ -198,6 +200,32 @@ describe("relay register validation", () => {
 
     expect(session.catalogHash).toBe(server.catalogHash);
     expect(session.cachedTools.map((entry) => entry.name)).toEqual(["a", "b"]);
+  });
+
+  it("refuses exactly the catalogs the client refuses, and neither side trims a tool name", () => {
+    const refused: Array<[string, unknown[], string]> = [
+      ["a duplicate name", [tool("a"), tool("a")], "DUPLICATE_TOOL"],
+      ["no inputSchema", [{ name: "no_schema", description: "missing inputSchema" }], "INVALID_TOOL_DESCRIPTOR"],
+      ["an array inputSchema", [{ ...tool("a"), inputSchema: [] }], "INVALID_TOOL_DESCRIPTOR"],
+      ["a padded name", [tool(" padded ")], "INVALID_TOOL_DESCRIPTOR"],
+      ["a trailing space", [tool("trailing ")], "INVALID_TOOL_DESCRIPTOR"],
+      ["an empty name", [tool("")], "INVALID_TOOL_DESCRIPTOR"],
+      ["a name over the limit", [tool("x".repeat(PEER_CATALOG_MAX_TOOL_NAME_LENGTH + 1))], "TOOL_NAME_TOO_LONG"],
+      ["too many tools", Array.from({ length: PEER_CATALOG_MAX_TOOLS + 1 }, (_, index) => tool(`t${index}`)), "INVALID_TOOLS_LIST"],
+    ];
+    for (const [label, tools, code] of refused) {
+      expect(normalizeToolCatalog(tools), label).toBeNull();
+      expect(() => normalizeTools({ result: { tools } }), label).toThrow(expect.objectContaining({ code }));
+    }
+
+    const accepted = [
+      [tool("x".repeat(PEER_CATALOG_MAX_TOOL_NAME_LENGTH)), tool("inner space")],
+      Array.from({ length: PEER_CATALOG_MAX_TOOLS }, (_, index) => tool(`t${index}`)),
+    ];
+    for (const tools of accepted) {
+      expect(normalizeToolCatalog(tools)?.map((entry) => entry.name)).toEqual(tools.map((entry) => entry.name));
+      expect(normalizeTools({ result: { tools } }).map((entry) => entry.name)).toEqual(tools.map((entry) => entry.name));
+    }
   });
 
   it("validates tool catalogs with the client contract", () => {

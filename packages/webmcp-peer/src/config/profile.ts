@@ -6,11 +6,18 @@ import {
 import { isJsonObject, type PeerJsonSchema } from "./json.js";
 import {
   WEBMCP_PEER_CONFIG_TYPE,
+  WEBMCP_PROTOCOL,
   type CreatePeerConfigProfileOptions,
   type ParsePeerConfigResult,
   type WebMcpPeerConfigProfile,
 } from "./types.js";
 
+/**
+ * The defaults a profile carries when the caller passes none. `roomTtlMs` is the TTL a room asks for
+ * (the relay's default request), not the TTL it gets: the relay clamps it to its `maxRoomTtlMs`,
+ * which this client-side library cannot know. A profile with the relay's actual values takes them
+ * from `GET /config` (`fetchPeerServerConfig(...).defaults`) as `options.defaults`.
+ */
 const DEFAULT_PEER_CONFIG = {
   approvalRequired: true,
   roomTtlMs: 2 * 60 * 60 * 1000,
@@ -35,6 +42,12 @@ function sanitizeProfileDefaults(defaults?: Readonly<Record<string, unknown>>): 
   return merged;
 }
 
+/**
+ * Builds a shareable, secret-free peer config profile. `defaults` is `{approvalRequired: true,
+ * roomTtlMs: 7200000}` overlaid with `input.defaults` (minus secret keys); pass the `defaults` of the
+ * relay's `GET /config` to get the values the relay applies, since 7200000 is only the TTL a room
+ * asks for before the relay clamps it to its `maxRoomTtlMs`.
+ */
 export function createPeerConfigProfile(
   input: CreatePeerConfigProfileOptions = {},
 ): WebMcpPeerConfigProfile {
@@ -54,7 +67,7 @@ export function createPeerConfigProfile(
     version: 1,
     serverUrl,
     ...(alias ? { alias } : {}),
-    protocol: "webmcp-peer/1",
+    protocol: WEBMCP_PROTOCOL,
     ...(roomId ? { roomId } : {}),
     ...(typeof input.roomEpoch === "number" ? { roomEpoch: input.roomEpoch } : {}),
     ...(invitationUrl ? { invitationUrl } : {}),

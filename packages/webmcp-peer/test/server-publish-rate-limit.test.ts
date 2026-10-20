@@ -9,6 +9,7 @@ import {
   FilePublishRateLimitStore,
   InMemoryPublishRateLimitStore,
   SqlitePublishRateLimitStore,
+  resolvePeerServerConfig,
   type PublishRateLimitRequest,
   type WebMcpPeerServer,
 } from "../src/server.js";
@@ -21,6 +22,8 @@ beforeEach(() => {
 });
 afterEach(async () => {
   for (const server of servers.splice(0)) await server.close();
+  delete process.env.FRAMEBOOK_PUBLISH_RATE_LIMIT_SQLITE_PATH;
+  delete process.env.WEBMCP_PUBLISH_RATE_LIMIT_SQLITE_PATH;
   fs.rmSync(tempDir, { recursive: true, force: true });
 });
 
@@ -99,5 +102,49 @@ describe("publish rate limiting", () => {
     expect(() => store.consume(request)).toThrow("PUBLISH_RATE_LIMIT_STATE_INVALID");
     fs.writeFileSync(file, "{not json");
     expect(() => store.consume(request)).toThrow("PUBLISH_RATE_LIMIT_STATE_UNREADABLE");
+  });
+});
+
+describe("the configured publish rate-limit store", () => {
+  it("is the SQLite database the environment names, ahead of a JSON file, closed with the relay", async () => {
+    process.env.FRAMEBOOK_PUBLISH_RATE_LIMIT_SQLITE_PATH = "rate.sqlite";
+    const relay = await startRelay(servers, {
+      cwd: tempDir,
+      argv: ["--publish-rate-limit-path", "rate.json"],
+      publishKey: "correct-horse",
+      publishRateLimitMax: 2,
+    });
+    expect(relay.server.publishRateLimitStore).toBeInstanceOf(SqlitePublishRateLimitStore);
+    const results: number[] = [];
+    for (let attempt = 0; attempt < 3; attempt++) results.push(await publish(relay.base, "correct-horse"));
+    expect(results).toEqual([201, 201, 429]);
+
+    const db = new DatabaseSync(path.join(tempDir, "rate.sqlite"));
+    try {
+      expect(db.prepare("SELECT request_count FROM publish_rate_limit").all().map((row) => row.request_count)).toEqual([3]);
+    } finally {
+      db.close();
+    }
+    expect(fs.existsSync(path.join(tempDir, "rate.json"))).toBe(false);
+
+    await relay.server.close();
+    servers.splice(servers.indexOf(relay.server), 1);
+    expect(() => relay.server.publishRateLimitStore.consume({ key: "k", nowMs: 1_000, windowMs: 60_000, max: 1 })).toThrow();
+  });
+
+  it("resolves the SQLite path from the CLI, the options, the config file and the environment, in that order", () => {
+    const resolveWith = (argv: string[], options: { publishRateLimitSqlitePath?: string } = {}) =>
+      resolvePeerServerConfig(options, argv, tempDir, { loadEnvFiles: false }).publishRateLimitSqlitePath;
+    process.env.WEBMCP_PUBLISH_RATE_LIMIT_SQLITE_PATH = "webmcp-env.sqlite";
+    expect(resolveWith([])).toBe(path.join(tempDir, "webmcp-env.sqlite"));
+    process.env.FRAMEBOOK_PUBLISH_RATE_LIMIT_SQLITE_PATH = "env.sqlite";
+    expect(resolveWith([])).toBe(path.join(tempDir, "env.sqlite"));
+    fs.writeFileSync(path.join(tempDir, "peer-server.config.json"), JSON.stringify({ publishRateLimitSqlitePath: "file.sqlite" }));
+    expect(resolveWith([])).toBe(path.join(tempDir, "file.sqlite"));
+    expect(resolveWith([], { publishRateLimitSqlitePath: "option.sqlite" })).toBe(path.join(tempDir, "option.sqlite"));
+    expect(resolveWith(["--publish-rate-limit-sqlite-path=cli.sqlite"], { publishRateLimitSqlitePath: "option.sqlite" })).toBe(
+      path.join(tempDir, "cli.sqlite"),
+    );
+    expect(() => resolveWith(["--publish-rate-limit-sqlite-path", " "])).toThrow("PUBLISH_RATE_LIMIT_SQLITE_PATH_INVALID");
   });
 });

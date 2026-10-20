@@ -4,6 +4,7 @@
  * the validated value or throws a TypeError.
  */
 import { isJsonObject, type PeerJsonSchema } from "../config/json.js";
+import { WEBMCP_ROOM_ID_PATTERN } from "../config/types.js";
 import type { SavedRoomLease } from "./types.js";
 
 /** A signaling or DataChannel control frame: a JSON object with a string `type`. */
@@ -70,8 +71,6 @@ export interface PeerRoomDescriptor {
   readonly alias?: string;
 }
 
-/** Room ids are interpolated into relay URL paths, so only a URL-safe id is accepted. */
-const ROOM_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 
 function nonEmpty(value: unknown): value is string {
   return typeof value === "string" && value.length > 0;
@@ -90,7 +89,8 @@ export const PeerRoomDescriptorSchema: PeerJsonSchema<PeerRoomDescriptor> = {
   parse(value) {
     if (!isJsonObject(value)) throw new TypeError("Room descriptor must be a JSON object");
     const { id, providerToken, descriptorUrl, inviteToken } = value;
-    if (typeof id !== "string" || !ROOM_ID_PATTERN.test(id)) throw new TypeError("Room descriptor id is invalid");
+    // Room ids are interpolated into relay URL paths: only an id of the protocol's grammar is taken.
+    if (typeof id !== "string" || !WEBMCP_ROOM_ID_PATTERN.test(id)) throw new TypeError("Room descriptor id is invalid");
     if (!nonEmpty(providerToken)) throw new TypeError("Room descriptor providerToken is required");
     if (!nonEmpty(descriptorUrl)) throw new TypeError("Room descriptor descriptorUrl is required");
     if (!nonEmpty(inviteToken)) throw new TypeError("Room descriptor inviteToken is required");

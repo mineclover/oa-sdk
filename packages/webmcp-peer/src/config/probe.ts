@@ -15,10 +15,13 @@ const PUBLIC_CONFIG_STRING_FIELDS = [
   "roomEndpoint",
 ] as const;
 
+const PUBLIC_CONFIG_DEFAULTS_NUMBER_FIELDS = ["roomTtlMs", "maxRoomTtlMs"] as const;
+
 /**
  * The public `GET /config` document. Every declared member is optional, but a member that is
  * present must have its declared type, so callers can trust `config.roomEndpoint` to be a string
- * and `config.defaults.roomTtlMs` to be a number. Undeclared members pass through unchanged.
+ * and `config.defaults.roomTtlMs` and `config.defaults.maxRoomTtlMs` to be finite numbers.
+ * Undeclared members pass through unchanged.
  */
 const PeerServerPublicConfigSchema: PeerJsonSchema<PeerServerPublicConfig> = {
   parse(value) {
@@ -37,11 +40,11 @@ const PeerServerPublicConfigSchema: PeerJsonSchema<PeerServerPublicConfig> = {
       if (defaults.approvalRequired !== undefined && typeof defaults.approvalRequired !== "boolean") {
         throw new TypeError("Peer server config field defaults.approvalRequired must be a boolean");
       }
-      if (
-        defaults.roomTtlMs !== undefined &&
-        (typeof defaults.roomTtlMs !== "number" || !Number.isFinite(defaults.roomTtlMs))
-      ) {
-        throw new TypeError("Peer server config field defaults.roomTtlMs must be a number");
+      for (const field of PUBLIC_CONFIG_DEFAULTS_NUMBER_FIELDS) {
+        const member = defaults[field];
+        if (member !== undefined && (typeof member !== "number" || !Number.isFinite(member))) {
+          throw new TypeError(`Peer server config field defaults.${field} must be a number`);
+        }
       }
     }
     return value;

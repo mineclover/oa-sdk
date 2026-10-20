@@ -1,5 +1,6 @@
 import { parseJsonObject, readResponseText } from "../config/json.js";
 import { PEER_RELAY_MAX_REQUEST_BYTES, PEER_RELAY_MAX_REQUEST_ID_BYTES, utf8ByteLength } from "../config/limits.js";
+import { WEBMCP_ROOM_ID_PATTERN } from "../config/types.js";
 import { PeerMcpError } from "./errors.js";
 import {
   DEFAULT_SERVER_URL,
@@ -30,16 +31,41 @@ export function websocketUrl(serverUrl: string, roomId: string): string {
   return `${normalizeServerUrl(serverUrl).replace(/^http/i, "ws")}/p/${encodeURIComponent(roomId)}/client`;
 }
 
+/**
+ * The room id `value` names: a room id, `/p/<id>` or `/p/<id>/mcp`, or a URL whose path ends in
+ * `/p/<id>` or `/p/<id>/mcp` (a trailing `/` allowed). Undefined when `value` is empty or names no id
+ * of the protocol's grammar (`WEBMCP_ROOM_ID_PATTERN`), which is the only kind of id a relay route
+ * takes.
+ */
 export function parseRoomId(value?: string): string | undefined {
   const raw = asNonEmptyString(value);
   if (!raw) return undefined;
+  let candidate: string | undefined;
   try {
     const parsed = new URL(raw);
-    const match = parsed.pathname.match(/\/p\/([^/]+)(?:\/mcp)?\/?$/);
-    return match?.[1] || undefined;
+    candidate = parsed.pathname.match(/\/p\/([^/]+)(?:\/mcp)?\/?$/)?.[1];
   } catch {
-    return raw.replace(/^\/p\//, "").replace(/\/mcp\/?$/, "");
+    candidate = raw.replace(/^\/p\//, "").replace(/\/mcp\/?$/, "");
   }
+  return candidate !== undefined && WEBMCP_ROOM_ID_PATTERN.test(candidate) ? candidate : undefined;
+}
+
+/**
+ * The room id of a caller's option (see {@link parseRoomId}): undefined when the caller gave none,
+ * and ROOM_ID_INVALID when it gave a value that names no valid room id, which no relay route would
+ * take. Internal to the client tier.
+ */
+export function roomIdOption(value?: string): string | undefined {
+  if (!asNonEmptyString(value)) return undefined;
+  const roomId = parseRoomId(value);
+  if (roomId === undefined) {
+    // The value is not echoed: it may be an invitation URL that carries the invite token.
+    throw new PeerMcpError(
+      "The peer room id is invalid: a room id is 1 to 128 characters of A-Z, a-z, 0-9, '_' and '-'",
+      "ROOM_ID_INVALID",
+    );
+  }
+  return roomId;
 }
 
 /**

@@ -4,7 +4,13 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createWebMcpPeerServer, loadConfigFile, resolvePeerServerConfig, type WebMcpPeerServer } from "../src/server.js";
+import {
+  createWebMcpPeerServer,
+  loadConfigFile,
+  loadDeploymentCatalog,
+  resolvePeerServerConfig,
+  type WebMcpPeerServer,
+} from "../src/server.js";
 
 const SENTINEL = `WEBMCP_PEER_DOTENV_SENTINEL_${process.pid}`;
 let tempDir = "";
@@ -20,6 +26,8 @@ afterEach(() => {
   process.argv = originalArgv;
   process.chdir(originalCwd);
   delete process.env[SENTINEL];
+  delete process.env.WEBMCP_CATALOG_PATH;
+  delete process.env.FRAMEBOOK_COLLAB_JOURNAL_PATH;
   fs.rmSync(tempDir, { recursive: true, force: true });
 });
 
@@ -69,5 +77,35 @@ describe("embedded server configuration", () => {
     expect(() => loadConfigFile(configPath)).toThrow("PUBLISH_KEY_CONFIG_INVALID");
     fs.writeFileSync(configPath, "{not json");
     expect(() => loadConfigFile(configPath)).toThrow(/^PEER_SERVER_CONFIG_INVALID/);
+  });
+});
+
+describe("paths resolved against cwd", () => {
+  const catalogFile = (dir: string, name: string) => {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, "webmcp-tools.json"), JSON.stringify({ tools: [{ name, inputSchema: { type: "object" } }] }));
+  };
+
+  it("loads the deployment catalog from the cwd option, not from the process's working directory", () => {
+    catalogFile(path.join(tempDir, "api"), "from_cwd");
+    const server = embedded({ cwd: tempDir });
+    expect(server.deploymentCatalog.source).toBe("deployment");
+    expect(server.deploymentCatalog.tools.map((tool) => tool.name)).toEqual(["from_cwd"]);
+
+    // A relative catalog path from the environment is resolved against cwd too.
+    catalogFile(path.join(tempDir, "catalogs"), "from_env");
+    process.env.WEBMCP_CATALOG_PATH = "catalogs/webmcp-tools.json";
+    expect(loadDeploymentCatalog(undefined, tempDir).tools.map((tool) => tool.name)).toEqual(["from_env"]);
+  });
+
+  it("does not look for a deployment catalog in another package's directory", () => {
+    catalogFile(path.join(tempDir, "packages", "peer-server", "api"), "other_package");
+    expect(loadDeploymentCatalog(undefined, tempDir).source).toBe("empty");
+  });
+
+  it("no longer resolves a journalPath, which nothing used", () => {
+    process.env.FRAMEBOOK_COLLAB_JOURNAL_PATH = "journal.log";
+    const config = resolvePeerServerConfig({}, ["--journal-path", "cli-journal.log"], tempDir, { loadEnvFiles: false });
+    expect(config).not.toHaveProperty("journalPath");
   });
 });

@@ -1,6 +1,8 @@
 // Wire-level constants and helpers shared by the demo's Tier 1 and Tier 3 runtimes.
 // Uses only Web-standard APIs (URL, crypto.subtle) so the same module runs in the browser and Node.
 
+// The package's WEBMCP_SUBPROTOCOL and WEBMCP_PROTOCOL: these browser modules are served as they are
+// and cannot import the package, so they keep copies, which test/client-config.test.ts checks.
 export const WS_SUBPROTOCOL = "webmcp-peer.v1";
 export const PEER_PROTOCOL = "webmcp-peer/1";
 

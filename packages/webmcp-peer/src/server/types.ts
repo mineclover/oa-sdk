@@ -22,7 +22,8 @@ export interface ClientSessionTicket {
 
 export interface PendingApprovalRequest {
   requestId: string;
-  clientToken: string;
+  /** The SHA-256 hex of the ticket's client token: its key in `RoomEntry.clientTickets`. */
+  clientTokenHash: string;
   sessionId: string;
   roomId: string;
   roomEpoch: number;
@@ -76,7 +77,12 @@ export interface RoomEntry {
   catalogHash: string;
   catalogUpdatedAt?: number;
   mcpPending: Map<string, PendingMcpRequest>;
-  clientTokens: Map<string, ClientSessionTicket>;
+  /**
+   * The room's client tickets, keyed by the SHA-256 hex of each ticket's client token. The relay
+   * keeps no client token itself: it finds a ticket by hashing the token presented, so the secret is
+   * never compared character by character, like the provider token and the reconnect lease.
+   */
+  clientTickets: Map<string, ClientSessionTicket>;
   pendingApprovals: Map<string, PendingApprovalRequest>;
   clientSocketTickets: Map<PeerSocket, ClientSessionTicket>;
   rotatedTo?: string;
@@ -93,11 +99,16 @@ export interface WebMcpPeerServerOptions {
   allowedOrigins?: string[];
   allowedHosts?: string[];
   configPath?: string;
-  journalPath?: string;
   publishKey?: string;
   publishKeyOwner?: string;
   publishRateLimitWindowMs?: number;
   publishRateLimitMax?: number;
+  /**
+   * The publish rate-limit store. Without one the relay opens the store its configuration names
+   * (`resolvePeerServerConfig`): a `SqlitePublishRateLimitStore` at `publishRateLimitSqlitePath`
+   * (closed with the relay), else a `FilePublishRateLimitStore` at `publishRateLimitPath`, else it
+   * keeps the limits in memory.
+   */
   publishRateLimitStore?: PublishRateLimitStore;
   mcpRequestTimeoutMs?: number;
   roomSweepIntervalMs?: number;
@@ -119,7 +130,10 @@ export interface WebMcpPeerServerOptions {
    * so constructing a server never mutates the host process environment.
    */
   loadEnvFiles?: boolean;
-  /** Directory used to resolve config files, `.env` files and relative paths. Default: `process.cwd()`. */
+  /**
+   * Directory used to resolve config files, `.env` files and relative paths, including the deployment
+   * catalog candidates (`api/webmcp-tools.json`, `$WEBMCP_CATALOG_PATH`). Default: `process.cwd()`.
+   */
   cwd?: string;
   deploymentCatalog?: DeploymentCatalogInput;
   serverName?: string;

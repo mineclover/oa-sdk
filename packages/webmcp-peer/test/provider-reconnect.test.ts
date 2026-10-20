@@ -1,6 +1,8 @@
-// Regression tests for the provider's relay session lifecycle: approvals the relay restores after
-// a lease reclaim, the auto-reconnect backoff loop, and relay catalog rejections.
+// Regression tests for the provider's relay session lifecycle: the relay URLs it builds, approvals
+// the relay restores after a lease reclaim, the auto-reconnect backoff loop, and relay catalog
+// rejections.
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { WEBMCP_SUBPROTOCOL } from "../src/config.js";
 import { WebMcpPeerClient, type WebMcpHostAdapter } from "../src/provider.js";
 import {
   FakeRelay,
@@ -42,6 +44,20 @@ function restoredFrame(roomId: string, sessionId: string): Record<string, unknow
     payload: { sessionId, roomId, roomEpoch: 1, clientLabel: "Agent", capabilities: ["mcp-control"], expiresAt: Date.now() + 60_000 },
   };
 }
+
+describe("relay URLs", () => {
+  it("builds them like the agent client from a server URL of any scheme case", async () => {
+    const relay = new FakeRelay();
+    installRelay(relay);
+    const host = provider();
+    const invitationUrl = await host.connect({ serverUrl: "HTTP://relay.test/", alias: "urls" });
+
+    expect(relay.fetchCalls[0]).toEqual({ url: `${relay.base}/p`, method: "POST" });
+    expect(relay.latest.url).toBe(`ws://relay.test/p/${relay.roomId}/provider`);
+    expect(relay.latest.protocols).toEqual([WEBMCP_SUBPROTOCOL, "ticket.provider-1"]);
+    expect(invitationUrl).toBe(`${relay.base}/p/${relay.roomId}/mcp#invite=invite-token`);
+  });
+});
 
 describe("approvals the relay restores on reattach", () => {
   it("serves an approved client announced right after ready, in the same read", async () => {

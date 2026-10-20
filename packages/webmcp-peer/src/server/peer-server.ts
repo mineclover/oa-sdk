@@ -13,6 +13,7 @@ import {
 import {
   FilePublishRateLimitStore,
   InMemoryPublishRateLimitStore,
+  SqlitePublishRateLimitStore,
   validatePublishRateLimitDecision,
   type PublishRateLimitDecision,
   type PublishRateLimitStore,
@@ -52,6 +53,13 @@ import {
   PEER_RELAY_MAX_REQUEST_ID_BYTES,
   utf8ByteLength,
 } from "../config/limits.js";
+import { PEER_CATALOG_MAX_TOOLS, PEER_CATALOG_MAX_TOOL_NAME_LENGTH } from "../config/catalog.js";
+import {
+  WEBMCP_PEER_CONFIG_TYPE,
+  WEBMCP_PROTOCOL,
+  WEBMCP_ROOM_ID_SYNTAX,
+  WEBMCP_SUBPROTOCOL,
+} from "../config/types.js";
 
 /** Default upper bound for a room's `ttlMs` (24 hours); see `WebMcpPeerServerOptions.maxRoomTtlMs`. */
 const DEFAULT_MAX_ROOM_TTL_MS = 24 * 60 * 60 * 1000;
@@ -128,6 +136,16 @@ const PROVIDER_BUSY_RETRY_AFTER_SECONDS = 1;
  * rather than refused.
  */
 const MAX_CLIENT_LABEL_CODE_POINTS = 256;
+/**
+ * The longest room `alias` `POST /p` and rotate keep, in Unicode code points (at most 1 KiB of
+ * UTF-8). Like a `clientLabel`, the alias is only shown, here in every room descriptor including the
+ * public `GET /p/:id/mcp`, so a longer one is truncated rather than refused.
+ */
+const MAX_ROOM_ALIAS_CODE_POINTS = 256;
+/** Why the relay refuses a `register` catalog (CATALOG_INVALID): the contract of `normalizeToolCatalog`. */
+const CATALOG_INVALID_REASON = `register.tools must be an array of at most ${PEER_CATALOG_MAX_TOOLS} tools, each with a unique, `
+  + `non-empty name of at most ${PEER_CATALOG_MAX_TOOL_NAME_LENGTH} UTF-16 code units without leading or trailing whitespace `
+  + 'and an inputSchema object of type "object"';
 /** A provider reply the relay cannot deliver to a WebSocket agent because it is over the limit. */
 const RESULT_TOO_LARGE_ERROR: RpcErrorBody = {
   code: -32603,
@@ -219,6 +237,49 @@ function exceedsRequestLimit(text: string, frame: unknown): boolean {
 /** True for a string identifier whose JSON text is over MAX_RPC_ID_BYTES (a number id never is). */
 function isOversizedEchoedId(id: unknown): boolean {
   return typeof id === 'string' && utf8ByteLength(JSON.stringify(id)) > MAX_RPC_ID_BYTES;
+}
+
+/**
+ * The pattern of the room route `/p/<roomId><rest>`, whose first group is the room id. Every room
+ * route and WebSocket upgrade path takes the protocol's room id grammar (`WEBMCP_ROOM_ID_PATTERN`):
+ * an id outside it reaches no route (404 NOT_FOUND, or a destroyed upgrade), and an id of the
+ * grammar that names no room gets the route's own answer (ROOM_NOT_FOUND for the lifecycle routes).
+ */
+function roomRoute(rest: string): RegExp {
+  return new RegExp(`^/p/(${WEBMCP_ROOM_ID_SYNTAX})${rest}$`);
+}
+const RECLAIM_ROUTE = roomRoute('/reclaim');
+const MCP_ROUTE = roomRoute('/mcp');
+const MCP_TOOLS_ROUTE = roomRoute('/mcp/tools');
+const JOIN_ROUTE = roomRoute('/join');
+const APPROVAL_ROUTE = roomRoute('/approval/([^/]+)');
+const SESSION_STATUS_ROUTE = roomRoute('/sessions/([^/]+)');
+const REVOKE_ROUTE = roomRoute('/(?:session/revoke|sessions/([^/]+)/revoke)');
+const ROTATE_ROUTE = roomRoute('/rotate');
+const PROVIDER_SOCKET_ROUTE = roomRoute('/provider');
+const CLIENT_SOCKET_ROUTE = roomRoute('/client');
+
+/**
+ * The token of an `Authorization: Bearer <token>` header, or undefined when the request has no
+ * Bearer authorization (no header, or another scheme). Only the first header value counts; the
+ * scheme matches case-insensitively (RFC 9110 §11.1) and is followed by one or more spaces, and the
+ * token is trimmed. Every route that takes a provider token, a client token or the publish key reads
+ * the header this one way.
+ */
+function bearerCredential(authorization: string | string[] | undefined): string | undefined {
+  const header = Array.isArray(authorization) ? authorization[0] : authorization;
+  if (typeof header !== 'string') return undefined;
+  const scheme = /^Bearer\s+/i.exec(header);
+  return scheme ? header.slice(scheme[0].length).trim() : undefined;
+}
+
+/**
+ * The SHA-256 hex of a secret token, as the relay keeps and compares it: a client token is looked up
+ * by its hash, and the reconnect lease and publish key are compared as hashes, so a secret is never
+ * compared (or looked up) character by character.
+ */
+function secretHash(token: string): string {
+  return createHash('sha256').update(token, 'utf8').digest('hex');
 }
 
 function unforwardedRpcError(sent: Exclude<PeerSendResult, 'sent'>): RpcErrorBody {
@@ -400,6 +461,8 @@ export class WebMcpPeerServer {
   readonly serverVersion: string;
   private mcpWireSequence = 0;
   private readonly publishKeyHash?: string;
+  /** The SQLite rate-limit store the relay opened from its configuration, closed with the relay. */
+  private readonly ownedSqliteRateLimitStore?: SqlitePublishRateLimitStore;
   protected readonly roomSweepTimer?: ReturnType<typeof setInterval>;
   private readonly customHttpHandler?: WebMcpPeerServerOptions['customHttpHandler'];
   private readonly customUpgradeHandler?: WebMcpPeerServerOptions['customUpgradeHandler'];
@@ -417,10 +480,11 @@ export class WebMcpPeerServer {
   constructor(options: WebMcpPeerServerOptions = {}) {
     // An embedded server never reads the host process's argv or mutates its environment from
     // `.env` files: both are opt-in (`argv`, `loadEnvFiles`) for a real CLI entry point.
+    const cwd = options.cwd ?? process.cwd();
     const config = resolvePeerServerConfig(
       options,
       options.argv ?? [],
-      options.cwd ?? process.cwd(),
+      cwd,
       { loadEnvFiles: options.loadEnvFiles ?? false },
     );
     this.port = config.port;
@@ -432,19 +496,25 @@ export class WebMcpPeerServer {
     this.publishKeyOwner = config.publishKeyOwner;
     this.publishRateLimitWindowMs = config.publishRateLimitWindowMs;
     this.publishRateLimitMax = config.publishRateLimitMax;
-    this.publishRateLimitStore = options.publishRateLimitStore
-      ?? (config.publishRateLimitPath
+    // A configured SQLite database takes precedence over a configured JSON file; the store the relay
+    // opens itself it also closes (see `close`).
+    if (options.publishRateLimitStore) {
+      this.publishRateLimitStore = options.publishRateLimitStore;
+    } else if (config.publishRateLimitSqlitePath) {
+      this.ownedSqliteRateLimitStore = new SqlitePublishRateLimitStore(config.publishRateLimitSqlitePath);
+      this.publishRateLimitStore = this.ownedSqliteRateLimitStore;
+    } else {
+      this.publishRateLimitStore = config.publishRateLimitPath
         ? new FilePublishRateLimitStore(config.publishRateLimitPath)
-        : new InMemoryPublishRateLimitStore());
-    this.publishKeyHash = config.publishKey
-      ? createHash('sha256').update(config.publishKey, 'utf8').digest('hex')
-      : undefined;
+        : new InMemoryPublishRateLimitStore();
+    }
+    this.publishKeyHash = config.publishKey ? secretHash(config.publishKey) : undefined;
     this.mcpRequestTimeoutMs = Math.max(1000, options.mcpRequestTimeoutMs ?? 30_000);
     const maxRoomTtlMs = options.maxRoomTtlMs ?? DEFAULT_MAX_ROOM_TTL_MS;
     this.maxRoomTtlMs = Number.isFinite(maxRoomTtlMs)
       ? Math.min(ROOM_TTL_CEILING_MS, Math.max(MIN_ROOM_TTL_MS, maxRoomTtlMs))
       : DEFAULT_MAX_ROOM_TTL_MS;
-    this.deploymentCatalog = loadDeploymentCatalog(options.deploymentCatalog);
+    this.deploymentCatalog = loadDeploymentCatalog(options.deploymentCatalog, cwd);
     this.serverName = options.serverName ?? 'framebook-peer-server';
     this.serverVersion = options.serverVersion ?? '0.4.0';
     this.customHttpHandler = options.customHttpHandler;
@@ -513,6 +583,7 @@ export class WebMcpPeerServer {
         for (const cs of room.clientSockets) cs.close();
       }
       this.rooms.clear();
+      try { this.ownedSqliteRateLimitStore?.close(); } catch { /* already closed */ }
       this.server.close((err) => (err ? reject(err) : resolveClose()));
     });
   }
@@ -557,7 +628,7 @@ export class WebMcpPeerServer {
       approvalRequired,
       expiresAt,
       reconnectLeaseToken,
-      reconnectLeaseHash: createHash('sha256').update(reconnectLeaseToken).digest('hex'),
+      reconnectLeaseHash: secretHash(reconnectLeaseToken),
       reconnectLeaseExpiresAt: Math.min(expiresAt, Date.now() + 15 * 60_000),
       metadataRetainUntil: expiresAt + ROOM_METADATA_RETAIN_MS,
       clientSockets: new Set(),
@@ -573,7 +644,7 @@ export class WebMcpPeerServer {
       catalogVersion: this.deploymentCatalog.tools.length > 0 ? this.deploymentCatalog.catalogVersion : 0,
       catalogHash: this.deploymentCatalog.tools.length > 0 ? this.deploymentCatalog.catalogHash : this.emptyCatalogHash(),
       mcpPending: new Map(),
-      clientTokens: new Map(),
+      clientTickets: new Map(),
     };
   }
 
@@ -933,7 +1004,7 @@ export class WebMcpPeerServer {
   private answerRegister(register: ProviderRegister, outcome: IdleCatalogOutcome): void {
     const echo = typeof register.registerSeq === 'number' ? { registerSeq: register.registerSeq } : {};
     if (outcome.kind === 'invalid') {
-      register.sender.send({ type: 'error', code: -32602, message: 'CATALOG_INVALID', reason: 'register.tools must be at most 128 uniquely named tools with an object inputSchema', ...echo });
+      register.sender.send({ type: 'error', code: -32602, message: 'CATALOG_INVALID', reason: CATALOG_INVALID_REASON, ...echo });
     } else if (outcome.kind === 'too-large') {
       register.sender.send({
         type: 'error', code: -32602, message: 'CATALOG_TOO_LARGE', limitBytes: PEER_RELAY_MAX_ANNOUNCEMENT_BYTES,
@@ -1203,12 +1274,21 @@ export class WebMcpPeerServer {
     return timingSafeEqual(leftBytes, rightBytes);
   }
 
+  /**
+   * The request's `Authorization: Bearer` token (see `bearerCredential`), or `''` without one. Every
+   * route that takes a provider or client token reads it this way.
+   */
   public bearerToken(req: IncomingMessage): string {
-    const authorization = Array.isArray(req.headers.authorization)
-      ? req.headers.authorization[0] : req.headers.authorization;
-    if (typeof authorization === 'string' && /^Bearer\s+/i.test(authorization)) {
-      return authorization.replace(/^Bearer\s+/i, '').trim();
-    }
+    return bearerCredential(req.headers.authorization) ?? '';
+  }
+
+  /**
+   * The publish key a `POST /p` presents: its Bearer token, or, only when the request has no Bearer
+   * authorization, the trimmed `X-Publish-Key` header. No other route reads `X-Publish-Key`.
+   */
+  protected publishKeyToken(req: IncomingMessage): string {
+    const bearer = bearerCredential(req.headers.authorization);
+    if (bearer !== undefined) return bearer;
     const header = req.headers['x-publish-key'];
     return typeof header === 'string' ? header.trim() : '';
   }
@@ -1224,9 +1304,9 @@ export class WebMcpPeerServer {
     if (!this.publishKeyConfigured || !this.publishKeyHash) {
       return { ok: true, tokenHash: 'anonymous' };
     }
-    const token = this.bearerToken(req);
+    const token = this.publishKeyToken(req);
     if (!token) return { ok: false, tokenHash: 'unauthenticated', error: 'PUBLISH_KEY_REQUIRED' };
-    const tokenHash = createHash('sha256').update(token, 'utf8').digest('hex');
+    const tokenHash = secretHash(token);
     if (!this.constantTimeTokenEqual(tokenHash, this.publishKeyHash)) return { ok: false, tokenHash: 'unauthenticated', error: 'PUBLISH_KEY_INVALID' };
     return { ok: true, tokenHash };
   }
@@ -1325,8 +1405,12 @@ export class WebMcpPeerServer {
     res.destroy();
   }
 
+  /**
+   * The room's ticket for the client token `token`, looked up by the token's hash (see `secretHash`),
+   * or null when the room issued no such token.
+   */
   protected resolveClientTicket(entry: RoomEntry, token: string): ClientSessionTicket | null {
-    const ticket = entry.clientTokens.get(token);
+    const ticket = entry.clientTickets.get(secretHash(token));
     if (!ticket) return null;
     if (entry.expiresAt <= Date.now()) {
       entry.roomState = entry.roomState === 'rotated' ? entry.roomState : 'expired';
@@ -1348,9 +1432,10 @@ export class WebMcpPeerServer {
     return null;
   }
 
-  protected findClientToken(entry: RoomEntry, sessionId: string): { token: string; ticket: ClientSessionTicket } | null {
-    for (const [token, ticket] of entry.clientTokens) {
-      if (ticket.sessionId === sessionId) return { token, ticket };
+  /** The ticket of session `sessionId`, with the hash of its client token (its key in `clientTickets`). */
+  protected findClientTicket(entry: RoomEntry, sessionId: string): { tokenHash: string; ticket: ClientSessionTicket } | null {
+    for (const [tokenHash, ticket] of entry.clientTickets) {
+      if (ticket.sessionId === sessionId) return { tokenHash, ticket };
     }
     return null;
   }
@@ -1381,7 +1466,7 @@ export class WebMcpPeerServer {
     const requestId = `approval-${randomBytes(16).toString('hex')}`;
     const request: PendingApprovalRequest = {
       requestId,
-      clientToken: [...entry.clientTokens.entries()].find(([, candidate]) => candidate === ticket)?.[0] ?? '',
+      clientTokenHash: [...entry.clientTickets.entries()].find(([, candidate]) => candidate === ticket)?.[0] ?? '',
       sessionId: ticket.sessionId,
       roomId: entry.id,
       roomEpoch: entry.roomEpoch,
@@ -1402,7 +1487,7 @@ export class WebMcpPeerServer {
       ticket.approvalRequestId = undefined;
       for (const [clientSocket, boundTicket] of entry.clientSocketTickets) {
         if (boundTicket !== ticket) continue;
-        clientSocket.send({ protocol: 'webmcp-peer/1', messageId: `approval-expired-${requestId}`, type: 'approval.expired', roomId: entry.id, roomEpoch: entry.roomEpoch, sessionId: ticket.sessionId, requestId, reason: 'APPROVAL_EXPIRED' });
+        clientSocket.send({ protocol: WEBMCP_PROTOCOL, messageId: `approval-expired-${requestId}`, type: 'approval.expired', roomId: entry.id, roomEpoch: entry.roomEpoch, sessionId: ticket.sessionId, requestId, reason: 'APPROVAL_EXPIRED' });
         clientSocket.close();
         entry.clientSocketTickets.delete(clientSocket);
         entry.clientSockets.delete(clientSocket);
@@ -1425,7 +1510,7 @@ export class WebMcpPeerServer {
     if (!provider || this.approvalDeliveries.get(request) === provider) return;
     const requestedAt = new Date(request.createdAt).toISOString();
     const sent = provider.send({
-      protocol: 'webmcp-peer/1',
+      protocol: WEBMCP_PROTOCOL,
       messageId: `approval-${request.requestId}`,
       type: 'approval.request',
       roomId: entry.id,
@@ -1456,7 +1541,7 @@ export class WebMcpPeerServer {
    */
   protected sendApprovalRestored(entry: RoomEntry, ticket: ClientSessionTicket): void {
     entry.providerSocket?.send({
-      protocol: 'webmcp-peer/1',
+      protocol: WEBMCP_PROTOCOL,
       messageId: `approval-restored-${ticket.sessionId}`,
       type: 'approval.restored',
       roomId: entry.id,
@@ -1488,7 +1573,7 @@ export class WebMcpPeerServer {
     if (!entry.approvalRequired) return;
     const now = Date.now();
     const replay: Array<{ ticket: ClientSessionTicket; at: number }> = [];
-    for (const ticket of entry.clientTokens.values()) {
+    for (const ticket of entry.clientTickets.values()) {
       if (ticket.status === 'approved' && ticket.expiresAt > now) {
         replay.push({ ticket, at: ticket.approvedAt ?? ticket.issuedAt });
       } else if (ticket.status === 'pending') {
@@ -1508,8 +1593,9 @@ export class WebMcpPeerServer {
     }
   }
 
-  protected closeClientTicket(entry: RoomEntry, token: string, status: 'rejected' | 'revoked' | 'room-rotated', reason: string): boolean {
-    const ticket = entry.clientTokens.get(token);
+  /** Ends the ticket whose client token hashes to `tokenHash` (its key in `clientTickets`). */
+  protected closeClientTicket(entry: RoomEntry, tokenHash: string, status: 'rejected' | 'revoked' | 'room-rotated', reason: string): boolean {
+    const ticket = entry.clientTickets.get(tokenHash);
     if (!ticket) return false;
     ticket.status = status;
     ticket.revokedAt = Date.now();
@@ -1520,7 +1606,7 @@ export class WebMcpPeerServer {
       try {
         const type = status === 'revoked' ? 'session.revoked' : status === 'room-rotated' ? 'room.rotated' : 'approval.rejected';
         socket.send({
-          protocol: 'webmcp-peer/1',
+          protocol: WEBMCP_PROTOCOL,
           messageId: `${type}-${ticket.sessionId}-${Date.now()}`,
           type,
           roomId: entry.id,
@@ -1544,13 +1630,13 @@ export class WebMcpPeerServer {
   protected approveClientTicket(entry: RoomEntry, requestId: string, allow: boolean, reason?: string): boolean {
     const pending = entry.pendingApprovals.get(requestId);
     if (!pending) return false;
-    const ticket = entry.clientTokens.get(pending.clientToken);
+    const ticket = entry.clientTickets.get(pending.clientTokenHash);
     entry.pendingApprovals.delete(requestId);
     if (!ticket || ticket.approvalRequestId !== requestId) return false;
     if (!allow) {
       ticket.status = 'rejected';
       ticket.revokedAt = Date.now();
-      this.closeClientTicket(entry, pending.clientToken, 'rejected', reason || 'CLIENT_APPROVAL_DENIED');
+      this.closeClientTicket(entry, pending.clientTokenHash, 'rejected', reason || 'CLIENT_APPROVAL_DENIED');
       return true;
     }
     ticket.status = 'approved';
@@ -1563,7 +1649,7 @@ export class WebMcpPeerServer {
       // The agent asked for this decision: a socket that is behind gets it, then `ready`, once it
       // has read what was sent before them (see replyToAgent).
       const approved = this.replyToAgent(socket, {
-        protocol: 'webmcp-peer/1',
+        protocol: WEBMCP_PROTOCOL,
         messageId: `approval-approved-${requestId}`,
         type: 'approval.approved',
         roomId: entry.id,
@@ -1591,7 +1677,7 @@ export class WebMcpPeerServer {
   }
 
   protected revokeAllClientTickets(entry: RoomEntry, reason: string, status: 'revoked' | 'room-rotated' = 'revoked'): void {
-    for (const [token] of entry.clientTokens) this.closeClientTicket(entry, token, status, reason);
+    for (const [tokenHash] of entry.clientTickets) this.closeClientTicket(entry, tokenHash, status, reason);
     // Requests still in flight belong to sockets no ticket is bound to (the HTTP MCP bridge):
     // settle each one with an error so its caller gets a response instead of waiting forever.
     const error = this.roomClosedRpcError(entry, reason, status);
@@ -1600,11 +1686,8 @@ export class WebMcpPeerServer {
   }
 
   protected resolveBearerClientTicket(entry: RoomEntry, authorization: string | string[] | undefined): ClientSessionTicket | null {
-    const header = Array.isArray(authorization) ? authorization[0] : authorization;
-    if (typeof header !== 'string' || !header.startsWith('Bearer ')) return null;
-    const token = header.slice('Bearer '.length).trim();
-    if (!token) return null;
-    return this.resolveClientTicket(entry, token);
+    const token = bearerCredential(authorization);
+    return token ? this.resolveClientTicket(entry, token) : null;
   }
 
   protected cleanupExpiredRooms(now = Date.now()): void {
@@ -1685,10 +1768,10 @@ export class WebMcpPeerServer {
     if (req.method === 'GET' && url.pathname === '/config') {
       const serverUrl = this.requestOrigin(req);
       this.sendJson(res, 200, {
-        type: 'framebook.peer.config',
+        type: WEBMCP_PEER_CONFIG_TYPE,
         version: 1,
         serverUrl,
-        protocol: 'webmcp-peer/1',
+        protocol: WEBMCP_PROTOCOL,
         mcpEndpointTemplate: `${serverUrl}/p/{roomId}/mcp`,
         clientEndpointTemplate: `${serverUrl.replace(/^http/i, 'ws')}/p/{roomId}/client`,
         roomEndpoint: `${serverUrl}/p`,
@@ -1749,7 +1832,9 @@ export class WebMcpPeerServer {
         this.sendJson(res, 403, { error: 'PUBLISH_OWNER_BINDING_INVALID' }, origin);
         return;
       }
-      const alias = typeof body.alias === 'string' && body.alias.trim() ? body.alias.trim() : 'wireframe-local';
+      // Trimmed and cut to MAX_ROOM_ALIAS_CODE_POINTS: the alias is in every room descriptor.
+      const alias = typeof body.alias === 'string' && body.alias.trim()
+        ? truncateCodePoints(body.alias.trim(), MAX_ROOM_ALIAS_CODE_POINTS) : 'wireframe-local';
       const approvalRequired = body.approvalRequired !== false;
       const ttlMs = typeof body.ttlMs === 'number' && Number.isFinite(body.ttlMs) ? body.ttlMs : 2 * 60 * 60 * 1000;
       const capabilities = this.parsePeerCapabilities(body.capabilities);
@@ -1768,7 +1853,7 @@ export class WebMcpPeerServer {
     }
 
     // Browser F5 handoff: POST /p/:id/reclaim
-    const reclaimMatch = url.pathname.match(/^\/p\/([a-f0-9]+)\/reclaim$/);
+    const reclaimMatch = url.pathname.match(RECLAIM_ROUTE);
     if (req.method === 'POST' && reclaimMatch) {
       const roomId = reclaimMatch[1];
       const entry = this.rooms.get(roomId);
@@ -1803,7 +1888,7 @@ export class WebMcpPeerServer {
         this.sendJson(res, 409, { error: 'ROOM_LEASE_BINDING_INVALID', code: -32002, roomId, roomEpoch: entry.roomEpoch }, origin);
         return;
       }
-      const leaseHash = createHash('sha256').update(leaseToken).digest('hex');
+      const leaseHash = secretHash(leaseToken);
       if (!this.constantTimeTokenEqual(leaseHash, entry.reconnectLeaseHash)) {
         this.sendJson(res, 401, { error: 'ROOM_LEASE_INVALID' }, origin);
         return;
@@ -1815,10 +1900,10 @@ export class WebMcpPeerServer {
 
       entry.providerToken = randomBytes(24).toString('hex');
       entry.reconnectLeaseToken = randomBytes(24).toString('hex');
-      entry.reconnectLeaseHash = createHash('sha256').update(entry.reconnectLeaseToken).digest('hex');
+      entry.reconnectLeaseHash = secretHash(entry.reconnectLeaseToken);
       entry.reconnectLeaseExpiresAt = Math.min(entry.expiresAt, now + 15 * 60_000);
       entry.updatedAt = now;
-      entry.roomState = entry.clientTokens.size ? 'accepting-clients' : 'provisioned';
+      entry.roomState = entry.clientTickets.size ? 'accepting-clients' : 'provisioned';
       this.sendJson(res, 200, {
         ...this.roomDescriptor(req, entry),
         reclaimed: true,
@@ -1840,7 +1925,7 @@ export class WebMcpPeerServer {
         return;
       }
       this.sendMcpMetadata(req, res, 200, {
-        protocol: 'webmcp-peer.v1',
+        protocol: WEBMCP_SUBPROTOCOL,
         source: this.deploymentCatalog.source,
         tools: snapshot.tools,
         catalogVersion: snapshot.catalogVersion,
@@ -1855,7 +1940,7 @@ export class WebMcpPeerServer {
     }
 
     // MCP Descriptor: GET /p/:id/mcp
-    const mcpMatch = url.pathname.match(/^\/p\/([A-Za-z0-9_-]{1,128})\/mcp$/);
+    const mcpMatch = url.pathname.match(MCP_ROUTE);
     if (req.method === 'GET' && mcpMatch && this.acceptsOnlyEventStream(req)) {
       // Streamable HTTP: the relay offers no server-to-client SSE stream (stateless JSON responses;
       // catalog changes are pushed over the client WebSocket), so the spec requires 405. A 200 JSON
@@ -1879,7 +1964,7 @@ export class WebMcpPeerServer {
         roomId,
         roomEpoch: entry?.roomEpoch ?? 0,
         alias: entry?.alias ?? 'unknown-room',
-        protocol: 'webmcp-peer.v1',
+        protocol: WEBMCP_SUBPROTOCOL,
         status: state,
         state,
         roomValid: Boolean(entry && !entry.rotatedTo && entry.expiresAt > now),
@@ -1892,7 +1977,7 @@ export class WebMcpPeerServer {
         approvalRequired: entry?.approvalRequired ?? true,
         auth: this.mcpAuthMetadata(entry, 'not-joined'),
         pendingApprovalCount: entry?.pendingApprovals.size ?? 0,
-        activeClientCount: entry ? [...entry.clientTokens.values()].filter(ticket => ticket.status === 'approved').length : 0,
+        activeClientCount: entry ? [...entry.clientTickets.values()].filter(ticket => ticket.status === 'approved').length : 0,
         rotatedTo: entry?.rotatedTo ?? null,
       };
       this.sendMcpMetadata(req, res, 200, descriptor, origin,
@@ -1901,7 +1986,7 @@ export class WebMcpPeerServer {
     }
 
     // Cached MCP catalog snapshot: GET /p/:id/mcp/tools
-    const toolsMatch = url.pathname.match(/^\/p\/([A-Za-z0-9_-]{1,128})\/mcp\/tools$/);
+    const toolsMatch = url.pathname.match(MCP_TOOLS_ROUTE);
     if (req.method === 'GET' && toolsMatch) {
       const roomId = toolsMatch[1];
       const entry = this.rooms.get(roomId);
@@ -2157,7 +2242,7 @@ export class WebMcpPeerServer {
     }
 
     // 2. Client Join: POST /p/:id/join
-    const joinMatch = url.pathname.match(/^\/p\/([a-f0-9]+)\/join$/);
+    const joinMatch = url.pathname.match(JOIN_ROUTE);
     if (req.method === 'POST' && joinMatch) {
       const roomId = joinMatch[1];
       const entry = this.rooms.get(roomId);
@@ -2217,7 +2302,8 @@ export class WebMcpPeerServer {
         clientLabel,
         capabilities: requestedCapabilities,
       };
-      entry.clientTokens.set(clientToken, ticket);
+      // Kept by its hash only: the token itself is in the join response alone.
+      entry.clientTickets.set(secretHash(clientToken), ticket);
       entry.roomState = entry.roomState === 'provisioned' || entry.roomState === 'provider-connected'
         ? 'accepting-clients' : entry.roomState;
       entry.updatedAt = Date.now();
@@ -2240,13 +2326,12 @@ export class WebMcpPeerServer {
     }
 
     // 3. HTTP Approval Decision: POST /p/:id/approval/:requestId
-    const approvalMatch = url.pathname.match(/^\/p\/([a-f0-9]+)\/approval\/([^/]+)$/);
+    const approvalMatch = url.pathname.match(APPROVAL_ROUTE);
     if (req.method === 'POST' && approvalMatch) {
       const roomId = approvalMatch[1];
       const requestId = decodeURIComponent(approvalMatch[2]);
       const entry = this.rooms.get(roomId);
-      const authorization = Array.isArray(req.headers.authorization) ? req.headers.authorization[0] : req.headers.authorization;
-      const bearer = typeof authorization === 'string' && authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : '';
+      const bearer = this.bearerToken(req);
       // Checked before the body is read and again after it: the room can expire, be rotated, or be
       // reclaimed (a new provider token) while the body is in transit.
       const decidable = (room: RoomEntry | undefined): room is RoomEntry => {
@@ -2291,7 +2376,7 @@ export class WebMcpPeerServer {
     }
 
     // 4. Session Status: GET /p/:id/sessions/:sessionId
-    const sessionStatusMatch = url.pathname.match(/^\/p\/([a-f0-9]+)\/sessions\/([^/]+)$/);
+    const sessionStatusMatch = url.pathname.match(SESSION_STATUS_ROUTE);
     if (req.method === 'GET' && sessionStatusMatch) {
       const roomId = sessionStatusMatch[1];
       const sessionId = decodeURIComponent(sessionStatusMatch[2]);
@@ -2304,10 +2389,9 @@ export class WebMcpPeerServer {
         this.sendJson(res, 410, { error: 'ROOM_ROTATED', code: -32057, replacementRoomId: entry.rotatedTo, roomId, roomEpoch: entry.roomEpoch }, origin);
         return;
       }
-      const authorization = Array.isArray(req.headers.authorization) ? req.headers.authorization[0] : req.headers.authorization;
-      const bearer = typeof authorization === 'string' && authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : '';
-      const found = this.findClientToken(entry, sessionId);
-      const byClient = Boolean(bearer && found && this.constantTimeTokenEqual(bearer, found.token));
+      const bearer = this.bearerToken(req);
+      const found = this.findClientTicket(entry, sessionId);
+      const byClient = Boolean(bearer && found && this.constantTimeTokenEqual(secretHash(bearer), found.tokenHash));
       const authorized = byClient || Boolean(bearer && this.constantTimeTokenEqual(bearer, entry.providerToken));
       if (!authorized || !found) {
         this.sendJson(res, authorized ? 404 : 401, { error: authorized ? 'SESSION_NOT_FOUND' : 'CLIENT_TOKEN_REQUIRED' }, origin);
@@ -2335,7 +2419,7 @@ export class WebMcpPeerServer {
     }
 
     // 5. Session Revocation: POST /p/:id/session/revoke or POST /p/:id/sessions/:sessionId/revoke
-    const revokePeerMatch = url.pathname.match(/^\/p\/([a-f0-9]+)\/(?:session\/revoke|sessions\/([^/]+)\/revoke)$/);
+    const revokePeerMatch = url.pathname.match(REVOKE_ROUTE);
     if (req.method === 'POST' && revokePeerMatch) {
       const roomId = revokePeerMatch[1];
       const entry = this.rooms.get(roomId);
@@ -2349,8 +2433,7 @@ export class WebMcpPeerServer {
         return true;
       };
       if (!revocable(entry)) return;
-      const authorization = Array.isArray(req.headers.authorization) ? req.headers.authorization[0] : req.headers.authorization;
-      const bearer = typeof authorization === 'string' && authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : '';
+      const bearer = this.bearerToken(req);
       const body = await this.readJsonBodyOrRespond(req, res, origin);
       if (!body || !revocable(entry)) return;
       const pathSessionId = revokePeerMatch[2] ? decodeURIComponent(revokePeerMatch[2]) : '';
@@ -2366,7 +2449,7 @@ export class WebMcpPeerServer {
           this.sendJson(res, 200, { roomId, revoked: true, revokedSessions: true }, origin);
           return;
         }
-        const found = this.findClientToken(entry, requestedSessionId);
+        const found = this.findClientTicket(entry, requestedSessionId);
         if (!found) {
           this.sendJson(res, 404, { error: 'SESSION_NOT_FOUND' }, origin);
           return;
@@ -2374,7 +2457,7 @@ export class WebMcpPeerServer {
         // Read before closing: closeClientTicket sets the status to 'revoked'. A repeat revoke is
         // idempotent and reports the original revocation time.
         const alreadyRevoked = found.ticket.status === 'revoked';
-        if (!alreadyRevoked) this.closeClientTicket(entry, found.token, 'revoked', 'SESSION_REVOKED');
+        if (!alreadyRevoked) this.closeClientTicket(entry, found.tokenHash, 'revoked', 'SESSION_REVOKED');
         this.sendJson(res, 200, { roomId, roomEpoch: entry.roomEpoch, sessionId: requestedSessionId, state: 'revoked', revoked: true, revokedAt: new Date(found.ticket.revokedAt ?? Date.now()).toISOString(), reason: body.reason ?? 'provider-request', alreadyRevoked }, origin);
         return;
       }
@@ -2392,18 +2475,17 @@ export class WebMcpPeerServer {
         return;
       }
       const alreadyRevoked = ticket.status === 'revoked';
-      if (!alreadyRevoked) this.closeClientTicket(entry, bearer, 'revoked', 'CLIENT_REVOKED');
+      if (!alreadyRevoked) this.closeClientTicket(entry, secretHash(bearer), 'revoked', 'CLIENT_REVOKED');
       this.sendJson(res, 200, { roomId, roomEpoch: entry.roomEpoch, sessionId: ticket.sessionId, state: 'revoked', revoked: true, revokedAt: new Date(ticket.revokedAt ?? Date.now()).toISOString(), reason: body.reason ?? 'client-request', alreadyRevoked }, origin);
       return;
     }
 
     // 6. Room Rotation: POST /p/:id/rotate
-    const rotateMatch = url.pathname.match(/^\/p\/([a-f0-9]+)\/rotate$/);
+    const rotateMatch = url.pathname.match(ROTATE_ROUTE);
     if (req.method === 'POST' && rotateMatch) {
       const roomId = rotateMatch[1];
       const entry = this.rooms.get(roomId);
-      const authorization = Array.isArray(req.headers.authorization) ? req.headers.authorization[0] : req.headers.authorization;
-      const bearer = typeof authorization === 'string' && authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : '';
+      const bearer = this.bearerToken(req);
       // Checked before the body is read and again after it: a concurrent rotation (which would
       // otherwise rotate the room twice and leave two live replacements), an expiry or a reclaim
       // (a new provider token) can happen while the body is in transit.
@@ -2425,7 +2507,8 @@ export class WebMcpPeerServer {
         this.sendJson(res, 409, { error: 'ROOM_ROTATED', code: -32057, roomId, roomEpoch: entry.roomEpoch, replacementRoomId: entry.rotatedTo ?? null }, origin);
         return;
       }
-      const alias = typeof body.alias === 'string' && body.alias.trim() ? body.alias.trim() : entry.alias;
+      const alias = typeof body.alias === 'string' && body.alias.trim()
+        ? truncateCodePoints(body.alias.trim(), MAX_ROOM_ALIAS_CODE_POINTS) : entry.alias;
       const ttlMs = typeof body.ttlMs === 'number' && Number.isFinite(body.ttlMs) ? body.ttlMs : 2 * 60 * 60 * 1000;
       const rotatedAt = Date.now();
       entry.roomState = 'rotating';
@@ -2439,24 +2522,24 @@ export class WebMcpPeerServer {
       entry.updatedAt = rotatedAt;
       this.revokeAllClientTickets(entry, 'ROOM_ROTATED', 'room-rotated');
       entry.providerSocket?.send({
-        protocol: 'webmcp-peer/1',
+        protocol: WEBMCP_PROTOCOL,
         messageId: `room-rotated-${entry.id}`,
         type: 'room.rotated',
         roomId: entry.id,
         roomEpoch: entry.roomEpoch,
         sentAt: new Date().toISOString(),
-        payload: { previousRoomId: entry.id, previousRoomEpoch: entry.roomEpoch, previousState: 'rotated', replacementRoomId: replacement.id, replacementRoomEpoch: replacement.roomEpoch, rotatedAt: new Date().toISOString(), invalidatedSessionCount: entry.clientTokens.size },
+        payload: { previousRoomId: entry.id, previousRoomEpoch: entry.roomEpoch, previousState: 'rotated', replacementRoomId: replacement.id, replacementRoomEpoch: replacement.roomEpoch, rotatedAt: new Date().toISOString(), invalidatedSessionCount: entry.clientTickets.size },
         rotatedTo: replacement.id,
       });
       for (const socket of entry.clientSockets) {
         socket.send({
-          protocol: 'webmcp-peer/1',
-          messageId: `room-rotated-${entry.id}-${entry.clientTokens.size}`,
+          protocol: WEBMCP_PROTOCOL,
+          messageId: `room-rotated-${entry.id}-${entry.clientTickets.size}`,
           type: 'room.rotated',
           roomId: entry.id,
           roomEpoch: entry.roomEpoch,
           sentAt: new Date().toISOString(),
-          payload: { previousRoomId: entry.id, previousRoomEpoch: entry.roomEpoch, previousState: 'rotated', replacementRoomId: replacement.id, replacementRoomEpoch: replacement.roomEpoch, rotatedAt: new Date().toISOString(), invalidatedSessionCount: entry.clientTokens.size },
+          payload: { previousRoomId: entry.id, previousRoomEpoch: entry.roomEpoch, previousState: 'rotated', replacementRoomId: replacement.id, replacementRoomEpoch: replacement.roomEpoch, rotatedAt: new Date().toISOString(), invalidatedSessionCount: entry.clientTickets.size },
           rotatedTo: replacement.id,
         });
       }
@@ -2474,7 +2557,7 @@ export class WebMcpPeerServer {
         replacementRoomId: replacement.id,
         replacementRoomEpoch: replacement.roomEpoch,
         rotatedAt: new Date().toISOString(),
-        invalidatedSessionCount: entry.clientTokens.size,
+        invalidatedSessionCount: entry.clientTickets.size,
       }, origin);
       return;
     }
@@ -2509,8 +2592,8 @@ export class WebMcpPeerServer {
         }
       }
 
-      const providerMatch = url.pathname.match(/^\/p\/([a-f0-9]+)\/provider$/);
-      const clientMatch = url.pathname.match(/^\/p\/([a-f0-9]+)\/client$/);
+      const providerMatch = url.pathname.match(PROVIDER_SOCKET_ROUTE);
+      const clientMatch = url.pathname.match(CLIENT_SOCKET_ROUTE);
 
       if (providerMatch) {
         const roomId = providerMatch[1];
@@ -2555,7 +2638,7 @@ export class WebMcpPeerServer {
                 const roomEpoch = typeof payload.roomEpoch === 'number' ? payload.roomEpoch : msg.roomEpoch;
                 const decision = payload.decision;
                 const reason = typeof payload.reason === 'string' ? payload.reason : undefined;
-                if (msg.protocol !== 'webmcp-peer/1' || typeof msg.messageId !== 'string'
+                if (msg.protocol !== WEBMCP_PROTOCOL || typeof msg.messageId !== 'string'
                   || !requestId || !sessionId || payload.roomId !== roomId || roomEpoch !== entry.roomEpoch
                   || (msg.roomId !== undefined && msg.roomId !== roomId)
                   || (msg.sessionId !== undefined && msg.sessionId !== sessionId)
@@ -2574,7 +2657,7 @@ export class WebMcpPeerServer {
                   return;
                 }
                 peer.send({
-                  protocol: 'webmcp-peer/1',
+                  protocol: WEBMCP_PROTOCOL,
                   messageId: `approval-decision-${requestId}`,
                   type: decision === 'approved' ? 'approval.approved' : 'approval.rejected',
                   roomId,
@@ -2632,7 +2715,7 @@ export class WebMcpPeerServer {
         // left open to keep acting on the room.
         if (entry.providerSocket && entry.providerSocket !== peer) this.detachClosedProvider(entry);
         entry.providerSocket = peer;
-        entry.roomState = entry.clientTokens.size ? 'accepting-clients' : 'provider-connected';
+        entry.roomState = entry.clientTickets.size ? 'accepting-clients' : 'provider-connected';
         entry.updatedAt = Date.now();
         this.replayClientApprovals(entry);
         return;

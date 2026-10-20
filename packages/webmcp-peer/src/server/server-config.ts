@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { publishRateLimitSqlitePathFromEnv } from "./rate-limit.js";
 
 export interface PeerServerConfig {
   port: number;
@@ -7,12 +8,17 @@ export interface PeerServerConfig {
   allowedOrigins: string[];
   allowedHosts: string[];
   configPath?: string;
-  journalPath?: string;
   publishKey?: string;
   publishKeyOwner?: string;
   publishRateLimitWindowMs: number;
   publishRateLimitMax: number;
+  /** JSON file of the publish rate limit (`FilePublishRateLimitStore`), resolved against `cwd`. */
   publishRateLimitPath?: string;
+  /**
+   * SQLite database of the publish rate limit (`SqlitePublishRateLimitStore`), resolved against
+   * `cwd`. The relay prefers it to `publishRateLimitPath` when both are set.
+   */
+  publishRateLimitSqlitePath?: string;
 }
 
 export interface CliParsedArgs {
@@ -21,12 +27,12 @@ export interface CliParsedArgs {
   allowedOrigins?: string[];
   allowedHosts?: string[];
   configPath?: string;
-  journalPath?: string;
   publishKey?: string;
   publishKeyOwner?: string;
   publishRateLimitWindowMs?: number;
   publishRateLimitMax?: number;
   publishRateLimitPath?: string;
+  publishRateLimitSqlitePath?: string;
   help?: boolean;
 }
 
@@ -133,10 +139,6 @@ export function parseCliArgs(args: readonly string[]): CliParsedArgs {
       parsed.configPath = args[++i];
     } else if (arg.startsWith("--config=")) {
       parsed.configPath = arg.slice("--config=".length);
-    } else if (arg === "--journal-path") {
-      parsed.journalPath = args[++i];
-    } else if (arg.startsWith("--journal-path=")) {
-      parsed.journalPath = arg.slice("--journal-path=".length);
     } else if (arg === "--publish-key" || arg === "--publishKey") {
       parsed.publishKey = args[++i];
     } else if (arg.startsWith("--publish-key=")) {
@@ -166,6 +168,10 @@ export function parseCliArgs(args: readonly string[]): CliParsedArgs {
       parsed.publishRateLimitPath = args[++i];
     } else if (arg.startsWith("--publish-rate-limit-path=")) {
       parsed.publishRateLimitPath = arg.slice("--publish-rate-limit-path=".length);
+    } else if (arg === "--publish-rate-limit-sqlite-path") {
+      parsed.publishRateLimitSqlitePath = args[++i];
+    } else if (arg.startsWith("--publish-rate-limit-sqlite-path=")) {
+      parsed.publishRateLimitSqlitePath = arg.slice("--publish-rate-limit-sqlite-path=".length);
     } else if (arg.startsWith("--rate-limit-max=")) {
       const val = arg.slice("--rate-limit-max=".length);
       if (val && Number.isFinite(Number(val))) parsed.publishRateLimitMax = Number(val);
@@ -231,7 +237,6 @@ const PeerServerConfigFileSchema = {
     if (typeof value.host === "string") res.host = value.host;
     if (Array.isArray(value.allowedOrigins)) res.allowedOrigins = stringList(value.allowedOrigins);
     if (Array.isArray(value.allowedHosts)) res.allowedHosts = stringList(value.allowedHosts);
-    if (typeof value.journalPath === "string") res.journalPath = value.journalPath;
     if (value.publishKey !== undefined && (typeof value.publishKey !== "string" || !value.publishKey.trim())) {
       throw new Error("PUBLISH_KEY_CONFIG_INVALID");
     }
@@ -250,6 +255,7 @@ const PeerServerConfigFileSchema = {
     if (typeof value.publishRateLimitMax === "number") res.publishRateLimitMax = value.publishRateLimitMax;
     if (typeof value.publishRateLimitPath === "string") res.publishRateLimitPath = value.publishRateLimitPath;
     if (typeof value.rateLimitPath === "string") res.publishRateLimitPath = value.rateLimitPath;
+    if (typeof value.publishRateLimitSqlitePath === "string") res.publishRateLimitSqlitePath = value.publishRateLimitSqlitePath;
     return res;
   },
 };
@@ -284,12 +290,12 @@ export function resolvePeerServerConfig(
     allowedOrigins?: string[];
     allowedHosts?: string[];
     configPath?: string;
-    journalPath?: string;
     publishKey?: string;
     publishKeyOwner?: string;
     publishRateLimitWindowMs?: number;
     publishRateLimitMax?: number;
     publishRateLimitPath?: string;
+    publishRateLimitSqlitePath?: string;
   } = {},
   argv: readonly string[] = process.argv.slice(2),
   cwd: string = process.cwd(),
@@ -328,12 +334,6 @@ export function resolvePeerServerConfig(
     process.env.HOST ??
     process.env.PEER_SERVER_HOST ??
     "127.0.0.1";
-
-  const journalPath =
-    cli.journalPath ??
-    options.journalPath ??
-    fileConfig.journalPath ??
-    process.env.FRAMEBOOK_COLLAB_JOURNAL_PATH;
 
   const envPublishKey = process.env.FRAMEBOOK_PUBLISH_KEY
     ?? process.env.PEER_SERVER_PUBLISH_KEY
@@ -396,6 +396,15 @@ export function resolvePeerServerConfig(
   if (publishRateLimitPath !== undefined && (!publishRateLimitPath.trim() || publishRateLimitPath.includes("\u0000"))) {
     throw new Error("PUBLISH_RATE_LIMIT_PATH_INVALID");
   }
+  const publishRateLimitSqlitePath =
+    cli.publishRateLimitSqlitePath
+    ?? options.publishRateLimitSqlitePath
+    ?? fileConfig.publishRateLimitSqlitePath
+    ?? publishRateLimitSqlitePathFromEnv(process.env);
+  if (publishRateLimitSqlitePath !== undefined
+    && (!publishRateLimitSqlitePath.trim() || publishRateLimitSqlitePath.includes("\u0000"))) {
+    throw new Error("PUBLISH_RATE_LIMIT_SQLITE_PATH_INVALID");
+  }
 
   const allowedOriginsSet = new Set<string>([
     `http://${host}:${port}`,
@@ -424,12 +433,14 @@ export function resolvePeerServerConfig(
     allowedOrigins: Array.from(allowedOriginsSet),
     allowedHosts: Array.from(allowedHostsSet),
     configPath: resolvedConfigPath,
-    journalPath,
     ...(publishKey?.trim() ? { publishKey: publishKey.trim() } : {}),
     ...(publishKeyOwner?.trim() ? { publishKeyOwner: publishKeyOwner.trim() } : {}),
     publishRateLimitWindowMs,
     publishRateLimitMax,
     ...(publishRateLimitPath?.trim() ? { publishRateLimitPath: resolve(cwd, publishRateLimitPath.trim()) } : {}),
+    ...(publishRateLimitSqlitePath?.trim()
+      ? { publishRateLimitSqlitePath: resolve(cwd, publishRateLimitSqlitePath.trim()) }
+      : {}),
   };
 }
 

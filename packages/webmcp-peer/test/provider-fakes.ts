@@ -68,7 +68,8 @@ export class FakeRelay {
   private issued = 0;
 
   readonly fetch = async (input: string | URL | Request, init: RequestInit = {}): Promise<Response> => {
-    const url = String(input);
+    // Normalized as a server sees the request: the scheme and host of a URL are case-insensitive.
+    const url = new URL(String(input)).href;
     const method = init.method ?? "GET";
     this.fetchCalls.push({ url, method });
     if (!this.reachable) throw new TypeError("fetch failed");

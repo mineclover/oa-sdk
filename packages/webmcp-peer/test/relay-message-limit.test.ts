@@ -1316,7 +1316,7 @@ describe("state-changing endpoints with a body that cannot be used", { timeout: 
     const authorization = `Bearer ${room.providerToken}`;
     const decision = { roomId: room.id, roomEpoch: room.roomEpoch, sessionId: joined.sessionId, decision: "approved" };
     const entry = relay.server.rooms.get(room.id)!;
-    const ticket = () => [...entry.clientTokens.values()].find((candidate) => candidate.sessionId === joined.sessionId);
+    const ticket = () => [...entry.clientTickets.values()].find((candidate) => candidate.sessionId === joined.sessionId);
 
     expect(await reply(await postJson(`${relay.base}${path}`, oversized(decision), { authorization }))).toEqual({ status: 413, body: { error: "BODY_TOO_LARGE" } });
     await abortedPost(relay, path, authorization, JSON.stringify(decision));
@@ -1335,7 +1335,7 @@ describe("state-changing endpoints with a body that cannot be used", { timeout: 
     const path = `/p/${room.id}/session/revoke`;
     const authorization = `Bearer ${room.providerToken}`;
     const target = { sessionId: kept.sessionId, reason: "one-session" };
-    const statuses = () => [...relay.server.rooms.get(room.id)!.clientTokens.values()].map((ticket) => ticket.status);
+    const statuses = () => [...relay.server.rooms.get(room.id)!.clientTickets.values()].map((ticket) => ticket.status);
     expect(statuses()).toEqual(["approved"]);
 
     expect(await reply(await postJson(`${relay.base}${path}`, oversized(target), { authorization }))).toEqual({ status: 413, body: { error: "BODY_TOO_LARGE" } });
@@ -1401,7 +1401,7 @@ describe("state-changing endpoints with a body that cannot be used", { timeout: 
     const entry = relay.server.rooms.get(room.id)!;
     const authorization = `Bearer ${room.providerToken}`;
     const consumed = { status: 500, body: { error: "BODY_CONSUMED" } };
-    const statuses = () => [...entry.clientTokens.values()].map((ticket) => ticket.status);
+    const statuses = () => [...entry.clientTickets.values()].map((ticket) => ticket.status);
 
     // Read as `{}`, this would revoke every session (no sessionId) instead of answering 404.
     const revoke = await postJson(`${relay.base}/p/${room.id}/session/revoke`, { sessionId: "peer-session-unknown" }, { authorization, "x-test-hook": "consume" });
@@ -1468,8 +1468,8 @@ describe("state-changing endpoints with a body that cannot be used", { timeout: 
     expect(live.map((candidate) => candidate.id)).toContain(replacement.id);
     expect(entry.rotatedTo).toBe(replacement.id);
     expect(entry.roomState).toBe("rotated");
-    expect([...entry.clientTokens.values()].map((ticket) => ticket.status)).toEqual(["room-rotated"]);
-    expect(relay.server.rooms.get(other.id)!.clientTokens.size).toBe(0);
+    expect([...entry.clientTickets.values()].map((ticket) => ticket.status)).toEqual(["room-rotated"]);
+    expect(relay.server.rooms.get(other.id)!.clientTickets.size).toBe(0);
   });
 
   it("refuses a slow approval or rotation signed with a provider token a reclaim replaced meanwhile", async () => {
@@ -1493,7 +1493,7 @@ describe("state-changing endpoints with a body that cannot be used", { timeout: 
 
     expect(await slowApproval.finish()).toEqual({ status: 401, body: { error: "PROVIDER_TOKEN_REQUIRED" } });
     expect(await slowRotate.finish()).toEqual({ status: 401, body: { error: "PROVIDER_TOKEN_REQUIRED" } });
-    expect([...entry.clientTokens.values()].map((ticket) => ticket.status)).toEqual(["pending"]);
+    expect([...entry.clientTickets.values()].map((ticket) => ticket.status)).toEqual(["pending"]);
     expect(entry.rotatedTo).toBeUndefined();
   });
 });
@@ -1868,6 +1868,31 @@ describe("what one agent can make the relay hold", { timeout: 20_000 }, () => {
       expect(request.payload.clientLabel).toBe(kept);
       const session = (await (await fetch(`${relay.base}/p/${room.id}/sessions/${joined.sessionId}`, { headers: { authorization: `Bearer ${joined.clientToken}` } })).json()) as Frame;
       expect(session.clientLabel).toBe(kept);
+    }
+  });
+
+  it("trims a room's alias and keeps at most its first 256 code points, on creation and on rotation", async () => {
+    const relay = await startRelay(servers, { deploymentCatalog: { tools: [] } });
+    const cases = [
+      { alias: `  ${"A".repeat(60_000)}  `, kept: "A".repeat(256) },
+      // Cut by code point, never inside a surrogate pair.
+      { alias: "\u{1F600}".repeat(300), kept: "\u{1F600}".repeat(256) },
+      // The cut leaves no trailing whitespace.
+      { alias: `${"a".repeat(255)} b`, kept: "a".repeat(255) },
+      { alias: "  short alias  ", kept: "short alias" },
+    ];
+    const descriptorAlias = async (roomId: string) =>
+      ((await (await fetch(`${relay.base}/p/${roomId}/mcp`)).json()) as Frame).alias;
+    for (const { alias, kept } of cases) {
+      const created = await postJson(`${relay.base}/p`, { alias });
+      const room = (await created.json()) as RoomDescriptor & { alias: string };
+      expect(room.alias).toBe(kept);
+      expect(await descriptorAlias(room.id)).toBe(kept);
+
+      const rotated = await postJson(`${relay.base}/p/${room.id}/rotate`, { alias }, { authorization: `Bearer ${room.providerToken}` });
+      const replacement = (await rotated.json()) as RoomDescriptor & { alias: string };
+      expect(replacement.alias).toBe(kept);
+      expect(await descriptorAlias(replacement.id)).toBe(kept);
     }
   });
 

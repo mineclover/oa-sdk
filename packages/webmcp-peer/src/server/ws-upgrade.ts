@@ -2,6 +2,7 @@ import type { IncomingMessage } from "node:http";
 import { createHash } from "node:crypto";
 import type { Duplex } from "node:stream";
 import { PEER_RELAY_MAX_MESSAGE_BYTES } from "../config/limits.js";
+import { WEBMCP_SUBPROTOCOL } from "../config/types.js";
 
 /**
  * What {@link PeerSocket.send} did: `sent`; `too-large`, nothing sent because the message is over
@@ -290,8 +291,8 @@ export function upgradeWebSocket(
     ? rawProtocol.split(",").map((p) => p.trim())
     : [];
 
-  const protocolHeader = requestedProtocols.includes("webmcp-peer.v1")
-    ? `Sec-WebSocket-Protocol: webmcp-peer.v1\r\n`
+  const protocolHeader = requestedProtocols.includes(WEBMCP_SUBPROTOCOL)
+    ? `Sec-WebSocket-Protocol: ${WEBMCP_SUBPROTOCOL}\r\n`
     : requestedProtocols.length > 0
       ? `Sec-WebSocket-Protocol: ${requestedProtocols[0]}\r\n`
       : "";

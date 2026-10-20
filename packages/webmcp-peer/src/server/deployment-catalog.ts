@@ -1,8 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-
-const MAX_CATALOG_TOOLS = 128;
+import { isToolInputSchema, PEER_CATALOG_MAX_TOOLS, toolNameViolation } from "../config/catalog.js";
 
 export interface DeploymentCatalogSnapshot {
   readonly tools: readonly Record<string, unknown>[];
@@ -58,25 +57,24 @@ export function hashDeploymentCatalog(tools: readonly unknown[]): string {
   return createHash("sha256").update(JSON.stringify(stableCatalogValue(ordered))).digest("hex");
 }
 
-const MAX_TOOL_NAME_LENGTH = 256;
-
 /**
- * Validates a tool catalog against the contract the peer MCP client enforces (`normalizeTools`):
- * at most 128 tools, unique trimmed names of at most 256 characters, and an `inputSchema` object
+ * Validates a tool catalog against the protocol's catalog contract (`../config/catalog.ts`), which
+ * the peer MCP client (`normalizeTools`) enforces too: at most 128 tools, unique non-empty names of
+ * at most 256 UTF-16 code units without leading or trailing whitespace, and an `inputSchema` object
  * of `type: "object"` on every tool (required by MCP). The relay must never accept a catalog its
  * clients would reject, or the two sides would disagree on catalogVersion/catalogHash.
  * Returns a deep copy, or `null` when any descriptor is invalid.
  */
 export function normalizeToolCatalog(value: unknown): Record<string, unknown>[] | null {
-  if (!Array.isArray(value) || value.length > MAX_CATALOG_TOOLS) return null;
+  if (!Array.isArray(value) || value.length > PEER_CATALOG_MAX_TOOLS) return null;
   const names = new Set<string>();
   const tools: Record<string, unknown>[] = [];
   for (const candidate of value) {
-    if (!isCatalogRecord(candidate) || typeof candidate.name !== "string") return null;
+    if (!isCatalogRecord(candidate)) return null;
     const name = candidate.name;
-    if (!name || name !== name.trim() || name.length > MAX_TOOL_NAME_LENGTH || names.has(name)) return null;
+    if (typeof name !== "string" || toolNameViolation(name, names) !== undefined) return null;
     names.add(name);
-    if (!isCatalogRecord(candidate.inputSchema) || candidate.inputSchema.type !== "object") return null;
+    if (!isToolInputSchema(candidate.inputSchema)) return null;
     try { tools.push(structuredClone(candidate)); } catch { return null; }
   }
   return tools;
@@ -114,15 +112,21 @@ function buildCatalogSnapshot(input: DeploymentCatalogInput, source: DeploymentC
   });
 }
 
-export function loadDeploymentCatalog(injected?: DeploymentCatalogInput): DeploymentCatalogSnapshot {
+/**
+ * The relay's deployment catalog: `injected` when given (source `injected`), otherwise the first of
+ * `$WEBMCP_CATALOG_PATH`, `$FRAMEBOOK_MCP_CATALOG_PATH`, `<cwd>/api/webmcp-tools.json` and
+ * `<cwd>/../../api/webmcp-tools.json` that exists and lists at least one valid tool (source
+ * `deployment`), otherwise an empty catalog (source `empty`). Relative paths, the environment's
+ * included, are resolved against `cwd` (the relay passes its `cwd` option).
+ */
+export function loadDeploymentCatalog(injected?: DeploymentCatalogInput, cwd: string = process.cwd()): DeploymentCatalogSnapshot {
   if (injected) return buildCatalogSnapshot(injected, "injected");
   const candidates = [
     process.env.WEBMCP_CATALOG_PATH,
     process.env.FRAMEBOOK_MCP_CATALOG_PATH,
-    resolve(process.cwd(), "api/webmcp-tools.json"),
-    resolve(process.cwd(), "../../api/webmcp-tools.json"),
-    resolve(process.cwd(), "packages/peer-server/api/webmcp-tools.json"),
-  ].filter((value): value is string => Boolean(value));
+    "api/webmcp-tools.json",
+    "../../api/webmcp-tools.json",
+  ].filter((value): value is string => Boolean(value)).map((value) => resolve(cwd, value));
   for (const filePath of candidates) {
     if (!existsSync(filePath)) continue;
     try {

@@ -10,7 +10,9 @@
 
 // 1. Config utilities (`./config`)
 export {
+  WEBMCP_PROTOCOL,
   WEBMCP_SUBPROTOCOL,
+  WEBMCP_ROOM_ID_PATTERN,
   WEBMCP_PEER_CONFIG_TYPE,
   DEFAULT_EXTERNAL_CONSENT_PREFIX,
   normalizePeerUrl,
@@ -31,6 +33,8 @@ export {
   PEER_RELAY_MAX_CATALOG_BYTES,
   PEER_RELAY_MAX_ANNOUNCEMENT_BYTES,
   PEER_RELAY_MAX_PENDING_REQUESTS,
+  PEER_CATALOG_MAX_TOOLS,
+  PEER_CATALOG_MAX_TOOL_NAME_LENGTH,
   type WebMcpPeerConfigProfile,
   type CreatePeerConfigProfileOptions,
   type WebMcpParsedInvitationUrl,

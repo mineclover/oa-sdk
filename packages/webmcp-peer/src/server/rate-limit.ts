@@ -290,9 +290,23 @@ export class SqlitePublishRateLimitStore implements PublishRateLimitStore {
   }
 }
 
+/**
+ * The SQLite rate-limit database an environment names: `FRAMEBOOK_PUBLISH_RATE_LIMIT_SQLITE_PATH`,
+ * else `WEBMCP_PUBLISH_RATE_LIMIT_SQLITE_PATH`. `resolvePeerServerConfig` reads it after the CLI flag,
+ * the options and the config file. Internal to the package.
+ */
+export function publishRateLimitSqlitePathFromEnv(env: NodeJS.ProcessEnv): string | undefined {
+  return env.FRAMEBOOK_PUBLISH_RATE_LIMIT_SQLITE_PATH ?? env.WEBMCP_PUBLISH_RATE_LIMIT_SQLITE_PATH;
+}
+
+/**
+ * A SQLite store at the database `env` names (see `publishRateLimitSqlitePathFromEnv`), or undefined.
+ * The relay opens that store on its own when the environment names one; this helper is for a host
+ * that builds its store before the relay (and passes it as `publishRateLimitStore`).
+ */
 export function createPublishRateLimitStoreFromEnv(
   env: NodeJS.ProcessEnv = process.env,
 ): PublishRateLimitStore | undefined {
-  const path = env.FRAMEBOOK_PUBLISH_RATE_LIMIT_SQLITE_PATH ?? env.WEBMCP_PUBLISH_RATE_LIMIT_SQLITE_PATH;
+  const path = publishRateLimitSqlitePathFromEnv(env);
   return path ? new SqlitePublishRateLimitStore(path) : undefined;
 }

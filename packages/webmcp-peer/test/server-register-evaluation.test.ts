@@ -63,7 +63,9 @@ const invalid = (registerSeq: number): Frame => ({
   type: "error",
   code: -32602,
   message: "CATALOG_INVALID",
-  reason: "register.tools must be at most 128 uniquely named tools with an object inputSchema",
+  reason:
+    "register.tools must be an array of at most 128 tools, each with a unique, non-empty name of at most 256 UTF-16 code units "
+    + 'without leading or trailing whitespace and an inputSchema object of type "object"',
   registerSeq,
 });
 /** A catalog the relay refuses as CATALOG_INVALID; `variant` makes each one a different frame. */

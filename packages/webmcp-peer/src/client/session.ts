@@ -6,6 +6,7 @@ import {
   readResponseText,
 } from "../config/json.js";
 import { PEER_RELAY_MAX_PENDING_REQUESTS } from "../config/limits.js";
+import { WEBMCP_SUBPROTOCOL } from "../config/types.js";
 import {
   extractCatalogVersion,
   hashTools,
@@ -31,6 +32,7 @@ import {
   createWebSocketTransport,
   normalizeServerUrl,
   parseRoomId,
+  roomIdOption,
   websocketUrl,
 } from "./transport.js";
 import {
@@ -153,7 +155,9 @@ export class PeerMcpSession {
     this.serverUrl = normalizeServerUrl(
       options.serverUrl ?? readEnv("FRAMEBOOK_PEER_URL") ?? readEnv("WEBMCP_PEER_URL"),
     );
-    this.roomId = parseRoomId(
+    // A room id outside the protocol's grammar is refused here (ROOM_ID_INVALID): no relay route
+    // would take it.
+    this.roomId = roomIdOption(
       options.roomId ??
         options.descriptorUrl ??
         readEnv("FRAMEBOOK_PEER_ROOM_ID") ??
@@ -336,7 +340,7 @@ export class PeerMcpSession {
     this.notify();
     try {
       const url = (this.wsUrl || (this.roomId ? websocketUrl(this.serverUrl, this.roomId) : this.mcpEndpoint)) ?? "";
-      const protocols = ["webmcp-peer.v1"];
+      const protocols: string[] = [WEBMCP_SUBPROTOCOL];
       if (this.clientToken) protocols.push(`ticket.${this.clientToken}`);
       const callbacks: PeerMcpTransportCallbacks = {
         onOpen: () => this.#markOpen(),

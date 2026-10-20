@@ -169,7 +169,16 @@ export interface DiscoverPeerCatalogOptions {
 
 export interface DiscoveredPeerCatalog {
   serverInfo?: Record<string, unknown>;
+  /**
+   * The MCP revision: the one `initialize` negotiated for a room, and `PROTOCOL_VERSION` for the
+   * room-independent deployment catalog (`GET /mcp/catalog`), which negotiates none.
+   */
   protocolVersion?: string;
+  /**
+   * The relay protocol a deployment catalog (`GET /mcp/catalog`) reports, `webmcp-peer.v1`
+   * (`WEBMCP_SUBPROTOCOL`) for this relay. Absent for a room, which is discovered over MCP.
+   */
+  protocol?: string;
   tools: PeerMcpTool[];
   catalogVersion: number | string;
   catalogHash: string;
