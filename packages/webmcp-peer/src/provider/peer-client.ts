@@ -813,8 +813,8 @@ export class WebMcpPeerClient {
         }
         if (body.error === "ROOM_PROVIDER_ACTIVE") throw new Error("ROOM_PROVIDER_ACTIVE");
       }
-      // The lease cannot be used again: none was sent (400), it is wrong (403), or the room is gone
-      // or expired (404) or was rotated (410).
+      // The lease cannot be used again: none was sent (400), it is wrong (403), the room is gone
+      // (404), or it expired, was rotated or outlived the lease (410).
       if (response.status === 400 || response.status === 403 || response.status === 404 || response.status === 410) {
         this.clearSavedRoomLease(this.serverUrl);
       }

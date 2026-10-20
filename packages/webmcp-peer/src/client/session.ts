@@ -96,6 +96,22 @@ interface SlotWaiter {
   timer: ReturnType<typeof setTimeout>;
 }
 
+/**
+ * The frames that end the session, with the PeerMcpError code each is reported as and the message
+ * used when the frame has neither `reason` nor `message`. The relay ends a ticket with
+ * `approval.rejected`, `session.revoked`, `room.rotated` or `room.expired`, and an expired approval
+ * request with `approval.expired`.
+ */
+const TERMINAL_FRAMES: ReadonlyMap<string, { readonly code: string; readonly message: string }> = new Map([
+  ["session.revoked", { code: "SESSION_REVOKED", message: "Peer session was revoked" }],
+  ["collaboration.revoked", { code: "SESSION_REVOKED", message: "Peer session was revoked" }],
+  ["room.rotated", { code: "ROOM_ROTATED", message: "Peer room was rotated" }],
+  ["room.expired", { code: "ROOM_EXPIRED", message: "Peer room expired" }],
+  ["approval.expired", { code: "APPROVAL_EXPIRED", message: "Peer approval request expired" }],
+  ["collaboration.expired", { code: "SESSION_EXPIRED", message: "Peer session expired" }],
+  ["approval.rejected", { code: "CLIENT_APPROVAL_DENIED", message: "Peer approval request was rejected" }],
+]);
+
 /** First delay before a retryable refusal (e.g. PROVIDER_BUSY) is retried. */
 const RETRY_INITIAL_DELAY_MS = 100;
 /** Longest delay between retries of a retryable refusal. */
@@ -458,38 +474,12 @@ export class PeerMcpSession {
     if (value.type === "pong") {
       return;
     }
-    if (
-      value.type === "session.revoked" ||
-      value.type === "collaboration.revoked" ||
-      value.type === "room.rotated" ||
-      value.type === "approval.expired" ||
-      value.type === "collaboration.expired" ||
-      value.type === "approval.rejected"
-    ) {
-      const code =
-        value.type === "room.rotated"
-          ? "ROOM_ROTATED"
-          : value.type === "approval.expired"
-            ? "APPROVAL_EXPIRED"
-            : value.type === "collaboration.expired"
-              ? "SESSION_EXPIRED"
-              : value.type === "approval.rejected"
-                ? "CLIENT_APPROVAL_DENIED"
-                : "SESSION_REVOKED";
-      const defaultMsg =
-        code === "ROOM_ROTATED"
-          ? "Peer room was rotated"
-          : code === "APPROVAL_EXPIRED"
-            ? "Peer approval request expired"
-            : code === "SESSION_EXPIRED"
-              ? "Peer session expired"
-              : code === "CLIENT_APPROVAL_DENIED"
-                ? "Peer approval request was rejected"
-                : "Peer session was revoked";
+    const terminal = typeof value.type === "string" ? TERMINAL_FRAMES.get(value.type) : undefined;
+    if (terminal) {
       const msg = (typeof value.reason === "string" ? value.reason : undefined)
         || (typeof value.message === "string" ? value.message : undefined)
-        || defaultMsg;
-      const error = new PeerMcpError(msg, code, value);
+        || terminal.message;
+      const error = new PeerMcpError(msg, terminal.code, value);
       this.state = "error";
       this.error = error.message;
       this.#readyReject?.(error);

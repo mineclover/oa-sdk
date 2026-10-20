@@ -14,6 +14,7 @@ const TERMINAL_FRAME_STATE = {
   "approval.expired": "expired",
   "session.revoked": "revoked",
   "room.rotated": "rotated",
+  "room.expired": "expired",
 };
 
 /**

@@ -112,6 +112,20 @@ const REGISTER_EVALUATION_INTERVAL_MS = 1_000;
  */
 const CLIENT_SIGNALING_FRAME_TYPES: ReadonlySet<string> = new Set(['offer']);
 
+/** The status a ticket ends with (see `WebMcpPeerServer.closeClientTicket`). */
+type TicketEndStatus = Extract<ClientSessionStatus, 'rejected' | 'revoked' | 'room-rotated' | 'expired'>;
+/**
+ * The frame each ending of a ticket sends the ticket's client sockets: a rejected approval, a
+ * revocation, the room's rotation, or the room's expiry. A ticket is ended as `expired` here only
+ * with its room; an approval request that expires sends its own `approval.expired`.
+ */
+const TICKET_END_FRAMES: Readonly<Record<TicketEndStatus, string>> = {
+  rejected: 'approval.rejected',
+  revoked: 'session.revoked',
+  'room-rotated': 'room.rotated',
+  expired: 'room.expired',
+};
+
 type RpcRequest = { jsonrpc: '2.0'; id?: string | number | null; method: string; params?: unknown };
 type RpcErrorBody = { code: number; message: string; data?: unknown };
 
@@ -283,6 +297,7 @@ type CodelessLifecycleError =
   | 'CAPABILITIES_INVALID'
   | 'ROOM_LEASE_REQUIRED'
   | 'ROOM_LEASE_INVALID'
+  | 'ROOM_LEASE_EXPIRED'
   | 'ROOM_PROVIDER_ACTIVE'
   | 'INVITE_TOKEN_REQUIRED'
   | 'INVITE_TOKEN_INVALID'
@@ -1028,7 +1043,7 @@ export class WebMcpPeerServer {
       const timer = setTimeout(() => {
         state.waiting = undefined;
         // Only the room's attached provider socket speaks for it, as for a frame it sends now.
-        if (entry.providerSocket !== register.sender || entry.expiresAt <= Date.now()) return;
+        if (entry.providerSocket !== register.sender || this.expireRoomIfDue(entry)) return;
         try {
           this.processRegister(entry, state, register);
         } catch { /* a frame the relay cannot evaluate is ignored, as when it arrives */ }
@@ -1134,12 +1149,12 @@ export class WebMcpPeerServer {
     }
   }
 
-  protected failPendingForSocket(entry: RoomEntry, socket: PeerSocket, error?: { code: number; message: string }): void {
+  protected failPendingForSocket(entry: RoomEntry, socket: PeerSocket, error?: RpcErrorBody): void {
     for (const [key, pending] of entry.mcpPending) {
       if (pending.socket === socket) {
         clearTimeout(pending.timer);
         entry.mcpPending.delete(key);
-        if (error) this.sendRpcError(pending.socket, pending.id, error.code, error.message);
+        if (error) this.sendRpcError(pending.socket, pending.id, error.code, error.message, error.data);
       }
     }
   }
@@ -1328,12 +1343,18 @@ export class WebMcpPeerServer {
     });
   }
 
+  /** 410 ROOM_EXPIRED for a lifecycle request to `room`, an expired room the relay still retains. */
+  protected sendRoomExpired(res: ServerResponse, room: RoomEntry, origin?: string): void {
+    this.sendLifecycleError(res, 410, 'ROOM_EXPIRED', origin, { roomId: room.id, roomEpoch: room.roomEpoch });
+  }
+
   /**
-   * The room check of the approval, revoke and rotate routes, made before the body is read and
-   * again after it. True when `room` is the live room `roomId`; otherwise this answered 404
-   * ROOM_NOT_FOUND for a room that is gone or was replaced, 410 ROOM_ROTATED for a rotated one, as
-   * join, session status, reclaim and the MCP endpoint do (checked before the expiry, which a
-   * rotation sets to the rotation time), or 404 ROOM_NOT_FOUND for an expired one.
+   * The room check of the join, reclaim, approval, revoke and rotate routes, made before the body
+   * is read and again after it. True when `room` is the live room `roomId`; otherwise this answered
+   * 404 ROOM_NOT_FOUND for a room that is gone (deleted once its retention ended) or was replaced,
+   * 410 ROOM_ROTATED for a rotated one, as session status and the MCP endpoint do (checked before
+   * the expiry, which a rotation sets to the rotation time), or 410 ROOM_EXPIRED for an expired one,
+   * whose expiry this carries out if nothing did yet (see `expireRoomIfDue`).
    */
   protected checkLifecycleRoom(res: ServerResponse, roomId: string, room: RoomEntry | undefined, origin?: string): room is RoomEntry {
     if (!room || this.rooms.get(roomId) !== room) {
@@ -1344,8 +1365,8 @@ export class WebMcpPeerServer {
       this.sendRoomRotated(res, room, origin);
       return false;
     }
-    if (room.expiresAt <= Date.now()) {
-      this.sendLifecycleError(res, 404, 'ROOM_NOT_FOUND', origin);
+    if (this.expireRoomIfDue(room)) {
+      this.sendRoomExpired(res, room, origin);
       return false;
     }
     return true;
@@ -1523,15 +1544,13 @@ export class WebMcpPeerServer {
 
   /**
    * The room's ticket for the client token `token`, looked up by the token's hash (see `secretHash`),
-   * or null when the room issued no such token.
+   * or null when the room issued no such token. A room found expired here has its expiry carried
+   * out first (see `expireRoomIfDue`), which ends the ticket as `expired`.
    */
   protected resolveClientTicket(entry: RoomEntry, token: string): ClientSessionTicket | null {
     const ticket = entry.clientTickets.get(secretHash(token));
     if (!ticket) return null;
-    if (entry.expiresAt <= Date.now()) {
-      entry.roomState = entry.roomState === 'rotated' ? entry.roomState : 'expired';
-      entry.updatedAt = Date.now();
-    }
+    this.expireRoomIfDue(entry);
     if (ticket.expiresAt <= Date.now()) {
       if (ticket.status !== 'revoked' && ticket.status !== 'rejected' && ticket.status !== 'room-rotated') ticket.status = 'expired';
       return ticket;
@@ -1730,18 +1749,29 @@ export class WebMcpPeerServer {
     }
   }
 
-  /** Ends the ticket whose client token hashes to `tokenHash` (its key in `clientTickets`). */
-  protected closeClientTicket(entry: RoomEntry, tokenHash: string, status: 'rejected' | 'revoked' | 'room-rotated', reason: string): boolean {
+  /**
+   * Ends the ticket whose client token hashes to `tokenHash` (its key in `clientTickets`) as
+   * `status`: rejected by the provider, revoked, or ended with its room by a rotation or the room's
+   * expiry (`expired`; see `expireRoom`). Each client socket of the ticket is told why with the frame
+   * of `TICKET_END_FRAMES` (a rotation's names the replacement room), its requests in flight get the
+   * same error an HTTP request of the room would (see `ticketClosedRpcError`), and it is closed.
+   */
+  protected closeClientTicket(entry: RoomEntry, tokenHash: string, status: TicketEndStatus, reason: string): boolean {
     const ticket = entry.clientTickets.get(tokenHash);
     if (!ticket) return false;
     ticket.status = status;
     ticket.revokedAt = Date.now();
     const approvalRequestId = ticket.approvalRequestId;
     if (approvalRequestId) entry.pendingApprovals.delete(approvalRequestId);
+    const type = TICKET_END_FRAMES[status];
+    // The replacement of a rotated room, which the rotation registered before ending its tickets.
+    const replacement = status === 'room-rotated' && entry.rotatedTo
+      ? { replacementRoomId: entry.rotatedTo, replacementRoomEpoch: this.rooms.get(entry.rotatedTo)?.roomEpoch ?? null }
+      : undefined;
+    const error = this.ticketClosedRpcError(entry, status);
     for (const [socket, boundTicket] of entry.clientSocketTickets) {
       if (boundTicket !== ticket) continue;
       try {
-        const type = status === 'revoked' ? 'session.revoked' : status === 'room-rotated' ? 'room.rotated' : 'approval.rejected';
         socket.send({
           protocol: WEBMCP_PROTOCOL,
           messageId: `${type}-${ticket.sessionId}-${Date.now()}`,
@@ -1751,11 +1781,19 @@ export class WebMcpPeerServer {
           sessionId: ticket.sessionId,
           ...(approvalRequestId ? { requestId: approvalRequestId } : {}),
           sentAt: new Date().toISOString(),
-          payload: { ...(approvalRequestId ? { requestId: approvalRequestId } : {}), sessionId: ticket.sessionId, roomId: entry.id, roomEpoch: entry.roomEpoch, reason },
+          payload: {
+            ...(approvalRequestId ? { requestId: approvalRequestId } : {}),
+            sessionId: ticket.sessionId,
+            roomId: entry.id,
+            roomEpoch: entry.roomEpoch,
+            ...replacement,
+            reason,
+          },
+          ...(replacement ? { rotatedTo: replacement.replacementRoomId } : {}),
           reason,
         });
       } catch {}
-      this.failPendingForSocket(entry, socket, peerRpcError(status === 'room-rotated' ? 'ROOM_ROTATED' : status === 'revoked' ? 'SESSION_INVALID' : 'CLIENT_APPROVAL_DENIED'));
+      this.failPendingForSocket(entry, socket, error);
       socket.close();
       entry.clientSocketTickets.delete(socket);
       entry.clientSockets.delete(socket);
@@ -1804,20 +1842,26 @@ export class WebMcpPeerServer {
     return true;
   }
 
-  /** The JSON-RPC error an in-flight request receives when its room is rotated, revoked or expired. */
-  protected roomClosedRpcError(entry: RoomEntry, reason: string, status: 'revoked' | 'room-rotated'): RpcErrorBody {
+  /**
+   * The JSON-RPC error a request in flight receives when its ticket ends as `status`, the same over
+   * WebSocket and HTTP: ROOM_ROTATED naming the replacement room, ROOM_EXPIRED, SESSION_INVALID for
+   * a revocation, CLIENT_APPROVAL_DENIED for a rejection.
+   */
+  protected ticketClosedRpcError(entry: RoomEntry, status: TicketEndStatus): RpcErrorBody {
     if (status === 'room-rotated') {
       return peerRpcError('ROOM_ROTATED', { replacementRoomId: entry.rotatedTo ?? null, roomId: entry.id, roomEpoch: entry.roomEpoch });
     }
-    if (reason === 'ROOM_EXPIRED') return peerRpcError('ROOM_EXPIRED', { roomId: entry.id, roomEpoch: entry.roomEpoch });
+    if (status === 'expired') return peerRpcError('ROOM_EXPIRED', { roomId: entry.id, roomEpoch: entry.roomEpoch });
+    if (status === 'rejected') return peerRpcError('CLIENT_APPROVAL_DENIED');
     return peerRpcError('SESSION_INVALID');
   }
 
-  protected revokeAllClientTickets(entry: RoomEntry, reason: string, status: 'revoked' | 'room-rotated' = 'revoked'): void {
+  /** Ends every ticket of the room as `status` (see `closeClientTicket`) and every request in flight. */
+  protected revokeAllClientTickets(entry: RoomEntry, reason: string, status: Exclude<TicketEndStatus, 'rejected'> = 'revoked'): void {
     for (const [tokenHash] of entry.clientTickets) this.closeClientTicket(entry, tokenHash, status, reason);
     // Requests still in flight belong to sockets no ticket is bound to (the HTTP MCP bridge):
     // settle each one with an error so its caller gets a response instead of waiting forever.
-    const error = this.roomClosedRpcError(entry, reason, status);
+    const error = this.ticketClosedRpcError(entry, status);
     for (const key of [...entry.mcpPending.keys()]) this.clearPending(entry, key, error);
     entry.pendingApprovals.clear();
   }
@@ -1827,34 +1871,48 @@ export class WebMcpPeerServer {
     return token ? this.resolveClientTicket(entry, token) : null;
   }
 
+  /**
+   * Carries out the expiry of the room `entry`, once: every ticket ends as `expired` (its client
+   * sockets get `room.expired` and are closed, and their requests in flight get ROOM_EXPIRED), the
+   * HTTP requests in flight get ROOM_EXPIRED too, and the provider socket is closed. The room stays
+   * until its retention ends (see `cleanupExpiredRooms`), and its lifecycle routes answer 410
+   * ROOM_EXPIRED meanwhile. A rotated room is left alone: its rotation already ended its tickets
+   * and sockets.
+   */
+  protected expireRoom(entry: RoomEntry, now = Date.now()): void {
+    if (entry.rotatedTo || entry.roomState === 'expired') return;
+    entry.roomState = 'expired';
+    entry.updatedAt = now;
+    // Every client socket is bound to a ticket, so ending the tickets closes and detaches them all.
+    this.revokeAllClientTickets(entry, 'ROOM_EXPIRED', 'expired');
+    const provider = entry.providerSocket;
+    entry.providerSocket = undefined;
+    try { provider?.close(); } catch {}
+  }
+
+  /**
+   * True when the room `entry` is past its `expiresAt`, whose expiry this then carries out unless
+   * that was done (see `expireRoom`). Besides the sweep, every place that finds a room expired goes
+   * through here — the lifecycle and MCP route checks, ticket resolution, an upgrade, a frame from
+   * one of the room's sockets — so the expiry is told the same way, once, whoever finds it first.
+   */
+  protected expireRoomIfDue(entry: RoomEntry, now = Date.now()): boolean {
+    if (entry.expiresAt > now) return false;
+    this.expireRoom(entry, now);
+    return true;
+  }
+
+  /**
+   * The sweep: expires every room past its `expiresAt` (see `expireRoom`) and deletes those whose
+   * retention, `metadataRetainUntil`, has ended; a deleted room's id is answered 404 ROOM_NOT_FOUND.
+   * A rotated room is retained exactly as long as an expired one, so it answers 410 ROOM_ROTATED
+   * (naming its replacement) until its original `expiresAt` plus ROOM_METADATA_RETAIN_MS.
+   */
   protected cleanupExpiredRooms(now = Date.now()): void {
     for (const [roomId, entry] of this.rooms) {
       if (entry.expiresAt > now) continue;
-      const retainUntil = Math.max(entry.metadataRetainUntil ?? 0, entry.rotatedRetainUntil ?? 0);
-      if (retainUntil > now) {
-        if (entry.roomState !== 'expired' && !entry.rotatedTo) {
-          entry.roomState = 'expired';
-          entry.updatedAt = now;
-          this.revokeAllClientTickets(entry, 'ROOM_EXPIRED', 'revoked');
-          try { entry.providerSocket?.close(); } catch {}
-          for (const socket of entry.clientSockets) {
-            try { socket.close(); } catch {}
-          }
-          entry.providerSocket = undefined;
-          entry.clientSockets.clear();
-          entry.clientSocketTickets.clear();
-        }
-        continue;
-      }
-      this.revokeAllClientTickets(entry, 'ROOM_EXPIRED', 'revoked');
-      try { entry.providerSocket?.close(); } catch {}
-      for (const socket of entry.clientSockets) {
-        try { socket.close(); } catch {}
-      }
-      entry.providerSocket = undefined;
-      entry.clientSockets.clear();
-      entry.clientSocketTickets.clear();
-      this.rooms.delete(roomId);
+      this.expireRoom(entry, now);
+      if ((entry.metadataRetainUntil ?? 0) <= now) this.rooms.delete(roomId);
     }
   }
 
@@ -1991,19 +2049,12 @@ export class WebMcpPeerServer {
       const roomId = reclaimMatch[1];
       const entry = this.rooms.get(roomId);
       // Checked before the body is read and again after it: the room can be rotated, expire or be
-      // reclaimed by another request while the body is in transit.
+      // reclaimed by another request while the body is in transit. The lease of a live room can
+      // expire on its own: ROOM_LEASE_EXPIRED, not the room's ROOM_EXPIRED.
       const reclaimable = (room: RoomEntry | undefined): room is RoomEntry => {
-        if (!room || this.rooms.get(roomId) !== room) {
-          this.sendLifecycleError(res, 404, 'ROOM_NOT_FOUND', origin);
-          return false;
-        }
-        if (room.rotatedTo) {
-          this.sendRoomRotated(res, room, origin);
-          return false;
-        }
-        const checkedAt = Date.now();
-        if (room.expiresAt <= checkedAt || room.reconnectLeaseExpiresAt <= checkedAt) {
-          this.sendLifecycleError(res, 404, 'ROOM_EXPIRED', origin);
+        if (!this.checkLifecycleRoom(res, roomId, room, origin)) return false;
+        if (room.reconnectLeaseExpiresAt <= Date.now()) {
+          this.sendLifecycleError(res, 410, 'ROOM_LEASE_EXPIRED', origin, { roomId, roomEpoch: room.roomEpoch });
           return false;
         }
         return true;
@@ -2223,7 +2274,7 @@ export class WebMcpPeerServer {
         this.sendJson(res, 410, { jsonrpc: '2.0', id, error: peerRpcError('ROOM_ROTATED', { replacementRoomId: entry.rotatedTo, roomId, roomEpoch: entry.roomEpoch }) }, origin);
         return;
       }
-      if (!metadataOnly && entry && entry.expiresAt <= Date.now()) {
+      if (!metadataOnly && entry && this.expireRoomIfDue(entry)) {
         this.sendJson(res, 410, { jsonrpc: '2.0', id, error: peerRpcError('ROOM_EXPIRED', { roomId, roomEpoch: entry.roomEpoch }) }, origin);
         return;
       }
@@ -2388,18 +2439,9 @@ export class WebMcpPeerServer {
       const roomId = joinMatch[1];
       const entry = this.rooms.get(roomId);
       // Checked before the body is read and again after it, since the room can be rotated or
-      // expire while the body is in transit.
-      const joinable = (room: RoomEntry | undefined): room is RoomEntry => {
-        if (room?.rotatedTo) {
-          this.sendRoomRotated(res, room, origin);
-          return false;
-        }
-        if (!room || this.rooms.get(roomId) !== room || room.expiresAt < Date.now()) {
-          this.sendLifecycleError(res, 404, 'ROOM_NOT_FOUND', origin);
-          return false;
-        }
-        return true;
-      };
+      // expire while the body is in transit. A room whose `expiresAt` is now has expired, as for
+      // every other route and the sweep, so no join takes an invite for a ticket already expired.
+      const joinable = (room: RoomEntry | undefined): room is RoomEntry => this.checkLifecycleRoom(res, roomId, room, origin);
       if (!joinable(entry)) return;
       const body = await this.readJsonBodyOrRespond(req, res, origin);
       if (!body || !joinable(entry)) return;
@@ -2672,11 +2714,15 @@ export class WebMcpPeerServer {
       entry.updatedAt = rotatedAt;
       const replacement = this.createRoomEntry(alias, entry.approvalRequired, ttlMs, entry.roomEpoch + 1, entry.capabilities, entry.ownerId);
       this.rooms.set(replacement.id, replacement);
+      // Retained like an expired room, until its original expiry plus ROOM_METADATA_RETAIN_MS
+      // (`metadataRetainUntil`), answering ROOM_ROTATED with its replacement meanwhile.
       entry.rotatedTo = replacement.id;
       entry.expiresAt = rotatedAt;
-      entry.rotatedRetainUntil = rotatedAt + 5 * 60_000;
       entry.roomState = 'rotated';
       entry.updatedAt = rotatedAt;
+      // Each client socket gets `room.rotated` naming the replacement and is closed, and every
+      // request in flight gets ROOM_ROTATED with it (see `closeClientTicket`); every client socket
+      // is bound to a ticket, so none is left after this.
       this.revokeAllClientTickets(entry, 'ROOM_ROTATED', 'room-rotated');
       entry.providerSocket?.send({
         protocol: WEBMCP_PROTOCOL,
@@ -2688,22 +2734,7 @@ export class WebMcpPeerServer {
         payload: { previousRoomId: entry.id, previousRoomEpoch: entry.roomEpoch, previousState: 'rotated', replacementRoomId: replacement.id, replacementRoomEpoch: replacement.roomEpoch, rotatedAt: new Date().toISOString(), invalidatedSessionCount: entry.clientTickets.size },
         rotatedTo: replacement.id,
       });
-      for (const socket of entry.clientSockets) {
-        socket.send({
-          protocol: WEBMCP_PROTOCOL,
-          messageId: `room-rotated-${entry.id}-${entry.clientTickets.size}`,
-          type: 'room.rotated',
-          roomId: entry.id,
-          roomEpoch: entry.roomEpoch,
-          sentAt: new Date().toISOString(),
-          payload: { previousRoomId: entry.id, previousRoomEpoch: entry.roomEpoch, previousState: 'rotated', replacementRoomId: replacement.id, replacementRoomEpoch: replacement.roomEpoch, rotatedAt: new Date().toISOString(), invalidatedSessionCount: entry.clientTickets.size },
-          rotatedTo: replacement.id,
-        });
-      }
       entry.providerSocket?.close();
-      for (const socket of entry.clientSockets) socket.close();
-      entry.clientSockets.clear();
-      entry.clientSocketTickets.clear();
       entry.providerSocket = undefined;
       this.sendJson(res, 201, {
         ...this.roomDescriptor(req, replacement),
@@ -2755,7 +2786,7 @@ export class WebMcpPeerServer {
       if (providerMatch) {
         const roomId = providerMatch[1];
         const entry = this.rooms.get(roomId);
-        if (!entry || entry.expiresAt <= Date.now()) {
+        if (!entry || this.expireRoomIfDue(entry)) {
           socket.destroy();
           return;
         }
@@ -2774,11 +2805,13 @@ export class WebMcpPeerServer {
           (text) => {
             try {
               // Only the room's attached provider socket speaks for it: one the relay replaced,
-              // detached or never attached is closed instead of acting on the room.
-              if (entry.providerSocket !== peer || entry.expiresAt <= Date.now()) {
+              // detached or never attached is closed instead of acting on the room. A frame that
+              // finds the room expired carries out its expiry, which closes this socket too.
+              if (entry.providerSocket !== peer) {
                 peer.close();
                 return;
               }
+              if (this.expireRoomIfDue(entry)) return;
               const msg = PeerFrameSchema.parse(JSON.parse(text));
               // The relay's answers to the provider's own frames (this pong, an approval decision's
               // echo, a register refusal) are sent with `send` alone: a provider whose outbound
@@ -2881,7 +2914,7 @@ export class WebMcpPeerServer {
       if (clientMatch) {
         const roomId = clientMatch[1];
         const entry = this.rooms.get(roomId);
-        if (!entry || entry.expiresAt <= Date.now()) {
+        if (!entry || this.expireRoomIfDue(entry)) {
           socket.destroy();
           return;
         }
@@ -2901,8 +2934,14 @@ export class WebMcpPeerServer {
           (text) => {
             try {
               // A socket the relay dropped from the room (revoked, replaced, never attached) is
-              // closed instead of acting on it.
-              if (!entry.clientSockets.has(peer) || entry.expiresAt <= Date.now() || clientTicket.expiresAt <= Date.now()) {
+              // closed instead of acting on it. A frame that finds the room expired carries out its
+              // expiry, which tells this socket with `room.expired` and closes it.
+              if (!entry.clientSockets.has(peer)) {
+                peer.close();
+                return;
+              }
+              if (this.expireRoomIfDue(entry)) return;
+              if (clientTicket.expiresAt <= Date.now()) {
                 peer.close();
                 return;
               }

@@ -1,6 +1,6 @@
 // Regression tests for the agent-side client: room catalog discovery over Streamable HTTP,
 // requests issued while a connect is in flight, ticket revocation (also through PeerMcpService),
-// and response validation.
+// how a session learns that its room expired, and response validation.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -16,6 +16,7 @@ import {
   joinPeerRoom,
   parseRoomId,
   PROTOCOL_VERSION,
+  waitForPeerApproval,
   type PeerMcpTransportCallbacks,
 } from "../src/client.js";
 import { WEBMCP_SUBPROTOCOL } from "../src/config.js";
@@ -23,9 +24,11 @@ import { createWebMcpPeerServer, type WebMcpPeerServer } from "../src/server.js"
 
 const servers: WebMcpPeerServer[] = [];
 const sessions: PeerMcpSession[] = [];
+const providers: WebSocket[] = [];
 
 afterEach(async () => {
   for (const session of sessions.splice(0)) await session.disconnect().catch(() => {});
+  for (const provider of providers.splice(0)) provider.close();
   for (const server of servers.splice(0)) await server.close();
 });
 
@@ -343,6 +346,61 @@ describe("PeerMcpSession.revoke against the relay", () => {
     await expect(service.revoke("primary")).resolves.toMatchObject({ revoked: true, sessionId: joined.sessionId });
     expect((await status()).state).toBe("revoked");
     expect(service.getSession("primary")).toBeUndefined();
+  });
+});
+
+describe("a session whose room expires", () => {
+  async function joinedRoom({ approvalRequired = false } = {}) {
+    const server = createWebMcpPeerServer({ port: 0, host: "127.0.0.1", roomSweepIntervalMs: 0, deploymentCatalog: { tools: [] } });
+    servers.push(server);
+    const serverUrl = `http://127.0.0.1:${await server.listen()}`;
+    const created = await fetch(`${serverUrl}/p`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ approvalRequired }),
+    });
+    const room = (await created.json()) as { id: string; inviteToken: string; providerToken: string };
+    const joined = await joinPeerRoom({ serverUrl, roomId: room.id, inviteToken: room.inviteToken });
+    // The room's time runs out; the relay's next request sweeps it.
+    const expire = async () => {
+      server.rooms.get(room.id)!.expiresAt = Date.now() - 1;
+      await fetch(`${serverUrl}/status`);
+    };
+    return { serverUrl, room, joined, expire };
+  }
+
+  it("rejects a WebSocket request in flight with ROOM_EXPIRED, not SESSION_REVOKED", async () => {
+    const { serverUrl, room, joined, expire } = await joinedRoom();
+    // A provider that takes the request and never answers it.
+    const provider = new WebSocket(`${serverUrl.replace(/^http/, "ws")}/p/${room.id}/provider`, [WEBMCP_SUBPROTOCOL, `ticket.${room.providerToken}`]);
+    providers.push(provider);
+    const forwarded = new Promise<void>((resolve) => {
+      provider.onmessage = (event) => {
+        if ((JSON.parse(String(event.data)) as { type?: unknown }).type === "mcp") resolve();
+      };
+    });
+    await new Promise<void>((resolve, reject) => {
+      provider.onopen = () => resolve();
+      provider.onerror = () => reject(new Error("provider socket failed to open"));
+    });
+    const session = new PeerMcpSession({ serverUrl, roomId: room.id, clientToken: joined.clientToken });
+    sessions.push(session);
+    await session.connect();
+    const call = session.request("tools/call", { name: "doc_read", arguments: {} });
+    call.catch(() => {});
+    await forwarded;
+
+    await expire();
+    await expect(call).rejects.toMatchObject({ code: "ROOM_EXPIRED", details: { type: "room.expired", roomId: room.id } });
+    expect(session.getSessionInfo()).toMatchObject({ state: "error" });
+  });
+
+  it("reports a session still waiting for approval as expired, so waitForPeerApproval throws APPROVAL_EXPIRED", async () => {
+    const { serverUrl, joined, expire } = await joinedRoom({ approvalRequired: true });
+    await expire();
+    const options = { serverUrl, roomId: joined.roomId, sessionId: joined.sessionId, clientToken: joined.clientToken };
+    expect(await getPeerSessionStatus(options)).toMatchObject({ state: "expired" });
+    await expect(waitForPeerApproval({ ...options, timeoutMs: 1_000 })).rejects.toMatchObject({ code: "APPROVAL_EXPIRED" });
   });
 });
 

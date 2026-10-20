@@ -232,9 +232,12 @@ export async function waitForPeerApproval(
     if (status.state === "revoked") {
       throw new PeerMcpError("Peer session was revoked", "SESSION_REVOKED", status);
     }
+    // An expired approval request and an expired room both leave the ticket `expired`.
     if (status.state === "expired") {
       throw new PeerMcpError("Peer session expired", "APPROVAL_EXPIRED", status);
     }
+    // Defensive: the relay answers the status of a rotated room's session 410 ROOM_ROTATED, which
+    // getPeerSessionStatus already throws as that code, so it never reports this state.
     if (status.state === "room-rotated") {
       throw new PeerMcpError("Peer room was rotated", "ROOM_ROTATED", status);
     }

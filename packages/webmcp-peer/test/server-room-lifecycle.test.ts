@@ -1,11 +1,11 @@
-// Regression tests for room TTL bounds, idempotent session revocation responses, the room id
-// grammar of the routes, and how every route reads its Authorization header.
+// Regression tests for room TTL bounds, room expiry and retention, idempotent session revocation
+// responses, the room id grammar of the routes, and how every route reads its Authorization header.
 import { createHash } from "node:crypto";
 import { IncomingMessage } from "node:http";
 import { Socket } from "node:net";
-import { afterEach, describe, expect, it } from "vitest";
-import type { WebMcpPeerServer } from "../src/server.js";
-import { createRoom, joinRoom, postJson, startRelay, type RoomDescriptor } from "./server-test-helpers.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { WebMcpPeerServer, type RoomEntry } from "../src/server.js";
+import { createRoom, joinRoom, postJson, startRelay, type JoinedSession, type RoomDescriptor } from "./server-test-helpers.js";
 
 const servers: WebMcpPeerServer[] = [];
 afterEach(async () => {
@@ -13,6 +13,13 @@ afterEach(async () => {
 });
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** A relay whose sweep a test can run as of any time. */
+class SweepableServer extends WebMcpPeerServer {
+  sweep(now: number): void {
+    this.cleanupExpiredRooms(now);
+  }
+}
 
 describe("room TTL bounds", () => {
   it("clamps a huge ttlMs on creation and rotation so the room expires and session status stays readable", async () => {
@@ -38,6 +45,97 @@ describe("room TTL bounds", () => {
     expect(room.expiresAt).toBeLessThanOrEqual(Date.now() + 10 * 60_000);
     const config = (await (await fetch(`${relay.base}/config`)).json()) as { defaults: Record<string, number> };
     expect(config.defaults).toMatchObject({ roomTtlMs: 10 * 60_000, maxRoomTtlMs: 10 * 60_000 });
+  });
+});
+
+describe("room expiry and retention", () => {
+  /** Each lifecycle route of `room` but session status, signed as its provider or its agent signs it. */
+  const lifecycleRequests = (base: string, room: RoomDescriptor, joined: JoinedSession, entry: RoomEntry): Array<[string, () => Promise<Response>]> => {
+    const provider = { authorization: `Bearer ${room.providerToken}` };
+    const binding = { roomId: room.id, roomEpoch: room.roomEpoch };
+    return [
+      ["join", () => postJson(`${base}/p/${room.id}/join`, { inviteToken: room.inviteToken })],
+      ["reclaim", () => postJson(`${base}/p/${room.id}/reclaim`, { ...binding, leaseToken: entry.reconnectLeaseToken })],
+      ["approval", () => postJson(`${base}/p/${room.id}/approval/${joined.approvalRequestId}`, { ...binding, sessionId: joined.sessionId, decision: "approved" }, provider)],
+      ["revoke", () => postJson(`${base}/p/${room.id}/session/revoke`, binding, { authorization: `Bearer ${joined.clientToken}` })],
+      ["session revoke", () => postJson(`${base}/p/${room.id}/sessions/${joined.sessionId}/revoke`, binding, provider)],
+      ["rotate", () => postJson(`${base}/p/${room.id}/rotate`, binding, provider)],
+    ];
+  };
+  const answer = async (response: Response) => [response.status, await response.json()];
+
+  it("answers every lifecycle route of an expired room 410 ROOM_EXPIRED while it is retained, and 404 once it is deleted", async () => {
+    const relay = await startRelay(servers, {}, (options) => new SweepableServer(options));
+    const room = await createRoom(relay.base, { approvalRequired: true });
+    const joined = await joinRoom(relay.base, room);
+    const entry = relay.server.rooms.get(room.id)!;
+    entry.expiresAt = Date.now() - 1;
+    const requests = lifecycleRequests(relay.base, room, joined, entry);
+    const status = () => fetch(`${relay.base}/p/${room.id}/sessions/${joined.sessionId}`, { headers: { authorization: `Bearer ${joined.clientToken}` } });
+
+    const expired = { error: "ROOM_EXPIRED", code: -32056, roomId: room.id, roomEpoch: room.roomEpoch };
+    for (const [label, request] of requests) {
+      expect(await answer(await request()), label).toEqual([410, expired]);
+    }
+    // Session status still answers, and tells the room's expiry from a revocation.
+    const ended = await status();
+    expect(ended.status).toBe(200);
+    expect(await ended.json()).toMatchObject({ sessionId: joined.sessionId, state: "expired", revokedAt: expect.any(String) });
+    expect(entry.roomState).toBe("expired");
+    expect(entry.inviteConsumed).toBe(true);
+
+    (relay.server as SweepableServer).sweep(entry.metadataRetainUntil!);
+    expect(relay.server.rooms.has(room.id)).toBe(false);
+    for (const [label, request] of [...requests, ["session status", status] as const]) {
+      const [code, body] = await answer(await request());
+      expect([code, (body as { error?: string }).error], label).toEqual([404, "ROOM_NOT_FOUND"]);
+    }
+  });
+
+  it("refuses a reclaim of a live room whose lease expired with 410 ROOM_LEASE_EXPIRED, not the room's ROOM_EXPIRED", async () => {
+    const relay = await startRelay(servers);
+    const room = await createRoom(relay.base);
+    const entry = relay.server.rooms.get(room.id)!;
+    entry.reconnectLeaseExpiresAt = Date.now() - 1;
+    const reclaim = await postJson(`${relay.base}/p/${room.id}/reclaim`, { leaseToken: entry.reconnectLeaseToken });
+    expect(await answer(reclaim)).toEqual([410, { error: "ROOM_LEASE_EXPIRED", roomId: room.id, roomEpoch: room.roomEpoch }]);
+    expect(entry.roomState).toBe("provisioned");
+  });
+
+  it("refuses a join in the millisecond its room expires, as every other route does, and keeps the invite", async () => {
+    const relay = await startRelay(servers);
+    const room = await createRoom(relay.base);
+    const entry = relay.server.rooms.get(room.id)!;
+    // The clock stands at the room's expiry while the join is served.
+    const clock = vi.spyOn(Date, "now").mockReturnValue(entry.expiresAt);
+    let join: unknown[];
+    try {
+      join = await answer(await postJson(`${relay.base}/p/${room.id}/join`, { inviteToken: room.inviteToken }));
+    } finally {
+      clock.mockRestore();
+    }
+    expect(join).toEqual([410, { error: "ROOM_EXPIRED", code: -32056, roomId: room.id, roomEpoch: room.roomEpoch }]);
+    expect(entry.inviteConsumed).toBe(false);
+    expect(entry.clientTickets.size).toBe(0);
+  });
+
+  it("retains a rotated room, answering 410 ROOM_ROTATED with its replacement, until a day after its original expiry", async () => {
+    const relay = await startRelay(servers, {}, (options) => new SweepableServer(options));
+    const room = await createRoom(relay.base);
+    const originalExpiry = room.expiresAt;
+    const rotated = await postJson(`${relay.base}/p/${room.id}/rotate`, {}, { authorization: `Bearer ${room.providerToken}` });
+    const replacement = (await rotated.json()) as { replacementRoomId: string };
+    const join = () => postJson(`${relay.base}/p/${room.id}/join`, { inviteToken: room.inviteToken });
+
+    // Long after the rotation, still within the retention an expired room has.
+    (relay.server as SweepableServer).sweep(originalExpiry + DAY_MS - 1);
+    expect(await answer(await join())).toEqual([
+      410,
+      { error: "ROOM_ROTATED", code: -32057, roomId: room.id, roomEpoch: room.roomEpoch, replacementRoomId: replacement.replacementRoomId },
+    ]);
+    (relay.server as SweepableServer).sweep(originalExpiry + DAY_MS);
+    const [code, body] = await answer(await join());
+    expect([code, (body as { error?: string }).error]).toEqual([404, "ROOM_NOT_FOUND"]);
   });
 });
 

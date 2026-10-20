@@ -1,10 +1,12 @@
 // Regression tests: an HTTP `tools/call` in flight when its room is rotated, revoked or expired
-// must receive a JSON-RPC error (not hang), and `server.close()` must still resolve.
+// must receive a JSON-RPC error (not hang), a WebSocket agent's request the same error after the
+// frame that tells it why, and `server.close()` must still resolve.
 import { afterEach, describe, expect, it } from "vitest";
 import { WebMcpPeerServer, type WebMcpPeerServerOptions } from "../src/server.js";
 import {
   createRoom,
   joinRoom,
+  openClient,
   openProvider,
   postJson,
   settleWithin,
@@ -12,6 +14,7 @@ import {
   tool,
   until,
   type Relay,
+  type RecordingSocket,
   type RoomDescriptor,
 } from "./server-test-helpers.js";
 
@@ -45,7 +48,9 @@ async function roomWithSilentProvider(options: WebMcpPeerServerOptions = {}) {
   return { relay, room, provider, joined };
 }
 
-async function callInFlight(setup: Awaited<ReturnType<typeof roomWithSilentProvider>>, signal?: AbortSignal) {
+type Setup = Awaited<ReturnType<typeof roomWithSilentProvider>>;
+
+async function callInFlight(setup: Setup, signal?: AbortSignal) {
   const { relay, room, provider, joined } = setup;
   const response = postJson(
     `${relay.base}/p/${room.id}/mcp`,
@@ -60,12 +65,31 @@ async function callInFlight(setup: Awaited<ReturnType<typeof roomWithSilentProvi
   return { response };
 }
 
+/** The id of the `tools/call` a WebSocket agent has in flight (see `agentCallInFlight`). */
+const AGENT_CALL_ID = 9;
+
+/** Opens the joined ticket's client socket and sends a `tools/call` the provider takes and never answers. */
+async function agentCallInFlight(setup: Setup): Promise<RecordingSocket> {
+  const agent = await openClient(setup.relay, setup.room, setup.joined, sockets);
+  agent.send({ type: "mcp", message: { jsonrpc: "2.0", id: AGENT_CALL_ID, method: "tools/call", params: { name: "slow", arguments: {} } } });
+  await setup.provider.waitFor((frame) => frame.type === "mcp" && frame.message?.id === AGENT_CALL_ID, "provider receives the agent's tools/call");
+  return agent;
+}
+
+/** The `ending` frame the agent got, and the error that answered its request, which came after it. */
+async function agentEnding(agent: RecordingSocket, ending: string): Promise<{ frame: Record<string, any>; error: unknown }> {
+  const frame = await agent.waitFor((candidate) => candidate.type === ending, ending);
+  const answer = await agent.waitFor((candidate) => candidate.type === "mcp" && candidate.message?.id === AGENT_CALL_ID, "the agent's answer");
+  expect(agent.frames.indexOf(frame)).toBeLessThan(agent.frames.indexOf(answer));
+  return { frame, error: answer.message.error };
+}
+
 async function expectCloseResolves(server: WebMcpPeerServer): Promise<void> {
   closed.add(server);
   expect((await settleWithin(server.close(), SETTLE_MS)).settled).toBe(true);
 }
 
-describe("in-flight HTTP MCP requests across room shutdown", () => {
+describe("in-flight MCP requests across room shutdown", () => {
   it("answers ROOM_ROTATED with the replacement room when the provider rotates", async () => {
     const setup = await roomWithSilentProvider();
     const { response: call } = await callInFlight(setup);
@@ -116,6 +140,114 @@ describe("in-flight HTTP MCP requests across room shutdown", () => {
     if (!outcome.settled) return;
     expect(outcome.value.body).toMatchObject({ id: 7, error: { code: -32056, message: "ROOM_EXPIRED" } });
     expect(entry.mcpPending.size).toBe(0);
+    await expectCloseResolves(setup.relay.server);
+  });
+
+  it("names the replacement room to a WebSocket agent, in its room.rotated and its request's error, as to an HTTP one", async () => {
+    const setup = await roomWithSilentProvider();
+    const { response: call } = await callInFlight(setup);
+    const agent = await agentCallInFlight(setup);
+    const rotated = await postJson(`${setup.relay.base}/p/${setup.room.id}/rotate`, {}, { authorization: `Bearer ${setup.room.providerToken}` });
+    expect(rotated.status).toBe(201);
+    const replacement = (await rotated.json()) as { replacementRoomId: string; replacementRoomEpoch: number };
+    expect(replacement.replacementRoomEpoch).toBe(setup.room.roomEpoch + 1);
+    const error = {
+      code: -32057,
+      message: "ROOM_ROTATED",
+      data: { replacementRoomId: replacement.replacementRoomId, roomId: setup.room.id, roomEpoch: setup.room.roomEpoch },
+    };
+
+    const outcome = await settleWithin(call, SETTLE_MS);
+    expect(outcome).toMatchObject({ settled: true, value: { body: { id: 7, error } } });
+    const ending = await agentEnding(agent, "room.rotated");
+    expect(ending.frame).toMatchObject({
+      roomId: setup.room.id,
+      roomEpoch: setup.room.roomEpoch,
+      sessionId: setup.joined.sessionId,
+      rotatedTo: replacement.replacementRoomId,
+      reason: "ROOM_ROTATED",
+      payload: { replacementRoomId: replacement.replacementRoomId, replacementRoomEpoch: replacement.replacementRoomEpoch, reason: "ROOM_ROTATED" },
+    });
+    expect(ending.error).toEqual(error);
+    await expectCloseResolves(setup.relay.server);
+  });
+
+  it("ends a WebSocket agent's request with the ROOM_EXPIRED an HTTP one gets, after a room.expired frame", async () => {
+    const setup = await roomWithSilentProvider();
+    const { response: call } = await callInFlight(setup);
+    const agent = await agentCallInFlight(setup);
+    const entry = setup.relay.server.rooms.get(setup.room.id)!;
+    (setup.relay.server as SweepableServer).sweep(entry.expiresAt);
+    const error = { code: -32056, message: "ROOM_EXPIRED", data: { roomId: setup.room.id, roomEpoch: setup.room.roomEpoch } };
+
+    const outcome = await settleWithin(call, SETTLE_MS);
+    expect(outcome).toMatchObject({ settled: true, value: { body: { id: 7, error } } });
+    const ending = await agentEnding(agent, "room.expired");
+    expect(ending.frame).toMatchObject({
+      protocol: "webmcp-peer/1",
+      roomId: setup.room.id,
+      roomEpoch: setup.room.roomEpoch,
+      sessionId: setup.joined.sessionId,
+      reason: "ROOM_EXPIRED",
+      payload: { sessionId: setup.joined.sessionId, roomId: setup.room.id, roomEpoch: setup.room.roomEpoch, reason: "ROOM_EXPIRED" },
+    });
+    expect(ending.error).toEqual(error);
+    expect(agent.frames.some((frame) => frame.type === "session.revoked")).toBe(false);
+    // The ticket ended with its room, which a status poll reports (not as a revocation).
+    expect([...entry.clientTickets.values()].map((ticket) => ticket.status)).toEqual(["expired"]);
+    await expectCloseResolves(setup.relay.server);
+  });
+
+  /**
+   * Runs after the sweep that starts each HTTP request: the room `x-test-expire-room` names expires
+   * as if its time ran out while the request was in transit, so the route finds it expired first.
+   */
+  const expireDuringRequest: WebMcpPeerServerOptions["customHttpHandler"] = (req, _res, _url, _origin, server) => {
+    const roomId = req.headers["x-test-expire-room"];
+    if (typeof roomId === "string") server.rooms.get(roomId)!.expiresAt = Date.now() - 1;
+    return false;
+  };
+
+  /** Each place the relay looks at a room, which may find it expired before any sweep has. */
+  const discoveries: Array<[string, (setup: Setup, agent: RecordingSocket) => Promise<void>]> = [
+    ["a frame from one of its agent sockets", async ({ relay, room }, agent) => {
+      relay.server.rooms.get(room.id)!.expiresAt = Date.now() - 1;
+      agent.send({ type: "ping" });
+    }],
+    ["a frame from its provider socket", async ({ relay, room, provider }) => {
+      relay.server.rooms.get(room.id)!.expiresAt = Date.now() - 1;
+      provider.send({ type: "ping" });
+    }],
+    ["a WebSocket upgrade to it", async ({ relay, room, joined }) => {
+      relay.server.rooms.get(room.id)!.expiresAt = Date.now() - 1;
+      await expect(openClient(relay, room, joined, sockets)).rejects.toThrow();
+    }],
+    ["the ticket of an MCP request", async ({ relay, room, joined }) => {
+      const ping = await postJson(`${relay.base}/p/${room.id}/mcp`, { jsonrpc: "2.0", id: 1, method: "ping" }, {
+        authorization: `Bearer ${joined.clientToken}`,
+        "x-test-expire-room": room.id,
+      });
+      expect(ping.status).toBe(200);
+    }],
+    ["the room check of a lifecycle route", async ({ relay, room }) => {
+      const join = await postJson(`${relay.base}/p/${room.id}/join`, { inviteToken: room.inviteToken }, { "x-test-expire-room": room.id });
+      expect(join.status).toBe(410);
+    }],
+  ];
+
+  it.each(discoveries)("carries out the room's expiry where it is found first, not only at the sweep: %s", async (_label, discover) => {
+    const setup = await roomWithSilentProvider({ customHttpHandler: expireDuringRequest });
+    const { response: call } = await callInFlight(setup);
+    const agent = await agentCallInFlight(setup);
+    await discover(setup, agent);
+    const error = { code: -32056, message: "ROOM_EXPIRED", data: { roomId: setup.room.id, roomEpoch: setup.room.roomEpoch } };
+
+    const outcome = await settleWithin(call, SETTLE_MS);
+    expect(outcome).toMatchObject({ settled: true, value: { body: { id: 7, error } } });
+    expect((await agentEnding(agent, "room.expired")).error).toEqual(error);
+    const entry = setup.relay.server.rooms.get(setup.room.id)!;
+    expect(entry.roomState).toBe("expired");
+    expect(entry.providerSocket).toBeUndefined();
     await expectCloseResolves(setup.relay.server);
   });
 

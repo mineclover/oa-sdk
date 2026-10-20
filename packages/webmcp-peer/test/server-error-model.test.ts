@@ -53,9 +53,9 @@ describe("one code per error name", () => {
     });
 
     const entry = relay.server.rooms.get(room.id)!;
-    entry.reconnectLeaseExpiresAt = Date.now() - 1;
+    entry.expiresAt = Date.now() - 1;
     const reclaim = await postJson(`${relay.base}/p/${room.id}/reclaim`, { leaseToken: entry.reconnectLeaseToken });
-    expect(await reply(reclaim)).toMatchObject({ status: 404, body: { error: "ROOM_EXPIRED", code: -32056 } });
+    expect(await reply(reclaim)).toMatchObject({ status: 410, body: { error: "ROOM_EXPIRED", code: -32056, roomId: room.id } });
   });
 
   it("gives an unapproved ticket's error the same data over HTTP and WebSocket", async () => {

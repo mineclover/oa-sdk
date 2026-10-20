@@ -6,6 +6,12 @@ import type { PublishRateLimitStore } from "./rate-limit.js";
 import type { PeerSocket } from "./ws-upgrade.js";
 
 export type PeerCapability = "mcp-control" | "mcp-crdt";
+/**
+ * The status of a client ticket. `expired` is a ticket whose approval request expired or whose room
+ * expired; `room-rotated` one its room's rotation ended, which session status never reports (it
+ * answers a rotated room 410 ROOM_ROTATED) but the `_meta.auth.state` of an MCP metadata request
+ * made with the ticket does.
+ */
 export type ClientSessionStatus = "pending" | "approved" | "rejected" | "revoked" | "expired" | "room-rotated";
 
 export interface ClientSessionTicket {
@@ -58,6 +64,10 @@ export interface PendingMcpRequest {
 export interface RoomEntry {
   id: string;
   roomEpoch: number;
+  /**
+   * The room's state. `rotating` lasts only while a rotation runs, within one synchronous step, so
+   * no response or frame ever shows it.
+   */
   roomState: "provisioned" | "provider-connected" | "accepting-clients" | "active" | "rotating" | "rotated" | "expired";
   createdAt: number;
   updatedAt: number;
@@ -89,7 +99,11 @@ export interface RoomEntry {
   reconnectLeaseToken: string;
   reconnectLeaseHash: string;
   reconnectLeaseExpiresAt: number;
-  rotatedRetainUntil?: number;
+  /**
+   * When the relay deletes the room, after which its id is answered 404 ROOM_NOT_FOUND: its original
+   * `expiresAt` plus 24 hours. An expired room and a rotated one are retained until then alike, so
+   * their lifecycle routes answer 410 ROOM_EXPIRED or 410 ROOM_ROTATED rather than 404.
+   */
   metadataRetainUntil?: number;
 }
 
