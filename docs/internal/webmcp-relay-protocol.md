@@ -3762,12 +3762,12 @@ R-PEER-031). 연결이 살아 있는 동안 `send()`에 넘긴 message를 같은
 그 요청이 그 연결에 나간 뒤 답이 올 때까지 그 연결에서 id를 진행 중으로 두고 slot 하나를 센다)을 대신한다. 그 규칙의 회귀 테스트 둘은 새
 규칙(id와 slot이 바로 풀리고, transport가 그 send를 버리거나 실패시킨다)으로 고쳐 썼다(11장). HTTP에서 두 번째 요청이 timeout된 요청의 답을
 가져가지 않는 규칙은 그대로다. send가 POST이므로 그 답은 POST와 함께 오고, 그렇지 않으면 연결의 끝이 id를 놓는다. 관련: R-PEER-031,
-R-PEER-032, R-PEER-035, R-PEER-045. 구현: changeset `webmcp-peer-protocol-c10-open-problems`.
+R-PEER-032, R-PEER-035, R-PEER-045. 구현: commit `be37e035`, changeset `webmcp-peer-protocol-c10-open-problems`.
 
 **O-74 (결정 2026-10-21)** O-73과 같은 결정으로 닫았다. session이 늦은 send를 기록하지 않으므로 session마다인 기록을 같은 transport를 받은
 session들에 걸쳐 넓힐 일이 없고, 같은 넘겨받은 `transport`를 받은 다른 session의 연결에 그 send가 닿지 않는 것은 transport의 계약이다(R-PEER-031).
 그래서 `PeerMcpService({ transport })`의 다음 session은 같은 기본 id의 요청을 보내고 자기 답을 받는다. 테스트가 그 계약을 지키는 transport로
-이 흐름을 고정한다. 관련: R-PEER-031, R-PEER-032, R-PEER-055. 구현: changeset `webmcp-peer-protocol-c10-open-problems`.
+이 흐름을 고정한다. 관련: R-PEER-031, R-PEER-032, R-PEER-055. 구현: commit `be37e035`, changeset `webmcp-peer-protocol-c10-open-problems`.
 
 **O-75 (결정 2026-10-21)** transport를 닫는 것은 그 transport를 붙든 살아 있는 연결뿐이다. transport 객체 하나는 모든 session에 걸쳐 많아야
 하나의 살아 있는 연결이 붙들고(O-76), 연결이 끝날 때(connect 실패, transport close, session을 끝내는 frame, `disconnect()`) 그 연결은 그때 아직
@@ -3779,7 +3779,7 @@ session들에 걸쳐 넓힐 일이 없고, 같은 넘겨받은 `transport`를 �
 connect나 `disconnect()`를 기다리지 않고 바로 닫는다(전에는 다음 connect가 새 transport를 얻은 뒤나 `disconnect()`에서 닫았다). factory가 같은
 transport를 다시 돌려줄 다음 connect가 아직 그것을 얻지 않았을 때 `disconnect()`가 끝낸 connect가 그것을 얻으면 닫는다(전에는 다음 connect가
 자기 transport를 얻을 때까지 미뤘다). factory는 transport를 있는 그대로 돌려주므로 session이 닫은 것을 다시 돌려주려면 다시 연다. 그 규칙들의
-테스트는 새 규칙으로 고쳐 썼다(11장). 관련: R-PEER-031, R-PEER-038, R-PEER-045. 구현: changeset `webmcp-peer-protocol-c10-open-problems`.
+테스트는 새 규칙으로 고쳐 썼다(11장). 관련: R-PEER-031, R-PEER-038, R-PEER-045. 구현: commit `be37e035`, changeset `webmcp-peer-protocol-c10-open-problems`.
 
 **O-76 (결정 2026-10-21)** transport 객체 하나는 모든 session에 걸쳐 많아야 하나의 살아 있는 연결이 붙든다. connect는 넘겨받은 `transport`를
 시작할 때, 그 밖의 transport는 그것을 얻었을 때 붙들고, 그것을 붙들던 연결(같은 session이든 다른 session이든)을 바로 끝낸다. 그 연결의 요청은
@@ -3791,14 +3791,14 @@ transport를 다시 돌려줄 다음 connect가 아직 그것을 얻지 않았�
 바뀐 session의 연결을 끝내므로 그 session은 transport를 붙든 연결로 남지 않고 service가 닫은 transport는 열린 채 남지 않는다. 정확히 맞는 기존
 이름이 없어(`SESSION_DISCONNECTED`는 호출자의 `disconnect()`, `TRANSPORT_CLOSED`는 transport의 닫힘이다) 새 이름을 오류 표(8.1)에 더했다. 끝난
 연결은 session이 쓰는 transport를 남기지 않으므로, 그런 session의 `initialize`가 답 뒤에 보내던 `notifications/initialized`도 다른 연결이 붙든
-transport에 나가지 않고 `NOT_CONNECTED`로 실패한다. 관련: R-PEER-031, R-PEER-045, R-PEER-055. 구현: changeset `webmcp-peer-protocol-c10-open-problems`.
+transport에 나가지 않고 `NOT_CONNECTED`로 실패한다. 관련: R-PEER-031, R-PEER-045, R-PEER-055. 구현: commit `be37e035`, changeset `webmcp-peer-protocol-c10-open-problems`.
 
 **O-77 (결정 2026-10-21)** connect가 연결을 마치기 전에 그 연결이 끝나면 connect는 그 연결을 끝낸 오류로 실패한다. transport를 얻는 중(아직
 돌아오지 않은 `transportFactory`나 넘겨받은 `transport`의 `connect`)에 session을 끝내는 frame이나 close가 오면 connect는 transport를 얻은 뒤
 `connected`가 되지 않고 그 오류(`SESSION_REVOKED`, `TRANSPORT_CLOSED` 등)로 끝나며, 그 뒤의 요청도 `REQUEST_TIMEOUT` 대신 R-PEER-045대로 그
 오류로 거절된다. 늦게 얻은 transport는 살아 있는 연결이 붙들지 않으면 닫는다(O-75). 권고대로 transport를 얻은 뒤와 `ready`를 기다린 뒤 연결이
 끝났는지 보며, `disconnect()`가 끝낸 connect와 다른 connect가 transport를 가져간 connect도 같은 검사로 끝난다. 관련: R-PEER-031, R-PEER-038,
-R-PEER-045. 구현: changeset `webmcp-peer-protocol-c10-open-problems`.
+R-PEER-045. 구현: commit `be37e035`, changeset `webmcp-peer-protocol-c10-open-problems`.
 
 ### 10.2 남은 열린 문제
 
