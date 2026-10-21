@@ -349,7 +349,7 @@ export function composeInitDependencies(
     // Prohibit Bun tooling in Node projects
     delete devDependencies['@types/bun']
     if (devDependencies['typescript'] && !devDependencies['@types/node']) {
-      devDependencies['@types/node'] = '^20.0.0'
+      devDependencies['@types/node'] = '^22.0.0'
     }
   }
 

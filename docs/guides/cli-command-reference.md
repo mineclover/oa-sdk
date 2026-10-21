@@ -317,15 +317,7 @@ byte가 달라 `source.provenance.contentHash`도 달라집니다.
       queryFn: ({ signal }) => client.getUser({ userId }, { signal }),
     })
   ```
-- `--types-import`에 `oa-gen typegen` 출력만 넘기면 `<Operation>ClientError` 타입이 없어 `tsc`가 실패합니다(TS2305, 알려진 결함). 타입 없이 쓰려면 클라이언트와 TanStack 모두 `--types-import` 없이 생성합니다. 타입이 필요하면 typegen 출력을 다시 export하고 `<Operation>ClientError` 별칭을 더한 모듈을 `--types-import`로 지정합니다. 클라이언트에만 `--types-import`를 주고 TanStack에는 주지 않아도 `tsc`가 실패하므로(TS2345), 클라이언트에는 typegen 출력을, TanStack에는 다음 모듈을 함께 넘깁니다(아래 실행 예시, `--split`과도 동작). `oa-gen generate`의 `<id>.queries.ts`는 `ApiClient` 타입을 `<id>.client.ts`에서 가져오므로, 타입이 있는 클라이언트를 넘겨도 응답 타입은 `JsonPrimitive<unknown>`입니다.
-  ```ts
-  // src/api/wire-types.ts (operation마다 별칭 한 줄)
-  export * from './types.js'
-  import type { ClientError } from './client.js'
-  export type ListUsersClientError = ClientError
-  export type CreateUserClientError = ClientError
-  export type GetUserClientError = ClientError
-  ```
+- `--types-import`에는 `oa-gen typegen` 출력을 넘깁니다. 클라이언트와 TanStack에 **같은 모듈**을 넘기면 `tsc`를 통과합니다. 오류 응답이 있는 operation의 `<Operation>ClientError`는 클라이언트가 스스로 선언하므로 typegen 출력에 그 이름이 없어도 됩니다. TanStack에만 `--types-import`를 생략하면 키·파라미터가 `Record<string, …>`로 생성되어 typed 클라이언트의 시그니처와 맞지 않고(`TS2345`), 클라이언트에만 생략하면 응답 타입이 `unknown`이 됩니다.
 - `oa.config.ts`에 `outputRouting`이 있는 프로젝트(`oa-gen init`의 기본 설정)에서 `--split`은 출력 경로가 바뀌고 상대 import가 깨집니다(TS2307). 이 조합은 쓰지 않습니다.
 - `oa-gen generate`를 쓰는 프로젝트에서는 다음 `oa-gen generate` 실행이 이 명령의 출력을 지웁니다. 그런 프로젝트는 `generate`가 만드는 `<id>.queries.ts`를 씁니다([generate 옵션](#oa-gen-generate-옵션-및-일괄-생성-명세)).
 
@@ -338,10 +330,10 @@ oa-gen generate:tanstack --spec ./openapi.yaml --output ./src/api
 # keys.ts, queries.ts('use client' 없음), hooks.ts로 나눠 생성 (outputRouting이 없는 프로젝트)
 oa-gen generate:tanstack --spec ./openapi.yaml --output ./src/api --split
 
-# 응답 타입 연결: 클라이언트에는 typegen 출력, TanStack에는 위 wire-types.ts
+# 응답 타입 연결: 클라이언트와 TanStack에 같은 typegen 출력을 넘긴다
 oa-gen typegen --spec ./openapi.yaml -o ./src/api/types.ts
 oa-gen generate:client --spec ./openapi.yaml -o ./src/api/client.ts --types-import ./types.js
-oa-gen generate:tanstack --spec ./openapi.yaml --output ./src/api --types-import ./wire-types.js
+oa-gen generate:tanstack --spec ./openapi.yaml --output ./src/api --types-import ./types.js
 ```
 
 `oa-gen generate --tanstack`은 이 명령을 실행하는 사용 중단된 별칭이며 실행 시 안내 메시지를 출력합니다.

@@ -2,6 +2,15 @@
 
 릴리스 단위가 아닌, 굵직한 surface 변경이 떨어졌을 때 한 항목으로 기록한다. 자세한 구현 상태는 [spec.md](./internal/spec.md), API 단일 소스는 [api-index.md](./internal/api-index.md), 기능↔테스트는 [feature-test-matrix.md](./internal/feature-test-matrix.md) 참조.
 
+## 2026-10-22 — typegen 정합성, TypeSpec graph semantic index, 온보딩·문서 정리 (`@oa-sdk/codegen`)
+
+- **typegen 재귀 map**: `additionalProperties`가 자기 자신이나 순환을 가리키는 map schema를 `export type Node = Record<string, Node>`로 내보내 TypeScript가 TS2456으로 거부하던 것을 index-signature object type(`{ [key: string]: Node }`)으로 고쳤다. `--style interface`는 interface로 내고, 비재귀 map은 `Record<string, T>`를 유지한다.
+- **TypeSpec graph semantic index**: `oa-gen typegen --typespec-provenance --graph-semantic-index --graph-file`이 생성 선언과 TypeSpec `.tsp` 파일·줄 evidence를 묶은 `oa-sdk.typespec-ts-graph-semantic.v1` sidecar를 쓴다. sidecar는 생성 TypeScript·restored OpenAPI·provenance hash에 묶이고, `--incremental`에서 타입과 함께 재사용·재생성된다. 전체 흐름과 실패 진단은 [가이드](./guides/typespec-graph-semantic-index.md)에 있다.
+- **incremental 보고**: sidecar만 다시 만들어야 할 때 types를 `up to date, regeneration skipped`로 보고하고 다시 쓰던 메시지를 고쳤다. 이제 두 출력이 함께 다시 생성되는 것으로 보고한다.
+- **온보딩**: `oa-gen init`이 추가하는 `@types/node`를 Node 22 engine floor에 맞춰 `^22.0.0`으로 올리고, 설치와 다음 단계 안내를 출력한다. `oa.config.ts` 로드가 의존성 미설치로 실패하면 설치 명령을 함께 안내한다.
+- **문서**: `--types-import`에 typegen 출력을 클라이언트와 TanStack에 같은 모듈로 넘기면 컴파일되는 현재 동작에 맞춰, 여러 가이드에 중복돼 있던 "알려진 결함"과 별칭 모듈 안내를 제거했다(CLI command reference, TypeSpec 04, client/query consumption, client SDK distribution, onboarding playbook).
+- 패키지별 변경은 `.changeset/codegen-recursive-record-typegen.md`, `.changeset/codegen-typespec-graph-semantic.md`, `.changeset/codegen-typegen-graph-semantic-reporting.md`에 있다.
+
 ## 2026-10-21 — WebMCP relay 열린 문제 O-62~O-77 결정 (`@oa-sdk/webmcp-peer`)
 
 protocol review가 [WebMCP relay protocol spec](./internal/webmcp-relay-protocol.md) 10.2에 남긴 열린 문제 여덟 건을 결정하고 구현해 spec 10.1로 옮겼고, 그 재확인 수정들이 남긴 agent client의 열린 문제 다섯 건(O-73~O-77)도 transport와 요청 id의 모델 하나로, provider와 요건 문장의 세 건(O-70~O-72)도 권고대로 결정했다. 패키지별 **Behavior change**는 `.changeset/webmcp-peer-protocol-c10-open-problems.md`에 있다.

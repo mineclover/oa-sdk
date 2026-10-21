@@ -304,51 +304,19 @@ export function UserProfile({ userId }: { userId: string }) {
 
 ### 7.4 응답 타입을 붙이기 (`--types-import`)
 
-`generate:tanstack --types-import`에 `oa-gen typegen` 출력만 넘기면 생성 코드가 import하는 타입 중 일부가 없어 `tsc`가 실패합니다(`TS2305`/`TS2724`, 알려진 결함). 생성 코드는 `--types-import` 모듈에서 다음 이름을 import하는데, typegen은 그중 일부만 만듭니다.
-
-| 생성 코드가 import하는 이름 | 대상 operation | typegen이 만드는 경우 |
-|---|---|---|
-| `<Operation>ClientError` | 모든 operation | 만들지 않음 |
-| `<Operation>Response` | 응답을 하나라도 선언한 operation | 성공 응답(가장 작은 2xx 상태, 2xx가 없으면 `default`)에 `application/json` 스키마가 있을 때만. 스트리밍 응답, 본문 없는 응답(`204` 등), `text/csv` 같은 다른 media type이면 만들지 않음 |
-| `<Operation>Body` | 요청 본문이 있는 operation | 요청 본문에 `application/json` 스키마가 있을 때만. `application/octet-stream`, `multipart/form-data` 같은 다른 media type이면 만들지 않음 |
-
-타입 있는 클라이언트와 `--types-import` 없는 TanStack 코드를 섞어도 `TS2345`로 실패합니다.
-
-타입 없이 쓰려면 클라이언트와 TanStack 코드를 모두 `--types-import` 없이 생성합니다(7.1~7.3절). 타입이 필요하면 typegen 출력을 다시 export하고 빠진 이름을 더한 모듈을 만들어 `--types-import`로 지정합니다. 클라이언트는 typegen 출력(`./types.js`)을 그대로 씁니다.
-
-```typescript
-// src/api/wire-types.ts
-export * from './types.js'
-// 오류 응답을 선언한 operation: 타입 있는 클라이언트가 export하는 오류 타입
-export type { CreateUserClientError, GetUserByIdClientError } from './client.js'
-// 오류 응답이 없는 operation: 공통 ClientError로 별칭
-import type { ClientError } from './client.js'
-export type ListUsersClientError = ClientError
-export type UpdateUserClientError = ClientError
-export type StreamAuditEventsClientError = ClientError
-// 성공 응답에 application/json 스키마가 없는 operation(여기서는 스트리밍 응답): typegen이 응답 타입을 만들지 않음
-export type StreamAuditEventsResponse = unknown
-```
+`oa-gen typegen` 출력을 클라이언트와 TanStack 코드에 같은 `--types-import`로 넘깁니다. 세 생성물이 같은 operation 이름 규칙을 쓰므로 `<Operation>Response`, `<Operation>Body`, `<Operation>Error`, `<Operation>ErrorByStatus`, `<Operation>PathParams` 등을 그대로 import하며 `tsc`를 통과합니다. 오류 응답이 있는 operation의 `<Operation>ClientError`는 클라이언트가 스스로 선언하므로 typegen에 없어도 됩니다. `--split`으로 keys/queries/hooks를 나눠도 같습니다.
 
 ```bash
-npx oa-gen typegen --spec ./openapi.yaml -o src/api/types.ts
-npx oa-gen generate:client --spec ./openapi.yaml --types-import ./types.js -o src/api/client.ts
-npx oa-gen generate:tanstack --spec ./openapi.yaml -o src/api --types-import ./wire-types.js
+oa-gen typegen --spec ./openapi.yaml -o ./src/api/types.ts
+oa-gen generate:client --spec ./openapi.yaml -o ./src/api/client.ts --types-import ./types.js
+oa-gen generate:tanstack --spec ./openapi.yaml --output ./src/api --types-import ./types.js
 ```
 
-`wire-types.ts`에 넣을 이름은 생성된 `tanstack-query.ts`의 `import type { ... } from './wire-types.js'` 줄에서 확인하고, 그중 `types.ts`가 export하지 않는 이름을 모두 더합니다. 빠진 `<Operation>Response`는 성공 응답에 본문이 없으면 `void`, 그 밖에는 `unknown`으로, 빠진 `<Operation>Body`는 `unknown`으로 별칭합니다. 예를 들어 예제 문서에 `204`만 답하는 `deleteUser`(`DELETE /users/{userId}`)와 `application/octet-stream` 본문을 받고 `204`로 답하는 `uploadAvatar`(`PUT /users/{userId}/avatar`)를 더하면 다음 별칭도 필요합니다.
+한쪽에만 `--types-import`를 주면 컴파일되지 않습니다. TanStack에만 생략하면 키·파라미터가 `Record<string, …>`로 생성되어 typed 클라이언트의 시그니처와 맞지 않고(`TS2345`), 클라이언트에만 생략하면 응답 타입이 `unknown`이 됩니다. 같은 모듈을 둘 다에 넘기세요.
 
-```typescript
-export type DeleteUserClientError = ClientError
-export type UploadAvatarClientError = ClientError
-// 본문 없는 성공 응답(204)
-export type DeleteUserResponse = void
-export type UploadAvatarResponse = void
-// application/json이 아닌 요청 본문
-export type UploadAvatarBody = unknown
-```
+typegen이 응답/본문 타입을 만들지 않는 경우(스트리밍, 비-JSON media type, 본문 없는 응답)에는 TanStack도 같은 규칙으로 그 이름을 import하지 않으므로 별칭 모듈이 필요 없습니다. 해당 operation은 클라이언트 메서드를 직접 쓰거나 별도 타입을 붙입니다.
 
-operation이 바뀌면 이 모듈도 함께 고칩니다. 이렇게 생성하면 `getUserByIdQueryOptions(client, params: GetUserByIdPathParams, ...)`의 데이터 타입이 `JsonPrimitive<GetUserByIdResponse>`가 됩니다.
+`oa-gen generate`의 `<id>.queries.ts`는 `ApiClient` 타입을 `<id>.client.ts`에서 가져오므로, 타입이 있는 클라이언트를 넘겨도 응답 타입은 `JsonPrimitive<unknown>`입니다.
 
 ### 7.5 `oa-gen generate`가 만드는 TanStack 코드
 

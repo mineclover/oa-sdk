@@ -133,6 +133,12 @@ export const init: Command = {
     if (result.contractBaseline) {
       console.log(describeContractBaseline(result.contractBaseline, result.patchResult?.scripts))
     }
+
+    if (!dryRun) {
+      console.log('\n📦 Next steps:')
+      console.log('   1. Install the dependencies listed above (pnpm install, npm install or bun install).')
+      console.log('   2. Run the generated scripts, starting with `generate` (pnpm run generate / npm run generate).')
+    }
   },
 }
 

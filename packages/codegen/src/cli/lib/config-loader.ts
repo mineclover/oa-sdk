@@ -255,7 +255,11 @@ export async function loadModule<T = unknown>(
     if (isTsTranspileRequired(err, resolvedPath)) {
       return await transpileAndImport<T>(resolvedPath, cacheBust)
     }
-    throw new Error(`Failed to load module "${resolvedPath}": ${err.message}`, { cause: err })
+    const missing = /Cannot find (?:package|module) '([^']+)'/.exec(err?.message ?? '')?.[1]
+    const installHint = missing !== undefined && !missing.startsWith('.')
+      ? ` The project dependencies may not be installed; run your package manager's install command (oa-gen init writes ${missing} to package.json).`
+      : ''
+    throw new Error(`Failed to load module "${resolvedPath}": ${err.message}${installHint}`, { cause: err })
   }
 }
 
