@@ -1563,7 +1563,9 @@ export class WebMcpPeerClient {
         const params = isJsonObject(rpc.params) ? rpc.params : {};
         try {
           this.introduceRemotePeer(this.activeTransport, params.arguments, readAiTrace(params._meta));
-        } catch {}
+        } catch (error) {
+          console.warn("[WebMCP] Tool call awareness announcement failed:", error);
+        }
       }
 
       await this.answerMcpRpc(rpc, generation, "data-channel", undefined, (rpcRes) => {

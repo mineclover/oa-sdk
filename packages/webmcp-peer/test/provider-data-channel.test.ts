@@ -10,7 +10,10 @@
 //     answered, nor is one whose connection the host ended as the provider listed its catalog, nor
 //     one whose answer was ready when another request of the same read ended the connection;
 //   - a host CRDT transport that throws as the provider publishes an AI run to it changes nothing
-//     of the call that changed the run, nor of the host's stop and rollback of the run.
+//     of the call that changed the run, nor of the host's stop and rollback of the run, and its
+//     exception is logged wherever the provider tells it of its agent;
+//   - an AI run is published through the transport's receiveVerified, or its receiveExternal when it
+//     has none, and only in a room with the mcp-crdt capability.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   WebMcpPeerClient,
@@ -402,5 +405,80 @@ describe("a host CRDT transport that throws as the provider publishes an AI run 
     expect(undo).toHaveBeenCalledWith("op1", 0);
     // The transport's failure is logged.
     expect(warn).toHaveBeenCalledWith("[WebMCP] AI run awareness publication failed:", failure);
+  });
+
+  it("is logged every time the provider tells it of its agent: as it is attached, as a tools/call comes and as the call's run changes", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { host, socket } = await approvedProvider([readTool], async () => ({ ok: true, receipt }), { enableCrdt: true });
+    await offer(socket, "offer-1");
+    const channel = await openChannel();
+    const failure = new Error("the CRDT transport failed");
+    let throws = 0;
+    host.attachCrdtTransport({
+      documentId: "doc-1",
+      attachCarrier: () => () => {},
+      broadcastAwareness: () => {},
+      receiveExternal: () => {},
+      receiveVerified: () => {
+        throws += 1;
+        throw failure;
+      },
+    });
+
+    channel.deliver({ type: "mcp", message: { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "write", arguments: {} } } });
+    expect((await channel.replyTo(1)).result).toMatchObject({ isError: false });
+    const logged = warn.mock.calls.filter(([, error]) => error === failure).map(([message]) => message);
+    expect(logged).toEqual([
+      "[WebMCP] Failed to announce initial awareness:",
+      "[WebMCP] Tool call awareness announcement failed:",
+      "[WebMCP] AI run awareness publication failed:",
+    ]);
+    expect(throws).toBe(logged.length);
+  });
+});
+
+describe("an AI run of a DataChannel session", () => {
+  /** The agent phase of an awareness the provider hands the transport, bare or in a carrier envelope. */
+  const phaseOf = (value: unknown): unknown => {
+    const frame = value as { message?: { agent?: { phase?: unknown } }; agent?: { phase?: unknown } };
+    return (frame.message ?? frame).agent?.phase;
+  };
+
+  it.each<[string, boolean, boolean, string[]]>([
+    ["through receiveVerified, in a room with the mcp-crdt capability, by a transport that has it", true, true, ["receiveVerified"]],
+    ["through receiveExternal, in a room with the mcp-crdt capability, by a transport without receiveVerified", true, false, ["receiveExternal"]],
+    ["not at all in a room with an epoch but without the mcp-crdt capability", false, true, []],
+  ])("is published to the host's CRDT transport %s", async (_label, enableCrdt, verified, expected) => {
+    const { host, socket } = await approvedProvider([readTool], async () => ({ ok: true }), { enableCrdt });
+    await offer(socket, "offer-1");
+    const channel = await openChannel();
+    const told: Array<[string, unknown]> = [];
+    const transport: WebMcpCrdtTransport = {
+      documentId: "doc-1",
+      attachCarrier: () => () => {},
+      broadcastAwareness: () => {},
+      receiveExternal: (value) => {
+        told.push(["receiveExternal", phaseOf(value)]);
+      },
+      ...(verified
+        ? {
+            receiveVerified: (value: unknown) => {
+              told.push(["receiveVerified", phaseOf(value)]);
+              return true;
+            },
+          }
+        : {}),
+    };
+    host.attachCrdtTransport(transport);
+    channel.deliver({
+      type: "mcp",
+      message: { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "read", arguments: {}, _meta: { framebook: { aiTrace: { runId: "r1" } } } } },
+    });
+    expect((await channel.replyTo(1)).result).toMatchObject({ isError: false });
+
+    // The host's stop of the run is published as the session is connected and approved.
+    told.length = 0;
+    expect(host.stopAiRun("r1")).toMatchObject({ phase: "stopped" });
+    expect(told).toEqual(expected.map((method) => [method, "stopped"]));
   });
 });

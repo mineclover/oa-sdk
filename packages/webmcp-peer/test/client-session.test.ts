@@ -6,9 +6,11 @@
 // holds as it ends: a factory's, one a factory hands out again, the caller's own, whose onMessage
 // delivers to the connection that holds it), one live connection per transport object across
 // sessions (TRANSPORT_SUPERSEDED), a connect whose session ends while it still gets its transport,
-// the request ids and slots a connection's end gives back at once, even while a send still runs on a
-// transport the next connect uses again, the transports a session makes, which send nothing once
-// closed, and response validation.
+// or whose connection ends before it gets one, which then gets none, a connect() made once a
+// connect's connection ended, which starts a new connect, a connect that cannot give the caller's
+// own transport an onMessage, the request ids and slots a connection's end gives back at once, even
+// while a send still runs on a transport the next connect uses again, the transports a session
+// makes, which send nothing once closed, and response validation.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -1826,6 +1828,118 @@ describe("the caller's own transport handed to several sessions", () => {
     expect(service.listSessions()).toEqual([]);
     expect(replaced.getSessionInfo().state).toBe("error");
   });
+
+  /** Makes `session` take the transport back with `connect()` as soon as it learns another connect took it. */
+  function takeBackWhenSuperseded(session: PeerMcpSession): () => Promise<unknown> | undefined {
+    let retaken: Promise<unknown> | undefined;
+    session.subscribe((info) => {
+      if (info.error === "Peer transport was taken by another connection" && !retaken) retaken = session.connect();
+    });
+    return () => retaken;
+  }
+
+  it("lets a connect whose connection a listener's connect ended as it took the transport connect nothing of it, so the session that took it back gets its answers", async () => {
+    const { transport } = sharedTransport();
+    const first = new PeerMcpSession({ requestTimeoutMs: 300, transport });
+    const second = new PeerMcpSession({ requestTimeoutMs: 300, transport });
+    sessions.push(first, second);
+    await first.connect();
+    const retaken = takeBackWhenSuperseded(first);
+
+    // The second session's connect ends the first one's connection, whose listener takes the transport
+    // back at once, which ends the second one's connection before that connect reached the transport.
+    await expect(second.connect()).rejects.toMatchObject({ code: "TRANSPORT_SUPERSEDED" });
+    await expect(retaken()).resolves.toMatchObject({ state: "connected" });
+    expect(transport.connects).toBe(2);
+    const answered = first.request("ping", {}, { id: "x" });
+    await waitUntil(() => transport.sent.length === 1, "the first session's request sent");
+    transport.answer("x");
+    await expect(answered).resolves.toMatchObject({ id: "x", result: {} });
+    expect(second.getSessionInfo()).toMatchObject({ state: "error", error: "Peer transport was taken by another connection" });
+    expect(transport.closes).toBe(0);
+  });
+
+  it("fails at once, leaving its session no transport, a factory's connect whose connection a listener's connect ended as it took the transport", async () => {
+    const { transport } = sharedTransport();
+    const first = new PeerMcpSession({ requestTimeoutMs: 1_000, transport });
+    // The second session's factory hands out the first one's transport.
+    const second = new PeerMcpSession({ requestTimeoutMs: 2_000, transportFactory: async () => transport });
+    sessions.push(first, second);
+    await first.connect();
+    const retaken = takeBackWhenSuperseded(first);
+
+    expect(await rejectionWithin(second.connect(), 500)).toMatchObject({ code: "TRANSPORT_SUPERSEDED" });
+    expect(second.transport).toBeUndefined();
+    await expect(retaken()).resolves.toMatchObject({ state: "connected" });
+    const answered = first.request("ping", {}, { id: "x" });
+    await waitUntil(() => transport.sent.length === 1, "the first session's request sent");
+    transport.answer("x");
+    await expect(answered).resolves.toMatchObject({ id: "x", result: {} });
+    expect(transport.closes).toBe(0);
+  });
+
+  it("starts a new connect for the connect() of a session whose connect another session's took the transport from while it still connected it, instead of handing out that connect", async () => {
+    // Every connect of the transport waits for its gate.
+    const { transport, gates } = sharedTransport(1);
+    const first = new PeerMcpSession({ requestTimeoutMs: 1_000, transport });
+    const second = new PeerMcpSession({ requestTimeoutMs: 1_000, transport });
+    sessions.push(first, second);
+    const superseded = first.connect();
+    superseded.catch(() => {});
+    await waitUntil(() => gates.length === 1, "the first session's connect of the transport");
+    const connecting = second.connect();
+    expect(first.getSessionInfo()).toMatchObject({ state: "error", error: "Peer transport was taken by another connection" });
+    gates[1]!();
+    await expect(connecting).resolves.toMatchObject({ state: "connected" });
+
+    // The first session's connect() takes the transport back with a connect of its own.
+    const retaking = first.connect();
+    expect(transport.connects).toBe(3);
+    expect(second.getSessionInfo()).toMatchObject({ state: "error", error: "Peer transport was taken by another connection" });
+    gates[2]!();
+    await expect(retaking).resolves.toMatchObject({ state: "connected" });
+    // The connect the second session ended fails with that error once the transport's connect returns,
+    // and changes nothing of the connect after it.
+    gates[0]!();
+    expect(await rejectionWithin(superseded, 500)).toMatchObject({ code: "TRANSPORT_SUPERSEDED" });
+    expect(first.getSessionInfo()).toMatchObject({ state: "connected", error: null });
+    const answered = first.request("ping", {}, { id: "x" });
+    await waitUntil(() => transport.sent.length === 1, "the first session's request sent");
+    transport.answer("x");
+    await expect(answered).resolves.toMatchObject({ id: "x", result: {} });
+    expect(transport.closes).toBe(0);
+  });
+});
+
+describe("a connect that fails as it starts on the caller's own transport", () => {
+  it("ends its connection and closes that transport when the session cannot give it an onMessage, so the next request fails with that error, not TRANSPORT_SUPERSEDED", async () => {
+    // A transport without onMessage that cannot be given one, which reports through its connect's callbacks.
+    let connects = 0;
+    let closes = 0;
+    const transport: PeerMcpTransport = Object.freeze({
+      async connect(callbacks?: PeerMcpTransportCallbacks): Promise<void> {
+        connects += 1;
+        queueMicrotask(() => callbacks?.onMessage?.({ type: "ready", role: "client", roomId: "room1" }));
+      },
+      send(): void {},
+      close(): void {
+        closes += 1;
+      },
+    });
+    const session = new PeerMcpSession({ requestTimeoutMs: 200, transport });
+    sessions.push(session);
+
+    const failure = await rejectionWithin(session.connect(), 500);
+    expect(failure).toBeInstanceOf(TypeError);
+    expect(session.getSessionInfo()).toMatchObject({ state: "error", error: (failure as Error).message });
+    expect(closes).toBe(1);
+    // The failed connect holds the transport no longer, so the next request's connect fails the same way.
+    const next = await rejectionWithin(session.request("ping"), 500);
+    expect(next).toBeInstanceOf(TypeError);
+    expect(session.getSessionInfo()).toMatchObject({ state: "error", error: (failure as Error).message });
+    expect(closes).toBe(2);
+    expect(connects).toBe(0);
+  });
 });
 
 describe("a connect whose session ends while it still gets its transport", () => {
@@ -1884,6 +1998,40 @@ describe("a connect whose session ends while it still gets its transport", () =>
     await expect(session.request("ping")).rejects.toMatchObject(expected);
     expect(connects).toBe(1);
     expect(closeCalls).toBe(closes);
+  });
+
+  it.each<[string, (callbacks: PeerMcpTransportCallbacks) => void, string]>([
+    ["the frame that ends the session", (callbacks) => callbacks.onMessage?.({ type: "session.revoked", reason: "CLIENT_REVOKED" }), "SESSION_REVOKED"],
+    ["a close it may connect again after", (callbacks) => callbacks.onClose?.({ code: 1006, reason: "" }), "TRANSPORT_CLOSED"],
+  ])("starts a new connect for a connect() made once %s ended the connect still connecting the caller's own transport, and that connect changes nothing of the new one", async (_label, end, code) => {
+    // The transport's first connect waits for its gate; it reports through the latest connect's callbacks.
+    const gates: Array<() => void> = [];
+    let connects = 0;
+    let latest: PeerMcpTransportCallbacks | undefined;
+    const transport: PeerMcpTransport = {
+      async connect(callbacks?: PeerMcpTransportCallbacks): Promise<void> {
+        connects += 1;
+        latest = callbacks;
+        if (connects === 1) await new Promise<void>((resolve) => gates.push(resolve));
+        callbacks?.onOpen?.();
+        callbacks?.onMessage?.({ type: "ready", role: "client", roomId: "room1" });
+      },
+      send(): void {},
+      close(): void {},
+    };
+    const session = new PeerMcpSession({ requestTimeoutMs: 1_000, transport });
+    sessions.push(session);
+    const ended = session.connect();
+    ended.catch(() => {});
+    await waitUntil(() => gates.length === 1, "the first connect of the transport");
+    end(latest!);
+
+    const again = session.connect();
+    expect(connects).toBe(2);
+    await expect(again).resolves.toMatchObject({ state: "connected" });
+    gates[0]!();
+    expect(await rejectionWithin(ended, 500)).toMatchObject({ code });
+    expect(session.getSessionInfo()).toMatchObject({ state: "connected", error: null });
   });
 });
 

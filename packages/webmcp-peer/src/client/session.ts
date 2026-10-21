@@ -74,6 +74,11 @@ async function closeQuietly(transport: PeerMcpTransport): Promise<void> {
 interface PeerMcpConnection {
   /** The session whose connect made it. */
   readonly session: PeerMcpSession;
+  /**
+   * The connect attempt that made it, which `connect()` hands out (`connectPromise`) only while the
+   * connection is live: once it has ended, that attempt can only fail, so a `connect()` starts another.
+   */
+  readonly attempt: Promise<PeerMcpSessionInfo>;
   /** The callbacks its transport reports through, which act for the session only while it is live. */
   readonly callbacks: PeerMcpTransportCallbacks;
   /**
@@ -470,9 +475,11 @@ export class PeerMcpSession {
 
   /**
    * Connects the transport and waits for the peer's `ready` frame. Concurrent callers (including
-   * `request()` calls made while a connect is in flight) share one connect attempt. Each connect
-   * opens a new transport, unless the caller gave its own (see `#suppliedTransport`). It connects a
-   * session the relay ended for good too, which `request()` does not (see `#ended`).
+   * `request()` calls made while a connect is in flight) share one connect attempt, while its
+   * connection is live: one whose connection has ended (see `#endConnection`) can only fail, so a
+   * call made after that starts another. Each connect opens a new transport, unless the caller gave
+   * its own (see `#suppliedTransport`). It connects a session the relay ended for good too, which
+   * `request()` does not (see `#ended`).
    *
    * A connect asked for while `disconnect()` runs starts once that has closed the transport and
    * set the state to `idle`, as it would after an awaited disconnect(), so the transport it opens is
@@ -495,7 +502,8 @@ export class PeerMcpSession {
     this.connectPromise = attempt;
     const disconnects = this.#disconnects;
     const disconnecting = this.#disconnecting;
-    (disconnecting ? disconnecting.then(() => this.#connectImpl(disconnects)) : this.#connectImpl(disconnects))
+    const start = (): Promise<PeerMcpSessionInfo> => this.#connectImpl(disconnects, attempt);
+    (disconnecting ? disconnecting.then(start) : start())
       .then(settle.resolve, settle.reject)
       .finally(() => {
         if (this.connectPromise === attempt) this.connectPromise = null;
@@ -504,16 +512,18 @@ export class PeerMcpSession {
   }
 
   /**
-   * One connect attempt, asked for when `disconnect()` had been called `disconnects` times, on a new
-   * connection (see {@link PeerMcpConnection}). Whatever ends that connection before the attempt
-   * has connected it (a disconnect() since then, a frame or a close that ends the session, another
-   * connect that takes its transport) fails the attempt with the error it ended with, even while the
-   * attempt is still getting its transport, which nothing can cut short: it closes the transport it
-   * gets then unless a live connection holds it by then (see {@link transportOwners}). An attempt
-   * disconnect() ended leaves the session as disconnect() sets it; any other failure leaves it
+   * One connect attempt, `attempt`, asked for when `disconnect()` had been called `disconnects` times,
+   * on a new connection (see {@link PeerMcpConnection}). Whatever ends that connection before the
+   * attempt has connected it (a disconnect() since then, a frame or a close that ends the session,
+   * another connect that takes its transport) fails the attempt with the error it ended with. Ended
+   * before it gets its transport (by a listener, say, or by the session whose connection it took the
+   * transport from, which takes it back), it does not get one. Ended while it gets one, which nothing
+   * can cut short, it closes the transport it gets unless a live connection holds it by then (see
+   * {@link transportOwners}). An attempt disconnect() ended leaves the session as disconnect() sets
+   * it, and one a later connect has replaced leaves it to that connect; any other failure leaves it
    * `error`.
    */
-  async #connectImpl(disconnects: number): Promise<PeerMcpSessionInfo> {
+  async #connectImpl(disconnects: number, attempt: Promise<PeerMcpSessionInfo>): Promise<PeerMcpSessionInfo> {
     if (this.#disconnects !== disconnects) throw sessionDisconnectedError();
     this.state = "connecting";
     this.error = null;
@@ -526,6 +536,7 @@ export class PeerMcpSession {
     const live = (): boolean => connection.ended === undefined;
     const connection: PeerMcpConnection = {
       session: this,
+      attempt,
       callbacks: {
         onOpen: () => {
           if (live()) this.#markOpen();
@@ -542,21 +553,29 @@ export class PeerMcpSession {
       },
     };
     this.#connection = connection;
-    // The caller's own transport, which every connect uses again, is this connection's from now on.
-    // The `onMessage` the session gives it when it has none is the transport's, not this connect's:
-    // it delivers to whichever connection holds the transport, of any session handed it.
     const supplied = this.transportFactory ? undefined : this.#suppliedTransport;
-    if (supplied) {
-      this.#take(connection, supplied);
-      supplied.onMessage ??= (message) => transportOwners.get(supplied)?.callbacks.onMessage?.(message);
-    }
-    this.notify();
     try {
+      // The caller's own transport, which every connect uses again, is this connection's from now on.
+      // The `onMessage` the session gives it when it has none is the transport's, not this connect's:
+      // it delivers to whichever connection holds the transport, of any session handed it.
+      if (supplied) {
+        this.#take(connection, supplied);
+        supplied.onMessage ??= (message) => transportOwners.get(supplied)?.callbacks.onMessage?.(message);
+      }
+      this.notify();
+      // Taking the transport ended the connection that held it, and the listeners of that session or
+      // of this one may have ended this connection meanwhile (a connect that took the transport back,
+      // disconnect()): an ended connection gets no transport.
+      throwIfEnded(connection);
       const transport = await this.#obtainTransport(supplied, connection.callbacks);
       // Ended meanwhile: the transport it got stays open only for a live connection that holds it.
       if (connection.ended && transport && !transportOwners.has(supplied ?? transport)) void closeQuietly(transport);
       throwIfEnded(connection);
-      if (transport && !supplied) this.#take(connection, transport);
+      if (transport && !supplied) {
+        this.#take(connection, transport);
+        // As for the caller's own transport: taking it may have ended this connection.
+        throwIfEnded(connection);
+      }
       connection.transport = transport;
       if (!transport || typeof transport.send !== "function") {
         throw new PeerMcpError("Peer transport must provide send(value)", "INVALID_TRANSPORT");
@@ -579,6 +598,8 @@ export class PeerMcpSession {
       if (this.#disconnects !== disconnects) throw sessionDisconnectedError();
       // A connection that ended first fails its connect with the error it ended with.
       const error = connection.ended ? connection.ended.error : caught;
+      // A connect started since this connection ended (see `#endConnection`) owns the state.
+      if (this.#connection !== connection) throw error;
       this.state = "error";
       this.error = error instanceof Error ? error.message : String(error);
       this.#endConnection(connection, error);
@@ -642,14 +663,17 @@ export class PeerMcpSession {
   }
 
   /**
-   * Ends `connection` with `error`, once (see {@link PeerMcpConnection}). While it is the session's
-   * connection, the session no longer uses its transport, a connect waiting for its `ready` fails, and
-   * every request of it ends at once, giving back its id and its slot (see `#endRequests`). It closes
-   * its transport only while it still holds it (see {@link transportOwners}), and returns that close.
+   * Ends `connection` with `error`, once (see {@link PeerMcpConnection}). Its connect attempt, if
+   * `connect()` still hands it out, no longer is: a `connect()` from now on starts another, as after
+   * `disconnect()`, while that attempt fails with `error`. While it is the session's connection, the
+   * session no longer uses its transport, a connect waiting for its `ready` fails, and every request
+   * of it ends at once, giving back its id and its slot (see `#endRequests`). It closes its transport
+   * only while it still holds it (see {@link transportOwners}), and returns that close.
    */
   #endConnection(connection: PeerMcpConnection, error: unknown): Promise<void> | undefined {
     if (connection.ended) return undefined;
     connection.ended = { error };
+    if (this.connectPromise === connection.attempt) this.connectPromise = null;
     if (this.#connection === connection) {
       this.transport = undefined;
       this.#readyReject?.(error);
