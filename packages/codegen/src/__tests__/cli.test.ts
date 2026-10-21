@@ -6,6 +6,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdirSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { join, resolve } from 'node:path'
 import { execSync, spawnSync } from 'node:child_process'
 import { SUBPROCESS_TEST_BUDGET_MS } from './helpers/subprocess-budget.js'
@@ -124,6 +125,43 @@ describe('oa-gen CLI', () => {
     expect(existsSync(outputPath)).toBe(true)
   })
 
+  it('TypeSpec provenance로 generated declaration graph semantic index를 생성한다', () => {
+    const document = {
+      openapi: '3.2.0',
+      info: { title: 'Graph origin', version: '1.0.0' },
+      paths: {},
+      components: { schemas: { User: { type: 'object', properties: { id: { type: 'string' } } } } },
+    }
+    const specPath = join(tmpDir, 'openapi.json')
+    const outputPath = join(tmpDir, 'src', 'generated.ts')
+    const provenancePath = join(tmpDir, 'typespec-provenance.json')
+    const indexPath = join(tmpDir, 'typespec-graph-semantic.json')
+    writeFileSync(specPath, JSON.stringify(document), 'utf8')
+    writeFileSync(provenancePath, JSON.stringify({
+      schemaVersion: 'oa-sdk.typespec-ref-provenance.v1',
+      inputs: { restoredOpenApiSha256: sha256(stableJson(document)) },
+      declarations: [{ id: 'model:user', source: { file: 'spec/main.tsp', start: { line: 8, column: 1 } } }],
+      edges: [{ kind: 'emits', declarationId: 'model:user', outputPointer: '#/components/schemas/User' }],
+    }), 'utf8')
+
+    const result = runCliResult([
+      'typegen', '--spec', specPath, '--output', outputPath,
+      '--typespec-provenance', provenancePath,
+      '--graph-semantic-index', indexPath,
+      '--graph-file', 'src/generated.ts',
+    ])
+
+    expect(result.status).toBe(0)
+    expect(existsSync(indexPath)).toBe(true)
+    expect(JSON.parse(readFileSync(indexPath, 'utf8'))).toMatchObject({
+      originSchemaVersion: 'oa-sdk.typespec-ts-graph-semantic.v1',
+      hosts: [expect.objectContaining({
+        host: expect.objectContaining({ publicName: 'User', declaration: expect.objectContaining({ file: 'src/generated.ts' }) }),
+        evidence: [expect.objectContaining({ source: { file: 'spec/main.tsp', line: 8 } })],
+      })],
+    })
+  })
+
   it('TypeSpec export stdout에는 source만 남기고 상태 메시지는 stderr로 보낸다', () => {
     const specPath = resolve(pkgDir, '../schemas/src/openapi.yaml')
     const reportPath = join(tmpDir, 'tsp-export-report.json')
@@ -210,3 +248,18 @@ export default {
     expect(existsSync(join(outDir, 'components.yaml'))).toBe(true)
   })
 })
+
+function sha256(value: string): string {
+  return createHash('sha256').update(value).digest('hex')
+}
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`
+  if (value && typeof value === 'object') {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
+      .map(([key, entry]) => `${JSON.stringify(key)}:${stableJson(entry)}`)
+      .join(',')}}`
+  }
+  return JSON.stringify(value) ?? 'null'
+}

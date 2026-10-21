@@ -16,6 +16,7 @@ export type {
   ExternalSchemaRefDiagnostic,
   ExternalSchemaRefDiagnosticCode,
   ExternalSchemaTypeAlias,
+  GeneratedTypeDeclaration,
   TypegenOptions,
   TypegenProvenanceEntry,
 } from './generate-types.js'
@@ -30,3 +31,10 @@ export type {
   TypegenFidelityDiagnosticCode,
 } from './schema-fidelity.js'
 export { pascalCase, escapeKey, quoteTypeScriptString, collectTypeNames } from '@oa-sdk/core'
+export { buildTypeSpecGeneratedGraphSemanticIndex, TYPESPEC_TS_GRAPH_SEMANTIC_SCHEMA } from './typespec-graph-semantic.js'
+export type {
+  TypeSpecGeneratedGraphHost,
+  TypeSpecGeneratedGraphSemanticIndex,
+  TypeSpecGeneratedGraphSemanticIndexInput,
+  TypeSpecGraphProvenance,
+} from './typespec-graph-semantic.js'

@@ -435,3 +435,34 @@ pnpm exec oa-gen tsp diff --base origin/main:api.tsp --head HEAD --fail-on-break
 side's path is missing from that commit, or the commit has several `main.tsp` files), the command fails and asks for
 `<ref>:<path>`; when both sides resolve to the same commit and entry point, it says so on stderr.
 
+## TypeSpec origin in a graph semantic index
+
+Generate the restored OpenAPI document and its provenance in the same TypeSpec check, then pass
+both to `typegen`. The resulting semantic index is a sidecar: generated TypeScript stays free of
+origin comments, and the index is hash-bound to the generated TypeScript, its restored OpenAPI input
+and the TypeSpec provenance.
+
+```bash
+node --import tsx scripts/schema-typespec-check.ts \
+  --output .oa-sdk/typespec/restored.openapi.yaml \
+  --provenance .oa-sdk/typespec/declaration-ref-provenance.json
+
+pnpm exec oa-gen typegen \
+  --spec .oa-sdk/typespec/restored.openapi.yaml \
+  --output src/generated/api.ts \
+  --typespec-provenance .oa-sdk/typespec/declaration-ref-provenance.json \
+  --graph-semantic-index .graph/oa-sdk-typespec.semantic.json \
+  --graph-file src/generated/api.ts
+```
+
+Each exported declaration generated from a schema or operation of the document becomes a host tagged
+`oa-sdk-typespec`, with the owning TypeSpec declaration's `.tsp` file (relative to the TypeSpec
+source root of the provenance) and line as evidence. A nested schema with its own alias takes the
+owner of its enclosing schema; a schema inlined from another document gets no host. `typegen` fails
+when the provenance was produced for another document or leaves a generated declaration without an
+owner. With `--incremental`, the index is recorded as its own target next to the types, and both are
+reused or regenerated together: a changed provenance file, `--graph-file`, or a modified or
+missing index regenerates both.
+
+Configure `.graph/oa-sdk-typespec.semantic.json` as the project's `semanticIndex` in the graph router,
+which rejects the sidecar once the generated TypeScript hash no longer matches.

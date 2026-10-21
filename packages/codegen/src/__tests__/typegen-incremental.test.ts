@@ -7,6 +7,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -37,6 +38,7 @@ import type { InputObservation } from '../cli/lib/input-observations.js'
 import { observeModuleGraph } from '../cli/lib/module-graph-observer.js'
 import { compileTypeSpecInMemory } from '../cli/lib/typespec-mock-compiler.js'
 import { createSQLiteWorkspaceIndex, loadSqliteDriver } from '../sqlite-workspace-index.js'
+import { typeSpecRestoredOpenApiSha256 } from '../typespec-restored-openapi-digest.js'
 import { SUBPROCESS_TEST_BUDGET_MS } from './helpers/subprocess-budget.js'
 
 const packageRoot = resolve(__dirname, '../..')
@@ -947,6 +949,98 @@ describe('typegen --incremental in fresh processes', () => {
   }, 11 * SUBPROCESS_TEST_BUDGET_MS) // eleven CLI processes
 })
 
+describe('typegen --incremental with --graph-semantic-index', () => {
+  it('reuses the types and the index together while neither changed', async () => {
+    writeGraphSemanticWorkspace()
+    const first = await runTypegen(graphSemanticArgs())
+    expect(first.status).toEqual([
+      'incremental: typegen regenerating (no previous generation record)',
+      'incremental: typegen:graph-semantic-index regenerating (no previous generation record)',
+    ])
+    const index = readFileSync(path('graph/api.semantic.json'), 'utf8')
+    expect(JSON.parse(index).hosts.map((host: { host: { publicName: string } }) => host.host.publicName))
+      .toEqual(['User', 'GetUserResponse', 'GetUserOp'])
+    backdateOutputs('out/api.ts', 'graph/api.semantic.json')
+
+    const second = await runTypegen(graphSemanticArgs())
+
+    expect(second.status).toEqual([
+      `incremental: typegen up to date, regeneration skipped (${path('out/api.ts')})`,
+      `incremental: typegen:graph-semantic-index up to date, regeneration skipped (${path('graph/api.semantic.json')})`,
+    ])
+    expect(outputWasRewritten('out/api.ts')).toBe(false)
+    expect(outputWasRewritten('graph/api.semantic.json')).toBe(false)
+  })
+
+  it('regenerates when the provenance file changes, even though the types did not', async () => {
+    writeGraphSemanticWorkspace()
+    await runTypegen(graphSemanticArgs())
+    backdateOutputs('out/api.ts', 'graph/api.semantic.json')
+    writeJson('typespec/provenance.json', graphProvenance({ userLine: 40 }))
+    backdateInputs('typespec/provenance.json')
+
+    const rerun = await runTypegen(graphSemanticArgs())
+
+    expect(rerun.status).toEqual([
+      `incremental: typegen up to date, regeneration skipped (${path('out/api.ts')})`,
+      `incremental: typegen:graph-semantic-index regenerating (input changed: ${path('typespec/provenance.json')})`,
+    ])
+    expect(outputWasRewritten('graph/api.semantic.json')).toBe(true)
+    const user = JSON.parse(readFileSync(path('graph/api.semantic.json'), 'utf8')).hosts[0]
+    expect(user.evidence[0].source).toEqual({ file: 'main.tsp', line: 40 })
+  })
+
+  it('regenerates when the index is modified or removed, and when its options change', async () => {
+    writeGraphSemanticWorkspace()
+    await runTypegen(graphSemanticArgs())
+
+    writeFileSync(path('graph/api.semantic.json'), '{}\n', 'utf8')
+    expect((await runTypegen(graphSemanticArgs())).status[1])
+      .toBe(`incremental: typegen:graph-semantic-index regenerating (output modified: ${path('graph/api.semantic.json')})`)
+
+    unlinkSync(path('graph/api.semantic.json'))
+    expect((await runTypegen(graphSemanticArgs())).status[1])
+      .toBe(`incremental: typegen:graph-semantic-index regenerating (output missing: ${path('graph/api.semantic.json')})`)
+
+    const moved = await runTypegen({ ...graphSemanticArgs(), 'graph-file': 'packages/api/src/api.ts' })
+    expect(moved.status[1]).toBe('incremental: typegen:graph-semantic-index regenerating (options changed)')
+    expect(JSON.parse(readFileSync(path('graph/api.semantic.json'), 'utf8')).hosts[0].host.declaration.file)
+      .toBe('packages/api/src/api.ts')
+
+    writeJson('typespec/other-provenance.json', graphProvenance({ userLine: 7 }))
+    backdateInputs('typespec/other-provenance.json')
+    const switched = await runTypegen({
+      ...graphSemanticArgs(),
+      'graph-file': 'packages/api/src/api.ts',
+      'typespec-provenance': path('typespec/other-provenance.json'),
+    })
+    expect(switched.status[1]).toBe('incremental: typegen:graph-semantic-index regenerating (options changed)')
+    expect(JSON.parse(readFileSync(path('graph/api.semantic.json'), 'utf8')).hosts[0].evidence[0].source.line).toBe(7)
+  })
+
+  it('validates the provenance file and requires the graph options together', async () => {
+    writeGraphSemanticWorkspace()
+    writeJson('typespec/provenance.json', { ...graphProvenance({ userLine: 12 }), edges: [{ kind: 'owns', declarationId: 'x', outputPointer: '#' }] })
+
+    await expect(runTypegen(graphSemanticArgs())).rejects.toThrow(/is not oa-sdk\.typespec-ref-provenance\.v1[\s\S]*edges\.0\.kind/)
+    await expect(runTypegen({ spec: path('typespec/restored.openapi.yaml'), output: path('out/api.ts'), 'graph-file': 'api.ts' }))
+      .rejects.toThrow('must be given together')
+    await expect(runTypegen({ ...graphSemanticArgs(), output: undefined, incremental: false }))
+      .rejects.toThrow('must be given together')
+    expect(existsSync(path('out/api.ts'))).toBe(false)
+  })
+
+  it('writes neither output when the provenance describes another document', async () => {
+    writeGraphSemanticWorkspace()
+    writeJson('typespec/provenance.json', { ...graphProvenance({ userLine: 12 }), inputs: { restoredOpenApiSha256: '0'.repeat(64) } })
+    backdateInputs('typespec/provenance.json')
+
+    await expect(runTypegen(graphSemanticArgs())).rejects.toThrow('restoredOpenApiSha256')
+    expect(existsSync(path('out/api.ts'))).toBe(false)
+    expect(existsSync(path('graph/api.semantic.json'))).toBe(false)
+  })
+})
+
 // ─── helpers ────────────────────────────────────────────────
 
 function path(relativePath: string): string {
@@ -1110,6 +1204,57 @@ function runCliProcess(args: readonly string[], cwd: string): CliProcessResult {
     stdout: result.stdout ?? '',
     stderr,
     incremental: stderr.split('\n').filter(line => line.startsWith('incremental:')),
+  }
+}
+
+const GRAPH_SEMANTIC_DOCUMENT = {
+  openapi: '3.2.0',
+  info: { title: 'Graph origin', version: '1.0.0' },
+  paths: {
+    '/users': {
+      get: {
+        operationId: 'getUser',
+        responses: {
+          '200': { description: 'OK', content: { 'application/json': { schema: { $ref: '#/components/schemas/User' } } } },
+        },
+      },
+    },
+  },
+  components: { schemas: { User: { type: 'object', properties: { id: { type: 'string' } } } } },
+}
+
+function graphProvenance({ userLine }: { userLine: number }): Record<string, unknown> {
+  return {
+    schemaVersion: 'oa-sdk.typespec-ref-provenance.v1',
+    provenanceKind: 'typespec-source-ast',
+    inputs: { restoredOpenApiSha256: typeSpecRestoredOpenApiSha256(GRAPH_SEMANTIC_DOCUMENT) },
+    declarations: [
+      { id: 'model:main.tsp:User', source: { file: 'main.tsp', start: { line: userLine, column: 1 } } },
+      { id: 'operation:main.tsp:getUser', source: { file: 'main.tsp', start: { line: 3, column: 3 } } },
+    ],
+    edges: [
+      { kind: 'emits', declarationId: 'model:main.tsp:User', outputPointer: '#/components/schemas/User' },
+      { kind: 'emits', declarationId: 'operation:main.tsp:getUser', outputPointer: '#/paths/~1users/get' },
+    ],
+    exclusions: [],
+  }
+}
+
+function writeGraphSemanticWorkspace(): void {
+  writeYaml('typespec/restored.openapi.yaml', GRAPH_SEMANTIC_DOCUMENT)
+  writeJson('typespec/provenance.json', graphProvenance({ userLine: 12 }))
+  backdateInputs('typespec/restored.openapi.yaml', 'typespec/provenance.json')
+}
+
+function graphSemanticArgs(): Record<string, CommandArgValue> {
+  return {
+    spec: path('typespec/restored.openapi.yaml'),
+    output: path('out/api.ts'),
+    'typespec-provenance': path('typespec/provenance.json'),
+    'graph-semantic-index': path('graph/api.semantic.json'),
+    'graph-file': 'src/generated/api.ts',
+    incremental: true,
+    'cache-dir': cacheDir,
   }
 }
 

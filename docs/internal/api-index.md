@@ -891,6 +891,9 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `createTypescriptAlgebra()` | `typegen/schema-to-ts.ts` | 호출별 옵션을 closure로 격리해 JSON Schema fold 결과를 TypeScript 타입 표현으로 변환하는 algebra 생성 |
 | `projectSchemaToTs()` | `typegen/schema-fidelity.ts` | schema→TypeScript 출력과 pointer별 의미 보존 진단을 하나의 projection 결과로 생성 |
 | `analyzeSchemaFidelity()` | `typegen/schema-fidelity.ts` | JSON Schema 제약이 TypeScript에 exact/runtime-only/widening/narrowing/unsupported 중 어떻게 투영되는지 결정적으로 분류 |
+| `buildTypeSpecGeneratedGraphSemanticIndex()` | `typegen/typespec-graph-semantic.ts` | typegen이 보고한 선언(`TypegenOptions.declarations`)을 `oa-sdk.typespec-ref-provenance.v1`의 TypeSpec 선언 소유자(정확한 pointer 또는 가장 가까운 상위 pointer, `emits` 우선)에 묶어 `oa-sdk.typespec-ts-graph-semantic.v1` sidecar를 생성. 생성 TS·restored OpenAPI·provenance 해시에 묶이며, 다른 문서의 provenance나 소유자 없는 선언은 거부 |
+| `typeSpecGraphProvenanceSchema` | `cli/lib/typespec-graph-provenance.ts` | semantic index가 읽는 provenance 필드의 Zod 검증 스키마(root entry 전용, typegen sub-entry는 zod를 불러오지 않음). 나머지 필드는 보존 |
+| `TYPESPEC_TS_GRAPH_SEMANTIC_SCHEMA` | `typegen/typespec-graph-semantic.ts` | semantic index sidecar의 schema version 상수 (`oa-sdk.typespec-ts-graph-semantic.v1`) |
 | `createMemoryTypeRegistry()` | `type-registry.ts` | 선언·관계·경계·runtime exposure를 파일 교체 단위로 관리하는 in-memory Type Registry 생성 |
 | `createNoopTypeRegistry()` | `type-registry.ts` | 타입 인덱싱을 비활성화해도 동일 호출 계약을 유지하는 no-op Type Registry 생성 |
 | `createWorkspaceIndex()` | `workspace-index.ts` | 기본 noop 또는 memory WorkspaceIndex 생성 |
@@ -1065,6 +1068,11 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `TypegenOptions` | `typegen/generate-types.ts` | public typegen 옵션. `@oa-sdk/codegen`과 `@oa-sdk/codegen/typegen`에서 모두 export |
 | TypegenOptions | `typegen/browser.ts` | 브라우저 안전 subentry의 typegen 옵션. banner/style/includeAnnotations/refNameOverrides만 지원하며 basePath 외부 ref 분석 옵션은 포함하지 않음 |
 | `SchemaToTsOptions` | `typegen/schema-to-ts.ts` | public `schemaToTs()` 옵션. `@oa-sdk/codegen`과 `@oa-sdk/codegen/typegen`에서 모두 export |
+| `GeneratedTypeDeclaration` | `typegen/generate-types.ts` | typegen이 생성한 export 선언의 이름, 생성 소스의 1-based 줄, 출처(입력 문서의 JSON Pointer 또는 외부 `$ref`) |
+| `TypeSpecGraphProvenance` | `typegen/typespec-graph-semantic.ts` | semantic index가 읽는 provenance 필드 타입. 외부 입력은 `typeSpecGraphProvenanceSchema`로 먼저 검증 |
+| `TypeSpecGeneratedGraphSemanticIndex` | `typegen/typespec-graph-semantic.ts` | semantic index sidecar: version, 입력 해시 3종, host 목록 |
+| `TypeSpecGeneratedGraphSemanticIndexInput` | `typegen/typespec-graph-semantic.ts` | `buildTypeSpecGeneratedGraphSemanticIndex()` 입력 |
+| `TypeSpecGeneratedGraphHost` | `typegen/typespec-graph-semantic.ts` | 생성 선언 하나와 TypeSpec `.tsp` 파일·줄 evidence |
 | `SchemaToTsProjection` | `typegen/schema-fidelity.ts` | 생성 TypeScript 문자열과 전체 fidelity 분석을 결합한 projection 결과 |
 | `TypegenFidelity` | `typegen/schema-fidelity.ts` | exact, runtime-only, safe-widening, unsafe-narrowing, unsupported 의미 보존 등급 |
 | `TypegenFidelityAnalysis` | `typegen/schema-fidelity.ts` | 최종 fidelity, pointer 진단, 등급별 count를 담는 결정적 분석 결과 |

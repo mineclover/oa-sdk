@@ -90,6 +90,8 @@ export {
   schemaToZod,
   ZodGenerationPreflightError,
 } from './zodgen/index.js'
+export { buildTypeSpecGeneratedGraphSemanticIndex, TYPESPEC_TS_GRAPH_SEMANTIC_SCHEMA } from './typegen/typespec-graph-semantic.js'
+export { typeSpecGraphProvenanceSchema } from './cli/lib/typespec-graph-provenance.js'
 export { createMemoryWorkspaceIndex, createNoopWorkspaceIndex, createWorkspaceIndex } from './workspace-index.js'
 export { createSQLiteWorkspaceIndex, SQLITE_WORKSPACE_INDEX_SCHEMA_VERSION } from './sqlite-workspace-index.js'
 export { createMemoryTypeRegistry, createNoopTypeRegistry } from './type-registry.js'
@@ -252,9 +254,16 @@ export type {
   ExternalSchemaRefDiagnostic,
   ExternalSchemaRefDiagnosticCode,
   ExternalSchemaTypeAlias,
+  GeneratedTypeDeclaration,
   TypegenOptions,
   TypegenProvenanceEntry,
 } from './typegen/generate-types.js'
+export type {
+  TypeSpecGeneratedGraphHost,
+  TypeSpecGeneratedGraphSemanticIndex,
+  TypeSpecGeneratedGraphSemanticIndexInput,
+  TypeSpecGraphProvenance,
+} from './typegen/typespec-graph-semantic.js'
 export type {
   SpecDefinitionKind,
   SpecTraceSourceOrigin,

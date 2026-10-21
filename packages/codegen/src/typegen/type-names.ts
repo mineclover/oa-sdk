@@ -1,5 +1,5 @@
 import { toTypeScriptIdentifier } from '@oa-sdk/core/browser'
-import { escapeJsonPointerToken, unescapeJsonPointerToken, type OasSchema } from '@oa-sdk/parser/browser'
+import { escapeJsonPointerToken, formatJsonPointer, unescapeJsonPointerToken, type OasSchema } from '@oa-sdk/parser/browser'
 import { compareTypegenKeys } from './stable-order.js'
 
 const TYPESCRIPT_KEYWORDS = new Set([
@@ -154,6 +154,14 @@ function nestedAliasBase(ref: string, componentTypeNames: ComponentTypeNameMap):
     ?? toTypeScriptIdentifier(componentName)
   const suffix = segments.slice(3).map(toTypeScriptIdentifier).join('') || 'Nested'
   return `${rootName}${suffix}`
+}
+
+/**
+ * The unencoded JSON Pointer fragment (`#/...`) a local `$ref` names, decoded
+ * the way nested aliases resolve it.
+ */
+export function localRefPointer(ref: string): string {
+  return `#${formatJsonPointer(localPointerSegments(ref))}`
 }
 
 function localPointerSegments(ref: string): string[] {
