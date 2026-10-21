@@ -189,6 +189,11 @@ export class AiRunController {
     return this.allSnapshot;
   }
 
+  /**
+   * Calls `listener` after every change to the runs, `clear` included. A listener that throws does
+   * not undo or stop the change, nor keep the other listeners from being told of it: its exception is
+   * dropped, as the provider's session listeners' are.
+   */
   subscribe(listener: AiRunListener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
@@ -411,7 +416,7 @@ export class AiRunController {
     this.runs.clear();
     this.snapshotCache.clear();
     this.allSnapshot = [];
-    for (const listener of this.listeners) listener();
+    this.notifyListeners();
   }
 
   private evictOne(): void {
@@ -446,7 +451,16 @@ export class AiRunController {
       next.push(value);
     }
     this.allSnapshot = next;
-    for (const listener of this.listeners) listener();
+    this.notifyListeners();
+  }
+
+  /** Tells every listener of a change; one that throws is skipped (see {@link subscribe}). */
+  private notifyListeners(): void {
+    for (const listener of this.listeners) {
+      try {
+        listener();
+      } catch {}
+    }
   }
 
   private require(runId: string): MutableRun {

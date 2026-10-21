@@ -7,7 +7,7 @@
 //     of 2048 UTF-16 code units, the most an agent of the same framing assembles, replaces a reply
 //     too large for that with RESULT_TOO_LARGE, and does not send any other frame that large;
 //   - a request whose connection the host ended while the provider read it is neither run nor
-//     answered.
+//     answered, nor is one whose connection the host ended as the provider listed its catalog.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WebMcpPeerClient, type WebMcpCrdtTransport, type WebMcpHostAdapter, type WebMcpToolSummary } from "../src/provider.js";
 import {
@@ -70,12 +70,12 @@ const readTool: WebMcpToolSummary = { name: "read", description: "read tool", in
 /**
  * A provider on a FakeRelay whose agent is approved, with the relay's echo of the approval (which
  * prepares a peer connection, as on the relay). With `enableCrdt`, the room has the `mcp-crdt`
- * capability.
+ * capability; `listTools` replaces the host adapter's listing of `tools`.
  */
 async function approvedProvider(
   tools: WebMcpToolSummary[],
   invoke: WebMcpHostAdapter["invoke"] = async () => ({ ok: true }),
-  options: { enableCrdt?: boolean } = {},
+  options: { enableCrdt?: boolean; listTools?: () => WebMcpToolSummary[] } = {},
 ) {
   vi.stubGlobal("RTCPeerConnection", FakePeerConnection);
   const relay = new FakeRelay();
@@ -88,7 +88,10 @@ async function approvedProvider(
       return Response.json({ ...descriptor, capabilities: ["mcp-control", "mcp-crdt"] }, { status: response.status });
     });
   }
-  const host = new WebMcpPeerClient({ hostAdapter: { listTools: () => tools, invoke }, shouldSuppressAutoReconnect: () => false });
+  const host = new WebMcpPeerClient({
+    hostAdapter: { listTools: options.listTools ?? (() => tools), invoke },
+    shouldSuppressAutoReconnect: () => false,
+  });
   providers.push(host);
   await host.connect({ serverUrl: relay.base, alias: "data-channel", ...(options.enableCrdt ? { enableCrdt: true } : {}) });
   await approve(host, relay.latest, relay.roomId);
@@ -261,6 +264,39 @@ describe("a request of a connection that ended while the provider read it", () =
     expect(endOnNextAgent).toBe(false);
     expect(host.getSession().state).toBe("idle");
     expect(invoke).not.toHaveBeenCalled();
+    expect(channel.sent.slice(sentBefore)).toEqual([]);
+  });
+});
+
+describe("a request of a connection the host ended before its answer was ready", () => {
+  it.each(["tools/list", "server/discover"])("is not answered when the host's listTools ends the session as the provider lists the catalog for %s", async (method) => {
+    // Ends the session once, from the host's listTools, after the test arms it.
+    let endSession = false;
+    const { host, socket } = await approvedProvider([readTool], undefined, {
+      listTools: () => {
+        if (endSession) {
+          endSession = false;
+          host.disconnect();
+        }
+        return [readTool];
+      },
+    });
+    await offer(socket, "offer-1");
+    const channel = await openChannel();
+    // While the session lasts, the request is answered with the live host catalog.
+    channel.deliver({ type: "mcp", message: { jsonrpc: "2.0", id: 1, method } });
+    expect((await channel.replyTo(1)).result).toMatchObject({ tools: [{ name: "read" }] });
+    // The channel stays open to the provider, so an answer the provider gives is recorded, not hidden by
+    // the channel's close.
+    channel.holdOpen();
+    const sentBefore = channel.sent.length;
+
+    endSession = true;
+    channel.deliver({ type: "mcp", message: { jsonrpc: "2.0", id: 2, method } });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(endSession).toBe(false);
+    expect(host.getSession().state).toBe("idle");
     expect(channel.sent.slice(sentBefore)).toEqual([]);
   });
 });

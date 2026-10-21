@@ -69853,9 +69853,9 @@
         "kind": "class",
         "qualifiedName": "@oa-sdk/webmcp-peer:src/provider/ai-run-controller.ts#AiRunController",
         "runtime": "neutral",
-        "semanticHash": "e19792a5fb941760cc033d991419cfca3c8ef0b92a3f7e8eb7639fe51df73b09",
-        "shapeHash": "d2a021ccb0bc22f678a16c7c15afbea55001acfbdc1dededda211a09e84c16b8",
-        "syntaxHash": "07f0beefff3bdac39960dc64b6499bec5a35cc2f921985bab8ead9023621f4b6"
+        "semanticHash": "6b665f6b369a6e9dd77ba77bbb143645a749e27423afea6906a5bc1cf66ba1a9",
+        "shapeHash": "b5f1a757da93a74fec5e48be0a6fecceb0ef7d7c877dd78b0045e49d2e928436",
+        "syntaxHash": "0f186b5f0f6b4256914edadd3d97475d76775692967c9abf457c911bc20d6a34"
       },
       {
         "filePath": "packages/webmcp-peer/src/provider/ai-run-controller.ts",
@@ -70533,9 +70533,9 @@
         "kind": "class",
         "qualifiedName": "@oa-sdk/webmcp-peer:src/provider/peer-client.ts#WebMcpPeerClient",
         "runtime": "neutral",
-        "semanticHash": "68c567d3eee73932edd31385c970db5726ea635169ed82881675bf73c3edd638",
-        "shapeHash": "6b4366aab8d590874194728a0530d483dbdf499281a964daa63218e255c173d5",
-        "syntaxHash": "f5e4d0e2e5e9d13d50cbf6098e8d8c5d34a75b8a6fa6bd64c04f23d625b2bb01"
+        "semanticHash": "bc03c97861aa97ed410c8cc963f096c869afa249647097a13f8799db574bc885",
+        "shapeHash": "25ecd213be37193e082b79fbcd538a908f14b349368ebb183af29e7fd90515af",
+        "syntaxHash": "8fb953c221f950b80ef0934acc381d1612631e4d3e867c361b1bdf46034da3b9"
       },
       {
         "filePath": "packages/webmcp-peer/src/provider/tool-call.ts",
@@ -72548,7 +72548,7 @@
         "syntaxHash": "e468fae258fff35898aef05fe6a6da6ccde78e05e58af5c1bba938bd1f37adc3"
       }
     ],
-    "digest": "480c280c6dfff8b83eada3c4e81a83c10cce195f5e3c92648ec7623459b0d4e4",
+    "digest": "d847ffb50af14f228d4a085ff2986ac95793c4f2ea0acd9609ea22afe1a9fd3f",
     "publicSurfaces": [
       {
         "exportKey": "./guards",
@@ -85506,7 +85506,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "c51bbe637335db361935d9454c960413b3f44b9175b3512e7ce515df28f18704",
+      "contentHash": "aee984c7f0a1fb443c4af5dde04bdd72557da32e3b5c6987d399de3972b6d4bc",
       "filePath": "packages/webmcp-peer/src/provider/ai-run-controller.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/webmcp-peer",
@@ -85527,7 +85527,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "b0e950a13bab1b64533f254a268feac7cfcc526a07ee9719d84960b65073c6de",
+      "contentHash": "1c2e9963175b07e835c07675d62d026da605d2fa93a2d29abbee88c1c19802ec",
       "filePath": "packages/webmcp-peer/src/provider/peer-client.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/webmcp-peer",
