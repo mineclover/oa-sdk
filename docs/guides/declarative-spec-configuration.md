@@ -35,10 +35,10 @@ TanStack Query 코드), 생성물의 출력 경로를 선언합니다. `oa-gen i
 |---|---|
 | `oa-gen generate` | spec target, `guards`, `core.contracts`, `core.router`, `core.client`, `product.framework`(라우터 대상), `contextInjection`, `outputRouting` |
 | `oa-gen validate` | spec target(`specs` 또는 `product.specs`)과 `profile` |
-| `oa-gen check-artifact`, `oa-gen drift:check` | 최상위 `specs`만. `product.specs`에만 선언하면 `specs 목록이 비어 있습니다`로 실패합니다(알려진 결함) |
+| `oa-gen check-artifact`, `oa-gen drift:check` | spec target(`specs` 또는 `product.specs`)과 `profile` |
 | `oa-gen mock` | spec target이 정확히 하나일 때 그 원본 |
 
-spec target은 최상위 `specs`에 선언합니다. 그래야 위 명령이 모두 같은 목록을 읽습니다(`oa-gen init`도 최상위에 씁니다).
+spec target은 최상위 `specs`에 선언하는 것이 기본입니다(`oa-gen init`도 최상위에 씁니다). `product.specs`에만 선언해도 위 명령이 같은 목록과 `profile` 기본값으로 읽습니다.
 
 설정 항목 중 일부는 타입과 검증만 있고 어떤 명령도 읽지 않습니다(2.3절). 이 항목을 바꿔도 생성 결과나 CI 동작은 달라지지 않습니다.
 

@@ -400,6 +400,30 @@ function postProcessGeneratedJs(
 }
 
 /**
+ * Turns a schema/type name into a JavaScript identifier that Ajv can export.
+ *
+ * Component names may contain characters that are legal in an OpenAPI components map but not in
+ * an identifier (e.g. TypeSpec namespace-qualified `OaSdkTypeSpec.StandardError`). Ajv rejects
+ * such export names outright (`CodeGen: invalid export name`), so the guard name is normalized
+ * while `typeName` keeps the original spelling for the `data is ...` declaration.
+ */
+function toGuardIdentifier(name: string): string {
+  const cleaned = name.trim().replace(/[^A-Za-z0-9_$]+/g, '_')
+  const prefixed = /^[0-9]/.test(cleaned) ? `_${cleaned}` : cleaned
+  return prefixed.length > 0 ? prefixed : 'isValue'
+}
+
+/**
+ * The importable root of a (possibly qualified) type reference.
+ * `OaSdkTypeSpec.StandardError` is imported as its namespace `OaSdkTypeSpec` and used as
+ * `OaSdkTypeSpec.StandardError`, because `import type { A.B }` is not valid TypeScript.
+ */
+function typeImportRoot(typeName: string): string {
+  const dot = typeName.indexOf('.')
+  return dot === -1 ? typeName : typeName.slice(0, dot)
+}
+
+/**
  * Automatically discovers guard targets from schemaDocument defs or components if not provided.
  */
 function autoDiscoverGuards(doc: Record<string, unknown>): StandaloneGuardTarget[] {
@@ -410,7 +434,7 @@ function autoDiscoverGuards(doc: Record<string, unknown>): StandaloneGuardTarget
     const prefix = doc.$defs ? '#/$defs/' : '#/definitions/'
     for (const key of Object.keys(defs)) {
       targets.push({
-        name: key.startsWith('is') ? key : `is${key}`,
+        name: toGuardIdentifier(key.startsWith('is') ? key : `is${key}`),
         typeName: key,
         schema: `${prefix}${key}`,
       })
@@ -424,7 +448,7 @@ function autoDiscoverGuards(doc: Record<string, unknown>): StandaloneGuardTarget
     for (const key of Object.keys(components)) {
       if (!targets.some(t => t.typeName === key)) {
         targets.push({
-          name: key.startsWith('is') ? key : `is${key}`,
+          name: toGuardIdentifier(key.startsWith('is') ? key : `is${key}`),
           typeName: key,
           schema: `#/components/schemas/${key}`,
         })
@@ -465,12 +489,27 @@ export async function generateStandaloneGuards(
     ? options.guards
     : autoDiscoverGuards(schemaDocument)
 
+  // Normalize custom guard names too, and keep the post-normalization names unique
+  // (`A.B` and `A_B` would otherwise collide on the same export).
+  const usedGuardNames = new Set<string>()
+  resolvedGuards = resolvedGuards.map(guard => {
+    const base = toGuardIdentifier(guard.name)
+    let name = base
+    let suffix = 2
+    while (usedGuardNames.has(name)) {
+      name = `${base}_${suffix++}`
+    }
+    usedGuardNames.add(name)
+    return { ...guard, name }
+  })
+
   if (schemas && schemas.length > 0) {
     const filterList = schemas.map(s => s.trim()).filter(Boolean)
     resolvedGuards = resolvedGuards.filter(guard => {
-      return filterList.some(term => {
+      return filterList.some(rawTerm => {
+        const term = toGuardIdentifier(rawTerm)
         if (guard.name === term) return true
-        if (guard.typeName && guard.typeName === term) return true
+        if (guard.typeName && guard.typeName === rawTerm) return true
         if (term.startsWith('is') && guard.typeName && guard.typeName === term.slice(2)) return true
         if (!term.startsWith('is') && guard.name === `is${term}`) return true
         if (guard.name.toLowerCase() === term.toLowerCase()) return true
@@ -567,14 +606,14 @@ export async function generateStandaloneGuards(
 
     const guardToFileBase = new Map<string, string>()
     for (const g of resolvedGuards) {
-      guardToFileBase.set(g.name, g.typeName?.trim() || g.name)
+      guardToFileBase.set(g.name, toGuardIdentifier(g.typeName?.trim() || g.name))
     }
 
     const indexJsLines: string[] = []
     const indexDtsLines: string[] = []
 
     for (const guard of resolvedGuards) {
-      const fileBase = guard.typeName?.trim() || guard.name
+      const fileBase = toGuardIdentifier(guard.typeName?.trim() || guard.name)
       const rawJs: string = standaloneCodeFn(ajv, { [guard.name]: guard.name })
       const jsContent = postProcessGeneratedJs(rawJs, {
         fastPaths,
@@ -596,7 +635,7 @@ export async function generateStandaloneGuards(
         const dtsLines: string[] = []
         const tName = guard.typeName?.trim()
         if (tName && typeImportSpecifier) {
-          dtsLines.push(`import type { ${tName} } from '${typeImportSpecifier}';`)
+          dtsLines.push(`import type { ${typeImportRoot(tName)} } from '${typeImportSpecifier}';`)
           dtsLines.push('')
         }
         if (tieredGuards.has(guard.name)) {
@@ -671,7 +710,7 @@ export async function generateStandaloneGuards(
       dtsDeclarations.push(`export declare function ${guard.name}Fast(data: unknown): boolean;`)
     }
     if (tName) {
-      typeImports.add(tName)
+      typeImports.add(typeImportRoot(tName))
       dtsDeclarations.push(`export declare function ${guard.name}(data: unknown): data is ${tName};`)
     } else {
       dtsDeclarations.push(`export declare function ${guard.name}(data: unknown): data is unknown;`)

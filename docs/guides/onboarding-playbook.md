@@ -434,7 +434,7 @@ if (
 
 TanStack Query 코드는 쿼리 키 팩토리(Tier 1), 순수 옵션 팩토리(Tier 2), 훅(Tier 3)으로 나뉩니다. 옵션 팩토리는 React 훅이 아니라 `queryOptions()` 객체를 돌려주므로 Next.js Server Component의 `prefetchQuery`에서도 씁니다(§4.10). 클라이언트 초기화, 인증, 오류 처리는 [프론트엔드 SDK 및 쿼리 소비 가이드](./client-and-query-consumption.md)를 따릅니다.
 
-아래 표의 옵션·훅 파일은 모두 `@tanstack/react-query`를 import하는 React용입니다(`oa-gen generate`는 항상 React용으로 씁니다). `generate:tanstack --framework vue|svelte` 출력은 현재 `tsc`가 실패합니다(알려진 결함). Vue·Svelte에서는 import가 없는 키 팩토리(`<id>.keys.ts` 또는 `generate:tanstack --tier keys` 출력)와 생성된 클라이언트만 가져다 쓰고, 옵션은 각 패키지의 `queryOptions()`로 직접 작성합니다([CLI 명령 레퍼런스](./cli-command-reference.md#generatetanstack-옵션-및-인수-명세)).
+아래 표의 훅 파일은 `@tanstack/react-query`를 import하는 React 전용입니다(`oa-gen generate`는 항상 React용으로 씁니다). 키와 옵션 파일은 프레임워크 중립이라 `generate:tanstack --framework vue|svelte`로도 쓸 수 있고(옵션은 `@tanstack/query-core` observer 타입), Vue·Svelte용 훅만 각 프레임워크 어댑터로 직접 작성합니다([CLI 명령 레퍼런스](./cli-command-reference.md#generatetanstack-옵션-및-인수-명세)).
 
 | 생성 경로 | 파일 | 포함하는 Tier |
 |---|---|---|
@@ -473,7 +473,7 @@ export function useUserCacheInvalidation() {
 
 ### 4.10 Next.js App Router SSR 프리페칭 & 하이드레이션
 
-Tier 2 옵션 팩토리를 Server Component의 `prefetchQuery`와 Client Component의 `useQuery`에 같이 쓰면, 서버에서 받은 데이터로 바로 렌더링하고 클라이언트에서 다시 요청하지 않습니다. Server Component에서는 `'use client'` 지시문이 없는 옵션 파일을 import합니다. §4.9 표에서 `oa-gen generate`의 `<id>.queries.ts`(outputRouting 있음)와 `generate:tanstack --split`의 `queries.ts`가 여기에 해당하고, 훅을 담은 `tanstack-query.ts`와 `hooks.ts`는 `'use client'` 모듈입니다. `generate:tanstack --tier options`만 실행하면 이 명령이 쓰지 않는 `./keys.js`를 import하는 파일이 생겨 컴파일되지 않습니다([CLI 명령 레퍼런스](./cli-command-reference.md#generatetanstack-옵션-및-인수-명세)). 아래 예시는 `oa-gen generate`의 `<id>.queries.ts`를 쓰며, `@/` 경로 별칭은 `src/`를 가리킨다고 가정합니다.
+Tier 2 옵션 팩토리를 Server Component의 `prefetchQuery`와 Client Component의 `useQuery`에 같이 쓰면, 서버에서 받은 데이터로 바로 렌더링하고 클라이언트에서 다시 요청하지 않습니다. Server Component에서는 `'use client'` 지시문이 없는 옵션 파일을 import합니다. §4.9 표에서 `oa-gen generate`의 `<id>.queries.ts`(outputRouting 있음)와 `generate:tanstack --split`의 `queries.ts`가 여기에 해당하고, 훅을 담은 `tanstack-query.ts`와 `hooks.ts`는 `'use client'` 모듈입니다. `generate:tanstack --tier options`는 키를 인라인한 자기완결 파일을 쓰고, `--split --tier options`는 `keys.ts`를 의존성으로 함께 씁니다([CLI 명령 레퍼런스](./cli-command-reference.md#generatetanstack-옵션-및-인수-명세)). 아래 예시는 `oa-gen generate`의 `<id>.queries.ts`를 쓰며, `@/` 경로 별칭은 `src/`를 가리킨다고 가정합니다.
 
 #### 1단계: Server Component에서 프리페칭 (`app/users/[id]/page.tsx`)
 

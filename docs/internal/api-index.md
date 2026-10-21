@@ -1531,6 +1531,7 @@ Governance manifest: `packages/codegen/src/cli/spec/oa-gen-governance.ts` 및 `d
 | `generateOptionsFactory()` | `tanstack/options-factory-generator.ts` | UI 프레임워크 락인 없는 순수 queryOptions() 및 mutationOptions() 팩토리 코드 생성 (SSR/Vue/Svelte 호환) |
 | `generateHookFactory()` | `tanstack/hook-factory-generator.ts` | React composition hook 래퍼(useUserQuery, useUpdateUserMutation, createApiHooks) 코드 생성 |
 | `isQueryOperation()` | `tanstack/key-factory-generator.ts` | HTTP 메서드 기반 Query vs Mutation 오퍼레이션 분류 헬퍼 |
+| `isStreamingOperation()` | `tanstack/key-factory-generator.ts` | SSE/NDJSON/JSONL 응답·요청 본문을 가진 스트리밍 오퍼레이션 판별 헬퍼(키만 생성하고 옵션·훅 제외) |
 | `getOperationTag()` | `tanstack/key-factory-generator.ts` | 오퍼레이션의 주 태그 추출 및 정규화 헬퍼 |
 | `toKeyFactoryName()` | `tanstack/key-factory-generator.ts` | 태그명 기반 쿼리 키 팩토리 식별자 이름 생성 |
 | `TanstackQueryOptions` | `tanstack/generate-tanstack.ts` | TanStack Query v5 코드 생성 옵션 인터페이스 |

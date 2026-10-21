@@ -525,7 +525,7 @@ describe('TypeSpec Builder Platform: Real-World Usability Scenarios', () => {
       // PetError is not an @error model, so the Petstore operations declare no error models: their
       // TanStack error type is Error, and every failed response rejects with ApiClientResponseError.
       expect(ctx.getFile('queries.ts')!.content)
-        .toContain('UndefinedInitialDataOptions<JsonPrimitive<PetsGetPetByIdResponse>, Error,')
+        .toContain('QueryObserverOptions<JsonPrimitive<PetsGetPetByIdResponse>, Error,')
 
       const sdk = loadGeneratedModule(ctx.getFile('client.ts')!.content)
       const adapter = loadGeneratedModule(ctx.getFile('api-client.ts')!.content, { './client.js': sdk })

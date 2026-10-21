@@ -51,6 +51,7 @@ export {
   generateOptionsFactory,
   generateHookFactory,
   isQueryOperation,
+  isStreamingOperation,
   getOperationTag,
   toKeyFactoryName,
 } from './tanstack/index.js'

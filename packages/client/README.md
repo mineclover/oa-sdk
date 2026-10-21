@@ -179,17 +179,15 @@ imports `JsonPrimitive` and `Resolved` from `@oa-sdk/client`, `@tanstack/react-q
   TanStack Query code generated without `typesImport` does not compile either (TS2345: the untyped
   code passes `Record<string, string>` and `unknown` to the typed methods). Use one of the two
   combinations under [Generating a client](#generating-a-client).
-- Only React output works. The generators use React type names (`UndefinedInitialDataOptions`,
-  `UseMutationOptions`, and others) whatever `queryPackage` is. Code generated for
-  `@tanstack/vue-query` or `@tanstack/svelte-query` (`oa-gen generate:tanstack --framework vue|svelte`)
-  does not compile (TS2724, for example `'@tanstack/svelte-query' has no exported member named
-  'UseMutationOptions'`).
-- With `--tier options` or `--tier hooks`, `oa-gen generate:tanstack` writes a file that imports
-  `./keys.js` (the hooks file also imports `./queries.js`) but does not write those files, so the
-  file alone fails with TS2307. Generate one file per tier into the same directory:
-  `--tier keys -o src/api/keys.ts`, then `--tier options -o src/api/queries.ts` (and
-  `--tier hooks -o src/api/hooks.ts` if needed). The library's `keysCode`, `queriesCode` and
-  `hooksCode` have the same imports, so write them as `keys.ts`, `queries.ts` and `hooks.ts`.
+- Tier 2 options are framework-neutral: they import `QueryObserverOptions`,
+  `MutationObserverOptions` and `InfiniteQueryObserverOptions`, which every adapter re-exports from
+  `@tanstack/query-core`. Keys and options therefore compile for React, Vue and Svelte. Tier 3 hooks
+  are React-only (`useQuery`/`UseQueryResult`); `oa-gen generate:tanstack --framework vue|svelte
+  --tier hooks` fails instead of emitting them.
+- In split mode tiers are cumulative: `options` writes `keys.ts` and `queries.ts`, and `hooks` writes
+  all three. The combined file inlines the lower tiers, so a single `--tier options|hooks` file is
+  self-contained. The library's `keysCode`/`queriesCode`/`hooksCode` are the split modules and keep
+  their `./keys.js` / `./queries.js` imports; write them as `keys.ts`, `queries.ts`, `hooks.ts`.
 - The combined file (`tanstack-query.ts`) and the hooks file start with `'use client'`. In a React
   Server Component (for example to prefetch in the Next.js App Router), calling an options factory
   imported from the combined file fails with `Attempted to call ...() from the server but ... is on
@@ -197,17 +195,17 @@ imports `JsonPrimitive` and `Resolved` from `@oa-sdk/client`, `@tanstack/react-q
 - The runtime accepts single-object calls (`{ params, body, query, headers, signal }`), an options
   object in place of a skipped argument, and `signal` inside the query object, but the typed
   signatures do not declare them, so TypeScript rejects them.
-- `<operationId>QueryOptions` and `<operationId>InfiniteQueryOptions` (and the hooks built on them)
-  use the same `queryKey`. When an app runs the list query and the infinite query with the same
-  filters, they share one TanStack cache entry, and the infinite query returns the list response
-  without a `pages` array. Do not combine the two for the same filters, or spread the infinite
-  options into `useInfiniteQuery` with a key of its own (the options argument and the generated hook
-  do not accept `queryKey`; the generated `queryFn` does not read the key):
-  `{ ...infinite, queryKey: [...infinite.queryKey, 'infinite'] as unknown as typeof infinite.queryKey }`.
+- `<operationId>InfiniteQueryOptions` uses `[...<listKey>, 'infinite']`, so a list query and an
+  infinite query with the same filters do not share a cache entry. Invalidating the list key still
+  matches the infinite entry by prefix.
 - Cursor-based `<operationId>InfiniteQueryOptions` sends `cursor=null` on the first request; pass
   `initialPageParam: undefined` (with `getNextPageParam`) in the options to omit it.
-- TanStack query options are also generated for streaming operations, but their `queryFn` returns the
-  `AsyncGenerator` as data; read streams with the client method instead.
+- Streaming operations (SSE, NDJSON, JSONL, `application/stream+json`) keep their query keys but
+  generate no `QueryOptions`, `MutationOptions` or hooks, because a `queryFn` cannot cache an
+  `AsyncGenerator`. Read streams with the client method instead.
+- With a documented error model, `TError` is `<Operation>Error | Error`: transport failures and
+  `ApiClientResponseError` are part of the type. Narrow HTTP errors with `instanceof
+  ApiClientResponseError` / `isClientError`.
 
 ## API reference
 

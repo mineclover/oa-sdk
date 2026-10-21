@@ -244,11 +244,11 @@ npm install @tanstack/react-query
 | 옵션 | 동작 |
 |---|---|
 | `-o, --output` | `.ts`로 끝나면 그 파일, 디렉터리면 `<디렉터리>/tanstack-query.ts`에 씁니다. 생략하면 `oa.config.ts`의 `outputRouting` 경로, 그것도 없으면 `src/api/generated/tanstack-query.ts`입니다. |
-| `--tier` | `all`(기본), `keys`, `options`, `hooks`. 고른 계층만 씁니다. `options` 파일은 `./keys.js`를, `hooks` 파일은 `./keys.js`와 `./queries.js`를 import하지만 그 파일을 쓰지 않으므로, 혼자 생성하면 `TS2307`로 실패합니다. 계층을 나눠 쓰려면 같은 디렉터리에 `--tier keys -o src/api/keys.ts`, `--tier options -o src/api/queries.ts`(필요하면 `--tier hooks -o src/api/hooks.ts`)를 차례로 생성합니다. |
-| `--framework` | `react`(기본), `vue`, `svelte`. `vue`·`svelte` 출력은 컴파일되지 않습니다(알려진 결함). 생성기가 어떤 프레임워크든 React용 타입 이름(`UndefinedInitialDataOptions`, `UseMutationOptions` 등)을 import하므로 `@tanstack/vue-query`에서는 `TS2724`·`TS2769`, `@tanstack/svelte-query`(5·6)에서는 `TS2724`(`UseMutationOptions` 등이 없음)로 실패합니다. 지금 쓸 수 있는 대상은 React뿐입니다. |
+| `--tier` | `all`(기본), `keys`, `options`, `hooks`. `--split`에서는 계층이 누적됩니다: `options`는 `keys`를, `hooks`는 `keys`와 `queries`를 의존성으로 함께 씁니다. 단일 파일 모드(`--split` 없음)에서는 선택한 계층까지 인라인되어 imports 없이 자기완결적입니다. |
+| `--framework` | `react`(기본), `vue`, `svelte`. `vue`·`svelte`는 **keys와 options**를 생성합니다. 옵션 계층은 모든 어댑터가 `@tanstack/query-core`에서 재노출하는 프레임워크 중립 타입(`QueryObserverOptions`, `MutationObserverOptions`, `InfiniteQueryObserverOptions`)을 씁니다. Tier 3 훅은 React 훅 타입(`useQuery`, `UseQueryResult` 등)을 쓰므로 `vue`·`svelte`에서는 생성하지 않으며, `--tier hooks`와 함께 쓰면 오류로 끝납니다. |
 | `--client-import` | `ApiClient` 타입을 가져올 모듈. 기본값은 `./client.js`입니다. 배포된 클라이언트 패키지를 쓸 때 지정합니다. |
 | `--types-import` | typegen 타입을 가져올 모듈. 7.4절의 한계를 먼저 확인합니다. |
-| `--split` | 출력 디렉터리에 `keys.ts`, `queries.ts`, `hooks.ts`를 따로 씁니다. `oa.config.ts`에 `outputRouting`이 있는 프로젝트(`oa-gen init`이 만든 설정)에서는 생성 파일의 상대 import가 깨지므로(`TS2307`) 쓰지 않습니다. |
+| `--split` | 출력 디렉터리에 `keys.ts`, `queries.ts`, `hooks.ts`를 따로 씁니다. `outputRouting`이 있으면 keys/queries는 라우팅된 경로에 쓰고 hooks는 queries 옆에 쓰며, 상대 import는 실제 경로 차이에서 계산합니다. |
 
 `generate:tanstack`이 쓴 파일은 `.oa-manifest.json`에 `producer: "generate:tanstack"`으로 기록됩니다. `oa-gen generate`는 자신이 기록한 생성 파일만 정리하므로, 같은 프로젝트에서 `oa-gen generate`를 실행해도 `generate:tanstack` 출력은 지워지지 않습니다([생성 파일 정리](./declarative-spec-configuration.md#45-생성-파일-정리)). `oa-gen generate`가 함께 만드는 TanStack 코드는 7.5절을 봅니다.
 
@@ -350,25 +350,12 @@ const { data, fetchNextPage, hasNextPage } = useInfiniteQuery(
 )
 ```
 
+무한 쿼리는 목록 쿼리와 다른 키(`[...usersKeys.listUsers(query), 'infinite']`)를 씁니다. 따라서 같은 필터로 두 쿼리를 함께 써도 캐시 항목이 섞이지 않습니다. 키 앞부분이 같으므로 `usersKeys.listUsers(filters)`로 무효화하면 두 캐시가 함께 무효화됩니다.
+
 알려진 한계는 다음과 같습니다.
 
-- `<operationId>QueryOptions`와 `<operationId>InfiniteQueryOptions`(그리고 이를 쓰는 `use<OperationId>Query`·`use<OperationId>InfiniteQuery`)가 같은 `queryKey`(`usersKeys.listUsers(query)`)를 씁니다. 같은 필터로 목록 쿼리와 무한 쿼리를 함께 쓰면 TanStack 캐시 항목 하나를 공유하므로, 목록 쿼리가 먼저 받은 `{ items, nextCursor }`가 무한 쿼리의 데이터로 나오고 `pages` 배열이 없습니다(알려진 결함). 두 쿼리를 같은 필터로 함께 쓰지 않거나, 아래처럼 무한 쿼리에 다른 키를 줍니다.
 - 커서 방식의 첫 요청은 `cursor=null`을 쿼리 문자열로 보냅니다. 서버가 이 값을 거부하면 `initialPageParam`을 `undefined`로 바꿉니다(아래 예).
 - 세 번째 인자(TanStack 옵션)를 넘길 때는 타입상 `initialPageParam`과 `getNextPageParam`을 함께 넘겨야 합니다.
-
-무한 쿼리에 다른 키를 주려면 생성된 옵션을 펼친 뒤 `queryKey`를 바꿉니다. 세 번째 인자와 생성 훅은 `queryKey`를 받지 않으므로 `useInfiniteQuery`를 직접 씁니다. 생성된 `queryFn`은 키를 읽지 않으므로 키만 바뀝니다. 키 앞부분이 같아서 `usersKeys.listUsers(filters)`로 무효화하면 두 쿼리가 함께 무효화됩니다.
-
-```tsx
-import { useInfiniteQuery } from '@tanstack/react-query'
-import { listUsersInfiniteQueryOptions } from './api/tanstack-query.js'
-
-const infinite = listUsersInfiniteQueryOptions(apiClient, { limit: 10 })
-const feed = useInfiniteQuery({
-  ...infinite,
-  // 생성된 키 타입은 끝 요소를 허용하지 않으므로 단언한다
-  queryKey: [...infinite.queryKey, 'infinite'] as unknown as typeof infinite.queryKey,
-})
-```
 
 `cursor=null`을 보내지 않으려면 `initialPageParam`을 바꿉니다.
 
@@ -385,7 +372,7 @@ const options = listUsersInfiniteQueryOptions<InfiniteData<JsonPrimitive<ListUse
 )
 ```
 
-스트리밍 operation에도 `<operationId>QueryOptions`와 훅이 생성되지만, `queryFn`이 `AsyncGenerator`를 데이터로 반환하므로 TanStack Query로 스트림을 읽을 수 없습니다(알려진 결함). 스트리밍 operation은 6절처럼 클라이언트 메서드를 직접 씁니다.
+스트리밍 operation(`text/event-stream`, `application/x-ndjson`, `application/jsonl`, `application/stream+json` 응답 또는 요청 본문)은 키 팩토리에만 나타나고 `<operationId>QueryOptions`·`MutationOptions`·훅은 생성하지 않습니다. `queryFn`이 `AsyncGenerator`를 데이터로 반환하는 캐시는 TanStack 모델에 맞지 않기 때문입니다. 스트리밍 operation은 6절처럼 클라이언트 메서드를 직접 쓰고, 무효화가 필요하면 생성된 키를 사용하세요.
 
 ---
 
@@ -465,8 +452,8 @@ try {
 }
 ```
 
-- reject 값은 생성된 TanStack 코드가 선언한 에러 타입(`UndefinedInitialDataOptions<..., UsersGetUserByIdError, ...>`)과 맞춰집니다. 응답 상태에 `application/json` 에러 모델이 선언되어 있으면(명시적 4xx/5xx, 또는 다른 응답 항목이 다루지 않는 상태의 `default`) 파싱한 본문으로, 아니면 `ApiClientResponseError`로 reject됩니다. 에러 모델이 없는 오퍼레이션의 TanStack 에러 타입은 `Error`이고 항상 `ApiClientResponseError`로 reject됩니다.
-- `ApiClientResponseError`(그리고 네트워크 오류·abort)는 에러 모델을 선언한 오퍼레이션의 TanStack 에러 타입에 포함되지 않으므로, `query.error`/`onError`에서는 `instanceof ApiClientResponseError`로 먼저 좁힙니다.
+- reject 값은 생성된 TanStack 코드가 선언한 에러 타입(`QueryObserverOptions<..., UsersGetUserByIdError | Error, ...>`)과 맞춰집니다. 응답 상태에 `application/json` 에러 모델이 선언되어 있으면(명시적 4xx/5xx, 또는 다른 응답 항목이 다루지 않는 상태의 `default`) 파싱한 본문으로, 아니면 `ApiClientResponseError`로 reject됩니다. 에러 모델이 없는 오퍼레이션의 TanStack 에러 타입은 `Error`이고 항상 `ApiClientResponseError`로 reject됩니다.
+- 에러 모델이 있는 오퍼레이션의 `TError`는 `<Op>Error | Error`입니다. 네트워크 오류, abort, `ApiClientResponseError`가 모두 포함되므로 `query.error`/`onError`에서는 `instanceof ApiClientResponseError`(또는 `isClientError`)로 HTTP 오류를 먼저 좁히고 나머지를 transport 오류로 다룹니다.
 - 어댑터는 SDK 함수를 `throwOnError: false`로 호출하므로 `createClient({ throwOnError: true })` 설정과 무관하게 같은 값으로 reject됩니다.
 
 ### 8.3 Vite dev loop 통합 및 상세 가이드

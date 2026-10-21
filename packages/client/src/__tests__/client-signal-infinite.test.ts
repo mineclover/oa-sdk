@@ -515,7 +515,7 @@ describe('Milestone 2 — R4: TanStack Query Infinite Query Generator', () => {
 
     it('imports infiniteQueryOptions and infinite types from queryPackage', () => {
       expect(optionsCode).toContain('import { queryOptions, mutationOptions, infiniteQueryOptions }')
-      expect(optionsCode).toContain('UndefinedInitialDataInfiniteOptions')
+      expect(optionsCode).toContain('InfiniteQueryObserverOptions')
       expect(optionsCode).toContain('InfiniteData')
     })
 
@@ -590,7 +590,7 @@ describe('Milestone 2 — R4: TanStack Query Infinite Query Generator', () => {
     it('emits unified imports in combined file when pagination is present', () => {
       const output = generateTanstackQuery(paginationSpec)
       expect(output.combinedCode).toContain('infiniteQueryOptions, useInfiniteQuery')
-      expect(output.combinedCode).toContain('UndefinedInitialDataInfiniteOptions')
+      expect(output.combinedCode).toContain('InfiniteQueryObserverOptions')
       expect(output.combinedCode).toContain('InfiniteData')
       expect(output.combinedCode).toContain('UseInfiniteQueryOptions')
       expect(output.combinedCode).toContain('UseInfiniteQueryResult')

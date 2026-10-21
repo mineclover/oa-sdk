@@ -5,7 +5,7 @@
 export { generateTanstackQuery } from './generate-tanstack.js'
 export type { TanstackQueryOptions, TanstackQueryOutput } from './generate-tanstack.js'
 
-export { generateKeyFactory, isQueryOperation, getOperationTag, toKeyFactoryName } from './key-factory-generator.js'
+export { generateKeyFactory, isQueryOperation, isStreamingOperation, getOperationTag, toKeyFactoryName } from './key-factory-generator.js'
 export type { KeyFactoryOptions } from './key-factory-generator.js'
 
 export { generateOptionsFactory } from './options-factory-generator.js'

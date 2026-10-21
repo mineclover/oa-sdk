@@ -13,7 +13,7 @@ import {
   formatGeneratedTs,
   toOperationMethodName,
 } from '@oa-sdk/core/browser'
-import { getOperationTag, groupOperationsByTag, isQueryOperation, toKeyFactoryName } from './key-factory-generator.js'
+import { getOperationTag, groupOperationsByTag, isQueryOperation, isStreamingOperation, toKeyFactoryName } from './key-factory-generator.js'
 import { detectPagination } from './options-factory-generator.js'
 
 export interface HookFactoryOptions {
@@ -96,9 +96,9 @@ export function generateHookFactory(doc: ParsedDocument, options: HookFactoryOpt
   const operationNames = createOperationTypeNameMap(doc.operations)
   const groups = groupOperationsByTag(doc)
 
-  const hasPagination = doc.operations.some(op => detectPagination(op) !== null)
+  const hasPagination = doc.operations.some(op => !isStreamingOperation(op) && detectPagination(op) !== null)
   const hasQueryWithTypedBody = Boolean(typesImport) && doc.operations.some(
-    op => Boolean(op.operationId) && isQueryOperation(op) && hasGeneratedRequestBodyType(op.requestBody),
+    op => Boolean(op.operationId) && !isStreamingOperation(op) && isQueryOperation(op) && hasGeneratedRequestBodyType(op.requestBody),
   )
 
   if (!isCombined) {
@@ -124,6 +124,7 @@ export function generateHookFactory(doc: ParsedDocument, options: HookFactoryOpt
       const typeImports = new Set<string>()
       for (const op of doc.operations) {
         if (!op.operationId) continue
+        if (isStreamingOperation(op)) continue
         const baseName = operationNames.get(op.operationId)!
         const isQuery = isQueryOperation(op)
         const pathParams = op.parameters.filter(p => p.in === 'path')
@@ -161,6 +162,7 @@ export function generateHookFactory(doc: ParsedDocument, options: HookFactoryOpt
       const varTypes: string[] = []
       for (const op of doc.operations) {
         if (!op.operationId) continue
+        if (isStreamingOperation(op)) continue
         const baseName = operationNames.get(op.operationId)!
         const methodName = toOperationMethodName(baseName)
         if (isQueryOperation(op)) {
@@ -183,6 +185,8 @@ export function generateHookFactory(doc: ParsedDocument, options: HookFactoryOpt
   // Generate Individual Hooks
   for (const op of doc.operations) {
     if (!op.operationId) continue
+    // Streaming operations are consumed through the streaming client, not cached hooks.
+    if (isStreamingOperation(op)) continue
     const baseName = operationNames.get(op.operationId)!
     const methodName = toOperationMethodName(baseName)
     const tag = getOperationTag(op)
@@ -201,7 +205,8 @@ export function generateHookFactory(doc: ParsedDocument, options: HookFactoryOpt
 
     const responseType = typesImport && hasTypedResponse ? `${baseName}Response` : 'unknown'
     const returnDataType = hasResponse ? `JsonPrimitive<${responseType}>` : 'void'
-    const errorType = typesImport && hasGeneratedErrorType(op.responses) ? `${baseName}Error` : 'Error'
+    // HTTP error bodies plus transport failures (network errors, aborts, ApiClientResponseError).
+    const errorType = typesImport && hasGeneratedErrorType(op.responses) ? `${baseName}Error | Error` : 'Error'
 
     if (isQuery) {
       const funcParams: string[] = [`client: ${clientName}`]
@@ -284,7 +289,8 @@ export function generateHookFactory(doc: ParsedDocument, options: HookFactoryOpt
           infiniteForwardArgs.push('headers')
         }
 
-        const infiniteOptionsParam = `options?: Omit<UseInfiniteQueryOptions<${returnDataType}, ${errorType}, TData, ReturnType<typeof ${factoryName}.${methodName}>, TPageParam>, 'queryKey' | 'queryFn'>`
+        const infiniteKeyType = `readonly [...ReturnType<typeof ${factoryName}.${methodName}>, 'infinite']`
+        const infiniteOptionsParam = `options?: Omit<UseInfiniteQueryOptions<${returnDataType}, ${errorType}, TData, ${infiniteKeyType}, TPageParam>, 'queryKey' | 'queryFn'>`
         infiniteFuncParams.push(infiniteOptionsParam)
         infiniteFuncParams.push('queryClient?: QueryClient')
 
@@ -325,6 +331,7 @@ export function generateHookFactory(doc: ParsedDocument, options: HookFactoryOpt
 
   for (const op of doc.operations) {
     if (!op.operationId) continue
+    if (isStreamingOperation(op)) continue
     const baseName = operationNames.get(op.operationId)!
     const methodName = toOperationMethodName(baseName)
     const tag = getOperationTag(op)
@@ -344,7 +351,8 @@ export function generateHookFactory(doc: ParsedDocument, options: HookFactoryOpt
 
     const responseType = typesImport && hasTypedResponse ? `${baseName}Response` : 'unknown'
     const returnDataType = hasResponse ? `JsonPrimitive<${responseType}>` : 'void'
-    const errorType = typesImport && hasGeneratedErrorType(op.responses) ? `${baseName}Error` : 'Error'
+    // HTTP error bodies plus transport failures (network errors, aborts, ApiClientResponseError).
+    const errorType = typesImport && hasGeneratedErrorType(op.responses) ? `${baseName}Error | Error` : 'Error'
 
     if (isQuery) {
       const boundParams: string[] = []
@@ -423,7 +431,8 @@ export function generateHookFactory(doc: ParsedDocument, options: HookFactoryOpt
           forwardInfiniteArgs.push('headers')
         }
 
-        const infiniteOptionsParam = `options?: Omit<UseInfiniteQueryOptions<${returnDataType}, ${errorType}, TData, ReturnType<typeof ${factoryName}.${methodName}>, TPageParam>, 'queryKey' | 'queryFn'>`
+        const infiniteKeyType = `readonly [...ReturnType<typeof ${factoryName}.${methodName}>, 'infinite']`
+        const infiniteOptionsParam = `options?: Omit<UseInfiniteQueryOptions<${returnDataType}, ${errorType}, TData, ${infiniteKeyType}, TPageParam>, 'queryKey' | 'queryFn'>`
         boundInfiniteParams.push(infiniteOptionsParam)
         boundInfiniteParams.push('queryClient?: QueryClient')
 

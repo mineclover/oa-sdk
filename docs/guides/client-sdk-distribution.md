@@ -163,7 +163,7 @@ export function AdminCount() {
 }
 ```
 
-`-o`가 `.ts`로 끝나면 그 파일에 씁니다. 키·옵션·훅 이름과 `--tier` 같은 나머지 옵션은 [TanStack Query v5](./client-and-query-consumption.md#7-tanstack-query-v5)를 따릅니다. 생성 코드는 `@tanstack/react-query` 전용입니다. `--framework vue|svelte` 출력은 컴파일되지 않습니다(알려진 결함).
+`-o`가 `.ts`로 끝나면 그 파일에 씁니다. 키·옵션·훅 이름과 `--tier` 같은 나머지 옵션은 [TanStack Query v5](./client-and-query-consumption.md#7-tanstack-query-v5)를 따릅니다. 기본 대상은 `@tanstack/react-query`이고, `--framework vue|svelte`는 keys+options를 생성합니다(훅은 React 전용).
 
 ---
 
