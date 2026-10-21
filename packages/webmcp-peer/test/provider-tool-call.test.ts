@@ -5,9 +5,10 @@
 // whose outcome is unknown, and neither runs nor answers a call whose connection ended while it
 // looked the call up. Nor is a call run or answered whose connection host code the provider called
 // first ended, nor any request whose connection host code ended before its answer was ready, the
-// ledger's failed lookup and a run listener told of the call's step included. A run listener that
-// throws changes nothing of a call or its run. A socket the tests hold open records any answer the
-// provider still gives.
+// ledger's failed lookup and a run listener told of the call's step included, nor one whose answer
+// was ready when another request of the same read ended the connection. A run listener that throws
+// changes nothing of a call or its run. A socket the tests hold open records any answer the provider
+// still gives.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AiRunController,
@@ -694,6 +695,36 @@ describe("a tools/call whose run listener ends the connection once the host ran 
     // The provider went on with no run it had lost, nor did it treat the session's end as its own failure.
     expect(error).not.toHaveBeenCalled();
     expect(socket.sent.filter((frame) => frame.type === "mcp")).toEqual([]);
+  });
+});
+
+describe("a request that comes in one read with a tools/call whose run listener ends the connection", () => {
+  it("is not answered once the connection ended, when a ping comes first and the listener ends the session as the call settles", async () => {
+    const invoke = vi.fn(async () => ({ ok: true }));
+    const { provider, socket } = await approvedProvider(invoke);
+    // The frames the provider had sent when the listener ended the session, at the first change to the
+    // runs once the host was called: the call settling its action.
+    let sentAtEnd: number | undefined;
+    provider.subscribeAiRuns(() => {
+      if (sentAtEnd !== undefined || invoke.mock.calls.length === 0) return;
+      sentAtEnd = socket.sent.length;
+      provider.disconnect();
+    });
+    // The socket stays OPEN to the provider, so an answer the provider gives is recorded, not hidden by
+    // the socket's close.
+    socket.holdOpen();
+
+    // One network read delivers both requests in one turn, as Node's `ws` does: the ping's answer is
+    // ready before the call settles, and the call's continuation ends the session in a later turn.
+    socket.deliver({ type: "mcp", ...relayStamp(), message: { jsonrpc: "2.0", id: "A", method: "ping" } });
+    deliverToolCall(socket, "B", "write", { runId: "task-same-read" });
+    const ended = await until(() => sentAtEnd, "the listener ended the session");
+    await settled();
+
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(provider.getSession().state).toBe("idle");
+    // Nothing was answered on the connection after it ended, neither the call nor the ping.
+    expect(socket.sent.slice(ended).filter((frame) => frame.type === "mcp")).toEqual([]);
   });
 });
 

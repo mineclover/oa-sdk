@@ -70533,9 +70533,9 @@
         "kind": "class",
         "qualifiedName": "@oa-sdk/webmcp-peer:src/provider/peer-client.ts#WebMcpPeerClient",
         "runtime": "neutral",
-        "semanticHash": "bc03c97861aa97ed410c8cc963f096c869afa249647097a13f8799db574bc885",
-        "shapeHash": "25ecd213be37193e082b79fbcd538a908f14b349368ebb183af29e7fd90515af",
-        "syntaxHash": "8fb953c221f950b80ef0934acc381d1612631e4d3e867c361b1bdf46034da3b9"
+        "semanticHash": "04421eeec35fb95055b14f73ed03bea97ae722dcb6749d495d1b9f96fad3ec02",
+        "shapeHash": "a4352c8dfe94dbd4b9f2ece718b927df5175e75a8ddd3bccd97897ebeee5868a",
+        "syntaxHash": "bb229b192512dc03e8db1243bdb0134f358403c54cb7606273088d4ce05f140b"
       },
       {
         "filePath": "packages/webmcp-peer/src/provider/tool-call.ts",
@@ -72548,7 +72548,7 @@
         "syntaxHash": "e468fae258fff35898aef05fe6a6da6ccde78e05e58af5c1bba938bd1f37adc3"
       }
     ],
-    "digest": "b0ee6a0a7076ff29714281b5d72a14a94f78d4b8b80944016c85de1856d5d9a5",
+    "digest": "de91d6e2a1ce3f1748851410f314643cc400d640bb1a4cf0132f3c02d4925186",
     "publicSurfaces": [
       {
         "exportKey": "./guards",
@@ -85527,7 +85527,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "1c2e9963175b07e835c07675d62d026da605d2fa93a2d29abbee88c1c19802ec",
+      "contentHash": "5f90cbf339bb8dc92ba43d5b9d917572b17bd270ff158e4b7561f725d4498e8b",
       "filePath": "packages/webmcp-peer/src/provider/peer-client.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/webmcp-peer",
