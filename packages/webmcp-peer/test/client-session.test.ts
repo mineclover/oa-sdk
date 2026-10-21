@@ -777,6 +777,90 @@ describe("disconnect() and the connects around it", () => {
     expect(session.getSessionInfo()).toMatchObject({ state: "idle", error: null });
   });
 
+  it.each<[string, boolean]>([
+    ["still waits for a factory to make its transport", true],
+    ["still waits for the caller's own transport to connect", false],
+  ])("ends a request at once whose connect %s, so a request under its id is sent after the next connect", async (_label, factory) => {
+    // The first connect gets its transport only when the test ends; every later one gets one at
+    // once. Each transport delivers the relay's `ready` once it is connected and answers every
+    // request through the callbacks of its own connect.
+    const firstConnect = gate();
+    let connects = 0;
+    const sent: unknown[] = [];
+    const ready = (callbacks?: PeerMcpTransportCallbacks) =>
+      queueMicrotask(() => callbacks?.onMessage?.({ type: "ready", role: "client", roomId: "room1" }));
+    const answering = (callbacks: () => PeerMcpTransportCallbacks | undefined): PeerMcpTransport => ({
+      send(value) {
+        const rpc = (value as { message: { id: string } }).message;
+        sent.push(rpc.id);
+        queueMicrotask(() => callbacks()?.onMessage?.({ type: "mcp", message: { jsonrpc: "2.0", id: rpc.id, result: {} } }));
+      },
+      close() {},
+    });
+    let latest: PeerMcpTransportCallbacks | undefined;
+    const own: PeerMcpTransport = {
+      ...answering(() => latest),
+      async connect(callbacks) {
+        latest = callbacks;
+        if (++connects === 1) await firstConnect.opened;
+        ready(callbacks);
+      },
+    };
+    const session = new PeerMcpSession({
+      requestTimeoutMs: 1_000,
+      ...(factory
+        ? {
+            transportFactory: async (_url: string, _protocols: string[], callbacks: PeerMcpTransportCallbacks) => {
+              if (++connects === 1) await firstConnect.opened;
+              ready(callbacks);
+              return answering(() => callbacks);
+            },
+          }
+        : { transport: own }),
+    });
+    sessions.push(session);
+
+    const waiting = session.request("ping", {}, { id: "x" });
+    waiting.catch(() => {});
+    await waitUntil(() => connects === 1, "the first connect getting its transport");
+    const disconnected = session.disconnect();
+
+    expect(await rejectionWithin(waiting, 500)).toMatchObject({ code: "SESSION_DISCONNECTED" });
+    await expect(disconnected).resolves.toMatchObject({ state: "idle" });
+    await expect(session.connect()).resolves.toMatchObject({ state: "connected" });
+    expect((await session.request("ping", {}, { id: "x" })).result).toEqual({});
+    expect(sent).toEqual(["x"]);
+
+    // The connect disconnect() ended gets its transport last, and changes nothing.
+    firstConnect.open();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(session.getSessionInfo()).toMatchObject({ state: "connected", error: null });
+    expect((await session.request("ping", {}, { id: "x" })).result).toEqual({});
+    expect(sent).toEqual(["x", "x"]);
+  });
+
+  it("ends a request waiting for a connect at once with TRANSPORT_CLOSED when that connect's transport closes while a factory still makes it", async () => {
+    const made$ = gate();
+    // Far beyond the test's own timeout: the connect's wait for `ready` cannot end the request in time.
+    const session = new PeerMcpSession({
+      requestTimeoutMs: 60_000,
+      transportFactory: async (_url: string, _protocols: string[], callbacks: PeerMcpTransportCallbacks) => {
+        callbacks.onClose?.({ code: WEBMCP_CLOSE_CODES.GOING_AWAY, reason: "" });
+        await made$.opened;
+        return { send: () => {}, close: () => {} };
+      },
+    });
+    sessions.push(session);
+
+    const waiting = session.request("ping", {}, { id: "x" });
+    waiting.catch(() => {});
+    expect(await rejectionWithin(waiting, 500)).toMatchObject({
+      code: "TRANSPORT_CLOSED",
+      details: { code: WEBMCP_CLOSE_CODES.GOING_AWAY, reason: "" },
+    });
+    made$.open();
+  });
+
   it("ends a connect whose ready arrives in the same tick as disconnect(), so the session stays idle", async () => {
     const { session, made, ready } = factorySession();
     const connecting = session.connect();

@@ -836,6 +836,13 @@ export class PeerMcpSession {
   /** Requests sleeping before a retry: not in `pending`, but ended by the same events. */
   readonly #retryWaits = new Set<{ timer: ReturnType<typeof setTimeout>; reject: (error: unknown) => void }>();
   /**
+   * Requests waiting for a connect (see `#waitForConnect`): not in `pending`, but ended by the same
+   * events. `disconnect()` cannot cut short a connect that is still getting its transport (a
+   * `transportFactory`, or the `connect` of the caller's own transport, runs until it returns), so a
+   * request waiting for it is ended here instead, at once, and gives back its id.
+   */
+  readonly #connectWaits = new Set<(error: unknown) => void>();
+  /**
    * The `String(id)` of every request a `request()` call has taken and not settled yet: waiting for
    * a connect, for a slot, for its answer or to be sent again after a retryable refusal, or being
    * sent. A call settles only once its last send has, so over the HTTP transport, whose send is the
@@ -867,6 +874,10 @@ export class PeerMcpSession {
       wait.reject(error);
     }
     this.#retryWaits.clear();
+    // So does a request waiting for a connect, even while that connect is still getting its transport.
+    const connectWaits = [...this.#connectWaits];
+    this.#connectWaits.clear();
+    for (const end of connectWaits) end(error);
   }
 
   /**
@@ -932,6 +943,25 @@ export class PeerMcpSession {
     while (this.#heldSlots.size < PEER_RELAY_MAX_PENDING_REQUESTS && this.#slotWaiters.length > 0) {
       this.#slotWaiters.shift()!.grant();
     }
+  }
+
+  /**
+   * Waits, for a request, for the session's connect (the one in flight, or a new one: see
+   * `connect()`). Settles as that connect does, unless whatever ends the pending requests
+   * (`disconnect()`, a transport error or close, see `#rejectPending`) ends the wait first.
+   */
+  #waitForConnect(): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const end = (error: unknown): void => {
+        this.#connectWaits.delete(end);
+        reject(error);
+      };
+      this.#connectWaits.add(end);
+      this.connect().then(() => {
+        this.#connectWaits.delete(end);
+        resolve();
+      }, end);
+    });
   }
 
   #waitBeforeRetry(delayMs: number): Promise<void> {
@@ -1007,10 +1037,12 @@ export class PeerMcpSession {
     // A request made while a connect is in flight waits for that connect (connect() returns the
     // in-flight attempt) instead of writing to a transport that is not open yet. A session the
     // relay ended for good fails as it ended instead of connecting again (see `#ended`).
+    // disconnect() ends the wait at once, so the call settles and gives back its id, even while the
+    // connect it waits for is still getting its transport.
     if (this.state !== "connected") {
       const ended = this.#ended;
       if (ended) throw new PeerMcpError(ended.message, ended.code, ended.details);
-      await this.connect();
+      await this.#waitForConnect();
     }
     if (!this.transport || typeof this.transport.send !== "function") {
       throw new PeerMcpError("Peer transport is not connected", "NOT_CONNECTED");
@@ -1234,7 +1266,8 @@ export class PeerMcpSession {
   }
 
   /**
-   * Ends the session: the requests waiting and a connect in flight fail with SESSION_DISCONNECTED,
+   * Ends the session: the requests waiting and a connect in flight fail with SESSION_DISCONNECTED (a
+   * connect still getting its transport once it has it; a request waiting for that connect at once),
    * the transports the session holds are closed (the caller's own one too, even while a connect is
    * still connecting it, and one a connect was replacing), and the state is `idle` once they are.
    * Nothing a transport reports through the callbacks of a connect this ended speaks for the session,
