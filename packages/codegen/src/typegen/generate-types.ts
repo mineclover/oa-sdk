@@ -19,6 +19,7 @@ import type {
 import {
   escapeJsonPointerToken,
   getQuerystringParameter,
+  HTTP_METHODS,
   isRelativeRef,
   parseDocument,
   resolveRefGraph,
@@ -26,7 +27,7 @@ import {
 } from '@oa-sdk/parser'
 import { schemaToTs, type SchemaToTsOptions } from './schema-to-ts.js'
 import { compareTypegenKeys } from './stable-order.js'
-import { createComponentTypeNameMap, createLocalNestedSchemaAliasMap } from './type-names.js'
+import { createComponentTypeNameMap, createLocalNestedSchemaAliasMap, localRefPointer } from './type-names.js'
 import { formatJSDoc } from './jsdoc.js'
 import { pascalCase, createOperationTypeNameMap, escapeKey, formatGeneratedTs, quoteTypeScriptString } from '@oa-sdk/core'
 import { createHash } from 'node:crypto'
@@ -66,6 +67,23 @@ export type TypegenOptions = {
   refNameOverrides?: Record<string, string>
   /** 내부 사용: 사전 계산된 외부 schema ref 분석 */
   externalAnalysis?: ExternalSchemaRefAnalysis
+  /** 생성한 export 선언마다 이름, 생성 소스의 줄, OpenAPI 출처를 수집할 배열 */
+  declarations?: GeneratedTypeDeclaration[]
+}
+
+/**
+ * One exported declaration of the generated source and what it was generated
+ * from. `origin` is either a JSON Pointer fragment (`#/...`, RFC 6901 tokens)
+ * into the input document (a component schema, a nested schema with a local
+ * alias, or the operation of an operation type), or the external `$ref` of a
+ * schema inlined from another document.
+ */
+export type GeneratedTypeDeclaration = {
+  /** Exported type name. */
+  name: string
+  /** 1-based line of the declaration's `export` keyword in the generated source. */
+  line: number
+  origin: { kind: 'pointer'; pointer: string } | { kind: 'external-ref'; ref: string }
 }
 
 export type ExternalSchemaRefDiagnosticCode =
@@ -132,6 +150,8 @@ type TypegenDocument = {
   schemas: Record<string, OasSchema>
   operations: TypegenOperation[]
   webhooks?: TypegenOperation[]
+  /** 내부 사용: 다른 문서에서 가져온 `schemas` 항목의 이름 → 원래 외부 `$ref` */
+  externalSchemaRefs?: Readonly<Record<string, string>>
 }
 
 type RawTraceExtension = {
@@ -311,7 +331,12 @@ export function generateTypes(doc: TypegenDocument, options: TypegenOptions = {}
     },
   }
   const lines: string[] = []
-
+  const declared: Array<{ name: string; index: number; origin: GeneratedTypeDeclaration['origin'] }> = []
+  /** Push the line that starts an exported declaration, recording where it starts and what it came from. */
+  const pushDeclaration = (name: string, origin: GeneratedTypeDeclaration['origin'], text: string): void => {
+    declared.push({ name, index: lines.length, origin })
+    lines.push(text)
+  }
   if (banner) {
     lines.push('// Auto-generated from OpenAPI spec. Do not edit.')
     lines.push('// @oa-sdk/codegen typegen')
@@ -327,6 +352,10 @@ export function generateTypes(doc: TypegenDocument, options: TypegenOptions = {}
     const typeName = componentTypeNames.byComponentName.get(name)!
     const tsType = schemaToTs(schema, schemaOpts)
     const pointer = `#/components/schemas/${escapeJsonPointerToken(name)}`
+    const externalRef = doc.externalSchemaRefs?.[name]
+    const origin: GeneratedTypeDeclaration['origin'] = externalRef === undefined
+      ? { kind: 'pointer', pointer }
+      : { kind: 'external-ref', ref: externalRef }
     const docLines: string[] = []
     if (schema.description) docLines.push(schema.description)
     if (includeProvenanceAnnotations) {
@@ -341,20 +370,22 @@ export function generateTypes(doc: TypegenDocument, options: TypegenOptions = {}
     const recursiveRecord = recursiveSchemaNames.has(name) ? recordAsIndexSignature(tsType) : undefined
     if (recursiveRecord) {
       if (style === 'interface' && recursiveRecord.suffix === '') {
-        lines.push(`export interface ${typeName} ${recursiveRecord.objectType}`)
+        pushDeclaration(typeName, origin, `export interface ${typeName} ${recursiveRecord.objectType}`)
       } else {
-        lines.push(`export type ${typeName} = ${recursiveRecord.objectType}${recursiveRecord.suffix}`)
+        pushDeclaration(typeName, origin, `export type ${typeName} = ${recursiveRecord.objectType}${recursiveRecord.suffix}`)
       }
     } else if (style === 'interface' && tsType.startsWith('{')) {
-      lines.push(`export interface ${typeName} ${tsType}`)
+      pushDeclaration(typeName, origin, `export interface ${typeName} ${tsType}`)
     } else {
-      lines.push(`export type ${typeName} = ${tsType}`)
+      pushDeclaration(typeName, origin, `export type ${typeName} = ${tsType}`)
     }
     lines.push('')
   }
 
   for (const alias of localNestedAliases.aliases) {
     const tsType = schemaToTs(alias.schema, schemaOpts)
+    // A `$ref` is a URI fragment; origins use the unencoded JSON Pointer spelling.
+    const origin: GeneratedTypeDeclaration['origin'] = { kind: 'pointer', pointer: localRefPointer(alias.ref) }
     const docLines: string[] = []
     if (alias.schema.description) docLines.push(alias.schema.description)
     if (includeProvenanceAnnotations) {
@@ -364,9 +395,9 @@ export function generateTypes(doc: TypegenDocument, options: TypegenOptions = {}
       lines.push(...formatJSDoc(docLines.join('\n')).split('\n'))
     }
     if (style === 'interface' && tsType.startsWith('{')) {
-      lines.push(`export interface ${alias.aliasName} ${tsType}`)
+      pushDeclaration(alias.aliasName, origin, `export interface ${alias.aliasName} ${tsType}`)
     } else {
-      lines.push(`export type ${alias.aliasName} = ${tsType}`)
+      pushDeclaration(alias.aliasName, origin, `export type ${alias.aliasName} = ${tsType}`)
     }
     lines.push('')
   }
@@ -375,6 +406,10 @@ export function generateTypes(doc: TypegenDocument, options: TypegenOptions = {}
   for (const op of operations) {
     if (!op.operationId) continue
     const baseName = operationNames.get(op.operationId)!
+    const operationOrigin: GeneratedTypeDeclaration['origin'] = {
+      kind: 'pointer',
+      pointer: operationPointer(op, webhookSet.has(op)),
+    }
 
     // operation summary → JSDoc
     const opDoc = (op as { summary?: string; description?: string })
@@ -382,66 +417,66 @@ export function generateTypes(doc: TypegenDocument, options: TypegenOptions = {}
 
     const pathParams = sortParameters(op.parameters.filter(p => p.in === 'path'))
     if (pathParams.length > 0 && !schemaNames.has(`${baseName}PathParams`)) {
-      lines.push(`export type ${baseName}PathParams = ${paramsToTs(pathParams, schemaOpts)}`)
+      pushDeclaration(`${baseName}PathParams`, operationOrigin, `export type ${baseName}PathParams = ${paramsToTs(pathParams, schemaOpts)}`)
       lines.push('')
     }
 
     const queryParams = sortParameters(op.parameters.filter(p => p.in === 'query'))
     if (queryParams.length > 0 && !schemaNames.has(`${baseName}QueryParams`)) {
-      lines.push(`export type ${baseName}QueryParams = ${paramsToTs(queryParams, schemaOpts)}`)
+      pushDeclaration(`${baseName}QueryParams`, operationOrigin, `export type ${baseName}QueryParams = ${paramsToTs(queryParams, schemaOpts)}`)
       lines.push('')
     }
 
     const querystringParam = getQuerystringParameter(op.parameters)
     if (querystringParam && !schemaNames.has(`${baseName}QueryString`)) {
       lines.push(`/** Raw serialized URL query string (without the leading '?'). */`)
-      lines.push(`export type ${baseName}QueryString = string`)
+      pushDeclaration(`${baseName}QueryString`, operationOrigin, `export type ${baseName}QueryString = string`)
       lines.push('')
     }
 
     const headerParams = sortParameters(op.parameters.filter(p => p.in === 'header'))
     if (headerParams.length > 0 && !schemaNames.has(`${baseName}HeaderParams`)) {
-      lines.push(`export type ${baseName}HeaderParams = ${paramsToTs(headerParams, schemaOpts)}`)
+      pushDeclaration(`${baseName}HeaderParams`, operationOrigin, `export type ${baseName}HeaderParams = ${paramsToTs(headerParams, schemaOpts)}`)
       lines.push('')
     }
 
     const bodyType = op.requestBody ? requestBodyToTs(op.requestBody, schemaOpts) : null
     if (bodyType && !schemaNames.has(`${baseName}Body`)) {
-      lines.push(`export type ${baseName}Body = ${bodyType}`)
+      pushDeclaration(`${baseName}Body`, operationOrigin, `export type ${baseName}Body = ${bodyType}`)
       lines.push('')
     }
 
     const responseType = responseToTs(op.responses, schemaOpts)
     if (responseType && !schemaNames.has(`${baseName}Response`)) {
       if (opComment) lines.push(...formatJSDoc(opComment).split('\n'))
-      lines.push(`export type ${baseName}Response = ${responseType}`)
+      pushDeclaration(`${baseName}Response`, operationOrigin, `export type ${baseName}Response = ${responseType}`)
       lines.push('')
     }
 
     // Response headers 타입
     const headersType = responseHeadersToTs(op.responses, schemaOpts)
     if (headersType && !schemaNames.has(`${baseName}ResponseHeaders`)) {
-      lines.push(`export type ${baseName}ResponseHeaders = ${headersType}`)
+      pushDeclaration(`${baseName}ResponseHeaders`, operationOrigin, `export type ${baseName}ResponseHeaders = ${headersType}`)
       lines.push('')
     }
 
     // Response links 타입
     const linksType = responseLinksToTs(op.responses)
     if (linksType && !schemaNames.has(`${baseName}ResponseLinks`)) {
-      lines.push(`export type ${baseName}ResponseLinks = ${linksType}`)
+      pushDeclaration(`${baseName}ResponseLinks`, operationOrigin, `export type ${baseName}ResponseLinks = ${linksType}`)
       lines.push('')
     }
 
     // Error response 타입 (4xx/5xx/default)
     const errorType = errorResponseToTs(op.responses, schemaOpts)
     if (errorType && !schemaNames.has(`${baseName}Error`)) {
-      lines.push(`export type ${baseName}Error = ${errorType}`)
+      pushDeclaration(`${baseName}Error`, operationOrigin, `export type ${baseName}Error = ${errorType}`)
       lines.push('')
     }
 
     const errorByStatusType = errorResponseByStatusToTs(op.responses, schemaOpts)
     if (errorByStatusType && !schemaNames.has(`${baseName}ErrorByStatus`)) {
-      lines.push(`export type ${baseName}ErrorByStatus = ${errorByStatusType}`)
+      pushDeclaration(`${baseName}ErrorByStatus`, operationOrigin, `export type ${baseName}ErrorByStatus = ${errorByStatusType}`)
       lines.push('')
     }
 
@@ -467,12 +502,48 @@ export function generateTypes(doc: TypegenDocument, options: TypegenOptions = {}
     }
     opJsDocLines.push(`@oaOperation ${op.method.toUpperCase()} ${op.openApiPath}`)
     lines.push(...formatJSDoc(opJsDocLines.join('\n')).split('\n'))
-    lines.push(`export type ${baseName}Op = {\n${bundleFields.join('\n')}\n}`)
+    pushDeclaration(`${baseName}Op`, operationOrigin, `export type ${baseName}Op = {\n${bundleFields.join('\n')}\n}`)
     lines.push('')
+  }
+
+  if (options.declarations) {
+    // formatGeneratedTs re-indents line by line and keeps every line, so a line
+    // of the joined source is the same line of the formatted output.
+    const firstLines: number[] = []
+    let line = 1
+    for (const text of lines) {
+      firstLines.push(line)
+      line += countLineBreaks(text) + 1
+    }
+    for (const { name, index, origin } of declared) {
+      options.declarations.push({ name, line: firstLines[index]!, origin })
+    }
   }
 
   return formatGeneratedTs(lines.join('\n'))
 }
+
+function countLineBreaks(text: string): number {
+  let count = 0
+  for (let index = text.indexOf('\n'); index !== -1; index = text.indexOf('\n', index + 1)) count += 1
+  return count
+}
+
+/**
+ * JSON Pointer fragment of an operation in the input document: a fixed-field
+ * method or an `additionalOperations` entry of a Path Item under `paths`, or
+ * of a webhook (whose `openApiPath` is the pseudo path `/webhooks/{name}`).
+ */
+function operationPointer(op: TypegenOperation, isWebhook: boolean): string {
+  const owner = isWebhook
+    ? `#/webhooks/${escapeJsonPointerToken(op.openApiPath.slice(WEBHOOK_PSEUDO_PATH_PREFIX.length))}`
+    : `#/paths/${escapeJsonPointerToken(op.openApiPath)}`
+  return (HTTP_METHODS as readonly string[]).includes(op.method)
+    ? `${owner}/${op.method}`
+    : `${owner}/additionalOperations/${escapeJsonPointerToken(op.method)}`
+}
+
+const WEBHOOK_PSEUDO_PATH_PREFIX = '/webhooks/'
 
 function sortTypegenOperations(operations: readonly TypegenOperation[]): TypegenOperation[] {
   return [...operations].sort((left, right) =>
@@ -582,9 +653,15 @@ export function generateTypesFromSpec(spec: OasDocument, options: TypegenOptions
     ? options.externalAnalysis ?? analyzeExternalSchemaRefs(spec, options.basePath)
     : emptyExternalSchemaAnalysis()
   options.warnings?.push(...externalAnalysis.diagnostics.map(d => d.message))
+  const externalSchemaRefs: Record<string, string> = {}
+  for (const alias of externalAnalysis.typeAliases) {
+    if (Object.hasOwn(doc.schemas, alias.aliasName) || Object.hasOwn(externalSchemaRefs, alias.aliasName)) continue
+    externalSchemaRefs[alias.aliasName] = alias.ref
+  }
   return generateTypes({
     ...doc,
     schemas: { ...externalAnalysis.schemas, ...doc.schemas },
+    externalSchemaRefs,
   }, { ...options, refNameOverrides: externalAnalysis.refNameOverrides })
 }
 

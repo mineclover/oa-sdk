@@ -4,6 +4,7 @@ import { createRequire } from 'node:module'
 import { dirname, relative, resolve } from 'node:path'
 import { parse, SyntaxKind } from '@typespec/compiler/ast'
 import { escapeJsonPointerToken, resolveRefGraph, unescapeJsonPointerToken, type OasDocument } from '@oa-sdk/parser'
+import { typeSpecRestoredOpenApiSha256 } from '../../typespec-restored-openapi-digest.js'
 import type { TypeSpecCompatibilitySidecar, TypeSpecCompatibilitySidecarEntry } from './typespec-sidecar.js'
 
 const HTTP_METHODS = new Set(['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace', 'query'])
@@ -257,7 +258,7 @@ export function buildTypeSpecRefProvenance(input: {
     inputs: {
       sourceRoot: '.',
       sourceSha256: sourceDigest.digest('hex'),
-      restoredOpenApiSha256: sha256(stableStringify(input.restoredDocument)),
+      restoredOpenApiSha256: typeSpecRestoredOpenApiSha256(input.restoredDocument),
       toolchainFingerprint: getTypeSpecProvenanceToolchainFingerprint(),
     },
     declarations,
@@ -666,13 +667,6 @@ function listTypeSpecFiles(root: string): string[] {
   }
   visit(root)
   return files.sort()
-}
-
-function stableStringify(value: unknown): string {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value)
-  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`
-  const record = value as Record<string, unknown>
-  return `{${Object.keys(record).sort().map(key => `${JSON.stringify(key)}:${stableStringify(record[key])}`).join(',')}}`
 }
 
 function sha256(value: string): string {
