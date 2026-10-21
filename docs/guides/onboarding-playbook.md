@@ -867,11 +867,12 @@ PR을 제출하기 전 base 브랜치(`origin/main`)와의 계약 파괴적 변�
 
 ```bash
 git fetch origin --prune
-node --import tsx scripts/spec-diff.ts --git origin/main
+pnpm build:scripts
+pnpm spec:diff -- --git origin/main
 pnpm schema:check-contract-version -- --base-ref origin/main
 ```
 
-`pnpm spec:diff`는 `pnpm build:scripts`가 만드는 `scripts/dist/spec-diff.js`를 실행하는데, 현재 그 번들이 `Dynamic require of "fs" is not supported`로 실패합니다(알려진 결함). 고쳐질 때까지 위처럼 `tsx`로 소스를 직접 실행합니다.
+`pnpm spec:diff`는 `pnpm build:scripts`가 만드는 `scripts/dist/spec-diff.js`를 실행하므로 먼저 빌드합니다. CI의 PR 단계(API spec diff)도 같은 두 명령을 실행합니다.
 
 - **버전 규칙**: Breaking change가 포함된 경우 `ContractVersion`이 SemVer 규칙에 따라 상향되어야 합니다 (v1.0 미만은 minor bump, v1.0 이상은 major bump 필수).
 - **후보 격리**: 후보 파일은 `.oa-sdk/typespec-candidates/`에 임시 저장되며, 커밋되는 스냅샷(`approved.openapi.yaml`)만이 공식 검토 기준입니다.

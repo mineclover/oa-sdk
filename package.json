@@ -77,7 +77,7 @@
     "demo:dpm": "corepack pnpm --filter @oa-sdk/dpm run demo",
     "demo:dpm:storage": "corepack pnpm --filter @oa-sdk/dpm run demo:storage",
     "demo:dpm:profile": "corepack pnpm --filter @oa-sdk/dpm run demo:profile",
-    "build:scripts": "tsup scripts/spec-diff.ts --format esm --outDir scripts/dist --clean --platform node --external execa --external yaml --external @oa-sdk/mock-server",
+    "build:scripts": "tsup scripts/spec-diff.ts --format esm --outDir scripts/dist --clean --platform node --external execa --external yaml --external @oa-sdk/mock-server --external typescript",
     "check:api-index": "node --import tsx scripts/check-api-index.ts",
     "test:api-index": "node --import tsx scripts/test-api-index.ts",
     "check:cli-spec": "node --import tsx scripts/check-cli-spec.ts",
