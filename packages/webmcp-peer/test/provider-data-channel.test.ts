@@ -5,9 +5,11 @@
 //     requestId is not answered, and the answer waits at most 2 s for ICE gathering;
 //   - the framing is the same in both directions: the provider sends a frame in at most 512 chunks
 //     of 2048 UTF-16 code units, the most an agent of the same framing assembles, replaces a reply
-//     too large for that with RESULT_TOO_LARGE, and does not send any other frame that large.
+//     too large for that with RESULT_TOO_LARGE, and does not send any other frame that large;
+//   - a request whose connection the host ended while the provider read it is neither run nor
+//     answered.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { WebMcpPeerClient, type WebMcpHostAdapter, type WebMcpToolSummary } from "../src/provider.js";
+import { WebMcpPeerClient, type WebMcpCrdtTransport, type WebMcpHostAdapter, type WebMcpToolSummary } from "../src/provider.js";
 import {
   AGENT_SESSION_ID,
   FakeDataChannel,
@@ -221,5 +223,44 @@ describe("DataChannel framing", () => {
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(new RegExp(`DataChannel frame exceeds the ${FRAME_LIMIT}-code-unit message limit; it was not sent\\.$`)));
     await host.sendCrdt({ type: "crdt.update", documentId: "doc-1", update: "fits" });
     expect(channel.frames().filter((frame) => frame.type === "crdt")).toHaveLength(1);
+  });
+});
+
+describe("a request of a connection that ended while the provider read it", () => {
+  it("is neither run nor answered when the host ended the session as the agent's tools/call reached its CRDT transport", async () => {
+    const invoke = vi.fn(async () => ({ ok: true }));
+    const { host, socket } = await approvedProvider([readTool], invoke, { enableCrdt: true });
+    await offer(socket, "offer-1");
+    const channel = await openChannel();
+    // A host transport that ends the session when it is next told of the agent: the provider tells it
+    // of the agent of a DataChannel tools/call before it reads the request.
+    let endOnNextAgent = false;
+    const transport: WebMcpCrdtTransport = {
+      documentId: "doc-1",
+      attachCarrier: () => () => {},
+      broadcastAwareness: () => {},
+      receiveExternal: () => {},
+      receiveVerified: () => {
+        if (endOnNextAgent) {
+          endOnNextAgent = false;
+          host.disconnect();
+        }
+        return true;
+      },
+    };
+    host.attachCrdtTransport(transport);
+    // The channel stays open to the provider, so an answer the provider gives is recorded, not hidden by
+    // the channel's close.
+    channel.holdOpen();
+    const sentBefore = channel.sent.length;
+
+    endOnNextAgent = true;
+    channel.deliver({ type: "mcp", message: { jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "read", arguments: {} } } });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(endOnNextAgent).toBe(false);
+    expect(host.getSession().state).toBe("idle");
+    expect(invoke).not.toHaveBeenCalled();
+    expect(channel.sent.slice(sentBefore)).toEqual([]);
   });
 });

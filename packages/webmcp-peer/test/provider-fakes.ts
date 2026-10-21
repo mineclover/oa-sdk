@@ -12,17 +12,37 @@ export class FakeRelaySocket {
   static readonly CLOSING = 2;
   static readonly CLOSED = 3;
 
-  readyState = 0;
   onopen: (() => void) | null = null;
   onmessage: ((event: { data: string }) => unknown) | null = null;
   onclose: ((event?: { code: number; reason: string }) => void) | null = null;
   onerror: (() => void) | null = null;
   readonly sent: Frame[] = [];
+  /** The socket's own state, which {@link readyState} reports unless the socket is held open. */
+  private state = FakeRelaySocket.CONNECTING;
+  private heldOpen = false;
 
   constructor(
     readonly url: string,
     readonly protocols: string[],
   ) {}
+
+  /** The state the provider reads: OPEN once the socket opened while it is held open (see {@link holdOpen}). */
+  get readyState(): number {
+    return this.heldOpen && this.state !== FakeRelaySocket.CONNECTING ? FakeRelaySocket.OPEN : this.state;
+  }
+
+  set readyState(state: number) {
+    this.state = state;
+  }
+
+  /**
+   * Keeps the socket OPEN to the provider from now on, even once the provider closed it or the relay
+   * dropped it, so `sent` records every frame the provider still tries to send on it. The provider
+   * writes a reply only to an OPEN socket, which would otherwise hide a reply it must not give.
+   */
+  holdOpen(): void {
+    this.heldOpen = true;
+  }
 
   send(data: string): void {
     this.sent.push(JSON.parse(data) as Frame);
@@ -30,8 +50,8 @@ export class FakeRelaySocket {
 
   /** Called by the provider (disconnect, release). */
   close(): void {
-    if (this.readyState === FakeRelaySocket.CLOSED) return;
-    this.readyState = FakeRelaySocket.CLOSED;
+    if (this.state === FakeRelaySocket.CLOSED) return;
+    this.state = FakeRelaySocket.CLOSED;
     queueMicrotask(() => this.onclose?.());
   }
 
@@ -45,7 +65,7 @@ export class FakeRelaySocket {
    * without a close event code (a provider reads that as 1006, a connection lost).
    */
   drop(code?: number): void {
-    this.readyState = FakeRelaySocket.CLOSED;
+    this.state = FakeRelaySocket.CLOSED;
     this.onclose?.(code === undefined ? undefined : { code, reason: "" });
   }
 }
@@ -264,13 +284,27 @@ export function relayStamp(sessionId = AGENT_SESSION_ID): { from: "client"; sess
   return { from: "client", sessionId };
 }
 
+/** What a relayed tools/call carries besides its name: its arguments, its AI trace and the session that sent it. */
+export interface ToolCallOptions {
+  readonly args?: Record<string, unknown>;
+  readonly runId?: string;
+  readonly phase?: string;
+  readonly sessionId?: string;
+}
+
 /** Relays one tools/call, stamped for the session `sessionId`, to the provider and returns its reply. */
 export function callTool(
   socket: FakeRelaySocket,
   id: string | number,
   name: string,
-  options: { args?: Record<string, unknown>; runId?: string; phase?: string; timeoutMs?: number; sessionId?: string } = {},
+  options: ToolCallOptions & { timeoutMs?: number } = {},
 ): Promise<RpcReply> {
+  deliverToolCall(socket, id, name, options);
+  return replyTo(socket, id, options.timeoutMs);
+}
+
+/** Relays one tools/call, stamped for the session `sessionId`, to the provider, without waiting for a reply. */
+export function deliverToolCall(socket: FakeRelaySocket, id: string | number, name: string, options: ToolCallOptions = {}): void {
   socket.deliver({
     type: "mcp",
     ...relayStamp(options.sessionId),
@@ -287,7 +321,6 @@ export function callTool(
       },
     },
   });
-  return replyTo(socket, id, options.timeoutMs);
 }
 
 /** Delivers an approval request for `sessionId` and approves it from the host side. */
@@ -317,7 +350,6 @@ export interface DataChannelChunkFrame {
 /** An agent's end of the provider's `mcp` DataChannel. */
 export class FakeDataChannel {
   readonly label = "mcp";
-  readyState: "open" | "closed" = "open";
   onmessage: ((event: { data: string }) => void) | null = null;
   onclose: (() => void) | null = null;
   /** The chunks the provider sent. */
@@ -325,6 +357,27 @@ export class FakeDataChannel {
   /** send() throws, as a channel that is closing does, once this many chunks were sent. */
   failAfter = Number.POSITIVE_INFINITY;
   private chunkId = 0;
+  /** The channel's own state, which {@link readyState} reports unless the channel is held open. */
+  private state: "open" | "closed" = "open";
+  private heldOpen = false;
+
+  /** The state the provider reads: "open" while the channel is held open (see {@link holdOpen}). */
+  get readyState(): "open" | "closed" {
+    return this.heldOpen ? "open" : this.state;
+  }
+
+  set readyState(state: "open" | "closed") {
+    this.state = state;
+  }
+
+  /**
+   * Keeps the channel open to the provider from now on, even once the provider closed it, so `sent`
+   * records every chunk the provider still tries to send on it. The provider sends only on an open
+   * channel, which would otherwise hide a reply it must not give.
+   */
+  holdOpen(): void {
+    this.heldOpen = true;
+  }
 
   send(data: string): void {
     if (this.sent.length >= this.failAfter) throw new DOMException("The DataChannel is closing", "InvalidStateError");
@@ -332,7 +385,7 @@ export class FakeDataChannel {
   }
 
   close(): void {
-    this.readyState = "closed";
+    this.state = "closed";
   }
 
   /** The agent sends one frame, as a single chunk. */
