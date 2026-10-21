@@ -30,11 +30,11 @@ export const generateTanstackCommand: Command = {
     },
     tier: {
       type: 'string',
-      description: 'Filter generated tiers: all | keys | options | hooks',
+      description: 'Filter generated tiers: all | keys | options | hooks. In --split mode lower tiers are emitted too, because the requested tier imports them.',
     },
     framework: {
       type: 'string',
-      description: 'Target UI framework: react | vue | svelte',
+      description: 'Target UI framework: react | vue | svelte (vue/svelte emit keys+options only; hooks are React-only)',
     },
     'types-import': {
       type: 'string',
@@ -89,14 +89,25 @@ export const generateTanstackCommand: Command = {
     // Framework to query package resolution
     let queryPackage = '@tanstack/react-query'
     let includeHooks = true
-    if (frameworkArg === 'vue' || frameworkArg === '@tanstack/vue-query') {
+    const isVue = frameworkArg === 'vue' || frameworkArg === '@tanstack/vue-query'
+    const isSvelte = frameworkArg === 'svelte' || frameworkArg === '@tanstack/svelte-query'
+    if (isVue) {
       queryPackage = '@tanstack/vue-query'
       includeHooks = false
-    } else if (frameworkArg === 'svelte' || frameworkArg === '@tanstack/svelte-query') {
+    } else if (isSvelte) {
       queryPackage = '@tanstack/svelte-query'
       includeHooks = false
     } else if (frameworkArg !== 'react' && frameworkArg !== '@tanstack/react-query') {
       queryPackage = frameworkArg
+    }
+    // Tier 3 is generated against React hook types (useQuery/UseQueryResult, ...). Vue and
+    // Svelte need their own hook shapes (createQuery stores / refs), so refuse rather than
+    // writing a file that cannot compile.
+    if (tier === 'hooks' && (isVue || isSvelte)) {
+      console.error(
+        `오류: --tier hooks는 React 전용입니다. --framework ${isVue ? 'vue' : 'svelte'}에서는 --tier keys|options 또는 --tier all을 사용하세요.`,
+      )
+      throw new CliExitError(1)
     }
     if (tier === 'keys' || tier === 'options') {
       includeHooks = false
@@ -147,15 +158,15 @@ export const generateTanstackCommand: Command = {
         basePath: loadedSpec.path,
       })
 
-      if (tier === 'all' || tier === 'keys') {
-        artifactsToWrite.push({
-          path: keysPath,
-          kind: 'keys',
-          content: generated.keysCode,
-          sourceSpec: loadedSpec.path,
-        })
-      }
-      if (tier === 'all' || tier === 'options') {
+      // Tiers are cumulative in split mode: queries.ts imports keys.js and hooks.ts imports
+      // both, so a single-tier request still has to emit its dependencies to compile.
+      artifactsToWrite.push({
+        path: keysPath,
+        kind: 'keys',
+        content: generated.keysCode,
+        sourceSpec: loadedSpec.path,
+      })
+      if (tier === 'all' || tier === 'options' || tier === 'hooks') {
         artifactsToWrite.push({
           path: queriesPath,
           kind: 'queries',

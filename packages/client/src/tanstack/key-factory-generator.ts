@@ -47,6 +47,42 @@ export function isQueryOperation(op: OperationEntry): boolean {
   return m === 'get' || m === 'head' || m === 'query'
 }
 
+const STREAMING_MEDIA_TYPES = new Set([
+  'text/event-stream',
+  'application/x-ndjson',
+  'application/jsonl',
+  'application/stream+json',
+])
+
+function hasStreamingMediaType(
+  content: Record<string, unknown> | undefined,
+): boolean {
+  if (!content || typeof content !== 'object') return false
+  return Object.keys(content).some((mediaType) => {
+    const base = mediaType.split(';')[0]?.trim().toLowerCase()
+    return base !== undefined && STREAMING_MEDIA_TYPES.has(base)
+  })
+}
+
+/**
+ * Whether an operation returns or accepts a streaming body (SSE / NDJSON / JSONL).
+ *
+ * Query caches cannot represent an `AsyncGenerator`: `queryFn` would resolve to the generator
+ * object itself, not to the streamed items. TanStack artifact generators therefore keep the
+ * operation's query keys (useful for invalidation) but skip its QueryOptions/mutationOptions
+ * and hooks. Consume these operations with the streaming client API directly.
+ */
+export function isStreamingOperation(op: OperationEntry): boolean {
+  if (op['x-oa-sdk-streaming'] === true) return true
+  if (op['x-oa-sdk-streaming'] === false) return false
+  for (const response of Object.values(op.responses ?? {})) {
+    if (!response || typeof response !== 'object') continue
+    if (hasStreamingMediaType(response.content as Record<string, unknown> | undefined)) return true
+  }
+  const requestContent = op.requestBody?.content as Record<string, unknown> | undefined
+  return hasStreamingMediaType(requestContent)
+}
+
 /**
  * Extracts primary tag from an operation, falling back to first path segment or 'api'.
  */

@@ -2283,7 +2283,7 @@
         "column": 36,
         "filePath": "packages/ast-sync/src/guards/generator.ts",
         "kind": "any",
-        "line": 490
+        "line": 529
       },
       {
         "boundaryId": "type-boundary:4aef80db96ae842d47d8c10f7b2136fc",
@@ -2369,7 +2369,7 @@
         "column": 18,
         "filePath": "packages/ast-sync/src/guards/generator.ts",
         "kind": "any",
-        "line": 490
+        "line": 529
       },
       {
         "boundaryId": "type-boundary:52c75f15a49b7cb4d2c94791da73fb89",
@@ -2390,7 +2390,7 @@
         "column": 27,
         "filePath": "packages/ast-sync/src/guards/generator.ts",
         "kind": "any",
-        "line": 537
+        "line": 576
       },
       {
         "boundaryId": "type-boundary:556039551e6903db856fbe0527ebc63e",
@@ -3207,7 +3207,7 @@
         "column": 52,
         "filePath": "packages/ast-sync/src/guards/generator.ts",
         "kind": "any",
-        "line": 537
+        "line": 576
       },
       {
         "boundaryId": "type-boundary:b742b04ceb8c0ac78f26c96af0b30ea7",
@@ -3245,7 +3245,7 @@
         "column": 22,
         "filePath": "packages/codegen/src/cli/commands/check-artifact.ts",
         "kind": "deserialize",
-        "line": 442,
+        "line": 444,
         "sourceType": "JSON.parse"
       },
       {
@@ -6345,7 +6345,7 @@
         "runtime": "neutral",
         "semanticHash": "a6e9f4a252565e07dcb1f397ac85f23db6e375bc3bb62ca342e74a640790973a",
         "shapeHash": "31a0c125ddd75e9a5b9b87d602088cd31d9a0fbaa5cd1d7bf8d5b351e04eebd2",
-        "syntaxHash": "c14d0ef105c5d0c62c4271fa50a59b602b9334fb216554cacfd4b1af4ffbec66"
+        "syntaxHash": "9347bb38dc61a6c53310b476b485fb60ff745d7556b2deb74a2f07cee3d25d52"
       },
       {
         "filePath": "packages/ast-sync/src/guards/generator.ts",
@@ -6375,7 +6375,7 @@
         "runtime": "neutral",
         "semanticHash": "8788988a14dc71873de58aa5bf8e8736759b31e8639cecf99f3f90b0b56d166a",
         "shapeHash": "9e94f93f91c0c1585e22f8468294bf0696b02e05b86d16bd561e9cac5b5deb44",
-        "syntaxHash": "e128950218230158c79622812b161042c3524f32eceb11588315f70747f847b2"
+        "syntaxHash": "dddbabb8b6fe9c74feb499e37094bd3cd56951f156132cac8275b155e864d75d"
       },
       {
         "filePath": "packages/ast-sync/src/guards/generator.ts",
@@ -6396,6 +6396,26 @@
         "semanticHash": "09b36b6e2232c41160eedcd418bd1679b282ef0709bc1ddb7ba6718264e87317",
         "shapeHash": "b180f6c9c0a4b4c68ac86fc139a016df8748fec65b1ea8ef55436fa0280b2c64",
         "syntaxHash": "ea9421e730f90b242e824e39e723a60ef9f07d77c49aa355c040a08b96129bfd"
+      },
+      {
+        "filePath": "packages/ast-sync/src/guards/generator.ts",
+        "identity": "packages/ast-sync/src/guards/generator.ts#src/guards/generator.ts#neutral#@oa-sdk/ast-sync:src/guards/generator.ts#toGuardIdentifier#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/ast-sync:src/guards/generator.ts#toGuardIdentifier",
+        "runtime": "neutral",
+        "semanticHash": "60e62dfcdd1bd9fcf943f4249a71fec89b0b291e61bc95d97f1e7f0785047c38",
+        "shapeHash": "5159f79092a0c2e729e743884d19d0914c67f773c0a905f630336893aa3ec84a",
+        "syntaxHash": "56269c80b2dba668823022b51f9bbc3b1a79dc4ee529f6d4f741c6c0b3dab3df"
+      },
+      {
+        "filePath": "packages/ast-sync/src/guards/generator.ts",
+        "identity": "packages/ast-sync/src/guards/generator.ts#src/guards/generator.ts#neutral#@oa-sdk/ast-sync:src/guards/generator.ts#typeImportRoot#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/ast-sync:src/guards/generator.ts#typeImportRoot",
+        "runtime": "neutral",
+        "semanticHash": "64685328bb688c3db9d4a53d8fd221a59f9b9cc32f6d162032c46949878045c8",
+        "shapeHash": "5159f79092a0c2e729e743884d19d0914c67f773c0a905f630336893aa3ec84a",
+        "syntaxHash": "3f3bdd5f621bdedd3d318a22b4d8f6b5e20f9f6c21ff5e1dc33680b92f095e72"
       },
       {
         "filePath": "packages/ast-sync/src/guards/types.ts",
@@ -9315,7 +9335,7 @@
         "runtime": "neutral",
         "semanticHash": "addade1778b82eb9414978714fe06a05fde4ac0a9b4f66bd6227ba213db57902",
         "shapeHash": "f5b4db1ec60235a5e082d2e2fbcd621d0f00fbeb5d3a128e7dceb6659f4f9e61",
-        "syntaxHash": "8e6ae8e7366a48d0847bd0db5f4a8134e7170b99b351f4351585289a69846bf0"
+        "syntaxHash": "95c77f084906930e5511a93cdfee649fc9ef559dd25b65c18edc79113421cc39"
       },
       {
         "filePath": "packages/client/src/tanstack/generate-tanstack.ts",
@@ -9385,7 +9405,7 @@
         "runtime": "neutral",
         "semanticHash": "258dce77b6fd3ed77abe0a41769bdbdabec90d545ddd5dd3aff462489ed8f854",
         "shapeHash": "7d26b59deb6a0349698f828930eeaaec30f71805b12b8b6bff9216ddfadef3e1",
-        "syntaxHash": "c5d15e31fff835497544c53e7db555ab413192566dc26390a16b97eec5800609"
+        "syntaxHash": "7fcb9feb946d4764e46c9ca9a93f8dd5ab1cccc8bed85753025ce45acdb8c989"
       },
       {
         "filePath": "packages/client/src/tanstack/hook-factory-generator.ts",
@@ -9479,6 +9499,16 @@
       },
       {
         "filePath": "packages/client/src/tanstack/key-factory-generator.ts",
+        "identity": "packages/client/src/tanstack/key-factory-generator.ts#src/tanstack/key-factory-generator.ts#neutral#@oa-sdk/client:src/tanstack/key-factory-generator.ts#hasStreamingMediaType#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/client:src/tanstack/key-factory-generator.ts#hasStreamingMediaType",
+        "runtime": "neutral",
+        "semanticHash": "9bba2b6575848c99635a4783fdec3797a68f691c2e4a9e00f58e361dc6f15b74",
+        "shapeHash": "fab5ce2d1dd1f799acc21bdd8ae24710dc62dc5991debba955a0a84e7dd3684c",
+        "syntaxHash": "54d0a543bd1b4ed1f1d55b4e807365217aef15b789a6035599045592aa0bad6b"
+      },
+      {
+        "filePath": "packages/client/src/tanstack/key-factory-generator.ts",
         "identity": "packages/client/src/tanstack/key-factory-generator.ts#src/tanstack/key-factory-generator.ts#neutral#@oa-sdk/client:src/tanstack/key-factory-generator.ts#isQueryOperation#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/client:src/tanstack/key-factory-generator.ts#isQueryOperation",
@@ -9486,6 +9516,16 @@
         "semanticHash": "4f0b2eb200f406628cf11df38999020468c1789dc73bb2b661e4e230a0b8b2cc",
         "shapeHash": "1ea17eeca5465baf6548c9a7f10a79fcd8f0260cd606d580e4f33c6f5ce0fc16",
         "syntaxHash": "874cf8dcdb131bac3b6f51f05f57f7559185586a360a0ba1f61c017dd9e16cc6"
+      },
+      {
+        "filePath": "packages/client/src/tanstack/key-factory-generator.ts",
+        "identity": "packages/client/src/tanstack/key-factory-generator.ts#src/tanstack/key-factory-generator.ts#neutral#@oa-sdk/client:src/tanstack/key-factory-generator.ts#isStreamingOperation#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/client:src/tanstack/key-factory-generator.ts#isStreamingOperation",
+        "runtime": "neutral",
+        "semanticHash": "945072f171f26e944a9cd27f9b6f0b48dd778ab7eb307d229afeb7d88e7d3505",
+        "shapeHash": "1ea17eeca5465baf6548c9a7f10a79fcd8f0260cd606d580e4f33c6f5ce0fc16",
+        "syntaxHash": "22bea9f6be81e5a02fd868a984cf5f12364494f1f2da9452db278d422647d78e"
       },
       {
         "filePath": "packages/client/src/tanstack/key-factory-generator.ts",
@@ -9545,7 +9585,7 @@
         "runtime": "neutral",
         "semanticHash": "5e408b843e79da1af95c47fa64f3489022de9fc5e72478446a76e8477baa31ad",
         "shapeHash": "5e5946dac5a6a0d1bb3d61dddbc01bb389298f2bc87372e584d40b58a6cd4e27",
-        "syntaxHash": "ca36ca9ff1e83d5c25fd8ed2a1bd4c4593abddd8457e141bce6c446cdaa047c2"
+        "syntaxHash": "35538a59e28b062f7bfbdde09d9315e7acd2064e58e5ff8e5e277b93754b4391"
       },
       {
         "filePath": "packages/client/src/tanstack/options-factory-generator.ts",
@@ -10555,7 +10595,7 @@
         "runtime": "neutral",
         "semanticHash": "b4ecfb7d5c9beef95841df8cbb0cbcec2a83a23728a8879cc7aa9839c348a53c",
         "shapeHash": "f138bc1c8c1f736deb3d410144c59a4942935e819e1075e5f35cacf6dd804a36",
-        "syntaxHash": "4839af67ea7ca22bd03edfc4cb776725444d700ba31ac63c7ae933c4a4d614b5"
+        "syntaxHash": "799f758388e79a802d7d5a606b7092b41a517305d3dffa55ed4193116ba15809"
       },
       {
         "filePath": "packages/codegen/src/cli/commands/check-artifact.ts",
@@ -72808,7 +72848,7 @@
         "syntaxHash": "e468fae258fff35898aef05fe6a6da6ccde78e05e58af5c1bba938bd1f37adc3"
       }
     ],
-    "digest": "8bf5a3acf289a25411eb7d15a47859f9dd2f62abfb4c7e8ef6a1e286422acbab",
+    "digest": "7c67a0e52e228b1ae8beaaa2376831dbf54d5719d15b299c14649b7e23b9c774",
     "publicSurfaces": [
       {
         "exportKey": "./guards",
@@ -73202,13 +73242,14 @@
           "getOperationTag:mixed",
           "isClientError:mixed",
           "isQueryOperation:mixed",
+          "isStreamingOperation:mixed",
           "messagePackAdapter:mixed",
           "retryAfterMs:mixed",
           "synthesizeEmptyChunk:mixed",
           "toKeyFactoryName:mixed"
         ],
         "filePath": "packages/client/src/index.ts",
-        "hash": "3a83e54c45f58fff255aba72703e50ae3c5e45404222a10961ca4857ca43fc89",
+        "hash": "07586517e4a630062d2054c53aad45570b52546a61233f35e2ef7465326fe83a",
         "packageName": "@oa-sdk/client",
         "runtime": "neutral"
       },
@@ -77493,7 +77534,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "cc61975d1f5ca48c922c63b48c3ebf86c1ed31f355547962f5ad194d8a502831",
+      "contentHash": "a2bb3ce2465fe5e960e119462311c923411b1158d6625478ed2ad9049207b1c5",
       "filePath": "packages/ast-sync/src/guards/generator.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/ast-sync",
@@ -77920,7 +77961,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "b19c50ff13ba445d93a56d1a3b6bf60bd8f9e54fda591c4b8653dfb68acd62de",
+      "contentHash": "f5c9ae6a1c37e7986b94affc99cf04152651cdef2203768496e12adefe97929f",
       "filePath": "packages/client/src/index.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/client",
@@ -77948,35 +77989,35 @@
       "role": "authority"
     },
     {
-      "contentHash": "bd962659d2e43025674746940a4f4ab3fdecb10f3e778041e4c7b749daeabd2a",
+      "contentHash": "2a8ab2ca35963b9eb490d2df4b0f26d5d7dcd07a19932bcc6c472ada23a5ad70",
       "filePath": "packages/client/src/tanstack/generate-tanstack.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/client",
       "role": "authority"
     },
     {
-      "contentHash": "3ec8701cd89123fa004be5df1a99340d836cf5dd6232d3758cb2454da6a77458",
+      "contentHash": "c973c63ba2d9db2f0d2160ac154cd44f48f2eb5b46db57dda93b0a2dc7687907",
       "filePath": "packages/client/src/tanstack/hook-factory-generator.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/client",
       "role": "authority"
     },
     {
-      "contentHash": "d3c9b43270dea095bc69379625912c27335b931add0ad61ff3def6517bc09b77",
+      "contentHash": "e6207ce94459f8c21b8fbe523767911680ebb5566c3ecb54ec305d7283608258",
       "filePath": "packages/client/src/tanstack/index.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/client",
       "role": "authority"
     },
     {
-      "contentHash": "546c9fea61e77b9bf9b2b3f592f1c40231444dcc38c8c15c88b976408f4462f1",
+      "contentHash": "be9a32e3051ee1a7eb1d133299cf3f06d701f8efd5294e503cfbb813996e569a",
       "filePath": "packages/client/src/tanstack/key-factory-generator.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/client",
       "role": "authority"
     },
     {
-      "contentHash": "b037ee1322fb589314438a535aabb66998978b3bec62809869f9867b7f0bca06",
+      "contentHash": "a9c51b7d9da41149203009b43431a977cc30378dad5bf097b4fafd5714304547",
       "filePath": "packages/client/src/tanstack/options-factory-generator.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/client",
@@ -78095,7 +78136,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "82cef9c8480fb36d0a1abf2ec5383d5ef2ab7348aed05c09473189522db18538",
+      "contentHash": "f07ad7578968e8e5853acb8127254b040b21b835e7c5e9533f551605572a8501",
       "filePath": "packages/codegen/src/cli/commands/check-artifact.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -78151,7 +78192,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "afd5dcc8f5bd0d4e308b8002a95e0b38c78ef620723be4adf594194f3e7d040d",
+      "contentHash": "629fb98dc0a19711874fb0dda0bca04507dfbe794ded0293affdb13c99b64ab2",
       "filePath": "packages/codegen/src/cli/commands/generate-tanstack.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -79026,7 +79067,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "0fd838dad6fcd021a681c6c6b206a264692e75894227786782ae654ecd81b4a4",
+      "contentHash": "b8ec44b086625fbb3c4b3f8b27d3b93aa1b266d5114e68c5869ca5dd754fcfbd",
       "filePath": "packages/codegen/src/cli/spec/oa-gen-governance.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",

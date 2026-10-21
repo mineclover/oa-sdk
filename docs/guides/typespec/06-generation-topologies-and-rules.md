@@ -236,7 +236,7 @@ export interface ApiHandlers<TContext = unknown> {
 | `oa-gen generate` (`outputRouting` 없음) | `<id>.queries.ts` 한 파일에 3계층 |
 | `oa-gen generate:tanstack --output <dir>` | `<dir>/tanstack-query.ts` 한 파일에 3계층. `--tier keys`면 키만 |
 
-생성된 옵션과 훅은 `@tanstack/react-query`에서만 동작합니다(키는 프레임워크를 import하지 않음). `oa-gen generate`는 항상 `@tanstack/react-query`를 import하고, `generate:tanstack --framework vue|svelte`는 React용 타입 이름을 그대로 import해 `tsc`가 실패합니다. `generate:tanstack --tier options|hooks`도 쓰지 않은 `./keys.js`를 import해 컴파일되지 않습니다(둘 다 알려진 결함). Vue·Svelte 프로젝트는 키만 생성물에서 가져오고(`generate:tanstack --tier keys`, 또는 `outputRouting`을 둔 `oa-gen generate`의 `<id>.keys.ts`) 쿼리 옵션은 직접 작성합니다([생성물별 명령](./04-scaffolding-and-diff.md#43-경로-3-생성물별-명령)).
+키와 옵션 팩토리는 프레임워크 중립입니다. 키는 프레임워크를 import하지 않고, 옵션은 모든 어댑터가 `@tanstack/query-core`에서 재노출하는 `QueryObserverOptions`·`MutationObserverOptions`·`InfiniteQueryObserverOptions`만 씁니다. 따라서 `generate:tanstack --framework vue|svelte`의 keys+options 출력은 `tsc`를 통과합니다. 훅(Tier 3)은 `useQuery`·`UseQueryResult` 같은 React 훅 타입을 쓰므로 React 전용이며, `--framework vue|svelte --tier hooks`는 오류로 끝납니다. `oa-gen generate`는 항상 React(`@tanstack/react-query`)를 대상으로 합니다. `--split`에서 `--tier options|hooks`를 쓰면 하위 계층(keys, 필요하면 queries)을 의존성으로 함께 생성하므로 단독 출력도 컴파일됩니다([생성물별 명령](./04-scaffolding-and-diff.md#43-경로-3-생성물별-명령)).
 
 ### 규칙 5: 오래된 생성물 정리
 `oa-gen generate`는 `.oa-manifest.json`에 기록된 생성 파일 중 같은 설정 파일로 실행한 `oa-gen generate`가 만들었던 파일(`--spec` 실행이면 같은 스펙 파일로 만들었던 파일) 가운데 이번 실행이 만들지 않고 내용도 바뀌지 않은 파일을 지웁니다. 손으로 고친 파일, 생성 배너가 없는 파일, `oa-gen generate:tanstack` 등 다른 명령이 쓴 파일은 지우지 않습니다. `outputRouting.pruneOrphans: false`면 아무 파일도 지우지 않습니다. 판정 조건은 [생성 파일 정리](../declarative-spec-configuration.md#45-생성-파일-정리)를 봅니다.

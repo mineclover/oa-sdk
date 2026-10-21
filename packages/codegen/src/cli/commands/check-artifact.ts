@@ -19,7 +19,7 @@ import {
   OPENAPI_PROJECTION_PROFILE_EXTENSION,
   OPENAPI_PROJECTION_VERSION_HASH_EXTENSION,
 } from '@oa-sdk/openapi-projection-contract'
-import type { ProfileTargetConfig } from '../../config.js'
+import { resolveConfigWithDefaults, type ProfileTargetConfig } from '../../config.js'
 
 type OutputFormat = 'human' | 'json'
 
@@ -369,7 +369,9 @@ async function handleConfigDrivenCheck(
     throw new CliExitError(1)
   }
 
-  const specs = loaded.config.specs ?? []
+  // Read targets exactly as `oa-gen generate`/`validate` do: apply defaults and fall back
+  // to `product.specs` when the top-level `specs` array is absent.
+  const specs = resolveConfigWithDefaults(loaded.config).specs ?? []
   if (specs.length === 0) {
     const message = '오류: 설정 파일에 specs 목록이 비어 있습니다'
     if (format === 'json') {

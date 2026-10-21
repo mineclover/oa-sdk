@@ -212,7 +212,8 @@ paths:
       { projectRoot: tmpDir, cwd: tmpDir },
     )
     expect(fs.existsSync(path.join(optionsDir, 'queries.ts'))).toBe(true)
-    expect(fs.existsSync(path.join(optionsDir, 'keys.ts'))).toBe(false)
+    // Tier 2 imports the key factory, so keys.ts is emitted as a dependency.
+    expect(fs.existsSync(path.join(optionsDir, 'keys.ts'))).toBe(true)
     expect(fs.existsSync(path.join(optionsDir, 'hooks.ts'))).toBe(false)
   })
 
@@ -242,6 +243,10 @@ paths:
     )
     const vueContent = fs.readFileSync(vueFile, 'utf8')
     expect(vueContent).toContain("from '@tanstack/vue-query'")
+    // Tier 2 is framework-neutral: only query-core observer types, never React-only names.
+    expect(vueContent).toContain('QueryObserverOptions')
+    expect(vueContent).not.toContain('UndefinedInitialDataOptions')
+    expect(vueContent).not.toContain('UseMutationOptions')
 
     const svelteFile = path.join(tmpDir, 'svelte-queries.ts')
     await generateTanstackCommand.run(
@@ -250,6 +255,90 @@ paths:
     )
     const svelteContent = fs.readFileSync(svelteFile, 'utf8')
     expect(svelteContent).toContain("from '@tanstack/svelte-query'")
+    expect(svelteContent).toContain('MutationObserverOptions')
+    expect(svelteContent).not.toContain('UseMutationOptions')
+  })
+
+  it('rejects --tier hooks for Vue/Svelte instead of writing React hooks', async () => {
+    await expect(
+      generateTanstackCommand.run(
+        { spec: sampleSpecPath, output: path.join(tmpDir, 'vue-hooks.ts'), framework: 'vue', tier: 'hooks' },
+        { projectRoot: tmpDir, cwd: tmpDir },
+      ),
+    ).rejects.toBeInstanceOf(CliExitError)
+
+    expect(fs.existsSync(path.join(tmpDir, 'vue-hooks.ts'))).toBe(false)
+  })
+
+  it('emits lower tiers as dependencies in --split mode', async () => {
+    const outDir = path.join(tmpDir, 'split-options')
+    await generateTanstackCommand.run(
+      { spec: sampleSpecPath, output: outDir, split: true, tier: 'options' },
+      { projectRoot: tmpDir, cwd: tmpDir },
+    )
+
+    // queries.ts imports ./keys.js, so keys.ts must be emitted even for --tier options.
+    expect(fs.existsSync(path.join(outDir, 'keys.ts'))).toBe(true)
+    expect(fs.existsSync(path.join(outDir, 'queries.ts'))).toBe(true)
+    expect(fs.existsSync(path.join(outDir, 'hooks.ts'))).toBe(false)
+    expect(fs.readFileSync(path.join(outDir, 'queries.ts'), 'utf8')).toContain("from './keys.js'")
+
+    const hooksDir = path.join(tmpDir, 'split-hooks')
+    await generateTanstackCommand.run(
+      { spec: sampleSpecPath, output: hooksDir, split: true, tier: 'hooks' },
+      { projectRoot: tmpDir, cwd: tmpDir },
+    )
+
+    // hooks.ts imports both ./keys.js and ./queries.js.
+    expect(fs.existsSync(path.join(hooksDir, 'keys.ts'))).toBe(true)
+    expect(fs.existsSync(path.join(hooksDir, 'queries.ts'))).toBe(true)
+    expect(fs.existsSync(path.join(hooksDir, 'hooks.ts'))).toBe(true)
+  })
+
+  it('keeps every relative import resolvable with pattern-based outputRouting and --split', async () => {
+    const configPath = path.join(tmpDir, 'oa.config.json')
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify({
+        product: {
+          outputRouting: {
+            pattern: 'src/api/{kind}/index.ts',
+          },
+        },
+      }),
+      'utf8',
+    )
+
+    await generateTanstackCommand.run(
+      { spec: sampleSpecPath, config: configPath, split: true },
+      { projectRoot: tmpDir, cwd: tmpDir },
+    )
+
+    const generated = [
+      path.join(tmpDir, 'src/api/keys/index.ts'),
+      path.join(tmpDir, 'src/api/queries/index.ts'),
+      path.join(tmpDir, 'src/api/queries/hooks.ts'),
+    ]
+    for (const file of generated) expect(fs.existsSync(file)).toBe(true)
+
+    // The generated client types are normally emitted by pluginClient / a hand-written module.
+    fs.writeFileSync(
+      path.join(tmpDir, 'src/api/queries/client.ts'),
+      'export interface ApiClient {}\n',
+      'utf8',
+    )
+
+    // `{kind}` routing puts keys and queries in sibling directories; every relative import
+    // must resolve (the TS2307 failure mode) instead of assuming a flat output directory.
+    for (const file of generated) {
+      const content = fs.readFileSync(file, 'utf8')
+      for (const match of content.matchAll(/from '(\.[^']+)'/g)) {
+        const specifier = match[1]!
+        const target = path.resolve(path.dirname(file), specifier.replace(/\.js$/, '.ts'))
+        const indexTarget = path.resolve(path.dirname(file), specifier.replace(/\.js$/, ''), 'index.ts')
+        expect(fs.existsSync(target) || fs.existsSync(indexTarget), `${file} → ${specifier}`).toBe(true)
+      }
+    }
   })
 
   it('honors --types-import and --client-import specifiers', async () => {

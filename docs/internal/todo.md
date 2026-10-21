@@ -65,10 +65,10 @@ boundaries를 확인했다. 현재 production source의 기준은 TypeSpec valid
 2. 파생 scalar는 trace 쪽에서 base scalar provenance로 중복을 해소할지, decorator가 경고할지 결정한다.
 완료 기준: 두 경우의 fixture에서 결정한 정책대로 진단하거나 `oa-gen trace --verify`가 통과하는 테스트가 있다.
 
-### [ ] `@oa-sdk/client` TanStack `TError`에 transport 오류 포함
+### [x] `@oa-sdk/client` TanStack `TError`에 transport 오류 포함
 배경: `packages/client/src/tanstack/options-factory-generator.ts`와 `hook-factory-generator.ts`는 error model이 있으면 query·mutation error 타입을 `<Op>Error`로만 둔다. 실제로 reject될 수 있는 네트워크 오류, abort, `ApiClientResponseError`는 `TError`에 없다. 지금은 [client and query consumption](../guides/client-and-query-consumption.md) 가이드가 `instanceof`로 좁히는 방법을 안내한다.
 작업: `TError`를 `<Op>Error | Error`로 넓힐지 결정하고, 넓히면 두 생성기, 생성 결과 테스트, 가이드를 함께 바꾼다.
-완료 기준: 생성된 query·mutation option과 hook의 error 타입이 transport 오류를 포함하고, consumer narrowing 예제가 type-check된다.
+완료 (2026-10-22): 두 생성기의 error model 타입을 `<Op>Error | Error`로 넓혔다. 옵션 팩토리·훅·생성 결과 테스트와 [client and query consumption](../guides/client-and-query-consumption.md) 7.3절을 함께 바꿨다.
 
 ### [ ] `ScenarioMachineContext.customData`의 TypeSpec 정의
 배경: `packages/spec-lens-contract/src/scenario/types.ts`의 `ScenarioMachineContext`에는 `customData?: Record<string, unknown>`이 있지만 `scenario.tsp`의 `model ScenarioMachineContext`에는 없다. 이번 pass 전부터 있던 TS·TypeSpec drift다.

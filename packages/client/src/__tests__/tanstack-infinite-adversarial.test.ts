@@ -662,6 +662,23 @@ describe('Challenger 2 — Requirement R4: TanStack Query Infinite Query Generat
             mutationFn?: (variables: TVariables) => Promise<TData>
             [key: string]: unknown
           }
+          export type QueryObserverOptions<TQueryFnData = unknown, TError = Error, TData = TQueryFnData, TQueryData = TQueryFnData, TQueryKey extends QueryKey = QueryKey> = {
+            queryKey: TQueryKey
+            queryFn?: QueryFunction<TQueryFnData, TQueryKey, never>
+            [key: string]: unknown
+          }
+          export type InfiniteQueryObserverOptions<TQueryFnData = unknown, TError = Error, TData = InfiniteData<TQueryFnData>, TQueryKey extends QueryKey = QueryKey, TPageParam = unknown> = {
+            queryKey: TQueryKey
+            queryFn?: QueryFunction<TQueryFnData, TQueryKey, TPageParam>
+            initialPageParam: TPageParam
+            getNextPageParam: (lastPage: TQueryFnData, allPages: Array<TQueryFnData>, lastPageParam: TPageParam) => TPageParam | undefined
+            [key: string]: unknown
+          }
+          export type MutationObserverOptions<TData = unknown, TError = Error, TVariables = void, TContext = unknown> = {
+            mutationKey?: ReadonlyArray<unknown>
+            mutationFn?: (variables: TVariables) => Promise<TData>
+            [key: string]: unknown
+          }
           export type UseQueryOptions<TQueryFnData = unknown, TError = Error, TData = TQueryFnData, TQueryKey extends QueryKey = QueryKey> = Record<string, unknown>
           export type UseQueryResult<TData = unknown, TError = Error> = { data?: TData; error?: TError; isLoading: boolean }
           export type UseInfiniteQueryOptions<TQueryFnData = unknown, TError = Error, TData = InfiniteData<TQueryFnData>, TQueryKey extends QueryKey = QueryKey, TPageParam = unknown> = Record<string, unknown>

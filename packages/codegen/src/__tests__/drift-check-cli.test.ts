@@ -59,6 +59,43 @@ export const Item = z.object({
       expect(driftResult.status).toBe(0)
       expect(driftResult.stdout).toContain('🟢 FRESH')
     })
+
+    it('reads targets from product.specs when top-level specs is absent', async () => {
+      await fixture.writeFile(
+        'oa.config.ts',
+        `export default {
+  rootDir: '.',
+  product: {
+    specs: [
+      {
+        id: 'product-spec',
+        profile: 'component-bundle',
+        schemaEntry: './schemas/test.ts',
+        outDir: './artifacts/specs',
+      },
+    ],
+  },
+};
+`,
+      )
+      await fixture.writeFile(
+        'schemas/test.ts',
+        `import { z } from 'zod';
+export const Item = z.object({ id: z.string(), count: z.number() });
+`,
+      )
+
+      const genResult = runOaCli(['generate'], { cwd: fixture.rootDir })
+      expect(genResult.status).toBe(0)
+
+      // Both commands used to emit "specs 목록이 비어 있습니다" for product.specs-only projects.
+      const checkResult = runOaCli(['check-artifact'], { cwd: fixture.rootDir })
+      expect(checkResult.status).toBe(0)
+      expect(checkResult.stdout).toContain('All 1 spec artifacts are fresh')
+
+      const driftResult = runOaCli(['drift:check'], { cwd: fixture.rootDir })
+      expect(driftResult.status).toBe(0)
+    })
   })
 
   describe('Suite 2: Spec Mutation Drift Detection', () => {

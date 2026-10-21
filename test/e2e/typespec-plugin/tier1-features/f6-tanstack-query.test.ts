@@ -95,7 +95,7 @@ describe('Tier 1: F6 - TanStack Query v5 Plugin (pluginTanstackQuery on the pets
     expect(result.success).toBe(true)
     const files = emittedFiles(result)
     // getItem declares NotFound (404) and Conflict (409); getThing declares NotFound (404) and GenericError (default).
-    expect(files['queries.ts']).toContain('UndefinedInitialDataOptions<JsonPrimitive<GetItemResponse>, GetItemError,')
+    expect(files['queries.ts']).toContain('QueryObserverOptions<JsonPrimitive<GetItemResponse>, GetItemError | Error,')
     expect(files['types.ts']).toContain('export type GetItemError = NotFound | Conflict')
 
     const { 'client.ts': sdk, 'api-client.ts': adapter } = await importGeneratedModules(files, ['client.ts', 'api-client.ts'])

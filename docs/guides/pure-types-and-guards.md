@@ -196,7 +196,7 @@ npx oa-gen generate:guards --input models/events.tsp -o src/guards --type-import
 
 - `--type-import`는 `.d.ts`가 타입을 가져올 경로입니다. 생성된 `.d.ts` 파일 위치 기준으로 쓰므로, 위 예처럼 `src/guards/`에서 `src/types/events.ts`를 가리키면 `../types/events.js`입니다. 생략하면 `.d.ts`가 import 없이 타입 이름을 참조해 `TS2304`(`skipLibCheck`가 꺼진 경우)가 나거나 좁혀진 타입이 `any`가 되므로 항상 지정합니다.
 - `--split`이면 `guards/<TypeName>.js`·`.d.ts`로 나눠 쓰고 `index.js`가 모두 다시 export합니다. 파일이 한 단계 깊어지므로 `--type-import` 경로도 한 단계 더 올라가야 합니다(`../../types/events.js`).
-- `--schemas EditorActivityEvent,TextRange`로 대상 컴포넌트를 고를 수 있습니다.
+- `--schemas EditorActivityEvent,TextRange`로 대상 컴포넌트를 고를 수 있습니다. 점이 들어간 컴포넌트 이름(TypeSpec의 `OaSdkTypeSpec.StandardError` 등)도 원래 이름으로 고를 수 있고, 함수 이름은 JavaScript 식별자로 정규화됩니다(`isOaSdkTypeSpec_StandardError`). `.d.ts`의 타입 술어는 `data is OaSdkTypeSpec.StandardError`를 유지하며 namespace 루트(`OaSdkTypeSpec`)를 import합니다.
 - `oa-gen generate --target standalone-guards --input <파일> --out-dir <디렉터리>`도 같은 가드를 만듭니다. `oa.config.ts`의 `guards` 설정으로 `oa-gen generate`에 포함할 수도 있습니다([선언적 스펙 설정](./declarative-spec-configuration.md#63-독립형-정적-타입-가드-guards)).
 
 ---

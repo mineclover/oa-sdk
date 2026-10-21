@@ -421,8 +421,8 @@ describe('pluginTanstackQuery', () => {
     const result = await generateStack()
     const files = toFileRecord(result.files)
     // getPetById declares a 404 Error model, so its TanStack error type is GetPetByIdError; listPets declares none (Error).
-    expect(files['queries.ts']).toContain('UndefinedInitialDataOptions<JsonPrimitive<GetPetByIdResponse>, GetPetByIdError,')
-    expect(files['queries.ts']).toContain('UndefinedInitialDataOptions<JsonPrimitive<ListPetsResponse>, Error,')
+    expect(files['queries.ts']).toContain('QueryObserverOptions<JsonPrimitive<GetPetByIdResponse>, GetPetByIdError | Error,')
+    expect(files['queries.ts']).toContain('QueryObserverOptions<JsonPrimitive<ListPetsResponse>, Error,')
     expect(files['api-client.ts']).toContain('return settleSdkResult(result, status => status === 404) as JsonPrimitive<GetPetByIdResponse>')
 
     const { sdk, adapter, cleanup } = await importAdapter(files)
@@ -478,7 +478,7 @@ describe('pluginTanstackQuery', () => {
     const result = await generateStack({}, { document: doc })
     expect(result.success).toBe(true)
     const files = toFileRecord(result.files)
-    expect(files['queries.ts']).toContain('UseMutationOptions<JsonPrimitive<unknown>, DeletePetError,')
+    expect(files['queries.ts']).toContain('MutationObserverOptions<JsonPrimitive<unknown>, DeletePetError | Error,')
     expect(files['api-client.ts']).toContain('settleSdkResult(result, status => status === 404 || (status !== 401 && Math.trunc(status / 100) !== 5))')
     expect(typecheckGeneratedFiles({ files, packages: ['@tanstack/react-query'] })).toEqual([])
 

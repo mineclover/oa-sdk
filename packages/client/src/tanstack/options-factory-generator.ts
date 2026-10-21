@@ -15,7 +15,7 @@ import {
   formatGeneratedTs,
   toOperationMethodName,
 } from '@oa-sdk/core/browser'
-import { getOperationTag, groupOperationsByTag, isQueryOperation, toKeyFactoryName } from './key-factory-generator.js'
+import { getOperationTag, groupOperationsByTag, isQueryOperation, isStreamingOperation, toKeyFactoryName } from './key-factory-generator.js'
 
 export interface OptionsFactoryOptions {
   /** Target query package (default: '@tanstack/react-query') */
@@ -143,7 +143,7 @@ export function generateOptionsFactory(doc: ParsedDocument, options: OptionsFact
   const operationNames = createOperationTypeNameMap(doc.operations)
   const groups = groupOperationsByTag(doc)
 
-  const hasPagination = doc.operations.some(op => detectPagination(op) !== null)
+  const hasPagination = doc.operations.some(op => !isStreamingOperation(op) && detectPagination(op) !== null)
 
   // Imports
   if (!isCombined) {
@@ -151,8 +151,11 @@ export function generateOptionsFactory(doc: ParsedDocument, options: OptionsFact
     if (hasPagination) fnImports.push('infiniteQueryOptions')
     lines.push(`import { ${fnImports.join(', ')} } from '${queryPackage}'`)
 
-    const typeImports = ['UndefinedInitialDataOptions', 'UseMutationOptions']
-    if (hasPagination) typeImports.push('UndefinedInitialDataInfiniteOptions', 'InfiniteData')
+    // These observer option types come from @tanstack/query-core and are re-exported by every
+    // framework adapter (react-query, vue-query, svelte-query). React-only names such as
+    // `UndefinedInitialDataOptions` / `UseMutationOptions` would not resolve outside React.
+    const typeImports = ['QueryObserverOptions', 'MutationObserverOptions']
+    if (hasPagination) typeImports.push('InfiniteQueryObserverOptions', 'InfiniteData')
     lines.push(`import type { ${typeImports.join(', ')} } from '${queryPackage}'`)
     lines.push(`import type { JsonPrimitive, Resolved } from '@oa-sdk/client'`)
     lines.push('')
@@ -162,6 +165,9 @@ export function generateOptionsFactory(doc: ParsedDocument, options: OptionsFact
       for (const op of doc.operations) {
         if (!op.operationId) continue
         const baseName = operationNames.get(op.operationId)!
+        const streaming = isStreamingOperation(op)
+        // Streaming queries have no option factory, so nothing in this module uses their types.
+        if (streaming && isQueryOperation(op)) continue
         const pathParams = op.parameters.filter(p => p.in === 'path')
         const queryParams = op.parameters.filter(p => p.in === 'query')
         const querystringParam = op.parameters.find(p => p.in === 'querystring')
@@ -172,8 +178,10 @@ export function generateOptionsFactory(doc: ParsedDocument, options: OptionsFact
         if (querystringParam) typeImports.add(`${baseName}QueryString`)
         if (headerParams.length > 0) typeImports.add(`${baseName}HeaderParams`)
         if (hasGeneratedRequestBodyType(op.requestBody)) typeImports.add(`${baseName}Body`)
-        if (hasGeneratedResponseType(op.responses)) typeImports.add(`${baseName}Response`)
-        if (hasGeneratedErrorType(op.responses)) typeImports.add(`${baseName}Error`)
+        if (!streaming) {
+          if (hasGeneratedResponseType(op.responses)) typeImports.add(`${baseName}Response`)
+          if (hasGeneratedErrorType(op.responses)) typeImports.add(`${baseName}Error`)
+        }
       }
 
       if (typeImports.size > 0) {
@@ -237,6 +245,9 @@ export function generateOptionsFactory(doc: ParsedDocument, options: OptionsFact
   // 2. Query & Mutation Options Factories
   for (const op of doc.operations) {
     if (!op.operationId) continue
+    // A queryFn/mutationFn resolves one value; streaming operations yield an AsyncGenerator.
+    // Their keys stay available, but caching them through TanStack would be incorrect.
+    if (isStreamingOperation(op)) continue
     const baseName = operationNames.get(op.operationId)!
     const methodName = toOperationMethodName(baseName)
     const tag = getOperationTag(op)
@@ -255,7 +266,9 @@ export function generateOptionsFactory(doc: ParsedDocument, options: OptionsFact
 
     const responseType = typesImport && hasTypedResponse ? `${baseName}Response` : 'unknown'
     const returnDataType = hasResponse ? `JsonPrimitive<${responseType}>` : 'void'
-    const errorType = typesImport && hasGeneratedErrorType(op.responses) ? `${baseName}Error` : 'Error'
+    // A documented error model describes HTTP error bodies only. Network failures, aborts and
+    // ApiClientResponseError can still reject, so `TError` includes Error as well.
+    const errorType = typesImport && hasGeneratedErrorType(op.responses) ? `${baseName}Error | Error` : 'Error'
 
     if (isQuery) {
       // Query Options
@@ -297,7 +310,7 @@ export function generateOptionsFactory(doc: ParsedDocument, options: OptionsFact
       if (queryParams.length > 0) keyArgs.push('query')
       const keyCall = `${factoryName}.${methodName}(${keyArgs.join(', ')})`
 
-      const optionsParam = `options?: Omit<UndefinedInitialDataOptions<${returnDataType}, ${errorType}, TData, ReturnType<typeof ${factoryName}.${methodName}>>, 'queryKey' | 'queryFn'>`
+      const optionsParam = `options?: Omit<QueryObserverOptions<${returnDataType}, ${errorType}, TData, ${returnDataType}, ReturnType<typeof ${factoryName}.${methodName}>>, 'queryKey' | 'queryFn'>`
       funcParams.push(optionsParam)
 
       lines.push(`/**`)
@@ -349,7 +362,8 @@ export function generateOptionsFactory(doc: ParsedDocument, options: OptionsFact
           infiniteFuncParams.push(`headers?: ${typesImport ? `${baseName}HeaderParams` : 'Record<string, unknown>'}`)
         }
 
-        const infiniteOptionsParam = `options?: Omit<UndefinedInitialDataInfiniteOptions<${returnDataType}, ${errorType}, TData, ReturnType<typeof ${factoryName}.${methodName}>, TPageParam>, 'queryKey' | 'queryFn'>`
+        const infiniteKeyType = `readonly [...ReturnType<typeof ${factoryName}.${methodName}>, 'infinite']`
+        const infiniteOptionsParam = `options?: Omit<InfiniteQueryObserverOptions<${returnDataType}, ${errorType}, TData, ${infiniteKeyType}, TPageParam>, 'queryKey' | 'queryFn'>`
         infiniteFuncParams.push(infiniteOptionsParam)
 
         const infiniteCallArgs = clientCallArgs.map(arg => arg === 'query' ? 'pageQuery as any' : arg)
@@ -366,7 +380,9 @@ export function generateOptionsFactory(doc: ParsedDocument, options: OptionsFact
         lines.push(`  ${infiniteFuncParams.join(',\n  ')},`)
         lines.push(`) {`)
         lines.push(`  return infiniteQueryOptions({`)
-        lines.push(`    queryKey: ${keyCall},`)
+        // A distinct key keeps infinite pages out of the plain query cache. Invalidating
+        // `usersKeys.list(query)` still matches this entry by prefix.
+        lines.push(`    queryKey: [...${keyCall}, 'infinite'] as const,`)
         lines.push(`    queryFn: async ({ pageParam, signal }): Promise<${returnDataType}> => {`)
         lines.push(`      const pageQuery = {`)
         lines.push(`        ...(query as Record<string, unknown> | undefined),`)
@@ -439,7 +455,7 @@ export function generateOptionsFactory(doc: ParsedDocument, options: OptionsFact
       if (headerParams.length > 0) clientCallArgs.push('variables.headers')
 
       const varsType = `${baseName}Variables`
-      const optionsParam = `options?: Omit<UseMutationOptions<${returnDataType}, ${errorType}, ${varsType}, TContext>, 'mutationKey' | 'mutationFn'>`
+      const optionsParam = `options?: Omit<MutationObserverOptions<${returnDataType}, ${errorType}, ${varsType}, TContext>, 'mutationKey' | 'mutationFn'>`
 
       lines.push(`/**`)
       lines.push(` * Pure mutation options for ${methodName} (${op.method.toUpperCase()} ${op.openApiPath})`)

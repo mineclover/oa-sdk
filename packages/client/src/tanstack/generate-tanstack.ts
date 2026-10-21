@@ -8,7 +8,7 @@
 import type { OasDocument, OasRequestBody, OasResponse, ParsedDocument } from '@oa-sdk/parser'
 import { assertParsedDocumentComplete, isParsedDocument, parseDocument } from '@oa-sdk/parser'
 import { createOperationTypeNameMap, formatGeneratedTs } from '@oa-sdk/core/browser'
-import { generateKeyFactory, isQueryOperation, type KeyFactoryOptions } from './key-factory-generator.js'
+import { generateKeyFactory, isQueryOperation, isStreamingOperation, type KeyFactoryOptions } from './key-factory-generator.js'
 import { generateOptionsFactory, detectPagination, type OptionsFactoryOptions } from './options-factory-generator.js'
 import { generateHookFactory, type HookFactoryOptions } from './hook-factory-generator.js'
 
@@ -101,7 +101,7 @@ function generateCombinedFile(doc: ParsedDocument, options: TanstackQueryOptions
   // Unified Header Imports
   const shouldIncludeHooks = includeHooks && tier !== 'keys' && tier !== 'options'
   const shouldIncludeOptions = tier !== 'keys'
-  const hasPagination = doc.operations.some(op => detectPagination(op) !== null)
+  const hasPagination = doc.operations.some(op => !isStreamingOperation(op) && detectPagination(op) !== null)
 
   if (shouldIncludeHooks) {
     const imports = ['queryOptions', 'mutationOptions', 'useQuery', 'useMutation']
@@ -110,9 +110,12 @@ function generateCombinedFile(doc: ParsedDocument, options: TanstackQueryOptions
     }
     lines.push(`import { ${imports.join(', ')} } from '${queryPackage}'`)
     lines.push(`import type {`)
-    lines.push(`  UndefinedInitialDataOptions,`)
+    // Tier 2 (inlined below) uses the framework-neutral observer option types that every
+    // adapter re-exports from @tanstack/query-core; Tier 3 uses React's hook types.
+    lines.push(`  MutationObserverOptions,`)
+    lines.push(`  QueryObserverOptions,`)
     if (hasPagination) {
-      lines.push(`  UndefinedInitialDataInfiniteOptions,`)
+      lines.push(`  InfiniteQueryObserverOptions,`)
       lines.push(`  InfiniteData,`)
     }
     lines.push(`  UseMutationOptions,`)
@@ -132,9 +135,9 @@ function generateCombinedFile(doc: ParsedDocument, options: TanstackQueryOptions
     }
     lines.push(`import { ${imports.join(', ')} } from '${queryPackage}'`)
     if (hasPagination) {
-      lines.push(`import type { UndefinedInitialDataOptions, UndefinedInitialDataInfiniteOptions, InfiniteData, UseMutationOptions } from '${queryPackage}'`)
+      lines.push(`import type { QueryObserverOptions, InfiniteQueryObserverOptions, InfiniteData, MutationObserverOptions } from '${queryPackage}'`)
     } else {
-      lines.push(`import type { UndefinedInitialDataOptions, UseMutationOptions } from '${queryPackage}'`)
+      lines.push(`import type { QueryObserverOptions, MutationObserverOptions } from '${queryPackage}'`)
     }
   }
 
@@ -149,16 +152,18 @@ function generateCombinedFile(doc: ParsedDocument, options: TanstackQueryOptions
       if (!op.operationId) continue
       const baseName = operationNames.get(op.operationId) ?? (op.operationId.charAt(0).toUpperCase() + op.operationId.slice(1))
       const isQuery = isQueryOperation(op)
+      const streaming = isStreamingOperation(op)
       if (shouldIncludeOptions || isQuery) {
         if (op.parameters.some(p => p.in === 'path')) neededTypes.add(`${baseName}PathParams`)
         if (op.parameters.some(p => p.in === 'query')) neededTypes.add(`${baseName}QueryParams`)
       }
+      if (streaming && isQuery) continue
       if (shouldIncludeOptions || (shouldIncludeHooks && isQuery)) {
         if (op.parameters.some(p => p.in === 'querystring')) neededTypes.add(`${baseName}QueryString`)
         if (op.parameters.some(p => p.in === 'header')) neededTypes.add(`${baseName}HeaderParams`)
         if (hasGeneratedRequestBodyType(op.requestBody)) neededTypes.add(`${baseName}Body`)
       }
-      if (shouldIncludeOptions || shouldIncludeHooks) {
+      if (!streaming && (shouldIncludeOptions || shouldIncludeHooks)) {
         if (hasGeneratedResponseType(op.responses)) neededTypes.add(`${baseName}Response`)
         if (hasGeneratedErrorType(op.responses)) neededTypes.add(`${baseName}Error`)
       }

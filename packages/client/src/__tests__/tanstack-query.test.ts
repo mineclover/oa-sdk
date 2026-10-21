@@ -432,7 +432,7 @@ describe('TanStack Query v5 3-Tier Code Generator', () => {
 
       // Framework imports
       expect(code).toContain("import { queryOptions, mutationOptions } from '@tanstack/react-query'")
-      expect(code).toContain("import type { UndefinedInitialDataOptions, UseMutationOptions } from '@tanstack/react-query'")
+      expect(code).toContain("import type { QueryObserverOptions, MutationObserverOptions } from '@tanstack/react-query'")
       expect(code).toContain("import type { JsonPrimitive, Resolved } from '@oa-sdk/client'")
 
       // Wire-safe mutation variables
@@ -845,6 +845,107 @@ describe('TanStack Query v5 3-Tier Code Generator', () => {
       expect(output.hooksCode).toContain('body: Resolved<SearchItemsBody>')
       expect(output.hooksCode).not.toContain('RawSearchBody')
       expect(output.hooksCode).toContain('body: unknown')
+    })
+  })
+
+  describe('Framework-neutral options and streaming operations', () => {
+    function streamingSpec(): OasDocument {
+      return {
+        openapi: '3.2.0',
+        info: { title: 'Streaming API', version: '1.0.0' },
+        paths: {
+          '/events': {
+            get: {
+              tags: ['events'],
+              operationId: 'streamEvents',
+              responses: {
+                '200': {
+                  description: 'Server-sent events',
+                  content: { 'text/event-stream': { schema: { type: 'string' } } },
+                },
+              },
+            },
+          },
+          '/items': {
+            get: {
+              tags: ['items'],
+              operationId: 'listItems',
+              parameters: [
+                { name: 'cursor', in: 'query', schema: { type: 'string' } },
+                { name: 'limit', in: 'query', schema: { type: 'integer' } },
+              ],
+              responses: {
+                '200': {
+                  description: 'Items',
+                  content: {
+                    'application/json': {
+                      schema: { type: 'array', items: { type: 'object' } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }
+    }
+
+    it('emits only query-core option types for Vue and Svelte', () => {
+      const doc = parseDocument(sampleSpec())
+
+      for (const queryPackage of ['@tanstack/vue-query', '@tanstack/svelte-query']) {
+        const code = generateOptionsFactory(doc, {
+          queryPackage,
+          typesImport: './types.js',
+          clientImport: './client.js',
+        })
+
+        expect(code).toContain(`from '${queryPackage}'`)
+        expect(code).toContain('QueryObserverOptions')
+        expect(code).toContain('MutationObserverOptions')
+        // React-only names do not exist in the Vue/Svelte adapters.
+        expect(code).not.toContain('UndefinedInitialDataOptions')
+        expect(code).not.toContain('UndefinedInitialDataInfiniteOptions')
+        expect(code).not.toContain('UseMutationOptions')
+      }
+    })
+
+    it('keeps combined Vue output free of React-only type names', () => {
+      const output = generateTanstackQuery(sampleSpec(), {
+        queryPackage: '@tanstack/vue-query',
+        includeHooks: false,
+      })
+
+      expect(output.combinedCode).toContain('QueryObserverOptions')
+      expect(output.combinedCode).not.toContain('UndefinedInitialDataOptions')
+      expect(output.combinedCode).not.toContain('UseQueryResult')
+    })
+
+    it('generates keys but no options or hooks for streaming operations', () => {
+      const output = generateTanstackQuery(streamingSpec(), {
+        includeHooks: true,
+        typesImport: './types.js',
+        clientImport: './client.js',
+      })
+
+      expect(output.keysCode).toContain('streamEvents')
+      expect(output.queriesCode).not.toContain('streamEventsQueryOptions')
+      expect(output.queriesCode).not.toContain('streamEventsMutationOptions')
+      expect(output.queriesCode).toContain('listItemsQueryOptions')
+      expect(output.hooksCode).not.toContain('useStreamEventsQuery')
+      expect(output.hooksCode).toContain('useListItemsQuery')
+      expect(output.combinedCode).not.toContain('streamEventsQueryOptions')
+      expect(output.combinedCode).toContain('listItemsQueryOptions')
+    })
+
+    it('gives infinite queries a distinct key while keeping prefix invalidation', () => {
+      const code = generateOptionsFactory(parseDocument(streamingSpec()), {
+        typesImport: './types.js',
+        clientImport: './client.js',
+      })
+
+      expect(code).toContain("queryKey: [...itemsKeys.listItems(query), 'infinite'] as const,")
+      expect(code).toContain('queryKey: itemsKeys.listItems(query),')
     })
   })
 })

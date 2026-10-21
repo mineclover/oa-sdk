@@ -149,12 +149,12 @@ export const oaGenGovernanceManifest = {
           {
             name: 'tier',
             type: 'string',
-            description: 'Filter generated tiers: all | keys | options | hooks',
+            description: 'Filter generated tiers: all | keys | options | hooks. In --split mode lower tiers are emitted too, because the requested tier imports them.',
           },
           {
             name: 'framework',
             type: 'string',
-            description: 'Target UI framework: react | vue | svelte',
+            description: 'Target UI framework: react | vue | svelte (vue/svelte emit keys+options only; hooks are React-only)',
           },
           {
             name: 'types-import',
