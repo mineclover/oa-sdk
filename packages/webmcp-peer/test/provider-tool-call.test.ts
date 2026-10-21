@@ -3,7 +3,8 @@
 // finishes after its connection ended (accounted for in its run, answered with nothing), and the AI
 // run ledger, which answers a durable request again without calling the host and holds back one
 // whose outcome is unknown, and neither runs nor answers a call whose connection ended while it
-// looked the call up. A socket the tests hold open records any answer the provider still gives.
+// looked the call up. Nor is a call run or answered whose connection host code the provider called
+// first ended. A socket the tests hold open records any answer the provider still gives.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AiRunController,
@@ -58,10 +59,11 @@ const tools = ["read", "validate", "soft", "readme", "mcp_err", "domain", "write
 
 async function approvedProvider(
   invoke: WebMcpHostAdapter["invoke"],
+  host: Omit<WebMcpHostAdapter, "listTools" | "invoke"> = {},
 ): Promise<{ provider: WebMcpPeerClient; socket: FakeRelaySocket; relay: FakeRelay }> {
   const relay = new FakeRelay();
   installRelay(relay);
-  const provider = new WebMcpPeerClient({ hostAdapter: { listTools: () => tools, invoke } });
+  const provider = new WebMcpPeerClient({ hostAdapter: { ...host, listTools: () => tools, invoke } });
   providers.push(provider);
   await provider.connect({ serverUrl: relay.base, alias: "tool-call-test" });
   const socket = relay.latest;
@@ -520,6 +522,45 @@ describe("a tools/call in flight when its connection ends", () => {
     await expect(provider.rollbackAiRun("task-ended", () => "rolled-back")).resolves.toMatchObject({ phase: "rolled-back" });
     await settled();
     // No answer was written to the socket of the connection that ended.
+    expect(socket.sent.filter((frame) => frame.type === "mcp")).toEqual([]);
+  });
+});
+
+describe("a tools/call whose connection host code ends before the host is called", () => {
+  it.each<[string, "server info" | "run begun" | "action registered"]>([
+    ["the host adapter's getServerInfo, as the provider reads the call", "server info"],
+    ["a run listener, as the call begins its run", "run begun"],
+    ["a run listener, as the call registers its action on its run", "action registered"],
+  ])("is neither run, nor answered, nor left in a run when %s ends the session", async (_label, point) => {
+    // Ends the session once, from the host code at `point`, after the test arms it.
+    let endSession: (() => void) | undefined;
+    const invoke = vi.fn(async () => ({ ok: true }));
+    const { provider, socket } = await approvedProvider(invoke, {
+      getServerInfo: () => {
+        if (point === "server info") endSession?.();
+        return { name: "host-ends-the-session", version: "1.0.0" };
+      },
+    });
+    provider.subscribeAiRuns((runs) => {
+      const phase = runs.find((run) => run.runId === "task-host-ends")?.phase;
+      if ((point === "run begun" && phase === "queued") || (point === "action registered" && phase === "running")) endSession?.();
+    });
+    // The socket stays OPEN to the provider, so an answer the provider gives is recorded, not hidden by
+    // the socket's close.
+    socket.holdOpen();
+    // Armed only now: the provider also asks the host for its server info as it connects.
+    endSession = () => {
+      endSession = undefined;
+      provider.disconnect();
+    };
+
+    deliverToolCall(socket, 1, "write", { runId: "task-host-ends" });
+    await until(() => (endSession ? undefined : true), "the host ended the session");
+    await settled();
+
+    expect(invoke).not.toHaveBeenCalled();
+    // `disconnect()` cleared the runs, and the call began none after it.
+    expect(provider.getAiRuns()).toEqual([]);
     expect(socket.sent.filter((frame) => frame.type === "mcp")).toEqual([]);
   });
 });

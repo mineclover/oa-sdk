@@ -1713,11 +1713,13 @@ export class WebMcpPeerClient {
    * request with (SESSION_INVALID for a revocation over HTTP, ROOM_EXPIRED or ROOM_ROTATED when the
    * relay ended the room, PROVIDER_DISCONNECTED when the provider socket closed first; the call may
    * have run), and, with a ledger, from the replay of a call made again under the same
-   * `context.requestId`. A call whose connection ended before the host was called is not run, and one
-   * whose connection ended while the ledger looked it up is not answered from the ledger either. One
-   * the host ran is still accounted for by the run that holds it,
-   * which only `disconnect()` clears: its action is settled, so the run can be stopped, rolled back
-   * and evicted, and its step recorded, so a rollback of the run undoes it.
+   * `context.requestId`. A call whose connection ended before the host was called is not run, whatever
+   * ended it: an event while the ledger looked it up, or host code the provider called first (the host
+   * adapter's `getServerInfo`, a `subscribeAiRuns` listener told of the call's run). One whose
+   * connection ended while the ledger looked it up is not answered from the ledger either. One the
+   * host ran is still accounted for by the run that holds it, which only `disconnect()` clears: its
+   * action is settled, so the run can be stopped, rolled back and evicted, and its step recorded, so a
+   * rollback of the run undoes it.
    */
   private async handleToolCall(
     id: JsonRpcRequestId,
@@ -1762,6 +1764,10 @@ export class WebMcpPeerClient {
         return { jsonrpc: "2.0", id, result: interpretHostResult(replay).result };
       }
     }
+    // Host code ran since the request handler checked the generation (the host adapter's
+    // `getServerInfo`) and may have ended the connection. A call of an ended connection is not run,
+    // nor begun as a run, which would outlive the `disconnect()` that cleared the runs.
+    if (generation !== this.connectionGeneration) return null;
     const controller = new AbortController();
     let runSnapshot: AiRunSnapshot;
     try {
@@ -1778,6 +1784,9 @@ export class WebMcpPeerClient {
         }),
       };
     }
+    // A run begun anew is announced to the host's run listeners (`subscribeAiRuns`), which may end the
+    // connection too: their `disconnect()` cleared that run.
+    if (generation !== this.connectionGeneration) return null;
     if (
       runSnapshot.phase === "stopped" ||
       runSnapshot.phase === "completed" ||
@@ -1791,6 +1800,10 @@ export class WebMcpPeerClient {
       };
     }
     this.aiRuns.registerAction(runId, requestId, controller);
+    // So is the action registered on the run. The host is called only while the call's connection
+    // lasts. Host code ends a connection with `disconnect()` (which `connect()` and `revokeClient()`
+    // call), which aborted the action and cleared its run, so nothing is left in flight.
+    if (generation !== this.connectionGeneration) return null;
     let settled = false;
     try {
       const res = await webMcp?.invoke?.(name, args, { signal: controller.signal });
