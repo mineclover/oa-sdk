@@ -24,8 +24,12 @@ export interface CrdtCarrierEnvelope {
   readonly documentId: string;
 }
 
-export function isRecord(value: unknown): value is Record<string, any> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function isNonNegativeSafeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 }
 
 export function isCarrierEnvelope(value: unknown): value is CrdtCarrierEnvelope {
@@ -35,14 +39,12 @@ export function isCarrierEnvelope(value: unknown): value is CrdtCarrierEnvelope 
   return (
     typeof value.roomId === "string" &&
     value.roomId.length > 0 &&
-    Number.isSafeInteger(value.roomEpoch) &&
-    value.roomEpoch >= 0 &&
+    isNonNegativeSafeInteger(value.roomEpoch) &&
     typeof value.sessionId === "string" &&
     value.sessionId.length > 0 &&
     typeof value.replicaId === "string" &&
     value.replicaId.length > 0 &&
-    Number.isSafeInteger(value.transportGeneration) &&
-    value.transportGeneration >= 0 &&
+    isNonNegativeSafeInteger(value.transportGeneration) &&
     typeof value.messageId === "string" &&
     value.messageId.length > 0 &&
     typeof value.documentId === "string" &&
@@ -137,7 +139,16 @@ export interface WebMcpHostServerInfo {
 
 export interface WebMcpHostAdapter {
   listTools?: () => readonly WebMcpToolSummary[];
-  invoke?: (name: string, args?: Record<string, unknown>, options?: Record<string, unknown>) => Promise<any>;
+  /**
+   * Runs a host tool. The provider accepts two result shapes:
+   * - an MCP `CallToolResult` (`{ content: [...], structuredContent?, isError? }`), forwarded as is
+   *   (its `structuredContent` is the payload, `isError: true` marks a failure);
+   * - any other value, treated as the payload: it becomes `structuredContent` (wrapped as
+   *   `{ value }` when it is not a JSON object) plus a JSON text block, and `{ ok: false }` marks
+   *   a failure.
+   * A payload's `receipt` that passes `isCommitReceipt` is recorded in the AI run ledger.
+   */
+  invoke?: (name: string, args?: Record<string, unknown>, options?: Record<string, unknown>) => Promise<unknown>;
   getStatus?: () => { writeEnabled?: boolean; [key: string]: unknown };
   setWriteEnabled?: (enabled: boolean) => { writeEnabled?: boolean; [key: string]: unknown } | void;
   toggleWrite?: () => { writeEnabled?: boolean; [key: string]: unknown } | void;
@@ -174,10 +185,18 @@ export interface SavedRoomLease {
 
 export const FRAMEBOOK_PRODUCTION_SIGNALING_URL = "https://framebook-peer.suggestions.cc";
 
+/** Globals a host page may set to pre-configure the signaling URL. */
+interface SignalingUrlGlobals {
+  readonly __FRAMEBOOK_SIGNALING_URL__?: unknown;
+  readonly process?: { readonly env?: Readonly<Record<string, string | undefined>> };
+}
+
 export function resolveDefaultSignalingUrl(): string {
+  const globals: SignalingUrlGlobals = globalThis;
   if (typeof window !== "undefined") {
-    if ((window as any).__FRAMEBOOK_SIGNALING_URL__) {
-      return (window as any).__FRAMEBOOK_SIGNALING_URL__;
+    const configured = globals.__FRAMEBOOK_SIGNALING_URL__;
+    if (typeof configured === "string" && configured) {
+      return configured;
     }
     const isPagesOrigin = (() => {
       try {
@@ -207,9 +226,8 @@ export function resolveDefaultSignalingUrl(): string {
     } catch {}
     if (isPagesOrigin) return FRAMEBOOK_PRODUCTION_SIGNALING_URL;
   }
-  const procEnv = (globalThis as any).process?.env;
-  if (procEnv?.VITE_SIGNALING_URL || procEnv?.SIGNALING_URL) {
-    return procEnv.VITE_SIGNALING_URL || procEnv.SIGNALING_URL;
-  }
+  const procEnv = globals.process?.env;
+  const fromEnv = procEnv?.VITE_SIGNALING_URL || procEnv?.SIGNALING_URL;
+  if (fromEnv) return fromEnv;
   return "http://127.0.0.1:8787";
 }

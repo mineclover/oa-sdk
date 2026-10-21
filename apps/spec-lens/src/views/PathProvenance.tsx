@@ -98,11 +98,18 @@ interface ColumnDefinition {
   label: string
 }
 
-export function PathProvenance() {
+export interface PathProvenanceProps {
+  /** Initial endpoint search (e.g. the path pattern a scenario step inspected). */
+  initialSearch?: string | undefined
+  /** Called with the endpoint row the user opens, or `null` when it is closed. */
+  onSelectEntry?: ((entry: SpecPathEntry | null) => void) | undefined
+}
+
+export function PathProvenance({ initialSearch, onSelectEntry }: PathProvenanceProps = {}) {
   const { t } = useTranslation()
   const [scopeFilter, setScopeFilter] = useState('')
   const [domainFilter, setDomainFilter] = useState('')
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(initialSearch ?? '')
   const [sortField, setSortField] = useState<SortField>('path')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
@@ -235,7 +242,7 @@ export function PathProvenance() {
             </thead>
             <tbody>
               {sortedAndFiltered.map(p => (
-                <PathRow key={p.path} entry={p} />
+                <PathRow key={p.path} entry={p} onToggle={onSelectEntry} />
               ))}
               {sortedAndFiltered.length === 0 && (
                 <tr>
@@ -252,7 +259,13 @@ export function PathProvenance() {
   )
 }
 
-export function PathRow({ entry }: { entry: SpecPathEntry }) {
+export function PathRow({
+  entry,
+  onToggle,
+}: {
+  entry: SpecPathEntry
+  onToggle?: ((entry: SpecPathEntry | null) => void) | undefined
+}) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const pathParts = entry.canonicalId.split(':')
@@ -264,7 +277,11 @@ export function PathRow({ entry }: { entry: SpecPathEntry }) {
       <tr
         className="hoverable"
         style={{ borderBottom: open ? undefined : '1px solid var(--border-muted)', cursor: 'pointer' }}
-        onClick={() => setOpen(o => !o)}
+        onClick={() => {
+          const next = !open
+          setOpen(next)
+          onToggle?.(next ? entry : null)
+        }}
         data-expanded={open}
       >
         <td style={{ padding: '8px 12px' }}>

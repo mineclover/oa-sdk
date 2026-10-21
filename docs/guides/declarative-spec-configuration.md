@@ -11,7 +11,7 @@ productVersions:
   - "@oa-sdk/client 0.2.2"
 owner: "OA SDK maintainers"
 status: active
-lastReviewed: "2026-10-06"
+lastReviewed: "2026-10-19"
 sourceOfTruth:
   - packages/codegen/src/config.ts
   - packages/codegen/src/cli/commands/generate.ts
@@ -33,7 +33,7 @@ TanStack Query 코드), 생성물의 출력 경로를 선언합니다. `oa-gen i
 
 | 명령 | 읽는 설정 |
 |---|---|
-| `oa-gen generate` | spec target, `guards`, `core.contracts`, `core.client`, `contextInjection`, `outputRouting` |
+| `oa-gen generate` | spec target, `guards`, `core.contracts`, `core.router`, `core.client`, `product.framework`(라우터 대상), `contextInjection`, `outputRouting` |
 | `oa-gen validate` | spec target(`specs` 또는 `product.specs`)과 `profile` |
 | `oa-gen check-artifact`, `oa-gen drift:check` | 최상위 `specs`만. `product.specs`에만 선언하면 `specs 목록이 비어 있습니다`로 실패합니다(알려진 결함) |
 | `oa-gen mock` | spec target이 정확히 하나일 때 그 원본 |
@@ -60,6 +60,10 @@ spec target은 최상위 `specs`에 선언합니다. 그래야 위 명령이 모
 | `core.contracts.contractName` | `"ApiHandlers"` | 핸들러 계약의 aggregate 인터페이스 이름 |
 | `core.contracts.banner` | `true` | 생성 배너 주석 |
 | `core.contracts.outDir` | spec `outDir` | 핸들러 계약 출력 디렉터리. `outputRouting`이 있으면 쓰이지 않음 |
+| `core.router.target` | 없음 | 라우터(`<id>.router.ts`)의 대상 프레임워크. 없으면 `specs[].target`, 그다음 `product.framework`. `generic`·`nestjs`면 라우터를 만들지 않는다. 2.2절 |
+| `core.router.outDir` | spec `outDir` | 라우터 출력 디렉터리. `outputRouting`이 있으면 쓰이지 않음 |
+| `core.router.banner` | `core.contracts.banner` | 라우터 생성 배너 주석 |
+| `product.framework` | 없음 (`init`이 감지한 대상을 씀) | `core.router.target`과 `specs[].target`이 없을 때의 라우터 대상. 2.2절 |
 | `core.client.enabled` | `true` | fetch 클라이언트(`<id>.client.ts`) 생성 여부. `@oa-sdk/client` 필요 |
 | `core.client.outDir` | spec `outDir` | 클라이언트 출력 디렉터리. `outputRouting`이 있으면 쓰이지 않음 |
 | `core.client.typesImport` | 없음 | 클라이언트가 타입을 가져올 모듈 지정자(그대로 import 문에 들어감) |
@@ -92,16 +96,30 @@ import합니다(알려진 결함). HTTP operation이 없는 모델 전용 프로
 
 ### 2.2 서버 쪽 생성물의 범위
 
-`oa-gen generate`가 서버 쪽에 만드는 것은 프레임워크와 무관한 핸들러 계약(`<id>.contract.ts`)뿐입니다.
-Fastify·Express·Hono·Elysia 라우터 코드가 필요하면 빌드 스크립트에서 `@oa-sdk/router`의 `generateRouter()`를
-호출해 파일로 씁니다. `oa-gen` 명령으로는 라우터 파일을 만들지 않습니다([Backend Handler Contracts](./backend-handler-contracts.md)).
-예외로, 스펙의 `components.schemas`에 `x-oa-sdk-crdt-entity`나 `x-oa-sdk-crdt`가 있으면 CRDT 모듈 4개
-(`<id>.crdt.contract.ts`, `.crdt.router.ts`, `.crdt.client.ts`, `.crdt.hooks.ts`)를 만듭니다. 이 CRDT WebSocket
-라우터는 항상 Hono용이며 대상 프레임워크를 바꾸는 설정은 없습니다(알려진 제한). 설정 타입에는 `core.router`가 없고,
-`oa.config.json`이나 `oa.config.mjs`에 `core.router.target`을 써도 설정 검증은 통과하지만 기본값을 병합할 때 버려집니다.
-다른 프레임워크용 CRDT 라우터가 필요하면 빌드 스크립트에서 `@oa-sdk/router`의 `generateCrdtRouter()`를
-`{ target, contractImport: "./<id>.crdt.contract.js" }`(`target`: `hono`, `express`, `fastify`, `elysia`)로 호출하고,
-`oa-gen generate`가 매번 다시 쓰는 `<id>.crdt.router.ts`와 다른 파일에 씁니다.
+`oa-gen generate`는 서버 쪽에 프레임워크와 무관한 핸들러 계약(`<id>.contract.ts`)을 만들고, 대상 프레임워크가
+정해지면 그 프레임워크용 라우터(`<id>.router.ts`)도 계약 옆에 만듭니다. 둘 다 `@oa-sdk/router`가 생성합니다
+([Backend Handler Contracts](./backend-handler-contracts.md)).
+
+| 항목 | 동작 |
+|---|---|
+| 대상 프레임워크 | `core.router.target`, 없으면 `specs[].target`, 그것도 없으면 `product.framework`. 결과가 `hono`, `express`, `fastify`, `elysia` 중 하나일 때만 라우터를 만든다 |
+| 출력 위치 | `outputRouting`이 있으면 kind `router`의 경로 규칙, 없으면 `core.router.outDir`, 그것도 없으면 spec target의 `outDir` |
+| 모드 | `core.contracts.pureHandlers`가 `false`가 아니면 계약 모드: 생성된 계약 모듈을 import한다. `pureHandlers: false`이면 계약은 만들지 않고, `core.router.target`을 직접 지정했을 때만 계약 없이 동작하는 스텁 모드 라우터를 만든다 |
+| 배너 | `core.router.banner`, 없으면 `core.contracts.banner` (기본 `true`) |
+
+`oa-gen init`은 `specs[].target`과 `product.framework`를 모두 쓰므로, `init`으로 만든 Hono·Express·Fastify·Elysia
+프로젝트는 기본으로 라우터 파일을 받습니다. `init`의 기본 경로 패턴(`src/api/{tag}/{tag}.{kind}.ts`)에서는
+`src/api/<id>/<id>.router.ts`입니다. 이 파일은 `oa-gen generate`가 실행될 때마다 다시 쓰므로 직접 고치지 않습니다.
+
+라우터 생성을 끄려면 `core.router.target`을 `generic` 또는 `nestjs`로 지정합니다. 이 값은 설정 검증을 통과하지만
+지원 목록 밖이라 라우터를 만들지 않으며, `specs[].target`과 `product.framework`보다 먼저 적용됩니다. 빌드 스크립트에서
+`@oa-sdk/router`의 `generateRouter()`로 라우터를 직접 만드는 프로젝트는 이렇게 끄거나, `oa-gen generate`가 쓰는
+`<id>.router.ts`와 다른 경로에 씁니다.
+
+스펙의 `components.schemas`에 `x-oa-sdk-crdt-entity`나 `x-oa-sdk-crdt`가 있으면 CRDT 모듈 4개
+(`<id>.crdt.contract.ts`, `.crdt.router.ts`, `.crdt.client.ts`, `.crdt.hooks.ts`)도 만듭니다. CRDT WebSocket 라우터는
+위와 같은 순서(`core.router.target` → `specs[].target` → `product.framework`)로 대상을 정하고, 결과가 `hono`,
+`express`, `fastify`, `elysia`가 아니거나 없으면 Hono용으로 만듭니다.
 
 ### 2.3 기록만 되는 설정
 
@@ -115,10 +133,9 @@ Fastify·Express·Hono·Elysia 라우터 코드가 필요하면 빌드 스크립
 | `core.client.wireFormatSafety` | 생성 클라이언트는 이 값과 무관하게 같은 코드를 만든다 |
 | `core.typegen.*` | `oa-gen typegen`은 설정 파일을 읽지 않는다 |
 | `core.gates.*` (`driftCheck`, `failOnBreaking`, `baseRef`, `preflightLint`) | gate는 CI에서 명령으로 직접 실행한다(9절) |
-| `product.framework`, `product.runtime` | `init`이 감지한 대상을 기록한다. 다른 명령은 읽지 않는다 |
+| `product.runtime` | `init`이 감지한 런타임을 기록한다. 다른 명령은 읽지 않는다 |
 | `product.jitSchema`, `product.zeroCopy` | 생성 코드에 영향 없음 |
 | `product.personas.*` | `@oa-sdk/personas`는 비공개 유지보수 패키지(maintenance-only, 저장소 전용)이며 coverage 강제를 하는 명령은 없다 |
-| `specs[].target` | `profile` 대신 지정할 수 있지만 라우터를 만들지 않는다 |
 
 아키타입별 기본값은 다음과 같습니다. 이 값을 바꿔도 위와 같은 이유로 동작이 달라지지 않습니다.
 
@@ -144,7 +161,7 @@ Fastify·Express·Hono·Elysia 라우터 코드가 필요하면 빌드 스크립
 | `schemaEntry` | 예 | 원본 파일. 6.1절 |
 | `outDir` | 예 | `<id>.openapi.json`, `<id>.schema.json`을 쓰는 디렉터리 |
 | `profile` | `target`이 없으면 예 | `component-bundle`, `operation-contract`, `full-api-document`. 6.2절 |
-| `target` | 아니오 | 프레임워크 이름. 지정하면 `profile`을 생략할 수 있다(`full-api-document`로 처리) |
+| `target` | 아니오 | 프레임워크 이름. 지정하면 `profile`을 생략할 수 있다(`full-api-document`로 처리). `core.router.target`이 없으면 라우터 대상이 된다(2.2절) |
 | `title`, `version` | 아니오 | TypeScript 모듈 원본일 때 생성 문서의 `info`에 쓰인다 |
 
 ---
@@ -152,7 +169,7 @@ Fastify·Express·Hono·Elysia 라우터 코드가 필요하면 빌드 스크립
 ## 3. 생성물 위치
 
 `outputRouting`이 없으면 생성물은 spec `outDir`에 `<id>.<kind>.ts` 이름으로 생깁니다(`core.contracts.outDir`,
-`core.client.outDir`를 지정하면 그 디렉터리). `outputRouting`이 있으면 OpenAPI·JSON Schema 생성물을 뺀 코드 생성물이
+`core.router.outDir`, `core.client.outDir`를 지정하면 그 디렉터리). `outputRouting`이 있으면 OpenAPI·JSON Schema 생성물을 뺀 코드 생성물이
 4절의 규칙을 따릅니다.
 
 | 생성물 | `outputRouting` 없을 때 | `kind` |
@@ -160,6 +177,7 @@ Fastify·Express·Hono·Elysia 라우터 코드가 필요하면 빌드 스크립
 | `<id>.openapi.json`, `<id>.schema.json` | spec `outDir` (항상) | - |
 | 타입 가드 | `guards.outDir` (항상) | - |
 | 핸들러 계약 | `core.contracts.outDir` 또는 spec `outDir` | `contract` |
+| 라우터 (대상 프레임워크가 있을 때, 2.2절) | `core.router.outDir` 또는 spec `outDir` | `router` |
 | 클라이언트 | `core.client.outDir` 또는 spec `outDir` | `client` |
 | TanStack Query | spec `outDir` (`<id>.queries.ts` 하나에 키·옵션·훅) | `keys`, `queries` |
 | CRDT 모듈 | spec `outDir` | `crdt-contract`, `crdt-router`, `crdt-client`, `crdt-hooks` |
@@ -201,7 +219,7 @@ export interface OutputRoutingConfig {
 | 토큰 | 값 |
 |---|---|
 | `{tag}` | spec target `id` (OpenAPI tag가 아님) |
-| `{kind}` | `contract`, `client`, `keys`, `queries`, `crdt-contract`, `crdt-router`, `crdt-client`, `crdt-hooks` |
+| `{kind}` | `contract`, `router`, `client`, `keys`, `queries`, `crdt-contract`, `crdt-router`, `crdt-client`, `crdt-hooks` |
 | `{group}` | `{tag}`와 같은 값 |
 | `{operationId}`, `{method}` | operation 정보가 없어 고정 값(`get_<id>`, `get`)이 됩니다. 쓰지 않습니다 |
 

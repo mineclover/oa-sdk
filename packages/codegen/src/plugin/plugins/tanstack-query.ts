@@ -9,11 +9,25 @@
  * Supports both unified single-file emission (queries.ts) and modular split emission
  * (keys.ts, queries.ts, hooks.ts), resolving relative imports between virtual files.
  *
+ * Tiers are cumulative: 'keys' emits the key factories, 'options' adds the option factories
+ * (which reference the keys), and 'hooks' adds the hooks (which reference the option factories),
+ * so every emitted module only imports modules that are emitted too.
+ *
+ * When pluginClient ran in the same pipeline (and `clientFile` is not set), the plugin also emits
+ * an operation-method adapter (`api-client.ts`, see ./tanstack-client-adapter.ts): the TanStack
+ * code calls `client.<operation>(...positional, { signal })`, which the adapter implements on top
+ * of pluginClient's standalone functions. Create the client with `createApiClient(createClient(...))`.
+ * A failed response rejects the query/mutation with the parsed error body when the operation declares
+ * a JSON error model for its status (the `<Operation>Error` type the TanStack code declares), and with
+ * an `ApiClientResponseError` (status, body, response) otherwise.
+ *
  * @oa-sdk/codegen
  */
 
-import type { TspGeneratedFile, TspPlugin, TspPluginContext } from '../types.js'
-import type { TanstackQueryOptions, TanstackQueryOutput } from '@oa-sdk/client'
+import type { TspPlugin, TspPluginContext } from '../types.js'
+import type { TanstackQueryOutput } from '@oa-sdk/client'
+import { readClientSdkManifest, type ClientSdkManifest } from './client.js'
+import { renderTanstackClientAdapter } from './tanstack-client-adapter.js'
 
 export type ClientModule = typeof import('@oa-sdk/client')
 
@@ -22,9 +36,23 @@ export interface PluginTanstackQueryOptions {
   output?: string | undefined
   /** Module specifier to import types from. If omitted, resolved via context.resolveImport or default './types.js' */
   typesFile?: string | undefined
-  /** Module specifier to import client from. If omitted, resolved via context.resolveImport or default './client.js' */
+  /**
+   * Module specifier of a hand-written client module exporting `clientName` (an object with one method per
+   * operation). Setting it disables the pluginClient adapter. If omitted, the adapter (when pluginClient ran),
+   * the generated client file, or './client.js' is used.
+   */
   clientFile?: string | undefined
-  /** Which tiers to generate: 'all' | 'keys' | 'options' | 'hooks'. Default: 'all' */
+  /**
+   * Emit the operation-method adapter over pluginClient's SDK. Default: true when pluginClient ran in the
+   * pipeline and `clientFile` is not set.
+   */
+  clientAdapter?: boolean | undefined
+  /** Output path of the pluginClient adapter module. Default: 'api-client.ts' */
+  adapterOutput?: string | undefined
+  /**
+   * Which tiers to generate: 'all' | 'keys' | 'options' | 'hooks'. Default: 'all'.
+   * Tiers are cumulative: 'options' includes the keys and 'hooks' includes the keys and options.
+   */
   tier?: 'all' | 'keys' | 'options' | 'hooks' | undefined
   /** Whether to split artifacts into three files (keys.ts, queries.ts, hooks.ts). Default: false */
   split?: boolean | undefined
@@ -36,7 +64,10 @@ export interface PluginTanstackQueryOptions {
   hooksOutput?: string | undefined
   /** Target query framework package. Defaults to '@tanstack/react-query' */
   queryPackage?: string | undefined
-  /** Client type name to use for client parameter. Defaults to 'ApiClient' */
+  /**
+   * Type name of the client parameter. Defaults to 'ApiClient'. With the pluginClient adapter this is the
+   * name of the generated interface (and of its factory, `create<clientName>`).
+   */
   clientName?: string | undefined
   /** Whether to include Tier 3 React hooks. Defaults to true */
   includeHooks?: boolean | undefined
@@ -93,6 +124,91 @@ function findClientFilePath(context: TspPluginContext): string | undefined {
 }
 
 /**
+ * Decides whether the pluginClient adapter is emitted and where. Reports a diagnostic when the
+ * adapter is requested but cannot be built.
+ */
+function resolveAdapterPath(context: TspPluginContext, opts: PluginTanstackQueryOptions): string | undefined {
+  if (opts.clientFile !== undefined || opts.clientAdapter === false) return undefined
+  const sdk = readClientSdkManifest(context)
+  if (!sdk) {
+    if (opts.clientAdapter === true) {
+      context.reportDiagnostic({
+        plugin: 'tanstack-query',
+        code: 'TANSTACK_CLIENT_ADAPTER_NO_SDK',
+        severity: 'error',
+        message: '[tanstack-query] clientAdapter: true requires pluginClient in the same pipeline.',
+      })
+    }
+    return undefined
+  }
+  if (!sdk.standalone) {
+    context.reportDiagnostic({
+      plugin: 'tanstack-query',
+      code: 'TANSTACK_CLIENT_ADAPTER_NO_STANDALONE',
+      severity: 'error',
+      message: '[tanstack-query] The TanStack options call one function per operation, but pluginClient({ standalone: false }) '
+        + 'emits none. Enable pluginClient standalone functions or pass clientFile with an operation-method client.',
+    })
+    return undefined
+  }
+  return opts.adapterOutput ?? 'api-client.ts'
+}
+
+function emitClientAdapter(
+  context: TspPluginContext,
+  adapterPath: string,
+  interfaceName: string,
+  banner: boolean,
+  typesImport: string,
+): void {
+  const sdk: ClientSdkManifest | undefined = readClientSdkManifest(context)
+  if (!sdk) return
+  const adapter = renderTanstackClientAdapter({
+    parsed: context.parsed,
+    sdk,
+    clientImport: context.resolveImport(adapterPath, sdk.output),
+    typesImport,
+    interfaceName,
+    banner,
+  })
+
+  for (const operationId of adapter.missing) {
+    context.reportDiagnostic({
+      plugin: 'tanstack-query',
+      code: 'TANSTACK_CLIENT_ADAPTER_MISSING_OPERATION',
+      severity: 'error',
+      message: `[tanstack-query] pluginClient emitted no function for operation "${operationId}"; its ${interfaceName} method always rejects.`,
+      file: adapterPath,
+    })
+  }
+  for (const issue of adapter.unsupported) {
+    context.reportDiagnostic({
+      plugin: 'tanstack-query',
+      code: 'TANSTACK_CLIENT_ADAPTER_UNSUPPORTED',
+      severity: 'warning',
+      message: issue.always
+        ? `[tanstack-query] ${issue.reason}, which the operation requires; its ${interfaceName} method always rejects.`
+        : `[tanstack-query] ${issue.reason}; its ${interfaceName} method rejects when that argument is passed.`,
+      file: adapterPath,
+    })
+  }
+
+  context.addFile({
+    path: adapterPath,
+    content: adapter.code,
+    sourcePlugin: 'tanstack-query',
+    kind: 'client-adapter',
+    exports: adapter.exports,
+  })
+  context.setPluginData('tanstack-query:clientAdapter', {
+    output: adapterPath,
+    interfaceName,
+    factoryName: adapter.factoryName,
+    errorClassName: adapter.errorClassName,
+  })
+}
+
+/**
  * TanStack Query v5 Plugin for TypeSpec SSOT Code Generation.
  *
  * Declares dependencies: ['typescript', 'client'].
@@ -121,7 +237,16 @@ export function pluginTanstackQuery(
       const queryPackage = mergedOpts.queryPackage ?? '@tanstack/react-query'
       const clientName = mergedOpts.clientName ?? 'ApiClient'
       const knownTypesPath = findTypesFilePath(context)
-      const knownClientPath = findClientFilePath(context)
+      const includeHooks = mergedOpts.includeHooks ?? (tier === 'all' || tier === 'hooks')
+      // Option factories (and the hooks built on them) are the only code that calls the client.
+      const needsClient = tier !== 'keys'
+
+      const adapterPath = needsClient ? resolveAdapterPath(context, mergedOpts) : undefined
+      const knownClientPath = adapterPath ?? findClientFilePath(context)
+      const resolveTypesFor = (fromPath: string): string => mergedOpts.typesFile
+        ?? (knownTypesPath ? context.resolveImport(fromPath, knownTypesPath) : './types.js')
+      const resolveClientFor = (fromPath: string): string => mergedOpts.clientFile
+        ?? (knownClientPath ? context.resolveImport(fromPath, knownClientPath) : './client.js')
 
       if (isSplit) {
         const keysPath = mergedOpts.keysOutput ?? 'keys.ts'
@@ -129,17 +254,12 @@ export function pluginTanstackQuery(
         const hooksPath = mergedOpts.hooksOutput ?? 'hooks.ts'
 
         // Resolve relative imports between generated virtual files
-        const typesForKeys = mergedOpts.typesFile
-          ?? (knownTypesPath ? context.resolveImport(keysPath, knownTypesPath) : './types.js')
-        const typesForQueries = mergedOpts.typesFile
-          ?? (knownTypesPath ? context.resolveImport(queriesPath, knownTypesPath) : './types.js')
-        const typesForHooks = mergedOpts.typesFile
-          ?? (knownTypesPath ? context.resolveImport(hooksPath, knownTypesPath) : './types.js')
+        const typesForKeys = resolveTypesFor(keysPath)
+        const typesForQueries = resolveTypesFor(queriesPath)
+        const typesForHooks = resolveTypesFor(hooksPath)
 
-        const clientForQueries = mergedOpts.clientFile
-          ?? (knownClientPath ? context.resolveImport(queriesPath, knownClientPath) : './client.js')
-        const clientForHooks = mergedOpts.clientFile
-          ?? (knownClientPath ? context.resolveImport(hooksPath, knownClientPath) : './client.js')
+        const clientForQueries = resolveClientFor(queriesPath)
+        const clientForHooks = resolveClientFor(hooksPath)
 
         const keysImportForQueries = context.resolveImport(queriesPath, keysPath)
         const keysImportForHooks = context.resolveImport(hooksPath, keysPath)
@@ -153,27 +273,25 @@ export function pluginTanstackQuery(
           queryPackage,
           clientName,
           tier,
-          includeHooks: mergedOpts.includeHooks ?? (tier === 'all' || tier === 'hooks'),
+          includeHooks,
           banner,
           ...(mergedOpts.basePath !== undefined ? { basePath: mergedOpts.basePath } : {}),
         })
 
-        if (tier === 'all' || tier === 'keys') {
-          // If typesImport differs for keysPath, re-generate keys with typesForKeys
-          const keysCode = typesForKeys !== typesForQueries
-            ? client.generateKeyFactory(parsedDoc, { typesImport: typesForKeys, banner })
-            : output.keysCode
+        // Every tier depends on the key factories, so keys.ts is always emitted.
+        const keysCode = typesForKeys !== typesForQueries
+          ? client.generateKeyFactory(parsedDoc, { typesImport: typesForKeys, banner })
+          : output.keysCode
 
-          context.addFile({
-            path: keysPath,
-            content: keysCode,
-            sourcePlugin: 'tanstack-query',
-            kind: 'keys',
-            exports: extractExportNames(keysCode),
-          })
-        }
+        context.addFile({
+          path: keysPath,
+          content: keysCode,
+          sourcePlugin: 'tanstack-query',
+          kind: 'keys',
+          exports: extractExportNames(keysCode),
+        })
 
-        if (tier === 'all' || tier === 'options') {
+        if (needsClient) {
           context.addFile({
             path: queriesPath,
             content: output.queriesCode,
@@ -183,57 +301,50 @@ export function pluginTanstackQuery(
           })
         }
 
-        if (tier === 'all' || tier === 'hooks') {
-          if (mergedOpts.includeHooks !== false && output.hooksCode) {
-            // Re-generate hooks if hooks-specific imports differ
-            let hooksCode = output.hooksCode
-            if (
-              typesForHooks !== typesForQueries ||
-              clientForHooks !== clientForQueries ||
-              keysImportForHooks !== keysImportForQueries
-            ) {
-              hooksCode = client.generateHookFactory(parsedDoc, {
-                queryPackage,
-                typesImport: typesForHooks,
-                clientImport: clientForHooks,
-                clientName,
-                keysImport: keysImportForHooks,
-                queriesImport: queriesImportForHooks,
-                banner,
-              })
-            }
-
-            context.addFile({
-              path: hooksPath,
-              content: hooksCode,
-              sourcePlugin: 'tanstack-query',
-              kind: 'hooks',
-              exports: extractExportNames(hooksCode),
+        if ((tier === 'all' || tier === 'hooks') && mergedOpts.includeHooks !== false && output.hooksCode) {
+          // Re-generate hooks if hooks-specific imports differ
+          let hooksCode = output.hooksCode
+          if (
+            typesForHooks !== typesForQueries ||
+            clientForHooks !== clientForQueries ||
+            keysImportForHooks !== keysImportForQueries
+          ) {
+            hooksCode = client.generateHookFactory(parsedDoc, {
+              queryPackage,
+              typesImport: typesForHooks,
+              clientImport: clientForHooks,
+              clientName,
+              keysImport: keysImportForHooks,
+              queriesImport: queriesImportForHooks,
+              banner,
             })
           }
+
+          context.addFile({
+            path: hooksPath,
+            content: hooksCode,
+            sourcePlugin: 'tanstack-query',
+            kind: 'hooks',
+            exports: extractExportNames(hooksCode),
+          })
         }
       } else {
         const outputPath = mergedOpts.output ?? 'queries.ts'
-        const typesFile = mergedOpts.typesFile
-          ?? (knownTypesPath ? context.resolveImport(outputPath, knownTypesPath) : './types.js')
-        const clientFile = mergedOpts.clientFile
-          ?? (knownClientPath ? context.resolveImport(outputPath, knownClientPath) : './client.js')
 
         const output: TanstackQueryOutput = generateTanstackQuery(parsedDoc, {
-          typesImport: typesFile,
-          clientImport: clientFile,
+          typesImport: resolveTypesFor(outputPath),
+          clientImport: resolveClientFor(outputPath),
           queryPackage,
           clientName,
           tier,
-          includeHooks: mergedOpts.includeHooks ?? (tier === 'all' || tier === 'hooks'),
+          includeHooks,
           banner,
           ...(mergedOpts.basePath !== undefined ? { basePath: mergedOpts.basePath } : {}),
         })
 
-        let content = output.combinedCode
-        if (tier === 'keys') content = output.keysCode
-        else if (tier === 'options') content = output.queriesCode
-        else if (tier === 'hooks') content = output.hooksCode
+        // combinedCode is self-contained for every tier (it inlines the keys and, for 'hooks', the options).
+        // keysCode, queriesCode and hooksCode are the split-mode modules that import each other.
+        const content = tier === 'keys' ? output.keysCode : output.combinedCode
 
         context.addFile({
           path: outputPath,
@@ -242,6 +353,10 @@ export function pluginTanstackQuery(
           kind: 'queries',
           exports: extractExportNames(content),
         })
+      }
+
+      if (adapterPath) {
+        emitClientAdapter(context, adapterPath, clientName, banner, resolveTypesFor(adapterPath))
       }
     },
   }

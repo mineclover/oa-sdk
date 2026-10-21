@@ -1,12 +1,14 @@
 import { parseInvitationUrl } from "../config/invitation.js";
+import { isJsonObject, JsonObjectSchema, parseJsonObject, readResponseText } from "../config/json.js";
 import { hashTools, normalizeTools } from "./catalog-hash.js";
 import { PeerMcpError } from "./errors.js";
+import { PeerClientTicketSchema, PeerSessionStatusSchema } from "./schemas.js";
 import { PeerMcpSession } from "./session.js";
 import {
+  asCatalogVersion,
   asNonEmptyString,
-  createHttpTransport,
   normalizeServerUrl,
-  parseRoomId,
+  roomIdOption,
   websocketUrl,
 } from "./transport.js";
 import {
@@ -17,6 +19,7 @@ import {
   type DiscoverPeerCatalogOptions,
   type JoinedPeerRoom,
   type JoinPeerRoomOptions,
+  type PeerClientTicket,
   type PeerSessionStatusOptions,
   type RotatePeerRoomOptions,
   type WaitForPeerApprovalOptions,
@@ -31,7 +34,7 @@ export async function discoverPeerCatalog(
   }
   const parsedInvite = options.invitationUrl ? parseInvitationUrl(options.invitationUrl) : null;
   const serverUrl = normalizeServerUrl(options.serverUrl ?? parsedInvite?.serverUrl);
-  const roomId = parseRoomId(options.roomId ?? parsedInvite?.roomId);
+  const roomId = roomIdOption(options.roomId ?? parsedInvite?.roomId);
   const endpoint =
     asNonEmptyString(options.mcpEndpoint) ||
     parsedInvite?.mcpEndpoint ||
@@ -45,9 +48,9 @@ export async function discoverPeerCatalog(
         "user-agent": `framebook-peer-mcp-client/${PACKAGE_VERSION}`,
       },
     });
-    const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+    const body = parseJsonObject(await readResponseText(response));
     if (!response.ok) {
-      const errStr = typeof body?.error === "string" ? body.error : undefined;
+      const errStr = typeof body.error === "string" ? body.error : undefined;
       throw new PeerMcpError(
         errStr || `HTTP ${response.status}: catalog discovery failed`,
         errStr || `HTTP_${response.status}`,
@@ -55,33 +58,42 @@ export async function discoverPeerCatalog(
       );
     }
     const tools = normalizeTools({ result: { tools: body.tools } });
+    // `body.protocol` names the relay protocol (`webmcp-peer.v1`), not an MCP revision.
+    const protocol = asNonEmptyString(body.protocol);
     return {
-      protocolVersion: (typeof body.protocol === "string" ? body.protocol : undefined) || PROTOCOL_VERSION,
+      ...(protocol ? { protocol } : {}),
+      protocolVersion: PROTOCOL_VERSION,
       tools,
-      catalogVersion: (body.catalogVersion as number | string | undefined) ?? 1,
-      catalogHash: (typeof body.catalogHash === "string" ? body.catalogHash : undefined) || hashTools(tools),
+      catalogVersion: asCatalogVersion(body.catalogVersion) ?? 1,
+      catalogHash: asNonEmptyString(body.catalogHash) || hashTools(tools),
       _meta: body,
     };
   }
 
+  // The session builds its own Streamable HTTP transport so the transport's `ready` frame and
+  // every response reach the session's callbacks; the client ticket rides as a bearer token.
   const session = new PeerMcpSession({
     mcpEndpoint: endpoint,
+    clientToken: options.clientToken,
+    fetchImpl,
     protocolVersion: options.protocolVersion ?? PROTOCOL_VERSION,
     requestTimeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-    transport: createHttpTransport(endpoint, fetchImpl, {}, options.clientToken),
   });
-  const initResult = await session.initialize();
-  const tools = await session.listTools();
-  const snapshot = session.getCatalogSnapshot();
-  await session.disconnect();
-  return {
-    serverInfo: initResult?.serverInfo as Record<string, unknown> | undefined,
-    protocolVersion: (initResult?.protocolVersion as string | undefined) ?? PROTOCOL_VERSION,
-    tools,
-    catalogVersion: snapshot.catalogVersion,
-    catalogHash: snapshot.catalogHash,
-    _meta: initResult?._meta as Record<string, unknown> | undefined,
-  };
+  try {
+    const initResult = await session.initialize();
+    const tools = await session.listTools();
+    const snapshot = session.getCatalogSnapshot();
+    return {
+      serverInfo: isJsonObject(initResult.serverInfo) ? initResult.serverInfo : undefined,
+      protocolVersion: typeof initResult.protocolVersion === "string" ? initResult.protocolVersion : PROTOCOL_VERSION,
+      tools,
+      catalogVersion: snapshot.catalogVersion,
+      catalogHash: snapshot.catalogHash,
+      _meta: isJsonObject(initResult._meta) ? initResult._meta : undefined,
+    };
+  } finally {
+    await session.disconnect();
+  }
 }
 
 export async function joinPeerRoom(options: JoinPeerRoomOptions = {}): Promise<JoinedPeerRoom> {
@@ -91,7 +103,7 @@ export async function joinPeerRoom(options: JoinPeerRoomOptions = {}): Promise<J
   }
   const parsedInvite = options.invitationUrl ? parseInvitationUrl(options.invitationUrl) : null;
   const serverUrl = normalizeServerUrl(options.serverUrl ?? parsedInvite?.serverUrl);
-  const roomId = parseRoomId(options.roomId ?? parsedInvite?.roomId);
+  const roomId = roomIdOption(options.roomId ?? parsedInvite?.roomId);
   const inviteToken = asNonEmptyString(options.inviteToken) ?? parsedInvite?.inviteToken;
   if (!roomId) throw new PeerMcpError("A roomId or invitationUrl is required to join a peer room", "ROOM_ID_REQUIRED");
   if (!inviteToken) {
@@ -115,21 +127,50 @@ export async function joinPeerRoom(options: JoinPeerRoomOptions = {}): Promise<J
       capabilities,
     }),
   });
-  const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+  const text = await readResponseText(response);
   if (!response.ok) {
-    const errStr = typeof body?.error === "string" ? body.error : undefined;
+    const body = parseJsonObject(text);
+    const errStr = typeof body.error === "string" ? body.error : undefined;
     throw new PeerMcpError(
       errStr || `HTTP ${response.status}: peer room join failed`,
       errStr || `HTTP_${response.status}`,
       body,
     );
   }
+  let ticket: PeerClientTicket;
+  try {
+    ticket = PeerClientTicketSchema.parse(JSON.parse(text));
+  } catch (error) {
+    throw new PeerMcpError(
+      `Peer room join returned an invalid client ticket: ${error instanceof Error ? error.message : String(error)}`,
+      "INVALID_JOIN_RESPONSE",
+      parseJsonObject(text),
+    );
+  }
   return {
-    ...(body as unknown as JoinedPeerRoom),
+    ...ticket,
     serverUrl,
     wsUrl: websocketUrl(serverUrl, roomId),
     mcpEndpoint: `${serverUrl}/p/${encodeURIComponent(roomId)}/mcp`,
   };
+}
+
+/**
+ * Reads a successful relay response as a JSON object, and turns a failed one into a PeerMcpError
+ * carrying the relay's `error` code when it sent one.
+ */
+async function readRelayObject(response: Response, failure: string, invalidCode: string): Promise<Record<string, unknown>> {
+  const text = await readResponseText(response);
+  if (!response.ok) {
+    const body = parseJsonObject(text);
+    const errStr = typeof body.error === "string" ? body.error : undefined;
+    throw new PeerMcpError(errStr || `HTTP ${response.status}: ${failure}`, errStr || `HTTP_${response.status}`, body);
+  }
+  try {
+    return JsonObjectSchema.parse(JSON.parse(text));
+  } catch {
+    throw new PeerMcpError(`Peer relay returned an invalid response: ${failure}`, invalidCode);
+  }
 }
 
 export async function getPeerSessionStatus(
@@ -140,7 +181,7 @@ export async function getPeerSessionStatus(
     throw new PeerMcpError("fetch is unavailable; provide fetchImpl", "TRANSPORT_UNAVAILABLE");
   }
   const serverUrl = normalizeServerUrl(options.serverUrl);
-  const roomId = parseRoomId(options.roomId);
+  const roomId = roomIdOption(options.roomId);
   const sessionId = asNonEmptyString(options.sessionId);
   const clientToken = asNonEmptyString(options.clientToken);
   if (!roomId) throw new PeerMcpError("roomId is required", "ROOM_ID_REQUIRED");
@@ -158,16 +199,16 @@ export async function getPeerSessionStatus(
       },
     },
   );
-  const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-  if (!response.ok) {
-    const errStr = typeof body?.error === "string" ? body.error : undefined;
+  const body = await readRelayObject(response, "failed to read peer session status", "INVALID_SESSION_STATUS");
+  try {
+    return PeerSessionStatusSchema.parse(body);
+  } catch (error) {
     throw new PeerMcpError(
-      errStr || `HTTP ${response.status}: failed to read peer session status`,
-      errStr || `HTTP_${response.status}`,
+      `Peer session status is invalid: ${error instanceof Error ? error.message : String(error)}`,
+      "INVALID_SESSION_STATUS",
       body,
     );
   }
-  return body;
 }
 
 export async function waitForPeerApproval(
@@ -191,9 +232,12 @@ export async function waitForPeerApproval(
     if (status.state === "revoked") {
       throw new PeerMcpError("Peer session was revoked", "SESSION_REVOKED", status);
     }
+    // An expired approval request and an expired room both leave the ticket `expired`.
     if (status.state === "expired") {
       throw new PeerMcpError("Peer session expired", "APPROVAL_EXPIRED", status);
     }
+    // Defensive: the relay answers the status of a rotated room's session 410 ROOM_ROTATED, which
+    // getPeerSessionStatus already throws as that code, so it never reports this state.
     if (status.state === "room-rotated") {
       throw new PeerMcpError("Peer room was rotated", "ROOM_ROTATED", status);
     }
@@ -212,7 +256,7 @@ export async function rotatePeerRoom(
     throw new PeerMcpError("fetch is unavailable; provide fetchImpl", "TRANSPORT_UNAVAILABLE");
   }
   const serverUrl = normalizeServerUrl(options.serverUrl);
-  const roomId = parseRoomId(options.roomId);
+  const roomId = roomIdOption(options.roomId);
   const providerToken = asNonEmptyString(options.providerToken);
   if (!roomId) throw new PeerMcpError("roomId is required to rotate a peer room", "ROOM_ID_REQUIRED");
   if (!providerToken) {
@@ -234,14 +278,5 @@ export async function rotatePeerRoom(
       requestedAt: new Date().toISOString(),
     }),
   });
-  const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-  if (!response.ok) {
-    const errStr = typeof body?.error === "string" ? body.error : undefined;
-    throw new PeerMcpError(
-      errStr || `HTTP ${response.status}: peer room rotate failed`,
-      errStr || `HTTP_${response.status}`,
-      body,
-    );
-  }
-  return body;
+  return readRelayObject(response, "peer room rotate failed", "INVALID_ROTATE_RESPONSE");
 }

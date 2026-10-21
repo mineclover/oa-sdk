@@ -9,11 +9,14 @@ import { RPC_CODES, WS_SUBPROTOCOL, computeCatalogHash, parseInvitation, redactS
 
 const EMPTY_CATALOG = Object.freeze({ tools: [], catalogVersion: 0, catalogHash: "", localHash: "", verified: false });
 
+// An expired approval request and an expired room are different endings (APPROVAL_EXPIRED vs
+// ROOM_EXPIRED), so each has a status of its own.
 const TERMINAL_FRAME_STATE = {
   "approval.rejected": "rejected",
   "approval.expired": "expired",
   "session.revoked": "revoked",
   "room.rotated": "rotated",
+  "room.expired": "room-expired",
 };
 
 /**
@@ -26,7 +29,7 @@ const TERMINAL_FRAME_STATE = {
 export function createAgentClient({ label = "Claude / Cursor Live Agent", autoRefresh = () => true, onEvent = () => {} } = {}) {
   const state = {
     session: null, // { origin, roomId, roomEpoch, sessionId, clientToken }
-    status: "idle", // idle | joining | pending | approved | rejected | revoked | expired | rotated
+    status: "idle", // idle | joining | pending | approved | rejected | revoked | expired | room-expired | rotated
     catalog: { ...EMPTY_CATALOG },
     serverCatalog: { catalogVersion: 0, catalogHash: "" },
   };
@@ -101,8 +104,11 @@ export function createAgentClient({ label = "Claude / Cursor Live Agent", autoRe
         });
         const status = await response.json();
         if (state.session !== session) return false;
+        // A ticket expires with its room (its expiresAt is the room's), so an expired ticket past its
+        // expiresAt is an expired room, and one before it an approval request that expired.
         if (status.state === "approved") setStatus("approved");
-        else if (["rejected", "revoked", "expired"].includes(status.state)) setStatus(status.state);
+        else if (status.state === "expired") setStatus(Date.parse(status.expiresAt) <= Date.now() ? "room-expired" : "expired");
+        else if (["rejected", "revoked"].includes(status.state)) setStatus(status.state);
         else if (status.error === "ROOM_ROTATED") setStatus("rotated");
       }
       await sleep(50);
@@ -136,7 +142,7 @@ export function createAgentClient({ label = "Claude / Cursor Live Agent", autoRe
     openSocket();
     const session = state.session;
     const approved = await waitForApproval(session, approvalTimeoutMs);
-    if (!approved) return { ok: false, error: state.status.toUpperCase() };
+    if (!approved) return { ok: false, error: state.status.toUpperCase().replaceAll("-", "_") };
     await listTools("승인 직후 초기 동기화");
     return { ok: true, session };
   }

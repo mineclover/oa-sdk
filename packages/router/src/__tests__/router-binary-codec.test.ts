@@ -97,8 +97,9 @@ describe('Router Binary Codec and Compression Support', () => {
 
     it('generates binary arrayBuffer parse lines for Hono target', () => {
       const binaryLine = buildBodyParseLine('hono', ['application/x-protobuf'], 'Order', true, true)
-      expect(binaryLine).toContain('await c.req.arrayBuffer()')
-      expect(binaryLine).toContain('options.codecs.resolve("application/x-protobuf")')
+      expect(binaryLine).toBe('  const body = await c.req.arrayBuffer() // OrderBody (raw application/x-protobuf bytes)')
+      // The stub's module-level app has no `options` binding to read codecs from.
+      expect(binaryLine).not.toContain('options')
 
       const jsonLine = buildBodyParseLine('hono', ['application/json'], 'Order', true, true)
       expect(jsonLine).toBe('  const body = await c.req.json<OrderBody>()')
@@ -106,8 +107,8 @@ describe('Router Binary Codec and Compression Support', () => {
 
     it('generates raw buffer or parsed body line for Express target', () => {
       const binaryLine = buildBodyParseLine('express', ['application/x-protobuf'], 'Order', true, true)
-      expect(binaryLine).toContain('req.body')
-      expect(binaryLine).toContain('options.codecs.resolve("application/x-protobuf")')
+      expect(binaryLine).toBe('  const body = req.body as Uint8Array // OrderBody (raw application/x-protobuf bytes; use express.raw() middleware)')
+      expect(binaryLine).not.toContain('options')
 
       const jsonLine = buildBodyParseLine('express', ['application/json'], 'Order', true, true)
       expect(jsonLine).toBe('  const body = req.body as OrderBody')

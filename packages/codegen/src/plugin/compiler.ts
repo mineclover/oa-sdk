@@ -1,6 +1,6 @@
 import { existsSync, statSync } from 'node:fs'
-import { join, resolve } from 'node:path'
-import { compile, NodeHost, formatDiagnostic, type Program } from '@typespec/compiler'
+import { isAbsolute, join, resolve } from 'node:path'
+import { compile, NodeHost, formatDiagnostic, type Diagnostic, type Program } from '@typespec/compiler'
 import { getOpenAPI3 } from '@typespec/openapi3'
 import type { OasDocument } from '@oa-sdk/parser'
 import type { TspConfigInput } from './types.js'
@@ -26,7 +26,53 @@ export interface TypeSpecCompilerResult {
 }
 
 /**
+ * Error thrown by {@link compileTypeSpecInMemory} when the TypeSpec program has errors.
+ * `diagnostics` holds the compiler's diagnostics.
+ */
+export type TypeSpecCompilationError = Error & { readonly diagnostics: readonly Diagnostic[] }
+
+/**
+ * Makes a TspConfigInput absolute against `cwd`: a relative string path, a relative `tspDir`,
+ * and an `entrypoint` relative to `tspDir` (or to `cwd` without one) are resolved.
+ * Shared by the pipeline runner and the project builder so every entry point resolves the same file.
+ */
+export function absolutizeTspInput(input: TspConfigInput, cwd: string): TspConfigInput {
+  if (typeof input === 'string') {
+    return isAbsolute(input) ? input : resolve(cwd, input)
+  }
+  const tspDir = input.tspDir
+    ? (isAbsolute(input.tspDir) ? input.tspDir : resolve(cwd, input.tspDir))
+    : undefined
+  return {
+    ...input,
+    entrypoint: isAbsolute(input.entrypoint) ? input.entrypoint : resolve(tspDir ?? cwd, input.entrypoint),
+    tspDir,
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/**
+ * Checks the top-level shape of an emitted OpenAPI document (the fields the pipeline relies on:
+ * `openapi`, `info.title`, `info.version`, and object-valued `paths` / `components` when present).
+ */
+function isOasDocument(value: unknown): value is OasDocument {
+  if (!isRecord(value)) return false
+  const { openapi, info, paths, components } = value
+  return typeof openapi === 'string'
+    && isRecord(info)
+    && typeof info.title === 'string'
+    && typeof info.version === 'string'
+    && (paths === undefined || isRecord(paths))
+    && (components === undefined || isRecord(components))
+}
+
+/**
  * Resolves the absolute entrypoint path from a TspConfigInput.
+ * Relative paths are resolved against `process.cwd()`; use {@link absolutizeTspInput} first to
+ * resolve them against another base directory.
  */
 export function resolveTypeSpecEntrypoint(input: TspConfigInput): string {
   if (typeof input === 'string') {
@@ -76,8 +122,10 @@ export async function compileTypeSpecInMemory(
 
   if (program.hasError()) {
     const errorDetails = program.diagnostics.map(d => formatDiagnostic(d)).join('\n')
-    const error = new Error(`TypeSpec compilation failed:\n${errorDetails}`)
-    ;(error as any).diagnostics = program.diagnostics
+    const error: TypeSpecCompilationError = Object.assign(
+      new Error(`TypeSpec compilation failed:\n${errorDetails}`),
+      { diagnostics: program.diagnostics },
+    )
     throw error
   }
 
@@ -94,15 +142,18 @@ export async function compileTypeSpecInMemory(
     throw new Error(`TypeSpec compilation produced no OpenAPI 3 records for ${entrypoint}`)
   }
 
-  const rawDoc = record.versioned
+  const rawDoc: unknown = record.versioned
     ? record.versions[record.versions.length - 1]?.document
     : record.document
 
   if (!rawDoc) {
     throw new Error(`TypeSpec OpenAPI document is empty for ${entrypoint}`)
   }
+  if (!isOasDocument(rawDoc)) {
+    throw new Error(`TypeSpec emitted a malformed OpenAPI document for ${entrypoint} (missing openapi/info fields)`)
+  }
 
-  const document = rawDoc as unknown as OasDocument
+  const document = rawDoc
 
   let routesCount = 0
   for (const pathItem of Object.values(document.paths ?? {})) {

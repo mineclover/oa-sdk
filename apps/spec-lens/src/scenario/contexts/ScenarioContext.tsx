@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -11,9 +12,7 @@ import {
   DEFAULT_SCENARIOS,
   ScenarioFlowEnumerator,
   ScenarioRegistry,
-  createInitialScenarioState,
   scenarioTransitionReducer,
-  type DashboardView,
   type FlowEnumerationResult,
   type LensBehaviorAction,
   type ScenarioMachineContext,
@@ -22,7 +21,21 @@ import {
   type ScenarioTopicId,
   type ScenarioTransitionResult,
 } from '@oa-sdk/spec-lens-contract'
-import { useUrlState } from '../../hooks/useUrlState.js'
+import { useUrlState, type UrlHistoryMode } from '../../hooks/useUrlState.js'
+import {
+  availableGoalsFor,
+  initialMachineStateFromUrl,
+  machineUrlPatch,
+  reconcileMachineWithUrl,
+  resolveScenarioIntents,
+  type ScenarioIntent,
+  type ScenarioSelection,
+} from '../navigation.js'
+
+export interface ScenarioDispatchOptions {
+  /** How the URL change is recorded in history (default `push`). */
+  history?: UrlHistoryMode
+}
 
 export interface ScenarioContextValue {
   readonly registry: ScenarioRegistry
@@ -32,13 +45,21 @@ export interface ScenarioContextValue {
   readonly canStepBack: boolean
   readonly permittedActions: readonly LensBehaviorAction['type'][]
   readonly availableGoals: readonly ScenarioTerminalGoal[]
+  /** Steps the current view can take inside the active scenario, with resolved payloads. */
+  readonly intents: readonly ScenarioIntent[]
+  /** What the current view has selected (cleared whenever the view changes). */
+  readonly selection: ScenarioSelection
+  /** The reason the last rejected transition gave, until the next successful one. */
+  readonly lastError: string | null
   readonly isFlowModalOpen: boolean
-  dispatch(action: LensBehaviorAction): ScenarioTransitionResult
+  dispatch(action: LensBehaviorAction, options?: ScenarioDispatchOptions): ScenarioTransitionResult
   startScenario(id: ScenarioTopicId, initialContext?: Partial<ScenarioMachineContext>): void
   switchScenario(id: ScenarioTopicId, handoffContext?: Partial<ScenarioMachineContext>): void
   stepBack(): void
   completeGoal(goalId: string): void
   resetScenario(): void
+  /** Views report their selection here so scenario steps can use it as payload. */
+  publishSelection(selection: ScenarioSelection | null): void
   openFlowModal(): void
   closeFlowModal(): void
 }
@@ -50,29 +71,54 @@ export interface ScenarioProviderProps {
   customScenarios?: readonly ScenarioTopicDefinition[]
 }
 
+const EMPTY_SELECTION: ScenarioSelection = {}
+
 export function ScenarioProvider({
   children,
   customScenarios = DEFAULT_SCENARIOS,
 }: ScenarioProviderProps) {
-  const { state: urlState, setView, setDiff, setScenario } = useUrlState()
+  // The URL store is shared with every other useUrlState() caller (AppShell included).
+  const { state: urlState, update: updateUrl } = useUrlState()
   const registry = useMemo(() => new ScenarioRegistry(customScenarios), [customScenarios])
 
-  const [machineState, setMachineState] = useState<ScenarioMachineContext>(() => {
-    const initialScenarioId = urlState.scenario as ScenarioTopicId | undefined
-    const scenario = initialScenarioId ? registry.get(initialScenarioId) : undefined
-    return createInitialScenarioState(
-      scenario,
-      urlState.view,
-      {
-        baseId: urlState.baseId ?? urlState.base,
-        headId: urlState.headId ?? urlState.head,
-        revisionId: urlState.revisionId ?? urlState.revision,
-        pathPattern: urlState.search,
-      },
-    )
-  })
-
+  const [machineState, setMachineState] = useState<ScenarioMachineContext>(() =>
+    initialMachineStateFromUrl(urlState, registry),
+  )
+  // Latest machine state for handlers, so back-to-back dispatches never read a stale render.
+  const machineRef = useRef(machineState)
+  const [selection, setSelection] = useState<ScenarioSelection>(EMPTY_SELECTION)
+  const [lastError, setLastError] = useState<string | null>(null)
   const [isFlowModalOpen, setIsFlowModalOpen] = useState(false)
+
+  /** Moves the machine and, when asked, writes the URL it implies in one history step. */
+  const commit = useCallback(
+    (next: ScenarioMachineContext, history: UrlHistoryMode | null) => {
+      const prev = machineRef.current
+      machineRef.current = next
+      setMachineState(next)
+      if (prev.currentView !== next.currentView || prev.activeScenarioId !== next.activeScenarioId) {
+        setSelection(EMPTY_SELECTION)
+      }
+      if (history) {
+        updateUrl(machineUrlPatch(next), history)
+      }
+    },
+    [updateUrl],
+  )
+
+  const dispatch = useCallback(
+    (action: LensBehaviorAction, options?: ScenarioDispatchOptions): ScenarioTransitionResult => {
+      const result = scenarioTransitionReducer(machineRef.current, action, registry)
+      if (result.ok) {
+        setLastError(null)
+        commit(result.state, options?.history ?? 'push')
+      } else {
+        setLastError(result.error ?? `Action "${action.type}" was rejected`)
+      }
+      return result
+    },
+    [commit, registry],
+  )
 
   const activeScenario = useMemo(() => {
     return machineState.activeScenarioId ? registry.get(machineState.activeScenarioId) ?? null : null
@@ -93,37 +139,17 @@ export function ScenarioProvider({
     return Array.from(new Set(actions))
   }, [activeScenario, machineState.currentView])
 
-  const availableGoals = useMemo(() => {
-    if (!activeScenario) return []
-    return activeScenario.terminalGoals.filter((g) => g.targetView === machineState.currentView)
-  }, [activeScenario, machineState.currentView])
+  const availableGoals = useMemo(
+    () => availableGoalsFor(activeScenario, machineState),
+    [activeScenario, machineState],
+  )
+
+  const intents = useMemo(
+    () => resolveScenarioIntents(activeScenario, machineState, selection),
+    [activeScenario, machineState, selection],
+  )
 
   const canStepBack = machineState.breadcrumbs.length > 1
-
-  // Dispatch transition with url synchronization
-  const dispatch = useCallback(
-    (action: LensBehaviorAction): ScenarioTransitionResult => {
-      const result = scenarioTransitionReducer(machineState, action, registry)
-      if (result.ok) {
-        setMachineState(result.state)
-
-        // Sync view with URL
-        const nextView = result.state.currentView
-        if (nextView === 'diff' && result.state.baseId && result.state.headId) {
-          setDiff(result.state.baseId, result.state.headId, true)
-        } else {
-          setView(nextView, true)
-        }
-
-        // Sync scenario with URL
-        if (result.state.activeScenarioId !== machineState.activeScenarioId) {
-          setScenario(result.state.activeScenarioId ?? undefined, true)
-        }
-      }
-      return result
-    },
-    [machineState, registry, setDiff, setScenario, setView],
-  )
 
   const startScenario = useCallback(
     (id: ScenarioTopicId, initialContext?: Partial<ScenarioMachineContext>) => {
@@ -151,26 +177,32 @@ export function ScenarioProvider({
   )
 
   const resetScenario = useCallback(() => {
-    setMachineState((prev) => ({
-      ...prev,
-      activeScenarioId: null,
-      completedGoals: [],
-      breadcrumbs: [],
-    }))
-    setScenario(undefined, true)
-  }, [setScenario])
+    setLastError(null)
+    commit(
+      {
+        ...machineRef.current,
+        activeScenarioId: null,
+        completedGoals: [],
+        breadcrumbs: [],
+      },
+      'push',
+    )
+  }, [commit])
 
-  // Sync when URL scenario changes externally (e.g. back/forward button)
+  const publishSelection = useCallback((next: ScenarioSelection | null) => {
+    setSelection(next ?? EMPTY_SELECTION)
+  }, [])
+
+  // Fold URL changes the machine did not make (back/forward, edited or pasted
+  // deep links) into the machine, or restore the URL when the FSM cannot follow.
   useEffect(() => {
-    if (urlState.scenario && urlState.scenario !== machineState.activeScenarioId) {
-      const target = registry.get(urlState.scenario as ScenarioTopicId)
-      if (target) {
-        startScenario(target.id)
-      }
-    } else if (!urlState.scenario && machineState.activeScenarioId !== null) {
-      resetScenario()
+    const decision = reconcileMachineWithUrl(urlState, machineRef.current, registry)
+    if (decision.kind === 'adopt') {
+      commit(decision.state, null)
+    } else if (decision.kind === 'restore-url') {
+      commit(decision.state, 'replace')
     }
-  }, [urlState.scenario, machineState.activeScenarioId, registry, startScenario, resetScenario])
+  }, [urlState, registry, commit])
 
   const contextValue: ScenarioContextValue = {
     registry,
@@ -180,6 +212,9 @@ export function ScenarioProvider({
     canStepBack,
     permittedActions,
     availableGoals,
+    intents,
+    selection,
+    lastError,
     isFlowModalOpen,
     dispatch,
     startScenario,
@@ -187,6 +222,7 @@ export function ScenarioProvider({
     stepBack,
     completeGoal,
     resetScenario,
+    publishSelection,
     openFlowModal: () => setIsFlowModalOpen(true),
     closeFlowModal: () => setIsFlowModalOpen(false),
   }

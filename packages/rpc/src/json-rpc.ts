@@ -55,9 +55,14 @@ export function toJsonRpcError(error: RpcError): JsonRpcErrorObject {
   }
 }
 
-export function fromJsonRpcError(error: JsonRpcErrorObject): RpcError {
+/**
+ * Restores an `RpcError` from a JSON-RPC error object. `data` may come from any peer: when it holds
+ * oa-sdk details (a string `code`), they are used; otherwise the code is derived from `error.code`
+ * and `data` is kept as the error payload.
+ */
+export function fromJsonRpcError(error: JsonRpcErrorPayload): RpcError {
   const details = error.data
-  if (details && typeof details === 'object' && typeof details.code === 'string') {
+  if (isRecord(details) && typeof details.code === 'string') {
     return new RpcError(details.code, error.message, {
       ...(typeof details.status === 'number' ? { status: details.status } : {}),
       ...(details.data === undefined ? {} : { data: details.data }),
@@ -66,6 +71,95 @@ export function fromJsonRpcError(error: JsonRpcErrorObject): RpcError {
   return new RpcError(ERROR_BY_JSON_RPC_CODE[error.code] ?? 'INTERNAL', error.message, {
     ...(details === undefined ? {} : { data: details }),
   })
+}
+
+/** A JSON-RPC error object as any peer may send it: `data` is whatever the peer put there. */
+type JsonRpcErrorPayload = { code: number; message: string; data?: unknown }
+
+/**
+ * A named runtime validator: `parse` checks an untrusted value and returns it as `T`, or throws a
+ * `TypeError` when it does not fit.
+ */
+interface JsonRpcSchema<T> {
+  parse(value: unknown): T
+}
+
+/** One entry of an incoming message, checked against the JSON-RPC 2.0 request object. */
+type JsonRpcInboundEntry =
+  | { kind: 'call'; request: JsonRpcRequest; id: JsonRpcId; notification: boolean }
+  /** Answered with `error` unless it is a notification. */
+  | { kind: 'invalid'; id: JsonRpcId; error: RpcError; notification: boolean }
+
+/** An incoming message: a single entry or a non-empty batch. An empty batch is one invalid entry. */
+type JsonRpcInboundMessage =
+  | { batch: false; entry: JsonRpcInboundEntry }
+  | { batch: true; entries: JsonRpcInboundEntry[] }
+
+function parseInboundEntry(entry: unknown): JsonRpcInboundEntry {
+  if (!isRecord(entry) || entry.jsonrpc !== '2.0' || typeof entry.method !== 'string' || !isValidId(entry.id)) {
+    const id = isRecord(entry) && isValidId(entry.id) ? entry.id ?? null : null
+    // An invalid request is answered even without an id: the sender cannot be told otherwise.
+    return { kind: 'invalid', id, error: new RpcError('INVALID_REQUEST', 'Invalid Request'), notification: false }
+  }
+  const notification = !Object.hasOwn(entry, 'id')
+  const id = entry.id ?? null
+  const params = entry.params
+  if (params !== undefined && !isRecord(params)) {
+    return { kind: 'invalid', id, error: new RpcError('INVALID_INPUT', 'params must be an object of named input fields'), notification }
+  }
+  const request: JsonRpcRequest = {
+    jsonrpc: '2.0',
+    method: entry.method,
+    ...(params === undefined ? {} : { params }),
+    ...(notification ? {} : { id }),
+  }
+  return { kind: 'call', request, id, notification }
+}
+
+/**
+ * Classifies an incoming JSON-RPC message. It never throws: every shape problem becomes an
+ * `invalid` entry, because JSON-RPC answers a malformed request instead of dropping it.
+ */
+const JsonRpcInboundSchema: JsonRpcSchema<JsonRpcInboundMessage> = {
+  parse(value) {
+    if (!Array.isArray(value)) return { batch: false, entry: parseInboundEntry(value) }
+    if (value.length === 0) {
+      return { batch: false, entry: { kind: 'invalid', id: null, error: new RpcError('INVALID_REQUEST', 'Empty batch'), notification: false } }
+    }
+    return { batch: true, entries: value.map(parseInboundEntry) }
+  },
+}
+
+/** A JSON-RPC 2.0 response object as received by a client. */
+type JsonRpcResponseMessage =
+  | { id: JsonRpcId; error: JsonRpcErrorPayload }
+  | { id: JsonRpcId; result: unknown }
+
+function parseErrorPayload(value: unknown): JsonRpcErrorPayload {
+  if (!isRecord(value) || typeof value.code !== 'number' || !Number.isInteger(value.code) || typeof value.message !== 'string') {
+    throw new TypeError('JSON-RPC error must be an object with an integer code and a string message')
+  }
+  return { code: value.code, message: value.message, ...(value.data === undefined ? {} : { data: value.data }) }
+}
+
+/**
+ * Checks a JSON-RPC 2.0 response object: `jsonrpc: '2.0'`, a valid `id`, and either an error
+ * object (integer `code`, string `message`) or a `result`. An `error` member that is `null` counts
+ * as absent, because some servers send `"error": null` next to the result of a successful call.
+ */
+const JsonRpcResponseSchema: JsonRpcSchema<JsonRpcResponseMessage> = {
+  parse(value) {
+    if (!isRecord(value) || value.jsonrpc !== '2.0') {
+      throw new TypeError('Expected a JSON-RPC 2.0 response object')
+    }
+    const id = value.id
+    if (!Object.hasOwn(value, 'id') || !isValidId(id) || id === undefined) {
+      throw new TypeError('JSON-RPC response id must be a string, a finite number, or null')
+    }
+    if (value.error !== undefined && value.error !== null) return { id, error: parseErrorPayload(value.error) }
+    if (Object.hasOwn(value, 'result')) return { id, result: value.result }
+    throw new TypeError('JSON-RPC response has neither result nor error')
+  },
 }
 
 export type JsonRpcHandleOptions<TContext> = {
@@ -84,44 +178,39 @@ export async function handleJsonRpc<TContext>(
   message: unknown,
   options: JsonRpcHandleOptions<TContext> = {},
 ): Promise<JsonRpcResponse | JsonRpcResponse[] | undefined> {
-  let payload = message
+  let payload: JsonRpcInboundMessage
   if (typeof message === 'string') {
     try {
-      payload = JSON.parse(message)
+      payload = JsonRpcInboundSchema.parse(JSON.parse(message))
     } catch {
       return errorMessage(null, new RpcError('PARSE_ERROR', 'Parse error'))
     }
+  } else {
+    payload = JsonRpcInboundSchema.parse(message)
   }
 
-  if (Array.isArray(payload)) {
-    if (payload.length === 0) return errorMessage(null, new RpcError('INVALID_REQUEST', 'Empty batch'))
-    const responses = await Promise.all(payload.map(entry => handleSingle(server, entry, options)))
+  if (payload.batch) {
+    const responses = await Promise.all(payload.entries.map(entry => handleSingle(server, entry, options)))
     const sent = responses.filter((response): response is JsonRpcResponse => response !== undefined)
     return sent.length === 0 ? undefined : sent
   }
-  return handleSingle(server, payload, options)
+  return handleSingle(server, payload.entry, options)
 }
 
 async function handleSingle<TContext>(
   server: RpcServer<TContext>,
-  entry: unknown,
+  entry: JsonRpcInboundEntry,
   options: JsonRpcHandleOptions<TContext>,
 ): Promise<JsonRpcResponse | undefined> {
-  if (!isRecord(entry) || entry.jsonrpc !== '2.0' || typeof entry.method !== 'string' || !isValidId(entry.id)) {
-    const id = isRecord(entry) && isValidId(entry.id) ? entry.id ?? null : null
-    return errorMessage(id, new RpcError('INVALID_REQUEST', 'Invalid Request'))
+  if (entry.kind === 'invalid') {
+    return entry.notification ? undefined : errorMessage(entry.id, entry.error)
   }
-  const isNotification = !Object.hasOwn(entry, 'id')
-  const id = (entry.id ?? null) as JsonRpcId
-  if (entry.params !== undefined && !isRecord(entry.params)) {
-    return isNotification ? undefined : errorMessage(id, new RpcError('INVALID_INPUT', 'params must be an object of named input fields'))
-  }
-
+  const { request, id, notification } = entry
   try {
-    const result = await invokeServer(server, entry.method, entry.params, options)
-    return isNotification ? undefined : { jsonrpc: '2.0', id, result: result === undefined ? null : result }
+    const result = await invokeServer(server, request.method, request.params, options)
+    return notification ? undefined : { jsonrpc: '2.0', id, result: result === undefined ? null : result }
   } catch (error) {
-    return isNotification ? undefined : errorMessage(id, toRpcError(error))
+    return notification ? undefined : errorMessage(id, toRpcError(error))
   }
 }
 
@@ -159,7 +248,7 @@ export function createJsonRpcFetchHandler<TContext = undefined>(
       context = await options.createContext?.(request)
     } catch (error) {
       const rpcError = toRpcError(error)
-      return new Response(JSON.stringify(errorMessage(null, rpcError)), {
+      return new Response(encodeJsonRpcResponse(errorMessage(null, rpcError)), {
         status: rpcError.status,
         headers: { 'content-type': 'application/json' },
       })
@@ -170,10 +259,24 @@ export function createJsonRpcFetchHandler<TContext = undefined>(
       signal: request.signal,
     })
     if (response === undefined) return new Response(null, { status: 204 })
-    return new Response(JSON.stringify(response), {
+    const body = Array.isArray(response) ? `[${response.map(encodeJsonRpcResponse).join(',')}]` : encodeJsonRpcResponse(response)
+    return new Response(body, {
       status: 200,
       headers: { 'content-type': 'application/json' },
     })
+  }
+}
+
+/**
+ * Serializes one response. A result or error payload JSON cannot represent (a `bigint`, a cycle)
+ * turns only that response into an `INTERNAL` error for the same id, so the other responses of a
+ * batch, whose calls already ran, still reach the client.
+ */
+function encodeJsonRpcResponse(response: JsonRpcResponse): string {
+  try {
+    return JSON.stringify(response)
+  } catch {
+    return JSON.stringify(errorMessage(response.id, new RpcError('INTERNAL', 'Internal server error')))
   }
 }
 
@@ -210,25 +313,24 @@ export function createJsonRpcTransport(options: JsonRpcTransportOptions): RpcTra
       throw new RpcError('TRANSPORT', `Request for ${procedure.name} failed.`, { cause: error })
     }
 
-    let message: unknown
+    let message: JsonRpcResponseMessage
     try {
-      message = await response.json()
+      message = JsonRpcResponseSchema.parse(JSON.parse(await response.text()))
     } catch (error) {
+      if (signal?.aborted) throw error
       throw new RpcError('TRANSPORT', `The ${procedure.name} response is not JSON-RPC (HTTP ${response.status}).`, {
         status: response.status,
         cause: error,
       })
     }
     // A request rejected before its id was read is answered with id null.
-    if (isRecord(message) && message.jsonrpc === '2.0' && message.id === null && isRecord(message.error)) {
-      throw fromJsonRpcError(message.error as JsonRpcErrorObject)
-    }
-    if (!isRecord(message) || message.jsonrpc !== '2.0' || message.id !== id) {
+    if (message.id === null && 'error' in message) throw fromJsonRpcError(message.error)
+    if (message.id !== id) {
       throw new RpcError('TRANSPORT', `The ${procedure.name} response is not a JSON-RPC response to request ${id}.`, {
         status: response.status,
       })
     }
-    if (isRecord(message.error)) throw fromJsonRpcError(message.error as JsonRpcErrorObject)
+    if ('error' in message) throw fromJsonRpcError(message.error)
     return procedure.output === null ? undefined : message.result
   }
 }

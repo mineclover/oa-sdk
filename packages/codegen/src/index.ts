@@ -395,7 +395,9 @@ export { generateRpcModule } from './rpc/generate-rpc-module.js'
 export type { RpcModuleOptions } from './rpc/generate-rpc-module.js'
 
 export {
+  emptyMessageName,
   extractWireSchemaFromOas,
+  isProtobufMessage,
   Proto3TargetAdapter,
   ProtobufCodecTargetAdapter,
   RpcContractTargetAdapter,
@@ -413,6 +415,8 @@ export type {
   WireMethod,
   WireFieldKind,
   WireMapValue,
+  WireModelKind,
+  WireNameScope,
   WireParameter,
   WireParameterLocation,
   WirePayload,

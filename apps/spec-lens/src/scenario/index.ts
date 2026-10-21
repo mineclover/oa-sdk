@@ -1,5 +1,6 @@
 export * from './contexts/ScenarioContext.js'
 export * from './handlers/scenarioHandlers.js'
+export * from './navigation.js'
 export * from './views/ScenarioProgressHUD.js'
 export * from './views/ScenarioFlowModal.js'
 export * from './views/ScenarioSelector.js'

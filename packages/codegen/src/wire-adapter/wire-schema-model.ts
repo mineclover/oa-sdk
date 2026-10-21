@@ -12,9 +12,12 @@
  * How a field travels on the wire:
  * - `scalar`: a Protobuf scalar (`type` is `string`, `int32`, `double`, `bool`, `bytes`, ...)
  * - `enum`: a component enum, sent as its member number (`type` is the enum name)
- * - `message`: a component object schema, sent as a nested message (`type` is the model name)
- * - `map`: an object with only `additionalProperties`, sent as `map<string, V>` (see `mapValue`)
- * - `json`: anything else (unions, anonymous objects, nested arrays), sent as a JSON string
+ * - `message`: a component object schema, sent as a nested message (`type` is the model name).
+ *   `allOf` members are merged in, so a TypeSpec `extends` model carries its inherited fields.
+ * - `map`: an object with only `additionalProperties` (inline or a referenced component), sent as
+ *   `map<string, V>` (see `mapValue`)
+ * - `json`: anything else (unions, anonymous objects, free-form objects, nested arrays), sent as a
+ *   JSON string
  */
 export type WireFieldKind = 'scalar' | 'enum' | 'message' | 'map' | 'json'
 
@@ -42,8 +45,26 @@ export interface WireField {
   readonly defaultValue?: unknown | undefined
 }
 
+/**
+ * What a component object is on the wire:
+ * - `message`: a Protobuf message: declared properties, the fields of `allOf` members included
+ * - `object`: an object Protobuf cannot carry as a message: map-only (`Record<string, V>`),
+ *   free-form (`Record<unknown>`), or composed with `oneOf`/`anyOf`/`not`. It has no fields, no
+ *   `.proto` message, and no Protobuf codec; it keeps its TypeScript type and MessagePack codec,
+ *   and fields that reference it are `map` or `json`.
+ */
+export type WireModelKind = 'message' | 'object'
+
 export interface WireModel {
+  /** Component schema name: the key of codec records and of RPC `requestType`/`responseType`. */
   readonly name: string
+  /** Defaults to `message` for models built before model kinds existed. */
+  readonly kind?: WireModelKind | undefined
+  /**
+   * TypeScript declaration name, the one `types.ts` declares for the same component
+   * (`Inventory.Widget` becomes `InventoryWidget`). Adapters derive it from `name` when absent.
+   */
+  readonly tsTypeName?: string | undefined
   readonly messageName?: string | undefined
   readonly protobufMessageName?: string | undefined
   readonly package?: string | undefined
@@ -51,6 +72,11 @@ export interface WireModel {
   readonly fields: readonly WireField[]
   readonly wireFormat?: 'protobuf' | 'msgpack' | 'json' | 'raw-binary' | string | undefined
   readonly isRpcMessage?: boolean | undefined
+}
+
+/** Whether a model is a Protobuf message: it has a `.proto` message and a Protobuf codec. */
+export function isProtobufMessage(model: WireModel): boolean {
+  return (model.kind ?? 'message') === 'message'
 }
 
 export interface WireEnumMember {
@@ -61,6 +87,8 @@ export interface WireEnumMember {
 
 export interface WireEnum {
   readonly name: string
+  /** TypeScript declaration name; see `WireModel.tsTypeName`. */
+  readonly tsTypeName?: string | undefined
   readonly doc?: string | undefined
   readonly members: readonly WireEnumMember[]
   readonly values?: readonly string[] | undefined
@@ -94,7 +122,14 @@ export interface WireMethod {
   readonly name: string
   readonly methodName?: string | undefined
   readonly doc?: string | undefined
+  /**
+   * Message model of the request body. The empty message, named by `emptyMessageName(model)`
+   * (`Empty` unless a model, enum, or service already uses that name), when there is no body or
+   * the body is not a message model (an inline schema, an enum, a map, a scalar);
+   * `requestBody.typeName` still names it.
+   */
   readonly inputType: string
+  /** Message model of the success response, or the empty message like `inputType`. */
   readonly outputType: string
   readonly route?: string | undefined
   readonly httpMethod?: string | undefined

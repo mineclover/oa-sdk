@@ -14,7 +14,18 @@
 import type { TspGeneratedFile, TspPlugin, TspPluginContext } from '../types.js'
 import { TypeSpecWirePipeline } from '../../wire-adapter/typespec-wire-pipeline.js'
 import type { WireSchemaModel } from '../../wire-adapter/wire-schema-model.js'
+import { wireTypeNames } from '../../wire-adapter/wire-type-names.js'
 
+/**
+ * Wire artifacts pluginWire can emit:
+ * - 'protobuf': TypeScript Protobuf codecs in wire.ts
+ * - 'msgpack': TypeScript MessagePack codecs in wire.ts
+ * - 'proto3': Protocol Buffers v3 schema file (schema.proto)
+ * - 'rpc-contract': RPC server handler / client contracts in wire.ts
+ * - 'raw-binary': reserved; no bindings are generated for it yet (a warning diagnostic is reported)
+ *
+ * wire.ts (with `resolveBinaryCodec`) is emitted for every selection.
+ */
 export type WireCodecKind = 'protobuf' | 'msgpack' | 'proto3' | 'rpc-contract' | 'raw-binary'
 
 export interface PluginWireOptions {
@@ -92,6 +103,15 @@ export function pluginWire(
       const wantsMsgpack = codecs.includes('msgpack')
       const wantsRpc = codecs.includes('rpc-contract')
 
+      if (codecs.includes('raw-binary')) {
+        context.reportDiagnostic({
+          plugin: 'wire',
+          code: 'WIRE_CODEC_NOT_IMPLEMENTED',
+          severity: 'warning',
+          message: "[wire] The 'raw-binary' codec is reserved and generates no bindings yet.",
+        })
+      }
+
       // 1. Emit Protocol Buffers v3 schema (.proto) if requested
       if (wantsProto3) {
         const proto3Path = mergedOpts.proto3Output ?? 'schema.proto'
@@ -111,11 +131,13 @@ export function pluginWire(
       // 2. Generate TypeScript Wire Codecs (wire.ts)
       const wireSections: string[] = []
       const clientImports = new Set<string>()
-      let needsClientTypeImport = false
-      const allModelNames = model.models.map(m => m.name)
+      // The codec sections reference models by the names types.ts declares, not by their component
+      // names (`Inventory.Widget` is declared as `InventoryWidget`). The list is deduplicated so a
+      // model set with repeated `tsTypeName`s (e.g. from an injected pipeline) cannot import a name twice.
+      const typeNames = wireTypeNames(model)
+      const modelTypeNames = [...new Set(model.models.map(m => typeNames.get(m.name) ?? m.name))]
 
       if (wantsProtobuf) {
-        needsClientTypeImport = true
         const protobufRaw = await pipeline.transform<string>(doc, 'protobuf-codec', {
           typesImport,
         })
@@ -132,7 +154,6 @@ export function pluginWire(
 
       if (wantsMsgpack) {
         clientImports.add('messagePackAdapter')
-        needsClientTypeImport = true
         const msgpackRaw = await pipeline.transform<string>(doc, 'messagepack', {
           typesImport,
         })
@@ -147,7 +168,6 @@ export function pluginWire(
       }
 
       if (wantsRpc) {
-        needsClientTypeImport = true
         const rpcRaw = await pipeline.transform<string>(doc, 'rpc-contract', {
           typesImport,
         })
@@ -185,21 +205,16 @@ export function resolveBinaryCodec(mediaType: string, modelName: string): Binary
         headerLines.push('// Auto-generated binary wire codecs and schemas from TypeSpec SSOT.')
       }
 
-      // Client imports
-      const clientImportMembers: string[] = []
-      if (clientImports.size > 0) {
-        clientImportMembers.push(...Array.from(clientImports))
-      }
-      if (needsClientTypeImport) {
-        clientImportMembers.push('type BinaryCodecAdapter')
-      }
-      if (clientImportMembers.length > 0) {
-        headerLines.push(`import { ${clientImportMembers.join(', ')} } from '@oa-sdk/client'`)
-      }
+      // Client imports. resolveBinaryCodec is always emitted and returns BinaryCodecAdapter, so the
+      // type is always imported. Without value imports it is an `import type` declaration, which is
+      // erased at runtime (an inline `type` specifier alone would survive verbatimModuleSyntax).
+      headerLines.push(clientImports.size > 0
+        ? `import { ${[...clientImports, 'type BinaryCodecAdapter'].join(', ')} } from '@oa-sdk/client'`
+        : `import type { BinaryCodecAdapter } from '@oa-sdk/client'`)
 
       // Types imports
-      if (allModelNames.length > 0) {
-        headerLines.push(`import type { ${allModelNames.join(', ')} } from '${typesImport}'`)
+      if (modelTypeNames.length > 0) {
+        headerLines.push(`import type { ${modelTypeNames.join(', ')} } from '${typesImport}'`)
       }
       headerLines.push('')
 

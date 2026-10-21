@@ -1,5 +1,6 @@
 import type { RuntimeChunkEnvelopeDescriptor, RuntimeResourceRef, StorageTierOptions } from "./types.js";
 import { RuntimeChunkEnvelope, assertNoPrototypePoisoning } from "./envelope.js";
+import { defineChunkStreamConfig } from "./server.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -54,6 +55,8 @@ const StoredChunkDescriptorSchema = {
 
 const sharedTextDecoder = new TextDecoder();
 
+const DEFAULT_MAX_L1_MEMORY_BYTES = 32 * 1024 * 1024;
+
 /**
  * Multi-Tier Storage Port enforcing L1 Memory -> L2 IndexedDB -> L3 Network hierarchy.
  */
@@ -65,7 +68,13 @@ export class TieredStoragePort {
   private l1Bytes = 0;
 
   constructor(options: StorageTierOptions = {}) {
-    this.maxL1Bytes = options.maxL1MemoryBytes ?? 32 * 1024 * 1024;
+    // An explicit budget wins; a memory preset resolves its L1 share through
+    // the same rule as defineChunkStreamConfig, so both stay in agreement.
+    this.maxL1Bytes =
+      options.maxL1MemoryBytes ??
+      (options.memoryPreset !== undefined
+        ? defineChunkStreamConfig({ memoryPreset: options.memoryPreset }).maxL1MemoryBytes
+        : DEFAULT_MAX_L1_MEMORY_BYTES);
     this.fetchRemote = options.fetchRemoteChunk;
   }
 

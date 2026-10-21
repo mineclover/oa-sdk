@@ -181,11 +181,18 @@ the `oa-gen init` pattern), and write the result to a file of your own, because 
 
 ### `@traceId(id)`, `@replaces(ids...)`, `@requirement(reqIds...)`
 Traceability and lineage decorators exported from `@oa-sdk/typespec-decorators/governance` and the root package:
-- `@traceId(id)`: assigns a stable, immutable tracking identifier (`x-oa-sdk-trace.trackingId`) to a `Model`, `Operation`, `Enum`, `Union`, `Scalar`, or `ModelProperty` that survives file moves and symbol renames.
+- `@traceId(id)`: assigns a stable, immutable tracking identifier (`x-oa-sdk-trace.trackingId`) to a `Model`, `Operation`, `Enum`, `Union`, `Scalar`, or `ModelProperty` that survives file moves and symbol renames. An id may be written in only one `@traceId` application per program; writing it on a second declaration reports `invalid-trace-rule: Duplicate traceId`. Only the declaration the application is written on (`@traceId` above it, or `@@traceId(Target, ...)` naming it) emits the id. TypeSpec also replays the application onto the types it derives from that declaration, and those types compile without a diagnostic but do not carry the id: `model B is A` and `op b is a` copies, operations cloned by `interface B extends A`, properties copied by a spread (`...A`) or an `is`, and template instances (`Page<User>`, `Page<Order>`, including instances named by `@friendlyName`). Each of them is a separate schema or operation, so `oa-gen trace` gives it a generated tracking id, which keeps `oa-gen trace --verify` free of `traceability/duplicate-tracking-id`. To track a derived type under a stable id, give it its own `@traceId` (`@traceId("TRC-USER-PAGE") model UserPage is Page<User>;`); `@derivedFrom("A", "reason")` records its lineage. A `@traceId` on a template declaration therefore reaches no emitted schema; put it on a named instance instead.
+  A clone that TypeSpec's mutation engine (`unsafe_mutateSubgraph*`) makes of the declaration is the same declaration in another view of the program, so it keeps the id. `@typespec/openapi3` takes this path for a `@versioned` service: it builds each per-version document from a `@typespec/versioning` snapshot clone of the service namespace, so a declaration carries its trackingId in each version document it appears in. The derived types listed above still carry no id inside a snapshot.
+  Known limit: some emitted variants of one declaration share its id inside one document. `@typespec/openapi3` copies a model's extensions onto the visibility variants it emits (`WidgetCreate`, `WidgetUpdate`). `MergePatchUpdate<Widget>` is built from mutator clones of `Widget` and of the models it references, so `WidgetMergePatchUpdate` and `PartMergePatchUpdate` (for a referenced `Part`) carry the ids of `Widget`, `Part` and their properties. In both cases `oa-gen trace --verify` reports `traceability/duplicate-tracking-id` for each schema that shares the id.
+  Known limit: `scalar MyId2 extends MyId;` gets `MyId`'s id too, because `@typespec/openapi3` builds the derived scalar's schema from its base, extensions included, so `oa-gen trace --verify` reports `traceability/duplicate-tracking-id` for both schemas. Give the base scalar no `@traceId`, or track the derived scalar by its own declaration.
+  Known limit: TypeSpec shares, rather than copies, some types between a declaration and the types it derives. An operation cloned by `interface B extends A` keeps the base operation's `parameters`, and `op b is a` / `model B is A` keep anonymous body, return and property types. A `@traceId` on a member of such a shared type (`list(@traceId("…") @query x: string)`, or `{ @traceId("…") x: string }` inside an anonymous body) therefore appears on that parameter or property under every derived operation or schema. `oa-gen trace` does not report this, because inline parameters and properties are not graph nodes. Put the id on a named model the operations reference instead.
 - `@replaces(...replacedIds)`: declares one or more previous canonical definition IDs or symbol identifiers that a specification element replaces (`x-oa-sdk-trace.replaces`), enabling lossless refactoring lineage.
 - `@requirement(...requirementIds)`: links a specification element to external requirement, compliance, or issue identifiers (`x-oa-sdk-trace.requirements`, e.g. `"GDPR-ART-15"`, `"docs/requirements.md#req-user-profile"`).
 
-When paired with `@samchon/typespec-evidence` (`@evidence`, `@evidenceExclude`, Heading-Form `## @evidence`), `@oa-sdk/codegen` merges both `x-oa-sdk-trace` and `x-samchon-evidence` into `.oa-trace.json` and emits `@oa-source`, `@oa-requirement`, `@evidence`, `## @evidence`, and `@evidenceExclude` JSDoc provenance tags onto generated TypeScript types (`oa-gen typegen`, `oa-gen generate`, `oa-gen trace`).
+When paired with `@samchon/typespec-evidence` (`@evidence`, `@evidenceExclude`, Heading-Form `## @evidence`), `@oa-sdk/codegen` reads both `x-oa-sdk-trace` and `x-samchon-evidence`:
+
+- `oa-gen trace --spec <openapi> -o .oa-trace.json` merges them into the `.oa-trace.json` traceability sidecar.
+- The JSDoc provenance tags (`@oa-pointer`, `@oa-source`, `@oa-id`, `@oa-trace-id`, `@oa-replaces`, `@oa-requirement`, `@evidence`, `## @evidence`, `@evidenceExclude`) are emitted onto generated TypeScript types only by the library call `generateTypes(parsed, { includeProvenanceAnnotations: true })` or `generateTypesFromSpec(document, { includeProvenanceAnnotations: true })`. `oa-gen typegen` and `oa-gen generate` do not pass that option, so their output carries none of these tags.
 
 ### `@actorInput`, `@machineContext`, `@eventPayload(eventType?)`, `@behaviorRef(behaviorId)`
 Decorators for XState / Behavior runtime data shape modeling (resolving Issue #1). They are exported from
@@ -205,10 +212,39 @@ Decorators for linking TypeSpec models with Ariga Atlas physical database eviden
 - `@storageRef(target)`: binds a model or model property to a physical table or column identifier (`x-oa-sdk-storage-ref: { target }`).
 - `@storageCatalog(catalogName)`: binds a namespace to a physical database catalog (`x-oa-sdk-storage-catalog: { catalog }`).
 
-Consumed by `@oa-sdk/dpm` and `oa-erd check` to perform static drift verification against `atlas schema inspect --format json`.
+The drift check is `verifyAtlasSchemaDrift(evidence, mappings)`, a JavaScript function exported from the `@oa-sdk/typespec-decorators/governance` subpath (not from the root package). It compares
+caller-supplied mappings (entity, table, columns and expected logical type, usually transcribed from the `@storageRef` targets)
+against the JSON snapshot `atlas schema inspect --format '{{ json . }}'` prints, and reports missing tables and columns as errors
+and incompatible column types as warnings. Pass the snapshot through `AtlasSchemaInspectOutputSchema.parse` first. Outside this
+check, only `oa-gen trace` reads `x-oa-sdk-storage-ref`, recording its `target` as `governance.storageRef` on the trace node;
+`@oa-sdk/dpm` and `oa-erd check` consume neither the storage extensions nor Atlas evidence.
+See the [Atlas schema drift governance guide](../../docs/guides/use-cases/atlas-schema-drift-governance.md).
 
 ### `@chunkStream(options?)`
-Declares Chunk Stream transmission parameters, presets (`realtime-crdt`, `ui-action`, `timeseries`, `replay`), and memory residency policies on a `Model`, `Operation`, or `Interface`. Exported from `@oa-sdk/typespec-decorators/chunk-stream` and the root package, emitting `x-oa-sdk-chunk-stream`.
+Declares Chunk Stream transmission parameters, presets, and memory residency policies on a `Model`, `Operation`, or `Interface`. Exported from `@oa-sdk/typespec-decorators/chunk-stream` and the root package, emitting `x-oa-sdk-chunk-stream`.
+
+```typespec
+import "@oa-sdk/typespec-decorators/chunk-stream";
+using OaSdkTypeSpec;
+
+@chunkStream(#{ preset: "optimal-web", memoryPreset: "standard", fps: 30 })
+op streamStoryboard(): void;
+```
+
+Options (all optional):
+
+| Option | Values | Default |
+|---|---|---|
+| `preset` | `ultra-low-latency` (1460), `optimal-web` (7168), `standard-buffer` (8192), `initcwnd-burst` (14336), `large-payload` (65536), `heavy-media` (262144), `bulk-data` (1048576): the `targetChunkBytes` it implies | `optimal-web` |
+| `memoryPreset` | `mobile` (64 MiB), `standard` (128 MiB), `highperf` (256 MiB): the `maxResidentBytes` it implies | `standard` |
+| `mode` | `adaptive`, `eager`, `manual` | `adaptive` |
+| `targetChunkBytes`, `maxResidentBytes` | positive integers that override the preset values | from `preset` / `memoryPreset` |
+| `maxL1MemoryBytes` | positive integer | half of `maxResidentBytes` |
+| `fps`, `chunkFrames`, `lookaheadFrames` | positive integers | `30`, `fps`, `fps * 2` |
+| `retentionFrames` | non-negative integer | `fps` |
+| `payloadFormat` | any string | `ui-action@v1` |
+
+The emitted extension has the same resolved shape and key order as the runtime `defineChunkStreamConfig` from `@oa-sdk/chunk-stream` (`schemaVersion`, `preset`, `targetChunkBytes`, `memoryPreset`, `maxResidentBytes`, `maxL1MemoryBytes`, `payloadFormat`, `fps`, `chunkFrames`, `mode`, `lookaheadFrames`, `retentionFrames`). Only an absent option takes its default. An options argument that is not an object (e.g. `@chunkStream("optimal-web")`), a value of the wrong type (for example `preset: 5`, `mode: true` or `memoryPreset: null`), an unknown `preset`, `memoryPreset` or `mode`, or a numeric option that is not an integer in its range is reported as `invalid-chunk-stream-rule` and no extension is emitted; the decorator never clamps a value or silently replaces it with the default.
 
 ## 3. Purpose-Driven Modular Subpaths
 
@@ -223,6 +259,10 @@ import "@oa-sdk/typespec-decorators/behavior";     // @actorInput, @machineConte
 import "@oa-sdk/typespec-decorators/storage";      // @storageRef & @storageCatalog
 import "@oa-sdk/typespec-decorators/chunk-stream"; // @chunkStream
 ```
+
+The `./governance` subpath also exports, for JavaScript only, the Atlas drift check: import `verifyAtlasSchemaDrift` and
+`AtlasSchemaInspectOutputSchema` from `@oa-sdk/typespec-decorators/governance` in a CI script (see `@storageRef` above). The
+package has no separate `storage-drift` subpath.
 
 For complete architecture details and toolchain boundary rules (including `ttsc@0.33.1` AOT Standard Schema compilation for XState v6 and `@wrtnlabs/evidence@0.8.0` provenance), see
 the [Schema Architecture and ttsc Guide](../../docs/guides/schema-architecture-and-ttsc-guide.md).

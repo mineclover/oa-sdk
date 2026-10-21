@@ -333,9 +333,24 @@ export function createStoryboardChunkPlaybackBridge(
   };
 }
 
+type StoryboardPlaybackBundle = ReturnType<typeof createStoryboardChunkPlaybackBridge>;
+
 /**
  * Declares an `@oa-sdk` Typed Chunk Stream Server for a StoryboardDocument
  * (or a dynamic `() => StoryboardDocument` provider).
+ *
+ * The server keeps one playback bundle (stream package, bridge, residency) per
+ * document revision, so seeks persist across handler calls. A document with a
+ * `changeToken` is identified by its `id` and `changeToken`, and a provider may
+ * return a fresh object on every call. A document without a `changeToken` is
+ * identified by object identity only, so its provider must return a stable
+ * reference; a new object is treated as a new revision. When the revision
+ * changes, the previous bundle is closed and disposed before the new one is
+ * built.
+ *
+ * `close()` is terminal: the bundle is closed and disposed, the HTTP handlers
+ * and `fetch` answer `404`, `bridge` stays the closed bridge, and `seek()`
+ * resolves as `failed` with `E_CLOSED`. A closed server never rebuilds.
  */
 export function defineStoryboardChunkServer(
   docOrProvider: StoryboardDocument | (() => StoryboardDocument),
@@ -345,15 +360,36 @@ export function defineStoryboardChunkServer(
     typeof docOrProvider === "function" ? docOrProvider() : docOrProvider;
 
   let cachedDoc: StoryboardDocument | undefined;
+  let cachedId: string | undefined;
   let cachedToken: string | number | undefined;
-  let cachedBundle: ReturnType<typeof createStoryboardChunkPlaybackBridge> | undefined;
+  let cachedBundle: StoryboardPlaybackBundle | undefined;
+  let closed = false;
 
-  const ensureBundle = () => {
+  const isCachedRevision = (doc: StoryboardDocument): boolean =>
+    doc?.id === cachedId &&
+    doc?.changeToken === cachedToken &&
+    (doc?.changeToken !== undefined || doc === cachedDoc);
+
+  const releaseBundle = (bundle: StoryboardPlaybackBundle): void => {
+    bundle.bridge.close();
+    bundle.residency.dispose();
+  };
+
+  const ensureBundle = (): StoryboardPlaybackBundle => {
+    if (closed) {
+      // A closed server keeps its last (closed) bundle and never rebuilds one.
+      if (!cachedBundle) {
+        cachedBundle = createStoryboardChunkPlaybackBridge(resolveDoc(), options);
+        releaseBundle(cachedBundle);
+      }
+      return cachedBundle;
+    }
     const doc = resolveDoc();
-    const token = doc?.changeToken;
-    if (!cachedBundle || cachedDoc !== doc || cachedToken !== token) {
+    if (!cachedBundle || !isCachedRevision(doc)) {
+      if (cachedBundle) releaseBundle(cachedBundle);
       cachedDoc = doc;
-      cachedToken = token;
+      cachedId = doc?.id;
+      cachedToken = doc?.changeToken;
       cachedBundle = createStoryboardChunkPlaybackBridge(doc, options);
     }
     return cachedBundle;
@@ -370,11 +406,13 @@ export function defineStoryboardChunkServer(
     fps: options.fps,
     payloadFormat: "ui-action@v1",
     resolveManifest: (streamId) => {
+      if (closed) return null;
       const { streamPackage } = ensureBundle();
       if (!matchesStream(streamId, streamPackage.manifest.streamId)) return null;
       return streamPackage.manifest;
     },
     resolveChunk: (streamId, chunkId) => {
+      if (closed) return null;
       const { streamPackage } = ensureBundle();
       if (!matchesStream(streamId, streamPackage.manifest.streamId)) return null;
       return (
@@ -384,12 +422,14 @@ export function defineStoryboardChunkServer(
       );
     },
     resolveSnapshot: (streamId, revision) => {
+      if (closed) return null;
       const { bridge, streamPackage } = ensureBundle();
       if (!matchesStream(streamId, streamPackage.manifest.streamId)) return null;
       if (revision && revision !== streamPackage.manifest.revision) return null;
       return bridge.playback;
     },
     seekFrame: async (streamId, frame) => {
+      if (closed) return null;
       const { bridge, streamPackage } = ensureBundle();
       if (!matchesStream(streamId, streamPackage.manifest.streamId)) return null;
       return bridge.seek(frame);
@@ -427,11 +467,9 @@ export function defineStoryboardChunkServer(
       return ensureBundle().bridge.seek(frame);
     },
     close() {
-      if (cachedBundle) {
-        cachedBundle.bridge.close();
-        cachedBundle.residency.dispose();
-        cachedBundle = undefined;
-      }
+      if (closed) return;
+      closed = true;
+      if (cachedBundle) releaseBundle(cachedBundle);
     },
   };
 }

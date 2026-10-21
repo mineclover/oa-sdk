@@ -290,7 +290,7 @@ try {
 npx oa-gen audit:csp --bundle generated/
 ```
 
-- **평가 기준**: 번들 파일 내에 `eval()`, `new Function()`, `WebAssembly.compile()`, `setTimeout(string)` 호출이 0건이어야 합니다.
+- **평가 기준**: 번들 파일 내에 `eval()`, `Function()`/`new Function()`, 문자열 인자 `setTimeout(string)`/`setInterval(string)` 호출과 무거운 런타임 import(`ajv`·`ajv-*`, `zod`, `@oa-sdk/*`)가 0건이어야 합니다. WebAssembly 컴파일은 검사하지 않습니다(Manifest V3 기본 CSP가 `'wasm-unsafe-eval'`을 허용합니다).
 - **결과**: `ttsc` 컴파일러 트랜스폼으로 생성된 인라인 조건문은 100% 순수 표현식이므로 감사를 무결하게 통과합니다.
 
 ---

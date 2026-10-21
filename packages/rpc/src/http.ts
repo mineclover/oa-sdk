@@ -58,6 +58,8 @@ export function createHttpTransport(options: HttpTransportOptions): RpcTransport
     }
 
     const body = procedure.http.method === 'head' ? undefined : await readBody(response).catch((error: unknown) => {
+      // A call cancelled while its body was read rejects with the abort error, as a cancelled fetch does.
+      if (signal?.aborted) throw error
       throw new RpcError('TRANSPORT', `Could not read the ${procedure.name} response.`, { status: response.status, cause: error })
     })
     if (!response.ok) throw errorFromHttpResponse(response, body)
@@ -224,9 +226,18 @@ function isFormRecord(body: unknown, mediaType: string): body is Record<string, 
 }
 
 function errorResponse(error: RpcError, extraHeaders: Record<string, string> = {}): Response {
-  const body = error.data !== undefined ? error.data : { code: error.code, message: error.message }
-  return new Response(JSON.stringify(body), {
-    status: error.status,
+  const payload = error.data !== undefined ? error.data : { code: error.code, message: error.message }
+  let body: string
+  let status = error.status
+  try {
+    body = JSON.stringify(payload)
+  } catch {
+    // Error data JSON cannot represent (a bigint, a cycle) must not turn the answer into a rejection.
+    body = JSON.stringify({ code: 'INTERNAL', message: 'Internal server error' })
+    status = 500
+  }
+  return new Response(body, {
+    status,
     headers: { 'content-type': 'application/json', ...extraHeaders },
   })
 }

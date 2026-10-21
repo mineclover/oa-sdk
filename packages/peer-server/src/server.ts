@@ -2,7 +2,6 @@
  * @oa-sdk/peer-server — HTTP & Peering Signaling Daemon Server
  */
 import { createServer, type IncomingMessage, type ServerResponse, type Server } from 'node:http'
-import { timingSafeEqual } from 'node:crypto'
 import { FilePeerStore } from './store.js'
 import { isSafeAlias } from './store.js'
 import { PeerRoomManager } from './room.js'
@@ -14,40 +13,31 @@ import {
   PeerAnnouncementSchema,
   RequestError,
   ToolCallRequestSchema,
+  JoinRequestSchema,
   type RequestSchema,
 } from './request-schemas.js'
 import { attachWebSocketRelay, PeerRelayManager } from './relay/index.js'
 import { handleCloudTransitHttpRequest } from './cloud/index.js'
+import { RelayTransitBridge } from './transit-bridge.js'
+import {
+  CORS_ALLOW_HEADERS,
+  CORS_ALLOW_METHODS,
+  headerReader,
+  publishKeyAuthorized,
+  resolveAllowedOrigin,
+} from './http-guards.js'
 
 const DEFAULT_MAX_BODY_BYTES = 1024 * 1024
 const MAX_CONFIGURED_BODY_BYTES = 16 * 1024 * 1024
 
-function constantTimeEqual(expected: string, actual: string): boolean {
-  const a = Buffer.from(expected)
-  const b = Buffer.from(actual)
-  return a.length === b.length && timingSafeEqual(a, b)
-}
+const MAX_JOIN_BODY_BYTES = 1024
+/** The invitation route: its credential is the per-room invite token, not the server-wide publishKey. */
+const JOIN_ROUTE = /^\/p\/[a-f0-9]{32}\/join$/
+const RELAY_ROOM_ID = /^[a-f0-9]{32}$/
 
-function requestAuthorized(req: IncomingMessage, publishKey: string | undefined): boolean {
-  if (!publishKey) return true
-  const header = req.headers['x-peer-publish-key'] ?? req.headers.authorization
-  const supplied = Array.isArray(header) ? header[0] : header
-  if (!supplied) return false
-  const key = supplied.startsWith('Bearer ') ? supplied.slice(7) : supplied
-  return constantTimeEqual(publishKey, key)
-}
-
-function allowedOrigin(req: IncomingMessage, configured: string[] | undefined): string | undefined {
-  const origin = req.headers.origin
-  if (!origin) return undefined
-  if (configured !== undefined) return configured.includes(origin) ? origin : undefined
-  try {
-    const url = new URL(origin)
-    return ['http:', 'https:'].includes(url.protocol) && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
-      && url.origin === origin ? origin : undefined
-  } catch {
-    return undefined
-  }
+/** A hostname as it appears in a URL authority (IPv6 literals are bracketed). */
+function urlHost(hostname: string): string {
+  return hostname.includes(':') && !hostname.startsWith('[') ? `[${hostname}]` : hostname
 }
 
 /** Read a bounded JSON body and validate it with `schema`. An empty body is read as `{}`. */
@@ -144,7 +134,9 @@ export function createPeerServer(options: PeerServerOptions = {}): PeerServerIns
   const store = new FilePeerStore(options.storePath)
   const roomManager = new PeerRoomManager()
   const homeTools = createHomeMcpTools(roomManager)
-  const relayManager = (options.enableRelay || options.enableCloudTransit) ? new PeerRelayManager() : undefined
+  const relayManager = (options.enableRelay || options.enableCloudTransit)
+    ? new PeerRelayManager({ relayIdleTimeoutMs: options.relayIdleTimeoutMs, relayMaxSessionMs: options.relayMaxSessionMs })
+    : undefined
 
   const jsonResponse = (res: ServerResponse, status: number, body: unknown) => {
     // Header values are selected by the request handler; never reflect an
@@ -153,8 +145,8 @@ export function createPeerServer(options: PeerServerOptions = {}): PeerServerIns
     const headers: Record<string, string> = {
       'Content-Type': 'application/json; charset=utf-8',
       'Cache-Control': 'no-store',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Peer-Publish-Key, MCP-Protocol-Version, Mcp-Method, Mcp-Name',
+      'Access-Control-Allow-Methods': CORS_ALLOW_METHODS,
+      'Access-Control-Allow-Headers': CORS_ALLOW_HEADERS,
     }
     if (origin) {
       headers['Access-Control-Allow-Origin'] = origin
@@ -177,14 +169,31 @@ export function createPeerServer(options: PeerServerOptions = {}): PeerServerIns
   server.requestTimeout = 30_000
   server.headersTimeout = 10_000
 
+  // A relay provider that connects with `alias=` serves Cloud Transit calls for that alias.
+  const transitBridge = options.enableRelay && options.enableCloudTransit && relayManager
+    ? new RelayTransitBridge(relayManager, roomManager)
+    : undefined
   const relayHandler = options.enableRelay && relayManager
-    ? attachWebSocketRelay(server, { relayManager, allowedOrigins: options.allowedOrigins, publishKey: options.publishKey })
+    ? attachWebSocketRelay(server, { relayManager, allowedOrigins: options.allowedOrigins, transitBridge })
     : undefined
 
+  /** The listening port once start() resolved (the configured port before that). */
+  const boundPort = (): number => {
+    const address = server.address()
+    return typeof address === 'object' && address ? address.port : port
+  }
+
   async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    const origin = allowedOrigin(req, options.allowedOrigins)
+    const origin = resolveAllowedOrigin(req.headers.origin, options.allowedOrigins)
     ;(res as ServerResponse & { requestOrigin?: string | undefined }).requestOrigin = origin
-    const parsedUrl = new URL(req.url ?? '/', `http://${hostname}:${port}`)
+    let parsedUrl: URL
+    try {
+      // Only the path and query are read, so the base is a constant rather than the Host header.
+      parsedUrl = new URL(req.url ?? '/', 'http://peer-server.invalid')
+    } catch {
+      jsonResponse(res, 400, { error: 'Invalid request target' })
+      return
+    }
     const pathname = parsedUrl.pathname
 
     if (req.headers.origin && !origin) {
@@ -200,14 +209,18 @@ export function createPeerServer(options: PeerServerOptions = {}): PeerServerIns
       }
       res.writeHead(204, {
         ...(origin ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {}),
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Peer-Publish-Key, MCP-Protocol-Version, Mcp-Method, Mcp-Name',
+        'Access-Control-Allow-Methods': CORS_ALLOW_METHODS,
+        'Access-Control-Allow-Headers': CORS_ALLOW_HEADERS,
       })
       res.end()
       return
     }
 
-    if (!requestAuthorized(req, options.publishKey)) {
+    // The invitation route is authorized by the room's invite token (checked by
+    // claimInvitation); requiring the server-wide key there would hand every
+    // invite holder the key that also authorizes /call and room creation.
+    const isInviteJoin = req.method === 'POST' && JOIN_ROUTE.test(pathname)
+    if (!isInviteJoin && !publishKeyAuthorized(headerReader(req.headers), options.publishKey)) {
       jsonResponse(res, 401, { error: 'Unauthorized' })
       return
     }
@@ -278,7 +291,8 @@ export function createPeerServer(options: PeerServerOptions = {}): PeerServerIns
           : message.startsWith('TOOL_NOT_ALLOWED') ? 403
             : message.startsWith('TOO_MANY_PENDING_CALLS') ? 429
               : message.startsWith('TOOL_CALL_TIMEOUT') ? 504
-                : 500
+                : message.startsWith('PAYLOAD_TOO_LARGE') ? 413
+                  : 500
         jsonResponse(res, status, {
           error: message,
           peer: targetAlias,
@@ -292,12 +306,16 @@ export function createPeerServer(options: PeerServerOptions = {}): PeerServerIns
     if (req.method === 'POST' && pathname === '/announce') {
       const { record: announced, roomTools } = await readJsonBody(req, maxBodyBytes, PeerAnnouncementSchema)
       const updated = await store.updatePeer(announced.alias, announced)
+      // An announcement updates the catalog; it never replaces or invents the
+      // provider connection, so calls are dispatched only to a live socket.
+      const providerSocket = roomManager.getRoom(announced.alias)?.providerSocket
       roomManager.registerRoom({
         id: announced.id ?? announced.alias,
         alias: announced.alias,
         title: announced.title,
         origin: announced.origin,
-        status: 'connected',
+        status: providerSocket ? 'connected' : 'disconnected',
+        providerSocket,
         cachedTools: roomTools,
         allowedTools: announced.allowedTools,
         updatedAt: Date.now(),
@@ -329,11 +347,15 @@ export function createPeerServer(options: PeerServerOptions = {}): PeerServerIns
         return
       }
 
+      // Advertise a signaling URL only where the relay answers one: a relay room on a relay-enabled server.
+      const signaling = relayHandler && RELAY_ROOM_ID.test(peerId)
+        ? `ws://${urlHost(hostname)}:${boundPort()}/p/${peerId}/client`
+        : undefined
       jsonResponse(res, 200, {
         rendezvous: true,
         protocol: 'webmcp-p2p',
         peerId,
-        signaling: `ws://${hostname}:${port}/ws`,
+        ...(signaling === undefined ? {} : { signaling }),
         iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
       })
       return
@@ -351,28 +373,15 @@ export function createPeerServer(options: PeerServerOptions = {}): PeerServerIns
         return
       }
       const roomId = match[1]!
+      const join = await readJsonBody(req, MAX_JOIN_BODY_BYTES, JoinRequestSchema)
       const authHeader = req.headers.authorization
-      const inviteToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : (authHeader ?? '')
+      const inviteToken = join.inviteToken ?? (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : (authHeader ?? ''))
       try {
-        const chunks: Buffer[] = []
-        let bodyBytes = 0
-        for await (const chunk of req) {
-          const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
-          bodyBytes += buf.byteLength
-          if (bodyBytes > 1024) throw new RequestError(413, 'Request body too large')
-          chunks.push(buf)
-        }
-        const body = chunks.length > 0 ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {}
-        const clientLabel = typeof body.clientLabel === 'string' ? body.clientLabel : 'client'
-        const joined = await relayManager.claimInvitation(roomId, inviteToken, clientLabel)
+        const joined = await relayManager.claimInvitation(roomId, inviteToken, join.clientLabel)
         jsonResponse(res, 201, joined)
       } catch (err: unknown) {
-        if (err instanceof RequestError) {
-          jsonResponse(res, err.status, { error: err.message })
-          return
-        }
         const message = err instanceof Error ? err.message : 'UNAUTHORIZED'
-        const status = message === 'UNAUTHORIZED' ? 401 : message === 'ROOM_BUSY' ? 409 : 400
+        const status = message === 'UNAUTHORIZED' ? 401 : message === 'ROOM_BUSY' ? 409 : message === 'NOT_FOUND' ? 404 : 400
         jsonResponse(res, status, { error: message })
       }
       return
@@ -385,7 +394,7 @@ export function createPeerServer(options: PeerServerOptions = {}): PeerServerIns
         id: room.state.id,
         providerToken,
         inviteToken,
-        descriptorUrl: `http://${hostname}:${port}/p/${room.state.id}/mcp`,
+        descriptorUrl: `http://${urlHost(hostname)}:${boundPort()}/p/${room.state.id}/mcp`,
         expiresAt: room.state.expiresAt,
       })
       return

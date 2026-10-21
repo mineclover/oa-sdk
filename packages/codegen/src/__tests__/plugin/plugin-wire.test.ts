@@ -5,7 +5,12 @@ import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 import type { OasDocument } from '@oa-sdk/parser'
 import { createPluginContext } from '../../plugin/context.js'
-import { pluginWire } from '../../plugin/plugins/wire.js'
+import { runTspPluginPipeline } from '../../plugin/runner.js'
+import { pluginTypescript } from '../../plugin/plugins/typescript.js'
+import { pluginWire, type WireCodecKind } from '../../plugin/plugins/wire.js'
+import { toFileRecord, typecheckGeneratedFiles } from './helpers/typecheck-generated.js'
+
+const wireNamespacesFile = resolve(import.meta.dirname, '../../../../../test/e2e/typespec-plugin/fixtures/wire-namespaces/main.tsp')
 
 function createSampleOasDoc(): OasDocument {
   return {
@@ -226,6 +231,86 @@ describe('pluginWire', () => {
     } finally {
       rmSync(directory, { recursive: true, force: true })
     }
+  })
+
+  it('emits a wire.ts that type-checks for every codec selection, including schema-only ones', async () => {
+    const selections: WireCodecKind[][] = [['proto3'], ['raw-binary'], [], ['msgpack'], ['protobuf'], ['protobuf', 'msgpack', 'rpc-contract']]
+    for (const codecs of selections) {
+      const context = createPluginContext({
+        entrypoint: '/project/main.tsp',
+        outputDir: '/project/dist',
+        document: createSampleOasDoc(),
+        config: { input: 'main.tsp' },
+      })
+      await pluginWire({ codecs, typesFile: './types.js' }).generate!(context)
+      const wire = context.getFile('wire.ts')!.content
+      expect(wire).toContain('BinaryCodecAdapter<any> | undefined')
+      expect(wire).toMatch(/import (type )?\{[^}]*BinaryCodecAdapter[^}]*\} from '@oa-sdk\/client'/)
+      const diagnostics = typecheckGeneratedFiles({
+        files: {
+          'wire.ts': wire,
+          'types.ts': [
+            'export interface TelemetryMetric { sensorId: string; timestamp: number; value: number; tags?: string[] }',
+            'export interface TelemetryAck { success: boolean; processedCount: number }',
+          ].join('\n'),
+        },
+      })
+      expect(diagnostics, JSON.stringify(codecs)).toEqual([])
+    }
+  })
+
+  it('imports the types.ts names of sub-namespace models (TypeSpec fixture) and type-checks', async () => {
+    // Components `Inventory.Widget`, `Inventory.Shipment`, `Catalog.Widget` and `Widget`: dotted names that
+    // are not identifiers, and one short name declared by three namespaces.
+    const result = await runTspPluginPipeline({
+      input: wireNamespacesFile,
+      dryRun: true,
+      plugins: [pluginTypescript(), pluginWire({ codecs: ['protobuf', 'msgpack', 'proto3', 'rpc-contract'] })],
+    })
+    expect(result.success).toBe(true)
+    expect(Object.keys(result.context.document.components?.schemas ?? {})).toContain('Inventory.Widget')
+
+    const files = toFileRecord(result.files)
+    const wire = files['wire.ts']!
+    const typeImport = /^import type \{ ([^}]+) \} from '\.\/types\.js'$/m.exec(wire)?.[1]?.split(', ')
+    expect(typeImport?.slice().sort()).toEqual(['CatalogWidget', 'InventoryShipment', 'InventoryWidget', 'Widget'])
+    for (const name of typeImport ?? []) expect(files['types.ts']).toMatch(new RegExp(`export (?:interface|type) ${name}\\b`))
+
+    expect(typecheckGeneratedFiles({
+      files: {
+        ...files,
+        'usage.ts': [
+          "import { getGeneratedProtobufCodecs, getGeneratedMessagePackCodecs } from './wire.js'",
+          "import type { InventoryShipment } from './types.js'",
+          "const shipment: InventoryShipment = { shipmentId: 's1', widgets: [{ sku: 'w1', quantity: 2 }] }",
+          'export const protobufCodecs = getGeneratedProtobufCodecs()',
+          'export const messagePackCodecs = getGeneratedMessagePackCodecs()',
+          'export const value = shipment',
+        ].join('\n'),
+      },
+    })).toEqual([])
+  })
+
+  it('imports BinaryCodecAdapter type-only when no runtime codec is requested', async () => {
+    const context = createPluginContext({
+      entrypoint: '/project/main.tsp',
+      outputDir: '/project/dist',
+      document: createSampleOasDoc(),
+      config: { input: 'main.tsp' },
+    })
+    await pluginWire({ codecs: ['proto3'] }).generate!(context)
+    expect(context.getFile('wire.ts')!.content).toContain("import type { BinaryCodecAdapter } from '@oa-sdk/client'")
+  })
+
+  it('warns that the reserved raw-binary codec generates no bindings', async () => {
+    const context = createPluginContext({
+      entrypoint: '/project/main.tsp',
+      outputDir: '/project/dist',
+      document: createSampleOasDoc(),
+      config: { input: 'main.tsp' },
+    })
+    await pluginWire({ codecs: ['raw-binary'] }).generate!(context)
+    expect(context.diagnostics).toContainEqual(expect.objectContaining({ code: 'WIRE_CODEC_NOT_IMPLEMENTED', severity: 'warning' }))
   })
 
   it('supports custom output path and resolves relative imports to types file', async () => {

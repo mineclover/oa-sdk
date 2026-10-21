@@ -128,14 +128,20 @@ export interface LiveDemoServer {
   close(): Promise<void>;
 }
 
-/** Starts the relay server with the demo page and the Config & Security posture endpoint. */
-export async function startLiveDemoServer(options: { port?: number; host?: string } = {}): Promise<LiveDemoServer> {
+/**
+ * Starts the relay server with the demo page and the Config & Security posture endpoint. An approval
+ * request waits `approvalTimeoutMs` for the host's decision (the relay's default when it is not given).
+ */
+export async function startLiveDemoServer(
+  options: { port?: number; host?: string; approvalTimeoutMs?: number } = {},
+): Promise<LiveDemoServer> {
   const host = options.host ?? "127.0.0.1";
   const assets = await loadDemoAssets();
   const server = createWebMcpPeerServer({
     port: options.port ?? 8788,
     host,
     roomSweepIntervalMs: 0,
+    approvalTimeoutMs: options.approvalTimeoutMs,
     // Manual approval in the browser can take a while; keep pending approvals alive for 2 minutes.
     mcpRequestTimeoutMs: 120_000,
     serverName: "webmcp-live-demo",

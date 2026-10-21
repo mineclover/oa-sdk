@@ -14,7 +14,7 @@
 │    • 산출물: db/schema.sql, atlas.hcl, migrations/*.sql                │
 │    • 책임: 테이블, 물리 컬럼 타입, 인덱스, 파티셔닝, 마이그레이션        │
 └───────────────────────────────────┬────────────────────────────────────┘
-                                    │ atlas schema inspect --format json
+                                    │ atlas schema inspect --format json → verifyAtlasSchemaDrift
                                     ▼
 ┌────────────────────────────────────────────────────────────────────────┐
 │ 2. Logical Tier (Governance) ── oa-sdk DPM & Logical ERD               │
@@ -50,7 +50,7 @@
 | **XState v6 Standard Schema 런타임 검증** | **`ttsc` AOT Standard Schema** | XState v6 `setup({ schemas })`용 표준 스키마 인터페이스를 컴파일 시점에 무의존성으로 생성 | Zod 중복 작성 및 TS ↔ Zod 드리프트 발생 |
 | **요구사항 ↔ 코드 심볼 ↔ 스키마 100% 추적성 검증** | **`ttsc` (`@wrtnlabs/evidence@0.8.0` / `@samchon/typespec-evidence`) + `oa-gen trace`** | 컴파일 타임 마크다운 앵커·스코프 핑거프린트(`#hash`) 검증 및 `.oa-trace.json` 역방향 영향 범위(Blast Radius) 분석 | 수작업 체크리스트 또는 관리되지 않는 주석 |
 | **데이터베이스 물리 DDL 작성, 선언적 마이그레이션** | **`Atlas` (Ariga Atlas)** | PostgreSQL, SQLite, Cloudflare D1 방언 최적화, 마이그레이션 diff 자동화 및 린팅 | TypeSpec 모델로부터 SQL DDL 자동 생성 |
-| **물리 DB 컬럼 ↔ API 계약 간 불일치(Drift) 감지** | **`Atlas` + `oa-sdk` DPM/ERD** | `atlas schema inspect` 출력을 읽기 전용 증거로 읽어 TypeSpec 모델과 정적 비교 | oa-sdk에게 DB 직접 쓰기/마이그레이션 권한 부여 |
+| **물리 DB 컬럼 ↔ API 계약 간 불일치(Drift) 감지** | **`Atlas` + `verifyAtlasSchemaDrift`** (`@oa-sdk/typespec-decorators/governance`) | `atlas schema inspect` 출력을 읽기 전용 증거로 읽어, 호출자가 `@storageRef` 대상을 옮겨 적은 매핑(테이블·컬럼·기대 타입)과 정적 비교 | oa-sdk에게 DB 직접 쓰기/마이그레이션 권한 부여 |
 
 ---
 
@@ -155,6 +155,7 @@ model UserEntity {
   email: string;
 }
 ```
+> **참고**: `@storageRef`와 `@storageCatalog`는 `x-oa-sdk-storage-ref` / `x-oa-sdk-storage-catalog` 확장 메타데이터만 기록합니다. 이 확장을 Atlas 증거와 대조하는 도구는 없습니다(`oa-gen trace`는 `x-oa-sdk-storage-ref` 대상을 추적성 노드에 기록만 합니다). 드리프트 검증은 4절의 `verifyAtlasSchemaDrift`가 하며, 입력 매핑은 호출자가 이 대상들을 옮겨 적어 넘깁니다.
 
 ### 6) 요구사항 추적성 및 불변 계약 계보 저작 시 (Governance Traceability & Evidence Bridge)
 리팩토링/파일 이동에도 보존되는 불변 추적 ID(`@traceId`), 대체 계보(`@replaces`), 요구사항 매핑(`@requirement`)과 `@samchon/typespec-evidence`의 `@evidence` 증명 체계를 함께 연결할 때 사용합니다:
@@ -173,7 +174,7 @@ model UserAccount {
   id: string;
 }
 ```
-> **무손실 상호운용**: `@oa-sdk/codegen`의 추적성 엔진(`buildSpecTraceabilityGraph` / `oa-gen trace`)과 타입 생성기(`generateTypes({ includeProvenanceAnnotations: true })`)는 `x-oa-sdk-trace`뿐만 아니라 `x-samchon-evidence`(`requirements`, `upstreamRequirement`, `typeSpecSource`)도 자동으로 수집하여 `.oa-trace.json`과 `@oa-source` / `@oa-requirement` JSDoc 태그로 통합 투영합니다.
+> **무손실 상호운용**: `@oa-sdk/codegen`의 추적성 엔진(`buildSpecTraceabilityGraph` / `oa-gen trace`)과 타입 생성기(`generateTypes` / `generateTypesFromSpec`)는 `x-oa-sdk-trace`뿐만 아니라 `x-samchon-evidence`(`requirements`, `upstreamRequirement`, `typeSpecSource`)도 수집합니다. `.oa-trace.json` 사이드카는 `oa-gen trace --spec <openapi> -o .oa-trace.json`만 씁니다(라이브러리에서는 `saveSpecTraceabilitySidecar`). `@oa-source` / `@oa-requirement` 같은 출처 JSDoc 태그는 라이브러리 호출에 `includeProvenanceAnnotations: true`를 줄 때만 붙고, 이 옵션을 넘기지 않는 `oa-gen typegen`과 `oa-gen generate`의 출력에는 없습니다.
 
 ---
 
@@ -192,8 +193,10 @@ model UserAccount {
    atlas schema inspect --env local --format '{{ json . }}' > .schema-evidence.json
    ```
 3. **드리프트 정적 검증 (`oa-sdk`가 소유)**:
-   - CI에서 `oa-erd check` 또는 DPM 카탈로그 검증기가 `.schema-evidence.json`을 읽고,
-   - TypeSpec의 `@storageRef` 또는 Logical ERD의 엔티티/필드와 대조하여 누락되거나 타입이 불일치하는 필드를 탐지합니다.
+   - CI 스크립트가 `.schema-evidence.json`을 `AtlasSchemaInspectOutputSchema.parse`로 검증한 뒤, `@oa-sdk/typespec-decorators/governance`가 내보내는 `verifyAtlasSchemaDrift(evidence, mappings)`에 넘깁니다(루트 패키지와 별도 `storage-drift` 서브패스에는 없습니다).
+   - `mappings`(엔티티, 테이블, 컬럼, 기대 논리 타입)는 호출자가 TypeSpec 모델의 `@storageRef` 대상을 옮겨 적은 것입니다. 검증기는 TypeSpec 소스, 생성된 OpenAPI, `x-oa-sdk-storage-ref` 확장을 읽지 않으므로 `@storageRef`를 바꾸면 매핑도 함께 고칩니다.
+   - 매핑된 테이블이나 컬럼이 증거에 없으면 오류(`passed: false`), 물리 타입이 기대 타입과 호환되지 않으면 경고(`passed`는 그대로)입니다. CI 스크립트는 `passed`가 `false`일 때 종료 코드 1로 실패시킵니다.
+   - `@oa-sdk/dpm`과 `oa-erd check`는 Atlas 증거나 `x-oa-sdk-storage-ref`를 읽지 않습니다. 전체 CI 스크립트는 [Ariga Atlas 물리 DB 스키마 드리프트 거버넌스 가이드](./use-cases/atlas-schema-drift-governance.md)에 있습니다.
    - **이 과정에서 oa-sdk는 DB를 전혀 변경하지 않는 안전한 읽기 전용 검증 게이트로 작동합니다.**
 
 ---
@@ -474,7 +477,7 @@ export const scenePlayerMachine = setup({
 
 2. **정적 드리프트 검증 사상 ($\psi_{drift}$)**:
    $$\psi_{drift}: M_{log} \times O_{evidence} \to \{\text{PASS}, \text{DRIFT\_ERROR}\}$$
-   논리 모델 $M_{log}$의 속성 $\text{Attr}(E)$가 물리 컬럼 $C$와 일치하는지 정적으로 검증합니다. 일치하지 않는 경우 CI 게이트가 실패합니다.
+   논리 모델 $M_{log}$의 속성 $\text{Attr}(E)$가 물리 컬럼 $C$와 일치하는지 정적으로 검증합니다. 구현은 `verifyAtlasSchemaDrift`(`@oa-sdk/typespec-decorators/governance`)이며, $M_{log}$ 쪽 입력은 호출자가 `@storageRef` 대상을 옮겨 적은 매핑입니다. 매핑된 테이블이나 컬럼이 없으면 CI 게이트가 실패하고, 타입 불일치는 경고로만 보고됩니다.
 
 3. **형태 추출 사상 ($\tau_{shape}$)**:
    $$\tau_{shape}: C_{api} \to E_{shape}(B_{fsm})$$

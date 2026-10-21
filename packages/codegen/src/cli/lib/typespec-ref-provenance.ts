@@ -50,6 +50,7 @@ export type TypeSpecRefProvenanceDiagnostic = {
   code:
     | 'typespec-provenance/ambiguous-operation'
     | 'typespec-provenance/ambiguous-restore-source'
+    | 'typespec-provenance/duplicate-declaration-id'
     | 'typespec-provenance/missing-output-pointer'
     | 'typespec-provenance/missing-public-owner'
     | 'typespec-provenance/missing-ref-owner'
@@ -112,6 +113,7 @@ export function buildTypeSpecRefProvenance(input: {
     collections.flatMap(collection => collection.nativeSecuritySchemeDeclarationIds),
   )
   const diagnostics: TypeSpecRefProvenanceDiagnostic[] = collections.flatMap(collection => collection.diagnostics)
+  diagnostics.push(...findDuplicateDeclarationIds(declarations))
   const edges: TypeSpecRefProvenanceEdge[] = []
   const pointerOwners = new Map<string, string>()
 
@@ -287,6 +289,11 @@ type SourceDeclaration = TypeSpecRefProvenanceDeclaration & {
   restoreKey?: string
   operationId?: string
   alternateOperationId?: string
+  /**
+   * Operations: the name qualified by the enclosing interface (`Users.list`), unique per file.
+   * Extensions: the `ownerKey` of the operation they decorate, or `root`.
+   */
+  ownerKey?: string
   sourceOffset: number
   sourceEnd: number
 }
@@ -297,7 +304,10 @@ function collectDeclarations(sourceRoot: string, filePath: string): {
   nativeSecuritySchemeDeclarationIds: string[]
 } {
   const content = readFileSync(filePath, 'utf8')
-  const ast = parse(content) as unknown as { statements?: Array<Record<string, unknown>> }
+  const parsed: unknown = parse(content)
+  const ast = isRecord(parsed) && Array.isArray(parsed.statements)
+    ? { statements: parsed.statements.filter(isRecord) }
+    : { statements: [] }
   const declarations: SourceDeclaration[] = []
   const diagnostics: TypeSpecRefProvenanceDiagnostic[] = []
   const nativeSecuritySchemeDeclarationIds: string[] = []
@@ -366,10 +376,14 @@ function collectDeclarations(sourceRoot: string, filePath: string): {
       const body = content.slice(pos, end)
       const explicitOperationId = readStringDecorator(body, 'operationId')
       const defaultOperationId = enclosingInterface ? `${enclosingInterface}_${id}` : id
+      // Interfaces may reuse an operation name (`Users.list`, `Orders.list`), so the declaration
+      // id carries the interface; `symbol` stays the operation's own name.
+      const ownerKey = enclosingInterface ? `${enclosingInterface}.${id}` : id
       declarations.push({
-        id: `operation:${relativePath}:${id}`,
+        id: `operation:${relativePath}:${ownerKey}`,
         kind: 'operation',
         symbol: id,
+        ownerKey,
         operationId: explicitOperationId ?? defaultOperationId,
         ...(!explicitOperationId && enclosingInterface ? { alternateOperationId: id } : {}),
         source,
@@ -390,12 +404,13 @@ function collectDeclarations(sourceRoot: string, filePath: string): {
     const offset = match.index
     const owner = operationByRange.find(operation => offset >= operation.sourceOffset && offset < operation.sourceEnd)
     const location = createSourceRange(content, relativePath, offset, offset + match[0].length)
-    const scope = owner ? owner.symbol : 'root'
-    const ordinal = declarations.filter(declaration => declaration.kind === 'extension' && declaration.source.file === relativePath && declaration.extensionName === extensionName && declaration.symbol === scope).length
+    const scope = owner?.ownerKey ?? 'root'
+    const ordinal = declarations.filter(declaration => declaration.kind === 'extension' && declaration.source.file === relativePath && declaration.extensionName === extensionName && declaration.ownerKey === scope).length
     declarations.push({
       id: `extension:${relativePath}:${scope}:${extensionName}:${ordinal}`,
       kind: 'extension',
-      symbol: scope,
+      symbol: owner ? owner.symbol : 'root',
+      ownerKey: scope,
       extensionName,
       source: location,
       sourceOffset: offset,
@@ -411,11 +426,13 @@ function collectDeclarations(sourceRoot: string, filePath: string): {
     if (!owner) continue
     const extensionName = 'x-oa-sdk-operation-component-refs'
     const location = createSourceRange(content, relativePath, offset, offset + match[0].length)
-    const ordinal = declarations.filter(declaration => declaration.kind === 'extension' && declaration.source.file === relativePath && declaration.extensionName === extensionName && declaration.symbol === owner.symbol && declaration.restoreKey === restoreKey).length
+    const scope = owner.ownerKey ?? owner.symbol
+    const ordinal = declarations.filter(declaration => declaration.kind === 'extension' && declaration.source.file === relativePath && declaration.extensionName === extensionName && declaration.ownerKey === scope && declaration.restoreKey === restoreKey).length
     declarations.push({
-      id: `extension:${relativePath}:${owner.symbol}:${extensionName}:${restoreKey}:${ordinal}`,
+      id: `extension:${relativePath}:${scope}:${extensionName}:${restoreKey}:${ordinal}`,
       kind: 'extension',
       symbol: owner.symbol,
+      ownerKey: scope,
       extensionName,
       restoreKey,
       source: location,
@@ -441,7 +458,9 @@ function findRestoreDeclarations(
     const method = pathMatch[2]!
     const output = outputOperations.find(item => item.path === path && item.method === method)
     const operation = output ? operations.find(item => (item.operationId ?? item.symbol) === output.operationId) : undefined
-    const candidates = extensions.filter(item => item.extensionName === extensionName && item.symbol === operation?.symbol)
+    const candidates = operation
+      ? extensions.filter(item => item.extensionName === extensionName && item.ownerKey === operation.ownerKey && item.source.file === operation.source.file)
+      : []
     if (entry.kind === 'operation-response-ref') {
       const statusCode = String((entry.target as Record<string, unknown>).statusCode)
       const keyed = candidates.filter(item => item.restoreKey === statusCode)
@@ -449,14 +468,14 @@ function findRestoreDeclarations(
     }
     return candidates
   }
-  return extensions.filter(item => item.extensionName === extensionName && item.symbol === 'root')
+  return extensions.filter(item => item.extensionName === extensionName && item.ownerKey === 'root')
 }
 
 type OutputOperation = { operationId: string; path: string; method: string; pointer: string }
 
 function listOutputOperations(document: OasDocument): OutputOperation[] {
-  const documentRecord = document as unknown as Record<string, unknown>
-  const paths = isRecord(documentRecord.paths) ? documentRecord.paths : {}
+  const documentPaths: unknown = document.paths
+  const paths = isRecord(documentPaths) ? documentPaths : {}
   const result: OutputOperation[] = []
   for (const [path, pathValue] of Object.entries(paths)) {
     if (!isRecord(pathValue)) continue
@@ -474,9 +493,9 @@ function listOutputOperations(document: OasDocument): OutputOperation[] {
 }
 
 function listPublicPointers(document: OasDocument): string[] {
-  const documentRecord = document as unknown as Record<string, unknown>
   const pointers = listOutputOperations(document).map(operation => operation.pointer)
-  const components = isRecord(documentRecord.components) ? documentRecord.components : {}
+  const documentComponents: unknown = document.components
+  const components = isRecord(documentComponents) ? documentComponents : {}
   for (const section of ['schemas', 'parameters', 'responses', 'securitySchemes']) {
     const entries = isRecord(components[section]) ? components[section] : {}
     for (const name of Object.keys(entries)) pointers.push(`#/components/${section}/${escapeJsonPointerToken(name)}`)
@@ -497,8 +516,8 @@ function listPublicPointers(document: OasDocument): string[] {
  * TypeSpec owner, gets no entry and its parameter refs stay unowned.
  */
 function listPathParameterOwners(document: OasDocument, operationOwners: ReadonlyMap<string, string>): Map<string, string[]> {
-  const documentRecord = document as unknown as Record<string, unknown>
-  const paths = isRecord(documentRecord.paths) ? documentRecord.paths : {}
+  const documentPaths: unknown = document.paths
+  const paths = isRecord(documentPaths) ? documentPaths : {}
   const result = new Map<string, string[]>()
   for (const [path, pathValue] of Object.entries(paths)) {
     if (!isRecord(pathValue) || !Array.isArray(pathValue.parameters)) continue
@@ -570,6 +589,28 @@ function stripRefLeaf(pointer: string): string {
 
 function addEdge(edges: TypeSpecRefProvenanceEdge[], edge: TypeSpecRefProvenanceEdge): void {
   edges.push(edge)
+}
+
+/**
+ * Declarations that share an id would overwrite each other wherever provenance is indexed by
+ * id (the trace graph does), giving one declaration's source range to another's output.
+ */
+function findDuplicateDeclarationIds(declarations: readonly SourceDeclaration[]): TypeSpecRefProvenanceDiagnostic[] {
+  const byId = new Map<string, SourceDeclaration[]>()
+  for (const declaration of declarations) {
+    byId.set(declaration.id, [...(byId.get(declaration.id) ?? []), declaration])
+  }
+  const diagnostics: TypeSpecRefProvenanceDiagnostic[] = []
+  for (const [id, group] of byId) {
+    if (group.length < 2) continue
+    const locations = group.map(declaration => `${declaration.source.file}:${declaration.source.start.line}`).join(', ')
+    diagnostics.push({
+      code: 'typespec-provenance/duplicate-declaration-id',
+      pointer: id,
+      message: `TypeSpec declaration id ${JSON.stringify(id)} is shared by ${group.length} declarations (${locations}).`,
+    })
+  }
+  return diagnostics
 }
 
 function dedupeEdges(edges: TypeSpecRefProvenanceEdge[]): TypeSpecRefProvenanceEdge[] {
@@ -651,13 +692,24 @@ function resolvePackageVersion(packageName: string): string {
   while (true) {
     const packagePath = resolve(directory, 'package.json')
     if (existsSync(packagePath)) {
-      const value = JSON.parse(readFileSync(packagePath, 'utf8')) as { name?: unknown; version?: unknown }
-      if (value.name === packageName && typeof value.version === 'string') return value.version
+      const value = PackageIdentitySchema.parse(JSON.parse(readFileSync(packagePath, 'utf8')))
+      if (value.name === packageName && value.version !== undefined) return value.version
     }
     const parent = dirname(directory)
     if (parent === directory) throw new Error(`could not resolve ${packageName} package version`)
     directory = parent
   }
+}
+
+/** The `name` and `version` of a `package.json`; other members are ignored. */
+const PackageIdentitySchema = {
+  parse(value: unknown): { name?: string; version?: string } {
+    if (!isRecord(value)) throw new TypeError('package.json must be a JSON object')
+    return {
+      ...(typeof value.name === 'string' ? { name: value.name } : {}),
+      ...(typeof value.version === 'string' ? { version: value.version } : {}),
+    }
+  },
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

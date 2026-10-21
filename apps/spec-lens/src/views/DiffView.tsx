@@ -17,15 +17,21 @@ export function DiffView({
   baseId,
   headId,
   onBack,
+  onSelectEntry,
+  breakingOnly,
 }: {
   baseId: string
   headId: string
   onBack: () => void
+  /** Called with the JSON Pointer of the diff entry the user opens. */
+  onSelectEntry?: ((pointer: string) => void) | undefined
+  /** Show only breaking changes (opens the Breaking tab). */
+  breakingOnly?: boolean | undefined
 }) {
   const { t } = useTranslation()
-  const [tab, setTab] = useState<Tab>('changes')
+  const [tab, setTab] = useState<Tab>(breakingOnly ? 'breaking' : 'changes')
 
-  useEffect(() => { setTab('changes') }, [baseId, headId])
+  useEffect(() => { setTab(breakingOnly ? 'breaking' : 'changes') }, [baseId, headId, breakingOnly])
 
   const needsSnapshots = tab === 'changes' || tab === 'yaml'
 
@@ -109,7 +115,12 @@ export function DiffView({
       {/* Content */}
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {tab === 'changes' && (
-          <ChangesPanel diff={diff} baseSnap={baseSnap ?? null} headSnap={headSnap ?? null} />
+          <ChangesPanel
+            diff={diff}
+            baseSnap={baseSnap ?? null}
+            headSnap={headSnap ?? null}
+            onSelectEntry={onSelectEntry}
+          />
         )}
         {tab === 'yaml' && (
           <YamlDiffPanel baseSnap={baseSnap ?? null} headSnap={headSnap ?? null} />
@@ -131,10 +142,12 @@ function ChangesPanel({
   diff,
   baseSnap,
   headSnap,
+  onSelectEntry,
 }: {
   diff: SpecTimelineDiff | undefined
   baseSnap: SpecSnapshot | null
   headSnap: SpecSnapshot | null
+  onSelectEntry?: ((pointer: string) => void) | undefined
 }) {
   const { t } = useTranslation()
   if (!diff) return <CenteredSpinner />
@@ -164,6 +177,7 @@ function ChangesPanel({
           entries={entries}
           baseSpec={baseSnap?.spec ?? null}
           headSpec={headSnap?.spec ?? null}
+          onSelectEntry={onSelectEntry}
         />
       ))}
     </div>
@@ -177,11 +191,13 @@ function CategorySection({
   entries,
   baseSpec,
   headSpec,
+  onSelectEntry,
 }: {
   category: string
   entries: DiffEntry[]
   baseSpec: Record<string, unknown> | null
   headSpec: Record<string, unknown> | null
+  onSelectEntry?: ((pointer: string) => void) | undefined
 }) {
   const { t } = useTranslation()
   const categoryLabels: Record<string, string> = {
@@ -205,6 +221,7 @@ function CategorySection({
           entry={entry}
           baseSpec={baseSpec}
           headSpec={headSpec}
+          onSelect={onSelectEntry}
         />
       ))}
     </div>
@@ -216,10 +233,12 @@ function DiffEntryRow({
   entry,
   baseSpec,
   headSpec,
+  onSelect,
 }: {
   entry: DiffEntry
   baseSpec: Record<string, unknown> | null
   headSpec: Record<string, unknown> | null
+  onSelect?: ((pointer: string) => void) | undefined
 }) {
   const [expanded, setExpanded] = useState(entry.kind === 'changed')
 
@@ -238,8 +257,11 @@ function DiffEntryRow({
     <div style={{ borderBottom: '1px solid var(--border-muted)' }}>
       {/* Entry header — clickable */}
       <div
-        className={hasContent ? 'hoverable' : undefined}
-        onClick={() => hasContent && setExpanded(e => !e)}
+        className={hasContent || onSelect ? 'hoverable' : undefined}
+        onClick={() => {
+          onSelect?.(entry.pointer)
+          if (hasContent) setExpanded(e => !e)
+        }}
         style={{
           display: 'flex',
           alignItems: 'center',

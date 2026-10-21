@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import {
@@ -353,6 +353,123 @@ describe('TypeSpec SSOT Plugin Pipeline Runner (runTspPluginPipeline)', () => {
       expect(result.success).toBe(true)
       expect(existsSync(staleFile)).toBe(false)
       expect(existsSync(resolve(tempDir, 'fresh.ts'))).toBe(true)
+    })
+  })
+
+  describe('4b. Output directory clean safety', () => {
+    const emptyDoc: OasDocument = { openapi: '3.2.0', info: { title: 'Clean', version: '1.0.0' }, paths: {} }
+    const writer: TspPlugin = {
+      name: 'writer',
+      generate: (ctx) => {
+        ctx.addFile({ path: 'out.ts', content: 'export const out = 1\n', sourcePlugin: 'writer' })
+      },
+    }
+
+    it('never removes a directory outside cwd and the temp dir, whatever its name contains', async () => {
+      // A tree outside os.tmpdir() (git-ignored node_modules cache) whose path contains "tmp", "dist" and "generated".
+      const cacheDir = join(monorepoRoot, 'node_modules', '.cache')
+      mkdirSync(cacheDir, { recursive: true })
+      const scratch = mkdtempSync(join(cacheDir, 'oa-clean-safety-tmp-'))
+      try {
+        const project = join(scratch, 'project')
+        const outside = join(scratch, 'user-data-dist-generated-temp')
+        mkdirSync(project, { recursive: true })
+        mkdirSync(outside, { recursive: true })
+        writeFileSync(join(outside, 'keep.txt'), 'precious')
+
+        const result = await runTspPluginPipeline(
+          { input: 'main.tsp', output: outside, plugins: [writer] },
+          { cwd: project, document: emptyDoc },
+        )
+
+        expect(readFileSync(join(outside, 'keep.txt'), 'utf8')).toBe('precious')
+        expect(existsSync(join(outside, 'out.ts'))).toBe(true)
+        expect(result.success).toBe(true)
+        expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: 'TSP_CLEAN_SKIPPED', severity: 'warning' }))
+      } finally {
+        rmSync(scratch, { recursive: true, force: true })
+      }
+    })
+
+    it('never removes the working directory, its ancestors, or a directory holding the TypeSpec sources', async () => {
+      const root = mkdtempSync(join(tmpdir(), 'tsp-clean-ancestor-'))
+      try {
+        const project = join(root, 'project')
+        mkdirSync(join(project, 'src'), { recursive: true })
+        writeFileSync(join(project, 'main.tsp'), 'namespace X;')
+        writeFileSync(join(root, 'sibling.txt'), 'keep')
+
+        for (const output of ['..', '.', 'src/..']) {
+          const result = await runTspPluginPipeline(
+            { input: 'main.tsp', output, plugins: [writer] },
+            { cwd: project, document: emptyDoc },
+          )
+          expect(result.diagnostics.map(d => d.code), output).toContain('TSP_CLEAN_SKIPPED')
+        }
+        expect(existsSync(join(project, 'main.tsp'))).toBe(true)
+        expect(existsSync(join(root, 'sibling.txt'))).toBe(true)
+
+        // A TypeSpec project directory given as the input is not cleaned when it is also the output.
+        mkdirSync(join(project, 'spec'))
+        writeFileSync(join(project, 'spec', 'main.tsp'), 'namespace Spec;')
+        const sameDir = await runTspPluginPipeline(
+          { input: 'spec', output: 'spec', plugins: [writer] },
+          { cwd: project, document: emptyDoc },
+        )
+        expect(sameDir.diagnostics.map(d => d.code)).toContain('TSP_CLEAN_SKIPPED')
+        expect(existsSync(join(project, 'spec', 'main.tsp'))).toBe(true)
+
+        // Even when the TypeSpec sources live elsewhere, the working directory itself is never wiped.
+        writeFileSync(join(project, 'keep.txt'), 'keep')
+        const external = await runTspPluginPipeline(
+          { input: petstoreFile, output: '.', plugins: [writer] },
+          { cwd: project, document: emptyDoc },
+        )
+        expect(external.diagnostics.map(d => d.code)).toContain('TSP_CLEAN_SKIPPED')
+        expect(existsSync(join(project, 'keep.txt'))).toBe(true)
+      } finally {
+        rmSync(root, { recursive: true, force: true })
+      }
+    })
+
+    it('cleans an output directory strictly inside the working directory', async () => {
+      const project = mkdtempSync(join(tmpdir(), 'tsp-clean-inside-'))
+      try {
+        const out = join(project, 'src', 'generated')
+        mkdirSync(out, { recursive: true })
+        writeFileSync(join(out, 'stale.ts'), 'stale')
+
+        const result = await runTspPluginPipeline(
+          { input: 'main.tsp', output: 'src/generated', plugins: [writer] },
+          { cwd: project, document: emptyDoc },
+        )
+        expect(result.diagnostics).toEqual([])
+        expect(existsSync(join(out, 'stale.ts'))).toBe(false)
+        expect(existsSync(join(out, 'out.ts'))).toBe(true)
+      } finally {
+        rmSync(project, { recursive: true, force: true })
+      }
+    })
+
+    it('writes non-comment file types without the default // banner', async () => {
+      const project = mkdtempSync(join(tmpdir(), 'tsp-json-banner-'))
+      try {
+        const jsonPlugin: TspPlugin = {
+          name: 'json',
+          generate: (ctx) => {
+            ctx.addFile({ path: 'meta.json', content: '{"ok":true}', sourcePlugin: 'json' })
+            ctx.addFile({ path: 'meta.ts', content: 'export const ok = true\n', sourcePlugin: 'json' })
+          },
+        }
+        await runTspPluginPipeline(
+          { input: 'main.tsp', output: 'out', format: false, plugins: [jsonPlugin] },
+          { cwd: project, document: emptyDoc },
+        )
+        expect(JSON.parse(readFileSync(join(project, 'out', 'meta.json'), 'utf8'))).toEqual({ ok: true })
+        expect(readFileSync(join(project, 'out', 'meta.ts'), 'utf8')).toMatch(/^\/\/ @generated by @oa-sdk\/codegen/)
+      } finally {
+        rmSync(project, { recursive: true, force: true })
+      }
     })
   })
 

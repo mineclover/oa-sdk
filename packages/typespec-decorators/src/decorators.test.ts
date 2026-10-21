@@ -336,6 +336,7 @@ describe('$chunkStream', () => {
       targetChunkBytes: 7168,
       memoryPreset: 'standard',
       maxResidentBytes: 134217728,
+      maxL1MemoryBytes: 67108864,
       payloadFormat: 'ui-action@v1',
       fps: 30,
       chunkFrames: 30,

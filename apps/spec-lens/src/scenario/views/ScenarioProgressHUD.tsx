@@ -9,6 +9,9 @@ export function ScenarioProgressHUD() {
     stepBack,
     availableGoals,
     completeGoal,
+    intents,
+    dispatch,
+    lastError,
     openFlowModal,
     resetScenario,
   } = useScenario()
@@ -55,10 +58,49 @@ export function ScenarioProgressHUD() {
         {isGoalCompleted && (
           <Badge variant="green">✓ 완료 목표 달성</Badge>
         )}
+
+        {lastError && (
+          <span
+            role="status"
+            data-scenario-error
+            style={{ fontSize: 'var(--text-xs)', color: 'var(--red)', whiteSpace: 'nowrap' }}
+            title="시나리오 밖으로 자유롭게 이동하려면 시나리오를 종료하세요."
+          >
+            ⚠ {lastError}
+          </span>
+        )}
       </div>
 
       {/* Center/Right: Actions */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
+        {/* Next steps the FSM permits from the current view, fed by the view's selection */}
+        {intents.map((intent) => {
+          const blocked = intent.action === null || intent.blockedReason !== undefined
+          const label = intent.rule.description ?? `${intent.rule.actionType} → ${intent.rule.toView}`
+          return (
+            <button
+              key={`${intent.rule.fromView}:${intent.rule.actionType}:${intent.rule.toView}`}
+              type="button"
+              data-scenario-step={intent.rule.actionType}
+              onClick={() => {
+                if (intent.action) dispatch(intent.action)
+              }}
+              disabled={blocked}
+              className="btn btn-secondary"
+              title={intent.blockedReason ?? label}
+              style={{
+                padding: '4px 10px',
+                fontSize: 12,
+                opacity: blocked ? 0.5 : 1,
+                cursor: blocked ? 'not-allowed' : 'pointer',
+              }}
+            >
+              <span>→ {intent.rule.toView}</span>
+              <span style={{ marginLeft: 4, color: 'var(--text-muted)' }}>{label}</span>
+            </button>
+          )
+        })}
+
         {/* Terminal Goal Completion CTA if available and not yet completed */}
         {availableGoals.map((goal) => {
           const completed = machineState.completedGoals.includes(goal.id)

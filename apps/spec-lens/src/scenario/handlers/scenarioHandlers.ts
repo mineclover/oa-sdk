@@ -1,4 +1,4 @@
-import type { LensBehaviorAction, ScenarioTransitionResult } from '@oa-sdk/spec-lens-contract'
+import type { DashboardView, LensBehaviorAction, ScenarioTransitionResult } from '@oa-sdk/spec-lens-contract'
 
 export function createScenarioActionHelpers(
   dispatch: (action: LensBehaviorAction) => ScenarioTransitionResult,
@@ -18,6 +18,12 @@ export function createScenarioActionHelpers(
 
     filterBreakingChanges: (onlyBreaking: boolean) =>
       dispatch({ type: 'FILTER_BREAKING_CHANGES', onlyBreaking }),
+
+    selectRevision: (revisionId: string) =>
+      dispatch({ type: 'SELECT_REVISION', revisionId }),
+
+    navigateView: (view: DashboardView) =>
+      dispatch({ type: 'NAVIGATE_VIEW', view }),
 
     stepBack: () =>
       dispatch({ type: 'STEP_BACK' }),

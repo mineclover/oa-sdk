@@ -18,6 +18,7 @@ sourceOfTruth:
   roadmap: docs/internal/plan.md
   apiSurface: docs/internal/api-index.md
   featureTests: docs/internal/feature-test-matrix.md
+  webmcpRelayProtocol: docs/internal/webmcp-relay-protocol.md
   userScenarios: docs/internal/user-scenario-tests.md
   releasePolicy: docs/internal/release-policy.json
   contractAuthoring: packages/schemas/typespec/
@@ -39,6 +40,12 @@ conditional:
   release:
     - docs/internal/release-management.md
     - docs/internal/release-policy.json
+  # @oa-sdk/webmcp-peer relay, provider, or agent client work: the protocol spec is the rule, the
+  # README and the security notes summarize it.
+  webmcpRelay:
+    - docs/internal/webmcp-relay-protocol.md
+    - packages/webmcp-peer/README.md
+    - docs/security/webmcp-hardening.md
 
 validation:
   docs: pnpm check:docs

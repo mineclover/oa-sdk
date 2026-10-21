@@ -24,7 +24,7 @@
     "build": "tsup src/index.ts --format esm --dts",
     "test": "vitest run",
     "test:ci": "vitest run --maxWorkers 1 --no-file-parallelism",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
     "clean": "rm -rf dist"
   },
   "dependencies": {

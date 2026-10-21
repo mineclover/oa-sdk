@@ -55,13 +55,13 @@ describe("@oa-sdk/webmcp-peer unified package", () => {
       roomId: "room-abc",
       inviteToken: "token-xyz",
     });
-    expect(invite).toBe("http://127.0.0.1:8787/p/room-abc#invite=token-xyz");
+    expect(invite).toBe("http://127.0.0.1:8787/p/room-abc/mcp#invite=token-xyz");
 
     const parsed = parseInvitationUrl(invite);
     expect(parsed).toEqual({
       serverUrl: "http://127.0.0.1:8787",
       roomId: "room-abc",
-      descriptorUrl: "http://127.0.0.1:8787/p/room-abc",
+      descriptorUrl: "http://127.0.0.1:8787/p/room-abc/mcp",
       inviteToken: "token-xyz",
       mcpEndpoint: "http://127.0.0.1:8787/p/room-abc/mcp",
     });
@@ -191,7 +191,7 @@ describe("@oa-sdk/webmcp-peer unified package", () => {
     // 4. External Agent Client invokes tools via PeerMcpService multi-session orchestrator
     const service = new PeerMcpService();
     const session = await service.connect({
-      sessionId: "primary-room",
+      key: "primary-room",
       serverUrl,
       roomId,
       roomEpoch: joined.roomEpoch,

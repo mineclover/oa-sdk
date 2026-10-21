@@ -219,6 +219,11 @@ export const handlers: OrderServiceServerHandlers<{ user: string }> = {
 
     await expect(client.createOrder({ id: 'x', amount: 1 })).rejects.toThrow('needs a codec for Order (application/x-protobuf)')
     await expect(client.deleteOrder({ orderId: '..' })).rejects.toThrow('cannot use ".." as path parameter "orderId"')
+    await expect(client.deleteOrder({ orderId: '.' })).rejects.toThrow('cannot use "." as path parameter "orderId"')
+    // `/orders/` is the parent route, so an empty value would call another procedure.
+    for (const orderId of ['', [], ['']]) {
+      await expect(client.deleteOrder({ orderId })).rejects.toThrow('cannot use an empty value as path parameter "orderId"')
+    }
     expect(calls).toEqual([])
   })
 

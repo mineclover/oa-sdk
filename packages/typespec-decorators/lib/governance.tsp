@@ -29,7 +29,15 @@ extern dec pseudonymize(
 /**
  * Assigns a stable, immutable tracking identifier to a specification element
  * that survives file moves and symbol renames.
- * Emits the `x-oa-sdk-trace.trackingId` OpenAPI extension payload.
+ * Emits the `x-oa-sdk-trace.trackingId` OpenAPI extension payload on the declaration
+ * it is written on, and on mutator clones of it (e.g. `@versioned` snapshots).
+ * Types TypeSpec derives from that declaration (`is` copies, interface-extends clones,
+ * spread copies, template instances) do not carry it; give such a type its own @traceId.
+ * Known limits: parameters and anonymous types that TypeSpec shares between a declaration
+ * and its derived types (interface-extends operation parameters, anonymous body/return/property
+ * types of `op is`/`model is`) keep the id under every derived element, and
+ * `scalar B extends A` inherits A's id through the OpenAPI emitter.
+ * An id may be written in only one @traceId application per program.
  */
 extern dec traceId(
   target: Model | Operation | Interface | Enum | Union | Scalar | ModelProperty,

@@ -1,5 +1,14 @@
 import { randomUUID } from "node:crypto";
 import {
+  isJsonObject,
+  JsonObjectSchema,
+  parseJsonObject,
+  readResponseText,
+} from "../config/json.js";
+import { isReconnectableCloseCode } from "../config/close-codes.js";
+import { PEER_RELAY_MAX_PENDING_REQUESTS } from "../config/limits.js";
+import { WEBMCP_SUBPROTOCOL } from "../config/types.js";
+import {
   extractCatalogVersion,
   hashTools,
   normalizeTools,
@@ -12,11 +21,20 @@ import {
   PeerMcpRpcError,
 } from "./errors.js";
 import {
+  PeerMcpCallToolResultSchema,
+  PeerMcpCatalogCacheSchema,
+  PeerSessionStatusSchema,
+} from "./schemas.js";
+import {
+  asCatalogVersion,
   asNonEmptyString,
+  assertWithinRelayIdLimit,
   createHttpTransport,
   createWebSocketTransport,
+  MCP_HTTP_ACCEPT,
   normalizeServerUrl,
   parseRoomId,
+  roomIdOption,
   websocketUrl,
 } from "./transport.js";
 import {
@@ -24,10 +42,12 @@ import {
   PACKAGE_VERSION,
   PROTOCOL_VERSION,
   type PeerMcpCallOptions,
+  type PeerMcpCallToolResult,
   type PeerMcpCatalogListener,
   type PeerMcpCatalogSnapshot,
   type PeerMcpListener,
   type PeerMcpRequestOptions,
+  type PeerMcpRpcResponse,
   type PeerMcpSessionInfo,
   type PeerMcpSessionOptions,
   type PeerMcpSessionState,
@@ -35,42 +55,124 @@ import {
   type PeerMcpTool,
   type PeerMcpTransport,
   type PeerMcpTransportCallbacks,
+  type PeerMcpTransportClose,
   type PeerMcpTransportMessage,
 } from "./types.js";
+
+/** Closes `transport`, which the session no longer uses, dropping whatever its close throws or rejects with. */
+function closeQuietly(transport: PeerMcpTransport): void {
+  try {
+    const closed = transport.close?.();
+    if (closed !== undefined) void Promise.resolve(closed).catch(() => {});
+  } catch {}
+}
+
+/** The error `disconnect()` ends the requests and the connect it finds with. */
+function sessionDisconnectedError(): PeerMcpError {
+  return new PeerMcpError("Peer session disconnected", "SESSION_DISCONNECTED");
+}
 
 function readEnv(name: string): string | undefined {
   return typeof process !== "undefined" ? process.env?.[name] : undefined;
 }
 
-function isRpcResponse(value: unknown): value is Record<string, unknown> {
-  if (!value || typeof value !== "object") return false;
-  const obj = value as Record<string, unknown>;
-  return obj.jsonrpc === "2.0" && (obj.id !== undefined || obj.result !== undefined || obj.error !== undefined);
+function isRpcResponse(value: unknown): value is PeerMcpRpcResponse {
+  if (!isJsonObject(value)) return false;
+  return value.jsonrpc === "2.0" && (value.id !== undefined || value.result !== undefined || value.error !== undefined);
 }
 
 function unwrapMessage(value: unknown): Record<string, unknown> | undefined {
   if (typeof value === "string") {
     try {
-      return JSON.parse(value) as Record<string, unknown>;
+      return JsonObjectSchema.parse(JSON.parse(value));
     } catch {
       return undefined;
     }
   }
-  if (value && typeof value === "object") {
-    const obj = value as Record<string, unknown>;
-    if ("data" in obj && !obj.jsonrpc && !obj.type) {
-      return unwrapMessage(obj.data);
+  if (isJsonObject(value)) {
+    if ("data" in value && !value.jsonrpc && !value.type) {
+      return unwrapMessage(value.data);
     }
-    return obj;
+    return value;
   }
   return undefined;
 }
 
 interface PendingRpcEntry {
-  resolve: (value: any) => void;
+  resolve: (value: PeerMcpRpcResponse) => void;
   reject: (error: unknown) => void;
   timer: ReturnType<typeof setTimeout>;
   method: string;
+}
+
+/** A request waiting for a relay-socket slot (see `PeerMcpSession.#takeSlot`). */
+interface SlotWaiter {
+  grant: () => void;
+  reject: (error: unknown) => void;
+  timer: ReturnType<typeof setTimeout>;
+}
+
+/**
+ * One connect's hold on a transport (see `PeerMcpSession.#connection`), from the start of the
+ * connect until the next connect or `disconnect()` lets go of it.
+ */
+interface PeerMcpConnection {
+  /**
+   * Whether it uses the caller's own transport (`options.transport`), the one transport every
+   * connect uses again, instead of one the session made for it.
+   */
+  readonly shared: boolean;
+  /** True until it has its transport: while a factory makes it, or the caller's own transport's `connect` runs. */
+  obtaining: boolean;
+  /**
+   * The transport it uses: the caller's own from the moment it asks that to connect, so that
+   * `disconnect()` can close it meanwhile, and a transport the session made once it is made.
+   */
+  transport?: PeerMcpTransport;
+  /**
+   * Transports the session no longer uses, closed once this connection has its own unless that is
+   * one of them (a factory may hand one out again): the last connection's, and one that a connect
+   * `disconnect()` ended got while this connection was still getting its own. `disconnect()` closes
+   * them with the connection's transport.
+   */
+  readonly replaced: Set<PeerMcpTransport>;
+}
+
+/**
+ * The frames that end the session, with the PeerMcpError code each is reported as and the message
+ * used when the frame has neither `reason` nor `message`. The relay ends a ticket with
+ * `approval.rejected`, `session.revoked`, `room.rotated` or `room.expired`, and an expired approval
+ * request with `approval.expired`.
+ */
+const TERMINAL_FRAMES: ReadonlyMap<string, { readonly code: string; readonly message: string }> = new Map([
+  ["session.revoked", { code: "SESSION_REVOKED", message: "Peer session was revoked" }],
+  ["collaboration.revoked", { code: "SESSION_REVOKED", message: "Peer session was revoked" }],
+  ["room.rotated", { code: "ROOM_ROTATED", message: "Peer room was rotated" }],
+  ["room.expired", { code: "ROOM_EXPIRED", message: "Peer room expired" }],
+  ["approval.expired", { code: "APPROVAL_EXPIRED", message: "Peer approval request expired" }],
+  ["collaboration.expired", { code: "SESSION_EXPIRED", message: "Peer session expired" }],
+  ["approval.rejected", { code: "CLIENT_APPROVAL_DENIED", message: "Peer approval request was rejected" }],
+]);
+
+/** First delay before a retryable refusal (e.g. PROVIDER_BUSY) is retried. */
+const RETRY_INITIAL_DELAY_MS = 100;
+/** Longest delay between retries of a retryable refusal. */
+const RETRY_MAX_DELAY_MS = 2_000;
+
+/** True for a JSON-RPC error the relay marks retryable (`data.retryable: true`): nothing was forwarded. */
+function isRetryableRpcError(error: unknown): boolean {
+  if (!(error instanceof PeerMcpRpcError) || !isJsonObject(error.rpcError)) return false;
+  const data = error.rpcError.data;
+  return isJsonObject(data) && data.retryable === true;
+}
+
+/**
+ * The least delay before a retry that a refusal asks for: the `retryAfterMs` the HTTP transport
+ * reads from the response's `Retry-After` (the relay's 503 PROVIDER_BUSY sends 1 second), or 0.
+ */
+function requestedRetryDelayMs(error: unknown): number {
+  const delay = error instanceof PeerMcpRpcError && isJsonObject(error.rpcError) ? error.rpcError.retryAfterMs : undefined;
+  return typeof delay === "number" && Number.isFinite(delay) && delay > 0 ? delay : 0;
 }
 
 export class PeerMcpSession {
@@ -85,6 +187,7 @@ export class PeerMcpSession {
   WebSocketImpl: unknown;
   transportFactory?: PeerMcpSessionOptions["transportFactory"];
   transport?: PeerMcpTransport;
+  fetchImpl?: typeof fetch;
   state: PeerMcpSessionState;
   sessionId?: string;
   roomEpoch?: number;
@@ -108,12 +211,72 @@ export class PeerMcpSession {
   storage?: PeerMcpStore;
   #readyResolve?: () => void;
   #readyReject?: (error: unknown) => void;
+  /**
+   * True when `sessionId` names the relay's session for this client ticket: it came from the
+   * caller (the `sessionId` returned by `joinPeerRoom`) or from the relay's WebSocket `ready` frame.
+   * A session id the client invented for itself is not known to the relay.
+   */
+  #sessionBound: boolean;
+  /**
+   * The MCP revision the last successful `initialize` negotiated (its `result.protocolVersion`),
+   * which the Streamable HTTP transport sends as `MCP-Protocol-Version` on every later request.
+   * Cleared by `disconnect()`: a session that connects again starts uninitialized.
+   */
+  #negotiatedProtocolVersion: string | undefined;
+  /**
+   * The transport the caller gave (`options.transport`), the one transport every connect uses
+   * again. Every other transport (the WebSocket, the Streamable HTTP one, a `transportFactory`'s) is
+   * made anew for each connect, since a closed WebSocket cannot be opened again.
+   */
+  readonly #suppliedTransport: PeerMcpTransport | undefined;
+  /**
+   * The connection of the latest connect, until the next connect or `disconnect()` lets go of it
+   * (see `#letGoOfTransport`). Only the callbacks given for it speak for the session, so a late event
+   * of a transport let go of (its close, a `ready`, a frame that ends a session) neither ends nor
+   * answers the connection after it, nor changes a session `disconnect()` left idle. That holds for
+   * the caller's own transport too, which every connect hands callbacks of its own: what it reports
+   * through an earlier connect's callbacks, such as a close event that arrives after `close()`
+   * returned, speaks for nothing. What the session registers on that transport once, and the
+   * transport keeps across connects, goes through `#dispatchSuppliedMessage` instead.
+   */
+  #connection: PeerMcpConnection | undefined;
+  /**
+   * How the relay ended the session, when it ended it for good: the frame that ended it
+   * (`TERMINAL_FRAMES`), or a close after which a peer must not connect again (TRANSPORT_CLOSED
+   * with a code `isReconnectableCloseCode` refuses: 1000 after such a frame, 4001 for a socket
+   * another one replaced, 4002, a code refusing a frame the session sent). A request then fails
+   * with it instead of connecting again; only `connect()` (or `disconnect()`) starts over.
+   */
+  #ended: PeerMcpError | undefined;
+  /**
+   * How many times `disconnect()` has been called. A connect notes it when it is asked for, and a
+   * disconnect() after that ends it (see `#connectImpl`), whether the connect was running or still
+   * waiting for an earlier disconnect() to finish.
+   */
+  #disconnects = 0;
+  /**
+   * The `disconnect()` in progress, until it has closed the transports and set the state to `idle`.
+   * A connect asked for meanwhile starts once it has finished (see `connect()`).
+   */
+  #disconnecting: Promise<PeerMcpSessionInfo> | undefined;
+  /**
+   * The `onMessage` the session gives the caller's own transport when it has none (see
+   * `#connectImpl`). The transport keeps it across connects, so it belongs to no connect: it delivers
+   * for the connection that holds the transport now, the latest connect's, and for nothing once
+   * `disconnect()` let go of it. It cannot tell an earlier connection's frame from the current one's,
+   * so a transport that has `connect(callbacks)` should report through those callbacks instead.
+   */
+  readonly #dispatchSuppliedMessage = (message: unknown): void => {
+    if (this.#connection?.shared === true) this.#handleIncomingSafely(message);
+  };
 
   constructor(options: PeerMcpSessionOptions = {}) {
     this.serverUrl = normalizeServerUrl(
       options.serverUrl ?? readEnv("FRAMEBOOK_PEER_URL") ?? readEnv("WEBMCP_PEER_URL"),
     );
-    this.roomId = parseRoomId(
+    // A room id outside the protocol's grammar is refused here (ROOM_ID_INVALID): no relay route
+    // would take it.
+    this.roomId = roomIdOption(
       options.roomId ??
         options.descriptorUrl ??
         readEnv("FRAMEBOOK_PEER_ROOM_ID") ??
@@ -130,9 +293,12 @@ export class PeerMcpSession {
     this.protocolVersion = options.protocolVersion ?? PROTOCOL_VERSION;
     this.WebSocketImpl = options.WebSocket ?? globalThis.WebSocket;
     this.transportFactory = options.transportFactory;
+    this.#suppliedTransport = options.transport;
     this.transport = options.transport;
+    this.fetchImpl = options.fetchImpl;
     this.state = "idle";
     this.sessionId = asNonEmptyString(options.sessionId);
+    this.#sessionBound = this.sessionId !== undefined;
     this.roomEpoch = Number.isSafeInteger(options.roomEpoch) ? options.roomEpoch : undefined;
     this.runtimeEpoch = asNonEmptyString(options.runtimeEpoch) || randomUUID();
     this.connectedAt = null;
@@ -233,19 +399,15 @@ export class PeerMcpSession {
 
   restoreCatalog(): void {
     try {
-      const value = (typeof this.storage?.load === "function" ? this.storage.load() : undefined) as
-        | Record<string, unknown>
-        | undefined;
-      if (!value || !Array.isArray(value.cachedTools)) return;
-      const cachedTools = normalizeTools({ result: { tools: value.cachedTools } });
-      const computedHash = hashTools(cachedTools);
-      const hash = value.catalogHash === computedHash ? (value.catalogHash as string) : computedHash;
+      if (typeof this.storage?.load !== "function") return;
+      const value = PeerMcpCatalogCacheSchema.parse(this.storage.load());
+      // The hash is always recomputed: a cache cannot vouch for a catalog it did not hash correctly.
       this.catalog = {
-        cachedTools,
-        catalogVersion: (value.catalogVersion as number | string) ?? 0,
-        catalogHash: hash,
+        cachedTools: value.cachedTools,
+        catalogVersion: value.catalogVersion,
+        catalogHash: hashTools(value.cachedTools),
         source: "peer",
-        updatedAt: (value.updatedAt as string | null) ?? null,
+        updatedAt: value.updatedAt,
       };
     } catch {
       // A stale cache must never prevent a fresh peer session from connecting.
@@ -265,48 +427,113 @@ export class PeerMcpSession {
     } catch {}
   }
 
+  /**
+   * Connects the transport and waits for the peer's `ready` frame. Concurrent callers (including
+   * `request()` calls made while a connect is in flight) share one connect attempt. Each connect
+   * opens a new transport, unless the caller gave its own (see `#suppliedTransport`). It connects a
+   * session the relay ended for good too, which `request()` does not (see `#ended`).
+   *
+   * A connect asked for while `disconnect()` runs starts once that has closed the transports and
+   * set the state to `idle`, as it would after an awaited disconnect(), so the transport it opens is
+   * the only one. A disconnect() asked for after it ends it with SESSION_DISCONNECTED (see
+   * `#connectImpl`).
+   */
   async connect(): Promise<PeerMcpSessionInfo> {
     if (this.state === "connected") return this.getSessionInfo();
     if (this.connectPromise) return this.connectPromise;
-    if (!this.roomId && !this.wsUrl && !this.mcpEndpoint && !this.transport && !this.transportFactory) {
+    if (!this.roomId && !this.wsUrl && !this.mcpEndpoint && !this.#suppliedTransport && !this.transportFactory) {
       throw new PeerMcpError("A peer roomId, wsUrl, mcpEndpoint, or transport is required", "ROOM_ID_REQUIRED");
     }
-    this.connectPromise = this.#connectImpl().finally(() => {
-      this.connectPromise = null;
+    // Publish the in-flight promise before the connect starts: transports deliver `ready` (and
+    // listeners run) synchronously inside #connectImpl, and a request issued from there must join
+    // this attempt instead of starting a second one.
+    let settle!: { resolve: (info: PeerMcpSessionInfo) => void; reject: (error: unknown) => void };
+    const attempt = new Promise<PeerMcpSessionInfo>((resolve, reject) => {
+      settle = { resolve, reject };
     });
-    return this.connectPromise;
+    this.connectPromise = attempt;
+    const disconnects = this.#disconnects;
+    const disconnecting = this.#disconnecting;
+    (disconnecting ? disconnecting.then(() => this.#connectImpl(disconnects)) : this.#connectImpl(disconnects))
+      .then(settle.resolve, settle.reject)
+      .finally(() => {
+        if (this.connectPromise === attempt) this.connectPromise = null;
+      });
+    return attempt;
   }
 
-  async #connectImpl(): Promise<PeerMcpSessionInfo> {
+  /**
+   * One connect attempt, asked for when `disconnect()` had been called `disconnects` times. A
+   * disconnect() since then ends it with SESSION_DISCONNECTED and leaves the session as disconnect()
+   * sets it: an attempt that had not started does not start, one waiting for `ready` ends at once,
+   * and one that was getting its transport closes the transport it gets, which disconnect() could
+   * not close, unless the connection the session holds by then uses it (see `#closeUnlessInUse`).
+   */
+  async #connectImpl(disconnects: number): Promise<PeerMcpSessionInfo> {
+    if (this.#disconnects !== disconnects) throw sessionDisconnectedError();
     this.state = "connecting";
     this.error = null;
     this.readySeen = false;
+    // A new connection: neither the time the last one opened, which would let `#waitForReady` take
+    // a socket that never opened for an open one, nor how it ended speaks for it.
+    this.connectedAt = null;
+    this.#ended = undefined;
+    const shared = !this.transportFactory && this.#suppliedTransport !== undefined;
+    const previous = this.#letGoOfTransport();
+    const connection: PeerMcpConnection = {
+      shared,
+      obtaining: true,
+      // The caller's own transport is the one this connect uses again: it replaces nothing.
+      transport: shared ? this.#suppliedTransport : undefined,
+      replaced: shared ? new Set() : previous,
+    };
+    this.#connection = connection;
     this.notify();
+    // Only while this is the session's connection: a transport used again (the caller's own) speaks
+    // for this connect through these callbacks, and for a later one through that connect's.
+    const speaks = (): boolean => this.#connection === connection;
     try {
       const url = (this.wsUrl || (this.roomId ? websocketUrl(this.serverUrl, this.roomId) : this.mcpEndpoint)) ?? "";
-      const protocols = ["webmcp-peer.v1"];
+      const protocols: string[] = [WEBMCP_SUBPROTOCOL];
       if (this.clientToken) protocols.push(`ticket.${this.clientToken}`);
       const callbacks: PeerMcpTransportCallbacks = {
-        onOpen: () => this.#markOpen(),
-        onMessage: (message) => this.#handleIncomingSafely(message),
-        onClose: () => this.#handleClose(),
-        onError: (error) => this.#handleTransportError(error),
+        onOpen: () => {
+          if (speaks()) this.#markOpen();
+        },
+        onMessage: (message) => {
+          if (speaks()) this.#handleIncomingSafely(message);
+        },
+        onClose: (close) => {
+          if (speaks()) this.#handleClose(close);
+        },
+        onError: (error) => {
+          if (speaks()) this.#handleTransportError(error);
+        },
       };
       let transport: PeerMcpTransport | undefined;
-      if (this.transportFactory) {
-        transport = await this.transportFactory(url, protocols, callbacks);
-      } else if (this.transport) {
-        transport = this.transport;
-        if (typeof transport.connect === "function") {
-          const connected = await transport.connect(callbacks);
-          if (connected && typeof connected === "object") transport = { ...transport, ...connected };
+      try {
+        if (this.transportFactory) {
+          transport = await this.transportFactory(url, protocols, callbacks);
+        } else if (this.#suppliedTransport) {
+          transport = this.#suppliedTransport;
+          if (typeof transport.connect === "function") {
+            const connected = await transport.connect(callbacks);
+            if (connected && typeof connected === "object") transport = { ...transport, ...connected };
+          }
+          // The session's, not this connect's: the transport keeps it for the connects after this one.
+          transport.onMessage = transport.onMessage || this.#dispatchSuppliedMessage;
+        } else if (this.mcpEndpoint) {
+          transport = createHttpTransport(this.mcpEndpoint, this.fetchImpl ?? globalThis.fetch, callbacks, {
+            clientToken: this.clientToken,
+            protocolVersion: () => this.#negotiatedProtocolVersion,
+          });
+        } else {
+          transport = createWebSocketTransport(url, protocols, this.WebSocketImpl, callbacks);
         }
-        transport.onMessage = transport.onMessage || callbacks.onMessage;
-      } else if (this.mcpEndpoint) {
-        transport = createHttpTransport(this.mcpEndpoint, globalThis.fetch, callbacks, this.clientToken);
-      } else {
-        transport = createWebSocketTransport(url, protocols, this.WebSocketImpl, callbacks);
+      } finally {
+        this.#settleTransport(connection, transport);
       }
+      if (this.#disconnects !== disconnects) throw sessionDisconnectedError();
       if (!transport || typeof transport.send !== "function") {
         throw new PeerMcpError("Peer transport must provide send(value)", "INVALID_TRANSPORT");
       }
@@ -315,6 +542,8 @@ export class PeerMcpSession {
         this.#markOpen();
       }
       await this.#waitForReady();
+      // disconnect() may run between the `ready` that settled the wait and this continuation.
+      if (this.#disconnects !== disconnects) throw sessionDisconnectedError();
       this.state = "connected";
       this.connectedAt = this.connectedAt || Date.now();
       this.sessionId = this.sessionId || `peer-session-${randomUUID()}`;
@@ -322,12 +551,68 @@ export class PeerMcpSession {
       this.notify();
       return this.getSessionInfo();
     } catch (error) {
+      // Ended by disconnect(), which has already ended the requests and owns the state.
+      if (this.#disconnects !== disconnects) throw sessionDisconnectedError();
       this.state = "error";
       this.error = error instanceof Error ? error.message : String(error);
       this.#rejectPending(error);
       this.notify();
       throw error;
     }
+  }
+
+  /**
+   * Lets go of the session's connection: the callbacks given for it stop speaking for the session
+   * (see `#connection`), and the transports it held, its own and those it was replacing, are
+   * returned for the caller to close or to have the next connection replace.
+   */
+  #letGoOfTransport(): Set<PeerMcpTransport> {
+    const connection = this.#connection;
+    this.#connection = undefined;
+    this.transport = undefined;
+    const held = new Set<PeerMcpTransport>();
+    if (!connection) return held;
+    if (connection.transport) held.add(connection.transport);
+    for (const replaced of connection.replaced) held.add(replaced);
+    connection.replaced.clear();
+    return held;
+  }
+
+  /**
+   * Called once `connection` has got its transport (`transport`, undefined when getting it failed).
+   * A connection the session still holds closes the transports it replaced, except the one it got
+   * (a factory may hand the last one out again). One that `disconnect()` let go of meanwhile, which
+   * closed what it replaced, has its transport closed unless the session's connection uses it.
+   */
+  #settleTransport(connection: PeerMcpConnection, transport: PeerMcpTransport | undefined): void {
+    connection.obtaining = false;
+    if (transport) connection.transport = transport;
+    const replaced = [...connection.replaced];
+    connection.replaced.clear();
+    if (this.#connection === connection) {
+      for (const unused of replaced) if (unused !== transport) closeQuietly(unused);
+    } else if (transport) {
+      this.#closeUnlessInUse(transport, connection.shared);
+    }
+  }
+
+  /**
+   * Closes `transport`, which a connect that `disconnect()` ended got after disconnect() let go of
+   * it (so disconnect() could not close it, or closed it while its connect was still running),
+   * unless the connection the session holds now uses it: the caller's own transport (`shared`),
+   * which every connect uses again, or a transport a factory handed out again. While that connection
+   * is still getting its transport, which may be this one, it closes this one once it has its own
+   * (see `PeerMcpConnection.replaced`).
+   */
+  #closeUnlessInUse(transport: PeerMcpTransport, shared: boolean): void {
+    const current = this.#connection;
+    if (current && shared && current.shared) return;
+    if (current && !current.shared && current.obtaining) {
+      current.replaced.add(transport);
+      return;
+    }
+    if (current?.transport === transport) return;
+    closeQuietly(transport);
   }
 
   #markOpen(): void {
@@ -379,8 +664,15 @@ export class PeerMcpSession {
       if (!this.roomId && typeof value.roomId === "string" && value.roomId.trim()) {
         this.roomId = value.roomId.trim();
       }
-      if (Number.isSafeInteger(value.roomEpoch)) {
-        this.roomEpoch = value.roomEpoch as number;
+      if (typeof value.roomEpoch === "number" && Number.isSafeInteger(value.roomEpoch)) {
+        this.roomEpoch = value.roomEpoch;
+      }
+      // The relay names the session its client ticket belongs to; that id (not one the client
+      // invented) is what session-scoped routes such as revoke bind to.
+      const readySessionId = asNonEmptyString(value.sessionId);
+      if (readySessionId) {
+        this.sessionId = readySessionId;
+        this.#sessionBound = true;
       }
       this.#markOpen();
       this.readySeen = true;
@@ -389,59 +681,29 @@ export class PeerMcpSession {
       return;
     }
     if (value.type === "ping") {
-      try {
-        this.transport?.send?.({ type: "pong", timestamp: Date.now() });
-      } catch {}
+      this.#sendUnawaited({ type: "pong", timestamp: Date.now() });
       return;
     }
     if (value.type === "pong") {
       return;
     }
-    if (
-      value.type === "session.revoked" ||
-      value.type === "collaboration.revoked" ||
-      value.type === "room.rotated" ||
-      value.type === "approval.expired" ||
-      value.type === "collaboration.expired" ||
-      value.type === "approval.rejected"
-    ) {
-      const code =
-        value.type === "room.rotated"
-          ? "ROOM_ROTATED"
-          : value.type === "approval.expired"
-            ? "APPROVAL_EXPIRED"
-            : value.type === "collaboration.expired"
-              ? "SESSION_EXPIRED"
-              : value.type === "approval.rejected"
-                ? "CLIENT_APPROVAL_DENIED"
-                : "SESSION_REVOKED";
-      const defaultMsg =
-        code === "ROOM_ROTATED"
-          ? "Peer room was rotated"
-          : code === "APPROVAL_EXPIRED"
-            ? "Peer approval request expired"
-            : code === "SESSION_EXPIRED"
-              ? "Peer session expired"
-              : code === "CLIENT_APPROVAL_DENIED"
-                ? "Peer approval request was rejected"
-                : "Peer session was revoked";
+    const terminal = typeof value.type === "string" ? TERMINAL_FRAMES.get(value.type) : undefined;
+    if (terminal) {
       const msg = (typeof value.reason === "string" ? value.reason : undefined)
         || (typeof value.message === "string" ? value.message : undefined)
-        || defaultMsg;
-      const error = new PeerMcpError(msg, code, value);
+        || terminal.message;
+      const error = new PeerMcpError(msg, terminal.code, value);
       this.state = "error";
       this.error = error.message;
+      // The relay ended the session: a request fails with this instead of connecting again.
+      this.#ended = error;
       this.#readyReject?.(error);
       this.#rejectPending(error);
       this.notify();
       return;
     }
     if (value.type === "register" && Array.isArray(value.tools)) {
-      this.#replaceCatalog(
-        value.tools,
-        value.catalogVersion as number | string | undefined,
-        value.catalogHash as string | undefined,
-      );
+      this.#replaceCatalog(value.tools, asCatalogVersion(value.catalogVersion), asNonEmptyString(value.catalogHash));
       return;
     }
     if (value.type === "catalogChanged" || value.type === "catalog.changed") {
@@ -464,7 +726,7 @@ export class PeerMcpSession {
     }
     const rpc = value.type === "mcp" && value.message ? unwrapMessage(value.message) : value;
     if (rpc?.method === "notifications/tools/list_changed") {
-      const params = (rpc.params ?? {}) as Record<string, unknown>;
+      const params = isJsonObject(rpc.params) ? rpc.params : {};
       for (const listener of this.catalogListeners) {
         try {
           listener({ type: "catalogChanged", ...params, snapshot: this.getCatalogSnapshot() });
@@ -473,13 +735,29 @@ export class PeerMcpSession {
       return;
     }
     if (isRpcResponse(rpc)) {
+      // The relay has answered, so it no longer counts the request, whether or not anyone still
+      // waits for the answer.
+      this.#releaseSlot(String(rpc.id));
       const pending = this.pending.get(String(rpc.id));
       if (!pending) return;
       this.pending.delete(String(rpc.id));
       clearTimeout(pending.timer);
-      if (rpc.error) pending.reject(new PeerMcpRpcError(rpc.error as Record<string, unknown>, rpc));
+      if (rpc.error) pending.reject(new PeerMcpRpcError(isJsonObject(rpc.error) ? rpc.error : undefined, rpc));
       else pending.resolve(rpc);
     }
+  }
+
+  /**
+   * Sends a frame no call waits for (a pong). A transport's send may fail by throwing or, when it
+   * is asynchronous (the HTTP transport, a custom transport or transportFactory), by rejecting;
+   * either failure is dropped, as an unhandled rejection would by default terminate the agent
+   * process. A transport that is really broken reports it through onError or onClose.
+   */
+  #sendUnawaited(message: PeerMcpTransportMessage): void {
+    try {
+      const sent = this.transport?.send?.(message);
+      if (sent !== undefined) void Promise.resolve(sent).catch(() => {});
+    } catch {}
   }
 
   #handleTransportError(error: unknown): void {
@@ -490,47 +768,207 @@ export class PeerMcpSession {
     this.notify();
   }
 
-  #handleClose(): void {
+  /**
+   * The transport closed: every request waiting on it fails with TRANSPORT_CLOSED, whose details are
+   * how it closed (`{code, reason}`) when the transport reports it. The session never reconnects on
+   * its own. After a close a peer may retry (1001, 1006, 1013, or one that reports no code: a
+   * connection lost without a close frame), the next request connects again, on a new socket.
+   * After any other (see `isReconnectableCloseCode`, R-WS-030) requests fail with this error until
+   * the caller calls `connect()`: a reconnect after 4001 would displace the socket that replaced
+   * this one, and one after a refused frame would be refused again.
+   */
+  #handleClose(close?: PeerMcpTransportClose): void {
     if (this.state === "disconnecting" || this.state === "idle" || this.state === "error") return;
     this.state = "disconnected";
-    const error = new PeerMcpError("Peer transport closed", "TRANSPORT_CLOSED");
+    this.connectedAt = null;
+    this.readySeen = false;
+    const details = typeof close?.code === "number" ? { code: close.code, reason: close.reason ?? "" } : undefined;
+    const error = new PeerMcpError("Peer transport closed", "TRANSPORT_CLOSED", details);
+    if (details && !isReconnectableCloseCode(details.code)) this.#ended = error;
     this.#readyReject?.(error);
     this.#rejectPending(error);
     this.notify();
   }
 
+  /** Requests sleeping before a retry: not in `pending`, but ended by the same events. */
+  readonly #retryWaits = new Set<{ timer: ReturnType<typeof setTimeout>; reject: (error: unknown) => void }>();
+  /**
+   * The ids of the requests holding a slot of the relay socket (see `#takeSlot`): sent and not yet
+   * answered by the relay, including requests whose caller stopped waiting at their timeout.
+   */
+  readonly #heldSlots = new Set<string>();
+  /** Requests waiting for a slot of the relay socket, oldest first. */
+  readonly #slotWaiters: SlotWaiter[] = [];
+
   #rejectPending(error: unknown): void {
+    // A request waiting for a slot ends with the same error; the requests holding one are ended
+    // below, with the connection that counted them.
+    for (const waiter of this.#slotWaiters.splice(0)) waiter.reject(error);
+    this.#heldSlots.clear();
     for (const pending of this.pending.values()) {
       clearTimeout(pending.timer);
       pending.reject(error);
     }
     this.pending.clear();
+    // A request waiting to retry ends with the same error instead of reconnecting the session.
+    for (const wait of this.#retryWaits) {
+      clearTimeout(wait.timer);
+      wait.reject(error);
+    }
+    this.#retryWaits.clear();
   }
 
+  /**
+   * Takes a slot of the relay socket for request `id`, unless the transport is `raw` (the Streamable
+   * HTTP one, which answers each request on its own POST, so the relay bounds nothing per socket).
+   *
+   * The relay refuses a request past PEER_RELAY_MAX_PENDING_REQUESTS in flight on one agent
+   * WebSocket (TOO_MANY_PENDING_REQUESTS). It counts a request until it has answered it, which it
+   * always does (with the provider's reply or its own error, at the latest when its own request
+   * timeout passes), so a slot is held until the answer arrives: even after the caller stopped
+   * waiting at a shorter timeout, the relay may still count the request. Past that many, a request
+   * waits for a slot, behind every request already waiting, and is sent once an earlier one has been
+   * answered. The wait counts toward its timeout (`timeoutMs`), which ends it with REQUEST_TIMEOUT
+   * as for a request that was sent; whatever ends the pending requests (`disconnect()`, a transport
+   * error or close) ends it too. Returns a promise only when the request has to wait.
+   */
+  #takeSlot(method: string, id: string | number, timeoutMs: number): Promise<void> | undefined {
+    if (this.transport?.raw === true) return undefined;
+    const key = String(id);
+    if (this.#heldSlots.size < PEER_RELAY_MAX_PENDING_REQUESTS && this.#slotWaiters.length === 0) {
+      this.#heldSlots.add(key);
+      return undefined;
+    }
+    return new Promise<void>((resolve, reject) => {
+      const waiter: SlotWaiter = {
+        grant: () => {
+          clearTimeout(waiter.timer);
+          this.#heldSlots.add(key);
+          resolve();
+        },
+        reject: (error) => {
+          clearTimeout(waiter.timer);
+          reject(error);
+        },
+        timer: setTimeout(() => {
+          const index = this.#slotWaiters.indexOf(waiter);
+          if (index >= 0) this.#slotWaiters.splice(index, 1);
+          reject(new PeerMcpError(`Peer MCP request timed out: ${method}`, "REQUEST_TIMEOUT", { method, id }));
+        }, timeoutMs),
+      };
+      this.#slotWaiters.push(waiter);
+    });
+  }
+
+  /** Gives back the slot request `key` holds, if any, and lets the oldest waiting requests take the free ones. */
+  #releaseSlot(key: string): void {
+    if (!this.#heldSlots.delete(key)) return;
+    while (this.#heldSlots.size < PEER_RELAY_MAX_PENDING_REQUESTS && this.#slotWaiters.length > 0) {
+      this.#slotWaiters.shift()!.grant();
+    }
+  }
+
+  #waitBeforeRetry(delayMs: number): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const wait = {
+        timer: setTimeout(() => {
+          this.#retryWaits.delete(wait);
+          resolve();
+        }, delayMs),
+        reject,
+      };
+      this.#retryWaits.add(wait);
+    });
+  }
+
+  /**
+   * Sends one JSON-RPC request and resolves with its response.
+   *
+   * Over a relay socket at most PEER_RELAY_MAX_PENDING_REQUESTS requests are in flight at once, the
+   * relay's limit per agent WebSocket: a request past them waits, in order, until an earlier one has
+   * been answered, within its own timeout (see `#takeSlot`). Its id must be at most
+   * `PEER_RELAY_MAX_REQUEST_ID_BYTES` of JSON there (REQUEST_ID_TOO_LARGE), since the relay answers a
+   * longer one without it.
+   *
+   * A request the relay refuses as retryable (`data.retryable: true`, e.g. PROVIDER_BUSY while the
+   * provider is not reading) reached nobody, so it is sent again with exponential backoff
+   * ({@link RETRY_INITIAL_DELAY_MS} doubling up to {@link RETRY_MAX_DELAY_MS}) for as long as the
+   * request's own timeout allows; the last refusal is then reported. A refusal that asks for a
+   * longer wait (an HTTP `Retry-After`, see `requestedRetryDelayMs`) is waited out instead.
+   */
   async request(
     method: string,
     params: Record<string, unknown> = {},
     options: PeerMcpRequestOptions = {},
-  ): Promise<any> {
-    if (this.state !== "connected" && this.state !== "connecting") await this.connect();
+  ): Promise<PeerMcpRpcResponse> {
+    const id = options.id ?? `${this.sessionId || "peer"}-${++this.nextRequestId}`;
+    const timeoutMs = Number.isFinite(options.timeoutMs) ? Math.max(1, options.timeoutMs!) : this.requestTimeoutMs;
+    const deadline = Date.now() + timeoutMs;
+    let delayMs = RETRY_INITIAL_DELAY_MS;
+    for (;;) {
+      try {
+        return await this.#requestOnce(method, params, options, id, Math.max(1, deadline - Date.now()));
+      } catch (error) {
+        if (!isRetryableRpcError(error)) throw error;
+        const waitMs = Math.max(delayMs, requestedRetryDelayMs(error));
+        if (deadline - Date.now() <= waitMs) throw error;
+        // disconnect(), a transport error or close rejects this wait like a pending request.
+        await this.#waitBeforeRetry(waitMs);
+        delayMs = Math.min(delayMs * 2, RETRY_MAX_DELAY_MS);
+      }
+    }
+  }
+
+  async #requestOnce(
+    method: string,
+    params: Record<string, unknown>,
+    options: PeerMcpRequestOptions,
+    id: string | number,
+    timeoutMs: number,
+  ): Promise<PeerMcpRpcResponse> {
+    // A request made while a connect is in flight waits for that connect (connect() returns the
+    // in-flight attempt) instead of writing to a transport that is not open yet. A session the
+    // relay ended for good fails as it ended instead of connecting again (see `#ended`).
+    if (this.state !== "connected") {
+      const ended = this.#ended;
+      if (ended) throw new PeerMcpError(ended.message, ended.code, ended.details);
+      await this.connect();
+    }
     if (!this.transport || typeof this.transport.send !== "function") {
       throw new PeerMcpError("Peer transport is not connected", "NOT_CONNECTED");
     }
-    const id = options.id ?? `${this.sessionId || "peer"}-${++this.nextRequestId}`;
+    const deadline = Date.now() + timeoutMs;
+    if (this.transport.raw !== true) assertWithinRelayIdLimit(id);
+    const waitForSlot = this.#takeSlot(method, id, timeoutMs);
+    if (waitForSlot) {
+      await waitForSlot;
+      if (!this.transport || typeof this.transport.send !== "function") {
+        this.#releaseSlot(String(id));
+        throw new PeerMcpError("Peer transport is not connected", "NOT_CONNECTED");
+      }
+    }
+    const transport = this.transport;
     const rpc = { jsonrpc: "2.0", id, method, params };
-    const timeoutMs = Number.isFinite(options.timeoutMs) ? Math.max(1, options.timeoutMs!) : this.requestTimeoutMs;
-    const promise = new Promise<any>((resolve, reject) => {
+    const promise = new Promise<PeerMcpRpcResponse>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(String(id));
         reject(new PeerMcpError(`Peer MCP request timed out: ${method}`, "REQUEST_TIMEOUT", { method, id }));
-      }, timeoutMs);
+      }, Math.max(1, deadline - Date.now()));
       this.pending.set(String(id), { resolve, reject, timer, method });
     });
+    // The caller only gets this promise once the send below has finished, which for the HTTP
+    // transport is the whole POST. A timeout, disconnect() or transport error rejects the pending
+    // entry meanwhile, and without a handler that rejection would be reported as unhandled (by
+    // default fatal to the agent process). This marks it handled; the promise returned below still
+    // rejects for the caller.
+    promise.catch(() => {});
     try {
       const envelope: PeerMcpTransportMessage =
-        options.raw === true || this.transport.raw === true ? rpc : { type: "mcp", message: rpc };
-      await this.transport.send(envelope);
+        options.raw === true || transport.raw === true ? rpc : { type: "mcp", message: rpc };
+      await transport.send(envelope);
     } catch (error) {
+      // Nothing reached the relay, so it does not count the request.
+      this.#releaseSlot(String(id));
       const pending = this.pending.get(String(id));
       if (pending) {
         clearTimeout(pending.timer);
@@ -541,13 +979,52 @@ export class PeerMcpSession {
     return promise;
   }
 
-  async initialize(): Promise<Record<string, unknown>> {
-    const response = await this.request("initialize", {
+  #initializeParams(): Record<string, unknown> {
+    return {
       protocolVersion: this.protocolVersion,
       capabilities: {},
       clientInfo: { name: "framebook-cli", version: PACKAGE_VERSION },
-    });
+    };
+  }
+
+  /**
+   * Opens the MCP session: `initialize`, then the `notifications/initialized` that ends the
+   * initialization (MCP lifecycle). From then on the Streamable HTTP transport names the negotiated
+   * revision (`result.protocolVersion`) in the `MCP-Protocol-Version` of every request. Rejects
+   * when the notification cannot be sent, since the initialization did not complete.
+   */
+  async initialize(): Promise<Record<string, unknown>> {
+    const response = await this.request("initialize", this.#initializeParams());
+    if (!isJsonObject(response.result)) {
+      throw new PeerMcpError("Peer initialize response has no result object", "INVALID_RESPONSE", response);
+    }
+    this.#adoptRoomEpoch(response.result._meta);
+    this.#negotiatedProtocolVersion = asNonEmptyString(response.result.protocolVersion);
+    await this.#sendNotification("notifications/initialized");
     return response.result;
+  }
+
+  /** Sends the JSON-RPC notification `method`: a message without an id, which nothing answers. */
+  async #sendNotification(method: string, params?: Record<string, unknown>): Promise<void> {
+    const transport = this.transport;
+    if (!transport || typeof transport.send !== "function") {
+      throw new PeerMcpError("Peer transport is not connected", "NOT_CONNECTED");
+    }
+    const message = { jsonrpc: "2.0", method, ...(params ? { params } : {}) };
+    await transport.send(transport.raw === true ? message : { type: "mcp", message });
+  }
+
+  /**
+   * Adopts the relay's `roomEpoch` from response metadata. The Streamable HTTP transport has no
+   * `ready` frame carrying it, and session-scoped routes (revoke) must echo the epoch.
+   */
+  #adoptRoomEpoch(meta: unknown): void {
+    if (!isJsonObject(meta)) return;
+    const roomId = this.roomId ?? parseRoomId(this.mcpEndpoint);
+    if (typeof meta.roomId === "string" && roomId !== undefined && meta.roomId !== roomId) return;
+    if (typeof meta.roomEpoch === "number" && Number.isSafeInteger(meta.roomEpoch) && meta.roomEpoch >= 0) {
+      this.roomEpoch = meta.roomEpoch;
+    }
   }
 
   async listTools(options: { cursor?: string } = {}): Promise<PeerMcpTool[]> {
@@ -561,11 +1038,13 @@ export class PeerMcpSession {
       },
     });
     const tools = normalizeTools(response);
-    const metadata = response.result?._meta ?? response._meta ?? {};
+    const result = isJsonObject(response.result) ? response.result : {};
+    const metadata = isJsonObject(result._meta) ? result._meta : isJsonObject(response._meta) ? response._meta : {};
+    this.#adoptRoomEpoch(metadata);
     this.#replaceCatalog(
       tools,
-      response.result?.catalogVersion ?? metadata.catalogVersion,
-      response.result?.catalogHash ?? metadata.catalogHash,
+      asCatalogVersion(result.catalogVersion ?? metadata.catalogVersion),
+      asNonEmptyString(result.catalogHash ?? metadata.catalogHash),
     );
     return this.getCachedTools();
   }
@@ -582,7 +1061,7 @@ export class PeerMcpSession {
     name: string,
     args: Record<string, unknown> = {},
     options: PeerMcpCallOptions = {},
-  ): Promise<any> {
+  ): Promise<PeerMcpCallToolResult> {
     const toolName = asNonEmptyString(name);
     if (!toolName) throw new PeerMcpError("Tool name is required", "TOOL_NAME_REQUIRED");
     if (!this.catalog.cachedTools.length && options.refresh !== false) await this.refreshCatalog();
@@ -603,9 +1082,9 @@ export class PeerMcpSession {
         catalogHash: this.catalog.catalogHash,
       },
     };
+    let response: PeerMcpRpcResponse;
     try {
-      const response = await this.request("tools/call", params, options);
-      return response.result;
+      response = await this.request("tools/call", params, options);
     } catch (error) {
       if (error instanceof PeerMcpRpcError && isCatalogChangedRpcError(error.rpcError)) {
         await this.refreshCatalog();
@@ -617,11 +1096,35 @@ export class PeerMcpSession {
       }
       throw error;
     }
+    try {
+      return PeerMcpCallToolResultSchema.parse(response.result);
+    } catch (error) {
+      throw new PeerMcpError(
+        `Peer tools/call returned an invalid result: ${error instanceof Error ? error.message : String(error)}`,
+        "INVALID_TOOL_RESULT",
+        response,
+      );
+    }
   }
 
+  /**
+   * Takes a catalog the relay listed or announced, after checking it against the catalog contract
+   * (`normalizeTools`) and against the relay's `catalogHash`: the hash is computed again from the
+   * tools, which the relay hashes with the same function, and a catalog whose hash differs is
+   * refused with CATALOG_INTEGRITY_UNVERIFIED. Either refusal leaves the cached catalog in place, so
+   * a call is never stamped with metadata that does not describe the catalog it was checked against.
+   */
   #replaceCatalog(tools: unknown, version?: number | string, hash?: string): void {
     const normalized = normalizeTools({ result: { tools } });
-    const nextHash = asNonEmptyString(hash) || hashTools(normalized);
+    const nextHash = hashTools(normalized);
+    const reportedHash = asNonEmptyString(hash);
+    if (reportedHash !== undefined && reportedHash !== nextHash) {
+      throw new PeerMcpError(
+        `Peer catalog hash ${reportedHash} does not match its tools, which hash to ${nextHash}`,
+        "CATALOG_INTEGRITY_UNVERIFIED",
+        { catalogHash: reportedHash, computedHash: nextHash },
+      );
+    }
     const nextVersion =
       version ??
       extractCatalogVersion(
@@ -652,56 +1155,171 @@ export class PeerMcpSession {
     this.notify();
   }
 
+  /**
+   * Ends the session: the requests waiting and a connect in flight fail with SESSION_DISCONNECTED,
+   * the transports the session holds are closed (the caller's own one too, even while a connect is
+   * still connecting it, and one a connect was replacing), and the state is `idle` once they are.
+   * Nothing a transport reports through the callbacks of a connect this ended speaks for the session,
+   * while it closes or after the next connect (see `#connection`); what reaches the `onMessage` the
+   * session gave the caller's own transport speaks for nothing until a connect holds that transport
+   * again (see `#dispatchSuppliedMessage`). The session starts over: the next `connect()` or request
+   * connects again, however the relay ended the session before.
+   *
+   * Calls made while it runs keep their order. A `connect()` or request starts its connect once the
+   * transports are closed, as after an awaited disconnect(); another disconnect() ends such a connect
+   * before it starts, and resolves when this one does. A connect this ended while it was getting its
+   * transport closes that transport once it has it (see `#closeUnlessInUse`).
+   */
   async disconnect(): Promise<PeerMcpSessionInfo> {
+    const error = sessionDisconnectedError();
+    this.#disconnects += 1;
+    // The connect in flight is ended: a connect() from now on starts another.
+    this.connectPromise = null;
     this.state = "disconnecting";
-    this.#rejectPending(new PeerMcpError("Peer session disconnected", "SESSION_DISCONNECTED"));
-    try {
-      await this.transport?.close?.();
-    } catch {}
-    this.transport = undefined;
-    this.state = "idle";
+    // A connect waiting for `ready` ends now, not at its timeout, and leaves no wait for the next one.
+    this.#readyReject?.(error);
+    this.#rejectPending(error);
+    // Let go of first, so nothing the transports report while they close speaks for the session.
+    const transport = this.transport;
+    const held = this.#letGoOfTransport();
+    if (transport) held.add(transport);
+    this.#negotiatedProtocolVersion = undefined;
+    this.#ended = undefined;
     this.connectedAt = null;
     this.readySeen = false;
-    this.notify();
-    return this.getSessionInfo();
+    // A disconnect in progress closes what the session held; a connect asked for since has not
+    // started (see connect()), so this one only ended it, and resolves once the transports are closed.
+    if (this.#disconnecting) return this.#disconnecting;
+    const disconnecting = this.#closeTransports(held);
+    this.#disconnecting = disconnecting;
+    return disconnecting;
   }
 
+  /** The rest of `disconnect()`: closes `transports`, then leaves the session `idle`. */
+  async #closeTransports(transports: ReadonlySet<PeerMcpTransport>): Promise<PeerMcpSessionInfo> {
+    await Promise.all(
+      [...transports].map(async (transport) => {
+        try {
+          await transport.close?.();
+        } catch {}
+      }),
+    );
+    this.#disconnecting = undefined;
+    this.state = "idle";
+    const info = this.getSessionInfo();
+    this.notify();
+    return info;
+  }
+
+  /**
+   * Revokes this client's ticket on the relay, then disconnects. The relay identifies the ticket by
+   * the bearer `clientToken`; the body names the ticket's room (`roomId` + the current `roomEpoch`),
+   * which the relay checks when it is sent, and, on the session-scoped route, its session id:
+   * - `roomId` comes from the options, the WebSocket `ready` frame, or the `/p/:id/mcp` endpoint;
+   * - `roomEpoch` comes from the options, the `ready` frame, or `initialize`/`tools/list` metadata.
+   *   When none of those supplied it yet, it is learned before revoking: from the session status
+   *   route when the relay's session id is known, otherwise from a metadata-only `initialize` POST
+   *   to the room's MCP endpoint, which the relay answers for a ticket in any approval state;
+   * - a session id the relay never issued (one the client invented for itself) is not sent; the
+   *   bearer-only route `/p/:id/session/revoke` is used instead.
+   */
   async revoke(reason = "client-request"): Promise<Record<string, unknown>> {
     if (!this.clientToken) {
       throw new PeerMcpError("A client ticket is required to revoke the peer session", "CLIENT_TOKEN_REQUIRED");
     }
-    if (!this.sessionId) {
-      throw new PeerMcpError("A session id is required to revoke the peer session", "SESSION_REQUIRED");
-    }
-    const endpoint = this.mcpEndpoint
-      ? this.mcpEndpoint.replace(/\/mcp\/?$/, `/sessions/${encodeURIComponent(this.sessionId || "")}/revoke`)
-      : this.roomId
-        ? `${this.serverUrl.replace(/\/+$/, "")}/p/${encodeURIComponent(this.roomId)}/sessions/${encodeURIComponent(this.sessionId || "")}/revoke`
+    const fetchImpl = this.fetchImpl ?? globalThis.fetch;
+    const roomId = this.roomId ?? parseRoomId(this.mcpEndpoint);
+    const sessionId = this.#sessionBound ? this.sessionId : undefined;
+    const sessionPath = sessionId ? `/sessions/${encodeURIComponent(sessionId)}` : "/session";
+    const roomBase = this.mcpEndpoint
+      ? this.mcpEndpoint.replace(/\/mcp\/?$/, "")
+      : roomId
+        ? `${this.serverUrl.replace(/\/+$/, "")}/p/${encodeURIComponent(roomId)}`
         : undefined;
-    if (!endpoint || typeof globalThis.fetch !== "function") {
+    if (!roomBase || typeof fetchImpl !== "function") {
       throw new PeerMcpError("A server URL or MCP endpoint is required to revoke the peer session", "TRANSPORT_UNAVAILABLE");
     }
-    const response = await globalThis.fetch(endpoint, {
+    const roomEpoch = this.roomEpoch ?? (await this.#learnRoomEpoch(fetchImpl, roomBase, sessionId));
+    const response = await fetchImpl(`${roomBase}${sessionPath}/revoke`, {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${this.clientToken}` },
       body: JSON.stringify({
-        sessionId: this.sessionId,
-        roomId: this.roomId,
-        roomEpoch: this.roomEpoch,
+        ...(sessionId ? { sessionId } : {}),
+        roomId,
+        roomEpoch,
         reason,
         requestedAt: new Date().toISOString(),
       }),
     });
-    const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+    const body = parseJsonObject(await readResponseText(response));
     if (!response.ok) {
-      throw new PeerMcpError(
-        (typeof body?.error === "string" ? body.error : undefined) || `HTTP ${response.status}: peer session revoke failed`,
-        (typeof body?.code === "string" ? body.code : undefined) || "SESSION_REVOKE_FAILED",
-        body,
-      );
+      // The relay names the failure in `error`, as for every other lifecycle helper; its `code`
+      // member is the numeric JSON-RPC class.
+      const errStr = typeof body.error === "string" && body.error ? body.error : undefined;
+      throw new PeerMcpError(errStr || `HTTP ${response.status}: peer session revoke failed`, errStr || "SESSION_REVOKE_FAILED", body);
     }
     await this.disconnect();
     return body;
+  }
+
+  /**
+   * Learns the relay's room epoch for {@link revoke} when no frame or response supplied it yet:
+   * from the session status route when the relay's session id is known, otherwise (or when that
+   * route cannot be read) from a metadata-only `initialize` POST to the room's MCP endpoint.
+   * Undefined when neither answers; the revoke then leaves `roomEpoch` out, which the relay accepts.
+   */
+  async #learnRoomEpoch(fetchImpl: typeof fetch, roomBase: string, sessionId: string | undefined): Promise<number | undefined> {
+    if (sessionId) {
+      const fromStatus = await this.#readStatusRoomEpoch(fetchImpl, `${roomBase}/sessions/${encodeURIComponent(sessionId)}`);
+      if (fromStatus !== undefined) return fromStatus;
+    }
+    return this.#readInitializeRoomEpoch(fetchImpl, this.mcpEndpoint ?? `${roomBase}/mcp`);
+  }
+
+  /** Reads the room epoch from `GET .../sessions/:sessionId`; undefined when it cannot be read. */
+  async #readStatusRoomEpoch(fetchImpl: typeof fetch, statusUrl: string): Promise<number | undefined> {
+    try {
+      const response = await fetchImpl(statusUrl, {
+        method: "GET",
+        headers: { accept: "application/json", authorization: `Bearer ${this.clientToken}` },
+      });
+      if (!response.ok) return undefined;
+      const status = PeerSessionStatusSchema.parse(JSON.parse(await readResponseText(response)));
+      if (status.roomEpoch !== undefined) this.roomEpoch = status.roomEpoch;
+      return status.roomEpoch;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Reads the room epoch from the `_meta` of an `initialize` POSTed straight to the room's MCP
+   * endpoint (independent of this session's transport); undefined when it cannot be read.
+   */
+  async #readInitializeRoomEpoch(fetchImpl: typeof fetch, endpoint: string): Promise<number | undefined> {
+    try {
+      const response = await fetchImpl(endpoint, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          accept: MCP_HTTP_ACCEPT,
+          "user-agent": `framebook-peer-mcp-client/${PACKAGE_VERSION}`,
+          authorization: `Bearer ${this.clientToken}`,
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: `${this.sessionId || "peer"}-${++this.nextRequestId}`,
+          method: "initialize",
+          params: this.#initializeParams(),
+        }),
+      });
+      if (!response.ok) return undefined;
+      const body = JsonObjectSchema.parse(JSON.parse(await readResponseText(response)));
+      if (isJsonObject(body.result)) this.#adoptRoomEpoch(body.result._meta);
+      return this.roomEpoch;
+    } catch {
+      return undefined;
+    }
   }
 }
 

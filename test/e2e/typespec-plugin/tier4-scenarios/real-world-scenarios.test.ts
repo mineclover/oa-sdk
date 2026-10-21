@@ -2,113 +2,64 @@ import { describe, it, expect, vi } from 'vitest'
 import { resolve } from 'node:path'
 import {
   type TspPlugin,
-  type TspPluginContext,
   compileTypeSpecInMemory,
-  createPluginContext,
   sortPlugins,
   TspPluginCycleError,
+  pluginClient,
+  pluginRouter,
+  pluginTanstackQuery,
+  pluginTypescript,
+  pluginWire,
 } from '../../../../packages/codegen/src/plugin/index.js'
 import { generateTypesFromSpec } from '../../../../packages/codegen/src/typegen/generate-types.js'
-import { generateTanstackQuery } from '../../../../packages/client/src/tanstack/index.js'
-import { generateHandlerContract, generateRouter } from '../../../../packages/router/src/index.js'
 import {
   extractWireSchemaFromOas,
   ProtobufCodecTargetAdapter,
   Proto3TargetAdapter,
 } from '../../../../packages/codegen/src/wire-adapter/index.js'
-import { Client, type RequestOptions } from '../fixtures/client-reference.js'
+import { typecheckGeneratedFiles } from '../../../../packages/codegen/src/__tests__/plugin/helpers/typecheck-generated.js'
+import { emittedFiles, loadGeneratedPetstoreSdk, runFixturePipeline } from '../fixtures/generated-sdk.js'
+
+// pluginClient's real petstore SDK (client.ts) and pluginTanstackQuery's adapter (api-client.ts).
+const generated = await loadGeneratedPetstoreSdk()
+const { Client } = generated.client
 
 describe('Tier 4: Real-World Application Scenarios', () => {
-  const petstoreFile = resolve('test/e2e/typespec-plugin/fixtures/petstore/main.tsp')
   const storefrontFile = resolve('test/e2e/typespec-plugin/fixtures/storefront/main.tsp')
   const protobufFile = resolve('test/e2e/typespec-plugin/fixtures/protobuf/main.tsp')
 
   // ── Scenario 1: Full E2E Petstore Compilation to Multi-Target SDKs ──
-  it('Scenario 1: Petstore TypeSpec full compilation to 5 target SDKs in memory', async () => {
-    // 1. Compile TypeSpec in memory
-    const compileResult = await compileTypeSpecInMemory(petstoreFile)
-    expect(compileResult.document.openapi).toBe('3.2.0')
-    const doc = compileResult.document
-
-    // 2. Initialize VFS context
-    const context = createPluginContext({
-      entrypoint: petstoreFile,
-      outputDir: resolve('dist/generated'),
-      document: doc,
-      config: { input: petstoreFile, output: 'dist/generated', plugins: [] },
-    })
-
-    // Target 1: TypeScript Models
-    const typesCode = generateTypesFromSpec(doc, { style: 'interface' })
-    context.addFile({
-      path: 'types.ts',
-      content: typesCode,
-      sourcePlugin: 'typescript',
-      exports: ['Pet', 'Category', 'Tag', 'PetStatus', 'PetError'],
-    })
-
-    // Target 2: Client SDK
-    const clientCode = `
-import type { Pet, PetError, CreatePetRequest } from './types.js';
-import { Client, type RequestOptions, type ClientResult } from './runtime.js';
-
-export async function getPetById(options: RequestOptions<{ path: { petId: string } }>) {
-  const client = options.client ?? new Client();
-  return client.get<Pet, PetError>({
-    url: '/pets/{petId}',
-    path: options.path,
-    signal: options.signal,
-  });
-}
-`
-    context.addFile({
-      path: 'client.ts',
-      content: clientCode,
-      sourcePlugin: 'client',
-      exports: ['getPetById'],
-    })
-
-    // Target 3: TanStack Query v5 3-Tier
-    const queryOutput = generateTanstackQuery(doc)
-    context.addFile({
-      path: 'queries.ts',
-      content: queryOutput.queriesCode,
-      sourcePlugin: 'tanstack-query',
-    })
-
-    // Target 4: Router Handler Contracts & Hono router
-    const contractCode = generateHandlerContract(doc, { typesImport: './types.js' })
-    context.addFile({
-      path: 'api.contract.ts',
-      content: contractCode,
-      sourcePlugin: 'router',
-      exports: ['ApiHandlers', 'HandlerResponse'],
-    })
-
-    const routerCode = generateRouter(doc, { target: 'hono', contractImport: './api.contract.js' })
-    context.addFile({
-      path: 'router.ts',
-      content: routerCode,
-      sourcePlugin: 'router',
-    })
-
-    // Target 5: Wire Protocol Buffers Codecs
-    const wireModel = extractWireSchemaFromOas(doc)
-    const proto3 = new Proto3TargetAdapter().transform(wireModel)
-    context.addFile({
-      path: 'schema.proto',
-      content: proto3,
-      sourcePlugin: 'wire',
-    })
+  it('Scenario 1: Petstore TypeSpec full compilation to 5 target SDKs through the shipped plugins', async () => {
+    const result = await runFixturePipeline('petstore', [
+      pluginTypescript(),
+      pluginClient(),
+      pluginTanstackQuery({ split: true }),
+      pluginRouter({ target: 'hono' }),
+      pluginWire({ codecs: ['proto3'] }),
+    ])
+    expect(result.success).toBe(true)
+    expect(result.context.document.openapi).toBe('3.2.0')
 
     // Verify complete multi-target artifact inventory
-    expect(context.getFiles().length).toBe(6)
-    expect(context.hasFile('types.ts')).toBe(true)
-    expect(context.hasFile('client.ts')).toBe(true)
-    expect(context.hasFile('queries.ts')).toBe(true)
-    expect(context.hasFile('api.contract.ts')).toBe(true)
-    expect(context.hasFile('router.ts')).toBe(true)
-    expect(context.hasFile('schema.proto')).toBe(true)
+    const files = emittedFiles(result)
+    expect(Object.keys(files).sort()).toEqual([
+      'api-client.ts',
+      'api.contract.ts',
+      'client.ts',
+      'hooks.ts',
+      'keys.ts',
+      'queries.ts',
+      'router.ts',
+      'schema.proto',
+      'types.ts',
+      'wire.ts',
+    ])
+    expect(files['client.ts']).toContain('export async function getPetById(')
+    expect(files['api.contract.ts']).toContain('export interface ApiHandlers')
+    expect(files['schema.proto']).toContain('syntax = "proto3";')
+
+    // ... and every TypeScript artifact compiles together with its real dependencies.
+    expect(typecheckGeneratedFiles({ files, packages: ['@tanstack/react-query', 'hono'] })).toEqual([])
   })
 
   // ── Scenario 2: Storefront E-Commerce Compilation & Complex Pagination ──
@@ -126,47 +77,31 @@ export async function getPetById(options: RequestOptions<{ path: { petId: string
     expect(typesCode).toContain('Order')
     expect(typesCode).toContain('PaginatedProductsResponse')
 
-    const queryOutput = generateTanstackQuery(doc, { infiniteQuery: true })
-    expect(queryOutput.queriesCode).toContain('queryOptions')
+    const result = await runFixturePipeline('storefront', [pluginTypescript(), pluginClient(), pluginTanstackQuery()])
+    expect(result.success).toBe(true)
+    const queries = emittedFiles(result)['queries.ts']!
+    // page/pageSize query parameters are detected as page-based pagination.
+    expect(queries).toContain('export function productsListProductsInfiniteQueryOptions<')
+    expect(queries).toContain('"page": pageParam')
+    expect(queries).toContain('initialPageParam: 1 as unknown as TPageParam')
   })
 
   // ── Scenario 3: Tree-shakeable functional client calling convention & Discriminated Union ──
   it('Scenario 3: Tree-shakeable client calling convention & Discriminated Union type narrowing', async () => {
-    interface Pet { id: string; name: string }
-    interface PetError { code: string; message: string }
-
     const mockFetch = vi.fn()
     const client = new Client({ baseUrl: 'https://pets.example.com', fetch: mockFetch })
-
-    // Standalone function matching openapi-ts Hey API calling convention
-    async function getPetById(options: RequestOptions<{ path: { petId: string } }>) {
-      const activeClient = options.client ?? client
-      return activeClient.get<Pet, PetError>({
-        url: '/pets/{petId}',
-        path: options.path,
-        signal: options.signal,
-      })
-    }
-
-    async function deletePet(options: RequestOptions<{ path: { petId: string } }>) {
-      const activeClient = options.client ?? client
-      return activeClient.request<void, PetError>({
-        method: 'DELETE',
-        url: '/pets/{petId}',
-        path: options.path,
-      })
-    }
+    const { getPetById, deletePet } = generated.client
 
     // 1. Success case: 200 OK
     mockFetch.mockResolvedValueOnce(
       new Response(JSON.stringify({ id: 'pet-1', name: 'Buddy' }), { status: 200 }),
     )
-    const successRes = await getPetById({ path: { petId: 'pet-1' } })
+    const successRes = await getPetById({ client, path: { petId: 'pet-1' } })
 
     if (successRes.error) {
       expect.fail('Should not enter error branch')
     } else {
-      expect(successRes.data.name).toBe('Buddy')
+      expect(successRes.data?.name).toBe('Buddy')
       expect(successRes.response.status).toBe(200)
     }
 
@@ -174,7 +109,7 @@ export async function getPetById(options: RequestOptions<{ path: { petId: string
     mockFetch.mockResolvedValueOnce(
       new Response(JSON.stringify({ code: 'NOT_FOUND', message: 'No pet' }), { status: 404 }),
     )
-    const errorRes = await getPetById({ path: { petId: 'unknown' } })
+    const errorRes = await getPetById({ client, path: { petId: 'unknown' } })
 
     if (errorRes.error) {
       expect(errorRes.data).toBeUndefined()
@@ -186,10 +121,11 @@ export async function getPetById(options: RequestOptions<{ path: { petId: string
 
     // 3. 204 No Content delete
     mockFetch.mockResolvedValueOnce(new Response(null, { status: 204 }))
-    const deleteRes = await deletePet({ path: { petId: 'pet-1' } })
+    const deleteRes = await deletePet({ client, path: { petId: 'pet-1' } })
     expect(deleteRes.data).toBeUndefined()
     expect(deleteRes.error).toBeUndefined()
     expect(deleteRes.response.status).toBe(204)
+    expect(mockFetch).toHaveBeenLastCalledWith('https://pets.example.com/pets/pet-1', expect.objectContaining({ method: 'DELETE' }))
   })
 
   // ── Scenario 4: Server Handler Contract implementation & roundtrip ──
@@ -217,27 +153,27 @@ export async function getPetById(options: RequestOptions<{ path: { petId: string
     }
 
     // Server dispatch adapter simulating router invocation
-    const serverDispatch = async (req: { path: string; method: string; body?: any; params?: any }) => {
+    const serverDispatch = async (req: { path: string; method: string; body?: { name: string } }) => {
       if (req.method === 'GET' && req.path === '/pets') {
         const data = await mockHandlers.petsListPets()
         return new Response(JSON.stringify(data), { status: 200 })
       }
       if (req.method === 'GET' && req.path.startsWith('/pets/')) {
-        const petId = req.path.split('/')[2]
+        const petId = req.path.split('/')[2] ?? ''
         const res = await mockHandlers.petsGetPetById({ params: { petId } })
         if ('status' in res && res.status === 404) {
           return new Response(JSON.stringify(res.body), { status: 404 })
         }
         return new Response(JSON.stringify(res), { status: 200 })
       }
-      if (req.method === 'POST' && req.path === '/pets') {
+      if (req.method === 'POST' && req.path === '/pets' && req.body) {
         const res = await mockHandlers.petsCreatePet({ body: req.body })
         return new Response(JSON.stringify(res.body), { status: 201 })
       }
       return new Response('Not Found', { status: 404 })
     }
 
-    // Client calling the dispatched handler server
+    // Generated client calling the dispatched handler server
     const client = new Client({
       fetch: (url, init) => {
         const u = new URL(String(url), 'http://localhost')
@@ -248,25 +184,31 @@ export async function getPetById(options: RequestOptions<{ path: { petId: string
         })
       },
     })
+    const { listPets, createPet, getPetById } = generated.client
 
     // Test List
-    const listRes = await client.get<any[]>({ url: '/pets' })
+    const listRes = await listPets({ client })
     expect(listRes.data?.length).toBe(1)
-    expect(listRes.data?.[0].name).toBe('Rex')
+    expect(listRes.data?.[0]?.name).toBe('Rex')
 
     // Test Create
-    const createRes = await client.post<any>({ url: '/pets', body: { name: 'Milo' } })
+    const createRes = await createPet({ client, body: { name: 'Milo' } })
     expect(createRes.data?.id).toBe('p2')
     expect(createRes.data?.name).toBe('Milo')
 
-    // Test Get Newly Created
-    const getRes = await client.get<any>({ url: '/pets/{petId}', path: { petId: 'p2' } })
-    expect(getRes.data?.name).toBe('Milo')
+    // Test Get Newly Created (through the TanStack adapter, which resolves to the payload)
+    const api = generated.adapter.createApiClient(client)
+    await expect(api.petsGetPetById({ petId: 'p2' })).resolves.toMatchObject({ name: 'Milo' })
 
     // Test 404
-    const notFoundRes = await client.get<any, any>({ url: '/pets/{petId}', path: { petId: 'p999' } })
+    const notFoundRes = await getPetById({ client, path: { petId: 'p999' } })
     expect(notFoundRes.response.status).toBe(404)
     expect(notFoundRes.error?.code).toBe('NOT_FOUND')
+    // PetError is not an @error model with a status code, so the TanStack error type of this operation is
+    // Error and the adapter rejects with an ApiClientResponseError carrying the status and the parsed body.
+    const rejection = await api.petsGetPetById({ petId: 'p999' }).catch((error: unknown) => error)
+    expect(rejection).toBeInstanceOf(generated.adapter.ApiClientResponseError)
+    expect(rejection).toMatchObject({ status: 404, body: { code: 'NOT_FOUND' }, message: expect.stringContaining('HTTP Error 404') })
   })
 
   // ── Scenario 5: Protobuf wire codec serialization/deserialization with generated SDK ──

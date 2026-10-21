@@ -11,6 +11,7 @@ import {
   createStoryboardChunkPlaybackBridge,
   assertChunkIndexBodyParity,
   type ContentPort,
+  type PlaybackSnapshot,
   type StoryboardDocument,
 } from "../src/index.js";
 
@@ -213,6 +214,112 @@ describe("@oa-sdk/chunk-stream-ui Storyboard Adapter & PlaybackBridge", () => {
     const snapAfter = server.getPlaybackSnapshot();
     expect(snapAfter.frame).toBe(90);
     expect(snapAfter.semanticState.slideId).toBe("slide_b");
+  });
+
+  it("keeps seek state for a provider that returns a fresh document object with the same changeToken", async () => {
+    const { defineStoryboardChunkServer } = await import("../src/index.js");
+    const server = defineStoryboardChunkServer(() => ({ ...sampleDoc }), { fps: 30 });
+    const bridge = server.bridge;
+
+    const seek = await server.seek(90);
+    expect(seek).toMatchObject({ status: "completed" });
+    expect(server.getPlaybackSnapshot().frame).toBe(90);
+    expect(server.bridge).toBe(bridge);
+
+    // Over the HTTP handlers the seek also persists into later snapshot reads.
+    const httpSeek = await server.handlers.seekStreamFrame({
+      params: { streamId: "stream_story_123" },
+      body: { frame: 120 },
+    });
+    expect(httpSeek.status).toBe(200);
+    const snap = await server.handlers.getPlaybackSnapshot({ params: { streamId: "stream_story_123" } });
+    expect(snap.status).toBe(200);
+    expect((snap.body as PlaybackSnapshot).frame).toBe(120);
+    expect(bridge.isClosed).toBe(false);
+    server.close();
+  });
+
+  it("rebuilds on a new revision and closes the superseded bridge", async () => {
+    const { defineStoryboardChunkServer } = await import("../src/index.js");
+    let current: StoryboardDocument = sampleDoc;
+    const server = defineStoryboardChunkServer(() => current, { fps: 30 });
+    await server.seek(90);
+    const first = server.bridge;
+
+    // A new changeToken marks a new revision.
+    current = { ...sampleDoc, changeToken: 43 };
+    expect(server.getManifest().revision).toBe("rev_43");
+    expect(first.isClosed).toBe(true);
+    expect(server.bridge).not.toBe(first);
+    expect(server.getPlaybackSnapshot().frame).toBe(0);
+
+    // A different document with the same changeToken is a different revision too.
+    current = { ...sampleDoc, id: "story_456", changeToken: 43 };
+    expect(server.getManifest().streamId).toBe("stream_story_456");
+
+    // Without a changeToken only object identity marks a revision.
+    const tokenless: StoryboardDocument = { id: "story_789", slides: sampleDoc.slides };
+    current = tokenless;
+    await server.seek(30);
+    const tokenlessBridge = server.bridge;
+    expect(server.getPlaybackSnapshot().frame).toBe(30);
+    current = { ...tokenless };
+    expect(server.getPlaybackSnapshot().frame).toBe(0);
+    expect(tokenlessBridge.isClosed).toBe(true);
+    server.close();
+  });
+
+  it("close() is terminal: no rebuild, handlers answer 404, and seeks fail with E_CLOSED", async () => {
+    const { defineStoryboardChunkServer } = await import("../src/index.js");
+    const onCommit = vi.fn();
+    const server = defineStoryboardChunkServer(sampleDoc, { fps: 30, onCommit });
+
+    await expect(server.seek(40)).resolves.toMatchObject({ status: "completed" });
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    const bridge = server.bridge;
+
+    server.close();
+    server.close();
+    expect(bridge.isClosed).toBe(true);
+    expect(server.bridge).toBe(bridge);
+    expect(server.bridge.isClosed).toBe(true);
+    expect(server.residency.isDisposed).toBe(true);
+
+    await expect(server.seek(10)).resolves.toMatchObject({
+      status: "failed",
+      error: { code: "E_CLOSED" },
+    });
+    const httpSeek = await server.handlers.seekStreamFrame({
+      params: { streamId: "stream_story_123" },
+      body: { frame: 20 },
+    });
+    expect(httpSeek.status).toBe(404);
+    const snap = await server.handlers.getPlaybackSnapshot({ params: { streamId: "stream_story_123" } });
+    expect(snap.status).toBe(404);
+    const manifest = await server.handlers.getStreamManifest({ params: { streamId: "stream_story_123" } });
+    expect(manifest.status).toBe(404);
+    const chunk = await server.handlers.getStreamChunk({
+      params: { streamId: "stream_story_123", chunkId: "chunk_slide_a" },
+    });
+    expect(chunk.status).toBe(404);
+    const fetched = await server.fetch(
+      new Request("http://localhost/streams/stream_story_123/seek", {
+        method: "POST",
+        body: JSON.stringify({ frame: 30 }),
+      })
+    );
+    expect(fetched.status).toBe(404);
+    expect(onCommit).toHaveBeenCalledTimes(1);
+  });
+
+  it("close() before first use leaves a closed server", async () => {
+    const { defineStoryboardChunkServer } = await import("../src/index.js");
+    const server = defineStoryboardChunkServer(sampleDoc, { fps: 30 });
+    server.close();
+    expect(server.bridge.isClosed).toBe(true);
+    await expect(server.seek(10)).resolves.toMatchObject({ status: "failed", error: { code: "E_CLOSED" } });
+    const snap = await server.handlers.getPlaybackSnapshot({ params: { streamId: "stream_story_123" } });
+    expect(snap.status).toBe(404);
   });
 });
 

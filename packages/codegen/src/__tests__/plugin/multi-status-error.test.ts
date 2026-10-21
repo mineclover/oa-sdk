@@ -2,7 +2,11 @@ import { describe, it, expect, beforeAll } from 'vitest'
 import { resolve } from 'node:path'
 import { compileTypeSpecInMemory } from '../../plugin/compiler.js'
 import { renderOpenApiTsClient } from '../../plugin/client-renderer/openapi-ts-client.js'
+import { runTspPluginPipeline } from '../../plugin/runner.js'
+import { pluginTypescript } from '../../plugin/plugins/typescript.js'
+import { pluginClient } from '../../plugin/plugins/client.js'
 import type { OasDocument } from '@oa-sdk/parser'
+import { toFileRecord, typecheckGeneratedFiles } from './helpers/typecheck-generated.js'
 
 describe('TypeSpec Builder Platform: Multi-Status Error Union & TSDoc Provenance', () => {
   const monorepoRoot = resolve(__dirname, '../../../../..')
@@ -23,8 +27,9 @@ describe('TypeSpec Builder Platform: Multi-Status Error Union & TSDoc Provenance
     expect(exports).toContain('ErrorUnion')
     expect(exports).toContain('isErrorStatus')
 
-    expect(code).toContain('export type ErrorUnion<TStatusMap> = {')
-    expect(code).toContain('export function isErrorStatus<TStatus extends number>(')
+    expect(code).toContain('export type ErrorUnion<TStatusMap> =')
+    expect(code).toContain('export function isErrorStatus<')
+    expect(code).toContain('result is ErrorStatusResult<TResult, TStatus>')
     expect(code).toContain('result.error !== undefined && result.response.status === status')
   })
 
@@ -61,7 +66,7 @@ describe('TypeSpec Builder Platform: Multi-Status Error Union & TSDoc Provenance
     expect(code).toContain('@see {@link ./types.js} Operation getPetById')
   })
 
-  it('generates multi-status error map when operation has explicit error status codes', () => {
+  it('generates multi-status error map when operation has explicit error status codes', async () => {
     // Synthetic OAS document with multiple error responses
     const syntheticDoc: OasDocument = {
       openapi: '3.2.0',
@@ -121,23 +126,74 @@ describe('TypeSpec Builder Platform: Multi-Status Error Union & TSDoc Provenance
       },
     }
 
-    const { code, exports } = renderOpenApiTsClient({
-      document: syntheticDoc,
-      output: 'client.ts',
-    })
-
-    expect(exports).toContain('GetItemErrors')
-    expect(exports).toContain('GetItemErrorUnion')
-
-    // Interface with explicit status codes
-    expect(code).toContain('export interface GetItemErrors {')
-    expect(code).toContain('400: ValidationError')
-    expect(code).toContain('404: NotFoundError')
-    expect(code).toContain('[status: number]: GeneralError')
-
-    // Discriminated union by status
-    expect(code).toContain(
-      'export type GetItemErrorUnion = { status: 400; error: ValidationError } | { status: 404; error: NotFoundError } | { status: number; error: GeneralError }',
+    // Through the plugin pipeline: pluginClient receives the dereferenced `context.parsed`, so the
+    // per-status map must come from the typegen-emitted ErrorByStatus type, not from `$ref` names.
+    const result = await runTspPluginPipeline(
+      { input: 'main.tsp', dryRun: true, plugins: [pluginTypescript(), pluginClient()] },
+      { document: syntheticDoc },
     )
+    expect(result.success).toBe(true)
+    const files = toFileRecord(result.files)
+    const code = files['client.ts']!
+    const clientFile = result.files.find(f => f.path === 'client.ts')!
+
+    expect(clientFile.exports).toContain('GetItemErrors')
+    expect(clientFile.exports).toContain('GetItemErrorUnion')
+
+    expect(files['types.ts']).toContain('export type GetItemErrorByStatus = {')
+    expect(files['types.ts']).toContain('400: ValidationError')
+    expect(files['types.ts']).toContain('404: NotFoundError')
+    expect(code).toContain('export type GetItemErrors = GetItemErrorByStatus;')
+    expect(code).toContain('export type GetItemErrorUnion = ErrorUnion<GetItemErrors>;')
+    expect(code).toContain('Promise<ClientResult<GetItemResponse, GetItemError, GetItemErrors>>')
+
+    // A consumer narrows `error` per declared status; other statuses keep the full error union.
+    const usage = [
+      "import { getItem, isErrorStatus, type GetItemErrorUnion } from './client.js'",
+      "import type { GeneralError, NotFoundError, ValidationError } from './types.js'",
+      'export async function show(): Promise<string> {',
+      "  const res = await getItem({ path: { id: 'i1' } })",
+      '  if (isErrorStatus(res, 404)) { const err: NotFoundError = res.error; return err.message ?? "" }',
+      '  if (isErrorStatus(res, 400)) { const err: ValidationError = res.error; return err.field ?? "" }',
+      '  if (isErrorStatus(res, 500)) { const err: ValidationError | NotFoundError | GeneralError = res.error; return String(err) }',
+      '  if (res.error === undefined) return res.data.id ?? ""',
+      '  return String(res.response.status)',
+      '}',
+      // With a `default` response the union also has a `{ status: number }` member carrying every error model.
+      'export function describe(union: GetItemErrorUnion): string {',
+      '  if (union.status === 404) { const err: NotFoundError | GeneralError | ValidationError = union.error; return String(err) }',
+      '  return String(union.status)',
+      '}',
+    ].join('\n')
+    expect(typecheckGeneratedFiles({ files: { ...files, 'usage.ts': usage } })).toEqual([])
+  })
+
+  it('narrows res.error per status for a TypeSpec operation with several error models', async () => {
+    const edgeFile = resolve(monorepoRoot, 'test/e2e/typespec-plugin/fixtures/edge-cases/main.tsp')
+    const result = await runTspPluginPipeline({
+      input: edgeFile,
+      dryRun: true,
+      plugins: [pluginTypescript(), pluginClient()],
+    })
+    expect(result.success).toBe(true)
+    const files = toFileRecord(result.files)
+    const usage = [
+      "import { getItem, getThing, isErrorStatus, type GetItemErrorUnion } from './client.js'",
+      "import type { GenericError, NotFound } from './types.js'",
+      // Without a `default` response the union is discriminated by status alone.
+      'export function describe(union: GetItemErrorUnion): string {',
+      '  return union.status === 404 ? union.error.message : union.error.conflictKey',
+      '}',
+      'export async function run(): Promise<string> {',
+      "  const res = await getItem({ path: { id: 'a' } })",
+      '  if (isErrorStatus(res, 404)) return res.error.message',
+      '  if (isErrorStatus(res, 409)) return res.error.conflictKey',
+      "  const thing = await getThing({ path: { id: 'b' } })",
+      '  if (isErrorStatus(thing, 404)) return thing.error.message',
+      '  if (isErrorStatus(thing, 503)) { const err: NotFound | GenericError = thing.error; return JSON.stringify(err) }',
+      "  return res.error === undefined ? res.data.name : ''",
+      '}',
+    ].join('\n')
+    expect(typecheckGeneratedFiles({ files: { ...files, 'usage.ts': usage } })).toEqual([])
   })
 })

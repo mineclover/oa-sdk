@@ -7,10 +7,16 @@
  * The bytes follow the Protocol Buffers wire format of the schema that `Proto3TargetAdapter`
  * emits for the same model, so any Protobuf implementation can read and write them:
  * - scalars use their own wire types (varint, zigzag, fixed32/64, length-delimited)
- * - component objects are nested messages, component enums are member numbers
- * - `additionalProperties`-only objects are `map<string, V>`
- * - other values (unions, anonymous objects, nested arrays) are JSON text in a string field
+ * - component objects are nested messages (with their `allOf` members' fields), component enums
+ *   are member numbers
+ * - `additionalProperties`-only objects, inline or referenced, are `map<string, V>`
+ * - other values (unions, anonymous or free-form objects, nested arrays) are JSON text in a string field
  * - repeated numeric fields are written packed; both packed and unpacked forms are read
+ * - required scalar and enum fields a foreign encoder omitted (proto3 implicit presence) decode to
+ *   their proto3 default, as required repeated and map fields decode to empty ones
+ *
+ * TypeScript declarations use the names `types.ts` declares (`Inventory.Widget` is `InventoryWidget`);
+ * `getGeneratedProtobufCodecs()` is keyed by component name.
  *
  * 100% Zero-eval CSP compliant, operates in all JS/TS runtimes.
  *
@@ -20,7 +26,8 @@
 import { quoteTypeScriptString, toTypeScriptIdentifier } from '@oa-sdk/core/browser'
 import { formatJSDoc } from '../../typegen/jsdoc.js'
 import type { TypeSpecWireTargetAdapter } from '../wire-adapter-types.js'
-import type { WireEnum, WireField, WireFieldKind, WireModel, WireSchemaModel } from '../wire-schema-model.js'
+import { isProtobufMessage, type WireEnum, type WireField, type WireFieldKind, type WireModel, type WireSchemaModel } from '../wire-schema-model.js'
+import { lowerFirst, wireTypeNames } from '../wire-type-names.js'
 
 export interface ProtobufCodecAdapterOptions {
   readonly typesImport?: string | undefined
@@ -265,7 +272,7 @@ type FieldCodec = {
   wireType: number
   packable: boolean
   tsType: string
-  /** Proto3 default of a map value that a foreign encoder may omit. */
+  /** Proto3 default of a value that a foreign encoder may omit (map values, required singular fields). */
   defaultValue: string
 }
 
@@ -278,6 +285,8 @@ export class ProtobufCodecTargetAdapter implements TypeSpecWireTargetAdapter<str
   transform(model: WireSchemaModel, options: ProtobufCodecAdapterOptions = {}): string {
     const context = new CodecContext(model)
     const lines: string[] = []
+    // `object` models (maps, free-form objects) are no Protobuf message and get no codec.
+    const messages = model.models.filter(isProtobufMessage)
 
     lines.push('// Auto-generated Protobuf Binary Codecs from TypeSpec SSOT.')
     lines.push('// @oa-sdk/codegen ProtobufCodecTargetAdapter')
@@ -285,12 +294,12 @@ export class ProtobufCodecTargetAdapter implements TypeSpecWireTargetAdapter<str
     lines.push("import type { BinaryCodecAdapter } from '@oa-sdk/client'")
 
     if (options.typesImport) {
-      const typeNames = model.models.map(m => m.name)
+      const typeNames = messages.map(m => context.typeName(m.name))
       if (typeNames.length > 0) {
         lines.push(`import type { ${typeNames.join(', ')} } from ${quoteTypeScriptString(options.typesImport)}`)
       }
     } else {
-      for (const mdl of model.models) {
+      for (const mdl of messages) {
         lines.push(...this.renderModelInterface(mdl, context))
         lines.push('')
       }
@@ -304,7 +313,7 @@ export class ProtobufCodecTargetAdapter implements TypeSpecWireTargetAdapter<str
     }
     if (model.enums.length > 0) lines.push('')
 
-    for (const mdl of model.models) {
+    for (const mdl of messages) {
       lines.push(...this.renderModelCodec(mdl, context))
       lines.push('')
     }
@@ -312,7 +321,7 @@ export class ProtobufCodecTargetAdapter implements TypeSpecWireTargetAdapter<str
     lines.push('/** Collects all generated protobuf codecs into a record */')
     lines.push('export function getGeneratedProtobufCodecs(): Record<string, BinaryCodecAdapter<any>> {')
     lines.push('  return {')
-    for (const mdl of model.models) {
+    for (const mdl of messages) {
       lines.push(`    ${JSON.stringify(mdl.name)}: ${context.codecName(mdl.name)},`)
     }
     lines.push('  }')
@@ -324,7 +333,7 @@ export class ProtobufCodecTargetAdapter implements TypeSpecWireTargetAdapter<str
   private renderModelInterface(mdl: WireModel, context: CodecContext): string[] {
     const lines: string[] = []
     if (mdl.doc) lines.push(formatJSDoc(mdl.doc))
-    lines.push(`export interface ${mdl.name} {`)
+    lines.push(`export interface ${context.typeName(mdl.name)} {`)
     for (const f of mdl.fields) {
       if (f.doc) lines.push(formatJSDoc(f.doc, '  '))
       lines.push(`  ${quoteTypeScriptString(f.name)}${f.optional ? '?' : ''}: ${context.fieldTsType(f)}`)
@@ -336,10 +345,10 @@ export class ProtobufCodecTargetAdapter implements TypeSpecWireTargetAdapter<str
   private renderModelCodec(mdl: WireModel, context: CodecContext): string[] {
     const lines: string[] = []
     const name = mdl.name
-    const ident = context.ident(name)
+    const ident = context.typeName(name)
 
-    lines.push(`/** Encodes ${name} into Protobuf wire format bytes */`)
-    lines.push(`export function encode${ident}(payload: ${name}): Uint8Array {`)
+    lines.push(formatJSDoc(`Encodes ${name} into Protobuf wire format bytes`))
+    lines.push(`export function encode${ident}(payload: ${ident}): Uint8Array {`)
     lines.push('  const out: number[] = []')
     lines.push('  const source = payload as unknown as Record<string, unknown>')
     for (const f of mdl.fields) {
@@ -354,14 +363,20 @@ export class ProtobufCodecTargetAdapter implements TypeSpecWireTargetAdapter<str
     lines.push('}')
     lines.push('')
 
-    lines.push(`/** Decodes Protobuf wire format bytes into ${name} */`)
-    lines.push(`export function decode${ident}(raw: ArrayBufferLike | Uint8Array): ${name} {`)
+    lines.push(formatJSDoc(`Decodes Protobuf wire format bytes into ${name}`))
+    lines.push(`export function decode${ident}(raw: ArrayBufferLike | Uint8Array): ${ident} {`)
     lines.push('  const reader = __reader(raw)')
     lines.push('  const res: Record<string, unknown> = {}')
     for (const f of mdl.fields) {
-      // proto3 cannot tell an empty list or map from an absent one; required ones come back empty.
-      if (f.required && (f.repeated || kindOf(f) === 'map')) {
+      // proto3 implicit presence: encoders leave out empty lists and maps and singular scalars and
+      // enums equal to their default, so required ones come back as those defaults. Messages have
+      // explicit presence, and JSON fields have no default.
+      if (!f.required) continue
+      const kind = kindOf(f)
+      if (f.repeated || kind === 'map') {
         lines.push(`  __setOwn(res, ${quoteTypeScriptString(f.name)}, ${f.repeated ? '[]' : '{}'})`)
+      } else if (kind === 'scalar' || kind === 'enum') {
+        lines.push(`  __setOwn(res, ${quoteTypeScriptString(f.name)}, ${context.defaultValue(f)})`)
       }
     }
     lines.push('  while (reader.offset < reader.bytes.length) {')
@@ -377,12 +392,12 @@ export class ProtobufCodecTargetAdapter implements TypeSpecWireTargetAdapter<str
     lines.push('        __skip(reader, wireType)')
     lines.push('    }')
     lines.push('  }')
-    lines.push(`  return res as unknown as ${name}`)
+    lines.push(`  return res as unknown as ${ident}`)
     lines.push('}')
     lines.push('')
 
-    lines.push(`/** BinaryCodecAdapter instance for ${name} */`)
-    lines.push(`export const ${context.codecName(name)}: BinaryCodecAdapter<${name}> = {`)
+    lines.push(formatJSDoc(`BinaryCodecAdapter instance for ${name}`))
+    lines.push(`export const ${context.codecName(name)}: BinaryCodecAdapter<${ident}> = {`)
     lines.push("  mediaTypes: ['application/x-protobuf', 'application/protobuf', 'application/vnd.google.protobuf'],")
     lines.push(`  encode: (payload) => encode${ident}(payload),`)
     lines.push(`  decode: (raw) => decode${ident}(raw),`)
@@ -403,23 +418,25 @@ function enumLiterals(enm: WireEnum): readonly unknown[] {
 class CodecContext {
   private readonly models: ReadonlyMap<string, WireModel>
   private readonly enums: ReadonlyMap<string, WireEnum>
+  private readonly typeNames: ReadonlyMap<string, string>
 
   constructor(model: WireSchemaModel) {
-    this.models = new Map(model.models.map(m => [m.name, m]))
+    this.models = new Map(model.models.filter(isProtobufMessage).map(m => [m.name, m]))
     this.enums = new Map(model.enums.map(e => [e.name, e]))
+    this.typeNames = wireTypeNames(model)
   }
 
-  ident(name: string): string {
-    return toTypeScriptIdentifier(name)
+  /** TypeScript name of a model or enum; also the stem of its codec function names. */
+  typeName(name: string): string {
+    return this.typeNames.get(name) ?? toTypeScriptIdentifier(name)
   }
 
   codecName(name: string): string {
-    const ident = this.ident(name)
-    return `${ident.charAt(0).toLowerCase()}${ident.slice(1)}ProtobufCodec`
+    return `${lowerFirst(this.typeName(name))}ProtobufCodec`
   }
 
   enumTable(name: string): string {
-    return `__enum_${this.ident(name)}`
+    return `__enum_${this.typeName(name)}`
   }
 
   private scalarCodec(type: string, format: string | undefined): FieldCodec {
@@ -462,13 +479,13 @@ class CodecContext {
     if (kind === 'message') {
       const target = this.models.get(type)
       if (!target) return this.valueCodec('json', 'string', undefined)
-      const ident = this.ident(type)
+      const ident = this.typeName(type)
       return {
-        write: (value, field) => `__writeLengthDelimited(out, ${field}, encode${ident}(${value} as ${type}))`,
+        write: (value, field) => `__writeLengthDelimited(out, ${field}, encode${ident}(${value} as ${ident}))`,
         read: `decode${ident}(__readLengthDelimited(reader))`,
         wireType: 2,
         packable: false,
-        tsType: type,
+        tsType: ident,
         defaultValue: `decode${ident}(new Uint8Array())`,
       }
     }
@@ -486,6 +503,11 @@ class CodecContext {
     const kind = kindOf(field)
     if (kind === 'map') throw new Error('map fields have no single value codec')
     return this.valueCodec(kind, field.type, field.format)
+  }
+
+  /** Expression for the proto3 default of one value of a non-map field. */
+  defaultValue(field: WireField): string {
+    return this.fieldCodec(field).defaultValue
   }
 
   fieldTsType(field: WireField): string {

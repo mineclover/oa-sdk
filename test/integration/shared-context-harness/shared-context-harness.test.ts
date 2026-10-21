@@ -384,6 +384,63 @@ describe('Issue #2: Shared Context Harness Contract Validation with oa-sdk Core'
       expect(result).toEqual({ status: 'unavailable' })
     })
 
+    describe('conceals a throwing provider method in every tool that calls it', () => {
+      const SECRET_PATH = '/Users/private/secure/token.key'
+      const throwing = async (): Promise<never> => {
+        throw new Error(`Drive API error at ${SECRET_PATH}: permission denied`)
+      }
+      const resolveInput = { collaborationId: 'collab-context-harness', referenceId: 'ref-oa-sdk', actorId: 'actor:dev1' }
+      const collabInput = { collaborationId: 'collab-context-harness', actorId: 'actor:dev1' }
+
+      it.each([
+        'readCollaboration',
+        'canReadCollaboration',
+        'readReference',
+        'isRegisteredReference',
+        'canReadSource',
+        'readSource',
+      ] as const)('collab_resolve_reference resolves to unavailable when %s throws', async (method) => {
+        const tool = createResolveReferenceTool(createMockPort({ [method]: throwing }))
+        const result = await executeTool(tool, resolveInput, createToolContext())
+
+        expect(result).toEqual({ status: 'unavailable' })
+        expect(JSON.stringify(result)).not.toContain(SECRET_PATH)
+      })
+
+      it.each(['readCollaboration', 'canReadCollaboration', 'readReferenceIndex'] as const)(
+        'collab_bootstrap resolves to unavailable when %s throws',
+        async (method) => {
+          const tool = createBootstrapTool(createMockPort({ [method]: throwing }))
+          const result = await executeTool(tool, collabInput, createToolContext())
+
+          expect(result).toEqual({ status: 'unavailable', collaborationId: 'collab-context-harness' })
+          expect(JSON.stringify(result)).not.toContain(SECRET_PATH)
+        },
+      )
+
+      it.each(['readCollaboration', 'canReadCollaboration', 'readManagementProjection'] as const)(
+        'collab_query_management resolves to unavailable when %s throws',
+        async (method) => {
+          const tool = createQueryManagementTool(createMockPort({ [method]: throwing }))
+          const result = await executeTool(tool, collabInput, createToolContext())
+
+          expect(result).toEqual({ status: 'unavailable' })
+          expect(JSON.stringify(result)).not.toContain(SECRET_PATH)
+        },
+      )
+
+      it('every tool succeeds with a healthy port (the throwing cases are not vacuous)', async () => {
+        const port = createMockPort()
+        const resolved = await executeTool(createResolveReferenceTool(port), resolveInput, createToolContext())
+        const bootstrap = await executeTool(createBootstrapTool(port), collabInput, createToolContext())
+        const management = await executeTool(createQueryManagementTool(port), collabInput, createToolContext())
+
+        expect(resolved.status).toBe('resolved')
+        expect(bootstrap.status).toBe('ready')
+        expect(management.status).toBe('ready')
+      })
+    })
+
     it('blocks forged reference cards before source ACL or readSource call', async () => {
       let sourceAclChecks = 0
       let sourceReadCalls = 0

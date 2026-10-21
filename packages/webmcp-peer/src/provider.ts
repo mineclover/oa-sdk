@@ -1,6 +1,7 @@
 export {
   MCP_PROTOCOL_VERSION,
   MCP_PROTOCOL_VERSIONS,
+  MCP_INITIALIZE_PROTOCOL_VERSIONS,
   isUtcTimestamp,
   isCommitReceipt,
   type CommitReceipt,
@@ -8,6 +9,7 @@ export {
 
 export {
   AiRunController,
+  AiRunLimitExceededError,
   type AiRunPhase,
   type AiRollbackStatus,
   type AiRunPoint,

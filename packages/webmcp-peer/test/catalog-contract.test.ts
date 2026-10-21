@@ -1,14 +1,19 @@
 // Regression tests for the tool-catalog contract shared by provider, relay and client:
 //   - the provider publishes one descriptor shape on every channel (no version flapping),
-//   - the relay only accepts and announces catalogs its clients can validate,
+//   - the relay only accepts and announces catalogs its clients can validate, telling every agent the
+//     catalog changed before it announces it, and hashes a catalog it received with a tool's own
+//     __proto__ key as the client does,
 //   - a client never crashes on a catalog frame it cannot validate.
 import { afterEach, describe, expect, it } from "vitest";
 import {
   PeerMcpSession,
+  hashTools,
   joinPeerRoom,
+  normalizeTools,
   waitForPeerApproval,
   type PeerMcpTransportCallbacks,
 } from "../src/client.js";
+import { PEER_CATALOG_MAX_TOOL_NAME_LENGTH, PEER_CATALOG_MAX_TOOLS } from "../src/config.js";
 import { WebMcpPeerClient, toWireToolDescriptor, type WebMcpToolSummary } from "../src/provider.js";
 import { createWebMcpPeerServer, normalizeToolCatalog, type WebMcpPeerServer } from "../src/server.js";
 
@@ -200,6 +205,72 @@ describe("relay register validation", () => {
     expect(session.cachedTools.map((entry) => entry.name)).toEqual(["a", "b"]);
   });
 
+  it("tells every agent the catalog changed before it announces the catalog, under the relay's version and hash", async () => {
+    const serverUrl = await startServer();
+    const { room, register } = await openRoom(serverUrl);
+    const joined = await joinPeerRoom({ serverUrl, roomId: room.id, inviteToken: room.inviteToken });
+    const agent = new WebSocket(`${serverUrl.replace(/^http/, "ws")}/p/${room.id}/client`, ["webmcp-peer.v1", `ticket.${joined.clientToken}`]);
+    sockets.push(agent);
+    const received: Array<Record<string, any>> = [];
+    agent.onmessage = (event) => received.push(JSON.parse(String(event.data)));
+    await until(() => received.some((frame) => frame.type === "ready"), Boolean, "agent ready");
+
+    register([tool("a")]);
+    await until(() => received.some((frame) => frame.type === "register"), Boolean, "the announcement");
+    const catalog = await roomCatalog(serverUrl, room.id);
+    const told = received.filter((frame) => frame.type === "register" || frame.message?.method === "notifications/tools/list_changed");
+    expect(told).toEqual([
+      { type: "mcp", message: { jsonrpc: "2.0", method: "notifications/tools/list_changed", params: { catalogVersion: 1, catalogHash: catalog.catalogHash } } },
+      { type: "register", tools: [tool("a")], catalogVersion: 1, catalogHash: catalog.catalogHash },
+    ]);
+  });
+
+  it("hashes a catalog that came with a tool's own __proto__ key as the client hashes what it lists", async () => {
+    const serverUrl = await startServer();
+    const { room, register } = await openRoom(serverUrl);
+    // JSON.parse makes "__proto__" an own key, as the relay's parse of a register frame does.
+    const withOwnKey = JSON.parse('[{"name":"a","description":"a tool","inputSchema":{"type":"object","properties":{"__proto__":{"type":"string"}}}}]') as unknown[];
+    register(withOwnKey);
+    const catalog = await until(() => roomCatalog(serverUrl, room.id), (listed) => listed.catalogVersion === 1, "register");
+
+    expect(Object.hasOwn(catalog.tools[0]!.inputSchema as object, "properties")).toBe(true);
+    expect(Object.keys((catalog.tools[0]!.inputSchema as { properties: object }).properties)).toEqual(["__proto__"]);
+    expect(catalog.catalogHash).toBe(hashTools(catalog.tools as never));
+    expect(catalog.catalogHash).not.toBe(hashTools([tool("a", { description: "a tool" })] as never));
+    // A client takes the catalog: the hash it computes is the relay's.
+    const joined = await joinPeerRoom({ serverUrl, roomId: room.id, inviteToken: room.inviteToken });
+    const session = new PeerMcpSession({ serverUrl, roomId: room.id, sessionId: joined.sessionId, clientToken: joined.clientToken });
+    sessions.push(session);
+    expect((await session.listTools()).map((entry) => entry.name)).toEqual(["a"]);
+    expect(session.catalogHash).toBe(catalog.catalogHash);
+  });
+
+  it("refuses exactly the catalogs the client refuses, and neither side trims a tool name", () => {
+    const refused: Array<[string, unknown[], string]> = [
+      ["a duplicate name", [tool("a"), tool("a")], "DUPLICATE_TOOL"],
+      ["no inputSchema", [{ name: "no_schema", description: "missing inputSchema" }], "INVALID_TOOL_DESCRIPTOR"],
+      ["an array inputSchema", [{ ...tool("a"), inputSchema: [] }], "INVALID_TOOL_DESCRIPTOR"],
+      ["a padded name", [tool(" padded ")], "INVALID_TOOL_DESCRIPTOR"],
+      ["a trailing space", [tool("trailing ")], "INVALID_TOOL_DESCRIPTOR"],
+      ["an empty name", [tool("")], "INVALID_TOOL_DESCRIPTOR"],
+      ["a name over the limit", [tool("x".repeat(PEER_CATALOG_MAX_TOOL_NAME_LENGTH + 1))], "TOOL_NAME_TOO_LONG"],
+      ["too many tools", Array.from({ length: PEER_CATALOG_MAX_TOOLS + 1 }, (_, index) => tool(`t${index}`)), "INVALID_TOOLS_LIST"],
+    ];
+    for (const [label, tools, code] of refused) {
+      expect(normalizeToolCatalog(tools), label).toBeNull();
+      expect(() => normalizeTools({ result: { tools } }), label).toThrow(expect.objectContaining({ code }));
+    }
+
+    const accepted = [
+      [tool("x".repeat(PEER_CATALOG_MAX_TOOL_NAME_LENGTH)), tool("inner space")],
+      Array.from({ length: PEER_CATALOG_MAX_TOOLS }, (_, index) => tool(`t${index}`)),
+    ];
+    for (const tools of accepted) {
+      expect(normalizeToolCatalog(tools)?.map((entry) => entry.name)).toEqual(tools.map((entry) => entry.name));
+      expect(normalizeTools({ result: { tools } }).map((entry) => entry.name)).toEqual(tools.map((entry) => entry.name));
+    }
+  });
+
   it("validates tool catalogs with the client contract", () => {
     expect(normalizeToolCatalog([tool("a"), tool("b")])).toHaveLength(2);
     expect(normalizeToolCatalog([])).toEqual([]);
@@ -226,7 +297,7 @@ describe("client catalog frame resilience", () => {
     sessions.push(session);
     await session.connect();
 
-    callbacks.onMessage?.({ type: "register", tools: [tool("a")], catalogVersion: 4, catalogHash: "f".repeat(64) });
+    callbacks.onMessage?.({ type: "register", tools: [tool("a")], catalogVersion: 4, catalogHash: hashTools([tool("a")]) });
     expect(session.catalogVersion).toBe(4);
 
     expect(() => callbacks.onMessage?.({ type: "register", tools: [tool("a"), tool("a")] })).not.toThrow();

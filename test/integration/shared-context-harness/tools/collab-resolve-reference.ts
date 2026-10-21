@@ -43,48 +43,39 @@ export function createResolveReferenceTool(port: SharedContextHarnessPort) {
       const { collaborationId, referenceId, actorId } = input
       const unavailable: ResolveSharedReferenceResult = { status: 'unavailable' }
 
-      // 1. Boundary check: Collaboration Manifest existence & schema validity
-      const manifest = await port.readCollaboration(collaborationId)
-      if (!manifest) return unavailable
-
-      const manifestCheck = validateCollaborationManifest(manifest)
-      if (!manifestCheck.ok) return unavailable
-
-      // 2. Boundary check: Actor permission on collaboration root
+      // Fail closed: every provider call sits inside one boundary, so a thrown
+      // provider error (paths, tokens, internal messages) is never propagated and
+      // is indistinguishable from deny / not-found.
       try {
+        // 1. Boundary check: Collaboration Manifest existence & schema validity
+        const manifest = await port.readCollaboration(collaborationId)
+        if (!manifest) return unavailable
+
+        const manifestCheck = validateCollaborationManifest(manifest)
+        if (!manifestCheck.ok) return unavailable
+
+        // 2. Boundary check: Actor permission on collaboration root
         const canReadCollab = await port.canReadCollaboration(actorId, manifest)
         if (!canReadCollab) return unavailable
-      } catch {
-        return unavailable
-      }
 
-      // 3. Boundary check: Reference card existence & schema validity
-      const reference = await port.readReference(collaborationId, referenceId)
-      if (!reference) return unavailable
+        // 3. Boundary check: Reference card existence & schema validity
+        const reference = await port.readReference(collaborationId, referenceId)
+        if (!reference) return unavailable
 
-      const refCheck = validateSourceReference(reference)
-      if (!refCheck.ok || reference.collaborationId !== manifest.collaborationId) {
-        return unavailable
-      }
+        const refCheck = validateSourceReference(reference)
+        if (!refCheck.ok || reference.collaborationId !== manifest.collaborationId) {
+          return unavailable
+        }
 
-      // 4. Anti-spoofing registration check: Must be registered in central reference index
-      try {
+        // 4. Anti-spoofing registration check: Must be registered in central reference index
         const isRegistered = await port.isRegisteredReference(manifest, reference)
         if (!isRegistered) return unavailable
-      } catch {
-        return unavailable
-      }
 
-      // 5. Source boundary check: Actor permission on native source repository
-      try {
+        // 5. Source boundary check: Actor permission on native source repository
         const canReadSource = await port.canReadSource(actorId, reference)
         if (!canReadSource) return unavailable
-      } catch {
-        return unavailable
-      }
 
-      // 6. Read source material safely and compare snapshot invariant
-      try {
+        // 6. Read source material safely and compare snapshot invariant
         const material = await port.readSource(reference)
         if (!material || typeof material.content !== 'string' || !material.snapshotId) {
           return unavailable

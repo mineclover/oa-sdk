@@ -134,9 +134,10 @@ function renderWriteToggle() {
 }
 
 function renderProvider() {
-  const { room, connected, pendingApproval } = provider.state;
+  const { room, connected, pendingApproval, catalogRefusal } = provider.state;
   if (!room) setBadge("provider-state", "", "disconnected");
   else if (!connected) setBadge("provider-state", "warn", "connecting…");
+  else if (catalogRefusal) setBadge("provider-state", "err", catalogRefusal);
   else if (agent.state.status === "approved" && agent.state.session?.roomId === room.id) setBadge("provider-state", "ok", "agent connected");
   else setBadge("provider-state", "info", "waiting for agent");
 
@@ -190,6 +191,7 @@ const AGENT_STATUS_BADGE = {
   rejected: ["err", "CLIENT_APPROVAL_DENIED"],
   revoked: ["err", "SESSION_REVOKED"],
   expired: ["err", "APPROVAL_EXPIRED"],
+  "room-expired": ["err", "ROOM_EXPIRED"],
   rotated: ["err", "ROOM_ROTATED (티켓 무효)"],
 };
 

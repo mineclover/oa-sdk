@@ -10,188 +10,131 @@
  * @oa-sdk/codegen
  */
 
+import { pascalCase } from '@oa-sdk/core/browser'
 import type { OasDocument } from '@oa-sdk/parser'
-import type {
-  WireSchemaModel,
-  WireModel,
-  WireField,
-  WireEnum,
-  WireEnumMember,
-  WireFieldKind,
-  WireMapValue,
-  WireService,
-  WireMethod,
-  WireParameter,
-  WireParameterLocation,
-  WirePayload,
-} from './wire-schema-model.js'
 import {
   PROTOBUF_EXTENSION,
   PROTOBUF_FIELD_EXTENSION,
   RPC_EXTENSION,
   WIRE_FORMAT_EXTENSION,
 } from '@oa-sdk/typespec-decorators'
+import { createComponentTypeNameMap } from '../typegen/type-names.js'
+import { emptyMessageName } from './proto-identifiers.js'
+import {
+  isProtobufMessage,
+  type WireSchemaModel,
+  type WireModel,
+  type WireField,
+  type WireEnum,
+  type WireEnumMember,
+  type WireFieldKind,
+  type WireMapValue,
+  type WireService,
+  type WireMethod,
+  type WireParameter,
+  type WireParameterLocation,
+  type WirePayload,
+} from './wire-schema-model.js'
 
 export interface ExtractorOptions {
   readonly defaultPackage?: string | undefined
   readonly defaultServiceName?: string | undefined
 }
 
+/** A JSON object of the document: a schema, an operation, a media type, ... */
+type JsonObject = Readonly<Record<string, unknown>>
+
+type RpcStreaming = NonNullable<WireMethod['streaming']>
+
+const HTTP_METHODS = ['get', 'post', 'put', 'delete', 'patch', 'options', 'head'] as const
+
+/** Highest field number Protobuf allows (2^29 - 1). */
+const MAX_FIELD_NUMBER = 536_870_911
+
 /**
  * Extracts a canonical WireSchemaModel from an OpenAPI document.
+ *
+ * Throws when a model declares an invalid or duplicate explicit Protobuf field number, because
+ * the schema and codecs generated from it could not tell those fields apart.
  */
 export function extractWireSchemaFromOas(
   doc: OasDocument,
   options: ExtractorOptions = {},
 ): WireSchemaModel {
   const packageName = options.defaultPackage ?? sanitizePackageName(doc.info?.title ?? 'service')
-  const defaultServiceName = options.defaultServiceName ?? toPascalCase(packageName) + 'Service'
+  const defaultServiceName = options.defaultServiceName ?? pascalCase(packageName) + 'Service'
 
+  const schemas = new ComponentSchemas(asObject(doc.components?.schemas) ?? {})
+  // The declaration names `types.ts` uses for the same components.
+  const typeNames = createComponentTypeNameMap(schemas.names()).byComponentName
   const models: WireModel[] = []
   const enums: WireEnum[] = []
-  const schemas = doc.components?.schemas ?? {}
 
-  for (const [schemaName, rawSchema] of Object.entries(schemas)) {
-    const schema = rawSchema as Record<string, any>
-    if (!schema || typeof schema !== 'object') continue
+  for (const schemaName of schemas.names()) {
+    const schema = schemas.get(schemaName)
+    if (!schema) continue
+    const tsTypeName = typeNames.get(schemaName) ?? schemaName
 
-    // Detect enum
     if (Array.isArray(schema.enum)) {
-      const members: WireEnumMember[] = schema.enum.map((val: any, idx: number) => ({
-        name: String(val).toUpperCase().replace(/[^A-Z0-9_]/g, '_'),
-        number: idx,
-      }))
-      enums.push({
-        name: schemaName,
-        doc: schema.description,
-        members,
-        values: schema.enum.map(String),
-        literals: [...schema.enum],
-      })
+      enums.push(extractEnum(schemaName, tsTypeName, schema, schema.enum))
       continue
     }
 
-    // Process object schema as model
-    if (schema.type === 'object' || schema.properties) {
-      const protoMeta = schema[PROTOBUF_EXTENSION] as { messageName?: string; package?: string } | undefined
-      const wireFormat = schema[WIRE_FORMAT_EXTENSION] as string | undefined
-
-      const fields: WireField[] = []
-      const requiredSet = new Set(Array.isArray(schema.required) ? schema.required : [])
-      const properties = schema.properties ?? {}
-
-      // Explicit field numbers win; the others take the lowest free numbers in declaration order.
-      const usedIndexes = new Set<number>()
-      for (const rawProp of Object.values(properties)) {
-        const explicit = (rawProp as Record<string, any> | undefined)?.[PROTOBUF_FIELD_EXTENSION]?.index
-        if (typeof explicit === 'number') usedIndexes.add(explicit)
-      }
-      let nextIndex = 1
-      const allocateIndex = (): number => {
-        while (usedIndexes.has(nextIndex) || (nextIndex >= 19000 && nextIndex <= 19999)) nextIndex++
-        usedIndexes.add(nextIndex)
-        return nextIndex
-      }
-
-      for (const [propName, rawProp] of Object.entries(properties)) {
-        const prop = rawProp as Record<string, any>
-        if (!prop || typeof prop !== 'object') continue
-
-        const fieldMeta = prop[PROTOBUF_FIELD_EXTENSION] as {
-          index?: number
-          type?: string
-          protoType?: string
-          repeated?: boolean
-          packed?: boolean
-        } | undefined
-
-        const index = typeof fieldMeta?.index === 'number' ? fieldMeta.index : allocateIndex()
-        const isRequired = requiredSet.has(propName)
-        const shape = classifyField(prop, schemas)
-        const scalarOverride = shape.kind === 'scalar' ? fieldMeta?.type ?? fieldMeta?.protoType : undefined
-        const type = scalarOverride ?? shape.type
-        const isEnum = shape.kind === 'enum'
-
-        fields.push({
-          name: propName,
-          index,
-          type,
-          kind: shape.kind,
-          ...(shape.mapValue ? { mapValue: shape.mapValue } : {}),
-          protoType: type,
-          isEnum,
-          enumRef: isEnum ? shape.type : undefined,
-          optional: !isRequired,
-          required: isRequired,
-          repeated: shape.repeated,
-          packed: fieldMeta?.packed,
-          doc: prop.description,
-          format: prop.format,
-          defaultValue: prop.default,
-        })
-      }
-
-      // Sort fields by index for deterministic order
-      fields.sort((a, b) => a.index - b.index)
-
+    const message = schemas.message(schemaName)
+    if (message) {
+      models.push(extractModel(schemaName, tsTypeName, schema, message, schemas, packageName))
+    } else if (primaryType(schema) === 'object' || schema.properties !== undefined) {
+      // Map-only, free-form, or composed: no Protobuf message, but still a type and a MessagePack value.
       models.push({
         name: schemaName,
-        messageName: protoMeta?.messageName ?? schemaName,
-        protobufMessageName: protoMeta?.messageName ?? schemaName,
-        package: protoMeta?.package ?? packageName,
-        doc: schema.description,
-        fields,
-        wireFormat: wireFormat ?? (protoMeta ? 'protobuf' : undefined),
+        tsTypeName,
+        kind: 'object',
+        doc: stringOf(schema.description),
+        fields: [],
+        wireFormat: stringOf(schema[WIRE_FORMAT_EXTENSION]),
       })
     }
   }
 
-  // Extract RPC Services from paths
-  const serviceMap = new Map<string, WireMethod[]>()
-  const paths = doc.paths ?? {}
+  const messageNames = new Set(models.filter(isProtobufMessage).map(model => model.name))
+  const enumNames = new Set(enums.map(enm => enm.name))
+  // Methods by service; `inputType`/`outputType` are filled in once every name is known.
+  const serviceMap = new Map<string, PendingMethod[]>()
 
-  for (const [pathStr, pathItem] of Object.entries(paths)) {
-    if (!pathItem || typeof pathItem !== 'object') continue
+  for (const [pathStr, rawPathItem] of Object.entries(asObject(doc.paths) ?? {})) {
+    const pathItem = asObject(rawPathItem)
+    if (!pathItem) continue
 
-    const methods = ['get', 'post', 'put', 'delete', 'patch', 'options', 'head'] as const
-    for (const httpMethod of methods) {
-      const op = (pathItem as Record<string, any>)[httpMethod]
-      if (!op || typeof op !== 'object') continue
+    for (const httpMethod of HTTP_METHODS) {
+      const op = asObject(pathItem[httpMethod])
+      if (!op) continue
 
-      const rpcMeta = op[RPC_EXTENSION] as {
-        methodName?: string
-        serviceName?: string
-        service?: string
-        method?: string
-        streaming?: 'none' | 'client' | 'server' | 'bidirectional'
-        clientStreaming?: boolean
-        serverStreaming?: boolean
-      } | undefined
+      const rpcMeta = readRpcMeta(op[RPC_EXTENSION])
+      const wireFormat = stringOf(op[WIRE_FORMAT_EXTENSION])
+      const tag = firstTag(op.tags)
 
-      const wireFormat = op[WIRE_FORMAT_EXTENSION] as string | undefined
-
-      const serviceName = rpcMeta?.serviceName ?? rpcMeta?.service ?? (op.tags?.[0] ? toPascalCase(op.tags[0]) + 'Service' : defaultServiceName)
-      const opId = op.operationId ?? `${httpMethod}_${pathStr.replace(/[^a-zA-Z0-9]/g, '_')}`
-      const methodName = rpcMeta?.methodName ?? rpcMeta?.method ?? toPascalCase(opId)
+      const serviceName = rpcMeta.serviceName ?? rpcMeta.service ?? (tag ? pascalCase(tag) + 'Service' : defaultServiceName)
+      const opId = stringOf(op.operationId) ?? `${httpMethod}_${pathStr.replace(/[^a-zA-Z0-9]/g, '_')}`
+      const methodName = rpcMeta.methodName ?? rpcMeta.method ?? pascalCase(opId)
 
       const requestBody = resolveRequestBody(op)
       const response = resolveSuccessResponse(op)
-      const inputType = requestBody?.typeName ?? 'Empty'
-      const outputType = response?.typeName ?? 'Empty'
-      const parameters = resolveParameters(doc, pathStr, (pathItem as Record<string, any>).parameters, op.parameters, enums, schemas)
+      const parameters = resolveParameters(doc, pathStr, pathItem.parameters, op.parameters, enumNames, schemas)
 
-      const clientStreaming = rpcMeta?.clientStreaming ?? (rpcMeta?.streaming === 'client' || rpcMeta?.streaming === 'bidirectional' || false)
-      const serverStreaming = rpcMeta?.serverStreaming ?? (rpcMeta?.streaming === 'server' || rpcMeta?.streaming === 'bidirectional' || false)
+      const clientStreaming = rpcMeta.clientStreaming ?? (rpcMeta.streaming === 'client' || rpcMeta.streaming === 'bidirectional')
+      const serverStreaming = rpcMeta.serverStreaming ?? (rpcMeta.streaming === 'server' || rpcMeta.streaming === 'bidirectional')
 
-      const wireMethod: WireMethod = {
+      const wireMethod: PendingMethod = {
         name: methodName,
         methodName,
-        doc: op.description ?? op.summary,
-        inputType,
-        outputType,
+        doc: stringOf(op.description) ?? stringOf(op.summary),
+        // Only a message component can be an RPC message; other payloads (inline schemas, maps,
+        // enums, scalars) keep their `typeName` but travel as the empty message.
+        inputType: messageTypeName(requestBody?.typeName, messageNames),
+        outputType: messageTypeName(response?.typeName, messageNames),
         route: pathStr,
         httpMethod: httpMethod.toUpperCase(),
-        streaming: rpcMeta?.streaming ?? (clientStreaming && serverStreaming ? 'bidirectional' : clientStreaming ? 'client' : serverStreaming ? 'server' : 'none'),
+        streaming: rpcMeta.streaming ?? (clientStreaming && serverStreaming ? 'bidirectional' : clientStreaming ? 'client' : serverStreaming ? 'server' : 'none'),
         clientStreaming,
         serverStreaming,
         wireFormat: wireFormat ?? wireFormatOf(requestBody?.mediaType || response?.mediaType),
@@ -200,17 +143,17 @@ export function extractWireSchemaFromOas(
         response,
       }
 
-      if (!serviceMap.has(serviceName)) {
-        serviceMap.set(serviceName, [])
-      }
-      serviceMap.get(serviceName)!.push(wireMethod)
+      const methods = serviceMap.get(serviceName)
+      if (methods) methods.push(wireMethod)
+      else serviceMap.set(serviceName, [wireMethod])
     }
   }
 
+  const empty = emptyMessageName({ models, enums, services: [...serviceMap.keys()].map(name => ({ name })) })
   const services: WireService[] = Array.from(serviceMap.entries()).map(([serviceName, methods]) => ({
     name: serviceName,
     serviceName,
-    methods,
+    methods: methods.map(method => ({ ...method, inputType: method.inputType ?? empty, outputType: method.outputType ?? empty })),
   }))
 
   return {
@@ -225,6 +168,284 @@ export function extractWireSchemaFromOas(
   }
 }
 
+function extractEnum(name: string, tsTypeName: string, schema: JsonObject, values: readonly unknown[]): WireEnum {
+  const members: WireEnumMember[] = values.map((value, index) => ({
+    name: String(value).toUpperCase().replace(/[^A-Z0-9_]/g, '_'),
+    number: index,
+  }))
+  return {
+    name,
+    tsTypeName,
+    doc: stringOf(schema.description),
+    members,
+    values: values.map(String),
+    literals: values.map(enumLiteral),
+  }
+}
+
+/** Keeps JSON primitives; any other enum value (an object or array) is kept as its JSON text. */
+function enumLiteral(value: unknown): string | number | boolean | null {
+  if (value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value
+  return JSON.stringify(value) ?? String(value)
+}
+
+function extractModel(
+  name: string,
+  tsTypeName: string,
+  schema: JsonObject,
+  message: FlatMessage,
+  schemas: ComponentSchemas,
+  packageName: string,
+): WireModel {
+  const protoMeta = readProtobufMeta(schema[PROTOBUF_EXTENSION])
+  const wireFormat = stringOf(schema[WIRE_FORMAT_EXTENSION])
+  const properties = [...message.properties].map(([propName, prop]) => ({ propName, prop, meta: readFieldMeta(prop) }))
+
+  // Explicit field numbers win; the others take the lowest free numbers in declaration order,
+  // inherited (`allOf`) fields first.
+  const explicitOwners = new Map<number, string>()
+  for (const { propName, meta } of properties) {
+    if (meta.index === undefined) continue
+    assertFieldNumber(meta.index, name, propName)
+    const owner = explicitOwners.get(meta.index)
+    if (owner !== undefined) {
+      throw new Error(`Duplicate protobuf field number ${meta.index} in ${name}: "${owner}" and "${propName}" both use it.`)
+    }
+    explicitOwners.set(meta.index, propName)
+  }
+  const usedIndexes = new Set(explicitOwners.keys())
+  let nextIndex = 1
+  const allocateIndex = (): number => {
+    while (usedIndexes.has(nextIndex) || (nextIndex >= 19000 && nextIndex <= 19999)) nextIndex++
+    usedIndexes.add(nextIndex)
+    return nextIndex
+  }
+
+  const fields: WireField[] = []
+  for (const { propName, prop, meta } of properties) {
+    const index = meta.index ?? allocateIndex()
+    const isRequired = message.required.has(propName)
+    const shape = classifyField(prop, schemas)
+    const scalarOverride = shape.kind === 'scalar' ? meta.type ?? meta.protoType : undefined
+    const type = scalarOverride ?? shape.type
+    const isEnum = shape.kind === 'enum'
+
+    fields.push({
+      name: propName,
+      index,
+      type,
+      kind: shape.kind,
+      ...(shape.mapValue ? { mapValue: shape.mapValue } : {}),
+      protoType: type,
+      isEnum,
+      enumRef: isEnum ? shape.type : undefined,
+      optional: !isRequired,
+      required: isRequired,
+      repeated: shape.repeated,
+      packed: meta.packed,
+      doc: stringOf(prop.description),
+      format: stringOf(prop.format),
+      defaultValue: prop.default,
+    })
+  }
+
+  // Sort fields by index for deterministic order
+  fields.sort((a, b) => a.index - b.index)
+
+  return {
+    name,
+    tsTypeName,
+    kind: 'message',
+    messageName: protoMeta.messageName ?? name,
+    protobufMessageName: protoMeta.messageName ?? name,
+    package: protoMeta.package ?? packageName,
+    doc: stringOf(schema.description),
+    fields,
+    wireFormat: wireFormat ?? (protoMeta.declared ? 'protobuf' : undefined),
+  }
+}
+
+function assertFieldNumber(index: number, model: string, property: string): void {
+  if (!Number.isInteger(index) || index < 1 || index > MAX_FIELD_NUMBER) {
+    throw new Error(`Invalid protobuf field number ${index} for "${property}" in ${model}: expected an integer between 1 and ${MAX_FIELD_NUMBER}.`)
+  }
+  if (index >= 19000 && index <= 19999) {
+    throw new Error(`Invalid protobuf field number ${index} for "${property}" in ${model}: 19000-19999 are reserved by Protocol Buffers.`)
+  }
+}
+
+// ─── Extension metadata ─────────────────────────────────────────────────────
+
+interface ProtobufMeta {
+  /** Whether the schema opts into Protobuf: `x-oa-sdk-protobuf` is an options object or `true`. */
+  readonly declared: boolean
+  readonly messageName?: string | undefined
+  readonly package?: string | undefined
+}
+
+function readProtobufMeta(value: unknown): ProtobufMeta {
+  const meta = asObject(value)
+  return { declared: Boolean(value), messageName: stringOf(meta?.messageName), package: stringOf(meta?.package) }
+}
+
+interface ProtobufFieldMeta {
+  readonly index?: number | undefined
+  readonly type?: string | undefined
+  readonly protoType?: string | undefined
+  readonly packed?: boolean | undefined
+}
+
+function readFieldMeta(prop: JsonObject): ProtobufFieldMeta {
+  const meta = asObject(prop[PROTOBUF_FIELD_EXTENSION])
+  return {
+    index: typeof meta?.index === 'number' ? meta.index : undefined,
+    type: stringOf(meta?.type),
+    protoType: stringOf(meta?.protoType),
+    packed: typeof meta?.packed === 'boolean' ? meta.packed : undefined,
+  }
+}
+
+interface RpcMeta {
+  readonly methodName?: string | undefined
+  readonly serviceName?: string | undefined
+  readonly service?: string | undefined
+  readonly method?: string | undefined
+  readonly streaming?: RpcStreaming | undefined
+  readonly clientStreaming?: boolean | undefined
+  readonly serverStreaming?: boolean | undefined
+}
+
+function readRpcMeta(value: unknown): RpcMeta {
+  const meta = asObject(value)
+  if (!meta) return {}
+  return {
+    methodName: stringOf(meta.methodName),
+    serviceName: stringOf(meta.serviceName),
+    service: stringOf(meta.service),
+    method: stringOf(meta.method),
+    streaming: rpcStreaming(meta.streaming),
+    clientStreaming: typeof meta.clientStreaming === 'boolean' ? meta.clientStreaming : undefined,
+    serverStreaming: typeof meta.serverStreaming === 'boolean' ? meta.serverStreaming : undefined,
+  }
+}
+
+function rpcStreaming(value: unknown): RpcStreaming | undefined {
+  return value === 'none' || value === 'client' || value === 'server' || value === 'bidirectional' ? value : undefined
+}
+
+// ─── Component schemas ──────────────────────────────────────────────────────
+
+/** Properties and required names of an object schema, with its `allOf` members merged in. */
+interface FlatObject {
+  /** In declaration order: inherited members first, an own property replacing an inherited one. */
+  readonly properties: ReadonlyMap<string, JsonObject>
+  readonly required: ReadonlySet<string>
+  /** Declares properties, or is a closed `type: object`; otherwise a free-form or map-only object. */
+  readonly message: boolean
+}
+
+/** A FlatObject that is a Protobuf message. */
+type FlatMessage = FlatObject & { readonly message: true }
+
+const NO_MEMBERS: FlatObject = { properties: new Map(), required: new Set(), message: false }
+
+class ComponentSchemas {
+  private readonly messages = new Map<string, FlatMessage | null>()
+
+  constructor(private readonly schemas: JsonObject) {}
+
+  names(): string[] {
+    return Object.keys(this.schemas)
+  }
+
+  get(name: string): JsonObject | undefined {
+    return Object.hasOwn(this.schemas, name) ? asObject(this.schemas[name]) : undefined
+  }
+
+  /**
+   * The component as a Protobuf message, or undefined when it is not one: an enum, a scalar, a
+   * union, a `$ref` alias, a free-form or map-only object, or an `allOf` of anything else.
+   */
+  message(name: string): FlatMessage | undefined {
+    const cached = this.messages.get(name)
+    if (cached !== undefined) return cached ?? undefined
+    const schema = this.get(name)
+    const flat = schema ? this.flatten(schema, new Set([name])) : undefined
+    const message = flat && isFlatMessage(flat) ? flat : undefined
+    this.messages.set(name, message ?? null)
+    return message
+  }
+
+  private flatten(schema: JsonObject, seen: ReadonlySet<string>): FlatObject | undefined {
+    if (schema.$ref !== undefined || Array.isArray(schema.enum)) return undefined
+    if (schema.oneOf !== undefined || schema.anyOf !== undefined || schema.not !== undefined) return undefined
+    const type = primaryType(schema)
+    if (schema.type !== undefined && type !== 'object') return undefined
+
+    const properties = new Map<string, JsonObject>()
+    const required = new Set<string>()
+    let message = type === 'object' && !hasOpenExtras(schema)
+
+    if (schema.allOf !== undefined) {
+      if (!Array.isArray(schema.allOf)) return undefined
+      for (const rawMember of schema.allOf) {
+        const member = asObject(rawMember)
+        const flat = member ? this.flattenMember(member, seen) : undefined
+        if (!flat) return undefined
+        for (const [propName, prop] of flat.properties) properties.set(propName, prop)
+        for (const propName of flat.required) required.add(propName)
+        message ||= flat.message
+      }
+    }
+
+    if (schema.properties !== undefined) {
+      const own = asObject(schema.properties)
+      if (!own) return undefined
+      message = true
+      for (const [propName, rawProp] of Object.entries(own)) {
+        const prop = asObject(rawProp)
+        if (prop) properties.set(propName, prop)
+      }
+    }
+    for (const propName of stringsOf(schema.required)) required.add(propName)
+
+    return { properties, required, message }
+  }
+
+  /** An `allOf` member: an inline object schema or a `$ref` to a component object. */
+  private flattenMember(member: JsonObject, seen: ReadonlySet<string>): FlatObject | undefined {
+    const ref = stringOf(member.$ref)
+    if (ref === undefined) return this.flatten(member, seen)
+    const name = extractRefName(ref)
+    // A cyclic `allOf` adds nothing the cycle has not already added.
+    if (seen.has(name)) return NO_MEMBERS
+    const target = this.get(name)
+    return target ? this.flatten(target, new Set([...seen, name])) : undefined
+  }
+}
+
+function isFlatMessage(flat: FlatObject): flat is FlatMessage {
+  return flat.message
+}
+
+/** Whether `additionalProperties` or `unevaluatedProperties` admits members besides `properties`. */
+function hasOpenExtras(schema: JsonObject): boolean {
+  return [schema.additionalProperties, schema.unevaluatedProperties].some(extra => extra !== undefined && extra !== false)
+}
+
+/** A method before the empty message is named: `inputType`/`outputType` absent when not a message. */
+type PendingMethod = Omit<WireMethod, 'inputType' | 'outputType'> & {
+  readonly inputType: string | undefined
+  readonly outputType: string | undefined
+}
+
+/** The payload's component when it is a message model; undefined for the empty message. */
+function messageTypeName(typeName: string | undefined, messageNames: ReadonlySet<string>): string | undefined {
+  return typeName !== undefined && messageNames.has(typeName) ? typeName : undefined
+}
+
+// ─── Field classification ───────────────────────────────────────────────────
+
 type FieldShape = {
   kind: WireFieldKind
   type: string
@@ -232,45 +453,45 @@ type FieldShape = {
   mapValue?: WireMapValue
 }
 
+type ValueShape = { kind: WireMapValue['kind']; type: string }
+
+const JSON_SHAPE: FieldShape = { kind: 'json', type: 'string', repeated: false }
+
 const SCALAR_SCHEMA_TYPES = new Set(['string', 'integer', 'number', 'boolean'])
 
 /** Primary non-null JSON type, or undefined for unions of several types. */
-function primaryType(schema: Record<string, any>): string | undefined {
+function primaryType(schema: JsonObject): string | undefined {
   if (typeof schema.type === 'string') return schema.type
   if (Array.isArray(schema.type)) {
     const types = schema.type.filter((type: unknown) => type !== 'null')
-    return types.length === 1 ? types[0] : undefined
+    const [only] = types
+    return types.length === 1 && typeof only === 'string' ? only : undefined
   }
   return undefined
 }
 
 /** Classifies one property schema into its wire shape; see `WireFieldKind`. */
-function classifyField(prop: Record<string, any>, schemas: Record<string, unknown>): FieldShape {
+function classifyField(prop: JsonObject, schemas: ComponentSchemas): FieldShape {
   if (primaryType(prop) === 'array') {
-    const item = classifyValue(prop.items ?? {}, schemas)
-    if (item && item.kind !== 'map') return { ...item, repeated: true }
-    return { kind: 'json', type: 'string', repeated: false }
+    const item = classifyValue(asObject(prop.items) ?? {}, schemas)
+    return item ? { ...item, repeated: true } : JSON_SHAPE
   }
   const value = classifyValue(prop, schemas)
   if (value) return { ...value, repeated: false }
-  const map = classifyMap(prop, schemas)
-  if (map) return map
-  return { kind: 'json', type: 'string', repeated: false }
+  // A `$ref` to a map-only component is a map field; other non-message objects travel as JSON.
+  const ref = stringOf(prop.$ref)
+  const target = ref === undefined ? prop : schemas.get(extractRefName(ref)) ?? prop
+  return classifyMap(target, schemas) ?? JSON_SHAPE
 }
 
-function classifyValue(
-  schema: Record<string, any>,
-  schemas: Record<string, unknown>,
-): { kind: Exclude<WireFieldKind, 'json'>; type: string; mapValue?: WireMapValue } | undefined {
-  if (typeof schema.$ref === 'string') {
-    const name = extractRefName(schema.$ref)
-    const target = schemas[name] as Record<string, any> | undefined
+function classifyValue(schema: JsonObject, schemas: ComponentSchemas): ValueShape | undefined {
+  const ref = stringOf(schema.$ref)
+  if (ref !== undefined) {
+    const name = extractRefName(ref)
+    const target = schemas.get(name)
     if (!target) return undefined
     if (Array.isArray(target.enum)) return { kind: 'enum', type: name }
-    if (target.type === 'object' || target.properties) {
-      if (!target.properties && classifyMap(target, schemas)) return undefined
-      return { kind: 'message', type: name }
-    }
+    if (schemas.message(name)) return { kind: 'message', type: name }
     const type = primaryType(target)
     return type && SCALAR_SCHEMA_TYPES.has(type) && !hasComposition(target) ? { kind: 'scalar', type: resolveFieldScalarType(target) } : undefined
   }
@@ -282,23 +503,22 @@ function classifyValue(
 }
 
 /** An object whose only members are `additionalProperties` of a scalar, enum, or message type. */
-function classifyMap(schema: Record<string, any>, schemas: Record<string, unknown>): FieldShape | undefined {
-  if (primaryType(schema) !== 'object' || schema.properties || hasComposition(schema)) return undefined
-  const additional = schema.additionalProperties ?? schema.unevaluatedProperties
-  if (!additional || typeof additional !== 'object') return undefined
+function classifyMap(schema: JsonObject, schemas: ComponentSchemas): FieldShape | undefined {
+  if (primaryType(schema) !== 'object' || schema.properties !== undefined || hasComposition(schema)) return undefined
+  const additional = asObject(schema.additionalProperties ?? schema.unevaluatedProperties)
+  if (!additional) return undefined
   const value = classifyValue(additional, schemas)
-  if (!value || value.kind === 'map') return undefined
+  if (!value) return undefined
   return { kind: 'map', type: 'map', repeated: false, mapValue: { kind: value.kind, type: value.type } }
 }
 
-function hasComposition(schema: Record<string, any>): boolean {
-  return Boolean(schema.oneOf || schema.anyOf || schema.allOf || schema.not)
+function hasComposition(schema: JsonObject): boolean {
+  return [schema.oneOf, schema.anyOf, schema.allOf, schema.not].some(Boolean)
 }
 
-function resolveFieldScalarType(schema: Record<string, any>): string {
-  if (schema.$ref) {
-    return extractRefName(schema.$ref)
-  }
+function resolveFieldScalarType(schema: JsonObject): string {
+  const ref = stringOf(schema.$ref)
+  if (ref !== undefined) return extractRefName(ref)
   const type = primaryType(schema)
   const format = schema.format
 
@@ -324,32 +544,34 @@ function resolveFieldScalarType(schema: Record<string, any>): string {
   return 'string'
 }
 
+// ─── Operations ─────────────────────────────────────────────────────────────
+
 /** Prefers a media type whose schema is a component reference, as the wire message type. */
 function pickMedia(content: unknown): { mediaType: string; typeName?: string } | undefined {
-  if (!content || typeof content !== 'object') return undefined
-  const entries = Object.entries(content as Record<string, any>)
-  const referenced = entries.find(([, media]) => typeof media?.schema?.$ref === 'string')
-  const [mediaType, media] = referenced ?? entries[0] ?? []
+  const entries = Object.entries(asObject(content) ?? {})
+  const schemaRef = (media: unknown): string | undefined => stringOf(asObject(asObject(media)?.schema)?.$ref)
+  const [mediaType, media] = entries.find(([, candidate]) => schemaRef(candidate) !== undefined) ?? entries[0] ?? []
   if (mediaType === undefined) return undefined
-  const ref = media?.schema?.$ref
-  return typeof ref === 'string' ? { mediaType, typeName: extractRefName(ref) } : { mediaType }
+  const ref = schemaRef(media)
+  return ref !== undefined ? { mediaType, typeName: extractRefName(ref) } : { mediaType }
 }
 
-function resolveRequestBody(op: Record<string, any>): WirePayload | undefined {
-  const media = pickMedia(op.requestBody?.content)
+function resolveRequestBody(op: JsonObject): WirePayload | undefined {
+  const body = asObject(op.requestBody)
+  const media = pickMedia(body?.content)
   if (!media) return undefined
-  return { ...media, required: op.requestBody?.required === true }
+  return { ...media, required: body?.required === true }
 }
 
-function resolveSuccessResponse(op: Record<string, any>): (WirePayload & { status: number }) | undefined {
-  const responses = op.responses
-  if (!responses || typeof responses !== 'object') return undefined
+function resolveSuccessResponse(op: JsonObject): (WirePayload & { status: number }) | undefined {
+  const responses = asObject(op.responses)
+  if (!responses) return undefined
   const statuses = Object.keys(responses)
     .filter(status => /^2(?:\d\d|XX)$/i.test(status))
     .sort((left, right) => (/^\d+$/.test(left) ? Number(left) : 299) - (/^\d+$/.test(right) ? Number(right) : 299))
   const status = statuses[0] ?? (responses.default ? 'default' : undefined)
   if (status === undefined) return undefined
-  const media = pickMedia(responses[status]?.content)
+  const media = pickMedia(asObject(responses[status])?.content)
   return { status: /^\d+$/.test(status) ? Number(status) : 200, mediaType: media?.mediaType ?? '', ...(media?.typeName ? { typeName: media.typeName } : {}) }
 }
 
@@ -362,7 +584,9 @@ function wireFormatOf(mediaType: string | undefined): string {
   return 'json'
 }
 
-const PARAMETER_LOCATIONS = new Set<WireParameterLocation>(['path', 'query', 'header', 'cookie'])
+function parameterLocation(value: unknown): WireParameterLocation | undefined {
+  return value === 'path' || value === 'query' || value === 'header' || value === 'cookie' ? value : undefined
+}
 
 /**
  * Operation parameters merged over path-item parameters (same name and location), with
@@ -374,33 +598,37 @@ function resolveParameters(
   path: string,
   pathLevel: unknown,
   operationLevel: unknown,
-  enums: readonly WireEnum[],
-  schemas: Record<string, unknown>,
+  enumNames: ReadonlySet<string>,
+  schemas: ComponentSchemas,
 ): WireParameter[] {
-  const merged = new Map<string, Record<string, any>>()
+  const merged = new Map<string, { parameter: JsonObject; name: string; location: WireParameterLocation }>()
   for (const list of [pathLevel, operationLevel]) {
     if (!Array.isArray(list)) continue
     for (const raw of list) {
       const parameter = resolveParameterRef(doc, raw)
-      if (!parameter || typeof parameter.name !== 'string' || !PARAMETER_LOCATIONS.has(parameter.in)) continue
-      merged.set(`${parameter.in}\0${parameter.name}`, parameter)
+      const name = stringOf(parameter?.name)
+      const location = parameterLocation(parameter?.in)
+      if (!parameter || name === undefined || location === undefined) continue
+      merged.set(`${location}\0${name}`, { parameter, name, location })
     }
   }
 
-  const parameters: WireParameter[] = [...merged.values()].map(parameter => {
-    const schema = (parameter.schema ?? {}) as Record<string, any>
+  const parameters: WireParameter[] = [...merged.values()].map(({ parameter, name, location }) => {
+    const schema = asObject(parameter.schema) ?? {}
     const repeated = schema.type === 'array'
-    const itemSchema = (repeated ? schema.items ?? {} : schema) as Record<string, any>
-    const refName = typeof itemSchema.$ref === 'string' ? extractRefName(itemSchema.$ref) : undefined
-    const isEnum = Boolean(refName && (enums.some(e => e.name === refName) || (schemas[refName] as any)?.enum))
+    const itemSchema = repeated ? asObject(schema.items) ?? {} : schema
+    const ref = stringOf(itemSchema.$ref)
+    const refName = ref === undefined ? undefined : extractRefName(ref)
+    const isEnum = refName !== undefined && (enumNames.has(refName) || Array.isArray(schemas.get(refName)?.enum))
+    const doc = stringOf(parameter.description)
     return {
-      name: parameter.name,
-      in: parameter.in,
-      required: parameter.in === 'path' || parameter.required === true,
+      name,
+      in: location,
+      required: location === 'path' || parameter.required === true,
       type: resolveFieldScalarType(itemSchema),
       repeated,
       ...(isEnum ? { isEnum } : {}),
-      ...(typeof parameter.description === 'string' ? { doc: parameter.description } : {}),
+      ...(doc !== undefined ? { doc } : {}),
     }
   })
 
@@ -413,28 +641,44 @@ function resolveParameters(
   return parameters
 }
 
-function resolveParameterRef(doc: OasDocument, value: unknown): Record<string, any> | undefined {
-  let current = value as Record<string, any> | undefined
+function resolveParameterRef(doc: OasDocument, value: unknown): JsonObject | undefined {
+  const components = asObject(asObject(doc.components)?.parameters)
+  let current = asObject(value)
   const seen = new Set<string>()
-  while (current && typeof current.$ref === 'string' && !seen.has(current.$ref)) {
-    seen.add(current.$ref)
-    const match = current.$ref.match(/^#\/components\/parameters\/(.+)$/)
+  for (let ref = stringOf(current?.$ref); current && ref !== undefined; ref = stringOf(current?.$ref)) {
+    // A reference cycle names no parameter.
+    if (seen.has(ref)) return undefined
+    seen.add(ref)
+    const match = ref.match(/^#\/components\/parameters\/(.+)$/)
     current = match?.[1] === undefined
       ? undefined
-      : (doc.components?.parameters as Record<string, any> | undefined)?.[match[1].replace(/~1/g, '/').replace(/~0/g, '~')]
+      : asObject(components?.[match[1].replace(/~1/g, '/').replace(/~0/g, '~')])
   }
-  return current && typeof current === 'object' ? current : undefined
+  return current
+}
+
+// ─── JSON helpers ───────────────────────────────────────────────────────────
+
+function asObject(value: unknown): JsonObject | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as JsonObject : undefined
+}
+
+function stringOf(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined
+}
+
+function stringsOf(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item: unknown): item is string => typeof item === 'string') : []
+}
+
+function firstTag(tags: unknown): string | undefined {
+  const [tag] = stringsOf(tags)
+  return tag === '' ? undefined : tag
 }
 
 function extractRefName(ref: string): string {
   const parts = ref.split('/')
   return parts[parts.length - 1] ?? ref
-}
-
-function toPascalCase(str: string): string {
-  return str
-    .replace(/(?:^\w|[A-Z]|\b\w)/g, (letter) => letter.toUpperCase())
-    .replace(/[\s\-_]+/g, '')
 }
 
 function sanitizePackageName(name: string): string {
