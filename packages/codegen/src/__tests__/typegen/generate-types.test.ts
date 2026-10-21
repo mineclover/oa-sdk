@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import ts from 'typescript'
 import { parseDocument, type OasDocument, type OasPathItem } from '@oa-sdk/parser'
 import { generateClient } from '@oa-sdk/client'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
@@ -1785,5 +1786,80 @@ describe('generateTypes — schema/operation 이름 충돌 방지', () => {
     const ts = generateTypes(parsed)
     expect(ts).toContain('export type CreateUserBody =')
     expect(ts).toContain('export type CreateUserOp =')
+  })
+})
+
+describe('generateTypes — recursive map schemas', () => {
+  function typeErrorsOf(source: string): string[] {
+    const dir = mkdtempSync(join(tmpdir(), 'oa-sdk-recursive-typegen-'))
+    const file = join(dir, 'types.ts')
+    writeFileSync(file, source)
+    try {
+      const program = ts.createProgram([file], {
+        strict: true,
+        noEmit: true,
+        skipLibCheck: true,
+        target: ts.ScriptTarget.ES2022,
+        module: ts.ModuleKind.ESNext,
+        moduleResolution: ts.ModuleResolutionKind.Bundler,
+      })
+      return ts.getPreEmitDiagnostics(program).map(diagnostic =>
+        ts.flattenDiagnosticMessageText(diagnostic.messageText, ' '),
+      )
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  }
+
+  it('emits an index signature for a self-recursive map instead of a circular Record alias', () => {
+    const generated = generateTypesFromSpec(doc({
+      components: {
+        schemas: {
+          Node: { type: 'object', additionalProperties: { $ref: '#/components/schemas/Node' } },
+        },
+      },
+    }))
+    expect(generated).toContain('export type Node = {\n  [key: string]: Node\n}')
+    expect(generated).not.toContain('Record<string, Node>')
+    expect(typeErrorsOf(generated)).toEqual([])
+  })
+
+  it('emits an index signature for mutually recursive maps', () => {
+    const generated = generateTypesFromSpec(doc({
+      components: {
+        schemas: {
+          Left: { type: 'object', additionalProperties: { $ref: '#/components/schemas/Right' } },
+          Right: { type: 'object', additionalProperties: { $ref: '#/components/schemas/Left' } },
+        },
+      },
+    }))
+    expect(generated).toContain('export type Left = {\n  [key: string]: Right\n}')
+    expect(generated).toContain('export type Right = {\n  [key: string]: Left\n}')
+    expect(typeErrorsOf(generated)).toEqual([])
+  })
+
+  it('keeps a non-recursive map as Record', () => {
+    const generated = generateTypesFromSpec(doc({
+      components: {
+        schemas: {
+          Counts: { type: 'object', additionalProperties: { type: 'integer' } },
+          Labels: { type: 'object', additionalProperties: { type: 'string' } },
+        },
+      },
+    }))
+    expect(generated).toContain('export type Counts = Record<string, number>')
+    expect(generated).toContain('export type Labels = Record<string, string>')
+  })
+
+  it('uses an interface for a recursive map under the interface style', () => {
+    const generated = generateTypesFromSpec(doc({
+      components: {
+        schemas: {
+          Node: { type: 'object', additionalProperties: { $ref: '#/components/schemas/Node' } },
+        },
+      },
+    }), { style: 'interface' })
+    expect(generated).toContain('export interface Node {\n  [key: string]: Node\n}')
+    expect(typeErrorsOf(generated)).toEqual([])
   })
 })
