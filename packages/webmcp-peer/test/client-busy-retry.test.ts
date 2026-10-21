@@ -2,7 +2,8 @@
 // (`data.retryable: true`; the relay's PROVIDER_BUSY while a provider is not reading what it was
 // sent, which reached nobody):
 //   - the same request, under the same id, is sent again after a backoff of 100 ms that doubles up
-//     to 2 s, and the call resolves with the answer to the attempt that got through,
+//     to 2 s, and the call resolves with the answer to the attempt that got through; its id stays in
+//     flight during the backoff, so another request under it is refused and its own retry is not,
 //   - retries stop once the next backoff would outlast the request's own timeout, and the call then
 //     rejects with the last PROVIDER_BUSY (not REQUEST_TIMEOUT), leaving no timer behind,
 //   - any other JSON-RPC error, including -32001 without `retryable`, is reported at once,
@@ -148,6 +149,24 @@ describe("a request the relay refuses as retryable", () => {
     expect(sent.map(({ rpc }) => rpc)).toEqual([0, 1, 2].map(() => ({ jsonrpc: "2.0", id, method: "tools/call", params: echoCall })));
     expect(gaps(sent)).toEqual([100, 200]);
     expect(session.pending.size).toBe(0);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("keeps its id in flight while it waits to be sent again, so another request under it is refused and its own retry is not", async () => {
+    vi.useFakeTimers();
+    const { session, sent } = await scriptedSession((attempt) => (attempt === 0 ? { error: PROVIDER_BUSY } : { result: { ok: true } }));
+    const call = track(session.request("tools/call", { name: "a", arguments: {} }, { id: "x" }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sent).toHaveLength(1);
+
+    // It is waiting out its 100 ms backoff, neither pending nor holding a slot.
+    const other = track(session.request("tools/call", { name: "b", arguments: {} }, { id: "x" }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(other.outcome).toMatchObject({ error: { code: "DUPLICATE_REQUEST_ID", details: { method: "tools/call", id: "x" } } });
+
+    await vi.advanceTimersByTimeAsync(100);
+    expect(sent.map(({ rpc }) => rpc.params?.name)).toEqual(["a", "a"]);
+    expect(call.outcome).toEqual({ value: { jsonrpc: "2.0", id: "x", result: { ok: true } } });
     expect(vi.getTimerCount()).toBe(0);
   });
 

@@ -68923,9 +68923,9 @@
         "kind": "class",
         "qualifiedName": "@oa-sdk/webmcp-peer:src/client/session.ts#PeerMcpSession",
         "runtime": "neutral",
-        "semanticHash": "b6abe4528740295c5102d6e7a533044932b19b65bfcfd32534aee6a0acf556a5",
-        "shapeHash": "07733ca48c88a7f166305bc41f090a5d3da919a7a41dd0619051486eedf91556",
-        "syntaxHash": "240bde57ef76dd1c16b2d9e5376e5a652db46f9b84ead4d441b69a058ffc9550"
+        "semanticHash": "158df183f693f6b73b2b884b3df98e901964d7f5613ee255c7db801ff8e8f52a",
+        "shapeHash": "31c56658e44b3d65abd8b6cd190378c16164fd547c023d1ac03a7fc525d5a000",
+        "syntaxHash": "ade2736ab5c1324127c63a9b7bb3d05b0549377399931c7edb7828fd6a1c36bf"
       },
       {
         "filePath": "packages/webmcp-peer/src/client/session.ts",
@@ -68973,9 +68973,9 @@
         "kind": "interface",
         "qualifiedName": "@oa-sdk/webmcp-peer:src/client/session.ts#SlotWaiter",
         "runtime": "neutral",
-        "semanticHash": "09c1516d978aa861ab761d544bcd58094b341bf9a23fc6ff6dfbd476b0f00e5a",
-        "shapeHash": "3d8b1b5c2d15a456d5838709d765bccc9fe1e68b94d75a4b49fcfaa745b0a0c5",
-        "syntaxHash": "d29dc7ef11a767995b67967ce03232ebf068d84c31da0a30ed2543026c0d1c97"
+        "semanticHash": "1b4a1321baec8ddfe29dbdfbec82057b53c0e80d8e7801fe83418c86c6a9f3b6",
+        "shapeHash": "6dd49f280cc61be5ae66b2e7deecd96d7789739fbadf5b819219c86a83927d8f",
+        "syntaxHash": "61b242afdca58330549af420fba286c84d1d5cbc6464650a21feda08f96f4a2c"
       },
       {
         "filePath": "packages/webmcp-peer/src/client/session.ts",
@@ -72518,7 +72518,7 @@
         "syntaxHash": "e468fae258fff35898aef05fe6a6da6ccde78e05e58af5c1bba938bd1f37adc3"
       }
     ],
-    "digest": "d15518ecf0f0c1602aff85f9d1e1847b10e7aa67a44aee2aaa87365af92c5e38",
+    "digest": "547212e899be110c28f48b9e0764a62aed6b1e40b0a0ba1cd451a60d5385a39c",
     "publicSurfaces": [
       {
         "exportKey": "./guards",
@@ -85371,7 +85371,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "7f960434ed94f1fc85e57f28370088f2279a7666e5cb7e92729419ed9a5f037e",
+      "contentHash": "8cefeddd366c072f52cce7132eb0c75fe2c1d483b7c10acb22681f9bf589d9a2",
       "filePath": "packages/webmcp-peer/src/client/session.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/webmcp-peer",

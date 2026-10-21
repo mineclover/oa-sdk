@@ -137,8 +137,6 @@ interface PendingRpcEntry {
 
 /** A request waiting for a relay-socket slot (see `PeerMcpSession.#takeSlot`). */
 interface SlotWaiter {
-  /** `String(id)` of the request. */
-  key: string;
   grant: () => void;
   reject: (error: unknown) => void;
   timer: ReturnType<typeof setTimeout>;
@@ -556,9 +554,11 @@ export class PeerMcpSession {
           }
           // The transport's, not this connect's or this session's: the transport keeps it for the
           // connects after this one, of this session or of another handed the same transport, and
-          // it delivers for the latest of them. An `onMessage` of the caller's own stays.
+          // it delivers for the latest of them. An `onMessage` of the caller's own stays. A connect
+          // disconnect() ended takes it for nothing: it may finish after another session handed the
+          // same transport took it, which would then get none of its frames.
           const route = suppliedTransportRoute(transport);
-          if (!transport.onMessage || transport.onMessage === route.dispatch) {
+          if (speaks() && (!transport.onMessage || transport.onMessage === route.dispatch)) {
             transport.onMessage = route.dispatch;
             route.holder = this.#dispatchSuppliedMessage;
           }
@@ -836,6 +836,14 @@ export class PeerMcpSession {
   /** Requests sleeping before a retry: not in `pending`, but ended by the same events. */
   readonly #retryWaits = new Set<{ timer: ReturnType<typeof setTimeout>; reject: (error: unknown) => void }>();
   /**
+   * The `String(id)` of every request a `request()` call has taken and not settled yet: waiting for
+   * a connect, for a slot, for its answer or to be sent again after a retryable refusal, or being
+   * sent. A call settles only once its last send has, so over the HTTP transport, whose send is the
+   * whole POST and brings the answer, its id stays here until that POST ends, even after the
+   * request's timeout or disconnect() rejected its pending entry.
+   */
+  readonly #requestIds = new Set<string>();
+  /**
    * The ids of the requests holding a slot of the relay socket (see `#takeSlot`): sent and not yet
    * answered by the relay, including requests whose caller stopped waiting at their timeout.
    */
@@ -884,7 +892,6 @@ export class PeerMcpSession {
     }
     return new Promise<void>((resolve, reject) => {
       const waiter: SlotWaiter = {
-        key,
         grant: () => {
           clearTimeout(waiter.timer);
           this.#heldSlots.add(key);
@@ -906,14 +913,15 @@ export class PeerMcpSession {
 
   /**
    * Refuses request `id` (DUPLICATE_REQUEST_ID, nothing sent) while a request of this session under
-   * the same `String(id)` is in flight: waiting for a slot, waiting for its answer, or holding a slot
-   * after its caller stopped waiting. MCP forbids reusing a request id within a session, and the
-   * session matches a reply to its request by `String(id)`: a second request under that key would
-   * take the first one's answer and give back a slot the relay still counts for the other.
+   * the same `String(id)` is in flight: one whose `request()` has not settled (see `#requestIds`),
+   * or one holding a slot after its caller stopped waiting. MCP forbids reusing a request id within a
+   * session, and the session matches a reply to its request by `String(id)`: a second request under
+   * that key would take the first one's answer and give back a slot the relay still counts for the
+   * other, and the first one's retry would be refused in its turn.
    */
   #assertIdNotInFlight(method: string, id: string | number): void {
     const key = String(id);
-    if (this.pending.has(key) || this.#heldSlots.has(key) || this.#slotWaiters.some((waiter) => waiter.key === key)) {
+    if (this.#requestIds.has(key) || this.#heldSlots.has(key)) {
       throw new PeerMcpError(`Peer MCP request id ${JSON.stringify(id)} is already in flight`, "DUPLICATE_REQUEST_ID", { method, id });
     }
   }
@@ -948,7 +956,8 @@ export class PeerMcpSession {
    * `PEER_RELAY_MAX_REQUEST_ID_BYTES` of JSON there (REQUEST_ID_TOO_LARGE), since the relay answers a
    * longer one without it. On any transport an id the session's request in flight has (as
    * `String(id)`, so `1` and `"1"` are one id here) is refused with DUPLICATE_REQUEST_ID, unsent (see
-   * `#assertIdNotInFlight`).
+   * `#assertIdNotInFlight`): a request is in flight from this call until it settles, the wait before
+   * a retry and the whole HTTP POST included, and while it holds a relay-socket slot after that.
    *
    * A request the relay refuses as retryable (`data.retryable: true`, e.g. PROVIDER_BUSY while the
    * provider is not reading) reached nobody, so it is sent again with exponential backoff
@@ -964,18 +973,27 @@ export class PeerMcpSession {
     const id = options.id ?? `${this.sessionId || "peer"}-${++this.nextRequestId}`;
     const timeoutMs = Number.isFinite(options.timeoutMs) ? Math.max(1, options.timeoutMs!) : this.requestTimeoutMs;
     const deadline = Date.now() + timeoutMs;
-    let delayMs = RETRY_INITIAL_DELAY_MS;
-    for (;;) {
-      try {
-        return await this.#requestOnce(method, params, options, id, Math.max(1, deadline - Date.now()));
-      } catch (error) {
-        if (!isRetryableRpcError(error)) throw error;
-        const waitMs = Math.max(delayMs, requestedRetryDelayMs(error));
-        if (deadline - Date.now() <= waitMs) throw error;
-        // disconnect(), a transport error or close rejects this wait like a pending request.
-        await this.#waitBeforeRetry(waitMs);
-        delayMs = Math.min(delayMs * 2, RETRY_MAX_DELAY_MS);
+    const key = String(id);
+    this.#assertIdNotInFlight(method, id);
+    // Held until this call settles, so no other request takes the id while this one waits, is sent
+    // or waits to be sent again: its own retries keep it.
+    this.#requestIds.add(key);
+    try {
+      let delayMs = RETRY_INITIAL_DELAY_MS;
+      for (;;) {
+        try {
+          return await this.#requestOnce(method, params, options, id, Math.max(1, deadline - Date.now()));
+        } catch (error) {
+          if (!isRetryableRpcError(error)) throw error;
+          const waitMs = Math.max(delayMs, requestedRetryDelayMs(error));
+          if (deadline - Date.now() <= waitMs) throw error;
+          // disconnect(), a transport error or close rejects this wait like a pending request.
+          await this.#waitBeforeRetry(waitMs);
+          delayMs = Math.min(delayMs * 2, RETRY_MAX_DELAY_MS);
+        }
       }
+    } finally {
+      this.#requestIds.delete(key);
     }
   }
 
@@ -999,7 +1017,6 @@ export class PeerMcpSession {
     }
     const deadline = Date.now() + timeoutMs;
     if (this.transport.raw !== true) assertWithinRelayIdLimit(id);
-    this.#assertIdNotInFlight(method, id);
     const waitForSlot = this.#takeSlot(method, id, timeoutMs);
     if (waitForSlot) {
       await waitForSlot;

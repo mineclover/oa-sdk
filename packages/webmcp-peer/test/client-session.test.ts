@@ -1086,6 +1086,43 @@ describe("disconnect() of a session on the caller's own transport", () => {
     expect(first.getSessionInfo().state).toBe("idle");
   });
 
+  it("lets a connect disconnect() ended take that onMessage from no session, though it finishes after another session took it", async () => {
+    // A transport whose first connect runs until it is released, and that reports through the
+    // onMessage a session gives it, answering each `ping`.
+    const firstConnect = gate();
+    let connects = 0;
+    const transport: PeerMcpTransport = {
+      async connect() {
+        connects += 1;
+        if (connects === 1) await firstConnect.opened;
+      },
+      send(value) {
+        const rpc = (value as { message: { id: string } }).message;
+        queueMicrotask(() => transport.onMessage?.({ type: "mcp", message: { jsonrpc: "2.0", id: rpc.id, result: {} } }));
+      },
+      close() {},
+    };
+    const first = new PeerMcpSession({ requestTimeoutMs: 1_000, transport });
+    const second = new PeerMcpSession({ requestTimeoutMs: 1_000, transport });
+    sessions.push(first, second);
+
+    const ended = first.connect();
+    ended.catch(() => {});
+    await waitUntil(() => connects === 1, "the first session's connect of the transport");
+    await first.disconnect();
+    const connecting = second.connect();
+    await waitUntil(() => second.transport === transport, "the second session uses the transport");
+    transport.onMessage?.({ type: "ready", role: "client", roomId: "room1" });
+    await expect(connecting).resolves.toMatchObject({ state: "connected" });
+
+    // The connect disconnect() ended finishes last.
+    firstConnect.open();
+    await expect(ended).rejects.toMatchObject({ code: "SESSION_DISCONNECTED" });
+    expect((await second.request("ping")).result).toEqual({});
+    expect(second.getSessionInfo().state).toBe("connected");
+    expect(first.getSessionInfo()).toMatchObject({ state: "idle", error: null });
+  });
+
   it("closes the transport again once a connect it ended has connected it, when no connect uses it", async () => {
     const connected$ = gate();
     const { session, transport } = suppliedTransportSession({ connecting: () => connected$.opened });

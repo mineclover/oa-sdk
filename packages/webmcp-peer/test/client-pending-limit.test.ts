@@ -6,7 +6,8 @@
 //   - a request holds its slot until the relay answers it, even after its caller stopped waiting at
 //     a shorter timeout than the relay's, since the relay still counts it until then, and a request
 //     of the provider's under its id is no answer;
-//   - an id in flight (as a string) is refused for another request, unsent, on any transport;
+//   - an id in flight (as a string) is refused for another request, unsent, on any transport, and
+//     over HTTP a request stays in flight until its POST ends, even after its timeout;
 //   - the wait counts toward the request's timeout (REQUEST_TIMEOUT, never sent), and disconnect()
 //     ends waiting requests like pending ones;
 //   - an id the relay would answer with id null (over 1 KiB of JSON) is refused before it is sent;
@@ -239,6 +240,40 @@ describe("a request id in flight", { timeout: 20_000 }, () => {
     await until(() => sent.length, (count) => count === LIMIT + 1, "the waiting call sent", 5000);
     expect(sent.map((request) => request.name).slice(LIMIT)).toEqual(["c"]);
     expect(waiting.outcome).toBeUndefined();
+  });
+
+  it("is refused for another request while the HTTP POST of a request that timed out still runs, so the other does not take its answer", async () => {
+    // Each POST runs until it is released, then answers with the name of the call it carries.
+    const posted: unknown[] = [];
+    const releases: Array<() => void> = [];
+    const fetchImpl = (async (_input: string | URL | Request, init: RequestInit = {}) => {
+      const rpc = JSON.parse(String(init.body)) as { id: string; params?: { name?: string } };
+      posted.push(rpc.params?.name);
+      await new Promise<void>((resolve) => releases.push(resolve));
+      return Response.json({ jsonrpc: "2.0", id: rpc.id, result: { answered: rpc.params?.name } });
+    }) as typeof fetch;
+    const session = new PeerMcpSession({ mcpEndpoint: "http://relay.test/p/room1/mcp", fetchImpl, requestTimeoutMs: 10_000 });
+    sessions.push(session);
+    await session.connect();
+
+    const first = track(session.request("tools/call", { name: "a", arguments: {} }, { id: "x", timeoutMs: 50 }));
+    await until(() => session.pending.size, (size) => size === 0, "the first call's timeout", 5000);
+    // Its timeout has passed, but its POST, which brings its answer, has not ended.
+    const second = track(session.request("tools/call", { name: "b", arguments: {} }, { id: "x" }));
+    await settle();
+    expect(second.outcome).toMatchObject({ error: { code: "DUPLICATE_REQUEST_ID", details: { method: "tools/call", id: "x" } } });
+    expect(posted).toEqual(["a"]);
+
+    releases.splice(0).forEach((release) => release());
+    await until(() => first.outcome, (outcome) => outcome !== undefined, "the first call settles", 5000);
+    expect(errorCode(first.outcome)).toBe("REQUEST_TIMEOUT");
+    // Once that POST has ended, the id is free, and the next request under it gets its own answer.
+    const third = track(session.request("tools/call", { name: "c", arguments: {} }, { id: "x" }));
+    await until(() => releases.length, (count) => count === 1, "the third call posted", 5000);
+    releases.splice(0).forEach((release) => release());
+    await until(() => third.outcome, (outcome) => outcome !== undefined, "the third call answered", 5000);
+    expect(third.outcome).toMatchObject({ value: { id: "x", result: { answered: "c" } } });
+    expect(posted).toEqual(["a", "c"]);
   });
 });
 
