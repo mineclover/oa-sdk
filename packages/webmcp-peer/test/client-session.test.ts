@@ -3,7 +3,8 @@
 // how a session learns that its room expired or that the relay closed its socket (the close code in
 // TRANSPORT_CLOSED's details), when it connects again on a new socket and when it must not, the
 // connects made around disconnect() and the transports it and they close (a factory's, one a factory
-// hands out again, the caller's own), and response validation.
+// hands out again, the caller's own, whose onMessage delivers to the session that took it last), and
+// response validation.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -282,15 +283,34 @@ describe("PeerMcpSession.revoke against the relay", () => {
     expect((await status()).state).toBe("revoked");
   });
 
-  it("revokes an HTTP session constructed without a session id that never called initialize", async () => {
+  it.each([
+    ["with the relay's session id", true],
+    ["without a session id", false],
+  ])("revokes an HTTP session %s that never learned its room epoch with one POST, leaving the epoch out", async (_label, withSessionId) => {
     const { joined, status } = await joinedRoom();
-    const session = new PeerMcpSession({ mcpEndpoint: joined.mcpEndpoint, clientToken: joined.clientToken });
+    const requests: Array<{ method: string; url: string; body: unknown }> = [];
+    const fetchImpl = (async (input: string | URL | Request, init: RequestInit = {}) => {
+      requests.push({ method: init.method ?? "GET", url: String(input), body: init.body === undefined ? undefined : JSON.parse(String(init.body)) });
+      return fetch(input, init);
+    }) as typeof fetch;
+    const session = new PeerMcpSession({
+      mcpEndpoint: joined.mcpEndpoint,
+      clientToken: joined.clientToken,
+      fetchImpl,
+      ...(withSessionId ? { sessionId: joined.sessionId } : {}),
+    });
     sessions.push(session);
-    await session.connect();
     expect(session.roomEpoch).toBeUndefined();
 
     await expect(session.revoke()).resolves.toMatchObject({ revoked: true, sessionId: joined.sessionId });
-    expect(session.roomEpoch).toBe(joined.roomEpoch);
+    // The relay needs no epoch to find the ticket, so none is looked up first.
+    const route = withSessionId ? `/sessions/${joined.sessionId}/revoke` : "/session/revoke";
+    expect(requests).toEqual([{
+      method: "POST",
+      url: joined.mcpEndpoint.replace(/\/mcp$/, route),
+      body: { ...(withSessionId ? { sessionId: joined.sessionId } : {}), roomId: joined.roomId, reason: "client-request", requestedAt: expect.any(String) },
+    }]);
+    expect(session.roomEpoch).toBeUndefined();
     expect((await status()).state).toBe("revoked");
   });
 
@@ -1027,6 +1047,43 @@ describe("disconnect() of a session on the caller's own transport", () => {
     expect(transport.onMessage).toBe(onMessage);
     expect((await session.request("ping")).result).toEqual({});
     expect(session.getSessionInfo().state).toBe("connected");
+  });
+
+  it("delivers what reaches the onMessage a session gave it to the session that took it last, of every session handed it", async () => {
+    // A transport that answers each `ping` through its onMessage, and announces the relay's `ready`
+    // when asked: what a PeerMcpService({ transport }) hands every session it makes.
+    const transport: PeerMcpTransport = {
+      send(value) {
+        const rpc = (value as { message: { id: string } }).message;
+        queueMicrotask(() => transport.onMessage?.({ type: "mcp", message: { jsonrpc: "2.0", id: rpc.id, result: {} } }));
+      },
+      close() {},
+    };
+    const service = new PeerMcpService({ requestTimeoutMs: 1_000, transport });
+    const connect = async (key: string) => {
+      const connecting = service.connect({ key });
+      await waitUntil(() => service.getSession(key)?.transport === transport, `${key} uses the transport`);
+      transport.onMessage?.({ type: "ready", role: "client", roomId: "room1" });
+      const session = await connecting;
+      sessions.push(session);
+      return session;
+    };
+
+    const first = await connect("first");
+    const onMessage = transport.onMessage;
+    expect((await first.request("ping")).result).toEqual({});
+    await service.disconnect("first");
+
+    // The next session the service makes gets the transport's `ready` and answers, through the
+    // same onMessage, instead of timing out while they go to the first one.
+    const second = await connect("second");
+    expect(transport.onMessage).toBe(onMessage);
+    expect((await second.request("ping")).result).toEqual({});
+
+    // While two sessions hold it, the one that took it last does.
+    const third = await connect("third");
+    expect((await third.request("ping")).result).toEqual({});
+    expect(first.getSessionInfo().state).toBe("idle");
   });
 
   it("closes the transport again once a connect it ended has connected it, when no connect uses it", async () => {

@@ -7,9 +7,9 @@
  * several names share: JSON-RPC 2.0 defines −32700, −32600, −32602 and −32603 as classes, and the
  * package classes are −32000 (an optional transport feature the relay does not offer), −32001 (the
  * session, or the provider behind it, cannot serve the request), −32002 (a request names another
- * room or epoch than the one it reaches), −32003 (no valid client token), −32008 (an answer from a
- * superseded provider session) and −32056 (an expired session or room). Whether a request may be
- * sent again is told by `data.retryable`, never by the code.
+ * room or epoch than the one it reaches), −32003 (no valid client token) and −32056 (an expired
+ * session or room). Whether a request may be sent again is told by `data.retryable`, never by the
+ * code.
  *
  * This table holds every name sent to an agent with a code, as a JSON-RPC error or in a lifecycle
  * body's `code` member; a lifecycle name absent from it is sent without a code. The `error` frames
@@ -42,8 +42,6 @@ export const PEER_ERROR_CODES = {
   CLIENT_TOKEN_REQUIRED: -32003,
   CLIENT_TOKEN_INVALID: -32003,
   ROOM_NOT_FOUND: -32004,
-  PEER_SESSION_SUPERSEDED: -32008,
-  OUTCOME_UNKNOWN: -32008,
   CATALOG_CHANGED: -32010,
   CLIENT_APPROVAL_REQUIRED: -32053,
   CLIENT_APPROVAL_DENIED: -32054,
