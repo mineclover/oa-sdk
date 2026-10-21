@@ -157,6 +157,14 @@ Bun 런타임 대상(elysia)에서는 `oa-gen` 대신 `bun x oa-gen`을 씁니�
 
 `oa-gen validate`와 `oa-gen mock`은 경로 옵션 없이 실행하면 `oa.config.ts`의 spec target을 사용합니다. `validate`는 모든 target을 검증하고, `mock`은 target이 하나일 때 그 스펙을 서빙합니다(여러 개면 `--spec` 또는 `--tsp`로 지정). `oa.config.ts`는 ES module로 작성되며, `package.json`이 `"type": "commonjs"`인 프로젝트(npm 11의 `npm init` 기본값)에서도 `oa-gen`이 ES module로 변환해 불러옵니다.
 
+`oa-gen init`은 의존성을 `package.json`에 **추가만** 하고 설치하지는 않습니다. 새 프로젝트에서 `pnpm install`/`npm install` 전에 `oa-gen generate`처럼 `oa.config.ts`를 읽는 명령을 실행하면 다음 오류로 끝납니다.
+
+```text
+generate 오류: Failed to load module ".../oa.config.ts": Cannot find package '@oa-sdk/codegen' imported from .../oa.config.ts
+```
+
+`init`이 출력한 설치 명령을 먼저 실행한 뒤 `generate`·`mock`·`validate`를 실행하세요. `--spec`/`--tsp`로 경로를 직접 주는 명령은 `oa.config.ts`를 읽지 않으므로 설치 전에도 동작합니다.
+
 ---
 
 ## 4. 설치 없이 일회성 실행 (npx Ephemeral Execution)

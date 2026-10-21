@@ -78,14 +78,23 @@ export const typegen: Command = {
           ? createGraphSemanticTarget(incremental, typesTarget, graphSemantic, style)
           : undefined
         const typesPlan = planCliGenerationTarget(incremental, typesTarget)
-        reportCliGenerationPlan(typesTarget, typesPlan)
         const graphSemanticPlan = graphSemanticTarget ? planCliGenerationTarget(incremental, graphSemanticTarget) : undefined
-        if (graphSemanticTarget && graphSemanticPlan) reportCliGenerationPlan(graphSemanticTarget, graphSemanticPlan)
+        const graphReused = !graphSemanticPlan || graphSemanticPlan.action === 'reuse'
         // The index describes the generated source, so both are generated together or reused together.
-        if (typesPlan.action === 'reuse' && (!graphSemanticPlan || graphSemanticPlan.action === 'reuse')) {
+        if (typesPlan.action === 'reuse' && graphReused) {
+          reportCliGenerationPlan(typesTarget, typesPlan)
+          if (graphSemanticTarget && graphSemanticPlan) reportCliGenerationPlan(graphSemanticTarget, graphSemanticPlan)
           replayTypegenTarget(typesPlan.record)
           return
         }
+        if (typesPlan.action === 'reuse') {
+          // The index needs the declarations of a fresh generation, so the types are
+          // regenerated too; do not report a skip that will not happen.
+          reportCliGenerationPlan(typesTarget, { action: 'generate', reason: 'the graph semantic index needs the generated source' })
+        } else {
+          reportCliGenerationPlan(typesTarget, typesPlan)
+        }
+        if (graphSemanticTarget && graphSemanticPlan) reportCliGenerationPlan(graphSemanticTarget, graphSemanticPlan)
         invalidateCliIncrementalIndex(incremental)
         generations = {
           types: beginCliGeneration(incremental, typesTarget),

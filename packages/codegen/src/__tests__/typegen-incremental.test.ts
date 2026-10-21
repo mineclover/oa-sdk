@@ -982,9 +982,10 @@ describe('typegen --incremental with --graph-semantic-index', () => {
     const rerun = await runTypegen(graphSemanticArgs())
 
     expect(rerun.status).toEqual([
-      `incremental: typegen up to date, regeneration skipped (${path('out/api.ts')})`,
+      'incremental: typegen regenerating (the graph semantic index needs the generated source)',
       `incremental: typegen:graph-semantic-index regenerating (input changed: ${path('typespec/provenance.json')})`,
     ])
+    expect(outputWasRewritten('out/api.ts')).toBe(true)
     expect(outputWasRewritten('graph/api.semantic.json')).toBe(true)
     const user = JSON.parse(readFileSync(path('graph/api.semantic.json'), 'utf8')).hosts[0]
     expect(user.evidence[0].source).toEqual({ file: 'main.tsp', line: 40 })

@@ -466,3 +466,6 @@ missing index regenerates both.
 
 Configure `.graph/oa-sdk-typespec.semantic.json` as the project's `semanticIndex` in the graph router,
 which rejects the sidecar once the generated TypeScript hash no longer matches.
+
+See [the TypeSpec origin graph semantic index guide](../../docs/guides/typespec-graph-semantic-index.md)
+for the full workflow, the hash binding, failure diagnosis and incremental behavior.
