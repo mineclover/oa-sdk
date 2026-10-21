@@ -1,7 +1,14 @@
 // Regression tests for the provider's tools/call handling: the shared run of untraced calls,
-// the CallToolResult shape agents receive, the AI run limit, CommitReceipt gating, and the AI run
-// ledger, which answers a durable request again without calling the host and holds back one whose
-// outcome is unknown.
+// the CallToolResult shape agents receive, the AI run limit, CommitReceipt gating, a call the host
+// finishes after its connection ended (accounted for in its run, answered with nothing), and the AI
+// run ledger, which answers a durable request again without calling the host and holds back one
+// whose outcome is unknown, and neither runs nor answers a call whose connection ended while it
+// looked the call up. Nor is a call run or answered whose connection host code the provider called
+// first ended, nor any request whose connection host code ended before its answer was ready, the
+// ledger's failed lookup and a run listener told of the call's step included, nor one whose answer
+// was ready when another request of the same read ended the connection. A run listener that throws
+// changes nothing of a call or its run. A socket the tests hold open records any answer the provider
+// still gives.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AiRunController,
@@ -12,6 +19,7 @@ import {
   MCP_PROTOCOL_VERSION,
   WebMcpPeerClient,
   isCommitReceipt,
+  type AiRunLedgerStore,
   type CommitReceipt,
   type WebMcpHostAdapter,
 } from "../src/provider.js";
@@ -27,7 +35,17 @@ import {
   createWebMcpPeerServer,
   type WebMcpPeerServer,
 } from "../src/server.js";
-import { FakeRelay, approve, callTool, installRelay, relayStamp, replyTo, until, type FakeRelaySocket } from "./provider-fakes.js";
+import {
+  FakeRelay,
+  approve,
+  callTool,
+  deliverToolCall,
+  installRelay,
+  relayStamp,
+  replyTo,
+  until,
+  FakeRelaySocket,
+} from "./provider-fakes.js";
 
 const providers: WebMcpPeerClient[] = [];
 
@@ -43,15 +61,28 @@ const tools = ["read", "validate", "soft", "readme", "mcp_err", "domain", "write
   inputSchema: { type: "object", properties: {} },
 }));
 
-async function approvedProvider(invoke: WebMcpHostAdapter["invoke"]): Promise<{ provider: WebMcpPeerClient; socket: FakeRelaySocket }> {
+async function approvedProvider(
+  invoke: WebMcpHostAdapter["invoke"],
+  host: Omit<WebMcpHostAdapter, "listTools" | "invoke"> = {},
+): Promise<{ provider: WebMcpPeerClient; socket: FakeRelaySocket; relay: FakeRelay }> {
   const relay = new FakeRelay();
   installRelay(relay);
-  const provider = new WebMcpPeerClient({ hostAdapter: { listTools: () => tools, invoke } });
+  const provider = new WebMcpPeerClient({ hostAdapter: { ...host, listTools: () => tools, invoke } });
   providers.push(provider);
   await provider.connect({ serverUrl: relay.base, alias: "tool-call-test" });
   const socket = relay.latest;
   await approve(provider, socket, relay.roomId);
-  return { provider, socket };
+  return { provider, socket, relay };
+}
+
+/** The relay revokes the session of the provider on `socket`, as it tells it of a revocation over HTTP. */
+function revokeSession(socket: FakeRelaySocket, roomId: string): void {
+  socket.deliver({ type: "session.revoked", roomId, roomEpoch: 1, reason: "CLIENT_REVOKED" });
+}
+
+/** Lets the provider finish whatever its last step set off: every microtask it queued runs first. */
+function settled(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 describe("untraced tool calls share a run that one failure cannot terminate", () => {
@@ -401,6 +432,31 @@ describe("AiRunController eviction", () => {
   });
 });
 
+describe("AiRunController listeners", () => {
+  it("are all told of every change, clear included, and the change is made, though one throws", () => {
+    const controller = new AiRunController();
+    const told: string[] = [];
+    controller.subscribe(() => {
+      told.push("throws");
+      throw new Error("listener failed");
+    });
+    controller.subscribe(() => told.push("next"));
+
+    controller.begin("run-1", "act");
+    controller.registerAction("run-1", "req-1", new AbortController());
+    controller.settleAction("run-1", "req-1");
+    controller.recordStep("run-1", { actionId: "act", stepIndex: 1, operationId: "op1" });
+    expect(told).toEqual(Array.from({ length: 4 }, () => ["throws", "next"]).flat());
+    expect(controller.hasAction("run-1", "req-1")).toBe(false);
+    expect(controller.get("run-1")).toMatchObject({ phase: "running", stepIndex: 1, operationIds: ["op1"] });
+
+    told.length = 0;
+    controller.clear();
+    expect(told).toEqual(["throws", "next"]);
+    expect(controller.getAll()).toEqual([]);
+  });
+});
+
 describe("CommitReceipt gating", () => {
   const base = {
     status: "durable" as const,
@@ -434,6 +490,316 @@ describe("CommitReceipt gating", () => {
     expect(reply.result?.isError).toBe(false);
     expect(provider.getAiRun("task-write")?.operationIds).toEqual([]);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("invalid CommitReceipt"), expect.anything());
+  });
+});
+
+describe("a tools/call in flight when its connection ends", () => {
+  const receipt: CommitReceipt = {
+    status: "durable",
+    requestId: "r1",
+    documentId: "d1",
+    transactionId: "t1",
+    committedAt: "2026-10-18T00:00:00.000Z",
+    operationId: "op1",
+    replicaId: "rep1",
+  };
+  const replace = (socket: FakeRelaySocket) => socket.drop(4001);
+
+  it.each<[string, (socket: FakeRelaySocket, roomId: string) => void, "returns" | "throws"]>([
+    ["the relay revokes its session", revokeSession, "returns"],
+    ["the relay revokes its session, and the host throws", revokeSession, "throws"],
+    ["another provider socket replaces this one (4001)", replace, "returns"],
+    ["another provider socket replaces this one (4001), and the host throws", replace, "throws"],
+  ])("is accounted for in its run once the host is done, and answered with nothing, when %s", async (_label, end, outcome) => {
+    const relay = new FakeRelay();
+    installRelay(relay);
+    let finish: (() => void) | undefined;
+    const provider = new WebMcpPeerClient({
+      hostAdapter: {
+        listTools: () => tools,
+        invoke: () =>
+          new Promise((resolve, reject) => {
+            finish = () => (outcome === "throws" ? reject(new Error("the host failed")) : resolve({ ok: true, receipt }));
+          }),
+      },
+    });
+    providers.push(provider);
+    await provider.connect({ serverUrl: relay.base, alias: "ended-call" });
+    const socket = relay.latest;
+    await approve(provider, socket, relay.roomId);
+    deliverToolCall(socket, 1, "write", { runId: "task-ended" });
+    await until(() => finish, "the host called");
+
+    // The socket stays OPEN to the provider, so an answer the provider gives is recorded, not hidden by
+    // the socket's close.
+    socket.holdOpen();
+    end(socket, relay.roomId);
+    expect(provider.getSession().state).toBe("disconnected");
+    finish!();
+
+    if (outcome === "returns") {
+      // The host ran the call: its run records the step, so a rollback can undo it, and settles the
+      // action, so the run can be stopped and rolled back at all.
+      await until(() => (provider.getAiRun("task-ended")?.operationIds.length ? true : undefined), "the step recorded");
+      expect(provider.getAiRun("task-ended")).toMatchObject({ operationIds: ["op1"], transactionIds: { op1: "t1" } });
+      provider.stopAiRun("task-ended");
+    } else {
+      // The host failed the call: the run the agent named fails, and its action is settled.
+      await until(() => (provider.getAiRun("task-ended")?.phase === "failed" ? true : undefined), "the run failed");
+      expect(provider.getAiRun("task-ended")).toMatchObject({ terminalReason: "the host failed", operationIds: [] });
+    }
+    await expect(provider.rollbackAiRun("task-ended", () => "rolled-back")).resolves.toMatchObject({ phase: "rolled-back" });
+    await settled();
+    // No answer was written to the socket of the connection that ended.
+    expect(socket.sent.filter((frame) => frame.type === "mcp")).toEqual([]);
+  });
+});
+
+describe("a tools/call whose connection host code ends before the host is called", () => {
+  it.each<[string, "server info" | "run begun" | "action registered"]>([
+    ["the host adapter's getServerInfo, as the provider reads the call", "server info"],
+    ["a run listener, as the call begins its run", "run begun"],
+    ["a run listener, as the call registers its action on its run", "action registered"],
+  ])("is neither run, nor answered, nor left in a run when %s ends the session", async (_label, point) => {
+    // Ends the session once, from the host code at `point`, after the test arms it.
+    let endSession: (() => void) | undefined;
+    const error = vi.spyOn(console, "error");
+    const invoke = vi.fn(async () => ({ ok: true }));
+    const { provider, socket } = await approvedProvider(invoke, {
+      getServerInfo: () => {
+        if (point === "server info") endSession?.();
+        return { name: "host-ends-the-session", version: "1.0.0" };
+      },
+    });
+    provider.subscribeAiRuns((runs) => {
+      const phase = runs.find((run) => run.runId === "task-host-ends")?.phase;
+      if ((point === "run begun" && phase === "queued") || (point === "action registered" && phase === "running")) endSession?.();
+    });
+    // The socket stays OPEN to the provider, so an answer the provider gives is recorded, not hidden by
+    // the socket's close.
+    socket.holdOpen();
+    // Armed only now: the provider also asks the host for its server info as it connects.
+    endSession = () => {
+      endSession = undefined;
+      provider.disconnect();
+    };
+
+    deliverToolCall(socket, 1, "write", { runId: "task-host-ends" });
+    await until(() => (endSession ? undefined : true), "the host ended the session");
+    await settled();
+
+    expect(invoke).not.toHaveBeenCalled();
+    // `disconnect()` cleared the runs, and the call began none after it.
+    expect(provider.getAiRuns()).toEqual([]);
+    expect(socket.sent.filter((frame) => frame.type === "mcp")).toEqual([]);
+    // Nor did the call go on with the run `disconnect()` cleared, which would fail as an internal error.
+    expect(error).not.toHaveBeenCalled();
+  });
+});
+
+describe("a request whose connection host code ends before it is answered", () => {
+  /** A request of each method the provider answers, and one it does not know. */
+  const requests: Record<string, { method: string; params?: Record<string, unknown> }> = {
+    ping: { method: "ping" },
+    initialize: { method: "initialize", params: { protocolVersion: "2025-11-25" } },
+    "tools/list": { method: "tools/list" },
+    "server/discover": { method: "server/discover" },
+    "tools/call": { method: "tools/call", params: { name: "read", arguments: {} } },
+    "an unknown method": { method: "tools/unknown" },
+  };
+  const cases = Object.keys(requests).flatMap((request) => [
+    [request, "returns"],
+    [request, "throws"],
+  ]) as Array<[string, "returns" | "throws"]>;
+
+  it.each(cases)("is not answered, %s, when the host adapter's getServerInfo ends the session and %s", async (request, outcome) => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    // Ends the session once, from the host adapter's getServerInfo, after the test arms it.
+    let endSession = false;
+    const invoke = vi.fn(async () => ({ ok: true }));
+    const { provider, socket } = await approvedProvider(invoke, {
+      getServerInfo: () => {
+        if (endSession) {
+          endSession = false;
+          provider.disconnect();
+          if (outcome === "throws") throw new Error("the host adapter failed");
+        }
+        return { name: "host-ends-the-session", version: "1.0.0" };
+      },
+    });
+    const deliver = (id: number) => socket.deliver({ type: "mcp", ...relayStamp(), message: { jsonrpc: "2.0", id, ...requests[request] } });
+    // While the session lasts, the request is answered.
+    deliver(1);
+    await replyTo(socket, 1);
+    const invoked = invoke.mock.calls.length;
+    // The socket stays OPEN to the provider, so an answer the provider gives is recorded, not hidden by
+    // the socket's close.
+    socket.holdOpen();
+
+    endSession = true;
+    deliver(2);
+    await settled();
+
+    expect(endSession).toBe(false);
+    expect(provider.getSession().state).toBe("idle");
+    expect(invoke).toHaveBeenCalledTimes(invoked);
+    expect(socket.sent.filter((frame) => frame.type === "mcp" && (frame.message as { id?: unknown }).id === 2)).toEqual([]);
+  });
+});
+
+describe("a tools/call whose run listener ends the connection once the host ran it", () => {
+  const receipt: CommitReceipt = {
+    status: "durable",
+    requestId: "r1",
+    documentId: "d1",
+    transactionId: "t1",
+    committedAt: "2026-10-18T00:00:00.000Z",
+    operationId: "op1",
+    replicaId: "rep1",
+  };
+
+  it.each<[string, "returns" | "throws", number]>([
+    ["settles the call's action", "returns", 0],
+    ["records the call's step", "returns", 1],
+    ["settles the action of a call the host failed", "throws", 0],
+  ])("is answered with nothing, and leaves no run behind, when the listener ends the session as the run %s", async (_label, outcome, at) => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    // The changes to the runs since the host was done with the call.
+    let changes: number | undefined;
+    const invoke = vi.fn(async () => {
+      changes = 0;
+      if (outcome === "throws") throw new Error("the host failed");
+      return { ok: true, receipt };
+    });
+    const { provider, socket } = await approvedProvider(invoke);
+    let ended = false;
+    provider.subscribeAiRuns(() => {
+      if (changes === undefined || ended) return;
+      if (changes++ === at) {
+        ended = true;
+        provider.disconnect();
+      }
+    });
+    // The socket stays OPEN to the provider, so an answer the provider gives is recorded, not hidden by
+    // the socket's close.
+    socket.holdOpen();
+
+    // A call of a named run that completes it, or fails it when the host throws: a change made after
+    // the listener's `disconnect()` cleared the run would fail.
+    deliverToolCall(socket, 1, "write", { runId: "task-listener-ends", phase: "completed" });
+    await until(() => (ended ? true : undefined), "the listener ended the session");
+    await settled();
+
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(provider.getAiRuns()).toEqual([]);
+    // The provider went on with no run it had lost, nor did it treat the session's end as its own failure.
+    expect(error).not.toHaveBeenCalled();
+    expect(socket.sent.filter((frame) => frame.type === "mcp")).toEqual([]);
+  });
+});
+
+describe("a request that comes in one read with a tools/call whose run listener ends the connection", () => {
+  it("is not answered once the connection ended, when a ping comes first and the listener ends the session as the call settles", async () => {
+    const invoke = vi.fn(async () => ({ ok: true }));
+    const { provider, socket } = await approvedProvider(invoke);
+    // The frames the provider had sent when the listener ended the session, at the first change to the
+    // runs once the host was called: the call settling its action.
+    let sentAtEnd: number | undefined;
+    provider.subscribeAiRuns(() => {
+      if (sentAtEnd !== undefined || invoke.mock.calls.length === 0) return;
+      sentAtEnd = socket.sent.length;
+      provider.disconnect();
+    });
+    // The socket stays OPEN to the provider, so an answer the provider gives is recorded, not hidden by
+    // the socket's close.
+    socket.holdOpen();
+
+    // One network read delivers both requests in one turn, as Node's `ws` does: the ping's answer is
+    // ready before the call settles, and the call's continuation ends the session in a later turn.
+    socket.deliver({ type: "mcp", ...relayStamp(), message: { jsonrpc: "2.0", id: "A", method: "ping" } });
+    deliverToolCall(socket, "B", "write", { runId: "task-same-read" });
+    const ended = await until(() => sentAtEnd, "the listener ended the session");
+    await settled();
+
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(provider.getSession().state).toBe("idle");
+    // Nothing was answered on the connection after it ended, neither the call nor the ping.
+    expect(socket.sent.slice(ended).filter((frame) => frame.type === "mcp")).toEqual([]);
+  });
+});
+
+describe("a run listener that throws", () => {
+  const receipt: CommitReceipt = {
+    status: "durable",
+    requestId: "r1",
+    documentId: "d1",
+    transactionId: "t1",
+    committedAt: "2026-10-18T00:00:00.000Z",
+    operationId: "op1",
+    replicaId: "rep1",
+  };
+
+  it("lets the call run, be answered and settle when it throws as the call registers its action", async () => {
+    const invoke = vi.fn(async () => ({ ok: true }));
+    const { provider, socket } = await approvedProvider(invoke);
+    // Throws once, when the call's action turns its run "running".
+    let threw = false;
+    provider.subscribeAiRuns((runs) => {
+      if (threw || runs.find((run) => run.runId === "task-listener-throws")?.phase !== "running") return;
+      threw = true;
+      throw new Error("listener failed");
+    });
+
+    const reply = await callTool(socket, 1, "read", { runId: "task-listener-throws" });
+    expect(threw).toBe(true);
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(reply.result).toMatchObject({ isError: false, structuredContent: { ok: true } });
+    // The call's action is settled, so the run can be rolled back.
+    provider.stopAiRun("task-listener-throws");
+    await expect(provider.rollbackAiRun("task-listener-throws", () => "rolled-back")).resolves.toMatchObject({ phase: "rolled-back" });
+  });
+
+  it("records the write the host committed, and answers it, when it throws as the call settles its action", async () => {
+    // Throws once, at the first change to the runs after the host was done with the call.
+    let throwNext = false;
+    const { provider, socket } = await approvedProvider(async () => {
+      throwNext = true;
+      return { ok: true, receipt };
+    });
+    provider.subscribeAiRuns(() => {
+      if (!throwNext) return;
+      throwNext = false;
+      throw new Error("listener failed");
+    });
+
+    const reply = await callTool(socket, 1, "write", { runId: "task-listener-throws" });
+    expect(throwNext).toBe(false);
+    expect(reply.result).toMatchObject({ isError: false, structuredContent: { ok: true, receipt } });
+    expect(provider.getAiRun("task-listener-throws")).toMatchObject({ phase: "running", operationIds: ["op1"], transactionIds: { op1: "t1" } });
+    // So a rollback of the run undoes the write.
+    provider.stopAiRun("task-listener-throws");
+    const undo = vi.fn(() => "rolled-back" as const);
+    await expect(provider.rollbackAiRun("task-listener-throws", undo)).resolves.toMatchObject({ phase: "rolled-back" });
+    expect(undo).toHaveBeenCalledWith("op1", 0);
+  });
+
+  it("does not keep disconnect() from ending the session when it throws as the runs are cleared", async () => {
+    const { provider, socket } = await approvedProvider(async () => ({ ok: true }));
+    await callTool(socket, 1, "read", { runId: "task-listener-throws" });
+    const told: number[] = [];
+    provider.subscribeAiRuns((runs) => {
+      told.push(runs.length);
+      throw new Error("listener failed");
+    });
+    const states: string[] = [];
+    provider.subscribe((session) => states.push(session.state));
+
+    expect(() => provider.disconnect()).not.toThrow();
+    expect(told).toEqual([0]);
+    expect(provider.getAiRuns()).toEqual([]);
+    // disconnect() went on to close the socket and tell the session listeners.
+    expect(socket.readyState).toBe(FakeRelaySocket.CLOSED);
+    expect(states.slice(1)).toEqual(["idle"]);
   });
 });
 
@@ -473,5 +839,75 @@ describe("the AI run ledger", () => {
     const reply = await callTool(socket, 1, "write", { runId: "task-ledger", args: { context: { requestId: "request-2" } } });
     expect(invoke).not.toHaveBeenCalled();
     expect(reply.result).toMatchObject({ isError: true, structuredContent: { ok: false, error: { code: "RECONCILIATION_REQUIRED" } } });
+  });
+
+  it.each<[string, CommitReceipt | undefined]>([
+    ["holds no record of", undefined],
+    ["holds as outcome-unknown", { status: "outcome-unknown", requestId: "request-3", documentId: "d1", message: "the commit was not confirmed" }],
+    ["holds as durable", { ...durable, requestId: "request-3" }],
+  ])("neither runs nor answers a call whose session ended while the ledger looked up the request it %s", async (_label, recorded) => {
+    const invoke = vi.fn(async () => ({ ok: true }));
+    const { provider, socket, relay } = await approvedProvider(invoke);
+    const records = new InMemoryAiRunLedgerStore();
+    if (recorded) await new AiRunLedger(records).recordReceipt({ runId: "task-ledger", actionId: "write", stepIndex: 0, receipt: recorded });
+    // A store whose lookups wait until the test lets them finish.
+    const lookups: Array<() => void> = [];
+    const store: AiRunLedgerStore = {
+      find: (runId, requestId) => new Promise((resolve) => lookups.push(() => resolve(records.find(runId, requestId)))),
+      list: (runId) => records.list(runId),
+      appendIdempotent: (entry, options) => records.appendIdempotent(entry, options),
+    };
+    provider.setAiRunLedger(store);
+    // The socket stays OPEN to the provider, so an answer the provider gives is recorded, not hidden by
+    // the socket's close.
+    socket.holdOpen();
+
+    deliverToolCall(socket, 1, "write", { runId: "task-ledger", args: { context: { requestId: "request-3" } } });
+    const lookup = await until(() => lookups[0], "the ledger lookup");
+    revokeSession(socket, relay.roomId);
+    expect(provider.getSession().state).toBe("disconnected");
+    lookup();
+    await settled();
+
+    expect(invoke).not.toHaveBeenCalled();
+    expect(provider.getAiRun("task-ledger")).toBeUndefined();
+    expect(socket.sent.filter((frame) => frame.type === "mcp")).toEqual([]);
+  });
+
+  it("answers nothing for a call whose session ended while the ledger lookup that then failed was pending", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const invoke = vi.fn(async () => ({ ok: true }));
+    const { provider, socket, relay } = await approvedProvider(invoke);
+    const records = new InMemoryAiRunLedgerStore();
+    // A store whose lookups fail when the test lets them finish.
+    const lookups: Array<() => void> = [];
+    const store: AiRunLedgerStore = {
+      find: () => new Promise((_resolve, reject) => lookups.push(() => reject(new Error("the ledger is unavailable")))),
+      list: (runId) => records.list(runId),
+      appendIdempotent: (entry, options) => records.appendIdempotent(entry, options),
+    };
+    provider.setAiRunLedger(store);
+    const deliver = (id: number, requestId: string) =>
+      deliverToolCall(socket, id, "write", { runId: "task-ledger", args: { context: { requestId } } });
+
+    // While the session lasts, a failed lookup is answered as an internal error, without calling the host.
+    deliver(1, "request-4");
+    (await until(() => lookups[0], "the first ledger lookup"))();
+    expect((await replyTo(socket, 1)).error).toEqual({ code: -32603, message: "Internal error" });
+    // The socket stays OPEN to the provider, so an answer the provider gives is recorded, not hidden by
+    // the socket's close.
+    socket.holdOpen();
+
+    deliver(2, "request-5");
+    const lookup = await until(() => lookups[1], "the second ledger lookup");
+    revokeSession(socket, relay.roomId);
+    expect(provider.getSession().state).toBe("disconnected");
+    lookup();
+    await settled();
+
+    expect(invoke).not.toHaveBeenCalled();
+    // Both failures are logged; only the one of the live session was answered.
+    expect(error).toHaveBeenCalledTimes(2);
+    expect(socket.sent.filter((frame) => frame.type === "mcp" && (frame.message as { id?: unknown }).id === 2)).toEqual([]);
   });
 });

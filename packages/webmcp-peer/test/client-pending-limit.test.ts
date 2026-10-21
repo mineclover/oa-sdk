@@ -4,7 +4,12 @@
 //   - over a relay socket, a request past 64 unanswered ones waits, in order, and is sent once an
 //     earlier one has been answered, so an agent that fans out more calls gets every answer;
 //   - a request holds its slot until the relay answers it, even after its caller stopped waiting at
-//     a shorter timeout than the relay's, since the relay still counts it until then;
+//     a shorter timeout than the relay's, since the relay still counts it until then, and a request
+//     of the provider's under its id is no answer;
+//   - an id in flight (as a string) is refused for another request, unsent, on any transport: a
+//     request stays in flight until its answer arrives or its connection ends, even after its
+//     timeout or a transport error or error frame that leaves the connection open (which keep its
+//     slot too), which over HTTP is until its POST ends;
 //   - the wait counts toward the request's timeout (REQUEST_TIMEOUT, never sent), and disconnect()
 //     ends waiting requests like pending ones;
 //   - an id the relay would answer with id null (over 1 KiB of JSON) is refused before it is sent;
@@ -173,6 +178,260 @@ describe("a session over a relay socket with 64 requests in flight", { timeout: 
     await until(() => late.outcome, (outcome) => outcome !== undefined, "the late call answered", 5000);
     expect(late.outcome).toMatchObject({ value: { content: [{ type: "text" }] } });
     expect(errorCode(late.outcome)).not.toBe(TOO_MANY_PENDING_REQUESTS);
+  });
+
+  it("takes no request of the provider's for the answer to a call in flight under its id, so the call keeps the slot the relay counts", async () => {
+    const { provider, session, held, received, answer } = await heldCallRoom();
+    const calls = Array.from({ length: LIMIT }, (_, index) => track(session.callTool("slow", { index })));
+    await until(() => received.length, (count) => count === LIMIT, "64 calls forwarded", 5000);
+
+    // The relay passes a provider's request to its agents as is, whatever its id: here the id of a
+    // call the relay still counts. A request of the provider's is no answer.
+    provider.send({ type: "mcp", message: { jsonrpc: "2.0", id: held[0], method: "sampling/createMessage", params: {} } });
+    await settle();
+    const extra = track(session.callTool("slow", { index: LIMIT }));
+    await settle();
+    expect(calls[0]!.outcome).toBeUndefined();
+    expect(extra.outcome).toBeUndefined();
+    expect(received).toHaveLength(LIMIT);
+
+    // Its answer frees the slot.
+    answer(1);
+    await until(() => received.length, (count) => count === LIMIT + 1, "the call past them forwarded", 5000);
+    answer();
+    await until(() => [...calls, extra].every((call) => call.outcome !== undefined), Boolean, "every call answered", 5000);
+    expect([...calls, extra].map((call) => errorCode(call.outcome))).toEqual([...calls, extra].map(() => undefined));
+  });
+});
+
+describe("a request id in flight", { timeout: 20_000 }, () => {
+  it.each<[string, { raw?: boolean }, string | number, string | number]>([
+    ["over a relay socket", {}, "same", "same"],
+    ["over a relay socket, under an id that is the same as a string", {}, 1, "1"],
+    ["over a raw transport", { raw: true }, "same", "same"],
+  ])("is refused DUPLICATE_REQUEST_ID for another request, unsent, until it is answered, %s", async (_label, transport, firstId, secondId) => {
+    const { session, sent, reply } = await silentSession(transport);
+    const first = track(session.request("tools/call", { name: "a", arguments: {} }, { id: firstId }));
+    await expect(session.request("tools/call", { name: "b", arguments: {} }, { id: secondId })).rejects.toMatchObject({
+      code: "DUPLICATE_REQUEST_ID",
+      details: { method: "tools/call", id: secondId },
+    });
+    expect(sent.map((request) => request.name)).toEqual(["a"]);
+
+    reply(firstId);
+    await until(() => first.outcome, (outcome) => outcome !== undefined, "the first answered", 5000);
+    expect(first.outcome).toMatchObject({ value: { id: firstId } });
+    void session.request("tools/call", { name: "b", arguments: {} }, { id: secondId }).catch(() => {});
+    await settle();
+    expect(sent.map((request) => request.name)).toEqual(["a", "b"]);
+  });
+
+  it("is refused for another request while its request holds a slot its caller gave up, or waits for one", async () => {
+    const { session, sent, reply } = await silentSession();
+    // Its caller stops waiting; the relay still counts it until it answers.
+    await expect(session.request("tools/call", { name: "a", arguments: {} }, { id: "held", timeoutMs: 20 })).rejects.toMatchObject({ code: "REQUEST_TIMEOUT" });
+    await expect(session.request("tools/call", { name: "b", arguments: {} }, { id: "held" })).rejects.toMatchObject({ code: "DUPLICATE_REQUEST_ID" });
+
+    // 63 more fill the slots; one past them waits for a slot under its id.
+    for (let index = 1; index < LIMIT; index++) void session.request("tools/call", { name: "slow", arguments: { index } }).catch(() => {});
+    const waiting = track(session.request("tools/call", { name: "c", arguments: {} }, { id: "waiting" }));
+    await expect(session.request("tools/call", { name: "d", arguments: {} }, { id: "waiting" })).rejects.toMatchObject({ code: "DUPLICATE_REQUEST_ID" });
+    expect(sent).toHaveLength(LIMIT);
+
+    reply("held");
+    await until(() => sent.length, (count) => count === LIMIT + 1, "the waiting call sent", 5000);
+    expect(sent.map((request) => request.name).slice(LIMIT)).toEqual(["c"]);
+    expect(waiting.outcome).toBeUndefined();
+  });
+
+  it("is refused for another request while the HTTP POST of a request that timed out still runs, so the other does not take its answer", async () => {
+    // Each POST runs until it is released, then answers with the name of the call it carries.
+    const posted: unknown[] = [];
+    const releases: Array<() => void> = [];
+    const fetchImpl = (async (_input: string | URL | Request, init: RequestInit = {}) => {
+      const rpc = JSON.parse(String(init.body)) as { id: string; params?: { name?: string } };
+      posted.push(rpc.params?.name);
+      await new Promise<void>((resolve) => releases.push(resolve));
+      return Response.json({ jsonrpc: "2.0", id: rpc.id, result: { answered: rpc.params?.name } });
+    }) as typeof fetch;
+    const session = new PeerMcpSession({ mcpEndpoint: "http://relay.test/p/room1/mcp", fetchImpl, requestTimeoutMs: 10_000 });
+    sessions.push(session);
+    await session.connect();
+
+    const first = track(session.request("tools/call", { name: "a", arguments: {} }, { id: "x", timeoutMs: 50 }));
+    await until(() => session.pending.size, (size) => size === 0, "the first call's timeout", 5000);
+    // Its timeout has passed, but its POST, which brings its answer, has not ended.
+    const second = track(session.request("tools/call", { name: "b", arguments: {} }, { id: "x" }));
+    await settle();
+    expect(second.outcome).toMatchObject({ error: { code: "DUPLICATE_REQUEST_ID", details: { method: "tools/call", id: "x" } } });
+    expect(posted).toEqual(["a"]);
+
+    releases.splice(0).forEach((release) => release());
+    await until(() => first.outcome, (outcome) => outcome !== undefined, "the first call settles", 5000);
+    expect(errorCode(first.outcome)).toBe("REQUEST_TIMEOUT");
+    // Once that POST has ended, the id is free, and the next request under it gets its own answer.
+    const third = track(session.request("tools/call", { name: "c", arguments: {} }, { id: "x" }));
+    await until(() => releases.length, (count) => count === 1, "the third call posted", 5000);
+    releases.splice(0).forEach((release) => release());
+    await until(() => third.outcome, (outcome) => outcome !== undefined, "the third call answered", 5000);
+    expect(third.outcome).toMatchObject({ value: { id: "x", result: { answered: "c" } } });
+    expect(posted).toEqual(["a", "c"]);
+  });
+
+  it("is freed once the HTTP POST of a request that timed out has ended, though no answer came with it", async () => {
+    // The first POST's event stream ends without the answer; every other POST answers with the name
+    // of the call it carries.
+    const posted: unknown[] = [];
+    const fetchImpl = (async (_input: string | URL | Request, init: RequestInit = {}) => {
+      const rpc = JSON.parse(String(init.body)) as { id: string; params?: { name?: string } };
+      posted.push(rpc.params?.name);
+      if (rpc.params?.name === "a") return new Response("", { status: 200, headers: { "content-type": "text/event-stream" } });
+      return Response.json({ jsonrpc: "2.0", id: rpc.id, result: { answered: rpc.params?.name } });
+    }) as typeof fetch;
+    const session = new PeerMcpSession({ mcpEndpoint: "http://relay.test/p/room1/mcp", fetchImpl, requestTimeoutMs: 10_000 });
+    sessions.push(session);
+    await session.connect();
+
+    await expect(session.request("tools/call", { name: "a", arguments: {} }, { id: "x", timeoutMs: 50 })).rejects.toMatchObject({ code: "REQUEST_TIMEOUT" });
+    // Nothing answers a request once its POST has ended, so its id is free.
+    await expect(session.request("tools/call", { name: "b", arguments: {} }, { id: "x" })).resolves.toMatchObject({ id: "x", result: { answered: "b" } });
+    expect(posted).toEqual(["a", "b"]);
+  });
+
+  it("is refused for another request after its caller timed out over a raw transport whose send returns first, until its answer arrives, so the other does not take it", async () => {
+    // The transport's send returns once it has written the request; the answer comes later.
+    const { session, sent, reply } = await silentSession({ raw: true });
+    await expect(session.request("tools/call", { name: "a", arguments: {} }, { id: "x", timeoutMs: 20 })).rejects.toMatchObject({ code: "REQUEST_TIMEOUT" });
+    const second = track(session.request("tools/call", { name: "b", arguments: {} }, { id: "x" }));
+    await settle();
+    expect(second.outcome).toMatchObject({ error: { code: "DUPLICATE_REQUEST_ID", details: { method: "tools/call", id: "x" } } });
+    expect(sent.map((request) => request.name)).toEqual(["a"]);
+
+    // The late answer is the first request's: it frees the id, and the next request under it waits for its own.
+    reply("x");
+    const third = track(session.request("tools/call", { name: "c", arguments: {} }, { id: "x" }));
+    await settle();
+    expect(sent.map((request) => request.name)).toEqual(["a", "c"]);
+    expect(third.outcome).toBeUndefined();
+    reply("x");
+    await until(() => third.outcome, (outcome) => outcome !== undefined, "the third call answered", 5000);
+    expect(third.outcome).toMatchObject({ value: { id: "x" } });
+
+    // An answer that never comes holds the id until its connection ends.
+    await expect(session.request("tools/call", { name: "d", arguments: {} }, { id: "y", timeoutMs: 20 })).rejects.toMatchObject({ code: "REQUEST_TIMEOUT" });
+    await expect(session.request("tools/call", { name: "e", arguments: {} }, { id: "y" })).rejects.toMatchObject({ code: "DUPLICATE_REQUEST_ID" });
+    await session.disconnect();
+    await session.connect();
+    void session.request("tools/call", { name: "f", arguments: {} }, { id: "y" }).catch(() => {});
+    await settle();
+    expect(sent.map((request) => request.name)).toEqual(["a", "c", "d", "f"]);
+  });
+
+  it("is refused for another request while the HTTP POST of a request an error frame rejected still runs, since that frame ends no connection, so the other does not take its answer", async () => {
+    // The POST of the call named "a" runs until it is released; a POST of "boom" comes back with the
+    // relay's {type:'error'} frame; every other POST answers with the name of the call it carries.
+    const posted: unknown[] = [];
+    const releases: Array<() => void> = [];
+    const fetchImpl = (async (_input: string | URL | Request, init: RequestInit = {}) => {
+      const rpc = JSON.parse(String(init.body)) as { id: string; params?: { name?: string } };
+      posted.push(rpc.params?.name);
+      if (rpc.params?.name === "boom") return Response.json({ type: "error", code: "BOOM", message: "boom" });
+      if (rpc.params?.name === "a") await new Promise<void>((resolve) => releases.push(resolve));
+      return Response.json({ jsonrpc: "2.0", id: rpc.id, result: { answered: rpc.params?.name } });
+    }) as typeof fetch;
+    const session = new PeerMcpSession({ mcpEndpoint: "http://relay.test/p/room1/mcp", fetchImpl, requestTimeoutMs: 10_000 });
+    sessions.push(session);
+    await session.connect();
+
+    const first = track(session.request("tools/call", { name: "a", arguments: {} }, { id: "x" }));
+    await until(() => releases.length, (count) => count === 1, "the first call posted", 5000);
+    // The error frame rejects every request waiting for its answer, the first one included, and
+    // leaves the session connected.
+    await expect(session.request("tools/call", { name: "boom", arguments: {} }, { id: "y" })).rejects.toMatchObject({ code: "BOOM" });
+    expect(session.pending.size).toBe(0);
+    expect(session.getSessionInfo().state).toBe("connected");
+    // Its POST, which brings its answer, still runs: the id is refused, unsent.
+    await expect(session.request("tools/call", { name: "b", arguments: {} }, { id: "x" })).rejects.toMatchObject({
+      code: "DUPLICATE_REQUEST_ID",
+      details: { method: "tools/call", id: "x" },
+    });
+    expect(posted).toEqual(["a", "boom"]);
+
+    // Its POST ends with its answer, which reaches no other request; then the id is free, and the
+    // next request under it gets its own answer.
+    releases.splice(0).forEach((release) => release());
+    await until(() => first.outcome, (outcome) => outcome !== undefined, "the first call settles", 5000);
+    expect(errorCode(first.outcome)).toBe("BOOM");
+    await expect(session.request("tools/call", { name: "c", arguments: {} }, { id: "x" })).resolves.toMatchObject({ id: "x", result: { answered: "c" } });
+    expect(posted).toEqual(["a", "boom", "c"]);
+  });
+
+  it.each<[string, (callbacks: PeerMcpTransportCallbacks | undefined) => void, string]>([
+    ["a transport error", (callbacks) => callbacks?.onError?.(new Error("one write failed")), "one write failed"],
+    ["an error frame", (callbacks) => callbacks?.onMessage?.({ type: "error", code: "BOOM", message: "boom" }), "boom"],
+  ])("is refused for another request while a request %s rejected is still sent or answered on the connection it left open, which still counts its slot", async (_label, reject, message) => {
+    // A relay socket whose send of the call named "held" runs until the test releases it; nothing is
+    // answered until the test answers it.
+    const sent: unknown[] = [];
+    const releases: Array<() => void> = [];
+    let callbacks: PeerMcpTransportCallbacks | undefined;
+    const session = new PeerMcpSession({
+      roomId: "room1",
+      requestTimeoutMs: 10_000,
+      transportFactory: (_url, _protocols, transportCallbacks) => {
+        callbacks = transportCallbacks;
+        transportCallbacks.onMessage?.({ type: "ready", role: "client", roomId: "room1" });
+        return {
+          readyState: "open",
+          send: async (value: PeerMcpTransportMessage) => {
+            const rpc = (value as { message: { params?: { name?: string } } }).message;
+            if (rpc.params?.name === "held") await new Promise<void>((resolve) => releases.push(resolve));
+            sent.push(rpc.params?.name);
+          },
+        };
+      },
+    });
+    sessions.push(session);
+    await session.connect();
+    const reply = (id: string, answered: string) => callbacks?.onMessage?.({ type: "mcp", message: { jsonrpc: "2.0", id, result: { answered } } });
+
+    // One request is sent and waits for its answer, one is still being sent, and 62 more fill the slots.
+    const first = track(session.request("tools/call", { name: "a", arguments: {} }, { id: "x" }));
+    const second = track(session.request("tools/call", { name: "held", arguments: {} }, { id: "w" }));
+    await until(() => releases.length, (count) => count === 1, "the second call's send", 5000);
+    for (let index = 1; index <= LIMIT - 2; index++) void session.request("tools/call", { name: "slow", arguments: {} }, { id: `slow-${index}` }).catch(() => {});
+    await until(() => sent.length, (count) => count === LIMIT - 1, "63 sent", 5000);
+
+    // The error rejects every request waiting for its answer, and the connection goes on.
+    reject(callbacks);
+    await until(() => first.outcome, (outcome) => outcome !== undefined, "the first call rejected", 5000);
+    expect(first.outcome).toMatchObject({ error: { message } });
+    expect(session.getSessionInfo().state).toBe("connected");
+    // Neither id is free: the first one's answer is still to come on this connection, and the second
+    // one is still being sent there.
+    await expect(session.request("tools/call", { name: "b", arguments: {} }, { id: "x" })).rejects.toMatchObject({ code: "DUPLICATE_REQUEST_ID" });
+    await expect(session.request("tools/call", { name: "b", arguments: {} }, { id: "w" })).rejects.toMatchObject({ code: "DUPLICATE_REQUEST_ID" });
+    releases.splice(0).forEach((release) => release());
+    await until(() => second.outcome, (outcome) => outcome !== undefined, "the second call settles", 5000);
+    expect(second.outcome).toMatchObject({ error: { message } });
+    await expect(session.request("tools/call", { name: "b", arguments: {} }, { id: "w" })).rejects.toMatchObject({ code: "DUPLICATE_REQUEST_ID" });
+    // The relay still counts the 64 requests sent: one more waits for a slot.
+    const past = track(session.request("tools/call", { name: "past", arguments: {} }, { id: "past" }));
+    await settle();
+    expect(sent).toHaveLength(LIMIT);
+    expect(sent).not.toContain("past");
+
+    // The first one's answer frees its id and its slot: the waiting request is sent, and a request
+    // under the id, once another slot is free, gets its own answer.
+    reply("x", "a");
+    await until(() => sent.at(-1), (name) => name === "past", "the waiting call sent", 5000);
+    expect(past.outcome).toBeUndefined();
+    reply("w", "held");
+    const next = track(session.request("tools/call", { name: "c", arguments: {} }, { id: "x" }));
+    await until(() => sent.at(-1), (name) => name === "c", "the call under the id sent", 5000);
+    reply("x", "c");
+    await until(() => next.outcome, (outcome) => outcome !== undefined, "the call under the id answered", 5000);
+    expect(next.outcome).toMatchObject({ value: { id: "x", result: { answered: "c" } } });
   });
 });
 

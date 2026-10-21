@@ -578,6 +578,10 @@ export class WebMcpPeerClient {
     return this.aiRuns.getAll();
   }
 
+  /**
+   * Calls `listener` with every AI run after each change to them. A listener that throws changes
+   * nothing of the runs or of the call that changed them (see {@link AiRunController.subscribe}).
+   */
   subscribeAiRuns(listener: (runs: readonly AiRunSnapshot[]) => void): () => void {
     return this.aiRuns.subscribe(() => listener(this.aiRuns.getAll()));
   }
@@ -1062,8 +1066,8 @@ export class WebMcpPeerClient {
         if (msg.type === "mcp" && msg.message) {
           // The relay stamps every request it forwards with the session of the ticket that sent it.
           const sessionId = typeof msg.sessionId === "string" ? msg.sessionId : undefined;
-          const rpcRes = await this.answerMcpRpc(msg.message, generation, "relay", sessionId);
-          if (rpcRes && ws.readyState === WebSocket.OPEN) {
+          await this.answerMcpRpc(msg.message, generation, "relay", sessionId, (rpcRes) => {
+            if (ws.readyState !== WebSocket.OPEN) return;
             // A reply over the relay's message limit would make it close this socket and drop
             // every agent of the room; it is answered with RESULT_TOO_LARGE instead.
             const reply = encodeRelayMcpReply(msg.message, rpcRes);
@@ -1074,7 +1078,7 @@ export class WebMcpPeerClient {
               );
             }
             if (reply.frame !== undefined) sendRelayFrame(ws, reply.frame, "mcp reply");
-          }
+          });
           return;
         }
 
@@ -1559,11 +1563,12 @@ export class WebMcpPeerClient {
         const params = isJsonObject(rpc.params) ? rpc.params : {};
         try {
           this.introduceRemotePeer(this.activeTransport, params.arguments, readAiTrace(params._meta));
-        } catch {}
+        } catch (error) {
+          console.warn("[WebMCP] Tool call awareness announcement failed:", error);
+        }
       }
 
-      const rpcRes = await this.answerMcpRpc(rpc, generation, "data-channel");
-      if (rpcRes) {
+      await this.answerMcpRpc(rpc, generation, "data-channel", undefined, (rpcRes) => {
         // A reply the framing cannot carry whole is answered with RESULT_TOO_LARGE instead.
         const reply = encodeDataChannelMcpReply(rpc, rpcRes);
         if (reply.oversizeCodeUnits !== undefined) {
@@ -1573,25 +1578,38 @@ export class WebMcpPeerClient {
               (reply.frame !== undefined ? "answered RESULT_TOO_LARGE instead." : "dropped it."),
           );
         }
-        if (reply.frame !== undefined) await this.sendFrame(channel, reply.frame);
-      }
+        return reply.frame !== undefined ? this.sendFrame(channel, reply.frame) : undefined;
+      });
     }
   }
 
-  /** {@link handleMcpRpc}, except that an unexpected exception still answers the request. */
+  /**
+   * Answers one request of the connection `generation` with `send`: the answer {@link handleMcpRpc}
+   * gives (where an unexpected exception answers −32603 `Internal error`), or nothing while that
+   * connection has ended: whatever ended it closed the channel the request came on, so no answer could
+   * reach its agent. This is the one place the answer of every request, on either channel, is held back
+   * for an ended connection, since the handler runs host code (the host adapter's `getServerInfo` and
+   * `listTools`, the host's tool, the ledger, `subscribeAiRuns` listeners) and waits, and any of that may
+   * end the connection before the answer is ready. `send` is called in the turn the connection is seen
+   * to last, since another request of the same read may end it in any later one. The handler checks the
+   * generation itself only to keep host code from running for an ended connection.
+   */
   private async answerMcpRpc(
     rpc: unknown,
     generation: number,
     channel: McpRequestChannel,
-    sessionId?: string,
-  ): Promise<ProviderRpcResponse | null> {
+    sessionId: string | undefined,
+    send: (answer: ProviderRpcResponse) => Promise<void> | void,
+  ): Promise<void> {
+    let answer: ProviderRpcResponse | null;
     try {
-      return await this.handleMcpRpc(rpc, generation, channel, sessionId);
+      answer = await this.handleMcpRpc(rpc, generation, channel, sessionId);
     } catch (error) {
       console.error("[WebMCP] MCP request handling failed:", error);
       const id = rpcRequestId(rpc);
-      return id === undefined ? null : { jsonrpc: "2.0", id, error: { code: -32603, message: "Internal error" } };
+      answer = id === undefined ? null : { jsonrpc: "2.0", id, error: { code: -32603, message: "Internal error" } };
     }
+    if (answer && generation === this.connectionGeneration) await send(answer);
   }
 
   /**
@@ -1620,14 +1638,18 @@ export class WebMcpPeerClient {
   ): Promise<ProviderRpcResponse | null> {
     if (!isJsonObject(rpc) || rpc.jsonrpc !== "2.0") return null;
     if (rpc.id === undefined) return null;
+    // A request of a connection that has ended is neither run nor answered: ending it closed the
+    // channel the request came on, so no answer could reach its agent. The frame handlers drop a
+    // frame of an ended connection before reading it; this catches a connection the host ended while
+    // the frame was read (a DataChannel tools/call first introduces its agent to the host's CRDT
+    // transport, which is host code), before the host adapter is asked anything. The answer is held
+    // back again once it is ready (see answerMcpRpc), as host code below may end the connection too.
+    if (generation !== this.connectionGeneration) return null;
     // An id that is not a string or a number, null included (MCP: an id MUST NOT be null), makes
     // the message an invalid request, which is answered and never run.
     const id = rpcRequestId(rpc);
     if (id === undefined) {
       return { jsonrpc: "2.0", id: null, error: { code: -32600, message: "Invalid Request" } };
-    }
-    if (generation !== this.connectionGeneration) {
-      return { jsonrpc: "2.0", id, error: peerRpcError("PEER_SESSION_SUPERSEDED") };
     }
 
     // An agent the relay let through but this provider has not approved (an HTTP approval, a
@@ -1702,12 +1724,33 @@ export class WebMcpPeerClient {
     return `remote-webmcp-${this.roomId ? this.roomId.slice(0, 6) : "remote"}`;
   }
 
+  /**
+   * Runs one `tools/call` of the connection `generation` (see R-PEER-013, R-PEER-016). What the host
+   * call gives, a host that throws included, and every refusal or replay of the run and ledger rules is
+   * a CallToolResult; the call is answered a JSON-RPC error only for invalid params (−32602) and, by
+   * {@link answerMcpRpc}, for an unexpected exception outside the host call, such as a ledger lookup
+   * that fails (−32603 `Internal error`). A connection that ends while the call is in flight (a
+   * revocation, an expiry, a replaced or closed socket, `disconnect()`) closed the channel the call came
+   * on, so {@link answerMcpRpc} answers the call with nothing, whatever this returns: its agent learns
+   * of it from the error the relay ended its request with (SESSION_INVALID for a revocation over HTTP,
+   * ROOM_EXPIRED or ROOM_ROTATED when the relay ended the room, PROVIDER_DISCONNECTED when the provider
+   * socket closed first; the call may have run), and, with a ledger, from the replay of a call made
+   * again under the same `context.requestId`. A call whose connection ended before the host was called
+   * is not run, whatever ended it: an event while the ledger looked it up, or host code the provider
+   * called first (the host adapter's `getServerInfo`, a `subscribeAiRuns` listener told of the call's
+   * run). One the host ran is still accounted for by the run that holds it, which only `disconnect()`
+   * clears: its action is settled, so the run can be stopped, rolled back and evicted, and its step
+   * recorded, so a rollback of the run undoes it. A run listener's `disconnect()` may clear the run
+   * while that is done, which then ends there (see {@link changeAiRun}); a listener that throws changes
+   * nothing of it (see {@link AiRunController.subscribe}), nor does a host CRDT transport that throws as
+   * the run is published to it (see {@link publishAiRunAwareness}).
+   */
   private async handleToolCall(
     id: JsonRpcRequestId,
     params: Record<string, unknown>,
     generation: number,
     webMcp: WebMcpHostAdapter | undefined,
-  ): Promise<ProviderRpcResponse> {
+  ): Promise<ProviderRpcResponse | null> {
     const name = nonEmptyString(params.name);
     if (!name) return { jsonrpc: "2.0", id, error: { code: -32602, message: "tools/call params are invalid" } };
     const args = isJsonObject(params.arguments) ? params.arguments : {};
@@ -1722,6 +1765,9 @@ export class WebMcpPeerClient {
     const context = isJsonObject(args.context) ? args.context : undefined;
     const durableRequestId = nonEmptyString(context?.requestId);
     if (this.aiRunLedger && durableRequestId) {
+      // The lookup gives the connection time to end: a call of an ended connection is not answered,
+      // the ledger's record of it included (answerMcpRpc), nor run (below). A lookup that fails is an
+      // exception outside the host call, which answerMcpRpc answers −32603 while the connection lasts.
       const previous = await this.aiRunLedger.find(runId, durableRequestId);
       if (previous?.status === "outcome-unknown") {
         return {
@@ -1742,6 +1788,10 @@ export class WebMcpPeerClient {
         return { jsonrpc: "2.0", id, result: interpretHostResult(replay).result };
       }
     }
+    // The ledger lookup, and host code since the request handler checked the generation (the host
+    // adapter's `getServerInfo`), may have ended the connection. A call of an ended connection is not
+    // run, nor begun as a run, which would outlive the `disconnect()` that cleared the runs.
+    if (generation !== this.connectionGeneration) return null;
     const controller = new AbortController();
     let runSnapshot: AiRunSnapshot;
     try {
@@ -1758,6 +1808,9 @@ export class WebMcpPeerClient {
         }),
       };
     }
+    // A run begun anew is announced to the host's run listeners (`subscribeAiRuns`), which may end the
+    // connection too: their `disconnect()` cleared that run.
+    if (generation !== this.connectionGeneration) return null;
     if (
       runSnapshot.phase === "stopped" ||
       runSnapshot.phase === "completed" ||
@@ -1771,6 +1824,11 @@ export class WebMcpPeerClient {
       };
     }
     this.aiRuns.registerAction(runId, requestId, controller);
+    // So is the action registered on the run. The host is called only while the call's connection
+    // lasts. Host code ends a connection with `disconnect()` (which `connect()` and `revokeClient()`
+    // call), which aborted the action and cleared its run, so nothing is left in flight.
+    if (generation !== this.connectionGeneration) return null;
+    let settled = false;
     try {
       const res = await webMcp?.invoke?.(name, args, { signal: controller.signal });
       const outcome = interpretHostResult(res);
@@ -1800,35 +1858,58 @@ export class WebMcpPeerClient {
           console.warn("[WebMCP] AI run ledger rejected receipt:", error);
         }
       }
-      if (generation !== this.connectionGeneration || !this.aiRuns.get(runId)) {
-        return { jsonrpc: "2.0", id, error: peerRpcError("OUTCOME_UNKNOWN") };
+      // The host ran the call: the run holding it accounts for it even when the call's connection
+      // ended meanwhile.
+      if (this.aiRuns.hasAction(runId, requestId)) {
+        settled = true;
+        this.changeAiRun(
+          runId,
+          () => this.aiRuns.settleAction(runId, requestId),
+          () =>
+            this.aiRuns.recordStep(runId, {
+              actionId: name,
+              stepIndex,
+              ...(operationId ? { operationId } : {}),
+              ...(transactionId ? { transactionId } : {}),
+              ...(receipt ? { requestId: receipt.requestId } : {}),
+            }),
+          () => {
+            if (controller.signal.aborted) this.aiRuns.stop(runId, "stopped by host");
+            else if (explicitRunId && outcome.failed) this.aiRuns.fail(runId, outcome.failureMessage);
+            else if (explicitRunId && trace?.phase === "completed") this.aiRuns.complete(runId);
+          },
+        );
       }
-      this.aiRuns.settleAction(runId, requestId);
-      this.aiRuns.recordStep(runId, {
-        actionId: name,
-        stepIndex,
-        ...(operationId ? { operationId } : {}),
-        ...(transactionId ? { transactionId } : {}),
-        ...(receipt ? { requestId: receipt.requestId } : {}),
-      });
-      if (controller.signal.aborted) this.aiRuns.stop(runId, "stopped by host");
-      else if (explicitRunId && outcome.failed) this.aiRuns.fail(runId, outcome.failureMessage);
-      else if (explicitRunId && trace?.phase === "completed") this.aiRuns.complete(runId);
-      const updated = this.aiRuns.get(runId);
-      if (updated) this.publishAiRunAwareness(updated);
       return { jsonrpc: "2.0", id, result: outcome.result };
     } catch (err) {
       const message = errorMessage(err, "Tool execution error");
-      if (generation !== this.connectionGeneration || !this.aiRuns.get(runId)) {
-        return { jsonrpc: "2.0", id, error: peerRpcError("OUTCOME_UNKNOWN") };
+      if (settled || this.aiRuns.hasAction(runId, requestId)) {
+        this.changeAiRun(
+          runId,
+          () => this.aiRuns.settleAction(runId, requestId),
+          () => {
+            if (controller.signal.aborted) this.aiRuns.stop(runId, "stopped by host");
+            else if (explicitRunId) this.aiRuns.fail(runId, message);
+          },
+        );
       }
-      this.aiRuns.settleAction(runId, requestId);
-      if (controller.signal.aborted) this.aiRuns.stop(runId, "stopped by host");
-      else if (explicitRunId) this.aiRuns.fail(runId, message);
-      const updated = this.aiRuns.get(runId);
-      if (updated) this.publishAiRunAwareness(updated);
       return { jsonrpc: "2.0", id, result: toolErrorResult({ code: -32603, message }) };
     }
+  }
+
+  /**
+   * Makes `changes` to the AI run `runId` in turn, each only while the controller still tracks the
+   * run, then publishes the run as they left it. Every change tells the run listeners
+   * (`subscribeAiRuns`), and a listener's `disconnect()` clears every run, so the run a call holds may
+   * be gone before its next change: the changes then end there, and nothing is published.
+   */
+  private changeAiRun(runId: string, ...changes: ReadonlyArray<() => unknown>): void {
+    for (const change of changes) {
+      if (!this.aiRuns.get(runId)) return;
+      change();
+    }
+    const updated = this.aiRuns.get(runId);
+    if (updated) this.publishAiRunAwareness(updated);
   }
 
   /**
@@ -2105,28 +2186,38 @@ export class WebMcpPeerClient {
     }
   }
 
+  /**
+   * Tells the host's CRDT transport of `run` as a change left it. The publication is the host's
+   * presence view of the run, not part of it: a transport that throws is logged and changes nothing of
+   * the run or of what changed it (a tool call's bookkeeping and answer, `stopAiRun`, `rollbackAiRun`),
+   * as at every other place the provider introduces its agent to the transport.
+   */
   private publishAiRunAwareness(run: AiRunSnapshot): void {
     if (!this.activeTransport || this.state !== "connected" || this.approvalState !== "approved") return;
     const latestPoint = run.cursorTrail[run.cursorTrail.length - 1];
     const selection = this.aiRunSelections.get(run.runId);
-    this.introduceRemotePeer(
-      this.activeTransport,
-      latestPoint
-        ? {
-            slideId: latestPoint.slideId,
-            x: latestPoint.x,
-            y: latestPoint.y,
-            ...(selection ? { nodeIds: selection.nodeIds } : {}),
-          }
-        : selection,
-      {
-        runId: run.runId,
-        actionId: run.actionId,
-        stepIndex: run.stepIndex,
-        phase: run.phase,
-        cursorTrail: run.cursorTrail,
-      },
-    );
+    try {
+      this.introduceRemotePeer(
+        this.activeTransport,
+        latestPoint
+          ? {
+              slideId: latestPoint.slideId,
+              x: latestPoint.x,
+              y: latestPoint.y,
+              ...(selection ? { nodeIds: selection.nodeIds } : {}),
+            }
+          : selection,
+        {
+          runId: run.runId,
+          actionId: run.actionId,
+          stepIndex: run.stepIndex,
+          phase: run.phase,
+          cursorTrail: run.cursorTrail,
+        },
+      );
+    } catch (error) {
+      console.warn("[WebMCP] AI run awareness publication failed:", error);
+    }
   }
 
   /**

@@ -102,6 +102,15 @@ export function assertWithinRelayIdLimit(id: string | number): void {
   }
 }
 
+/** The error a built-in transport's send fails with once the transport is closed (see `PeerMcpTransport`). */
+function transportClosedError(): PeerMcpError {
+  return new PeerMcpError("Peer transport is closed", "TRANSPORT_CLOSED");
+}
+
+/**
+ * A WebSocket transport on one new socket, for one connection: once closed it sends nothing more
+ * (TRANSPORT_CLOSED), so nothing passed to it reaches a later connection (see `PeerMcpTransport`).
+ */
 export function createWebSocketTransport(
   url: string,
   protocols: string[],
@@ -122,6 +131,7 @@ export function createWebSocketTransport(
   };
   const socket = new Ctor(url, protocols);
   let opened = false;
+  let closed = false;
   const onOpen = () => {
     opened = true;
     callbacks.onOpen?.();
@@ -148,6 +158,7 @@ export function createWebSocketTransport(
   return {
     socket,
     send(value: PeerMcpTransportMessage) {
+      if (closed) throw transportClosedError();
       if (!opened && socket.readyState !== undefined && socket.readyState !== 1) {
         throw new PeerMcpError("WebSocket is not open", "TRANSPORT_NOT_OPEN");
       }
@@ -156,6 +167,7 @@ export function createWebSocketTransport(
       socket.send(serialized);
     },
     close() {
+      closed = true;
       try {
         socket.close?.();
       } catch {}
@@ -212,6 +224,11 @@ function eventStreamMessages(text: string): Record<string, unknown>[] {
   return messages;
 }
 
+/**
+ * A Streamable HTTP transport, for one connection: each send is one POST, which brings the answer.
+ * Once closed it posts nothing more (TRANSPORT_CLOSED) and reports nothing of a POST that ends after
+ * its close, so nothing passed to it reaches a later connection (see `PeerMcpTransport`).
+ */
 export function createHttpTransport(
   url: string,
   fetchImpl: typeof fetch | undefined,
@@ -222,11 +239,16 @@ export function createHttpTransport(
     throw new PeerMcpError("fetch is unavailable; provide transportFactory", "TRANSPORT_UNAVAILABLE");
   }
   const { clientToken } = options;
+  let closed = false;
+  const deliver = (message: unknown): void => {
+    if (!closed) callbacks.onMessage?.(message);
+  };
   callbacks.onOpen?.();
-  callbacks.onMessage?.({ type: "ready", role: "client", transport: "http" });
+  deliver({ type: "ready", role: "client", transport: "http" });
   return {
     raw: true,
     async send(value: PeerMcpTransportMessage) {
+      if (closed) throw transportClosedError();
       const valObj = typeof value === "object" && value !== null ? (value as Record<string, unknown>) : undefined;
       const rpc = (valObj?.type === "mcp" && valObj.message ? valObj.message : value) as Record<string, unknown>;
       const body = JSON.stringify(rpc);
@@ -246,7 +268,7 @@ export function createHttpTransport(
       });
       const text = await readResponseText(response);
       if (response.ok && /^text\/event-stream\b/i.test(response.headers.get("content-type") ?? "")) {
-        for (const message of eventStreamMessages(text)) callbacks.onMessage?.(message);
+        for (const message of eventStreamMessages(text)) deliver(message);
         return;
       }
       const responseBody = parseJsonObject(text);
@@ -256,7 +278,7 @@ export function createHttpTransport(
         // delay a `Retry-After` asks for (e.g. on 503 PROVIDER_BUSY) goes with it as `retryAfterMs`,
         // the least the session waits before sending a retryable request again.
         const retryAfter = retryAfterMs(response.headers.get("retry-after"));
-        callbacks.onMessage?.({
+        deliver({
           ...responseBody,
           id: responseBody.id ?? rpc?.id,
           error: {
@@ -268,7 +290,7 @@ export function createHttpTransport(
         return;
       }
       if (!response.ok) {
-        callbacks.onMessage?.({
+        deliver({
           jsonrpc: "2.0",
           id: rpc?.id,
           error: {
@@ -278,8 +300,10 @@ export function createHttpTransport(
         });
         return;
       }
-      callbacks.onMessage?.(responseBody);
+      deliver(responseBody);
     },
-    close() {},
+    close() {
+      closed = true;
+    },
   };
 }

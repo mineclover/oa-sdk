@@ -246,6 +246,15 @@ function isRpcCallMessage(value: unknown): value is Record<string, unknown> {
 }
 
 /**
+ * The notification that tells the room's agents the relay's catalog changed, naming the
+ * `catalogVersion` and `catalogHash` their calls must carry. Only the relay sends it, for a catalog
+ * it took (see `replaceNormalizedCatalog`); a provider tells the relay of its catalog with
+ * `register`, and its own notification of this method is dropped, since the stamp it carries need
+ * not be the relay's.
+ */
+const CATALOG_CHANGED_NOTIFICATION = 'notifications/tools/list_changed';
+
+/**
  * What the relay did with a catalog a provider sent; see `acceptProviderCatalog`. `unchanged` is a
  * valid catalog that fits and hashes like the one the relay already holds, so nothing changed.
  */
@@ -1250,6 +1259,30 @@ export class WebMcpPeerServer {
     return wireId;
   }
 
+  /**
+   * Why the relay does not forward the `tools/call` `rpc` to the provider of the room `entry`, with
+   * the HTTP status that answers it, or undefined when it may go: params without a non-empty string
+   * `name`, a catalog stamp in `params._meta` that is not the room's (CATALOG_CHANGED, naming the
+   * room's), or a tool the room's catalog does not list (a room without a catalog skips that one).
+   * Both transports check every `tools/call` with it, one without an id included, so no call reaches
+   * a host whose catalog it was not made for, whether or not that host runs a notification.
+   */
+  protected toolCallRefusal(entry: RoomEntry, rpc: RpcRequest): { status: number; error: RpcErrorBody } | undefined {
+    const params = this.isRecord(rpc.params) ? rpc.params : null;
+    if (!params || typeof params.name !== 'string' || !params.name) {
+      return { status: 400, error: { code: -32602, message: 'tools/call params are invalid' } };
+    }
+    const metadata = this.isRecord(params._meta) ? params._meta : null;
+    if ((typeof metadata?.catalogVersion === 'number' && metadata.catalogVersion !== entry.catalogVersion)
+      || (typeof metadata?.catalogHash === 'string' && metadata.catalogHash !== entry.catalogHash)) {
+      return { status: 409, error: peerRpcError('CATALOG_CHANGED', { catalogVersion: entry.catalogVersion, catalogHash: entry.catalogHash }) };
+    }
+    if (entry.cachedTools && !entry.cachedTools.some(tool => this.isRecord(tool) && tool.name === params.name)) {
+      return { status: 400, error: peerRpcError('TOOL_NOT_FOUND') };
+    }
+    return undefined;
+  }
+
   protected hasPendingRequest(entry: RoomEntry, socket: PeerSocket, id: string | number): boolean {
     for (const pending of entry.mcpPending.values()) {
       if (pending.socket === socket && pending.id === id) return true;
@@ -1558,7 +1591,7 @@ export class WebMcpPeerServer {
       type: 'mcp',
       message: {
         jsonrpc: '2.0',
-        method: 'notifications/tools/list_changed',
+        method: CATALOG_CHANGED_NOTIFICATION,
         params: { catalogVersion: entry.catalogVersion, catalogHash: entry.catalogHash },
       },
     });
@@ -2376,7 +2409,7 @@ export class WebMcpPeerServer {
   /**
    * The room's ticket for the client token `token`, looked up by the token's hash (see `secretHash`),
    * or null when the room issued no such token. A room found expired here has its expiry carried
-   * out first (see `expireRoomIfDue`), which ends the ticket as `expired`.
+   * out first (see `expireRoomIfDue`), which ends the ticket as `expired` unless it had ended.
    */
   protected resolveClientTicket(entry: RoomEntry, token: string): ClientSessionTicket | null {
     const ticket = entry.clientTickets.get(secretHash(token));
@@ -2846,9 +2879,18 @@ export class WebMcpPeerServer {
     return peerRpcError('SESSION_INVALID');
   }
 
-  /** Ends every ticket of the room as `status` (see `closeClientTicket`) and every request in flight. */
+  /**
+   * Ends every ticket of the room as `status` (see `closeClientTicket`) and every request in flight.
+   * The room's expiry (`expired`) ends only the tickets still live, pending or approved: a ticket
+   * that ended before keeps how and when it ended, as it does when its own `expiresAt` passes (see
+   * `resolveClientTicket`), so its session status still tells a rejection or a revocation from the
+   * room's expiry. A revocation of every session and a rotation end every ticket as they say.
+   */
   protected revokeAllClientTickets(entry: RoomEntry, reason: string, status: Exclude<TicketEndStatus, 'rejected'> = 'revoked'): void {
-    for (const [tokenHash] of entry.clientTickets) this.closeClientTicket(entry, tokenHash, status, reason);
+    for (const [tokenHash, ticket] of entry.clientTickets) {
+      if (status === 'expired' && ticket.status !== 'pending' && ticket.status !== 'approved') continue;
+      this.closeClientTicket(entry, tokenHash, status, reason);
+    }
     // Ending a ticket settles every request it authorized (see `closeClientTicket`). Any request
     // still in flight is settled too, so no caller waits for an answer from a room that is done.
     const error = this.ticketClosedRpcError(entry, status);
@@ -2862,8 +2904,9 @@ export class WebMcpPeerServer {
   }
 
   /**
-   * Carries out the expiry of the room `entry`, once: every ticket ends as `expired` (its client
-   * sockets get `room.expired` and are closed, and their requests in flight get ROOM_EXPIRED), the
+   * Carries out the expiry of the room `entry`, once: every live ticket ends as `expired` (its client
+   * sockets get `room.expired` and are closed, and their requests in flight get ROOM_EXPIRED; one
+   * that ended before keeps its status, see `revokeAllClientTickets`), the
    * HTTP requests in flight get ROOM_EXPIRED too, and the provider socket is closed with 4002
    * ROOM_EXPIRED, which tells it why without a frame and keeps it from reconnecting. The room stays
    * until its retention ends (see `cleanupExpiredRooms`), and its lifecycle routes answer 410
@@ -3306,25 +3349,10 @@ export class WebMcpPeerServer {
         this.sendJson(res, 404, { jsonrpc: '2.0', id, error: peerRpcError('ROOM_NOT_FOUND', { roomId }) }, origin);
         return;
       }
-      if (rpc.method === 'tools/call') {
-        const params = this.isRecord(rpc.params) ? rpc.params : null;
-        if (!params || typeof params.name !== 'string' || !params.name) {
-          this.sendJson(res, 400, { jsonrpc: '2.0', id, error: { code: -32602, message: 'tools/call params are invalid' } }, origin);
-          return;
-        }
-        const metadata = this.isRecord(params._meta) ? params._meta : null;
-        if ((typeof metadata?.catalogVersion === 'number' && metadata.catalogVersion !== entry.catalogVersion)
-          || (typeof metadata?.catalogHash === 'string' && metadata.catalogHash !== entry.catalogHash)) {
-          this.sendJson(res, 409, {
-            jsonrpc: '2.0', id,
-            error: peerRpcError('CATALOG_CHANGED', { catalogVersion: entry.catalogVersion, catalogHash: entry.catalogHash }),
-          }, origin);
-          return;
-        }
-        if (entry.cachedTools && !entry.cachedTools.some(tool => this.isRecord(tool) && tool.name === params.name)) {
-          this.sendJson(res, 400, { jsonrpc: '2.0', id, error: peerRpcError('TOOL_NOT_FOUND') }, origin);
-          return;
-        }
+      const toolCallRefusal = rpc.method === 'tools/call' ? this.toolCallRefusal(entry, rpc) : undefined;
+      if (toolCallRefusal) {
+        this.sendJson(res, toolCallRefusal.status, { jsonrpc: '2.0', id, error: toolCallRefusal.error }, origin);
+        return;
       }
       if (!entry.providerSocket) {
         this.sendJson(res, 503, { jsonrpc: '2.0', id, error: PROVIDER_UNAVAILABLE_ERROR }, origin);
@@ -3876,9 +3904,13 @@ export class WebMcpPeerServer {
               }
               // A notification or a request to the agents goes to every agent the provider serves,
               // the sockets of an approved ticket, which did not ask for it: an agent that is behind
-              // skips it. An `mcp` frame that carries no JSON-RPC message is dropped.
+              // skips it. An `mcp` frame that carries no JSON-RPC message is dropped, and so is the
+              // provider's own catalog notification: only the relay says what catalog calls are
+              // checked against.
               if (msg.type === 'mcp') {
-                if (isRpcCallMessage(msg.message)) this.broadcastToAgents(entry, msg, { approvedOnly: true });
+                if (isRpcCallMessage(msg.message) && msg.message.method !== CATALOG_CHANGED_NOTIFICATION) {
+                  this.broadcastToAgents(entry, msg, { approvedOnly: true });
+                }
                 return;
               }
               // The answer to an offer goes to the socket that sent it.
@@ -4004,34 +4036,19 @@ export class WebMcpPeerServer {
                 // What reaches the provider says who sent it in the relay's own words: whatever
                 // `from` or `sessionId` the client put on its frame is replaced.
                 const stamp = { from: 'client', sessionId: clientTicket.sessionId };
+                // Checked as over HTTP, with or without an id, before anything reaches the provider.
+                // A notification it refuses has no one to answer, so it is dropped.
+                const toolCallRefusal = rpc.method === 'tools/call' ? this.toolCallRefusal(entry, rpc) : undefined;
+                if (toolCallRefusal) {
+                  this.sendRpcError(peer, id, toolCallRefusal.error.code, toolCallRefusal.error.message, toolCallRefusal.error.data);
+                  return;
+                }
                 if (id === undefined) {
                   // A notification has no one to answer, so one the provider cannot take now (its
                   // queue is full, or it is too large) is dropped; a provider socket that is already
                   // closing is still detached, so the next request gets PROVIDER_UNAVAILABLE.
                   if (entry.providerSocket?.send({ ...msg, ...stamp }) === 'closed') this.detachClosedProvider(entry);
                   return;
-                }
-                if (rpc.method === 'tools/call') {
-                  const params = this.isRecord(rpc.params) ? rpc.params : null;
-                  if (!params || typeof params.name !== 'string' || !params.name) {
-                    this.sendRpcError(peer, id, -32602, 'tools/call params are invalid');
-                    return;
-                  }
-                  const metadata = this.isRecord(params._meta) ? params._meta : null;
-                  const version = metadata?.catalogVersion;
-                  const hash = metadata?.catalogHash;
-                  if ((typeof version === 'number' && version !== entry.catalogVersion)
-                    || (typeof hash === 'string' && hash !== entry.catalogHash)) {
-                    this.sendPeerRpcError(peer, id, 'CATALOG_CHANGED', {
-                      catalogVersion: entry.catalogVersion,
-                      catalogHash: entry.catalogHash,
-                    });
-                    return;
-                  }
-                  if (entry.cachedTools && !entry.cachedTools.some(tool => this.isRecord(tool) && tool.name === params.name)) {
-                    this.sendPeerRpcError(peer, id, 'TOOL_NOT_FOUND');
-                    return;
-                  }
                 }
                 if (this.hasPendingRequest(entry, peer, id)) {
                   this.sendPeerRpcError(peer, id, 'DUPLICATE_REQUEST_ID');

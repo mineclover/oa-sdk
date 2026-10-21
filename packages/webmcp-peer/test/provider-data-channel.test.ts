@@ -5,9 +5,23 @@
 //     requestId is not answered, and the answer waits at most 2 s for ICE gathering;
 //   - the framing is the same in both directions: the provider sends a frame in at most 512 chunks
 //     of 2048 UTF-16 code units, the most an agent of the same framing assembles, replaces a reply
-//     too large for that with RESULT_TOO_LARGE, and does not send any other frame that large.
+//     too large for that with RESULT_TOO_LARGE, and does not send any other frame that large;
+//   - a request whose connection the host ended while the provider read it is neither run nor
+//     answered, nor is one whose connection the host ended as the provider listed its catalog, nor
+//     one whose answer was ready when another request of the same read ended the connection;
+//   - a host CRDT transport that throws as the provider publishes an AI run to it changes nothing
+//     of the call that changed the run, nor of the host's stop and rollback of the run, and its
+//     exception is logged wherever the provider tells it of its agent;
+//   - an AI run is published through the transport's receiveVerified, or its receiveExternal when it
+//     has none, and only in a room with the mcp-crdt capability.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { WebMcpPeerClient, type WebMcpHostAdapter, type WebMcpToolSummary } from "../src/provider.js";
+import {
+  WebMcpPeerClient,
+  type CommitReceipt,
+  type WebMcpCrdtTransport,
+  type WebMcpHostAdapter,
+  type WebMcpToolSummary,
+} from "../src/provider.js";
 import {
   AGENT_SESSION_ID,
   FakeDataChannel,
@@ -68,12 +82,12 @@ const readTool: WebMcpToolSummary = { name: "read", description: "read tool", in
 /**
  * A provider on a FakeRelay whose agent is approved, with the relay's echo of the approval (which
  * prepares a peer connection, as on the relay). With `enableCrdt`, the room has the `mcp-crdt`
- * capability.
+ * capability; `listTools` replaces the host adapter's listing of `tools`.
  */
 async function approvedProvider(
   tools: WebMcpToolSummary[],
   invoke: WebMcpHostAdapter["invoke"] = async () => ({ ok: true }),
-  options: { enableCrdt?: boolean } = {},
+  options: { enableCrdt?: boolean; listTools?: () => WebMcpToolSummary[] } = {},
 ) {
   vi.stubGlobal("RTCPeerConnection", FakePeerConnection);
   const relay = new FakeRelay();
@@ -86,7 +100,10 @@ async function approvedProvider(
       return Response.json({ ...descriptor, capabilities: ["mcp-control", "mcp-crdt"] }, { status: response.status });
     });
   }
-  const host = new WebMcpPeerClient({ hostAdapter: { listTools: () => tools, invoke }, shouldSuppressAutoReconnect: () => false });
+  const host = new WebMcpPeerClient({
+    hostAdapter: { listTools: options.listTools ?? (() => tools), invoke },
+    shouldSuppressAutoReconnect: () => false,
+  });
   providers.push(host);
   await host.connect({ serverUrl: relay.base, alias: "data-channel", ...(options.enableCrdt ? { enableCrdt: true } : {}) });
   await approve(host, relay.latest, relay.roomId);
@@ -221,5 +238,247 @@ describe("DataChannel framing", () => {
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(new RegExp(`DataChannel frame exceeds the ${FRAME_LIMIT}-code-unit message limit; it was not sent\\.$`)));
     await host.sendCrdt({ type: "crdt.update", documentId: "doc-1", update: "fits" });
     expect(channel.frames().filter((frame) => frame.type === "crdt")).toHaveLength(1);
+  });
+});
+
+describe("a request of a connection that ended while the provider read it", () => {
+  it("is neither run nor answered when the host ended the session as the agent's tools/call reached its CRDT transport", async () => {
+    const invoke = vi.fn(async () => ({ ok: true }));
+    const { host, socket } = await approvedProvider([readTool], invoke, { enableCrdt: true });
+    await offer(socket, "offer-1");
+    const channel = await openChannel();
+    // A host transport that ends the session when it is next told of the agent: the provider tells it
+    // of the agent of a DataChannel tools/call before it reads the request.
+    let endOnNextAgent = false;
+    const transport: WebMcpCrdtTransport = {
+      documentId: "doc-1",
+      attachCarrier: () => () => {},
+      broadcastAwareness: () => {},
+      receiveExternal: () => {},
+      receiveVerified: () => {
+        if (endOnNextAgent) {
+          endOnNextAgent = false;
+          host.disconnect();
+        }
+        return true;
+      },
+    };
+    host.attachCrdtTransport(transport);
+    // The channel stays open to the provider, so an answer the provider gives is recorded, not hidden by
+    // the channel's close.
+    channel.holdOpen();
+    const sentBefore = channel.sent.length;
+
+    endOnNextAgent = true;
+    channel.deliver({ type: "mcp", message: { jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "read", arguments: {} } } });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(endOnNextAgent).toBe(false);
+    expect(host.getSession().state).toBe("idle");
+    expect(invoke).not.toHaveBeenCalled();
+    expect(channel.sent.slice(sentBefore)).toEqual([]);
+  });
+});
+
+describe("a request of a connection the host ended before its answer was ready", () => {
+  it.each(["tools/list", "server/discover"])("is not answered when the host's listTools ends the session as the provider lists the catalog for %s", async (method) => {
+    // Ends the session once, from the host's listTools, after the test arms it.
+    let endSession = false;
+    const { host, socket } = await approvedProvider([readTool], undefined, {
+      listTools: () => {
+        if (endSession) {
+          endSession = false;
+          host.disconnect();
+        }
+        return [readTool];
+      },
+    });
+    await offer(socket, "offer-1");
+    const channel = await openChannel();
+    // While the session lasts, the request is answered with the live host catalog.
+    channel.deliver({ type: "mcp", message: { jsonrpc: "2.0", id: 1, method } });
+    expect((await channel.replyTo(1)).result).toMatchObject({ tools: [{ name: "read" }] });
+    // The channel stays open to the provider, so an answer the provider gives is recorded, not hidden by
+    // the channel's close.
+    channel.holdOpen();
+    const sentBefore = channel.sent.length;
+
+    endSession = true;
+    channel.deliver({ type: "mcp", message: { jsonrpc: "2.0", id: 2, method } });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(endSession).toBe(false);
+    expect(host.getSession().state).toBe("idle");
+    expect(channel.sent.slice(sentBefore)).toEqual([]);
+  });
+});
+
+describe("a request that comes in one read with a tools/call whose run listener ends the connection", () => {
+  it("is not answered once the connection ended, when a ping comes first and the listener ends the session as the call settles", async () => {
+    const invoke = vi.fn(async () => ({ ok: true }));
+    const { host, socket } = await approvedProvider([readTool], invoke);
+    await offer(socket, "offer-1");
+    const channel = await openChannel();
+    // The chunks the provider had sent when the listener ended the session, at the first change to the
+    // runs once the host was called: the call settling its action.
+    let sentAtEnd: number | undefined;
+    host.subscribeAiRuns(() => {
+      if (sentAtEnd !== undefined || invoke.mock.calls.length === 0) return;
+      sentAtEnd = channel.sent.length;
+      host.disconnect();
+    });
+    // The channel stays open to the provider, so an answer the provider gives is recorded, not hidden by
+    // the channel's close.
+    channel.holdOpen();
+
+    // Both requests reach the provider in one turn: the ping's answer is ready before the call settles,
+    // and the call's continuation ends the session in a later turn.
+    channel.deliver({ type: "mcp", message: { jsonrpc: "2.0", id: 1, method: "ping" } });
+    channel.deliver({ type: "mcp", message: { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "read", arguments: {} } } });
+    const ended = await until(() => sentAtEnd, "the listener ended the session");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(host.getSession().state).toBe("idle");
+    // Nothing was sent on the channel after the session ended, neither the call's answer nor the ping's.
+    expect(channel.sent.slice(ended)).toEqual([]);
+  });
+});
+
+describe("a host CRDT transport that throws as the provider publishes an AI run to it", () => {
+  const receipt: CommitReceipt = {
+    status: "durable",
+    requestId: "r1",
+    documentId: "d1",
+    transactionId: "t1",
+    committedAt: "2026-10-18T00:00:00.000Z",
+    operationId: "op1",
+    replicaId: "rep1",
+  };
+
+  it("changes nothing of a call's answer or run, nor makes stopAiRun or rollbackAiRun throw", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const invoke = vi.fn(async () => ({ ok: true, receipt }));
+    const { host, socket } = await approvedProvider([readTool], invoke, { enableCrdt: true });
+    await offer(socket, "offer-1");
+    const channel = await openChannel();
+    // A transport that throws whenever the provider tells it of the agent: as it is attached, as a call
+    // comes, and as a call's run changes once the host committed the write.
+    const failure = new Error("the CRDT transport failed");
+    host.attachCrdtTransport({
+      documentId: "doc-1",
+      attachCarrier: () => () => {},
+      broadcastAwareness: () => {},
+      receiveExternal: () => {},
+      receiveVerified: () => {
+        throw failure;
+      },
+    });
+    const call = (id: number, runId?: string) =>
+      channel.deliver({
+        type: "mcp",
+        message: {
+          jsonrpc: "2.0",
+          id,
+          method: "tools/call",
+          params: { name: "write", arguments: {}, ...(runId ? { _meta: { framebook: { aiTrace: { runId } } } } : {}) },
+        },
+      });
+
+    // The committed write is answered with its result, and its run records it and stays open.
+    call(1, "task-crdt-throws");
+    const reply = await channel.replyTo(1);
+    expect(reply.error).toBeUndefined();
+    expect(reply.result).toMatchObject({ isError: false, structuredContent: { ok: true, receipt } });
+    expect(host.getAiRun("task-crdt-throws")).toMatchObject({ phase: "running", operationIds: ["op1"], transactionIds: { op1: "t1" } });
+    // So the run takes the agent's next call, and an untraced call is answered with its result too.
+    call(2, "task-crdt-throws");
+    expect((await channel.replyTo(2)).result).toMatchObject({ isError: false });
+    call(3);
+    expect((await channel.replyTo(3)).result).toMatchObject({ isError: false });
+    expect(invoke).toHaveBeenCalledTimes(3);
+
+    // Nor do the host's stop and rollback of the run throw, and the rollback undoes the write.
+    expect(host.stopAiRun("task-crdt-throws")).toMatchObject({ phase: "stopped" });
+    const undo = vi.fn(() => "rolled-back" as const);
+    await expect(host.rollbackAiRun("task-crdt-throws", undo)).resolves.toMatchObject({ phase: "rolled-back" });
+    expect(undo).toHaveBeenCalledWith("op1", 0);
+    // The transport's failure is logged.
+    expect(warn).toHaveBeenCalledWith("[WebMCP] AI run awareness publication failed:", failure);
+  });
+
+  it("is logged every time the provider tells it of its agent: as it is attached, as a tools/call comes and as the call's run changes", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { host, socket } = await approvedProvider([readTool], async () => ({ ok: true, receipt }), { enableCrdt: true });
+    await offer(socket, "offer-1");
+    const channel = await openChannel();
+    const failure = new Error("the CRDT transport failed");
+    let throws = 0;
+    host.attachCrdtTransport({
+      documentId: "doc-1",
+      attachCarrier: () => () => {},
+      broadcastAwareness: () => {},
+      receiveExternal: () => {},
+      receiveVerified: () => {
+        throws += 1;
+        throw failure;
+      },
+    });
+
+    channel.deliver({ type: "mcp", message: { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "write", arguments: {} } } });
+    expect((await channel.replyTo(1)).result).toMatchObject({ isError: false });
+    const logged = warn.mock.calls.filter(([, error]) => error === failure).map(([message]) => message);
+    expect(logged).toEqual([
+      "[WebMCP] Failed to announce initial awareness:",
+      "[WebMCP] Tool call awareness announcement failed:",
+      "[WebMCP] AI run awareness publication failed:",
+    ]);
+    expect(throws).toBe(logged.length);
+  });
+});
+
+describe("an AI run of a DataChannel session", () => {
+  /** The agent phase of an awareness the provider hands the transport, bare or in a carrier envelope. */
+  const phaseOf = (value: unknown): unknown => {
+    const frame = value as { message?: { agent?: { phase?: unknown } }; agent?: { phase?: unknown } };
+    return (frame.message ?? frame).agent?.phase;
+  };
+
+  it.each<[string, boolean, boolean, string[]]>([
+    ["through receiveVerified, in a room with the mcp-crdt capability, by a transport that has it", true, true, ["receiveVerified"]],
+    ["through receiveExternal, in a room with the mcp-crdt capability, by a transport without receiveVerified", true, false, ["receiveExternal"]],
+    ["not at all in a room with an epoch but without the mcp-crdt capability", false, true, []],
+  ])("is published to the host's CRDT transport %s", async (_label, enableCrdt, verified, expected) => {
+    const { host, socket } = await approvedProvider([readTool], async () => ({ ok: true }), { enableCrdt });
+    await offer(socket, "offer-1");
+    const channel = await openChannel();
+    const told: Array<[string, unknown]> = [];
+    const transport: WebMcpCrdtTransport = {
+      documentId: "doc-1",
+      attachCarrier: () => () => {},
+      broadcastAwareness: () => {},
+      receiveExternal: (value) => {
+        told.push(["receiveExternal", phaseOf(value)]);
+      },
+      ...(verified
+        ? {
+            receiveVerified: (value: unknown) => {
+              told.push(["receiveVerified", phaseOf(value)]);
+              return true;
+            },
+          }
+        : {}),
+    };
+    host.attachCrdtTransport(transport);
+    channel.deliver({
+      type: "mcp",
+      message: { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "read", arguments: {}, _meta: { framebook: { aiTrace: { runId: "r1" } } } } },
+    });
+    expect((await channel.replyTo(1)).result).toMatchObject({ isError: false });
+
+    // The host's stop of the run is published as the session is connected and approved.
+    told.length = 0;
+    expect(host.stopAiRun("r1")).toMatchObject({ phase: "stopped" });
+    expect(told).toEqual(expected.map((method) => [method, "stopped"]));
   });
 });

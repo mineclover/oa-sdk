@@ -3,7 +3,8 @@
 // clients relay allow-listed signaling (stamped by the relay), a provider reaches only the agents
 // it serves, its answer to an offer goes to the socket that offered, an agent socket has one offer
 // waiting at a time, and frames that are not typed JSON objects are dropped. A provider frame the
-// relay passes on is measured as the relay writes it again, not as it arrived.
+// relay passes on is measured as the relay writes it again, not as it arrived, and the provider's
+// own catalog notification (notifications/tools/list_changed) is not passed on at all.
 import { afterEach, describe, expect, it } from "vitest";
 import { PeerMcpSession } from "../src/client.js";
 import type { WebMcpPeerServer } from "../src/server.js";
@@ -181,6 +182,29 @@ describe("provider to agent frame relay", () => {
     provider.send(notification("once approved"));
     await client.waitFor((frame) => frame.message?.params?.data === "once approved", "the notification once approved");
     expect(client.frames.filter((frame) => frame.type === "mcp").map((frame) => frame.message.params.data)).toEqual(["once approved"]);
+  });
+
+  it("drops the provider's own notifications/tools/list_changed, so its agents hear of a catalog change from the relay alone", async () => {
+    const relay = await startRelay(servers);
+    const room = await createRoom(relay.base, { approvalRequired: false });
+    const provider = await openProvider(relay, room, sockets);
+    const client = await openClient(relay, room, await joinRoom(relay.base, room), sockets);
+    await client.waitFor((frame) => frame.type === "ready", "client ready");
+    const listChanged = (params: unknown) => ({ type: "mcp", message: { jsonrpc: "2.0", method: "notifications/tools/list_changed", params } });
+
+    // A stamp the relay never issued: an agent that took it would send calls the relay refuses.
+    provider.send(listChanged({ catalogVersion: 99, catalogHash: "f".repeat(64) }));
+    provider.send(listChanged(undefined));
+    provider.send(notification("after"));
+    await client.waitFor((frame) => frame.message?.params?.data === "after", "the notification after them");
+    expect(client.frames.filter((frame) => frame.type === "mcp").map((frame) => frame.message.method)).toEqual(["notifications/message"]);
+
+    // The relay's own notification for a catalog it took still reaches the agent, with its stamp.
+    provider.send({ type: "register", tools: [{ name: "echo", inputSchema: { type: "object" } }] });
+    const told = await client.waitFor((frame) => frame.message?.method === "notifications/tools/list_changed", "the relay's list_changed");
+    const entry = relay.server.rooms.get(room.id)!;
+    expect(told.message.params).toEqual({ catalogVersion: entry.catalogVersion, catalogHash: entry.catalogHash });
+    expect(entry.catalogVersion).toBe(1);
   });
 
   it("measures a provider notification as it writes it again, so one that grows past the message limit reaches no agent", async () => {

@@ -1,4 +1,5 @@
-// Regression tests for room TTL bounds, room expiry and retention, idempotent session revocation
+// Regression tests for room TTL bounds, room expiry (which ends only the sessions still live) and
+// retention, idempotent session revocation
 // responses, the room id grammar of the routes, and how every route reads its Authorization header;
 // the formats of the ids and tokens the relay issues, and the expiry sweep, from its timer and at the
 // start of every HTTP request.
@@ -7,7 +8,7 @@ import { IncomingMessage } from "node:http";
 import { Socket } from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WebMcpPeerServer, type RoomEntry } from "../src/server.js";
-import { createRoom, joinRoom, openClient, postJson, startRelay, type JoinedSession, type RoomDescriptor } from "./server-test-helpers.js";
+import { createRoom, joinRoom, openClient, postJson, startRelay, until, type JoinedSession, type RoomDescriptor } from "./server-test-helpers.js";
 
 const servers: WebMcpPeerServer[] = [];
 const sockets: WebSocket[] = [];
@@ -95,6 +96,42 @@ describe("room expiry and retention", () => {
       const [code, body] = await answer(await request());
       expect([code, (body as { error?: string }).error], label).toEqual([404, "ROOM_NOT_FOUND"]);
     }
+  });
+
+  it.each([
+    ["rejected", "rejected", {}],
+    ["revoked", "revoked", {}],
+    // Nobody decided its approval request within approvalTimeoutMs.
+    ["whose approval request expired", "expired", { approvalTimeoutMs: 1_000 }],
+  ] as const)("keeps the state and revokedAt of a session %s before its room expired, instead of ending it again with the room", async (_label, endedAs, options) => {
+    const relay = await startRelay(servers, options);
+    const room = await createRoom(relay.base, { approvalRequired: true });
+    const joined = await joinRoom(relay.base, room);
+    const status = async () => {
+      const response = await fetch(`${relay.base}/p/${room.id}/sessions/${joined.sessionId}`, { headers: { authorization: `Bearer ${joined.clientToken}` } });
+      expect(response.status).toBe(200);
+      return (await response.json()) as { state: string; revokedAt?: string };
+    };
+    if (endedAs === "expired") {
+      await until(status, (session) => session.state === "expired", "the approval request expires");
+    } else {
+      const ended = endedAs === "rejected"
+        ? await postJson(`${relay.base}/p/${room.id}/approval/${encodeURIComponent(joined.approvalRequestId!)}`, {
+          sessionId: joined.sessionId, decision: "rejected",
+        }, { authorization: `Bearer ${room.providerToken}` })
+        : await postJson(`${relay.base}/p/${room.id}/session/revoke`, {}, { authorization: `Bearer ${joined.clientToken}` });
+      expect(ended.status).toBe(200);
+    }
+    const before = await status();
+    expect(before).toMatchObject({ state: endedAs, revokedAt: expect.any(String) });
+    // A millisecond after the session ended, so a room expiry that ended it again would move its revokedAt.
+    await until(() => Date.now(), (now) => now > Date.parse(before.revokedAt!), "a later millisecond");
+
+    // The sweep at the start of the next request carries out the room's expiry.
+    const entry = relay.server.rooms.get(room.id)!;
+    entry.expiresAt = Date.now() - 1;
+    expect(await status()).toEqual(before);
+    expect(entry.roomState).toBe("expired");
   });
 
   it("refuses a reclaim of a live room whose lease expired with 410 ROOM_LEASE_EXPIRED, not the room's ROOM_EXPIRED", async () => {
