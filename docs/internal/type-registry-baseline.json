@@ -2413,7 +2413,7 @@
         "column": 12,
         "filePath": "packages/codegen/src/cli/lib/config-loader.ts",
         "kind": "deserialize",
-        "line": 268,
+        "line": 272,
         "sourceType": "JSON.parse"
       },
       {
@@ -3101,7 +3101,7 @@
         "column": 31,
         "filePath": "packages/codegen/src/cli/lib/config-loader.ts",
         "kind": "any",
-        "line": 342
+        "line": 346
       },
       {
         "boundaryId": "type-boundary:ab860f34a137b672e13d79800f6f5d43",
@@ -3472,7 +3472,7 @@
         "column": 34,
         "filePath": "packages/codegen/src/cli/lib/config-loader.ts",
         "kind": "any",
-        "line": 326
+        "line": 330
       },
       {
         "boundaryId": "type-boundary:d3accc3b809ece0531d125a5de762b8d",
@@ -3670,7 +3670,7 @@
         "column": 17,
         "filePath": "packages/codegen/src/cli/lib/config-loader.ts",
         "kind": "any",
-        "line": 269
+        "line": 273
       },
       {
         "boundaryId": "type-boundary:ebc3c21982afd9bc2c115f0e60c46fba",
@@ -13315,7 +13315,7 @@
         "runtime": "neutral",
         "semanticHash": "2069b1fe94e85e618c84e27a2ba5015f800924b43214e74e52fe7d783a41e1ed",
         "shapeHash": "6eebc176b1ac89377e8a40947f8f8f1c97c5ddd03c06b40ac586f22324cc6719",
-        "syntaxHash": "3876b303a9248b8e709f45ffcbf9d53be4bc4d439dedf3ec923e209f9cbbd89a"
+        "syntaxHash": "194fc3f4f1512047a320109a7af759702a84aa368fb2720138c44198911a5057"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/config-loader.ts",
@@ -15555,7 +15555,7 @@
         "runtime": "neutral",
         "semanticHash": "0a31631a9be1afab22fbc0da55d060282b2e5f3afc746bc2cb5f8c04e19a654a",
         "shapeHash": "84bb4ba141df48ed097c3dc11fbb7afaf158cacb3a0d32220d5c01519eca5a8c",
-        "syntaxHash": "fa47e23e6dda6adf25ec9e6e33933c6ed1eb9d882a91aac9deb28fe3f1f89d31"
+        "syntaxHash": "c3c4913dd34084f851076eedb6872516880efeb4f7780d8f5f41d80db8697b10"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/init/composer.ts",
@@ -15775,7 +15775,7 @@
         "runtime": "neutral",
         "semanticHash": "0505140e9c968d4f8ece03c7bc3df49bbd06fa25705098823c212252ea141c43",
         "shapeHash": "c73aebd790540bdea82ba63c4ba5031f05e0fec2661e73b78f55e57b67242c40",
-        "syntaxHash": "ac626927e1f1eb4a559b536b444cbd792743adab749d6e1244947499713a9404"
+        "syntaxHash": "02a67203d8d3cf25bc278e49c6d8f5a7dbece18e78c7b67696273572cfbd164c"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/init/targets/fastify.ts",
@@ -15785,7 +15785,7 @@
         "runtime": "neutral",
         "semanticHash": "165ae009d5f20c5e1d9dfc26d10ac822c79e3184a227515ad60b101535f9f04d",
         "shapeHash": "c73aebd790540bdea82ba63c4ba5031f05e0fec2661e73b78f55e57b67242c40",
-        "syntaxHash": "a890468dc3c1c4e64f8faa0e31bea7a6dec577fdd48794f5312b24a241a7b221"
+        "syntaxHash": "35e6ca060ad367c6bc04b99dc201804f6353f9605da0ce893a9d4cde2c6e99f0"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/init/targets/generic.ts",
@@ -15805,7 +15805,7 @@
         "runtime": "neutral",
         "semanticHash": "eaba0a60514c7ce0603605aed9047505bc5987f485a6396db82a11721bf053de",
         "shapeHash": "c73aebd790540bdea82ba63c4ba5031f05e0fec2661e73b78f55e57b67242c40",
-        "syntaxHash": "06a987d7152129ba86354d291234d4acc16a51aa8073d22735b90d2ecee7115a"
+        "syntaxHash": "d94c77eac43f19221dc8693b60e0e5314d44138f37bd065d041bb2abcfc61d5a"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/init/targets/index.ts",
@@ -72808,7 +72808,7 @@
         "syntaxHash": "e468fae258fff35898aef05fe6a6da6ccde78e05e58af5c1bba938bd1f37adc3"
       }
     ],
-    "digest": "6128920298b0d6501fbd0be243b073ce6592e13d31170f96853e475d7fff23c2",
+    "digest": "8bf5a3acf289a25411eb7d15a47859f9dd2f62abfb4c7e8ef6a1e286422acbab",
     "publicSurfaces": [
       {
         "exportKey": "./guards",
@@ -78172,7 +78172,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "172173be4e2bea49c291ea0ff52eb8b97231f973b89c50b5a12dd9ee86a5317b",
+      "contentHash": "f015074ea7e677b46fccae467939e87b1a648cf083296d7bacf3980c71c3127b",
       "filePath": "packages/codegen/src/cli/commands/init.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -78312,7 +78312,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "84a3a0c52ac60a78ca1c4c04bd91e2f19949948b28abce35d5e33aaa49792a1a",
+      "contentHash": "01e1796506b0d4eb2a71643d291d0cffd36a947777695b577bf013c044bfa273",
       "filePath": "packages/codegen/src/cli/commands/typegen.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -78452,7 +78452,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "f34e5c536ad5e5315ada355f7fe4c25762f3d012762596f50701ae20142bd2a6",
+      "contentHash": "43b51bc125c49a9a5fcbad2c8282faa130cc37b3963959e0baaa12b9b8157919",
       "filePath": "packages/codegen/src/cli/lib/config-loader.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -78599,7 +78599,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "31ab9bddb22787af3b862ba60d97f6cd6e6d73df5a3abdd48b14801010d6c3c6",
+      "contentHash": "4744dbcba06fb42ded7700e316b616bc71111e6490fde74b872879b885dc4191",
       "filePath": "packages/codegen/src/cli/lib/init/composer.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -78634,14 +78634,14 @@
       "role": "authority"
     },
     {
-      "contentHash": "85e2e506f2c3875c44b56ff8a262cac0bd459e3e304b2560835b2dbcef4689c2",
+      "contentHash": "b948b6af7b8b6ee51e0ecd37862bf52572d01b08d0a75ebcb740fb514569b075",
       "filePath": "packages/codegen/src/cli/lib/init/targets/express.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
     },
     {
-      "contentHash": "a15f1963550e34477bf8ddf734c6d67d05021ee655615c6c3f3c2deb5bc8e5ee",
+      "contentHash": "521da2dae61f4d644417495fe8161ca3ceec145a5f467ee0b46435a75c0bd7e7",
       "filePath": "packages/codegen/src/cli/lib/init/targets/fastify.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -78655,7 +78655,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "2e216b8da5826362ded8e06018c0dbcd3e88f67ce3958a2bd9533e731a12185e",
+      "contentHash": "6ceee78519a1be371f49507f29c6eadbbc6ac317e26254c59d06db14ae3cca16",
       "filePath": "packages/codegen/src/cli/lib/init/targets/hono.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",

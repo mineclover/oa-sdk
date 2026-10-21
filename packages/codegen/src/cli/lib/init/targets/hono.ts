@@ -88,7 +88,7 @@ export default defineConfig({
       dependencies: { 'hono': '^4.0.0' },
       devDependencies: {
         'tsx': '^4.7.0',
-        '@types/node': '^20.0.0',
+        '@types/node': '^22.0.0',
       },
       oaSdkDevDependencies: ['@oa-sdk/codegen', '@oa-sdk/router'],
     }

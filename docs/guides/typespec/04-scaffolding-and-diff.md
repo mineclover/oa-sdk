@@ -267,7 +267,7 @@ npx oa-gen generate:tanstack --spec ./main.tsp --output src/api --tier keys
 
 훅까지 담은 한 파일 출력(`tanstack-query.ts`, `outputRouting` 없는 `oa-gen generate`의 `<id>.queries.ts`)은 맨 앞에 `'use client'` 지시문이 있습니다. React Server Component에서 옵션 팩토리를 호출하려면 지시문이 없는 파일, 즉 `outputRouting`을 둔 `oa-gen generate`의 `<id>.queries.ts`를 import합니다.
 
-`generate:tanstack --types-import`에 `oa-gen typegen` 출력만 넘기면 `<Operation>ClientError` 타입이 없어 `tsc`가 실패합니다(TS2305, 알려진 결함). 타입 없이 쓰려면 클라이언트와 TanStack 모두 `--types-import` 없이 생성합니다. 타입이 필요하면 typegen 출력을 다시 export하고 `<Operation>ClientError` 별칭을 더한 모듈을 `--types-import`로 지정합니다.
+`generate:tanstack --types-import`에는 `oa-gen typegen` 출력을 그대로 넘깁니다. 클라이언트와 TanStack에 같은 모듈을 넘기면 `--split`을 포함해 `tsc`를 통과합니다. `<Operation>ClientError`는 클라이언트가 스스로 선언하므로 typegen 출력에 없어도 됩니다. TanStack에만 생략하면 typed 클라이언트와 파라미터 타입이 맞지 않아 `TS2345`가 나므로, 둘 다 같은 모듈을 넘깁니다.
 
 #### (5) 런타임 의존성 없는 타입 가드 (`generate:guards`)
 Chrome Extension Manifest V3처럼 CSP가 엄격한 환경용입니다.

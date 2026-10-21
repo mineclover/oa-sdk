@@ -57,7 +57,7 @@ const client = createClient({ baseUrl: 'https://api.example.com' })
 const page = await client.listUsers({ limit: 20 })
 ```
 
-TanStack Query 코드도 같은 앱에서 생성합니다([TanStack Query v5](./client-and-query-consumption.md#7-tanstack-query-v5)). 위 스크립트는 타입 있는 클라이언트를 만들므로, TanStack 코드도 [7.4절](./client-and-query-consumption.md#74-응답-타입을-붙이기---types-import)처럼 빠진 이름을 더한 모듈을 `--types-import`로 지정해 생성합니다. `--types-import` 없이 생성한 TanStack 코드는 타입 있는 클라이언트와 함께 컴파일되지 않습니다(`TS2345`). 같은 프로젝트에서 `oa-gen generate`를 실행해도 `generate:tanstack` 출력은 지워지지 않습니다. `oa-gen generate`는 `.oa-manifest.json`에서 자신이 기록한 생성 파일만 정리합니다([생성 파일 정리](./declarative-spec-configuration.md#45-생성-파일-정리), [`oa-gen generate`가 만드는 TanStack 코드](./client-and-query-consumption.md#75-oa-gen-generate가-만드는-tanstack-코드)).
+TanStack Query 코드도 같은 앱에서 생성합니다([TanStack Query v5](./client-and-query-consumption.md#7-tanstack-query-v5)). 위 스크립트는 타입 있는 클라이언트를 만들므로, TanStack 코드도 같은 typegen 출력을 `--types-import`로 지정해 생성합니다([7.4절](./client-and-query-consumption.md#74-응답-타입을-붙이기---types-import)). `--types-import` 없이 생성한 TanStack 코드는 타입 있는 클라이언트와 함께 컴파일되지 않습니다(`TS2345`). 같은 프로젝트에서 `oa-gen generate`를 실행해도 `generate:tanstack` 출력은 지워지지 않습니다. `oa-gen generate`는 `.oa-manifest.json`에서 자신이 기록한 생성 파일만 정리합니다([생성 파일 정리](./declarative-spec-configuration.md#45-생성-파일-정리), [`oa-gen generate`가 만드는 TanStack 코드](./client-and-query-consumption.md#75-oa-gen-generate가-만드는-tanstack-코드)).
 
 ---
 
@@ -140,23 +140,13 @@ const user: User = await client.getUser({ userId: 'user-123' }) // path 파라�
 
 ### 3.4 Model B 클라이언트로 TanStack Query 코드 만들기
 
-TanStack 생성 코드는 기본적으로 `./client.js`에서 `ApiClient` 타입을 가져옵니다. 배포된 패키지를 쓰려면 `--client-import`로 패키지 이름을 지정합니다. 배포 패키지는 타입 있는 클라이언트이므로 `--types-import`도 함께 지정해야 하고, 이때 [7.4절의 알려진 결함](./client-and-query-consumption.md#74-응답-타입을-붙이기---types-import) 때문에 빠진 이름을 더한 모듈이 필요합니다.
-
-```typescript
-// src/api/wire-types.ts
-export * from '@my-org/api-client'
-import type { ClientError } from '@my-org/api-client'
-// 생성된 queries.ts가 import하지만 패키지에 없는 이름을 더합니다.
-// 오류 응답을 선언하지 않은 operation의 <Operation>ClientError,
-// 스트리밍 operation의 <Operation>Response(unknown) 등
-export type ListUsersClientError = ClientError
-```
+TanStack 생성 코드는 기본적으로 `./client.js`에서 `ApiClient` 타입을 가져옵니다. 배포 패키지를 쓰려면 `--client-import`로 패키지 이름을 지정하고, `--types-import`에도 같은 패키지를 지정합니다. 3.2의 패키지 루트(`index`)가 typegen 타입과 클라이언트 오류 타입을 함께 export하므로 별도 별칭 모듈이 필요 없습니다.
 
 ```bash
 npm install @tanstack/react-query
 npm install --save-dev @oa-sdk/codegen @oa-sdk/client
 npx oa-gen generate:tanstack -s ./spec/openapi.json -o ./src/api/queries.ts \
-  --client-import @my-org/api-client --types-import ./wire-types.js
+  --client-import @my-org/api-client --types-import @my-org/api-client
 ```
 
 ```tsx

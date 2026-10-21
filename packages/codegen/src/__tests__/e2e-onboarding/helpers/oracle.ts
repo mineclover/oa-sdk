@@ -535,7 +535,7 @@ export function getRecommendedDevDepsForPair(
   if (runtime === 'bun') {
     deps['@types/bun'] = 'latest'
   } else {
-    deps['@types/node'] = '^20.0.0'
+    deps['@types/node'] = '^22.0.0'
     deps['typescript'] = '^5.4.0'
     deps['tsx'] = '^4.7.0'
   }
