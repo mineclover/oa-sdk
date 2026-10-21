@@ -2,12 +2,12 @@
 
 Last updated: 2026-10-22
 Repository: `/Users/junwoobang/workflow/oa-sdk`
-Main: `e40301ea` (PR #12 merged; in sync with `origin/main`)
+Main: `5d9e59e2` (PR #13 merged; in sync with `origin/main`)
 Worktrees: main only · Open PRs: none
 
 ## 1. Current state
 
-- `main` is `e40301ea`; the follow-up TanStack/guard work is on `fix/tanstack-p1-gaps` (unreleased, PR pending). No other local branches or worktrees.
+- `main` is `5d9e59e2` (PR #13 merged) and in sync with `origin/main`. No other local branches or worktrees.
 - Last full local test run: **654 files / 9,209 tests pass** (turbo suites 635/9,006, integration 73, TypeSpec plugin e2e 130). The follow-up branch adds codegen 211/4,011, client 16/277 and ast-sync 8/75 passing suites.
 - The 43-lane local CI mirror (build, typecheck, 4 test groups, integration, e2e, schema, governance, Node 26/TS7, public runtime, NestJS/FastAPI governance) passed on the combined tree through PR #9. Later changes re-ran the full codegen suite (211 files / 4,007 tests) and every docs/governance gate.
 - **GitHub Actions cannot start jobs**: PR checks show 0 steps because the account's billing limit is reached. All evidence above is from local runs.
@@ -24,8 +24,7 @@ Worktrees: main only · Open PRs: none
 | PR #10 typegen incremental reporting + guide | merged (`73d2397e`) |
 | PR #11 onboarding UX + docs consistency | merged (`e960e74f`) |
 | PR #12 engineering handoff | merged (`e40301ea`) |
-| TanStack P1 fixes (framework-neutral options, split tiers, streaming, TError) | on branch `fix/tanstack-p1-gaps`, unreleased |
-| `generate:guards` dotted component names, `check-artifact`/`drift:check` `product.specs` | on branch `fix/tanstack-p1-gaps`, unreleased |
+| PR #13 TanStack P1 fixes + dotted guard names | merged (`5d9e59e2`) |
 | Branch/worktree cleanup | 24 merged branches + 6 verifier worktrees + 4 superseded branches removed; SHAs in `.../opencode/branch-sha-archive-2026-10-22.txt` (outside the repo) |
 
 ## 3. Verification evidence
