@@ -36,7 +36,9 @@ export class PeerMcpService {
   /**
    * Creates a session and registers it, as the active one, under `options.key`, else its
    * `sessionId`, else a new `peer-session-<uuid>`. A session already registered under that key is
-   * replaced.
+   * replaced, not disconnected; on the service's own `transport`, which every session it makes is
+   * handed, the replacing session's connect ends the replaced one's connection
+   * (TRANSPORT_SUPERSEDED), as one transport object has one live connection at most.
    */
   createSession(options: PeerMcpServiceSessionOptions = {}): PeerMcpSession {
     const { key: requestedKey, ...sessionOptions } = options;

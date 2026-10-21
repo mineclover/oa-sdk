@@ -125,6 +125,23 @@ export interface PeerMcpTransportCallbacks {
   onError?(error: Error): void;
 }
 
+/**
+ * What a session sends on and the relay's frames come through: a transport the session makes for one
+ * connection (WebSocket, Streamable HTTP), a `transportFactory`'s, or the caller's own
+ * (`options.transport`), which every connect uses again.
+ *
+ * One transport object is held by one live connection at most, across every session: a connect that
+ * starts on it (the caller's own as the connect starts, any other once the connect has it) ends the
+ * connection that held it before, of the same session or another, with TRANSPORT_SUPERSEDED. A
+ * connection closes its transport when it ends only while it still holds it.
+ *
+ * A request id and a relay slot end with their connection, so a transport reused across connects
+ * (the caller's own, or one a factory hands out again) MUST NOT deliver on a later connection a
+ * message passed to `send()` while an earlier connection was live: it drops such a send or fails it.
+ * Nor should it report what an earlier connection gets (a late answer, its close) through a later
+ * connect's callbacks. The transports the session makes are made for one connection each and, once
+ * closed, send nothing (TRANSPORT_CLOSED) and report nothing more of a POST.
+ */
 export interface PeerMcpTransport {
   raw?: boolean;
   readyState?: string | number;

@@ -57,60 +57,46 @@ import {
   type PeerMcpTransportMessage,
 } from "./types.js";
 
-/** Closes `transport`, which the session no longer uses, dropping whatever its close throws or rejects with. */
-function closeQuietly(transport: PeerMcpTransport): void {
+/** Closes `transport`, dropping whatever its close throws or rejects with; resolves once the close has ended. */
+async function closeQuietly(transport: PeerMcpTransport): Promise<void> {
   try {
-    const closed = transport.close?.();
-    if (closed !== undefined) void Promise.resolve(closed).catch(() => {});
+    await transport.close?.();
   } catch {}
 }
 
 /**
- * The `onMessage` a session gives a caller's transport that has none (see
- * `PeerMcpSession.#connectImpl`), and where it delivers now. The transport keeps it after the session
- * that gave it is done with the transport, and every session handed that transport object (say, each
- * session of one `PeerMcpService({ transport })`) uses the same one: it delivers to the session
- * whose connect took the transport last (`holder`), and to nothing once that session has let go.
+ * One connect's connection: from the start of its connect until it ends (see
+ * `PeerMcpSession.#endConnection`), when its connect fails, its transport closes, a frame ends its
+ * session, `disconnect()` ends it or another connect takes its transport (see {@link transportOwners}).
+ * Only a live connection acts for its session: what its transport reports once it has ended is
+ * dropped, and the request ids and relay slots it held were given back when it ended.
  */
-interface SuppliedTransportRoute {
-  readonly dispatch: (message: unknown) => void;
-  holder: ((message: unknown) => void) | undefined;
-}
-
-/** The {@link SuppliedTransportRoute} of each transport that has one, by transport object. */
-const suppliedTransportRoutes = new WeakMap<PeerMcpTransport, SuppliedTransportRoute>();
-
-/** The {@link SuppliedTransportRoute} of `transport`, made on first use. */
-function suppliedTransportRoute(transport: PeerMcpTransport): SuppliedTransportRoute {
-  let route = suppliedTransportRoutes.get(transport);
-  if (!route) {
-    const created: SuppliedTransportRoute = { dispatch: (message) => created.holder?.(message), holder: undefined };
-    suppliedTransportRoutes.set(transport, created);
-    route = created;
-  }
-  return route;
+interface PeerMcpConnection {
+  /** The session whose connect made it. */
+  readonly session: PeerMcpSession;
+  /** The callbacks its transport reports through, which act for the session only while it is live. */
+  readonly callbacks: PeerMcpTransportCallbacks;
+  /**
+   * The transport object it holds (see {@link transportOwners}): the caller's own from the start of
+   * its connect, any other once its connect has it.
+   */
+  key?: PeerMcpTransport;
+  /** The transport it sends on: `key`, or what the caller's transport's `connect` merged into it. */
+  transport?: PeerMcpTransport;
+  /** The error it ended with; undefined while it is live. */
+  ended?: { readonly error: unknown };
 }
 
 /**
- * The connections that hold each caller's own transport (`options.transport`) now, of every session
- * handed that transport object: each while it is live (see `PeerMcpConnection.live`), from the start
- * of its connect until it ends (its connect fails, the transport closes, a frame ends its session) or
- * the next connect or `disconnect()` lets go of it. A connect that disconnect() ended closes the
- * transport it gets late only while none holds it (see `PeerMcpSession.#closeUnlessInUse`), so it
- * never closes the transport under another session's connection, and a connection that ended, which
- * no longer uses the transport, keeps it open for none.
+ * The live connection that holds each transport object, of every session: a transport object is held
+ * by one live connection at most. A connect takes the caller's own transport (`options.transport`) as
+ * it starts and any other once it has it (see `PeerMcpSession.#take`), which ends the connection that
+ * held it until then, of the same session or another, with TRANSPORT_SUPERSEDED. A connection that
+ * ends closes its transport only while it still holds it, so no connection closes a transport another
+ * one uses, and a connect that ended while it was getting its transport closes the one it gets unless
+ * a live connection holds it by then.
  */
-const suppliedTransportHolders = new WeakMap<PeerMcpTransport, Set<PeerMcpConnection>>();
-
-/** The connections that hold the caller's own `transport` (see {@link suppliedTransportHolders}), made on first use. */
-function holdersOf(transport: PeerMcpTransport): Set<PeerMcpConnection> {
-  let holders = suppliedTransportHolders.get(transport);
-  if (!holders) {
-    holders = new Set();
-    suppliedTransportHolders.set(transport, holders);
-  }
-  return holders;
-}
+const transportOwners = new WeakMap<PeerMcpTransport, PeerMcpConnection>();
 
 /**
  * The transports whose send is the whole exchange with the relay, so that the answer to a request
@@ -119,12 +105,17 @@ function holdersOf(transport: PeerMcpTransport): Set<PeerMcpConnection> {
  */
 const sendBringsAnswer = new WeakSet<PeerMcpTransport>();
 
-/** The error `disconnect()` ends the requests and the connect it finds with. */
+/** The error `disconnect()` ends the connection, its requests and its connect with. */
 function sessionDisconnectedError(): PeerMcpError {
   return new PeerMcpError("Peer session disconnected", "SESSION_DISCONNECTED");
 }
 
-/** The error a request is refused with, unsent, under an id still in flight (see `PeerMcpSession.#assertIdNotInFlight`). */
+/** The error a connection ends with when a connect, of its own session or another, takes its transport (see `PeerMcpSession.#take`). */
+function transportSupersededError(): PeerMcpError {
+  return new PeerMcpError("Peer transport was taken by another connection", "TRANSPORT_SUPERSEDED");
+}
+
+/** The error a request is refused with, unsent, under an id still in flight (see `PeerMcpSession.#requests`). */
 function duplicateRequestIdError(method: string, id: string | number): PeerMcpError {
   return new PeerMcpError(`Peer MCP request id ${JSON.stringify(id)} is already in flight`, "DUPLICATE_REQUEST_ID", { method, id });
 }
@@ -169,9 +160,8 @@ interface PendingRpcEntry {
 }
 
 /**
- * A `request()` call's hold on its id (see `PeerMcpSession.#requests`): from the call until the
- * answer to its last send arrives, or until its connection ends, whichever comes first. A send that
- * still runs when its connection ends goes on as a late send (see `PeerMcpSession.#lateSends`).
+ * A `request()` call's hold on its id (see `PeerMcpSession.#requests`): from the call until its
+ * answer arrives or its connection ends, whichever comes first.
  */
 interface RequestHold {
   /** True until the `request()` call settles. */
@@ -183,27 +173,16 @@ interface RequestHold {
    */
   awaitingAnswer: boolean;
   /**
-   * The error the connection's end ended this request with, when that came before the call settled
-   * (see `PeerMcpSession.#endRequests`). It gave back the id then, so the call sends nothing more,
-   * and its send, if that is still running, touches nothing a later request under the id holds once
-   * it ends.
+   * The error its connection's end ended it with (see `PeerMcpSession.#endRequests`), which gave back
+   * its id and its slot: the call sends nothing more, and its send, if that still runs, touches
+   * nothing a later request under the id holds once it ends.
    */
   ended?: { readonly error: unknown };
-  /** True while its send runs. */
-  sending: boolean;
-  /** The transport its last send ran on (see `PeerMcpSession.#wireOf`). */
-  wire?: PeerMcpTransport;
-  /**
-   * For a late send (see `PeerMcpSession.#lateSends`): the live connection of the session that used
-   * `wire`, or was still getting its transport, when the send went out, so that the request reached
-   * it as far as the session can tell.
-   */
-  landedOn?: PeerMcpConnection;
 }
 
-/** Throws the error that ended `hold`'s request, if its connection's end has (see `RequestHold.ended`). */
-function throwIfEnded(hold: RequestHold): void {
-  if (hold.ended) throw hold.ended.error;
+/** Throws the error `ended` (a request's hold or a connection) ended with, if it has ended. */
+function throwIfEnded(ended: { readonly ended?: { readonly error: unknown } }): void {
+  if (ended.ended) throw ended.ended.error;
 }
 
 /** A request waiting for a relay-socket slot (see `PeerMcpSession.#takeSlot`). */
@@ -211,40 +190,6 @@ interface SlotWaiter {
   grant: () => void;
   reject: (error: unknown) => void;
   timer: ReturnType<typeof setTimeout>;
-}
-
-/**
- * One connect's hold on a transport (see `PeerMcpSession.#connection`), from the start of the
- * connect until the next connect or `disconnect()` lets go of it.
- */
-interface PeerMcpConnection {
-  /**
-   * Whether it uses the caller's own transport (`options.transport`), the one transport every
-   * connect uses again, instead of one the session made for it.
-   */
-  readonly shared: boolean;
-  /**
-   * True until it ends: its connect fails, its transport closes, a frame ends the session, or the
-   * next connect or `disconnect()` lets go of it (see `PeerMcpSession.#connectionEnded`). Only a live
-   * connection holds the caller's own transport (see {@link suppliedTransportHolders}) or is reached
-   * by a late send (see `PeerMcpSession.#lateSends`). Its callbacks speak for the session for as long
-   * as it is the session's connection, live or not (see `PeerMcpSession.#connection`).
-   */
-  live: boolean;
-  /** True until it has its transport: while a factory makes it, or the caller's own transport's `connect` runs. */
-  obtaining: boolean;
-  /**
-   * The transport it uses: the caller's own from the moment it asks that to connect, so that
-   * `disconnect()` can close it meanwhile, and a transport the session made once it is made.
-   */
-  transport?: PeerMcpTransport;
-  /**
-   * Transports the session no longer uses, closed once this connection has its own unless that is
-   * one of them (a factory may hand one out again): the last connection's, and one that a connect
-   * `disconnect()` ended got while this connection was still getting its own. `disconnect()` closes
-   * them with the connection's transport.
-   */
-  readonly replaced: Set<PeerMcpTransport>;
 }
 
 /**
@@ -339,22 +284,19 @@ export class PeerMcpSession {
    */
   readonly #suppliedTransport: PeerMcpTransport | undefined;
   /**
-   * The connection of the latest connect, until the next connect or `disconnect()` lets go of it
-   * (see `#letGoOfTransport`). Only the callbacks given for it speak for the session, so a late event
-   * of a transport let go of (its close, a `ready`, a frame that ends a session) neither ends nor
-   * answers the connection after it, nor changes a session `disconnect()` left idle. That holds for
-   * the caller's own transport too, which every connect hands callbacks of its own: what it reports
-   * through an earlier connect's callbacks, such as a close event that arrives after `close()`
-   * returned, speaks for nothing. The `onMessage` that transport keeps across connects and sessions
-   * reaches the session through `#dispatchSuppliedMessage` instead.
+   * The connection of the latest connect, live or ended, until `disconnect()` lets go of it. A
+   * session has one live connection at most: a connect starts only once the last connection has
+   * ended.
    */
   #connection: PeerMcpConnection | undefined;
   /**
    * How the relay ended the session, when it ended it for good: the frame that ended it
-   * (`TERMINAL_FRAMES`), or a close after which a peer must not connect again (TRANSPORT_CLOSED
+   * (`TERMINAL_FRAMES`), a close after which a peer must not connect again (TRANSPORT_CLOSED
    * with a code `isReconnectableCloseCode` refuses: 1000 after such a frame, 4001 for a socket
-   * another one replaced, 4002, a code refusing a frame the session sent). A request then fails
-   * with it instead of connecting again; only `connect()` (or `disconnect()`) starts over.
+   * another one replaced, 4002, a code refusing a frame the session sent), or a connect that took
+   * the transport (TRANSPORT_SUPERSEDED, see `#take`). A request then fails with it instead of
+   * connecting again, which would take the transport back; only `connect()` (or `disconnect()`)
+   * starts over.
    */
   #ended: PeerMcpError | undefined;
   /**
@@ -364,22 +306,10 @@ export class PeerMcpSession {
    */
   #disconnects = 0;
   /**
-   * The `disconnect()` in progress, until it has closed the transports and set the state to `idle`.
+   * The `disconnect()` in progress, until it has closed the transport and set the state to `idle`.
    * A connect asked for meanwhile starts once it has finished (see `connect()`).
    */
   #disconnecting: Promise<PeerMcpSessionInfo> | undefined;
-  /**
-   * Where the `onMessage` of the caller's own transport delivers while this session holds it, when
-   * the transport has no `onMessage` of its own (see {@link SuppliedTransportRoute}). The transport
-   * keeps that `onMessage` across connects and sessions, so it belongs to no connect: through this it
-   * delivers for the connection that holds the transport now, this session's latest connect's, and
-   * for nothing once `disconnect()` let go of it. It cannot tell an earlier connection's frame from
-   * the current one's, so a transport that has `connect(callbacks)` should report through those
-   * callbacks instead.
-   */
-  readonly #dispatchSuppliedMessage = (message: unknown): void => {
-    if (this.#connection?.shared === true) this.#handleIncomingSafely(message);
-  };
 
   constructor(options: PeerMcpSessionOptions = {}) {
     this.serverUrl = normalizeServerUrl(
@@ -544,7 +474,7 @@ export class PeerMcpSession {
    * opens a new transport, unless the caller gave its own (see `#suppliedTransport`). It connects a
    * session the relay ended for good too, which `request()` does not (see `#ended`).
    *
-   * A connect asked for while `disconnect()` runs starts once that has closed the transports and
+   * A connect asked for while `disconnect()` runs starts once that has closed the transport and
    * set the state to `idle`, as it would after an awaited disconnect(), so the transport it opens is
    * the only one. A disconnect() asked for after it ends it with SESSION_DISCONNECTED (see
    * `#connectImpl`).
@@ -574,12 +504,14 @@ export class PeerMcpSession {
   }
 
   /**
-   * One connect attempt, asked for when `disconnect()` had been called `disconnects` times. A
-   * disconnect() since then ends it with SESSION_DISCONNECTED and leaves the session as disconnect()
-   * sets it: an attempt that had not started does not start, one waiting for `ready` ends at once,
-   * and one that was getting its transport closes the transport it gets, which disconnect() could
-   * not close, unless a connection holds it by then: the one this session holds, or, for the
-   * caller's own transport, one of any session handed it (see `#closeUnlessInUse`).
+   * One connect attempt, asked for when `disconnect()` had been called `disconnects` times, on a new
+   * connection (see {@link PeerMcpConnection}). Whatever ends that connection before the attempt
+   * has connected it (a disconnect() since then, a frame or a close that ends the session, another
+   * connect that takes its transport) fails the attempt with the error it ended with, even while the
+   * attempt is still getting its transport, which nothing can cut short: it closes the transport it
+   * gets then unless a live connection holds it by then (see {@link transportOwners}). An attempt
+   * disconnect() ended leaves the session as disconnect() sets it; any other failure leaves it
+   * `error`.
    */
   async #connectImpl(disconnects: number): Promise<PeerMcpSessionInfo> {
     if (this.#disconnects !== disconnects) throw sessionDisconnectedError();
@@ -590,74 +522,42 @@ export class PeerMcpSession {
     // a socket that never opened for an open one, nor how it ended speaks for it.
     this.connectedAt = null;
     this.#ended = undefined;
-    const shared = !this.transportFactory && this.#suppliedTransport !== undefined;
-    const previous = this.#letGoOfTransport();
+    this.transport = undefined;
+    const live = (): boolean => connection.ended === undefined;
     const connection: PeerMcpConnection = {
-      shared,
-      live: true,
-      obtaining: true,
-      // The caller's own transport is the one this connect uses again: it replaces nothing.
-      transport: shared ? this.#suppliedTransport : undefined,
-      replaced: shared ? new Set() : previous,
-    };
-    this.#connection = connection;
-    // It holds the caller's own transport from now on, as another session handed it may see.
-    if (shared && this.#suppliedTransport) holdersOf(this.#suppliedTransport).add(connection);
-    this.notify();
-    // Only while this is the session's connection: a transport used again (the caller's own) speaks
-    // for this connect through these callbacks, and for a later one through that connect's.
-    const speaks = (): boolean => this.#connection === connection;
-    try {
-      const url = (this.wsUrl || (this.roomId ? websocketUrl(this.serverUrl, this.roomId) : this.mcpEndpoint)) ?? "";
-      const protocols: string[] = [WEBMCP_SUBPROTOCOL];
-      if (this.clientToken) protocols.push(`ticket.${this.clientToken}`);
-      const callbacks: PeerMcpTransportCallbacks = {
+      session: this,
+      callbacks: {
         onOpen: () => {
-          if (speaks()) this.#markOpen();
+          if (live()) this.#markOpen();
         },
         onMessage: (message) => {
-          if (speaks()) this.#handleIncomingSafely(message);
+          if (live()) this.#handleIncomingSafely(connection, message);
         },
         onClose: (close) => {
-          if (speaks()) this.#handleClose(close);
+          if (live()) this.#handleClose(connection, close);
         },
         onError: (error) => {
-          if (speaks()) this.#handleTransportError(error);
+          if (live()) this.#handleTransportError(error);
         },
-      };
-      let transport: PeerMcpTransport | undefined;
-      try {
-        if (this.transportFactory) {
-          transport = await this.transportFactory(url, protocols, callbacks);
-        } else if (this.#suppliedTransport) {
-          transport = this.#suppliedTransport;
-          if (typeof transport.connect === "function") {
-            const connected = await transport.connect(callbacks);
-            if (connected && typeof connected === "object") transport = { ...transport, ...connected };
-          }
-          // The transport's, not this connect's or this session's: the transport keeps it for the
-          // connects after this one, of this session or of another handed the same transport, and
-          // it delivers for the latest of them. An `onMessage` of the caller's own stays. A connect
-          // disconnect() ended takes it for nothing: it may finish after another session handed the
-          // same transport took it, which would then get none of its frames.
-          const route = suppliedTransportRoute(transport);
-          if (speaks() && (!transport.onMessage || transport.onMessage === route.dispatch)) {
-            transport.onMessage = route.dispatch;
-            route.holder = this.#dispatchSuppliedMessage;
-          }
-        } else if (this.mcpEndpoint) {
-          transport = createHttpTransport(this.mcpEndpoint, this.fetchImpl ?? globalThis.fetch, callbacks, {
-            clientToken: this.clientToken,
-            protocolVersion: () => this.#negotiatedProtocolVersion,
-          });
-          sendBringsAnswer.add(transport);
-        } else {
-          transport = createWebSocketTransport(url, protocols, this.WebSocketImpl, callbacks);
-        }
-      } finally {
-        this.#settleTransport(connection, transport);
-      }
-      if (this.#disconnects !== disconnects) throw sessionDisconnectedError();
+      },
+    };
+    this.#connection = connection;
+    // The caller's own transport, which every connect uses again, is this connection's from now on.
+    // The `onMessage` the session gives it when it has none is the transport's, not this connect's:
+    // it delivers to whichever connection holds the transport, of any session handed it.
+    const supplied = this.transportFactory ? undefined : this.#suppliedTransport;
+    if (supplied) {
+      this.#take(connection, supplied);
+      supplied.onMessage ??= (message) => transportOwners.get(supplied)?.callbacks.onMessage?.(message);
+    }
+    this.notify();
+    try {
+      const transport = await this.#obtainTransport(supplied, connection.callbacks);
+      // Ended meanwhile: the transport it got stays open only for a live connection that holds it.
+      if (connection.ended && transport && !transportOwners.has(supplied ?? transport)) void closeQuietly(transport);
+      throwIfEnded(connection);
+      if (transport && !supplied) this.#take(connection, transport);
+      connection.transport = transport;
       if (!transport || typeof transport.send !== "function") {
         throw new PeerMcpError("Peer transport must provide send(value)", "INVALID_TRANSPORT");
       }
@@ -666,113 +566,99 @@ export class PeerMcpSession {
         this.#markOpen();
       }
       await this.#waitForReady();
-      // disconnect() may run between the `ready` that settled the wait and this continuation.
-      if (this.#disconnects !== disconnects) throw sessionDisconnectedError();
+      // The connection may end between the `ready` that settled the wait and this continuation.
+      throwIfEnded(connection);
       this.state = "connected";
       this.connectedAt = this.connectedAt || Date.now();
       this.sessionId = this.sessionId || `peer-session-${randomUUID()}`;
       this.runtimeEpoch = this.runtimeEpoch || randomUUID();
       this.notify();
       return this.getSessionInfo();
-    } catch (error) {
+    } catch (caught) {
       // Ended by disconnect(), which has already ended the requests and owns the state.
       if (this.#disconnects !== disconnects) throw sessionDisconnectedError();
+      // A connection that ended first fails its connect with the error it ended with.
+      const error = connection.ended ? connection.ended.error : caught;
       this.state = "error";
       this.error = error instanceof Error ? error.message : String(error);
-      this.#connectionEnded(connection);
-      this.#endRequests(error);
+      this.#endConnection(connection, error);
       this.notify();
       throw error;
     }
   }
 
   /**
-   * Lets go of the session's connection: the callbacks given for it stop speaking for the session
-   * (see `#connection`), it has ended if it had not (see `#connectionEnded`), and the transports it
-   * held, its own and those it was replacing, are returned for the caller to close or to have the
-   * next connection replace.
+   * Gets a connect's transport, which reports through `callbacks`: the `transportFactory`'s, the
+   * caller's own (`supplied`) once its `connect(callbacks)` has run, with what that resolves with
+   * merged into it, or one the session makes (Streamable HTTP for an `mcpEndpoint`, else WebSocket).
    */
-  #letGoOfTransport(): Set<PeerMcpTransport> {
-    const connection = this.#connection;
-    this.#connection = undefined;
-    this.transport = undefined;
-    const held = new Set<PeerMcpTransport>();
-    if (!connection) return held;
-    if (connection.transport) held.add(connection.transport);
-    this.#connectionEnded(connection);
-    // The caller's transport's dispatcher delivers to no session until a connect takes it again.
-    const route = connection.shared && connection.transport ? suppliedTransportRoutes.get(connection.transport) : undefined;
-    if (route?.holder === this.#dispatchSuppliedMessage) route.holder = undefined;
-    for (const replaced of connection.replaced) held.add(replaced);
-    connection.replaced.clear();
-    return held;
+  async #obtainTransport(
+    supplied: PeerMcpTransport | undefined,
+    callbacks: PeerMcpTransportCallbacks,
+  ): Promise<PeerMcpTransport | undefined> {
+    const url = (this.wsUrl || (this.roomId ? websocketUrl(this.serverUrl, this.roomId) : this.mcpEndpoint)) ?? "";
+    const protocols: string[] = [WEBMCP_SUBPROTOCOL];
+    if (this.clientToken) protocols.push(`ticket.${this.clientToken}`);
+    if (this.transportFactory) return this.transportFactory(url, protocols, callbacks);
+    if (supplied) {
+      const connected = typeof supplied.connect === "function" ? await supplied.connect(callbacks) : undefined;
+      return connected && typeof connected === "object" ? { ...supplied, ...connected } : supplied;
+    }
+    if (this.mcpEndpoint) {
+      const transport = createHttpTransport(this.mcpEndpoint, this.fetchImpl ?? globalThis.fetch, callbacks, {
+        clientToken: this.clientToken,
+        protocolVersion: () => this.#negotiatedProtocolVersion,
+      });
+      sendBringsAnswer.add(transport);
+      return transport;
+    }
+    return createWebSocketTransport(url, protocols, this.WebSocketImpl, callbacks);
   }
 
   /**
-   * Notes that `connection` has ended (see `PeerMcpConnection.live`): it no longer holds the caller's
-   * own transport (see {@link suppliedTransportHolders}), so that a connect `disconnect()` ended, of
-   * any session handed that transport, may close it, and no late send reaches it (see `#lateSends`).
-   * Its callbacks still speak for the session until the next connect or `disconnect()` lets go of it.
+   * Makes `connection` the live connection that holds `transport` (see {@link transportOwners}). The
+   * connection that held it until now, of this session or another, ends at once (see `#supersede`)
+   * and leaves the transport open for this one.
    */
-  #connectionEnded(connection: PeerMcpConnection | undefined): void {
-    if (!connection) return;
-    connection.live = false;
-    if (connection.shared && this.#suppliedTransport) suppliedTransportHolders.get(this.#suppliedTransport)?.delete(connection);
+  #take(connection: PeerMcpConnection, transport: PeerMcpTransport): void {
+    const previous = transportOwners.get(transport);
+    connection.key = transport;
+    transportOwners.set(transport, connection);
+    if (previous && previous !== connection) previous.session.#supersede(previous);
   }
 
   /**
-   * The transport `connection` writes on: the caller's own for a connection that uses it (whatever its
-   * connect merged into it, see `#connectImpl`), else the one it got; undefined while a factory still
-   * makes it.
+   * Ends `connection`, whose transport another connect took (see `#take`), with TRANSPORT_SUPERSEDED:
+   * the session leaves `connected` with that error, and its requests fail with it, without connecting
+   * again to take the transport back, until the caller calls `connect()` (see `#ended`).
    */
-  #wireOf(connection: PeerMcpConnection | undefined): PeerMcpTransport | undefined {
-    if (!connection) return undefined;
-    return connection.shared ? this.#suppliedTransport : connection.transport;
+  #supersede(connection: PeerMcpConnection): void {
+    const error = transportSupersededError();
+    this.state = "error";
+    this.error = error.message;
+    this.#ended = error;
+    this.#endConnection(connection, error);
+    this.notify();
   }
 
   /**
-   * Called once `connection` has got its transport (`transport`, undefined when getting it failed).
-   * A connection the session still holds closes the transports it replaced, except the one it got
-   * (a factory may hand the last one out again). One that `disconnect()` let go of meanwhile, which
-   * closed what it replaced, has its transport closed unless a connection holds it (see
-   * `#closeUnlessInUse`).
+   * Ends `connection` with `error`, once (see {@link PeerMcpConnection}). While it is the session's
+   * connection, the session no longer uses its transport, a connect waiting for its `ready` fails, and
+   * every request of it ends at once, giving back its id and its slot (see `#endRequests`). It closes
+   * its transport only while it still holds it (see {@link transportOwners}), and returns that close.
    */
-  #settleTransport(connection: PeerMcpConnection, transport: PeerMcpTransport | undefined): void {
-    connection.obtaining = false;
-    if (transport) connection.transport = transport;
-    const replaced = [...connection.replaced];
-    connection.replaced.clear();
+  #endConnection(connection: PeerMcpConnection, error: unknown): Promise<void> | undefined {
+    if (connection.ended) return undefined;
+    connection.ended = { error };
     if (this.#connection === connection) {
-      for (const unused of replaced) if (unused !== transport) closeQuietly(unused);
-    } else if (transport) {
-      this.#closeUnlessInUse(transport, connection.shared);
+      this.transport = undefined;
+      this.#readyReject?.(error);
+      this.#endRequests(error);
     }
-  }
-
-  /**
-   * Closes `transport`, which a connect that `disconnect()` ended got after disconnect() let go of
-   * it (so disconnect() could not close it, or closed it while its connect was still running),
-   * unless a connection holds it now. The caller's own transport (`shared`), which every connect of
-   * every session handed it uses again, stays open while a live connection of any of those sessions
-   * holds it (see {@link suppliedTransportHolders}): this session's next connect, or another
-   * session's, connected or still connecting it. One that has ended (its connect failed, the
-   * transport closed, a frame ended its session) no longer uses it, and keeps it open for none. A
-   * transport a factory made stays open while the connection this session holds uses it, as a
-   * factory may hand one out again; while that connection is still getting its transport, which may
-   * be this one, it closes this one once it has its own (see `PeerMcpConnection.replaced`).
-   */
-  #closeUnlessInUse(transport: PeerMcpTransport, shared: boolean): void {
-    if (shared && this.#suppliedTransport) {
-      if ((suppliedTransportHolders.get(this.#suppliedTransport)?.size ?? 0) === 0) closeQuietly(transport);
-      return;
-    }
-    const current = this.#connection;
-    if (current && !current.shared && current.obtaining) {
-      current.replaced.add(transport);
-      return;
-    }
-    if (current?.transport === transport) return;
-    closeQuietly(transport);
+    const key = connection.key;
+    if (!key || transportOwners.get(key) !== connection) return undefined;
+    transportOwners.delete(key);
+    return closeQuietly(connection.transport ?? key);
   }
 
   #markOpen(): void {
@@ -808,16 +694,16 @@ export class PeerMcpSession {
    * uncaught exception and take the agent process down. A frame that cannot be handled is
    * dropped and recorded instead; the last validated catalog stays in effect.
    */
-  #handleIncomingSafely(raw: unknown): void {
+  #handleIncomingSafely(connection: PeerMcpConnection, raw: unknown): void {
     try {
-      this.#handleIncoming(raw);
+      this.#handleIncoming(connection, raw);
     } catch (error) {
       this.error = error instanceof Error ? error.message : String(error);
       this.notify();
     }
   }
 
-  #handleIncoming(raw: unknown): void {
+  #handleIncoming(connection: PeerMcpConnection, raw: unknown): void {
     const value = unwrapMessage(raw);
     if (!value) return;
     if (value.type === "ready") {
@@ -857,9 +743,7 @@ export class PeerMcpSession {
       this.error = error.message;
       // The relay ended the session: a request fails with this instead of connecting again.
       this.#ended = error;
-      this.#readyReject?.(error);
-      this.#connectionEnded(this.#connection);
-      this.#endRequests(error);
+      this.#endConnection(connection, error);
       this.notify();
       return;
     }
@@ -899,11 +783,12 @@ export class PeerMcpSession {
     if (isRpcResponse(rpc)) {
       // The relay has answered, so it no longer counts the request, and nothing more comes under its
       // id, whether or not anyone still waits for the answer.
-      this.#releaseSlot(String(rpc.id));
-      this.#answered(String(rpc.id));
-      const pending = this.pending.get(String(rpc.id));
+      const key = String(rpc.id);
+      this.#releaseSlot(key);
+      this.#answered(key);
+      const pending = this.pending.get(key);
       if (!pending) return;
-      this.pending.delete(String(rpc.id));
+      this.pending.delete(key);
       clearTimeout(pending.timer);
       if (rpc.error) pending.reject(new PeerMcpRpcError(isJsonObject(rpc.error) ? rpc.error : undefined, rpc));
       else pending.resolve(rpc);
@@ -938,86 +823,62 @@ export class PeerMcpSession {
   }
 
   /**
-   * The transport closed: every request waiting on it fails with TRANSPORT_CLOSED, whose details are
-   * how it closed (`{code, reason}`) when the transport reports it. The session never reconnects on
-   * its own. After a close a peer may retry (1001, 1006, 1013, or one that reports no code: a
-   * connection lost without a close frame), the next request connects again, on a new socket.
+   * `connection`'s transport closed, which ends it: every request of it fails with TRANSPORT_CLOSED,
+   * whose details are how it closed (`{code, reason}`) when the transport reports it. The session never
+   * reconnects on its own. After a close a peer may retry (1001, 1006, 1013, or one that reports no
+   * code: a connection lost without a close frame), the next request connects again, on a new socket.
    * After any other (see `isReconnectableCloseCode`, R-WS-030) requests fail with this error until
    * the caller calls `connect()`: a reconnect after 4001 would displace the socket that replaced
    * this one, and one after a refused frame would be refused again.
    */
-  #handleClose(close?: PeerMcpTransportClose): void {
-    if (this.state === "disconnecting" || this.state === "idle" || this.state === "error") return;
+  #handleClose(connection: PeerMcpConnection, close?: PeerMcpTransportClose): void {
     this.state = "disconnected";
     this.connectedAt = null;
     this.readySeen = false;
     const details = typeof close?.code === "number" ? { code: close.code, reason: close.reason ?? "" } : undefined;
     const error = new PeerMcpError("Peer transport closed", "TRANSPORT_CLOSED", details);
     if (details && !isReconnectableCloseCode(details.code)) this.#ended = error;
-    this.#readyReject?.(error);
-    this.#connectionEnded(this.#connection);
-    this.#endRequests(error);
+    this.#endConnection(connection, error);
     this.notify();
   }
 
-  /** Requests sleeping before a retry: not in `pending`, but ended by the same events. */
-  readonly #retryWaits = new Set<{ timer: ReturnType<typeof setTimeout>; reject: (error: unknown) => void }>();
   /**
-   * Requests waiting for a connect (see `#waitForConnect`): not in `pending`, but ended by the same
-   * events. `disconnect()` cannot cut short a connect that is still getting its transport (a
-   * `transportFactory`, or the `connect` of the caller's own transport, runs until it returns), so a
-   * request waiting for it is ended here instead, at once, and gives back its id.
+   * The ends of the requests waiting for a connect (see `#waitForConnect`) or to be sent again after a
+   * retryable refusal (see `#waitBeforeRetry`): not in `pending`, but ended by the same events (see
+   * `#rejectWaiting`), even while the connect they wait for still gets its transport.
    */
-  readonly #connectWaits = new Set<(error: unknown) => void>();
+  readonly #waits = new Set<(error: unknown) => void>();
   /**
    * The hold of every request in flight, by `String(id)` (see {@link RequestHold}), one rule for every
-   * transport: from its `request()` call until the answer to its last send arrives or its connection
-   * ends. That covers waiting for a connect, for a slot, for its answer or to be sent again after a
-   * retryable refusal, and being sent, and it lasts past the call when the caller stopped waiting at
-   * its timeout before the answer came, or a transport error or `{type:'error'}` frame, which leaves
-   * the connection open, rejected it (see `#rejectWaiting`): a request holding a relay-socket slot, or
-   * one on a raw transport whose send returned before its answer. The built-in HTTP transport's send
-   * is the whole POST, which brings the answer, so there the id is held until the POST ends. When the
-   * connection ends, `#endRequests` gives back every id at once; a send still running goes on as a
-   * late send (see `#lateSends`).
+   * transport: from its `request()` call until its answer arrives or its connection ends. That covers
+   * waiting for a connect, for a slot, for its answer or to be sent again after a retryable refusal,
+   * and being sent, and it lasts past the call when the caller stopped waiting at its timeout before
+   * the answer came, or a transport error or `{type:'error'}` frame, which leaves the connection open,
+   * rejected it (see `#rejectWaiting`). The built-in HTTP transport's send is the whole POST, which
+   * brings the answer, so there the id is held until the POST ends. Every hold is of the session's
+   * connection, or of the connect it waits for: when that connection ends, `#endRequests` gives back
+   * every id at once.
    */
   readonly #requests = new Map<string, RequestHold>();
   /**
-   * The requests whose connection ended while their send still ran (see `#endRequests`), each with its
-   * `String(id)`. Nothing can cut such a send short, and it writes on whatever its transport carries by
-   * the time it writes: a later connection's, when that connection uses the same transport again (the
-   * caller's own, which every connect uses again, or one a factory hands out again). The request then
-   * reaches that connection as far as the session can tell, so on it (see `#lateSendReaches`) its id
-   * stays in flight and it counts against the relay socket's slots, while the send runs and, once it
-   * has gone out, until its answer arrives or that connection ends. To a connection with a transport
-   * of its own, such as each WebSocket or Streamable HTTP transport, it is nothing.
-   */
-  readonly #lateSends = new Map<RequestHold, string>();
-  /**
-   * The ids of the requests holding a slot of the relay socket (see `#takeSlot`): sent and not yet
-   * answered by the relay, including requests whose caller stopped waiting at their timeout.
+   * The ids of the requests holding a slot of the relay socket (see `#takeSlot`): sent on the
+   * session's connection and not yet answered by the relay, including requests whose caller stopped
+   * waiting at their timeout. The connection's end gives them all back.
    */
   readonly #heldSlots = new Set<string>();
   /** Requests waiting for a slot of the relay socket, oldest first. */
   readonly #slotWaiters: SlotWaiter[] = [];
 
   /**
-   * Ends every request of the connection with `error`: what the connection's end (`disconnect()`, a
-   * close, a frame that ends the session, a failed connect) does to them. Each gives back its id and
-   * its slot at once, since no answer of the ended connection reaches the session (see `#connection`),
-   * even while its send still runs, which nothing can cut short: that send goes on as a late send (see
-   * `#lateSends`), which keeps the id in flight only on a later connection that uses its transport
-   * again, and touches nothing of a request sent under the id since (see `RequestHold.ended`).
+   * Ends every request of the connection with `error`: what the connection's end does to them (see
+   * `#endConnection`). Each gives back its id and its slot at once, since no answer of the ended
+   * connection reaches the session, even while its send still runs, which nothing can cut short:
+   * that send touches nothing of a request sent under the id since (see `RequestHold.ended`), and a
+   * transport the next connection uses again does not deliver it there (see `PeerMcpTransport`).
    */
   #endRequests(error: unknown): void {
-    for (const [key, hold] of this.#requests) {
-      hold.ended = { error };
-      if (hold.sending) this.#lateSends.set(hold, key);
-    }
+    for (const hold of this.#requests.values()) hold.ended = { error };
     this.#requests.clear();
-    // A late send that went out on this connection is done with it too.
-    for (const hold of this.#lateSends.keys()) if (!hold.sending) this.#lateSends.delete(hold);
-    // The connection that counted the slots has ended.
     this.#heldSlots.clear();
     this.#rejectWaiting(error);
   }
@@ -1037,20 +898,12 @@ export class PeerMcpSession {
       pending.reject(error);
     }
     this.pending.clear();
-    // A request waiting to retry ends with the same error instead of reconnecting the session.
-    for (const wait of this.#retryWaits) {
-      clearTimeout(wait.timer);
-      wait.reject(error);
-    }
-    this.#retryWaits.clear();
-    // So does a request waiting for a connect, even while that connect is still getting its transport.
-    const connectWaits = [...this.#connectWaits];
-    this.#connectWaits.clear();
-    for (const end of connectWaits) end(error);
+    // So does a request waiting to retry, instead of reconnecting the session, or for a connect.
+    for (const end of [...this.#waits]) end(error);
   }
 
   /**
-   * Takes a slot of the relay socket for request `id`, unless the transport is `raw` (the Streamable
+   * Takes a slot of the relay socket for request `id`, unless `transport` is raw (the Streamable
    * HTTP one, which answers each request on its own POST, so the relay bounds nothing per socket).
    *
    * The relay refuses a request past PEER_RELAY_MAX_PENDING_REQUESTS in flight on one agent
@@ -1063,10 +916,10 @@ export class PeerMcpSession {
    * as for a request that was sent; whatever ends the pending requests (`disconnect()`, a transport
    * error or close) ends it too. Returns a promise only when the request has to wait.
    */
-  #takeSlot(method: string, id: string | number, timeoutMs: number): Promise<void> | undefined {
-    if (this.transport?.raw === true) return undefined;
+  #takeSlot(transport: PeerMcpTransport, method: string, id: string | number, timeoutMs: number): Promise<void> | undefined {
+    if (transport.raw === true) return undefined;
     const key = String(id);
-    if (this.#slotsInUse() < PEER_RELAY_MAX_PENDING_REQUESTS && this.#slotWaiters.length === 0) {
+    if (this.#heldSlots.size < PEER_RELAY_MAX_PENDING_REQUESTS && this.#slotWaiters.length === 0) {
       this.#heldSlots.add(key);
       return undefined;
     }
@@ -1092,75 +945,14 @@ export class PeerMcpSession {
   }
 
   /**
-   * Refuses request `id` (DUPLICATE_REQUEST_ID, nothing sent) while a request of this session under
-   * the same `String(id)` is in flight (see `#requests`), its slot-holding ones after their callers
-   * stopped waiting included, or a request of an ended connection under it reaches the session's
-   * connection (see `#lateSends`; a request whose connect is still getting its transport is checked
-   * again once it has it, in `#requestOnce`). MCP forbids reusing a request id within a session,
-   * and the session matches a reply to its request by `String(id)`: a second request under that key
-   * would take the first one's answer and give back a slot the relay still counts for the other,
-   * and the first one's retry would be refused in its turn.
-   */
-  #assertIdNotInFlight(method: string, id: string | number): void {
-    const key = String(id);
-    if (this.#requests.has(key) || this.#lateSendInFlight(key)) throw duplicateRequestIdError(method, id);
-  }
-
-  /**
-   * True while a late send under `key` (see `#lateSends`) reaches the session's connection, so that a
-   * request sent there under `key` could take its answer.
-   */
-  #lateSendInFlight(key: string): boolean {
-    for (const [hold, lateKey] of this.#lateSends) if (lateKey === key && this.#lateSendReaches(hold)) return true;
-    return false;
-  }
-
-  /**
-   * True while the late send `hold` (see `#lateSends`) may be answered on the session's connection: that
-   * connection is live and uses the transport the send runs on (see `#wireOf`), and the send still runs
-   * or went out while that connection used the transport or was still getting it.
-   */
-  #lateSendReaches(hold: RequestHold): boolean {
-    const connection = this.#connection;
-    if (!connection?.live || hold.wire === undefined || this.#wireOf(connection) !== hold.wire) return false;
-    return hold.sending || hold.landedOn === connection;
-  }
-
-  /**
-   * Called once the send of `hold` has ended, `outstanding` when it went out and its answer is still to
-   * come. A late send (see `#lateSends`) that went out while a live connection of the session used its
-   * transport, or was still getting one, which may be it, reached that connection as far as the session
-   * can tell: it stays there until its answer arrives or that connection ends. Any other is done.
-   */
-  #lateSendEnded(hold: RequestHold, outstanding: boolean): void {
-    if (!this.#lateSends.has(hold)) return;
-    const connection = this.#connection;
-    const wire = this.#wireOf(connection);
-    if (outstanding && connection?.live && (wire === undefined || wire === hold.wire)) {
-      hold.landedOn = connection;
-      return;
-    }
-    this.#lateSends.delete(hold);
-    // While it ran on the transport of the session's connection, it counted against that connection's slots.
-    this.#grantFreeSlots();
-  }
-
-  /**
    * Notes that the answer under `key` arrived: its request's id is in flight no longer, once its call
-   * settled, and a late send under it that reaches the connection (see `#lateSends`) is done, which
-   * frees the slot it counted.
+   * has settled.
    */
   #answered(key: string): void {
     const hold = this.#requests.get(key);
-    if (hold) {
-      hold.awaitingAnswer = false;
-      this.#letGoOfId(key, hold);
-    }
-    for (const [late, lateKey] of this.#lateSends) {
-      if (lateKey !== key || !this.#lateSendReaches(late)) continue;
-      this.#lateSends.delete(late);
-      this.#grantFreeSlots();
-    }
+    if (!hold) return;
+    hold.awaitingAnswer = false;
+    this.#letGoOfId(key, hold);
   }
 
   /**
@@ -1174,25 +966,10 @@ export class PeerMcpSession {
 
   /** Gives back the slot request `key` holds, if any, and lets the oldest waiting requests take the free ones. */
   #releaseSlot(key: string): void {
-    if (this.#heldSlots.delete(key)) this.#grantFreeSlots();
-  }
-
-  /** Lets the oldest requests waiting for a slot take the free ones. */
-  #grantFreeSlots(): void {
-    while (this.#slotsInUse() < PEER_RELAY_MAX_PENDING_REQUESTS && this.#slotWaiters.length > 0) {
+    if (!this.#heldSlots.delete(key)) return;
+    while (this.#heldSlots.size < PEER_RELAY_MAX_PENDING_REQUESTS && this.#slotWaiters.length > 0) {
       this.#slotWaiters.shift()!.grant();
     }
-  }
-
-  /**
-   * The slots of the relay socket in use: one for each request holding one (see `#heldSlots`), and one
-   * for each late send that reaches the connection (see `#lateSendReaches`), which the relay may count
-   * on it too.
-   */
-  #slotsInUse(): number {
-    let count = this.#heldSlots.size;
-    for (const hold of this.#lateSends.keys()) if (this.#lateSendReaches(hold)) count += 1;
-    return count;
   }
 
   /**
@@ -1203,12 +980,12 @@ export class PeerMcpSession {
   #waitForConnect(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       const end = (error: unknown): void => {
-        this.#connectWaits.delete(end);
+        this.#waits.delete(end);
         reject(error);
       };
-      this.#connectWaits.add(end);
+      this.#waits.add(end);
       this.connect().then(() => {
-        this.#connectWaits.delete(end);
+        this.#waits.delete(end);
         resolve();
       }, end);
     });
@@ -1216,14 +993,16 @@ export class PeerMcpSession {
 
   #waitBeforeRetry(delayMs: number): Promise<void> {
     return new Promise((resolve, reject) => {
-      const wait = {
-        timer: setTimeout(() => {
-          this.#retryWaits.delete(wait);
-          resolve();
-        }, delayMs),
-        reject,
+      const end = (error: unknown): void => {
+        clearTimeout(timer);
+        this.#waits.delete(end);
+        reject(error);
       };
-      this.#retryWaits.add(wait);
+      const timer = setTimeout(() => {
+        this.#waits.delete(end);
+        resolve();
+      }, delayMs);
+      this.#waits.add(end);
     });
   }
 
@@ -1235,10 +1014,13 @@ export class PeerMcpSession {
    * been answered, within its own timeout (see `#takeSlot`). Its id must be at most
    * `PEER_RELAY_MAX_REQUEST_ID_BYTES` of JSON there (REQUEST_ID_TOO_LARGE), since the relay answers a
    * longer one without it. On any transport an id the session's request in flight has (as
-   * `String(id)`, so `1` and `"1"` are one id here) is refused with DUPLICATE_REQUEST_ID, unsent (see
-   * `#assertIdNotInFlight`): a request is in flight from this call until its answer arrives or its
-   * connection ends, the wait before a retry included and even after its timeout, which over the
-   * built-in HTTP transport, whose POST brings the answer, is until that POST ends (see `#requests`).
+   * `String(id)`, so `1` and `"1"` are one id here) is refused with DUPLICATE_REQUEST_ID, unsent: a
+   * request is in flight from this call until its answer arrives or its connection ends, the wait
+   * before a retry included and even after its timeout, which over the built-in HTTP transport, whose
+   * POST brings the answer, is until that POST ends (see `#requests`). MCP forbids reusing a request
+   * id within a session, and the session matches a reply to its request by `String(id)`: a second
+   * request under that key would take the first one's answer and give back a slot the relay still
+   * counts for the other.
    *
    * A request the relay refuses as retryable (`data.retryable: true`, e.g. PROVIDER_BUSY while the
    * provider is not reading) reached nobody, so it is sent again with exponential backoff
@@ -1255,10 +1037,10 @@ export class PeerMcpSession {
     const timeoutMs = Number.isFinite(options.timeoutMs) ? Math.max(1, options.timeoutMs!) : this.requestTimeoutMs;
     const deadline = Date.now() + timeoutMs;
     const key = String(id);
-    this.#assertIdNotInFlight(method, id);
+    if (this.#requests.has(key)) throw duplicateRequestIdError(method, id);
     // Held until its answer arrives or its connection ends (see `#requests`), so no other request
     // takes the id while this one waits, is sent or waits to be sent again: its own retries keep it.
-    const hold: RequestHold = { running: true, awaitingAnswer: false, sending: false };
+    const hold: RequestHold = { running: true, awaitingAnswer: false };
     this.#requests.set(key, hold);
     try {
       let delayMs = RETRY_INITIAL_DELAY_MS;
@@ -1283,9 +1065,7 @@ export class PeerMcpSession {
   /**
    * Sends request `id` once, under `hold`, its call's hold on the id. A request whose connection
    * ended before it was sent (see `RequestHold.ended`), even one whose wait ended just before, is
-   * not sent: it fails with the error that ended it. Nor is one under the id of a late send that
-   * reaches the connection it would go out on (see `#lateSends`), which may be known only once its
-   * connect has its transport: it is refused with DUPLICATE_REQUEST_ID.
+   * not sent: it fails with the error that ended it.
    */
   async #requestOnce(
     method: string,
@@ -1308,23 +1088,18 @@ export class PeerMcpSession {
       await this.#waitForConnect();
       throwIfEnded(hold);
     }
-    if (!this.transport || typeof this.transport.send !== "function") {
+    // The connection's transport: its end would have ended this request, here and after the wait for a slot.
+    const transport = this.transport;
+    if (!transport || typeof transport.send !== "function") {
       throw new PeerMcpError("Peer transport is not connected", "NOT_CONNECTED");
     }
-    if (this.#lateSendInFlight(key)) throw duplicateRequestIdError(method, id);
     const deadline = Date.now() + timeoutMs;
-    if (this.transport.raw !== true) assertWithinRelayIdLimit(id);
-    const waitForSlot = this.#takeSlot(method, id, timeoutMs);
+    if (transport.raw !== true) assertWithinRelayIdLimit(id);
+    const waitForSlot = this.#takeSlot(transport, method, id, timeoutMs);
     if (waitForSlot) {
       await waitForSlot;
-      // Ended since its slot was granted: the connection's end gave the slot back too.
       throwIfEnded(hold);
-      if (!this.transport || typeof this.transport.send !== "function") {
-        this.#releaseSlot(key);
-        throw new PeerMcpError("Peer transport is not connected", "NOT_CONNECTED");
-      }
     }
-    const transport = this.transport;
     const rpc = { jsonrpc: "2.0", id, method, params };
     let entry!: PendingRpcEntry;
     const promise = new Promise<PeerMcpRpcResponse>((resolve, reject) => {
@@ -1346,16 +1121,12 @@ export class PeerMcpSession {
     // rejects for the caller.
     promise.catch(() => {});
     hold.awaitingAnswer = true;
-    hold.sending = true;
-    hold.wire = this.#wireOf(this.#connection) ?? transport;
-    let outstanding = false;
     try {
       const envelope: PeerMcpTransportMessage =
         options.raw === true || transport.raw === true ? rpc : { type: "mcp", message: rpc };
       await transport.send(envelope);
       // The POST has ended: its answer, if it had one, has arrived.
       if (sendBringsAnswer.has(transport)) hold.awaitingAnswer = false;
-      else outstanding = true;
     } catch (error) {
       // Nothing reached the relay, so it does not count the request and no answer comes. Once the
       // connection's end has given back the id, the slot and pending entry under it are another
@@ -1367,9 +1138,6 @@ export class PeerMcpSession {
         this.pending.delete(key);
         entry.reject(error);
       }
-    } finally {
-      hold.sending = false;
-      this.#lateSendEnded(hold, outstanding);
     }
     return promise;
   }
@@ -1551,23 +1319,20 @@ export class PeerMcpSession {
   }
 
   /**
-   * Ends the session: the requests waiting and a connect in flight fail with SESSION_DISCONNECTED (a
-   * connect still getting its transport once it has it; a request waiting for that connect at once),
-   * every request gives back its id at once, even one whose send still runs, which keeps it in flight
-   * only on a later connection that uses its transport again (see `#endRequests`, `#lateSends`),
-   * the transports the session holds are closed (the caller's own one too, even while a connect is
-   * still connecting it, and one a connect was replacing), and the state is `idle` once they are.
-   * Nothing a transport reports through the callbacks of a connect this ended speaks for the session,
-   * while it closes or after the next connect (see `#connection`); what reaches the `onMessage` the
-   * session gave the caller's own transport speaks for nothing until a connect holds that transport
-   * again (see `#dispatchSuppliedMessage`). The session starts over: the next `connect()` or request
-   * connects again, however the relay ended the session before.
+   * Ends the session: the session's connection ends with SESSION_DISCONNECTED (see `#endConnection`),
+   * so the requests waiting and a connect in flight fail with it at once (a connect still getting its
+   * transport once it has it; a request waiting for that connect at once), every request gives back
+   * its id and its slot at once, even one whose send still runs, and the connection's transport is
+   * closed while it holds it (the caller's own one too, even while a connect is still connecting it),
+   * and the state is `idle` once it is. Nothing a transport reports for a connection this ended speaks
+   * for the session, while it closes or later. The session starts over: the next `connect()` or
+   * request connects again, however the relay ended the session before.
    *
    * Calls made while it runs keep their order. A `connect()` or request starts its connect once the
-   * transports are closed, as after an awaited disconnect(); another disconnect() ends such a connect
+   * transport is closed, as after an awaited disconnect(); another disconnect() ends such a connect
    * before it starts, and resolves when this one does. A connect this ended while it was getting its
-   * transport closes that transport once it has it, unless a connection holds it by then, another
-   * session's live one included for the caller's own transport (see `#closeUnlessInUse`).
+   * transport closes that transport once it has it, unless a live connection holds it by then (see
+   * {@link transportOwners}).
    */
   async disconnect(): Promise<PeerMcpSessionInfo> {
     const error = sessionDisconnectedError();
@@ -1575,34 +1340,26 @@ export class PeerMcpSession {
     // The connect in flight is ended: a connect() from now on starts another.
     this.connectPromise = null;
     this.state = "disconnecting";
-    // A connect waiting for `ready` ends now, not at its timeout, and leaves no wait for the next one.
-    this.#readyReject?.(error);
+    const closed = this.#connection ? this.#endConnection(this.#connection, error) : undefined;
+    this.#connection = undefined;
+    // So are the requests waiting for a connect that has not started (see connect()).
     this.#endRequests(error);
-    // Let go of first, so nothing the transports report while they close speaks for the session.
-    const transport = this.transport;
-    const held = this.#letGoOfTransport();
-    if (transport) held.add(transport);
+    this.transport = undefined;
     this.#negotiatedProtocolVersion = undefined;
     this.#ended = undefined;
     this.connectedAt = null;
     this.readySeen = false;
-    // A disconnect in progress closes what the session held; a connect asked for since has not
-    // started (see connect()), so this one only ended it, and resolves once the transports are closed.
+    // A disconnect in progress closes the transport; a connect asked for since has not started (see
+    // connect()), so this one only ended it, and resolves once the transport is closed.
     if (this.#disconnecting) return this.#disconnecting;
-    const disconnecting = this.#closeTransports(held);
+    const disconnecting = this.#finishDisconnect(closed);
     this.#disconnecting = disconnecting;
     return disconnecting;
   }
 
-  /** The rest of `disconnect()`: closes `transports`, then leaves the session `idle`. */
-  async #closeTransports(transports: ReadonlySet<PeerMcpTransport>): Promise<PeerMcpSessionInfo> {
-    await Promise.all(
-      [...transports].map(async (transport) => {
-        try {
-          await transport.close?.();
-        } catch {}
-      }),
-    );
+  /** The rest of `disconnect()`: waits for the transport's close, if any, then leaves the session `idle`. */
+  async #finishDisconnect(closed: Promise<void> | undefined): Promise<PeerMcpSessionInfo> {
+    await closed;
     this.#disconnecting = undefined;
     this.state = "idle";
     const info = this.getSessionInfo();
