@@ -91,6 +91,32 @@ function suppliedTransportRoute(transport: PeerMcpTransport): SuppliedTransportR
   return route;
 }
 
+/**
+ * The connections that hold each caller's own transport (`options.transport`) now, of every session
+ * handed that transport object: each from the start of its connect until the next connect or
+ * `disconnect()` lets go of it (see `PeerMcpSession.#connection`). A connect that disconnect() ended
+ * closes the transport it gets late only while none holds it (see `PeerMcpSession.#closeUnlessInUse`),
+ * so it never closes the transport under another session's connection.
+ */
+const suppliedTransportHolders = new WeakMap<PeerMcpTransport, Set<PeerMcpConnection>>();
+
+/** The connections that hold the caller's own `transport` (see {@link suppliedTransportHolders}), made on first use. */
+function holdersOf(transport: PeerMcpTransport): Set<PeerMcpConnection> {
+  let holders = suppliedTransportHolders.get(transport);
+  if (!holders) {
+    holders = new Set();
+    suppliedTransportHolders.set(transport, holders);
+  }
+  return holders;
+}
+
+/**
+ * The transports whose send is the whole exchange with the relay, so that the answer to a request
+ * sent on one, if any, has arrived once its send has ended: each Streamable HTTP transport a session
+ * makes, whose send is the POST (see `createHttpTransport`).
+ */
+const sendBringsAnswer = new WeakSet<PeerMcpTransport>();
+
 /** The error `disconnect()` ends the requests and the connect it finds with. */
 function sessionDisconnectedError(): PeerMcpError {
   return new PeerMcpError("Peer session disconnected", "SESSION_DISCONNECTED");
@@ -133,6 +159,33 @@ interface PendingRpcEntry {
   reject: (error: unknown) => void;
   timer: ReturnType<typeof setTimeout>;
   method: string;
+}
+
+/**
+ * A `request()` call's hold on its id (see `PeerMcpSession.#requests`): from the call until the
+ * answer to its last send arrives, or until its connection ends, whichever comes first.
+ */
+interface RequestHold {
+  /** True until the `request()` call settles. */
+  running: boolean;
+  /**
+   * True from a send until its answer arrives, even after the caller stopped waiting at its timeout,
+   * or the send fails. On a transport whose send brings the answer (see `sendBringsAnswer`), until
+   * the send ends.
+   */
+  awaitingAnswer: boolean;
+  /**
+   * The error whatever ended the connection's requests ended this one with, when that came before the
+   * call settled (see `PeerMcpSession.#rejectPending`). It gave back the id then, so the call sends
+   * nothing more, and its send, if that is still running, touches nothing a later request under
+   * the id holds once it ends.
+   */
+  ended?: { readonly error: unknown };
+}
+
+/** Throws the error that ended `hold`'s request, if its connection's end has (see `RequestHold.ended`). */
+function throwIfEnded(hold: RequestHold): void {
+  if (hold.ended) throw hold.ended.error;
 }
 
 /** A request waiting for a relay-socket slot (see `PeerMcpSession.#takeSlot`). */
@@ -499,7 +552,8 @@ export class PeerMcpSession {
    * disconnect() since then ends it with SESSION_DISCONNECTED and leaves the session as disconnect()
    * sets it: an attempt that had not started does not start, one waiting for `ready` ends at once,
    * and one that was getting its transport closes the transport it gets, which disconnect() could
-   * not close, unless the connection the session holds by then uses it (see `#closeUnlessInUse`).
+   * not close, unless a connection holds it by then: the one this session holds, or, for the
+   * caller's own transport, one of any session handed it (see `#closeUnlessInUse`).
    */
   async #connectImpl(disconnects: number): Promise<PeerMcpSessionInfo> {
     if (this.#disconnects !== disconnects) throw sessionDisconnectedError();
@@ -520,6 +574,8 @@ export class PeerMcpSession {
       replaced: shared ? new Set() : previous,
     };
     this.#connection = connection;
+    // It holds the caller's own transport from now on, as another session handed it may see.
+    if (shared && this.#suppliedTransport) holdersOf(this.#suppliedTransport).add(connection);
     this.notify();
     // Only while this is the session's connection: a transport used again (the caller's own) speaks
     // for this connect through these callbacks, and for a later one through that connect's.
@@ -567,6 +623,7 @@ export class PeerMcpSession {
             clientToken: this.clientToken,
             protocolVersion: () => this.#negotiatedProtocolVersion,
           });
+          sendBringsAnswer.add(transport);
         } else {
           transport = createWebSocketTransport(url, protocols, this.WebSocketImpl, callbacks);
         }
@@ -603,8 +660,9 @@ export class PeerMcpSession {
 
   /**
    * Lets go of the session's connection: the callbacks given for it stop speaking for the session
-   * (see `#connection`), and the transports it held, its own and those it was replacing, are
-   * returned for the caller to close or to have the next connection replace.
+   * (see `#connection`), it no longer holds the caller's own transport (see
+   * {@link suppliedTransportHolders}), and the transports it held, its own and those it was
+   * replacing, are returned for the caller to close or to have the next connection replace.
    */
   #letGoOfTransport(): Set<PeerMcpTransport> {
     const connection = this.#connection;
@@ -613,6 +671,7 @@ export class PeerMcpSession {
     const held = new Set<PeerMcpTransport>();
     if (!connection) return held;
     if (connection.transport) held.add(connection.transport);
+    if (connection.shared && this.#suppliedTransport) suppliedTransportHolders.get(this.#suppliedTransport)?.delete(connection);
     // The caller's transport's dispatcher delivers to no session until a connect takes it again.
     const route = connection.shared && connection.transport ? suppliedTransportRoutes.get(connection.transport) : undefined;
     if (route?.holder === this.#dispatchSuppliedMessage) route.holder = undefined;
@@ -625,7 +684,8 @@ export class PeerMcpSession {
    * Called once `connection` has got its transport (`transport`, undefined when getting it failed).
    * A connection the session still holds closes the transports it replaced, except the one it got
    * (a factory may hand the last one out again). One that `disconnect()` let go of meanwhile, which
-   * closed what it replaced, has its transport closed unless the session's connection uses it.
+   * closed what it replaced, has its transport closed unless a connection holds it (see
+   * `#closeUnlessInUse`).
    */
   #settleTransport(connection: PeerMcpConnection, transport: PeerMcpTransport | undefined): void {
     connection.obtaining = false;
@@ -642,14 +702,17 @@ export class PeerMcpSession {
   /**
    * Closes `transport`, which a connect that `disconnect()` ended got after disconnect() let go of
    * it (so disconnect() could not close it, or closed it while its connect was still running),
-   * unless the connection the session holds now uses it: the caller's own transport (`shared`),
-   * which every connect uses again, or a transport a factory handed out again. While that connection
-   * is still getting its transport, which may be this one, it closes this one once it has its own
-   * (see `PeerMcpConnection.replaced`).
+   * unless a connection holds it now. The caller's own transport (`shared`), which every connect of
+   * every session handed it uses again, stays open while a connection of any of those sessions holds
+   * it (see {@link suppliedTransportHolders}): this session's next connect, or another session's,
+   * connected or still connecting it. A transport a factory made stays open while the connection
+   * this session holds uses it, as a factory may hand one out again; while that connection is still
+   * getting its transport, which may be this one, it closes this one once it has its own (see
+   * `PeerMcpConnection.replaced`).
    */
   #closeUnlessInUse(transport: PeerMcpTransport, shared: boolean): void {
+    if (shared && this.#suppliedTransport && (suppliedTransportHolders.get(this.#suppliedTransport)?.size ?? 0) > 0) return;
     const current = this.#connection;
-    if (current && shared && current.shared) return;
     if (current && !current.shared && current.obtaining) {
       current.replaced.add(transport);
       return;
@@ -778,9 +841,10 @@ export class PeerMcpSession {
       return;
     }
     if (isRpcResponse(rpc)) {
-      // The relay has answered, so it no longer counts the request, whether or not anyone still
-      // waits for the answer.
+      // The relay has answered, so it no longer counts the request, and nothing more comes under its
+      // id, whether or not anyone still waits for the answer.
       this.#releaseSlot(String(rpc.id));
+      this.#answered(String(rpc.id));
       const pending = this.pending.get(String(rpc.id));
       if (!pending) return;
       this.pending.delete(String(rpc.id));
@@ -843,13 +907,16 @@ export class PeerMcpSession {
    */
   readonly #connectWaits = new Set<(error: unknown) => void>();
   /**
-   * The `String(id)` of every request a `request()` call has taken and not settled yet: waiting for
-   * a connect, for a slot, for its answer or to be sent again after a retryable refusal, or being
-   * sent. A call settles only once its last send has, so over the HTTP transport, whose send is the
-   * whole POST and brings the answer, its id stays here until that POST ends, even after the
-   * request's timeout or disconnect() rejected its pending entry.
+   * The hold of every request in flight, by `String(id)` (see {@link RequestHold}), one rule for every
+   * transport: from its `request()` call until the answer to its last send arrives or its connection
+   * ends. That covers waiting for a connect, for a slot, for its answer or to be sent again after a
+   * retryable refusal, and being sent, and it lasts past the call when the caller stopped waiting at
+   * its timeout before the answer came: a request holding a relay-socket slot, or one on a raw
+   * transport whose send returned before its answer. The built-in HTTP transport's send is the whole
+   * POST, which brings the answer, so there the id is held until the POST ends. When the connection
+   * ends, `#rejectPending` gives back every id at once, a send still running included.
    */
-  readonly #requestIds = new Set<string>();
+  readonly #requests = new Map<string, RequestHold>();
   /**
    * The ids of the requests holding a slot of the relay socket (see `#takeSlot`): sent and not yet
    * answered by the relay, including requests whose caller stopped waiting at their timeout.
@@ -858,7 +925,16 @@ export class PeerMcpSession {
   /** Requests waiting for a slot of the relay socket, oldest first. */
   readonly #slotWaiters: SlotWaiter[] = [];
 
+  /**
+   * Ends every request in flight with `error`: what the connection's end (`disconnect()`, a
+   * transport error or close, a frame that ends the session, a failed connect) does to them. Each
+   * gives back its id at once, even while its send still runs, which nothing can cut short: once
+   * the connection has ended no answer to it reaches the session (see `#connection`), and the send,
+   * when it ends, touches nothing of a request sent under the id since (see `RequestHold.ended`).
+   */
   #rejectPending(error: unknown): void {
+    for (const hold of this.#requests.values()) hold.ended = { error };
+    this.#requests.clear();
     // A request waiting for a slot ends with the same error; the requests holding one are ended
     // below, with the connection that counted them.
     for (const waiter of this.#slotWaiters.splice(0)) waiter.reject(error);
@@ -924,17 +1000,33 @@ export class PeerMcpSession {
 
   /**
    * Refuses request `id` (DUPLICATE_REQUEST_ID, nothing sent) while a request of this session under
-   * the same `String(id)` is in flight: one whose `request()` has not settled (see `#requestIds`),
-   * or one holding a slot after its caller stopped waiting. MCP forbids reusing a request id within a
-   * session, and the session matches a reply to its request by `String(id)`: a second request under
-   * that key would take the first one's answer and give back a slot the relay still counts for the
-   * other, and the first one's retry would be refused in its turn.
+   * the same `String(id)` is in flight (see `#requests`), its slot-holding ones after their callers
+   * stopped waiting included. MCP forbids reusing a request id within a session, and the session
+   * matches a reply to its request by `String(id)`: a second request under that key would take the
+   * first one's answer and give back a slot the relay still counts for the other, and the first
+   * one's retry would be refused in its turn.
    */
   #assertIdNotInFlight(method: string, id: string | number): void {
-    const key = String(id);
-    if (this.#requestIds.has(key) || this.#heldSlots.has(key)) {
+    if (this.#requests.has(String(id))) {
       throw new PeerMcpError(`Peer MCP request id ${JSON.stringify(id)} is already in flight`, "DUPLICATE_REQUEST_ID", { method, id });
     }
+  }
+
+  /** Notes that the answer under `key` arrived: its request's id is in flight no longer, once its call settled. */
+  #answered(key: string): void {
+    const hold = this.#requests.get(key);
+    if (!hold) return;
+    hold.awaitingAnswer = false;
+    this.#letGoOfId(key, hold);
+  }
+
+  /**
+   * Gives back `key`, which `hold` took, once nothing keeps it in flight: its call has settled and no
+   * answer is awaited. A hold whose connection ended gave it back already, and leaves alone a later
+   * request's hold under it.
+   */
+  #letGoOfId(key: string, hold: RequestHold): void {
+    if (!hold.running && !hold.awaitingAnswer && this.#requests.get(key) === hold) this.#requests.delete(key);
   }
 
   /** Gives back the slot request `key` holds, if any, and lets the oldest waiting requests take the free ones. */
@@ -986,8 +1078,9 @@ export class PeerMcpSession {
    * `PEER_RELAY_MAX_REQUEST_ID_BYTES` of JSON there (REQUEST_ID_TOO_LARGE), since the relay answers a
    * longer one without it. On any transport an id the session's request in flight has (as
    * `String(id)`, so `1` and `"1"` are one id here) is refused with DUPLICATE_REQUEST_ID, unsent (see
-   * `#assertIdNotInFlight`): a request is in flight from this call until it settles, the wait before
-   * a retry and the whole HTTP POST included, and while it holds a relay-socket slot after that.
+   * `#assertIdNotInFlight`): a request is in flight from this call until its answer arrives or its
+   * connection ends, the wait before a retry included and even after its timeout, which over the
+   * built-in HTTP transport, whose POST brings the answer, is until that POST ends (see `#requests`).
    *
    * A request the relay refuses as retryable (`data.retryable: true`, e.g. PROVIDER_BUSY while the
    * provider is not reading) reached nobody, so it is sent again with exponential backoff
@@ -1005,14 +1098,15 @@ export class PeerMcpSession {
     const deadline = Date.now() + timeoutMs;
     const key = String(id);
     this.#assertIdNotInFlight(method, id);
-    // Held until this call settles, so no other request takes the id while this one waits, is sent
-    // or waits to be sent again: its own retries keep it.
-    this.#requestIds.add(key);
+    // Held until its answer arrives or its connection ends (see `#requests`), so no other request
+    // takes the id while this one waits, is sent or waits to be sent again: its own retries keep it.
+    const hold: RequestHold = { running: true, awaitingAnswer: false };
+    this.#requests.set(key, hold);
     try {
       let delayMs = RETRY_INITIAL_DELAY_MS;
       for (;;) {
         try {
-          return await this.#requestOnce(method, params, options, id, Math.max(1, deadline - Date.now()));
+          return await this.#requestOnce(method, params, options, id, hold, Math.max(1, deadline - Date.now()));
         } catch (error) {
           if (!isRetryableRpcError(error)) throw error;
           const waitMs = Math.max(delayMs, requestedRetryDelayMs(error));
@@ -1023,17 +1117,26 @@ export class PeerMcpSession {
         }
       }
     } finally {
-      this.#requestIds.delete(key);
+      hold.running = false;
+      this.#letGoOfId(key, hold);
     }
   }
 
+  /**
+   * Sends request `id` once, under `hold`, its call's hold on the id. A request whose connection
+   * ended before it was sent (see `RequestHold.ended`), even one whose wait ended just before, is
+   * not sent: it fails with the error that ended it.
+   */
   async #requestOnce(
     method: string,
     params: Record<string, unknown>,
     options: PeerMcpRequestOptions,
     id: string | number,
+    hold: RequestHold,
     timeoutMs: number,
   ): Promise<PeerMcpRpcResponse> {
+    const key = String(id);
+    throwIfEnded(hold);
     // A request made while a connect is in flight waits for that connect (connect() returns the
     // in-flight attempt) instead of writing to a transport that is not open yet. A session the
     // relay ended for good fails as it ended instead of connecting again (see `#ended`).
@@ -1043,6 +1146,7 @@ export class PeerMcpSession {
       const ended = this.#ended;
       if (ended) throw new PeerMcpError(ended.message, ended.code, ended.details);
       await this.#waitForConnect();
+      throwIfEnded(hold);
     }
     if (!this.transport || typeof this.transport.send !== "function") {
       throw new PeerMcpError("Peer transport is not connected", "NOT_CONNECTED");
@@ -1052,19 +1156,27 @@ export class PeerMcpSession {
     const waitForSlot = this.#takeSlot(method, id, timeoutMs);
     if (waitForSlot) {
       await waitForSlot;
+      // Ended since its slot was granted: the connection's end gave the slot back too.
+      throwIfEnded(hold);
       if (!this.transport || typeof this.transport.send !== "function") {
-        this.#releaseSlot(String(id));
+        this.#releaseSlot(key);
         throw new PeerMcpError("Peer transport is not connected", "NOT_CONNECTED");
       }
     }
     const transport = this.transport;
     const rpc = { jsonrpc: "2.0", id, method, params };
+    let entry!: PendingRpcEntry;
     const promise = new Promise<PeerMcpRpcResponse>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.pending.delete(String(id));
-        reject(new PeerMcpError(`Peer MCP request timed out: ${method}`, "REQUEST_TIMEOUT", { method, id }));
-      }, Math.max(1, deadline - Date.now()));
-      this.pending.set(String(id), { resolve, reject, timer, method });
+      entry = {
+        resolve,
+        reject,
+        method,
+        timer: setTimeout(() => {
+          if (this.pending.get(key) === entry) this.pending.delete(key);
+          reject(new PeerMcpError(`Peer MCP request timed out: ${method}`, "REQUEST_TIMEOUT", { method, id }));
+        }, Math.max(1, deadline - Date.now())),
+      };
+      this.pending.set(key, entry);
     });
     // The caller only gets this promise once the send below has finished, which for the HTTP
     // transport is the whole POST. A timeout, disconnect() or transport error rejects the pending
@@ -1072,18 +1184,23 @@ export class PeerMcpSession {
     // default fatal to the agent process). This marks it handled; the promise returned below still
     // rejects for the caller.
     promise.catch(() => {});
+    hold.awaitingAnswer = true;
     try {
       const envelope: PeerMcpTransportMessage =
         options.raw === true || transport.raw === true ? rpc : { type: "mcp", message: rpc };
       await transport.send(envelope);
+      // The POST has ended: its answer, if it had one, has arrived.
+      if (sendBringsAnswer.has(transport)) hold.awaitingAnswer = false;
     } catch (error) {
-      // Nothing reached the relay, so it does not count the request.
-      this.#releaseSlot(String(id));
-      const pending = this.pending.get(String(id));
-      if (pending) {
-        clearTimeout(pending.timer);
-        this.pending.delete(String(id));
-        pending.reject(error);
+      // Nothing reached the relay, so it does not count the request and no answer comes. Once the
+      // connection's end has given back the id, the slot and pending entry under it are another
+      // request's, if any.
+      hold.awaitingAnswer = false;
+      if (!hold.ended) this.#releaseSlot(key);
+      if (this.pending.get(key) === entry) {
+        clearTimeout(entry.timer);
+        this.pending.delete(key);
+        entry.reject(error);
       }
     }
     return promise;
@@ -1268,6 +1385,7 @@ export class PeerMcpSession {
   /**
    * Ends the session: the requests waiting and a connect in flight fail with SESSION_DISCONNECTED (a
    * connect still getting its transport once it has it; a request waiting for that connect at once),
+   * every request gives back its id at once, even one whose send still runs (see `#rejectPending`),
    * the transports the session holds are closed (the caller's own one too, even while a connect is
    * still connecting it, and one a connect was replacing), and the state is `idle` once they are.
    * Nothing a transport reports through the callbacks of a connect this ended speaks for the session,
@@ -1279,7 +1397,8 @@ export class PeerMcpSession {
    * Calls made while it runs keep their order. A `connect()` or request starts its connect once the
    * transports are closed, as after an awaited disconnect(); another disconnect() ends such a connect
    * before it starts, and resolves when this one does. A connect this ended while it was getting its
-   * transport closes that transport once it has it (see `#closeUnlessInUse`).
+   * transport closes that transport once it has it, unless a connection holds it by then, another
+   * session's included for the caller's own transport (see `#closeUnlessInUse`).
    */
   async disconnect(): Promise<PeerMcpSessionInfo> {
     const error = sessionDisconnectedError();
