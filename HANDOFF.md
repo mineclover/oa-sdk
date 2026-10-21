@@ -2,12 +2,12 @@
 
 Last updated: 2026-10-22
 Repository: `/Users/junwoobang/workflow/oa-sdk`
-Main: `5d9e59e2` (PR #13 merged; in sync with `origin/main`)
+Main: `main` (PR #13 merged; in sync with `origin/main`; use `git log -1 --oneline`)
 Worktrees: main only · Open PRs: none
 
 ## 1. Current state
 
-- `main` is `5d9e59e2` (PR #13 merged) and in sync with `origin/main`. No other local branches or worktrees.
+- `main` includes PR #13 (`5d9e59e2`) and is in sync with `origin/main`. No other local branches or worktrees.
 - Last full local test run: **654 files / 9,209 tests pass** (turbo suites 635/9,006, integration 73, TypeSpec plugin e2e 130). The follow-up branch adds codegen 211/4,011, client 16/277 and ast-sync 8/75 passing suites.
 - The 43-lane local CI mirror (build, typecheck, 4 test groups, integration, e2e, schema, governance, Node 26/TS7, public runtime, NestJS/FastAPI governance) passed on the combined tree through PR #9. Later changes re-ran the full codegen suite (211 files / 4,007 tests) and every docs/governance gate.
 - **GitHub Actions cannot start jobs**: PR checks show 0 steps because the account's billing limit is reached. All evidence above is from local runs.
