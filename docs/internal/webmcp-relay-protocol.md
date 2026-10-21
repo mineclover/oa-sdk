@@ -3744,7 +3744,132 @@ session을 끝내는 frame이 온 것)은 그 transport를 붙들지 않는다. 
 
 ### 10.2 남은 열린 문제
 
-없다. 10.2에 올렸던 O-62~O-69는 10.1에 결정으로 옮겼다.
+10.2에 올렸던 O-62~O-69는 10.1에 결정으로 옮겼다. O-70~O-77은 그 결정을 구현한 수정과 그 재확인 수정(11장)의 검증이 재현했지만 이
+버전에서 고치지 않은 것이다. 항목마다 마지막 수정 뒤의 코드에서 scratch 테스트로 다시 재현했고, 그 전 commit의 코드로도 돌려 언제부터인지
+적었다.
+
+**O-70 (low) 답을 막는 검사 뒤 그 답을 보내기 전에 연결이 끝나면 provider는 끝난 연결의 답을 보내려 한다.** `answerMcpRpc`는 처리기가
+돌아온 뒤 generation을 보고 답을 돌려주지만(R-PEER-012), 두 channel의 frame 처리기는 그 답을 `await`한 다음 microtask에서 보내며 그때
+generation을 다시 보지 않는다(relay socket은 `readyState`만, DataChannel은 답이 있는지만 본다). 그 사이에 같은 turn에 온 다른 요청이 연결을
+끝낼 수 있다. 예: 한 network read가 relay frame `{jsonrpc:'2.0', id:'A', method:'ping'}`과 `tools/call` 'B'를 한 turn에 전하고(Node `ws`가
+그렇게 전한다), host가 'B'를 실행한 뒤 그 action을 settle할 때 `subscribeAiRuns` listener가 `disconnect()`를 부른다. A의 검사는 연결이 살아
+있을 때 지나가고, 그다음 B의 continuation이 generation을 끝내며(B에는 바르게 답하지 않는다), 이어서 A의 처리기가 `{id:'A', result:{}}`를
+보낸다. provider state는 `idle`인데, 열린 채 둔 테스트의 relay socket과 DataChannel이 모두 그 답을 기록한다. generation을 바꾸는 일은 channel을
+먼저 닫으므로 실제 WebSocket은 CLOSING이고 RTCDataChannel은 `open`이 아니어서, 보내기 전의 검사가 막아 wire에는 나가지 않는다. 이번 수정들
+전부터 있었다. 49b1c814에서는 같은 순서로 A와 B 모두에 답했고(B는 −32603), b90ab15e가 답을 내는 곳 하나로 모은 검사가 B만 막았다. wire에
+영향이 없는 낮은 심각도라 이 버전에서 바꾸지 않는다. 권고: 보내는 곳이 `answerMcpRpc`를 기다린 뒤 generation을 다시 본다(relay socket은
+`generation === this.connectionGeneration && ws.readyState === WebSocket.OPEN`, DataChannel은 `generation === this.connectionGeneration`).
+또는 `answerMcpRpc`가 검사한 turn에 직접 보낸다. 회귀 테스트는 `ping`과 `tools/call`을 한 turn에 전하고 그 호출이 settle할 때 연결을 끝내는
+run listener를 쓴다. 위치: `src/provider/peer-client.ts:1069`, `src/provider/peer-client.ts:1070`, `src/provider/peer-client.ts:1569`,
+`src/provider/peer-client.ts:1570`, `src/provider/peer-client.ts:1603`.
+
+**O-71 (low) run을 알릴 때 host의 CRDT transport가 던지면, host가 커밋한 `tools/call`에 −32603으로 답하고 이름 붙은 run을 실패시킨다.**
+host가 실행한 호출의 run을 바꾼 뒤 `changeAiRun`은 `publishAiRunAwareness`로 그 run을 host의 CRDT transport에 알린다(`introduceRemotePeer`가
+`receiveVerified`를, roomEpoch가 없으면 `receiveExternal`을 부른다). `introduceRemotePeer`의 다른 호출처(DataChannel의 hello와 `tools/call`,
+`attachCrdtTransport`)와 달리 이 호출만 예외를 잡지 않는다. 예: DataChannel session(state `connected`, `mcp-crdt` room)에서
+`attachCrdtTransport`로 단 transport의 `receiveVerified`가 host가 tool을 실행한 뒤 동기로 던진다. agent가 `_meta.framebook.aiTrace.runId`
+'task-x'로 `tools/call` 'write'를 보내고, host는 `{ok:true, receipt:{status:'durable', operationId:'op1', …}}`를 돌려준다. `changeAiRun`은
+action을 settle하고 op1을 기록한 뒤 알리다 던지고, `handleToolCall`의 catch는 run을 그 예외의 message로 실패시킨 뒤 다시 알리다 또 던진다.
+그 예외를 받은 `answerMcpRpc`는 `{error:{code:-32603, message:'Internal error'}}`로 답한다. run 'task-x'는 `phase:'failed'`,
+`operationIds:['op1']`이고 그 run의 다음 호출은 `AI_RUN_TERMINAL`이다. 이름 없는 호출도 커밋한 뒤 −32603을 받고, host의 `stopAiRun`도 run을
+멈춘 뒤 같은 예외를 던진다(`rollbackAiRun`도 같은 알림을 부른다). agent는 커밋된 쓰기를 내부 오류로 알아 다시 시도할 수 있다(ledger가 없으면
+두 번 쓴다). R-PEER-013(host를 부른 결과는 언제나 CallToolResult)과 R-PEER-016(host가 실행한 호출은 그 결과대로 run에 기록하고 끝낸다)을
+어긴다. relay socket에서는 provider state가 `connected`가 아니어서 알리지 않으므로 생기지 않는다. 9f34ff94에서도 같았다. b90ab15e가 고친
+`subscribeAiRuns` listener의 예외와 같은 결과를 이번에는 host의 CRDT transport가 낸다. 던지는 transport는 host의 결함이고 op1은 run에 기록되어
+rollback이 되돌릴 수 있으므로 낮은 심각도이고, 이 버전에서 바꾸지 않는다. 권고: `publishAiRunAwareness`가 `introduceRemotePeer` 호출을 다른
+호출처처럼 try/catch로 감싸 기록만 한다(그러면 `stopAiRun`·`rollbackAiRun`도 던지지 않는다). 또는 run 알림을 `handleToolCall`의 try 밖에서 해,
+알림의 실패가 호출의 bookkeeping과 답을 바꾸지 않게 한다. 회귀 테스트는 DataChannel에서 던지는 `receiveVerified`로 한다. 위치:
+`src/provider/peer-client.ts:1904`, `src/provider/peer-client.ts:1879`, `src/provider/peer-client.ts:2182`, `src/provider/peer-client.ts:2185`,
+`src/provider/peer-client.ts:2170`, `src/provider/peer-client.ts:1565`, `src/provider/peer-client.ts:2058`.
+
+**O-72 (low) R-PEER-013은 `tools/call`의 JSON-RPC 오류 답을 −32602뿐이라 적지만, 살아 있는 연결에서 ledger 조회가 실패한 호출은 −32603으로
+답한다.** R-PEER-013은 "`tools/call`이 JSON-RPC `error`로 답하는 것은 이 params 무효(−32602)뿐이다"라고 적는다. 그런데 ledger 조회
+(`aiRunLedger.find`)는 `handleToolCall`의 try 밖에 있어, 조회가 reject하면 그 예외를 받은 `answerMcpRpc`가 살아 있는 연결에 −32603
+`Internal error`로 답한다. R-PEER-012의 "예상하지 못한 예외는 −32603"과 R-PEER-016(끝난 연결이면 그 −32603도 답하지 않는다)은 이것을
+전제하고, 테스트도 연결이 살아 있는 동안의 id 1에 그 답을 확인한다:
+`test/provider-tool-call.test.ts` › `answers nothing for a call whose session ended while the ledger lookup that then failed was pending`.
+O-71은 같은 −32603의 다른 길이다. 그 문장은 초안부터 있었고(그때는 −32008 `OUTCOME_UNKNOWN`과 함께였다) O-68이 −32008을 빼며 −32602만
+남았다. ledger 조회는 초안 때도 try 밖이었다. wire 동작이 아니라 요건끼리의 어긋남이고, 문장과 동작 가운데 어느 것을 고칠지가 결정이라 이
+버전에서 바꾸지 않는다. 권고: R-PEER-013을 "params 무효(−32602)와, host 호출 밖에서 일어난 예상하지 못한 예외(실패한 ledger 조회 등, −32603
+`Internal error`, R-PEER-012)"로 고치고 위 위치와 테스트를 근거로 단다. 또는 실패한 조회를 `isError` CallToolResult로 답해 "−32602뿐"을 지킨다.
+위치: `src/provider/peer-client.ts:1763`, `src/provider/peer-client.ts:1608`.
+
+**O-73 (medium) 답이 이미 온 요청의 send가 연결이 끝날 때 아직 돌면, 같은 transport로 다시 연결한 연결에서 그 id와 relay slot 하나가 그
+연결이 끝날 때까지 남는다.** 연결이 끝날 때(`#endRequests`) send가 아직 도는 요청은 답이 이미 왔는지 보지 않고 늦은 send(`#lateSends`)가 되고,
+그 send가 성공해 끝나면(`#lateSendEnded`) 그 transport를 쓰는 살아 있는 다음 연결에 나간 것으로 보아 그 연결에서 답을 기다린다(R-PEER-032,
+R-PEER-035). 그 답은 끝난 연결에 이미 왔으므로 다음 연결에서는 오지 않는다. 예: caller 자신의 transport T(factory가 다시 돌려준 transport도
+같다)의 send는 바로 쓰고 relay는 바로 답하지만, send의 promise는 쓰기가 확인된 뒤에 끝난다. `connect()` 뒤 `request('ping', {}, {id:'x'})`의
+답이 와 pending이 끝났고 send는 아직 돌 때 `await disconnect()`와 `await connect()`가 T를 다시 연결하고, 그 뒤 send가 끝난다. 첫 요청은 그
+결과로 끝났는데, 다시 연결한 연결에서 `request('ping', {}, {id:'x'})`는 400 ms 뒤에도 `DUPLICATE_REQUEST_ID`로 거절되고, 그 요청은 그 연결의
+slot 하나를 센다. `disconnect()` 전에 그런 요청이 64개였으면 모두 결과로 끝났는데도 다시 연결한 연결은 새 요청을 하나도 쓰지 못하고
+`REQUEST_TIMEOUT`으로 끝낸다. 그 연결이 끝날 때까지 그렇다. 2e5a728f가 늦은 send를 다음 연결에 남기며 만든 회귀다(b90ab15e와 49b1c814에서는
+같은 순서로 'x'를 보내고 64개 뒤의 새 요청도 쓴다). R-PEER-032의 "그 답이 오거나 그 연결이 끝날 때까지"에서 그 답은 이미 왔다. send가 쓰기
+확인을 기다리는 transport에서 그 사이에 `disconnect()`가 올 때만 생기지만, 남는 slot은 기본 id의 요청까지 막으므로 중간 심각도다. 고치면 이번에
+정한 늦은 send의 규칙(R-PEER-032)을 다시 정해야 하므로 이 버전에서 바꾸지 않는다. 권고: 답을 아직 기다리는 요청만 늦은 send로 둔다
+(`#endRequests`에서 `hold.sending && hold.awaitingAnswer`). session이 그 답을 본 것은 그 send가 끝난 연결의 wire에 이미 썼다는 증거이므로,
+`#lateSendEnded`도 답이 온 hold에는 `landedOn`을 정하지 않는다. 위치: `src/client/session.ts:1015`, `src/client/session.ts:1139`,
+`src/client/session.ts:1140`, `src/client/session.ts:1156`, `src/client/session.ts:1358`.
+
+**O-74 (medium) 한 session의 늦은 send는 같은 넘겨받은 `transport`를 받은 다른 session의 연결에서는 진행 중이 아니다.** 늦은 send
+(`#lateSends`)는 session마다 기록되므로, 그것이 막는 id와 세는 slot은 그 session의 다음 연결에만 있다. 그런데 `PeerMcpService({ transport })`는
+만드는 session마다 같은 transport 객체를 넘기므로(R-PEER-055) 다른 session의 연결이 그것을 다시 쓴다. 예: connect마다 새 wire를 여는 transport
+T에서 붙잡힌 send는 그때 T가 가진 wire에 쓰고, relay는 wire마다 진행 중인 id를 `DUPLICATE_REQUEST_ID`로 거절한다(R-MCP-031). relay의 `ready`가
+sessionId 'S'를 주므로 두 session의 기본 id는 모두 'S-1'이다. `service.connect()`가 session A를 주고, A의 `request('ping')`(id 'S-1')의 send가
+붙잡힌 채 `service.disconnect()`, 그다음 `service.connect()`가 T로 session B를 준다. B의 `request('ping')`(id 'S-1')를 쓴 뒤 A의 send가 풀려
+B의 wire에 'S-1'을 쓴다(쓴 순서는 B, A). B의 pending 'S-1'은 relay가 A의 늦은 요청을 거절한 `DUPLICATE_REQUEST_ID`로 끝나, B는 다른 요청의
+답을 받고 자신의 답은 버리며 relay가 아직 세는 slot을 비운다. 순서가 반대면(늦은 send가 먼저) relay가 B의 요청을 거절한다. R-PEER-032는 그
+id가 "그 transport를 쓰는 살아 있는 연결에서" MUST 진행 중이라 하고, 이것은 O-69가 다룬 바로 그 service 흐름이다. 이번 수정들 전부터
+있었고(49b1c814에서도 같다), 2e5a728f의 늦은 send 수정은 같은 session만 다룬다. 다른 요청의 답을 받으므로 중간 심각도다. session마다인 id의
+기록(R-PEER-032)을 같은 transport를 받은 session들에 걸쳐 넓히는 일이라 결정이 필요해 이 버전에서 바꾸지 않는다. 권고: 넘겨받은 transport의
+늦은 send를 transport 객체마다 session을 넘어 기록한다(`suppliedTransportHolders`처럼 transport에서 key와 hold로 가는 WeakMap).
+`#assertIdNotInFlight`, `#requestOnce`의 재검사, `#slotsInUse`가 그것을 보고, 어느 session의 `#answered`든 그 기록에 닿으면 지운다. 위치:
+`src/client/session.ts:995`, `src/client/session.ts:1106`, `src/client/session.ts:1125`, `src/client/session.ts:1194`, `src/client/service.ts:43`.
+
+**O-75 (low) 끝난 connect가 늦게 다시 연 넘겨받은 `transport`는, 그때 그것을 붙들던 연결의 connect가 그 뒤 실패하면 열린 채 남는다.**
+`disconnect()`가 끝낸 connect가 넘겨받은 transport T를 늦게 다시 열 때 T를 붙든 살아 있는 연결이 있으면 닫지 않는다(`#closeUnlessInUse`,
+R-PEER-045). 그 연결이 아직 T를 연결하는 중이었고 그 connect가 그 뒤 실패하면, 그 연결은 끝나 붙든 기록에서 빠지지만(`#connectionEnded`)
+아무도 T를 다시 보지 않는다. 같은 session에서: connect 1이 T의 `connect`를 기다리는 동안 `await disconnect()`가 T를 닫고(close 1번), connect
+2가 T의 `connect`를 기다린다. connect 1의 것이 끝나 T를 열면 connect 2의 연결이 붙들어 닫지 않고, connect 2의 것이 'relay unreachable'로
+실패해 session은 `error`다. close는 1번이고 T는 열려 있다. 두 session에서: 같은 T를 받은 A와 B(`PeerMcpService({ transport })`의 connect,
+disconnect, connect)에서 A의 connect가 T를 연결하는 동안 `A.disconnect()`(close 1번), B의 connect가 T를 연결하는 동안 A의 것이 끝나 T를
+열고, 그 뒤 B의 것이 실패한다. A는 `idle`, B는 `error`, close는 1번이고 T는 열려 있다. T는 그 session의 `disconnect()`까지, 실패한
+`PeerMcpService.connect()`의 session을 버리면 영영 열린 채다. 반대 순서(connect 2가 connect 1보다 먼저 실패)는 닫히고 테스트가 확인한다:
+`test/client-session.test.ts` › `closes the transport again once a connect it ended has connected it, though the connect after it failed`.
+같은 session의 이 순서는 이번 수정들 전부터 그랬고, 두 session의 이 순서는 9f34ff94가 다른 session의 연결도 붙든 것으로 세면서
+생겼다(49b1c814에서는 A가 T를 닫았다). R-PEER-045의 "끝난 연결은 ... 아무도 쓰지 않는 transport를 열어 두지 않는다"와 O-69가 막으려던
+결과다. 결과가 열린 transport 하나이고 그 session의 다음 `disconnect()`가 닫으므로 낮은 심각도이며, 붙든 연결의 끝을 기다려 닫는 기록을 새로
+두는 일이라 이 버전에서 바꾸지 않는다. 권고: `#closeUnlessInUse`가 살아 있는 연결 때문에 닫지 않으면 그 transport에 미룬 닫기를 기록한다
+(transport 객체마다, `suppliedTransportHolders` 옆에). transport를 연결하지 못하고 끝난 연결(실패한 connect) 때문에 붙든 기록이 비면 그 닫기를
+하고, 붙든 연결의 connect가 성공하면 그 기록을 지운다. 회귀 테스트는 두 순서를 같은 session과 두 session에서 모두 다룬다. 위치:
+`src/client/session.ts:766`, `src/client/session.ts:748`, `src/client/session.ts:682`, `src/client/session.ts:720`.
+
+**O-76 (low) 같은 key로 바뀐 `PeerMcpService`의 session은 다른 session의 `disconnect()`가 넘겨받은 `transport`를 닫은 뒤에도 그것을 붙든
+연결로 남는다.** `createSession`은 같은 key의 session을 `disconnect()`하지 않고 바꾼다(R-PEER-055). 바뀐 session이 연결된 채면 그 연결은
+넘겨받은 transport T를 계속 붙든다. T의 close는 그 transport의 마지막 connect의 callback으로만 알려지므로(R-PEER-031), 다른 session의
+`disconnect()`가 T를 닫아도 바뀐 session은 그것을 모르고 `connected`에 살아 있는 연결로 남는다. 예: `PeerMcpService({ transport, sessionId: 'S' })`
+(connect마다 key 'S')에서 `a = await service.connect()`, `b = await service.connect()`가 a를 바꾸고, `service.disconnect()`가 b의 T를 닫는다
+(close 1번, 1000은 b의 callback으로 간다). `c = service.connect()`가 T의 `connect`를 기다리는 동안 `service.disconnect()`(close 2번), 그 뒤 c의
+`connect`가 끝나 T를 다시 연다. `#closeUnlessInUse`는 a의 연결이 붙들어 닫지 않는다. close는 2번, T는 열려 있고 `service.listSessions()`는
+비었으며 a는 `connected`다. 9f34ff94 전에는 같은 순서가 close 3번으로 T를 닫았다. R-PEER-045는 transport가 닫힌 연결은 그것을 붙들지 않는다고
+적지만, 그 닫힘은 다른 session의 callback으로만 알려진다. 바뀐 session을 그대로 둔 호출자에게만 생기고 결과가 열린 transport 하나라 낮은
+심각도다. R-PEER-055의 바꾸기를 바꾸거나 닫힘을 그 transport의 모든 연결에 알리는 일이라 결정이 필요해 이 버전에서 바꾸지 않는다. 권고:
+session이 넘겨받은 transport를 닫을 때(`disconnect()`, `#closeUnlessInUse`) 그 transport를 붙든 것으로 기록된 모든 연결을 끝낸다
+(`live = false`로 하고 기록을 비운다). 닫힌 뒤에는 어느 연결도 열린 그 transport를 붙들지 않기 때문이다. 또는 `PeerMcpService.createSession`이 바꾸는
+session을 `disconnect()`한다. 위치: `src/client/session.ts:766`, `src/client/session.ts:605`, `src/client/session.ts:622`,
+`src/client/session.ts:958`, `src/client/service.ts:45`.
+
+**O-77 (low) connect가 transport를 얻는 동안 온 session을 끝내는 frame은 connect를 끝내지 않아, connect는 `connected`로 끝나고 그 뒤 요청을
+보낸다.** `transportFactory`나 넘겨받은 transport의 `connect(callbacks)`가 돌아오기 전에 `onOpen()`, `onMessage({type:'session.revoked'})`,
+`onClose({code:1000})`를 부르면, frame은 state를 `error`로 하고 `#ended`를 정하지만 그때는 `ready`를 기다리지 않으므로(`#readyReject`가 없다)
+connect를 끝내지 않는다. 1000 close는 state가 `error`라 무시된다. connect는 이어서 `ready`를 기다리고, `onOpen`이 `connectedAt`을 정했으므로
+timeout에 진행해 state를 `connected`로 한다. `error`에는 `CLIENT_REVOKED`가 남는다. 다음 요청은 state가 `connected`라 `#ended`를 보지 않고
+보내져, `SESSION_REVOKED`(R-PEER-038, R-PEER-045) 대신 `REQUEST_TIMEOUT`으로 끝난다. 그 연결은 frame으로 끝났으므로(2e5a728f 뒤로는
+`live = false`) 넘겨받은 transport를 붙들지도 않는다. 이번 수정들 전부터 있었다(b90ab15e와 그 전에도 같다). 내장 WebSocket transport는 socket
+event를 만든 뒤에야 알리고 Streamable HTTP transport는 session을 끝내는 frame을 알리지 않으므로 생기지 않고, connect 안에서 동기로 알리는
+custom transport에서만 생기므로 낮은 심각도다. connect가 실패하는 길을 하나 더하는 일이라 이 버전에서 바꾸지 않는다. 권고: `#connectImpl`이
+`#settleTransport` 뒤와 `#waitForReady` 뒤에, 이 connect 동안 `#ended`가 정해졌거나 그 연결이 끝났으면(`connection.live === false`) 그 오류로
+connect를 실패시킨다(`#disconnects` 검사처럼 `#ended`를 던진다). 위치: `src/client/session.ts:860`, `src/client/session.ts:950`,
+`src/client/session.ts:668`, `src/client/session.ts:787`, `src/client/session.ts:671`, `src/client/session.ts:1305`.
 
 ## 11. 변경 이력
 
@@ -3769,3 +3894,4 @@ session을 끝내는 frame이 온 것)은 그 transport를 붙들지 않는다. 
 | 2026-10-21 | 열린 문제 O-62~O-69를 결정하고 구현했다(10.1). relay는 id 없는 WebSocket `tools/call`도 HTTP와 같은 검사(`toolCallRefusal`)로 거르고 거절한 것은 답 없이 버리며(R-MCP-007, R-MCP-020, R-MCP-026, R-MCP-030), provider가 보낸 `notifications/tools/list_changed`를 버리고(R-SIG-004, R-MCP-041, R-CAT-008), room 만료는 아직 끝나지 않은 ticket만 `expired`로 끝낸다(R-ROOM-030, R-ROOM-035, R-ROOM-048, R-ROOM-050). agent client는 relay와 같은 규칙으로 답을 가리고 진행 중인 id의 요청을 `DUPLICATE_REQUEST_ID`로 거절하며(R-PEER-032, R-PEER-035), revoke는 POST 하나만 보내고(R-PEER-046, R-PEER-037), 넘겨받은 transport의 `onMessage`는 그 transport로 마지막에 connect한 session으로 보낸다(R-PEER-031, R-PEER-055). provider는 끝난 연결의 요청과 실행 중에 연결이 끝난 `tools/call`에 답하지 않되 host가 실행한 호출은 run에 기록하고, 아무도 쓰지 않는 −32008 class를 `PEER_ERROR_CODES`에서 뺐다(R-PEER-012, R-PEER-013, R-PEER-016, R-ERR-001). 사용자가 고른 O-66대로 relay가 bearer ticket만 쓰고 OAuth discovery를 제공하지 않는다는 것을 규범으로 적었다(R-HTTP-019, R-PEER-053). 바뀐 코드에 맞춰 근거 줄 번호를 옮겼다. | review가 올린 열린 문제를 이 버전에서 닫는다. 결함마다 그것 없이는 실패하는 회귀 테스트를 더했다. O-66은 wire를 바꾸지 않고 테스트로 고정했다. | relay·provider·agent client 코드와 테스트, `AiRunController.hasAction`(새 public method), README, api-index, 보안 감사, changelog, todo, type-registry baseline, changeset `webmcp-peer-protocol-c10-open-problems`. |
 | 2026-10-21 | O-62~O-69 구현의 review가 확인한 agent client 결함 셋과 provider·relay 쪽 결함·테스트 공백을 고쳤다. HTTP transport에서 요청의 timeout이 pending을 지운 뒤에도 그 POST는 이어지는데, 그동안 같은 id로 보낸 요청은 거절되지 않고 첫 요청의 늦은 답을 받았으며 자기 답은 버려졌다. retryable 거절 뒤 backoff를 기다리는 요청은 진행 중으로 세지 않아, 그동안 같은 id로 보낸 요청 때문에 자신의 재시도가 `DUPLICATE_REQUEST_ID`로 거절됐다. 이제 요청은 `request()` 호출이 끝날 때까지(연결·slot·답·재시도 대기와 보내는 중, HTTP POST 전체 포함) 진행 중이고, 그 id는 호출이 처음에 한 번 검사하고 끝날 때 놓는다(R-PEER-032, R-PEER-036, O-64). 또 `disconnect()`가 끝낸 connect가 넘겨받은 `transport`의 connect를 늦게 끝내면 그 `onMessage` dispatcher를 자기 session으로 가져가, 그동안 같은 transport로 connect한 다른 session은 `connected`인 채 아무 frame도 받지 못하고 요청마다 `REQUEST_TIMEOUT`으로 끝났다. 이제 끝난 connect는 dispatcher를 잡지 않는다(R-PEER-031, R-PEER-045, O-69). 같은 review가 확인한 provider·relay 쪽 공백도 메웠다. ledger 조회를 기다리는 동안 연결이 끝난 `tools/call`은 조회가 null이면 host를 부르지 않았지만 그 검사를 지워도 모든 테스트가 통과했고, 조회가 outcome-unknown이나 durable 기록이면 `RECONCILIATION_REQUIRED`나 replay로 답했다(답을 실을 channel이 이미 닫혀 wire에는 나가지 않았다). 이제 조회 직후 generation을 보고, 끝났으면 실행하지도 답하지도 않는다(R-PEER-012, R-PEER-016, O-68). 그 수정은 run을 시작하기 전의 검사를 ledger 분기 안으로 옮겨, ledger 조회가 없는 호출은 요청을 읽은 뒤 provider가 부르는 host adapter의 `getServerInfo`가 연결을 끝내도 host에서 실행됐다(답은 host가 돌아온 뒤의 검사가 막았다). 같은 빈틈은 그 전부터 run을 알리는 `subscribeAiRuns` listener에도 있었다. 새 run을 알릴 때 listener가 연결을 끝내면 `Unknown AI run` 예외의 −32603 `Internal error`를 끝난 연결의 socket에 보내려 했고, 등록한 action을 알릴 때 끝내면 abort된 signal로 host를 불렀다. 이제 run을 시작하기 전에는 언제나, run을 시작한 뒤와 action을 등록한 뒤에도 generation을 보고, 끝났으면 실행하지도 답하지도 run을 남기지도 않는다(R-PEER-012, R-PEER-016, O-68). 답하지 않는 provider의 다른 guard 셋(요청을 읽기 전의 generation 검사, host가 돌려주거나 던진 뒤의 검사)도 지울 수 있었다. 테스트의 fake socket이 이미 닫혀 있어 provider의 readyState 검사가 답을 감췄기 때문이다. 이제 테스트의 relay socket과 DataChannel은 닫힌 뒤에도 provider에게 열린 채 남아 provider가 보내려는 답을 기록하고, 요청을 읽기 전의 검사는 host의 CRDT transport가 연결을 끝내는 경우로 확인한다(R-PEER-012, R-PEER-013). room 만료가 승인 요청이 만료된 session의 `revokedAt`을 덮어쓰지 않는 것도 테스트한다(R-ROOM-035, R-ROOM-048). R-PEER-016과 O-68은 실행 중에 연결이 끝난 호출을 agent가 `PROVIDER_DISCONNECTED`로 안다고 적었지만, relay는 HTTP revoke면 `SESSION_INVALID`, 자신이 수행한 room 만료나 rotate면 `ROOM_EXPIRED`나 `ROOM_ROTATED`로 그 요청을 먼저 끝낸다. 코드와 테스트로 확인해 경우마다의 오류를 적었다(R-PEER-016, O-68). id를 잡는 수정의 재확인이 찾은 agent client 결함도 고쳤다. 요청은 id를 잡은 뒤 connect를 기다리는데, `disconnect()`는 transport를 얻는 중인 connect(아직 돌아오지 않은 `transportFactory`나 넘겨받은 `transport`의 `connect`)를 그것이 돌아온 뒤에야 끝내므로 그 connect를 기다리는 요청도 그때까지 끝나지 않았다(요청의 timeout은 connect 뒤에 시작한다). 그래서 다시 연결한 session에서 그 id의 요청이 `DUPLICATE_REQUEST_ID`로 거절됐고, factory가 돌아오지 않으면 요청과 id 거절이 영영 남았다. 끝나지 않는 요청은 그 전부터였고 id 거절은 id를 잡는 수정이 만들었다. 이제 connect를 기다리는 요청은 slot·재시도 대기처럼 `disconnect()`·transport 오류·close가 바로 같은 오류로 끝내 id를 놓는다(R-PEER-045, R-PEER-032, O-64). connect 자신은 전처럼 transport를 얻은 뒤 끝난다. 바뀐 코드에 맞춰 근거 줄 번호를 옮겼다. | review가 재현한 결함(다른 요청의 답을 받는 HTTP 요청, 자신의 재시도를 거절당하는 요청, 연결된 채 답을 받지 못하는 session)을 고친다. 첫 결함은 중간, 나머지 둘은 낮은 심각도다. 고친 것마다 그것 없이는 실패하는 회귀 테스트를 더했다. 결정한 규칙(진행 중인 id의 거절, 마지막에 connect한 session으로 가는 `onMessage`)은 바꾸지 않았다. provider의 ledger replay는 wire에 영향이 없는 낮은 심각도다. 검사를 옮긴 수정의 회귀와 run listener의 같은 빈틈도 wire에 영향이 없는 낮은 심각도지만, 끝난 연결의 호출을 host가 실행했다. 검사마다 그것 없이는 실패하는 회귀 테스트를 더했다. 테스트가 없던 guard마다 그것을 지우면 실패하는 테스트를 더했고, 테스트가 provider가 보내려 한 답을 직접 본다. connect를 기다리는 요청의 결함(`disconnect()` 뒤에도 끝나지 않는 요청과 다시 연결한 session에서 거절되는 id)은 낮은 심각도이고, 그것 없이는 실패하는 회귀 테스트를 더했다. | agent client·provider 코드와 테스트(`client-pending-limit`, `client-busy-retry`, `client-session`, `provider-tool-call`, `provider-data-channel`, `provider-fakes`, `server-room-lifecycle`), README, api-index, changelog, type-registry baseline, changeset `webmcp-peer-protocol-c10-open-problems`. |
 | 2026-10-21 | id를 잡는 수정과 connect를 기다리는 요청 수정의 재확인이 찾은 agent client 결함 셋을 고쳤다. 첫째, `disconnect()` 때 raw가 아닌 transport의 send가 아직 끝나지 않은 요청은 `disconnect()`가 pending을 거절해도 그 send를 기다리며 id를 쥐어, 다시 연결한 session에서 그 id의 요청이 send가 끝날 때까지 `DUPLICATE_REQUEST_ID`로 거절됐다(id를 잡는 수정이 만들었다). 둘째, send가 기록한 뒤 바로 돌아오고 답은 나중에 오는 raw transport에서 timeout된 요청은 `request()`가 끝나 id를 놓았으므로, 같은 id로 보낸 요청이 그 늦은 답을 받았다. id를 잡는 수정은 send가 POST 전체인 내장 HTTP transport에서만 이것을 막았다. 이제 규칙은 transport마다 하나다. 요청은 `request()`부터 그 답이 오거나 그 연결이 끝날 때까지 진행 중이고(timeout 뒤에도, 내장 HTTP transport에서는 POST가 끝날 때까지), 연결이 끝나면(`disconnect()`, transport close·오류, session을 끝내는 frame) 그 연결이 쥔 id를 모두 바로 놓는다. 그때 아직 도는 send는 나중에 끝나도 그 요청을 보내지 않고, 그동안 같은 id로 보낸 요청의 id·pending·slot을 건드리지 않는다(R-PEER-032, R-PEER-045, O-64). 셋째, `disconnect()`가 끝낸 connect가 넘겨받은 `transport`의 `connect`를 늦게 끝내면, 그 session에 붙든 연결이 없다는 이유로 그 transport를 닫았다. 그동안 같은 transport로 connect한 다른 session(`PeerMcpService({transport})`의 connect, `disconnect()`, connect)은 `connected`인 채 요청마다 실패했고, 닫힘이 1000으로 알려지면 `TRANSPORT_CLOSED`로 끝나 다시 연결하지 않았다. 이제 넘겨받은 transport마다 그것을 붙든 연결을 모든 session에 걸쳐 기록하고, 끝난 connect는 붙든 연결이 하나도 없을 때만 닫는다(R-PEER-045, O-69). 같은 재확인이 찾은 provider 결함 둘도 고쳤다. 첫째, 끝난 연결의 요청에 답하지 않는 검사가 요청을 읽기 전과 `tools/call` 안에만 있었다. 그래서 요청을 읽은 뒤 provider가 부르는 host adapter의 `getServerInfo`가 `disconnect()`로 연결을 끝내면 `ping`은 `result:{}`, `initialize`는 전체 result, `tools/list`·`server/discover`는 `CATALOG_UNAVAILABLE`, 모르는 method는 −32601로 끝난 연결에 답했고(DataChannel의 `tools/list`·`server/discover`가 부르는 host의 `listTools`도 같다), 처리기가 던지면 −32603 `Internal error`로 답했다. 연결을 끝낸 뒤 던진 `getServerInfo`, ledger 조회를 기다리는 동안 연결이 끝난 뒤 실패한 조회, host가 돌아온 뒤 step 기록을 알릴 때 `subscribeAiRuns` listener가 연결을 끝내 지운 run을 이어서 완료·실패시키려던 bookkeeping(`Unknown AI run`)이 그랬다. 이제 답을 내는 곳 하나(`answerMcpRpc`)가 처리기가 돌아오거나 던진 뒤 두 channel의 모든 요청에 generation을 보고, 끝났으면 답하지 않는다(예외는 기록한다). 그 앞의 검사는 host code가 돌지 않게 하는 것만 남기고, 답만 막던 `tools/call`의 검사(ledger 조회 직후, host가 돌아오거나 던진 뒤)는 그곳으로 합쳤다(R-PEER-012, R-PEER-016, O-68). 둘째, `subscribeAiRuns` listener가 던지면 그 예외가 `AiRunController`의 알림을 끊고 provider의 bookkeeping까지 올라왔다. run이 `running`이 될 때(action을 등록할 때) 던지면 host를 부르지 않고 −32603으로 답했는데 action은 등록된 채 남아, run을 멈춰도 rollback이 `AI run still has in-flight actions`로 거절되고 run을 내보낼 수도 없었다. host가 durable receipt를 돌려준 뒤 settle을 알릴 때 던지면 step이 기록되지 않고 run이 그 예외로 실패해, 커밋된 쓰기에 −32603으로 답하고 rollback이 그 operation을 되돌리지 못했다. `clear`를 알릴 때 던지면 `disconnect()`가 socket을 닫기 전에 그 예외로 멈췄다. 이제 `AiRunController`는 session listener처럼 listener마다 예외를 버리고(`clear` 포함) 다른 listener에게도 알리며, provider는 host가 실행한 호출의 run 변경마다 run이 아직 있을 때만 다음 변경을 해 listener의 `disconnect()`가 지운 run을 바꾸려다 던지지 않는다(R-PEER-016, O-68). 이 수정들의 재확인이 찾은 agent client 결함 넷도 고쳤다. 첫째, 연결이 끝날 때 id를 바로 놓는 규칙은 다음 연결이 다른 transport를 쓸 때만 맞았다. 넘겨받은 `transport`(또는 factory가 다시 돌려준 transport)에서 `disconnect()` 때 send가 아직 돌던 요청은 다시 연결한 session에서 같은 id로 보낸 요청을 막지 않았고, 그 send가 나중에 다시 연결된 wire에 쓰면 relay가 그것을 `DUPLICATE_REQUEST_ID`로 거절한 답을 두 번째 요청이 받았으며 relay가 아직 세는 slot도 풀었다(id를 잡는 수정 전에는 두 번째 요청이 보내지 않고 거절됐다). 이제 끝난 연결의 아직 도는 send는 다음 연결이 같은 transport를 쓰면, 그 send가 도는 동안과 그 요청이 그 연결에 나간 뒤 답이 올 때까지 그 연결에서 그 id를 진행 중으로 두고 slot 하나를 센다. transport를 얻는 중인 connect를 기다린 요청은 그 connect가 transport를 얻은 뒤 보내기 전에 거절한다. 연결마다 새 transport를 쓰면 전처럼 id를 바로 놓는다(R-PEER-032, R-PEER-035, R-PEER-045, O-64). 둘째, 연결을 끝내지 않는 `{type:'error'}` frame과 transport 오류(`onError`)도 연결의 끝처럼 모든 id와 slot을 놓아, 같은 연결에서 그 id로 보낸 요청이 첫 요청의 늦은 답을 받았다(내장 HTTP transport의 아직 끝나지 않은 POST, send가 비동기인 socket). 이제 둘은 기다리는 요청만 거절하고, 보냈거나 보내는 중인 요청은 timeout된 요청처럼 답이 올 때까지 id와 slot을 쥔다(R-PEER-032, R-PEER-035, R-PEER-038, R-PEER-045, O-64). 셋째와 넷째, connect가 실패했거나 transport가 닫혔거나 session을 끝내는 frame이 온 연결도 다음 connect나 `disconnect()` 전까지 넘겨받은 `transport`를 붙든 것으로 세어, 같은 transport를 받은 다른 session(또는 같은 session)의 `disconnect()`가 끝낸 connect가 늦게 다시 연 transport를 닫지 않았다. 그런 연결을 남긴 session을 버리면(실패한 `PeerMcpService.connect()`의 session) 그 transport는 영영 열린 채였다. 이제 연결은 끝나면 그 transport를 붙들지 않는다(R-PEER-045, O-69). `PeerMcpTransportCallbacks.onError`가 연결을 끝내지 않는 오류라는 것과, 다시 쓰는 transport가 이전 connect의 답을 다음 connect의 callback으로 알리지 않아야 한다는 것을 적었다(R-PEER-031, R-PEER-032). 바뀐 코드에 맞춰 근거 줄 번호를 옮겼다. | 셋 다 scratch 테스트로 재현했다. 둘째는 다른 요청의 답을 받으므로 앞 review의 HTTP 결함과 같은 중간 심각도이고, 첫째는 같은 id를 다시 쓰는 호출자에게만 생기는 낮은 심각도다. 셋째는 낮은 심각도지만 O-69가 지키려던 두 번째 session을 끊는다. 결정한 규칙(진행 중인 id의 거절, 마지막에 connect한 session으로 가는 `onMessage`)은 그대로이고, 결함마다 그것 없이는 실패하는 회귀 테스트를 더했다. provider의 첫째는 답을 실을 channel이 이미 닫혀 wire에 나가지 않는 낮은 심각도지만 R-PEER-012를 어겼고, 검사를 method마다 더하지 않고 답을 내는 곳 하나로 모아 같은 빈틈이 새 method나 host code에서 다시 생기지 않게 했다. 둘째는 host의 listener 하나가 커밋된 쓰기를 실패로 답하고 rollback에서 빠뜨리므로 중간 심각도다. 회귀 테스트는 열린 채 남긴 fake socket과 DataChannel로 provider가 보내려 한 답을 본다. 요청을 읽기 전의 검사는 지워도 테스트가 실패하지 않는다. host code가 연결을 끝내는 길(`disconnect()`, 그것을 부르는 `connect()`·`revokeClient()`)은 모두 승인 상태도 바꾸므로 바로 뒤의 승인 검사가 host adapter를 부르기 전에 거절하고, 그 답은 답의 검사가 막기 때문이다. 그 검사는 끝난 연결을 위해 host code를 부르지 않는다는 규칙을 승인 상태에 기대지 않고 지키는 방어로 남겼다. 재확인의 결함 넷은 scratch 테스트로 재현했다. 첫째는 다른 요청의 답(relay의 거절)을 받으므로 중간 심각도이고 이번 수정이 만든 회귀다. 둘째는 낮은 심각도다. 이 relay는 agent에게 `error` frame을 보내지 않고, 동기 send의 WebSocket에서는 그 전부터 그랬다. 셋째와 넷째는 낮은 심각도지만 2026-10-20에 고친, 열린 채 남는 transport를 다시 만들었다. 결함마다 그것 없이는 실패하는 회귀 테스트를 더했다. HTTP의 `error` frame 경우는 첫째의 규칙도 막으므로, 둘째만 되돌리면 실패하는 테스트는 relay socket의 경우다. 다시 쓰는 transport가 끝난 연결에서 이미 나간 요청(timeout된 raw 요청 등)의 늦은 답을 다음 connect의 callback으로 알리는 경우는 고치지 않았다. 그 send는 이미 끝나 다음 연결에 쓸 수 없고, session은 그 답을 다음 연결의 답과 가를 수 없으며, 그 id를 다음 연결에서도 쥐면 오지 않을 답 때문에 그 연결 내내 거절하게 된다. 그래서 transport가 그렇게 하지 않아야 한다고 적었다. | agent client(`PeerMcpTransportCallbacks.onError` 문서 포함)·provider 코드와 테스트(`client-session`, `client-pending-limit`, `provider-tool-call`, `provider-data-channel`), README, api-index, changelog, type-registry baseline, changeset `webmcp-peer-protocol-c10-open-problems`. |
+| 2026-10-21 | O-62~O-69 구현과 그 재확인 수정들의 검증이 재현했지만 마지막 수정(2e5a728f)까지 다루지 않은 것을 마지막 수정 뒤의 코드에서 다시 확인해, 남은 여덟 가지를 열린 문제 O-70~O-77로 기록했다. provider는 답을 막는 검사 뒤 보내기 전에 끝난 연결의 답을 보내려 하고(O-70), run을 알릴 때 던지는 host의 CRDT transport 때문에 커밋된 `tools/call`에 −32603으로 답하며(O-71), R-PEER-013은 `tools/call`의 JSON-RPC 오류를 −32602뿐이라 적어 R-PEER-012·R-PEER-016과 어긋난다(O-72). agent client는 답이 이미 온 늦은 send의 id와 slot을 다시 연결한 연결에 남기고(O-73), 한 session의 늦은 send를 같은 transport를 받은 다른 session에서 세지 않으며(O-74), 끝난 connect가 늦게 다시 연 넘겨받은 transport를 그것을 붙들던 연결의 connect가 실패하거나(O-75) 같은 key로 바뀐 `PeerMcpService` session이 붙든 채 남으면(O-76) 열어 두고, transport를 얻는 동안 온 session을 끝내는 frame으로 connect를 끝내지 않는다(O-77). | 재현마다 scratch 테스트로 다시 확인하고 그 전 commit의 코드로도 돌려 언제부터인지 적었다. 연결을 끝내지 않는 transport 오류 뒤 같은 연결에서 같은 id의 요청이 앞 요청의 늦은 답을 받던 것은 2e5a728f가 고쳐 다시 재현되지 않았으므로 뺐다(R-PEER-032, R-PEER-045). 같은 결함을 두 번 올린 것은 하나로 합쳤다(O-71, O-75). O-73·O-74는 연결을 쓰지 못하게 하거나 다른 요청의 답을 받는 중간 심각도이고 나머지는 낮은 심각도다. O-73, O-75의 두 session 경우, O-76은 이번 수정들이 만들었고 나머지는 그 전부터 있었다. 결정이 필요하거나 방금 정한 규칙을 다시 정하는 일이라 이 버전에서 코드를 바꾸지 않는다. | 문서만(이 문서의 10.2와 11장, changelog와 todo의 열린 문제 범위). 코드와 테스트는 바꾸지 않았다. |
