@@ -117,6 +117,11 @@ export interface PeerMcpTransportCallbacks {
   onMessage?(message: unknown): void;
   /** The transport closed; `close` says how, when the transport knows (`TRANSPORT_CLOSED` details). */
   onClose?(close?: PeerMcpTransportClose): void;
+  /**
+   * An error that leaves the connection open (a write that failed, say): the requests waiting fail
+   * with it, and those sent keep their ids and relay slots until their answers arrive. A transport
+   * whose connection the error ends reports that with `onClose`.
+   */
   onError?(error: Error): void;
 }
 
