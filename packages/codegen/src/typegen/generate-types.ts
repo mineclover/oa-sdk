@@ -320,6 +320,7 @@ export function generateTypes(doc: TypegenDocument, options: TypegenOptions = {}
 
   // schema 이름 수집 — operation 타입과 중복 방지용
   const schemaNames = new Set(localNestedAliases.typeNames)
+  const recursiveSchemaNames = findRecursiveSchemaNames(doc.schemas)
 
   // 1. components/schemas → 타입 선언
   for (const [name, schema] of Object.entries(doc.schemas).sort(([left], [right]) => compareTypegenKeys(left, right))) {
@@ -334,7 +335,17 @@ export function generateTypes(doc: TypegenDocument, options: TypegenOptions = {}
     if (docLines.length > 0) {
       lines.push(...formatJSDoc(docLines.join('\n')).split('\n'))
     }
-    if (style === 'interface' && tsType.startsWith('{')) {
+    // `type Node = Record<string, Node>` is a circular alias TypeScript rejects
+    // (TS2456). An index-signature object type expresses the same recursive map
+    // and compiles; non-recursive maps keep the shorter `Record` spelling.
+    const recursiveRecord = recursiveSchemaNames.has(name) ? recordAsIndexSignature(tsType) : undefined
+    if (recursiveRecord) {
+      if (style === 'interface' && recursiveRecord.suffix === '') {
+        lines.push(`export interface ${typeName} ${recursiveRecord.objectType}`)
+      } else {
+        lines.push(`export type ${typeName} = ${recursiveRecord.objectType}${recursiveRecord.suffix}`)
+      }
+    } else if (style === 'interface' && tsType.startsWith('{')) {
       lines.push(`export interface ${typeName} ${tsType}`)
     } else {
       lines.push(`export type ${typeName} = ${tsType}`)
@@ -500,6 +511,65 @@ function collectReservedOperationTypeNames(
     for (const suffix of suffixes) names.add(`${baseName}${suffix}`)
   }
   return names
+}
+
+function collectLocalSchemaRefs(value: unknown, refs: Set<string>): void {
+  if (Array.isArray(value)) {
+    for (const item of value) collectLocalSchemaRefs(item, refs)
+    return
+  }
+  if (!value || typeof value !== 'object') return
+  const record = value as Record<string, unknown>
+  const ref = record.$ref
+  if (typeof ref === 'string' && ref.startsWith('#/components/schemas/')) {
+    refs.add(unescapeJsonPointerToken(ref.slice('#/components/schemas/'.length)))
+  }
+  for (const [key, child] of Object.entries(record)) {
+    if (key === '$ref') continue
+    collectLocalSchemaRefs(child, refs)
+  }
+}
+
+/** Component schemas that sit on a local `$ref` cycle, including self and mutual recursion. */
+function findRecursiveSchemaNames(schemas: Record<string, OasSchema>): Set<string> {
+  const graph = new Map<string, Set<string>>()
+  for (const [name, schema] of Object.entries(schemas)) {
+    const refs = new Set<string>()
+    collectLocalSchemaRefs(schema, refs)
+    graph.set(name, new Set([...refs].filter(ref => schemas[ref] !== undefined)))
+  }
+  const recursive = new Set<string>()
+  const state = new Map<string, 'visiting' | 'done'>()
+  const stack: string[] = []
+  const visit = (name: string): void => {
+    const current = state.get(name)
+    if (current === 'done') return
+    if (current === 'visiting') {
+      const start = stack.indexOf(name)
+      if (start !== -1) for (const member of stack.slice(start)) recursive.add(member)
+      return
+    }
+    state.set(name, 'visiting')
+    stack.push(name)
+    for (const next of graph.get(name) ?? []) visit(next)
+    stack.pop()
+    state.set(name, 'done')
+  }
+  for (const name of graph.keys()) visit(name)
+  return recursive
+}
+
+/** Rewrites `Record<string, T>` (optionally nullable) as an index-signature object type. */
+function recordAsIndexSignature(type: string): { objectType: string; suffix: string } | undefined {
+  let core = type
+  let suffix = ''
+  if (core.endsWith(' | null')) {
+    suffix = ' | null'
+    core = core.slice(0, -' | null'.length)
+  }
+  if (!core.startsWith('Record<string,') || !core.endsWith('>')) return undefined
+  const value = core.slice('Record<string,'.length, -1).trim()
+  return { objectType: `{\n  [key: string]: ${value}\n}`, suffix }
 }
 
 /**
