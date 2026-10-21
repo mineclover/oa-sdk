@@ -189,6 +189,10 @@ TypeSpec(`.tsp`)을 단일 정본(SSOT)으로 삼아 디스크 I/O 없이 인메
 - **[TypeSpec Builder 사용성 평가 및 DX 벤치마크 리포트](../reports/typespec-builder-usability-report.md)**:
   - 18개 E2E 실전 시나리오 검증, 콜드 컴파일 95ms / 웜 캐시 0.18ms, Wire 직렬화 73.74% 압축률, DX 종합 만족도 4.92 / 5.0 벤치마크.
 
+### 1.5 생성 타입의 TypeSpec 출처 (Graph Semantic Index)
+생성된 TypeScript 선언을 TypeSpec 원본 선언에 연결하는 sidecar를 만들고, 그래프 라우터에서 hash로 stale 여부를 거절하는 가이드입니다.
+- **[TypeSpec origin graph semantic index 가이드](./typespec-graph-semantic-index.md)**: `oa-gen typegen --typespec-provenance --graph-semantic-index --graph-file`, provenance/restored OpenAPI의 hash 결속, incremental 재생성 규칙, 실패 진단.
+
 ---
 
 ## 💻 2. 소비자 트랙 (Type, SDK & Contract Consumer Track)
