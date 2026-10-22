@@ -1,6 +1,6 @@
 {
   "name": "@oa-sdk/client",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "OAS 3.2 spec → typed fetch client SDK",
   "private": false,
   "type": "module",

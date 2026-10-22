@@ -1,6 +1,6 @@
 {
   "name": "@oa-sdk/collab-workspace",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Collaborative workspace folder sync engine with Tree-Lattice CRDT and AI as a First-Class Co-Editor",
   "private": false,
   "type": "module",

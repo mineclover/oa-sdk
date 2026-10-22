@@ -1,6 +1,6 @@
 {
   "name": "@oa-sdk/chunk-stream-crdt",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "CRDT Delta-State Join Semi-Lattice merge engine, vector clocks, and collaborative playback synchronization",
   "private": false,
   "type": "module",

@@ -1,5 +1,54 @@
 # @oa-sdk/router
 
+## 0.2.3
+
+### Patch Changes
+
+- da09240: Follow Accept q-values in response negotiation and answer null-body statuses without a body.
+
+  - `negotiateResponseMediaType` follows Accept q-values and wildcards (RFC 9110 §12.5.1). It ranks the server's types (the declared ones, `application/json` when none are declared, then the codec types) by the weight of the most specific Accept range that matches each. A `q=0` range, `type/*;q=0` and `*/*;q=0` included, refuses the types it governs. Ties go to the more specific range, then header order, then server order, and the fallback skips refused types. A declared type is returned exactly as it was passed, with its case and parameters, instead of the lowercased Accept entry. It used to ignore q-values and wildcards.
+  - Generated Hono contract routers answer 204, 205 and 304 envelopes with `c.body(null, status)`, so a chunk-stream 304 Not Modified no longer becomes a 500, and error envelopes without a body are sent empty.
+  - The Hono and Express stubs generated outside contract mode no longer reference an undeclared `options` binding for binary request bodies. They read the raw bytes (Express needs the `express.raw()` middleware) and leave decoding to the implementation.
+
+- e4e82a7: Shared `@traceId` variants are accepted as lineage, ast-sync type boundaries are modelled, and Fastify/Hono streaming is verified with the real frameworks.
+
+  **@oa-sdk/typespec-decorators**
+
+  - `@traceId` now emits `x-oa-sdk-trace.declarationId` next to `trackingId`. It is a hash of the
+    declaration the application is written on, so visibility variants and `MergePatchUpdate<T>`
+    clones (and shared parameter/anonymous types and derived scalars) carry the same evidence.
+  - The `.tsp` documentation and README describe the shared-variant policy instead of listing it as
+    a known defect that fails `oa-gen trace --verify`.
+
+  **@oa-sdk/codegen**
+
+  - `buildSpecTraceabilityGraph` accepts one explicit `trackingId` when every node has the same
+    `declarationId`; an id shared by independent declarations, or without evidence, still reports
+    `traceability/duplicate-tracking-id`.
+  - The trace sidecar validator accepts the optional `declarationId` field.
+
+  **@oa-sdk/ast-sync**
+
+  - JSON Schema `read()`/`patch()` validate parsed input through `toJsonSchemaObject` /
+    `parseJsonSchemaObject`; typia `@default` tags go through `parseJsonDefaultTag`.
+  - Replaced the remaining explicit `any` escapes: TypeScript's internal `symbol.id` and declaration
+    names have modelled accessors, virtual-program temp directories live in a `WeakMap` exposed by
+    `getProgramTempDir`, and Ajv/standalone imports plus format validators are typed.
+
+  **@oa-sdk/spec-lens-contract**
+
+  - Added `customData?: Record<unknown>` to `ScenarioMachineContext` in `scenario.tsp`, matching the
+    TypeScript interface, with a drift test.
+
+  **@oa-sdk/router**
+
+  - Added real Fastify 5.12 / Hono 4.12 streaming tests: `AsyncIterable`, Web `ReadableStream` and
+    Node streams send with the declared content type, and client disconnects cancel the source
+    iterator. Documentation now describes the verified behaviour instead of the retired defects.
+
+- Updated dependencies [9743fb4]
+  - @oa-sdk/parser@0.5.0
+
 ## 0.2.2
 
 First version published to npm. The earlier versions below were workspace-only and never published.

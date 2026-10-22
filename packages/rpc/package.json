@@ -1,6 +1,6 @@
 {
   "name": "@oa-sdk/rpc",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Call and serve TypeSpec/OpenAPI operations as typed RPC procedures over JSON-RPC 2.0 or their REST routes",
   "private": true,
   "type": "module",

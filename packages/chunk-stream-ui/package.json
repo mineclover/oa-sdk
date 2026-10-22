@@ -1,6 +1,6 @@
 {
   "name": "@oa-sdk/chunk-stream-ui",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "UI Action adapter, timeline playback bridge, and storyboard streaming package for Chunk Stream runtime",
   "private": false,
   "type": "module",

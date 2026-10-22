@@ -1,6 +1,6 @@
 {
   "name": "@oa-sdk/telemetry",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Design-driven telemetry, tracking symbol registry, XState v5 inspector, and DPM pseudonymization bridge",
   "private": false,
   "type": "module",

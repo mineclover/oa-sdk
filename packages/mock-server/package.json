@@ -1,6 +1,6 @@
 {
   "name": "@oa-sdk/mock-server",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "OpenAPI-native mock engine with detailed validation errors. Supports MSW and Node HTTP adapters.",
   "private": false,
   "type": "module",

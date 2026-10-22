@@ -8,7 +8,7 @@
 
 oa-sdk는 API 계약(API가 받는 요청과 돌려주는 응답의 약속)을 관리하는 도구 모음입니다. 사람이 고치는 원본을 하나로 정하고, 그 원본에서 만드는 OpenAPI 문서, TypeScript 타입, 클라이언트, 핸들러 계약을 언제든 다시 만들 수 있는 생성물로 다룹니다. mock 서버도 같은 원본을 읽어 띄웁니다. 이 절은 사용자 관점의 요약이며, 제품 범위의 정본은 [Platform Scope](../internal/platform-scope.md#core-mission)입니다.
 
-이 절의 동작은 `@oa-sdk/codegen` 0.9.0 기준입니다. 공개 패키지는 Node.js 22 이상에서 동작합니다. `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`, `@oa-sdk/surface-ir`는 `@oa-sdk/codegen` 0.9.0 릴리스에서 처음 npm에 배포되므로, 이 릴리스 전에는 npm에서 설치할 수 없습니다. 설치할 수 있는 버전은 [변경 이력](../changelog.md)에서 확인합니다.
+이 절의 동작은 `@oa-sdk/codegen` 0.10.0 기준입니다. 공개 패키지는 Node.js 22 이상에서 동작합니다. registry에 배포된 버전은 [변경 이력](../changelog.md)과 `npm view @oa-sdk/codegen version`으로 확인합니다.
 
 ### 왜 계약 관리 도구가 필요한가
 

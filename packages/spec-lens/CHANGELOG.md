@@ -1,5 +1,28 @@
 # @oa-sdk/spec-lens
 
+## 0.1.7
+
+### Patch Changes
+
+- Updated dependencies [6239a85]
+- Updated dependencies [fe143f7]
+- Updated dependencies [c565468]
+- Updated dependencies [791657c]
+- Updated dependencies [8a06e73]
+- Updated dependencies [1f37428]
+- Updated dependencies [9743fb4]
+- Updated dependencies [4538f7c]
+- Updated dependencies [9743fb4]
+- Updated dependencies [3063402]
+- Updated dependencies [f0edbd0]
+- Updated dependencies [e4e82a7]
+- Updated dependencies [4538f7c]
+- Updated dependencies [4538f7c]
+- Updated dependencies [0f84ddf]
+  - @oa-sdk/codegen@0.10.0
+  - @oa-sdk/parser@0.5.0
+  - @oa-sdk/spec-lens-contract@0.1.1
+
 ## 0.1.6
 
 ### Patch Changes
