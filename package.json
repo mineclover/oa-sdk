@@ -30,6 +30,7 @@
     "test:maintenance:ci": "turbo run test:ci --concurrency=1 --filter=@oa-sdk/dpm --filter=@oa-sdk/personas --filter=@oa-sdk/typia-mock --filter=@oa-sdk/logical-erd-contract --filter=@oa-sdk/typespec-erd --filter=@oa-sdk/typespec-tooling",
     "test:internal": "turbo run test --filter=@oa-sdk/playground --filter=@oa-sdk/preview --filter=@oa-sdk/spec-lens-ui",
     "test:internal:ci": "turbo run test:ci --concurrency=1 --filter=@oa-sdk/playground --filter=@oa-sdk/preview --filter=@oa-sdk/spec-lens-ui",
+    "ci:local": "bash scripts/local-ci.sh",
     "typecheck": "corepack pnpm typecheck:core",
     "check:ts5": "corepack pnpm typecheck:all",
     "check:ts7": "node --import tsx scripts/check-ts7.ts && corepack pnpm --filter @oa-sdk/codegen run test:ts7",
