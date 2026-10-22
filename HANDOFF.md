@@ -7,7 +7,7 @@ Worktrees: main only · Open PRs: none
 
 ## 1. Current state
 
-- `main` includes PR #13 (`5d9e59e2`), PR #14 (`153dfa22`) and PR #15 (`9326c7ff`), and is in sync with `origin/main`. No other local branches or worktrees; 0 pending changesets.
+- `main` includes PR #13 (`5d9e59e2`), PR #14 (`153dfa22`) and PR #15 (`9326c7ff`), and is in sync with `origin/main`. No other local branches or worktrees; 0 pending changesets; `2026-10-22-core-v0.10.0` is published.
 - Last full local test run: **654 files / 9,209 tests pass** (turbo suites 635/9,006, integration 73, TypeSpec plugin e2e 130). The follow-up branch adds codegen 211/4,012, client 16/277, ast-sync 8/77, router 19/206, TypeSpec decorators 11/108 and spec-lens-contract 2/40 passing suites.
 - The 43-lane local CI mirror (build, typecheck, 4 test groups, integration, e2e, schema, governance, Node 26/TS7, public runtime, NestJS/FastAPI governance) passed on the combined tree through PR #9. Later changes re-ran the full codegen suite (211 files / 4,007 tests) and every docs/governance gate.
 - **GitHub Actions cannot start jobs**: PR checks show 0 steps because the account's billing limit is reached. All evidence above is from local runs.
@@ -27,6 +27,7 @@ Worktrees: main only · Open PRs: none
 | PR #13 TanStack P1 fixes + dotted guard names | merged (`5d9e59e2`) |
 | PR #14 real streaming + P2 design decisions + P3.16 | merged (`153dfa22`) |
 | PR #15 `2026-10-22-core-v0.10.0` release candidate | merged (`9326c7ff`) |
+| `2026-10-22-core-v0.10.0` npm release | published from `oa-sdk-releases` (source tag `archive/2026-10-22-core-v0.10.0` → `bc7c6f8d`) |
 | Branch/worktree cleanup | 24 merged branches + 6 verifier worktrees + 4 superseded branches removed; SHAs in `.../opencode/branch-sha-archive-2026-10-22.txt` (outside the repo) |
 
 ## 3. Verification evidence
@@ -40,7 +41,8 @@ Worktrees: main only · Open PRs: none
   - chunk-stream 0.2.0: imports, CRDT LWW/commutativity, vector-clock merge, LTTB 100→10.
 - Governance: `check:docs`, `check:api-index`, `check:cli-spec`, `check:spec-governance`, `check:feature-tests`, `check:codegen-boundaries`, `type-registry:check`, `test:docs-gates`, `check:workspace-scope` all pass.
 - Follow-up branch (2026-10-22): `typecheck:core`, `typecheck:downstream`, the full codegen suite (211/4,012), client (16/277), ast-sync (8/77), router (19/206), spec-lens-contract (2/40), typespec-decorators (11/108), and every governance gate above pass. Real-framework streaming tests cover Fastify 5.12.7 and Hono 4.12. The Model B packed-tarball consumer typechecks both combined and split TanStack output.
-- Release candidate `2026-10-22-core-v0.10.0` (`6affdab5`): full `pnpm release:preflight` passed on the clean versioned worktree; `release:export --dry-run --skip-registry-preflight` built all 22 public tarballs and its sanitized consumer smoke imported 51 public surfaces with TypeScript 5.9.3 (output is non-promotable and kept outside the repo). Vue/Svelte adapter support was also checked against the published `@tanstack/vue-query` 5.104.5 and `@tanstack/svelte-query` 5.90.2 declaration files: both `export * from "@tanstack/query-core"`, so the generated `QueryObserverOptions` / `MutationObserverOptions` / `InfiniteQueryObserverOptions` imports resolve.
+- Release candidate `2026-10-22-core-v0.10.0` (`6affdab5`): full `pnpm release:preflight` passed on the clean versioned worktree; `release:export --dry-run --skip-registry-preflight` built all 22 public tarballs and its sanitized consumer smoke imported 51 public surfaces with TypeScript 5.9.3 (output is non-promotable and kept outside the repo).
+- Published release `2026-10-22-core-v0.10.0`: official export produced 21 tarballs from `bc7c6f8d`; external validation and the approval-gated publish workflow succeeded. A fresh npm consumer installed the published `@oa-sdk/codegen@0.10.0`, `client@0.3.0`, `router@0.2.3`, `mock-server@0.1.5`, generated a client and TanStack options, passed `tsc --noEmit`, and `oa-gen mock` answered `GET /users` with 200. Every published version resolves from the registry. Vue/Svelte adapter support was also checked against the published `@tanstack/vue-query` 5.104.5 and `@tanstack/svelte-query` 5.90.2 declaration files: both `export * from "@tanstack/query-core"`, so the generated `QueryObserverOptions` / `MutationObserverOptions` / `InfiniteQueryObserverOptions` imports resolve.
 
 Run locally with **pnpm 11.28.6** (the repo requires `>=11.28.6 <12`; `mise exec` or corepack works). Source of truth for lanes: `.github/workflows/ci.yml`.
 
@@ -48,9 +50,9 @@ Run locally with **pnpm 11.28.6** (the repo requires `>=11.28.6 <12`; `mise exec
 
 ### P0 — release and CI
 
-1. **Restore GitHub Actions billing.** All PR jobs currently fail at 0 steps, so GitHub is not a usable gate. Until it is fixed, run the local lanes above before merging.
-2. **Next release is versioned.** `release/next` contains the `2026-10-22-core-v0.10.0` candidate (`6affdab5`): 39 changesets consumed (12 minor, 11 patch), version tables synced, 0 pending changesets. Clean-worktree `pnpm release:preflight` passed, and `release:export --dry-run --skip-registry-preflight` produced all 22 public tarballs with the sanitized consumer smoke (51 public imports, TypeScript 5.9.3). Remaining: choose the official release ID, run the official export from a clean candidate into `oa-sdk-releases`, and approve promotion there — the source repository does not npm-publish (`npm whoami` is also 401 locally).
-3. **Post-promotion checks:** public runtime smoke, packed-package installs, and confirming the version table in [release management](./docs/internal/release-management.md) against the promoted registry versions.
+1. **Restore GitHub Actions billing.** Still blocked on 2026-10-22: PR/main runs fail in 0–4s with "The job was not started because recent account payments have failed or your spending limit needs to be increased." All evidence in this file remains from local runs. Only the external `oa-sdk-releases` publish workflow (which runs successfully) is usable.
+2. **Released: `2026-10-22-core-v0.10.0`.** 39 changesets consumed (12 minor, 11 patch), 0 pending. Source tag `archive/2026-10-22-core-v0.10.0` → `bc7c6f8d`. Export used 21 packages (`openapi-projection-contract@0.2.0` was unchanged and already published) and is in [`oa-sdk-releases` release `2026-10-22-core-v0.10.0`](https://github.com/mineclover/oa-sdk-releases/releases/tag/2026-10-22-core-v0.10.0); publish run [39708720909](https://github.com/mineclover/oa-sdk-releases/actions/runs/39708720909) succeeded.
+3. **Post-release checks passed.** All 21 registry versions resolve (`@oa-sdk/tools@0.2.0` needed CDN propagation time; `--prefer-online` and the registry document confirm it). A fresh consumer installed the published codegen/client/router/mock-server, generated a client and TanStack options, passed `tsc --noEmit`, and served `GET /users` 200 via `oa-gen mock`. Version tables are already synced in source.
 
 ### P1 — main use-case gaps (highest UX impact)
 
