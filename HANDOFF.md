@@ -2,15 +2,15 @@
 
 Last updated: 2026-10-22
 Repository: `/Users/junwoobang/workflow/oa-sdk`
-Main: `main` (PR #13 merged; in sync with `origin/main`; use `git log -1 --oneline`)
+Main: `main` (PR #21 merged; in sync with `origin/main`; use `git log -1 --oneline`)
 Worktrees: main only · Open PRs: none
 
 ## 1. Current state
 
-- `main` includes PR #13 (`5d9e59e2`), PR #14 (`153dfa22`), PR #15 (`9326c7ff`), PR #16 (`f27ca51f`), PR #17 (`975a008c`), PR #18 (`7de51c04`), PR #19 (`bfa136f3`), PR #20 (`2e55d182`) and PR #21 (`32615cb2`), and is in sync with `origin/main`. No other local branches or worktrees; 0 pending changesets; `2026-10-22-core-v0.10.0` and `@oa-sdk/webmcp-peer@0.2.1` are published.
-- **CI policy while Actions billing is broken:** run `pnpm ci:local` (mirrors `.github/workflows/ci.yml`) and treat an all-green local run as the merge/release gate. The 2026-10-22 run passed every lane.
-- Last full local test run: **654 files / 9,209 tests pass** (turbo suites 635/9,006, integration 73, TypeSpec plugin e2e 130). The follow-up branch adds codegen 211/4,012, client 16/277, ast-sync 8/77, router 19/206, TypeSpec decorators 11/108 and spec-lens-contract 2/40 passing suites.
-- The 43-lane local CI mirror (build, typecheck, 4 test groups, integration, e2e, schema, governance, Node 26/TS7, public runtime, NestJS/FastAPI governance) passed on the combined tree through PR #9. Later changes re-ran the full codegen suite (211 files / 4,007 tests) and every docs/governance gate.
+- `main` includes PR #13 (`5d9e59e2`), PR #14 (`153dfa22`), PR #15 (`9326c7ff`), PR #16 (`f27ca51f`), PR #17 (`975a008c`), PR #18 (`7de51c04`), PR #19 (`bfa136f3`), PR #20 (`2e55d182`) and PR #21 (`32615cb2`), and is in sync with `origin/main`. No other local branches or worktrees; 0 pending changesets; `2026-10-22-core-v0.10.0`, `@oa-sdk/webmcp-peer@0.2.1`, and `@oa-sdk/router@0.2.4`/`0.2.5` are published.
+- **CI policy while Actions billing is broken:** run `pnpm ci:local` (mirrors `.github/workflows/ci.yml`) and treat an all-green local run as the merge/release gate. The 2026-10-22 stabilization run on `960a7205` passed all 46 lanes.
+- Last full local test run: **661 files / 9,297 tests pass** (turbo suites 637/9,029 — codegen 211/4,012, dpm 121, mock-server 46, router 19/209, client 16/277 — plus integration 73, TypeSpec plugin e2e 130, schema 62 and rollback 3).
+- The 46-lane local CI mirror covers build/typecheck, 4 test groups, integration, e2e, schema validation/rollback, governance, Node 22/24/26 public runtime, TS7 on Node 26, parser bench, and NestJS/FastAPI governance. The current run supersedes the earlier combined-tree run through PR #9.
 - **GitHub Actions cannot start jobs**: PR checks show 0 steps because the account's billing limit is reached. All evidence above is from local runs.
 
 ## 2. Landed in this session (2026-10-21 → 10-22)
@@ -40,9 +40,11 @@ Worktrees: main only · Open PRs: none
 | `2026-10-22-webmcp-peer-v0.2.1` npm patch | published (source tag `archive/2026-10-22-webmcp-peer-v0.2.1` → `f27ca51f`) |
 | `2026-10-22-router-v0.2.4` npm patch | published (source tag `archive/2026-10-22-router-v0.2.4` → `7de51c04`) |
 | Branch/worktree cleanup | 24 merged branches + 6 verifier worktrees + 4 superseded branches removed; SHAs in `.../opencode/branch-sha-archive-2026-10-22.txt` (outside the repo) |
+| Stabilization pass (2026-10-22, `960a7205`) | full `pnpm ci:local` 46/46 lanes pass (661 files / 9,297 tests); registry versions and release tags re-confirmed; no code changes required |
 
 ## 3. Verification evidence
 
+- **Stabilization gate (2026-10-22 22:31–22:45 local, `960a7205`):** `pnpm ci:local` passed 46/46 lanes with 0 failures (661 files / 9,297 tests). Log: `../oa-sdk-local-ci-run/local-ci.log` (outside the repo). `git status` remained clean afterwards.
 - Full suite: `pnpm test:core:ci`, `test:downstream:ci`, `test:maintenance:ci`, `test:internal:ci`, `test:integration`, `test:e2e:typespec-plugin`.
 - Feature end-to-end:
   - TypeSpec → `schema-typespec-check --provenance` → `typegen --graph-semantic-index`: 207/207 hosts matched generated lines and `.tsp` evidence; all three hashes matched; a mismatched provenance failed without writing output.
@@ -71,6 +73,10 @@ Run locally with **pnpm 11.28.6** (the repo requires `>=11.28.6 <12`; `mise exec
 4. **Post-release checks passed.** All registry versions resolve (`@oa-sdk/tools@0.2.0` and `@oa-sdk/webmcp-peer@0.2.1` needed CDN propagation time; `--prefer-online` and the registry document confirm them). A fresh consumer installed the published codegen/client/router/mock-server, generated a client and TanStack options, passed `tsc --noEmit`, and served `GET /users` 200 via `oa-gen mock`. Version tables are already synced in source.
 5. **`@oa-sdk/router@0.2.4` is published.** After the expired token was replaced at 09:47 UTC, **Publish npm release** [39758279894](https://github.com/mineclover/oa-sdk-releases/actions/runs/39758279894) succeeded in 1m14s. The release is in [`oa-sdk-releases`](https://github.com/mineclover/oa-sdk-releases/releases/tag/2026-10-22-router-v0.2.4), `npm view @oa-sdk/router version` is `0.2.4`, and the source tag is `archive/2026-10-22-router-v0.2.4` → `7de51c04`.
 
+### P1 — dependency advisories (2026-10-22 audit)
+
+- `pnpm audit --prod` reports **107 advisories: 1 critical, 28 high, 64 moderate, 14 low**. All are transitive dependency ranges, not regressions from this pass. The highest-impact paths are `proxy-addr@2.0.7` through `@modelcontextprotocol/sdk`'s Express (public `@oa-sdk/tools` runtime), `hono@4.12.14` in `tools`/`spec-lens` (fixed by `>=4.12.25`; `router` already uses 4.13.13), `undici` pinned by `@typespec/openapi3`, `fast-uri` through `ajv`, and the `apps/nestjs-ref` NestJS 10 stack (`multer`, `js-yaml`). The next dependency-refresh PR should raise the minimum ranges or add `pnpm.overrides`, then rerun `pnpm ci:local`. No dependency change was made in this stabilization pass.
+
 ### P1 — main use-case gaps (highest UX impact)
 
 These are current, documented limitations rather than stale docs:
@@ -91,7 +97,7 @@ These are current, documented limitations rather than stale docs:
 14. ~~`ScenarioMachineContext.customData` TypeSpec definition.~~ **Done (2026-10-22):** added to `scenario.tsp` with a two-way field-set drift test.
 15. ~~Remaining ast-sync type boundaries.~~ **Done (2026-10-22):** JSON Schema/typia parsing goes through validators, internal `symbol.id`/temp-dir/declaration-name access is modelled, and Ajv/standalone imports are typed. `type-registry:check`: explicit `any` 134→120, unvalidated deserialize 118→117.
 
-Remaining `[ ]` items in [docs/internal/todo.md](./docs/internal/todo.md) are outside the P1–P3 list above.
+[docs/internal/todo.md](./docs/internal/todo.md) currently has no open `[ ]` items; the remaining work is the P0 billing/release follow-up and the P1 dependency refresh above.
 
 ### P3 — verification/hardening
 
@@ -112,4 +118,4 @@ Remaining `[ ]` items in [docs/internal/todo.md](./docs/internal/todo.md) are ou
 
 1. Restore GitHub Actions billing.
 2. Merge the versioned `release/next` candidate after review, then run the official export/promotion from `oa-sdk-releases` with the chosen release ID.
-3. Remaining `[ ]` entries in `docs/internal/todo.md` are new/backlog work, not the P1–P3 handoff list.
+3. `docs/internal/todo.md` has no open `[ ]` entries; new work starts from a fresh PRD/backlog item.
