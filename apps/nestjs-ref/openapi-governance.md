@@ -61,7 +61,8 @@ service's normal dependency-install step before the governance step, then make t
 
 This reference is inside a monorepo, so it deliberately does **not** keep that generated workflow
 under `apps/nestjs-ref/.github`: GitHub Actions only discovers workflows at repository root. The
-repository-root `governance-references` CI job owns this service's executable gate and evidence upload.
+full local gate (`pnpm ci:local`) runs this service's executable governance check and evidence
+upload; GitHub Actions runs only the essential root `ci` job.
 
 ## Source of Truth
 

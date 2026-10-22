@@ -7,11 +7,11 @@ NestJS Swagger → oa-sdk governance 레퍼런스 구현. 외부 OpenAPI 산출�
 
 ## 구성
 
-- `src/` — NestJS 10 + Swagger 7 앱(users, health 컨트롤러).
+- `src/` — NestJS 11 + Swagger 11 앱(users, health 컨트롤러).
 - `scripts/export-openapi.ts` — `SwaggerModule.createDocument()`로 `contracts/openapi.raw.{yaml,json}` 출력.
 - `scripts/openapi-governance.sh` — `oa-gen scaffold-governance`가 생성한 표준 진입점.
 - `openapi-governance.config.json` — artifact interface, consumer 매핑, 독립 CLI/CI baseline 정책(`oa-gen.openapi-governance.v2`).
-- `openapi-governance.md` — 서비스별 governance 설정 문서. 실제 PR gate는 repository-root `.github/workflows/ci.yml`의 `governance-references` job이 소유한다(하위 앱 디렉터리의 workflow는 GitHub Actions가 실행하지 않음).
+- `openapi-governance.md` — 서비스별 governance 설정 문서. 전체 검증은 `pnpm ci:local`이 실행하며, GitHub Actions는 repository-root `.github/workflows/ci.yml`의 단일 `ci` job으로 핵심 lane만 실행한다(하위 앱 디렉터리의 workflow는 GitHub Actions가 실행하지 않음).
 - `contracts/v1.openapi.yaml` — 커밋된 baseline. 나머지 `contracts/openapi.{raw,normalized,upgraded}.{yaml,json}`과 `src/generated/`는 gitignore.
 
 ## 사용

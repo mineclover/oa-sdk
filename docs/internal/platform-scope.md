@@ -256,24 +256,16 @@ CI는 네 policy track을 네 실행 그룹으로 표시한다. `internal` 실�
 검증한다. 모든 그룹은 현재 회귀 검증을 통과해야 하지만, 신규 제품 우선순위와
 기본 개발 명령은 Core Platform에만 귀속된다.
 
-CI는 workspace build를 `ci` job에서 한 번만 한다(아래 `parser-bench` job의 parser 의존성 build만
-예외다). `ci` job은 네 그룹을 build한 직후
-`packages/*/dist`와 `packages/schemas/src/.merged.yaml`을 `workspace-build-outputs`
-artifact(보존 1일)로 올린다. `public-release-runtime`(Node 22/24/26), `typescript-7-current`,
-`governance-references` job은 다시 build하지 않고 이 artifact를 풀어 같은 build를 검증한다.
-`ci` job은 Turbo local cache(`.turbo/cache`)를 GitHub Actions cache로 run 사이에 보존한다.
-그래서 task hash가 바뀌지 않은 package의 build와 typecheck는 cache에서 재생된다. task hash는
-package의 tracked file과 workspace dependency의 task hash로 정해진다. typecheck는 tracked file
-전체를 쓰지만, build는 test 전용 file(`__tests__/`, `test/`, `tests/`, `fixtures/`, `*.test.*`,
-`vitest.config.*`)을 뺀다. tsup·vite build는 entry의 import closure만 읽으므로, test만 고친 변경은
-build와 그 downstream task의 hash를 바꾸지 않는다. `tsc` build가 test를 가리지 않고
-`src/` 전체를 emit하는 workspace(`typespec-decorators`, `typespec-erd`,
-`logical-erd-contract`, `nestjs-ref`)는 자기 `turbo.json`에서 build input을 tracked file
-전체로 되돌린다. `test:ci`는 package 밖의 문서·script도 읽기 때문에 cache하지 않고 매번
-실행하며, 실행 전에 해당 package의 build를 Turbo task로 보장받는다. 따라서 `test:ci`는
-`turbo run test:ci`로 실행하는 것을 전제로 한다. mock-server `test:ci`의 built CLI smoke는 dist를
-다시 build하지 않고, Turbo 밖에서 직접 실행하면 dist가 없거나 build input(`src/`의 test 외 file,
-`tsup.config.*`, `tsconfig*.json`, `package.json`)보다 수정 시각이 오래되었을 때 실패한다.
+현재 GitHub Actions는 `.github/workflows/ci.yml`의 단일 `ci` job만 실행한다. 이 job은 핵심
+build/typecheck/test와 필수 governance를 수행한다. Node 22/24/26 public runtime, TS7,
+maintenance/internal, schema validation/rollback, NestJS/FastAPI governance는 `pnpm ci:local`이
+로컬에서 실행한다. 이전 `workspace-build-outputs` artifact와 4-job/6-matrix 구성은 2026-10-05
+설계 기록이며, 지금은 존재하지 않는다. `test:ci`는 package 밖의 문서·script도 읽기 때문에
+cache하지 않고 매번 실행하며, 실행 전에 해당 package의 build를 Turbo task로 보장받는다.
+따라서 `test:ci`는 `turbo run test:ci`로 실행하는 것을 전제로 한다. mock-server `test:ci`의
+built CLI smoke는 dist를 다시 build하지 않고, Turbo 밖에서 직접 실행하면 dist가 없거나 build
+input(`src/`의 test 외 file, `tsup.config.*`, `tsconfig*.json`, `package.json`)보다 수정 시각이
+오래되었을 때 실패한다.
 원격 cache(`TURBO_TOKEN`)와 테스트 병렬화는 쓰지 않는다.
 
 `parser-bench` job은 `pnpm bench:parser`를 `BENCH_PARSER_BUDGET_SCALE=2`로 실행한다. 이 job은

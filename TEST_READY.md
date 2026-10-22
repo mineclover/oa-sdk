@@ -13,7 +13,7 @@ The client, TanStack and runner tests exercise the **shipped plugins** (`pluginT
   - `pnpm --filter @oa-sdk/codegen test src/__tests__/plugin/e2e-contracts.test.ts`
 - **Total Test Cases**: 138 (130 in `test/e2e/typespec-plugin` + 8 in `packages/codegen`)
 - **Total Test Files**: 18 (17 in `test/e2e/typespec-plugin` + 1 in `packages/codegen`)
-- **CI status**: CI runs the suite with the root script `pnpm test:e2e:typespec-plugin` (`vitest run test/e2e/typespec-plugin`) in the `Build, Typecheck & Test` job, right after `pnpm test:integration`. The root `test:e2e` script targets the separate `tests/e2e` tree.
+- **CI status**: CI runs the suite with the root script `pnpm test:e2e:typespec-plugin` (`vitest run test/e2e/typespec-plugin`) in the `Essential build, typecheck & test` job, right after `pnpm test:integration`. The root `test:e2e` script targets the separate `tests/e2e` tree.
 
 ---
 

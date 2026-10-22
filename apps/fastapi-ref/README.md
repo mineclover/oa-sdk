@@ -12,7 +12,7 @@ FastAPI → oa-sdk governance 레퍼런스 구현. 외부 OpenAPI 산출물을 o
 - `scripts/export_openapi.py` — `app.openapi()`로 `contracts/openapi.raw.{yaml,json}` 출력.
 - `scripts/openapi-governance.sh` — `oa-gen scaffold-governance --profile fastapi`가 생성한 표준 진입점.
 - `openapi-governance.config.json` — artifact interface, consumer 매핑, 독립 CLI/CI baseline 정책(`oa-gen.openapi-governance.v2`).
-- `openapi-governance.md` — 서비스별 governance 설정 문서. 실제 PR gate는 repository-root `.github/workflows/ci.yml`의 `governance-references` job이 소유한다(하위 앱 디렉터리의 workflow는 GitHub Actions가 실행하지 않음).
+- `openapi-governance.md` — 서비스별 governance 설정 문서. 전체 검증은 `pnpm ci:local`이 실행하며, GitHub Actions는 repository-root `.github/workflows/ci.yml`의 단일 `ci` job으로 핵심 lane만 실행한다(하위 앱 디렉터리의 workflow는 GitHub Actions가 실행하지 않음).
 - `contracts/v1.openapi.yaml` — 커밋된 baseline. 나머지 `contracts/openapi.{raw,normalized,upgraded}.{yaml,json}`과 `src/generated/`는 gitignore.
 
 ## 사용
@@ -56,7 +56,7 @@ node packages/codegen/dist/cli/index.js scaffold-governance \
 
 |  | nestjs-ref | fastapi-ref |
 |---|---|---|
-| 언어/프레임워크 | TypeScript / NestJS 10 + Swagger 7 | Python / FastAPI 0.115 + Pydantic 2 |
+| 언어/프레임워크 | TypeScript / NestJS 11 + Swagger 11 | Python / FastAPI 0.115 + Pydantic 2 |
 | 의존성 매니저 | pnpm | uv |
 | Source command | `pnpm export:openapi` | `uv run python scripts/export_openapi.py` |
 | Profile | `nestjs-swagger` | `fastapi` |
