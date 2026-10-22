@@ -1,9 +1,10 @@
 #!/bin/bash
-# Local mirror of .github/workflows/ci.yml.
+# Full local verification gate.
 #
-# GitHub Actions cannot start jobs while the account billing limit is unresolved. This script runs
-# the same lanes locally; a green run is the merge gate until Actions is restored. It does not
-# publish anything.
+# `.github/workflows/ci.yml` keeps only the essential GitHub lanes. This script is the superset:
+# it also runs the maintenance/internal workspaces, schema validation/rollback, public runtime on
+# Node 22/24/26, TS7, and NestJS/FastAPI governance. A green run is the merge/release gate while
+# GitHub Actions billing is unresolved. It does not publish anything.
 #
 # Usage: pnpm ci:local
 #   LOCAL_CI_TMP=<dir>       scratch directory (default: mktemp -d)
