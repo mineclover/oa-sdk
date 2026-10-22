@@ -1,6 +1,6 @@
 # Artifact Release Preparation
 
-Status: active operating guide. Last reviewed 2026-10-05.
+Status: active operating guide. Last reviewed 2026-10-22.
 
 이 가이드는 oa-sdk의 **public package artifact**를 준비하는 maintainer를 위한 것이다.
 이 source repository에서 npm publish를 실행하지 않는다. 실제 registry promotion은
@@ -57,9 +57,10 @@ pnpm release:preflight
 approved snapshot을 직접 고치지 않는다. non-dry-run `release:export`도 같은 preflight를 강제하므로,
 이 단계를 건너뛰어 official artifact를 만들 수 없다.
 
-이 명령은 전체 CI를 대체하지 않는다. official promotion 전에는 release candidate commit의 CI가
-API index, CLI spec, codegen boundary, type registry, feature-test matrix, schema freshness/rollback,
-Node 22/24/26 public consumer runtime lane까지 통과했는지 확인한다.
+이 명령은 전체 CI를 대체하지 않는다. official promotion 전에는 release candidate commit에서
+`pnpm ci:local`(전체 lane: API index, CLI spec, codegen boundary, type registry, feature-test matrix,
+schema freshness/rollback, Node 22/24/26 public consumer runtime, TS7, governance)이 통과했는지
+확인한다. GitHub CI는 필수 lane만 실행하므로 public runtime/TS7/governance 결과의 근거로 쓰지 않는다.
 
 ## 3. Artifact export를 만든다
 
@@ -89,7 +90,7 @@ consumer smoke가 동작하는지 확인하고 SHA-512 manifest를 기록한다.
 
 ### Consumer smoke와 optional peer
 
-exporter의 consumer smoke와 CI의 Node 22/24/26 public runtime smoke(`scripts/public-runtime-smoke.mjs`)는
+exporter의 consumer smoke와 `pnpm ci:local`의 Node 22/24/26 public runtime smoke(`scripts/public-runtime-smoke.mjs`)는
 pack된 tarball을 빈 consumer project에 설치하고 모든 public entry point(root와 각 export subpath)를
 import한다. consumer에는 사용자의 package manager가 함께 설치하는 것, 즉 dependency와 required peer
 dependency만 둔다. `peerDependenciesMeta`에서 optional로 표시한 peer는 npm과 pnpm이 설치하지 않으므로
@@ -130,7 +131,7 @@ npm에는 0.3.0까지만 있다면, core를 빼고 parser나 codegen을 export�
   `@oa-sdk/codegen` 자신과 companion(`@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`),
   그리고 `microservice`·`enterprise` archetype의 `@oa-sdk/core`가 여기에 해당한다.
 - `oa-gen`은 companion을 dynamic import하고, companion이 설치되어 있지 않으면 같은 range로 고정한
-  설치 명령(예: `npm install --save-dev "@oa-sdk/router@^0.2.2"`)을 출력한다.
+  설치 명령(예: `npm install --save-dev "@oa-sdk/router@^0.2.4"`)을 출력한다.
 
 이 range는 public manifest를 거치지 않는다. release policy상 Core Platform package인 codegen은
 Downstream companion을 devDependencies로만 참조할 수 있고 public manifest에서는 devDependencies가
@@ -153,7 +154,7 @@ companion은 type 제약에 의해 이 목록에 반드시 `registry`로 포함�
 range는 export가 codegen을 source version 그대로 release하므로 이미 충족된다.
 
 즉 codegen export는 gate 대상 package를 같은 export에 함께 넣거나 그보다 먼저 release한 뒤에만
-만들 수 있다. 예를 들어 codegen 0.9.0이 core 0.3.1로 build되었다면, `--version @oa-sdk/core=0.3.1`
+만들 수 있다. 예를 들어 codegen 0.10.0이 core 0.3.1로 build되었다면, `--version @oa-sdk/core=0.3.1`
 없이(그리고 core 0.3.1이 npm에 없는 상태에서) codegen을 export하는 것은 실패한다. 실패 메시지는
 해당 package와 version을 나열하므로, 그 export에 `--version <package>=<version>`을 추가하거나 그
 package를 먼저 release한다. official export의 `--version`은 committed source version과 같아야 하고
@@ -200,7 +201,7 @@ source repository의 `pnpm release` 또는 `pnpm release:export`는 이 최종 p
 - [ ] clean-worktree `pnpm release:preflight`가 통과했다.
 - [ ] export한 package의 internal dependency가 같은 export에 포함됐거나 committed version으로 이미 npm에 있다.
 - [ ] codegen을 export했다면 `oa-gen`이 안내하는 package(companion, `@oa-sdk/core`)가 built-against version으로 같은 export에 포함됐거나 이미 npm에 있다.
-- [ ] 같은 release candidate commit의 required CI가 통과했다.
+- [ ] 같은 release candidate commit의 `pnpm ci:local`이 통과했고, GitHub CI가 실행됐다면 필수 lane도 통과했다.
 - [ ] contract change라면 TypeSpec snapshot 및 semver evidence를 검토했다.
 - [ ] external artifact repository의 manifest와 SHA-512를 검토했다.
 - [ ] 실제 npm promotion은 authorized external workflow에서만 실행했다.

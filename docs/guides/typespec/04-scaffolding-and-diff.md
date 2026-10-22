@@ -5,14 +5,14 @@ canonical: true
 audience:
   competence: intermediate
 productVersions:
-  - "@oa-sdk/codegen 0.9.0"
+  - "@oa-sdk/codegen 0.10.0"
 owner: "OA SDK maintainers"
 status: active
 ---
 
 # TypeSpec 스캐폴딩 및 Semantic Diff 도구 활용법 (Scaffolding & Diff CLI)
 
-이 문서는 `oa-gen`의 TypeSpec 명령으로 `.tsp` 코드를 만들고, breaking change를 미리 검사하고, mock 서버와 생성 명령으로 결과를 확인하는 방법을 안내합니다. 이 문서는 `@oa-sdk/codegen` 0.9.0 기준입니다.
+이 문서는 `oa-gen`의 TypeSpec 명령으로 `.tsp` 코드를 만들고, breaking change를 미리 검사하고, mock 서버와 생성 명령으로 결과를 확인하는 방법을 안내합니다. 이 문서는 `@oa-sdk/codegen` 0.10.0 기준입니다.
 
 | 절 | 대상 | 실행 형태 |
 |---|---|---|

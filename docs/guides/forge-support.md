@@ -3,7 +3,7 @@
 oa-sdk는 TypeSpec 원본을 Cloudflare Forge가 직접 읽도록 연결하지 않습니다. TypeSpec에서
 생성한 OpenAPI 계약을 `@oa-sdk/parser`의 `ParsedDocument` IR로 읽고, `@oa-sdk/surface-ir`가
 SDK·CLI 표면을 target-neutral IR로 만든 뒤 Forge용 OpenAPI projection과 Overlay를 생성합니다.
-이 문서는 `@oa-sdk/codegen` 0.9.0과 `@oa-sdk/surface-ir` 0.1.1 기준입니다.
+이 문서는 `@oa-sdk/codegen` 0.10.0과 `@oa-sdk/surface-ir` 0.2.0 기준입니다.
 
 외부 프로젝트는 자기 OpenAPI 문서(또는 `.tsp`)를 `oa-gen surface`나 `@oa-sdk/surface-ir` API에
 넘깁니다. 아래에서 `packages/schemas/...` 경로, 개수(34개 operation, 5개 command), Forge 연동

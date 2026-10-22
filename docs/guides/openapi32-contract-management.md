@@ -1,6 +1,6 @@
 # OpenAPI 3.2 계약 관리
 
-> 동작 기준: `@oa-sdk/codegen` 0.9.0. 명령은 `@oa-sdk/codegen`을 설치한 프로젝트에서 실행하는 형태입니다
+> 동작 기준: `@oa-sdk/codegen` 0.10.0. 명령은 `@oa-sdk/codegen`을 설치한 프로젝트에서 실행하는 형태입니다
 > (설치는 [Quick Start](./quick-start.md)). 이 저장소 안에서는 `node packages/codegen/dist/cli/index.js <명령>`으로 실행합니다.
 
 oa-sdk는 도메인 의도, 정규화된 정보 구조, 구현, 테스트, 운영 중 비교를 잇는 공개 API 계약을 관리합니다.

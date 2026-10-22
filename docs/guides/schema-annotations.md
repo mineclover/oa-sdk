@@ -2,7 +2,7 @@
 
 > OpenAPI 3.2 Schema Object에 `$comment`와 `annotations`로 개발자용 메모를 남기는 규칙입니다.
 > OpenAPI 문서를 원본으로 쓰는 프로젝트와 TypeSpec 원본(`@extension`) 모두에 적용됩니다.
-> 동작 기준: `@oa-sdk/codegen` 0.9.0.
+> 동작 기준: `@oa-sdk/codegen` 0.10.0.
 
 ---
 

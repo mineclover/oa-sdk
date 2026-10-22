@@ -5,8 +5,8 @@ canonical: true
 audience:
   competence: intermediate
 productVersions:
-  - "@oa-sdk/codegen 0.9.0"
-  - "@oa-sdk/typespec-decorators 0.3.0"
+  - "@oa-sdk/codegen 0.10.0"
+  - "@oa-sdk/typespec-decorators 0.4.0"
 owner: "OA SDK maintainers"
 status: active
 ---

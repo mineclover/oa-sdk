@@ -4,7 +4,7 @@
 
 ## 시나리오
 
-테스트 작성 시 어떤 API가 아직 테스트되지 않았는지 파악하고, 검증 오류를 정확히 해석하여 빠르게 수정합니다. `@oa-sdk/parser` 0.4.0과 `@oa-sdk/mock-server` 0.1.4 기준이며, mock 서버 설치와 실행은 [Mock 서버 사용 가이드](../mock-server-usage.md)를 따릅니다.
+테스트 작성 시 어떤 API가 아직 테스트되지 않았는지 파악하고, 검증 오류를 정확히 해석하여 빠르게 수정합니다. `@oa-sdk/parser` 0.4.0과 `@oa-sdk/mock-server` 0.1.5 기준이며, mock 서버 설치와 실행은 [Mock 서버 사용 가이드](../mock-server-usage.md)를 따릅니다.
 
 ## 1. API 구조 파악
 

@@ -5,10 +5,10 @@ canonical: true
 audience:
   competence: competent
 productVersions:
-  - "@oa-sdk/codegen 0.9.0"
+  - "@oa-sdk/codegen 0.10.0"
   - "@oa-sdk/core 0.3.1"
-  - "@oa-sdk/router 0.2.2"
-  - "@oa-sdk/client 0.2.2"
+  - "@oa-sdk/router 0.2.4"
+  - "@oa-sdk/client 0.3.0"
 owner: "OA SDK maintainers"
 status: active
 lastReviewed: "2026-10-19"
@@ -21,7 +21,7 @@ sourceOfTruth:
 # 선언적 스펙 설정 가이드 (oa.config.ts)
 
 > `@oa-sdk/codegen`을 설치한 프로젝트의 `oa.config.ts` 설정을 설명합니다. 설치와 `oa-gen init`은
-> [Quick Start](./quick-start.md) 0단계를 따릅니다. 이 문서는 `@oa-sdk/codegen` 0.9.0 기준입니다.
+> [Quick Start](./quick-start.md) 0단계를 따릅니다. 이 문서는 `@oa-sdk/codegen` 0.10.0 기준입니다.
 
 ---
 

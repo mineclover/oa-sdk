@@ -5,8 +5,8 @@ canonical: true
 audience:
   competence: competent
 productVersions:
-  - "@oa-sdk/codegen 0.9.0"
-  - "@oa-sdk/parser 0.4.0"
+  - "@oa-sdk/codegen 0.10.0"
+  - "@oa-sdk/parser 0.5.0"
   - "OA SDK API contract 0.5.0"
 owner: "OA SDK maintainers"
 status: active

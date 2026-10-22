@@ -5,9 +5,9 @@ canonical: true
 audience:
   competence: intermediate
 productVersions:
-  - "@oa-sdk/codegen 0.9.0"
-  - "@oa-sdk/client 0.2.2"
-  - "@oa-sdk/router 0.2.2"
+  - "@oa-sdk/codegen 0.10.0"
+  - "@oa-sdk/client 0.3.0"
+  - "@oa-sdk/router 0.2.4"
   - "@typespec/compiler 1.16.0"
 owner: "OA SDK maintainers"
 status: active
@@ -17,7 +17,7 @@ status: active
 
 TypeSpec(`.tsp`)을 단일 정본(SSOT: Single Source of Truth)으로 삼고, 디스크 중간 아티팩트 없이 인메모리 컴파일과 플러그인 위상 정렬(DAG)을 거쳐 openapi-ts 스타일의 타입 안전 클라이언트 SDK, TanStack Query v5 3계층 코드, 백엔드 라우터 및 바이너리 코덱을 생성하는 **TypeSpec 빌더 플랫폼(TypeSpec Builder Platform)** 공식 가이드입니다.
 
-이 문서는 `@oa-sdk/codegen` 0.9.0, `@oa-sdk/client` 0.2.2, `@oa-sdk/router` 0.2.2, `@typespec/compiler` 1.16.0 기준입니다.
+이 문서는 `@oa-sdk/codegen` 0.10.0, `@oa-sdk/client` 0.3.0, `@oa-sdk/router` 0.2.4, `@typespec/compiler` 1.16.0 기준입니다.
 
 - 저장소 전반의 빠른 시작 및 CLI 사용법은 [Quick Start](./quick-start.md)를 참고하십시오.
 - TypeSpec 정본 작성 규칙과 네임스페이스 구조는 [TypeSpec 작성 규칙](./typespec-authoring-conventions.md)을 참고하십시오.

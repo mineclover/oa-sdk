@@ -1,6 +1,6 @@
 # 생성 클라이언트와 TanStack Query 사용 가이드
 
-`oa-gen generate:client`가 만드는 fetch 클라이언트와 `oa-gen generate:tanstack`이 만드는 TanStack Query v5 코드를 앱에서 쓰는 방법을 설명합니다. 생성 명령, `createClient` 설정, 메서드 호출 규칙, 오류 처리, 스트리밍, TanStack Query의 키·옵션·훅 이름과 알려진 한계를 다룹니다. 이 문서는 `@oa-sdk/codegen` 0.9.0과 `@oa-sdk/client` 0.2.2 기준입니다.
+`oa-gen generate:client`가 만드는 fetch 클라이언트와 `oa-gen generate:tanstack`이 만드는 TanStack Query v5 코드를 앱에서 쓰는 방법을 설명합니다. 생성 명령, `createClient` 설정, 메서드 호출 규칙, 오류 처리, 스트리밍, TanStack Query의 키·옵션·훅 이름과 알려진 한계를 다룹니다. 이 문서는 `@oa-sdk/codegen` 0.10.0과 `@oa-sdk/client` 0.3.0 기준입니다.
 
 - 클라이언트를 별도 npm 패키지로 만들어 배포하는 방법은 [클라이언트 SDK 배포 가이드](./client-sdk-distribution.md)를 따릅니다.
 - 백엔드 없이 예제를 실행할 mock 서버는 [Mock 서버 사용 가이드](./mock-server-usage.md)를 따릅니다.

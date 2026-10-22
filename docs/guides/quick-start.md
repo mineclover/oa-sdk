@@ -5,13 +5,13 @@ canonical: true
 audience:
   competence: novice
 productVersions:
-  - "@oa-sdk/codegen 0.9.0"
-  - "@oa-sdk/ast-sync 0.2.0"
+  - "@oa-sdk/codegen 0.10.0"
+  - "@oa-sdk/ast-sync 0.2.1"
   - "@oa-sdk/core 0.3.1"
-  - "@oa-sdk/parser 0.4.0"
-  - "@oa-sdk/client 0.2.2"
-  - "@oa-sdk/router 0.2.2"
-  - "@oa-sdk/mock-server 0.1.4"
+  - "@oa-sdk/parser 0.5.0"
+  - "@oa-sdk/client 0.3.0"
+  - "@oa-sdk/router 0.2.4"
+  - "@oa-sdk/mock-server 0.1.5"
 tested:
   environment: "Node.js 24.19, npm 11.17"
   at: "2026-10-06"
@@ -39,7 +39,7 @@ sourceOfTruth:
 
 # Quick Start (5분 빠른 시작 가이드)
 
-다른 프로젝트에 공개 패키지를 설치해 `@oa-sdk`의 전체 흐름(온보딩 $\rightarrow$ 스펙 검증 $\rightarrow$ 정적 타입 생성 $\rightarrow$ Zod 4 검증 스키마 $\rightarrow$ TanStack Query 프론트엔드 $\rightarrow$ 핸들러 계약·클라이언트 일괄 생성 $\rightarrow$ mock 서버)을 직접 실행합니다. 이 문서는 `@oa-sdk/codegen` 0.9.0 기준입니다.
+다른 프로젝트에 공개 패키지를 설치해 `@oa-sdk`의 전체 흐름(온보딩 $\rightarrow$ 스펙 검증 $\rightarrow$ 정적 타입 생성 $\rightarrow$ Zod 4 검증 스키마 $\rightarrow$ TanStack Query 프론트엔드 $\rightarrow$ 핸들러 계약·클라이언트 일괄 생성 $\rightarrow$ mock 서버)을 직접 실행합니다. 이 문서는 `@oa-sdk/codegen` 0.10.0 기준입니다.
 
 > 💡 **TypeSpec(`.tsp`)으로 작성하는 경우**: 이 가이드의 예시는 `openapi.yaml`을 원본으로 쓰지만, `validate`, `typegen`, `generate:zod`, `generate:client`, `generate:tanstack`의 `--spec`에는 `.tsp` 파일을 그대로 넘길 수 있고 `mock`은 `--tsp`로 받습니다. TypeSpec 작성에 필요한 패키지는 [CLI 설치 및 설정 가이드](./cli-setup.md#typespec-작성-의존성)를 따릅니다.
 >
@@ -57,7 +57,7 @@ sourceOfTruth:
 
 > **준비**
 > - Node.js 22 이상. CI가 Node.js 22·24·26에서 배포 후보를 설치해 확인합니다.
-> - `@oa-sdk/codegen` 0.9.0 이상. `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`는 `@oa-sdk/codegen` 0.9.0 릴리스에서 처음 npm에 배포됩니다. 이 릴리스 전에는 npm에서 설치할 수 없습니다. 설치할 수 있는 버전은 [변경 이력](../changelog.md)에서 확인합니다.
+> - `@oa-sdk/codegen` 0.10.0 이상. `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`는 `@oa-sdk/codegen` 0.9.0 릴리스에서 처음 npm에 배포됩니다. 이 릴리스 전에는 npm에서 설치할 수 없습니다. 설치할 수 있는 버전은 [변경 이력](../changelog.md)에서 확인합니다.
 > - Bun은 CI에서 검증하지 않습니다. `oa-gen init`이 Bun용 스크립트를 쓸 수는 있지만 지원 환경으로 약속하지 않습니다.
 
 ```bash

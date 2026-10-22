@@ -19,6 +19,11 @@
 
 이 문서와 정본이 다르면 정본이 맞다. 작업이 끝나면 정본을 먼저 갱신하고 이 문서는 그 다음에 맞춘다.
 
+> **2026-10-22 update:** GitHub Actions는 `.github/workflows/ci.yml`의 단일 `ci` job(핵심
+> build/typecheck/test + 필수 governance)만 실행한다. 아래 D1의 `workspace-build-outputs`
+> artifact와 `public-release-runtime`/`typescript-7-current`/`governance-references` job 서술은
+> 당시 설계 기록이다. 현재 그 lane들은 `pnpm ci:local`에서 실행한다.
+
 ## 1. 현재 스냅샷
 
 - 브랜치는 `main`이고 원격 push는 하지 않았다. HEAD는 `3afc3095`이다.

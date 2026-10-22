@@ -3,7 +3,7 @@
 새 서비스에 oa-sdk governance를 붙일 때 사용하는 표준 템플릿이다. 외부 프레임워크가
 생성하는 OpenAPI 산출물(NestJS Swagger, FastAPI 등)은 먼저 스캐폴드 명령으로
 `raw → normalized → upgraded` artifact interface를 만든다. Behavior on this page is for
-`@oa-sdk/codegen` 0.9.0.
+`@oa-sdk/codegen` 0.10.0.
 
 ## Install
 
