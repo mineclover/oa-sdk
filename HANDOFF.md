@@ -7,7 +7,7 @@ Worktrees: main only · Open PRs: none
 
 ## 1. Current state
 
-- `main` includes PR #13 (`5d9e59e2`), PR #14 (`153dfa22`), PR #15 (`9326c7ff`) and PR #16 (`f27ca51f`), and is in sync with `origin/main`. No other local branches or worktrees; 0 pending changesets; `2026-10-22-core-v0.10.0` and `@oa-sdk/webmcp-peer@0.2.1` are published.
+- `main` includes PR #13 (`5d9e59e2`), PR #14 (`153dfa22`), PR #15 (`9326c7ff`), PR #16 (`f27ca51f`) and PR #17 (`975a008c`), and is in sync with `origin/main`. No other local branches or worktrees; 0 pending changesets; `2026-10-22-core-v0.10.0` and `@oa-sdk/webmcp-peer@0.2.1` are published.
 - **CI policy while Actions billing is broken:** run `pnpm ci:local` (mirrors `.github/workflows/ci.yml`) and treat an all-green local run as the merge/release gate. The 2026-10-22 run passed every lane.
 - Last full local test run: **654 files / 9,209 tests pass** (turbo suites 635/9,006, integration 73, TypeSpec plugin e2e 130). The follow-up branch adds codegen 211/4,012, client 16/277, ast-sync 8/77, router 19/206, TypeSpec decorators 11/108 and spec-lens-contract 2/40 passing suites.
 - The 43-lane local CI mirror (build, typecheck, 4 test groups, integration, e2e, schema, governance, Node 26/TS7, public runtime, NestJS/FastAPI governance) passed on the combined tree through PR #9. Later changes re-ran the full codegen suite (211 files / 4,007 tests) and every docs/governance gate.
@@ -29,7 +29,8 @@ Worktrees: main only · Open PRs: none
 | PR #14 real streaming + P2 design decisions + P3.16 | merged (`153dfa22`) |
 | PR #15 `2026-10-22-core-v0.10.0` release candidate | merged (`9326c7ff`) |
 | `2026-10-22-core-v0.10.0` npm release | published from `oa-sdk-releases` (source tag `archive/2026-10-22-core-v0.10.0` → `bc7c6f8d`) |
-| PR #16 webmcp-peer version fix + local CI script | merged (`f27ca51f`) |
+| PR #16 webmcp-peer version fix | merged (`f27ca51f`) |
+| PR #17 `pnpm ci:local` mirror | merged (`975a008c`) |
 | `2026-10-22-webmcp-peer-v0.2.1` npm patch | published (source tag `archive/2026-10-22-webmcp-peer-v0.2.1` → `f27ca51f`) |
 | Branch/worktree cleanup | 24 merged branches + 6 verifier worktrees + 4 superseded branches removed; SHAs in `.../opencode/branch-sha-archive-2026-10-22.txt` (outside the repo) |
 
