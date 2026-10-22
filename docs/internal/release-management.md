@@ -68,7 +68,7 @@ schema/spec 관리 제품을 소유하고, Downstream Integration 열다섯 패�
 | Core Platform | `@oa-sdk/ast-sync` | `0.2.1` | V3 TypeScript AST bidirectional sync and standalone type guards |
 | Core Platform | `@oa-sdk/tools` | `0.2.0` | Universal Tool Engine for MCP, CLI, and Schema Bridge |
 | Core Platform | `@oa-sdk/surface-ir` | `0.2.0` | Target-neutral API surface IR and Forge projection adapter |
-| Downstream Integration | `@oa-sdk/router` | `0.2.3` | Server router generation |
+| Downstream Integration | `@oa-sdk/router` | `0.2.4` | Server router generation |
 | Downstream Integration | `@oa-sdk/client` | `0.3.0` | Fetch client generation |
 | Downstream Integration | `@oa-sdk/mock-server` | `0.1.5` | Mock engine with MSW and Node HTTP adapters |
 | Downstream Integration | `@oa-sdk/chunk-stream` | `0.3.0` | Universal Chunk Stream core runtime, envelope, residency leases, virtualizer |
