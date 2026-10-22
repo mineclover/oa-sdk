@@ -5,7 +5,7 @@ canonical: true
 audience:
   competence: competent
 productVersions:
-  - "@oa-sdk/codegen 0.9.0"
+  - "@oa-sdk/codegen 0.10.0"
   - "@oa-sdk/openapi-projection-contract 0.2.0"
 owner: "OA SDK maintainers"
 status: active
@@ -21,7 +21,7 @@ sourceOfTruth:
 이 문서는 두 부분으로 나뉩니다.
 
 - **1부 oa-sdk 스키마 파이프라인**: `oa-gen`이 원본에서 OpenAPI 문서, JSON Schema, 타입 가드, 클라이언트, 핸들러 계약을
-  만드는 실제 흐름입니다. `@oa-sdk/codegen` 0.9.0 기준이며 외부 프로젝트와 이 저장소 모두에 해당합니다.
+  만드는 실제 흐름입니다. `@oa-sdk/codegen` 0.10.0 기준이며 외부 프로젝트와 이 저장소 모두에 해당합니다.
 - **[부록 Browser Studio 스키마 표준](#부록-browser-studio-스키마-표준-외부-저장소-사례)**: oa-sdk를 쓰는 외부 저장소
   Browser Studio의 규범 문서를 사례로 옮긴 것입니다. 그 안의 패키지와 경로(`@browser-studio/*`, `packages/devlink-contracts`,
   `packages/surface-engine`, `schemas/transitions/video-transitions.tsp` 등)는 이 저장소에 없으며, RFC 9457 오류 형식 같은

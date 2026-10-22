@@ -1,6 +1,6 @@
 # 백엔드 핸들러 계약 구현 가이드 (Backend Handler Contracts)
 
-API 계약에서 만든 핸들러 계약(handler contract)에 맞춰 비즈니스 로직을 구현하고, Fastify·Hono·Express·Elysia 라우터에 연결하는 방법을 설명합니다. 이 문서는 `@oa-sdk/codegen` 0.9.0과 `@oa-sdk/router` 0.2.2 기준입니다.
+API 계약에서 만든 핸들러 계약(handler contract)에 맞춰 비즈니스 로직을 구현하고, Fastify·Hono·Express·Elysia 라우터에 연결하는 방법을 설명합니다. 이 문서는 `@oa-sdk/codegen` 0.10.0과 `@oa-sdk/router` 0.2.4 기준입니다.
 
 - `oa-gen generate`는 서버 쪽에 프레임워크와 무관한 핸들러 계약(`<id>.contract.ts`)을 만들고, 대상 프레임워크가 Fastify·Express·Hono·Elysia 중 하나로 정해지면 그 프레임워크용 라우터(`<id>.router.ts`)도 만듭니다(3.2절). 이 계약과 라우터에는 요청·응답 타입이 없습니다. 타입이 있는 계약과 라우터가 필요하면 빌드 스크립트에서 `@oa-sdk/router`의 `generateHandlerContract()`와 `generateRouter()`를 호출해 파일로 씁니다(3.1절).
 - 생성기는 구현 파일을 쓰지 않으므로, 계약과 라우터를 다시 생성해도 구현 코드는 그대로입니다.

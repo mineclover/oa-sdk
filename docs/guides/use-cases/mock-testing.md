@@ -4,7 +4,7 @@
 
 ## 시나리오
 
-프론트엔드 또는 통합 테스트에서 실제 백엔드 없이 계약대로 동작하는 API를 사용합니다. 설치, CLI 실행, 상태 유지 CRUD, 응답 선택 규칙, 오류 형식은 [Mock 서버 사용 가이드](../mock-server-usage.md)가 정본이고, 이 문서는 테스트 코드 패턴만 다룹니다. `@oa-sdk/codegen` 0.9.0, `@oa-sdk/mock-server` 0.1.4 기준입니다.
+프론트엔드 또는 통합 테스트에서 실제 백엔드 없이 계약대로 동작하는 API를 사용합니다. 설치, CLI 실행, 상태 유지 CRUD, 응답 선택 규칙, 오류 형식은 [Mock 서버 사용 가이드](../mock-server-usage.md)가 정본이고, 이 문서는 테스트 코드 패턴만 다룹니다. `@oa-sdk/codegen` 0.10.0, `@oa-sdk/mock-server` 0.1.5 기준입니다.
 
 행동 수집/조회 관점의 개념 정의는 [Behavior ECS](../../concepts/behavior-ecs.md)를 따르고, baseline/local verification은 [Behavior ECS Spec](../../internal/behavior-ecs.spec.md)를 단일 소스로 봅니다(저장소 기여자용).
 

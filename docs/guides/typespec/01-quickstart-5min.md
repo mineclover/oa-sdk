@@ -5,8 +5,8 @@ canonical: true
 audience:
   competence: intermediate
 productVersions:
-  - "@oa-sdk/codegen 0.9.0"
-  - "@oa-sdk/typespec-decorators 0.3.0"
+  - "@oa-sdk/codegen 0.10.0"
+  - "@oa-sdk/typespec-decorators 0.4.0"
 tested:
   environment: "Node.js 24.19, pnpm 10.30.3, oa-sdk 저장소 f5e757ac"
   at: "2026-10-06"

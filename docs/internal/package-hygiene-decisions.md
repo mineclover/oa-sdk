@@ -17,6 +17,12 @@ workspace 의존자가 없다는 사실만으로는 제거 근거가 되지 않�
 compiler fixture처럼 의존 그래프의 말단에 있는 패키지는 원래 의존자가 없다. 이 문서는 실제
 사용자(app, script, CI, 외부 저장소, npm 배포)와 유지 비용을 함께 본다.
 
+> **2026-10-22 CI topology update.** GitHub Actions는 `.github/workflows/ci.yml`의 단일
+> `ci` job(핵심 build/typecheck/test + 필수 governance)만 실행한다. 아래의 4-job/6-matrix
+> 설치 비용과 TS7 중복 실행 서술은 2026-10-05 조사 시점의 기록이다. 현재 TS7, public runtime
+> Node 22/24/26, maintenance/internal, schema, NestJS/FastAPI governance는 `pnpm ci:local`에서
+> 실행한다.
+
 ## 조사 기준
 
 | 항목 | 확인한 자료 |

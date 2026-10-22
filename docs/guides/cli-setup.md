@@ -6,7 +6,7 @@
 
 `@oa-sdk/codegen` 패키지가 제공하는 `oa-gen` CLI는 OpenAPI 3.1/3.2 사양 검증, Zod 4 및 TypeScript 타입 생성, fetch 클라이언트와 TanStack Query v5 코드 생성, 핸들러 계약 생성, mock 서버 구동을 하나의 CLI로 제공합니다.
 
-이 문서는 다른 프로젝트에서 공개 패키지를 쓰는 사용자를 위한 설치 및 환경 설정의 정본입니다. 이 문서의 동작은 `@oa-sdk/codegen` 0.9.0 기준입니다.
+이 문서는 다른 프로젝트에서 공개 패키지를 쓰는 사용자를 위한 설치 및 환경 설정의 정본입니다. 이 문서의 동작은 `@oa-sdk/codegen` 0.10.0 기준입니다.
 
 ---
 
@@ -54,7 +54,7 @@ bun add -d @oa-sdk/codegen
 
 핸들러 계약·클라이언트·mock 서버 산출물은 `oa-gen`이 필요할 때 불러오는 **동반 패키지(companion package)**가 생성합니다. 릴리스 정책상 Core Platform 패키지(`@oa-sdk/codegen`)는 Downstream Integration 패키지를 배포 manifest에 의존성으로 선언하지 않으므로, `@oa-sdk/codegen`을 설치해도 이들은 설치되지 않습니다. 사용하는 산출물에 맞춰 직접 추가합니다.
 
-`@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`는 `@oa-sdk/codegen` 0.9.0 릴리스에서 처음 npm에 배포됩니다. 이 릴리스 전에는 npm에서 설치할 수 없습니다. 설치할 수 있는 버전은 [변경 이력](../changelog.md)에서 확인합니다. 아래의 설치 명령 고정, `init`의 버전 지정자, 패키지가 없을 때 실패하는 동작은 모두 `@oa-sdk/codegen` 0.9.0 이상 기준입니다.
+`@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`는 `@oa-sdk/codegen` 0.9.0 릴리스에서 처음 npm에 배포됩니다. 이 릴리스 전에는 npm에서 설치할 수 없습니다. 설치할 수 있는 버전은 [변경 이력](../changelog.md)에서 확인합니다. 아래의 설치 명령 고정, `init`의 버전 지정자, 패키지가 없을 때 실패하는 동작은 모두 `@oa-sdk/codegen` 0.10.0 이상 기준입니다.
 
 | 패키지 | 필요한 산출물 |
 |---|---|

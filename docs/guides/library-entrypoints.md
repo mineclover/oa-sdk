@@ -3,7 +3,7 @@
 oa-sdk는 하나의 runtime SDK가 아니라 OpenAPI 계약을 작성·검증·소비·관찰하는 workspace다.
 아래 표는 신규 사용자가 import 또는 변경을 시작할 때의 첫 경계이며, 각 패키지를 npm에서 설치할 수
 있는지도 함께 보여 준다. 전체 export symbol은 [API index](../internal/api-index.md)가 정본이며, 이 문서는
-기능 선택과 공개 entrypoint를 안내한다. 이 문서의 상태는 `@oa-sdk/codegen` 0.9.0 기준이다.
+기능 선택과 공개 entrypoint를 안내한다. 이 문서의 상태는 `@oa-sdk/codegen` 0.10.0 기준이다.
 
 `배포` 열의 뜻은 다음과 같다. 설치할 수 있는 버전은 [변경 이력](../changelog.md)에서 확인한다.
 

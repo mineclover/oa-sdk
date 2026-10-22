@@ -63,9 +63,10 @@ validation/downstream contract·Core build/typecheck/test·codegen package pack 
 실행하지 않는다. official export의 `--version`은 Changesets flow로 갱신·commit한 source package
 version과 같아야 한다.
 
-이 preflight는 전체 CI를 대체하지 않는다. official promotion 전에 release candidate commit의 CI가
-API index, CLI spec, codegen boundary, type registry, feature-test matrix, schema freshness/rollback,
-그리고 Node 22/24/26 public consumer runtime lane까지 통과했는지 확인한다.
+이 preflight는 전체 CI를 대체하지 않는다. official promotion 전에 release candidate commit의
+`pnpm ci:local`(API index, CLI spec, codegen boundary, type registry, feature-test matrix, schema
+freshness/rollback, Node 22/24/26 public consumer runtime, TS7, governance)이 통과했는지 확인한다.
+GitHub CI는 필수 lane만 실행하므로 그 결과만으로 public runtime/TS7/governance를 대체하지 않는다.
 
 계약을 바꾸는 release는 아래 추가 evidence가 필요하다.
 
@@ -86,7 +87,7 @@ pnpm schema:check-contract-version -- --base-ref origin/main
 공식 artifact export 전 PR 또는 release issue에 아래 사실을 한 번에 기록한다.
 
 - Source commit SHA와 clean-worktree preflight 결과
-- 같은 commit의 required CI run/result
+- 같은 commit의 `pnpm ci:local` 결과(필수 GitHub CI가 실행됐다면 그 run/result도)
 - 선택한 public package와 `package=version` 목록
 - 대응 Changeset, user-facing release note, breaking-change 여부
 - API contract version 및 approved snapshot diff 여부

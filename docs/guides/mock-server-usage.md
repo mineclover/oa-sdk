@@ -1,6 +1,6 @@
 # Mock 서버 사용 가이드
 
-`oa-sdk`의 mock 서버는 OpenAPI 3.1/3.2 문서나 TypeSpec(`.tsp`) 원본을 읽어, 계약대로 응답하고 계약에 맞지 않는 요청은 거절하는 HTTP 서버를 띄웁니다. 백엔드를 구현하기 전에 프론트엔드·에이전트·통합 테스트를 계약에 맞춰 개발할 수 있습니다. 이 문서는 `@oa-sdk/codegen` 0.9.0과 `@oa-sdk/mock-server` 0.1.4 기준입니다.
+`oa-sdk`의 mock 서버는 OpenAPI 3.1/3.2 문서나 TypeSpec(`.tsp`) 원본을 읽어, 계약대로 응답하고 계약에 맞지 않는 요청은 거절하는 HTTP 서버를 띄웁니다. 백엔드를 구현하기 전에 프론트엔드·에이전트·통합 테스트를 계약에 맞춰 개발할 수 있습니다. 이 문서는 `@oa-sdk/codegen` 0.10.0과 `@oa-sdk/mock-server` 0.1.5 기준입니다.
 
 이 문서가 mock 서버의 실행 방법, 상태 유지(stateful) CRUD, 응답 선택 규칙, 검증 오류 형식의 정본입니다. 테스트 코드에서 쓰는 패턴은 [Mock 서버로 테스트](./use-cases/mock-testing.md), 커버리지 추적은 [테스트 피드백 루프](./use-cases/test-feedback.md), 패키지 API 전체 목록은 [`@oa-sdk/mock-server` README](../../packages/mock-server/README.md)를 봅니다.
 

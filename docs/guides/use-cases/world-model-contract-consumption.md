@@ -10,8 +10,8 @@ appliesWhen:
   - "World Model operation과 revision-pinned projection contract를 검토할 때"
 productVersions:
   - "OA SDK API contract 0.5.0"
-  - "@oa-sdk/codegen 0.9.0"
-  - "@oa-sdk/client 0.2.2"
+  - "@oa-sdk/codegen 0.10.0"
+  - "@oa-sdk/client 0.3.0"
 riskLevel: low
 owner: "packages/schemas/typespec/"
 reviewDue: "2026-11-10"

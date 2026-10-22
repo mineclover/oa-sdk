@@ -5,9 +5,9 @@ canonical: true
 audience:
   competence: intermediate
 productVersions:
-  - "@oa-sdk/codegen 0.9.0"
-  - "@oa-sdk/router 0.2.2"
-  - "@oa-sdk/client 0.2.2"
+  - "@oa-sdk/codegen 0.10.0"
+  - "@oa-sdk/router 0.2.4"
+  - "@oa-sdk/client 0.3.0"
 owner: "OA SDK maintainers"
 status: active
 ---
@@ -18,7 +18,7 @@ status: active
 > **입력**: TypeSpec(`.tsp`), OpenAPI 3.2
 > **토폴로지**: Co-located(피처 인접), Feature-Sliced Design(FSD), Monorepo 계층 분리, 배포용 클라이언트 패키지
 
-이 문서는 `@oa-sdk/codegen`을 설치한 프로젝트에서 `oa.config.ts`로 생성물 위치를 정하는 방법과, 생성물이 지키는 규칙을 설명합니다. 이 문서는 `@oa-sdk/codegen` 0.9.0 기준이며 명령은 `npx oa-gen` 형태로 씁니다. 설정 필드 전체는 [선언적 스펙 설정 가이드](../declarative-spec-configuration.md)가 정본입니다.
+이 문서는 `@oa-sdk/codegen`을 설치한 프로젝트에서 `oa.config.ts`로 생성물 위치를 정하는 방법과, 생성물이 지키는 규칙을 설명합니다. 이 문서는 `@oa-sdk/codegen` 0.10.0 기준이며 명령은 `npx oa-gen` 형태로 씁니다. 설정 필드 전체는 [선언적 스펙 설정 가이드](../declarative-spec-configuration.md)가 정본입니다.
 
 ---
 

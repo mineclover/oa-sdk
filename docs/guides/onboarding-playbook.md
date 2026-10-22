@@ -5,10 +5,10 @@ canonical: true
 audience:
   competence: intermediate
 productVersions:
-  - "@oa-sdk/codegen 0.9.0"
-  - "@oa-sdk/router 0.2.2"
-  - "@oa-sdk/client 0.2.2"
-  - "@oa-sdk/mock-server 0.1.4"
+  - "@oa-sdk/codegen 0.10.0"
+  - "@oa-sdk/router 0.2.4"
+  - "@oa-sdk/client 0.3.0"
+  - "@oa-sdk/mock-server 0.1.5"
 owner: "OA SDK maintainers"
 status: active
 ---
@@ -17,7 +17,7 @@ status: active
 
 이 가이드는 신규(Greenfield) 및 기존(Brownfield) 백엔드/풀스택 프로젝트에 `oa-sdk`를 단계적으로 도입하는 순서와, Fastify·Express·Hono·Elysia·NestJS에 연결하는 방법을 정리한 실무 플레이북입니다. 기존 코드베이스를 한 번에 바꿀 필요 없이 **3계층 가치 도입 사다리(3-Tier Value Adoption Ladder)**를 따라 필요한 단계까지만 적용합니다.
 
-이 문서는 `@oa-sdk/codegen` 0.9.0 기준입니다. 공개 패키지는 Node.js 22 이상에서 동작하며, 설치와 첫 실행은 [Quick Start](./quick-start.md)를, 어떤 명령에 어떤 동반 패키지가 필요한지는 [동반 패키지 안내](./cli-setup.md#동반-패키지-companion-packages)를 따릅니다.
+이 문서는 `@oa-sdk/codegen` 0.10.0 기준입니다. 공개 패키지는 Node.js 22 이상에서 동작하며, 설치와 첫 실행은 [Quick Start](./quick-start.md)를, 어떤 명령에 어떤 동반 패키지가 필요한지는 [동반 패키지 안내](./cli-setup.md#동반-패키지-companion-packages)를 따릅니다.
 
 > §1~§8은 다른 프로젝트에 `oa-sdk`를 도입하는 사용자용입니다. §9는 oa-sdk 저장소 자체에 기여하는 개발자용입니다.
 

@@ -1,6 +1,6 @@
 # 클라이언트 SDK 배포 가이드 (Client SDK Distribution)
 
-생성한 fetch 클라이언트를 소비자 프로젝트에 공급하는 두 가지 방법을 비교하고, 클라이언트를 독립 npm 패키지로 만드는 절차를 설명합니다. 이 문서는 `@oa-sdk/codegen` 0.9.0과 `@oa-sdk/client` 0.2.2 기준입니다.
+생성한 fetch 클라이언트를 소비자 프로젝트에 공급하는 두 가지 방법을 비교하고, 클라이언트를 독립 npm 패키지로 만드는 절차를 설명합니다. 이 문서는 `@oa-sdk/codegen` 0.10.0과 `@oa-sdk/client` 0.3.0 기준입니다.
 
 - 생성된 클라이언트의 설정, 호출 규칙, 오류 처리, 스트리밍, TanStack Query 코드는 [생성 클라이언트와 TanStack Query 사용 가이드](./client-and-query-consumption.md)가 정본입니다.
 - 클라이언트 개발·테스트에 쓰는 mock 서버(상태 유지 CRUD 포함)는 [Mock 서버 사용 가이드](./mock-server-usage.md)를 따릅니다.

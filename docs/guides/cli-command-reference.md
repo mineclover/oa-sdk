@@ -14,7 +14,7 @@ node packages/codegen/dist/cli/index.js --help
 저장소 루트에서는 `oa-gen`이 PATH에 없다(`pnpm exec oa-gen`도 찾지 못한다). 공개 package consumer는
 `npx oa-gen <command>`를 사용한다. 아래 예시의 `oa-gen`은 외부 프로젝트에서는 `npx oa-gen`, 저장소에서는
 `node packages/codegen/dist/cli/index.js`로 읽는다. 아래의 `입력`은 최소 시작점이며, `--help`는 모든 선택
-옵션과 조건부 옵션을 보여 준다. 이 문서의 동작은 `@oa-sdk/codegen` 0.9.0 기준이다.
+옵션과 조건부 옵션을 보여 준다. 이 문서의 동작은 `@oa-sdk/codegen` 0.10.0 기준이다.
 
 `generate:client`, `pack:client`, `generate:tanstack`, `mock`, 그리고 `oa-gen generate`의 핸들러
 계약·라우터·클라이언트 산출물은 `@oa-sdk/codegen`에 포함되지 않은 동반 패키지(`@oa-sdk/router`,

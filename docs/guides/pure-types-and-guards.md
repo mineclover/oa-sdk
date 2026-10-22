@@ -2,7 +2,7 @@
 
 > **핵심**: REST 엔드포인트(`paths`) 없이 데이터 모델만 선언해도 `oa-sdk`로 TypeScript 타입과 런타임 타입 가드를 같은 원본에서 만들 수 있습니다.
 
-HTTP 전송 계층이 없는 곳(브라우저 확장 프로그램 MV3 메시징, Node Worker IPC, WebSocket 이벤트, DB DTO, 도메인 엔터티)에서 모델을 선언하고, `oa-gen typegen`으로 타입을, `oa-gen generate:guards`로 외부 의존성 없는 타입 가드를 만드는 방법을 다룹니다. 이 문서는 `@oa-sdk/codegen` 0.9.0 기준입니다. 두 명령은 `@oa-sdk/codegen`만 있으면 동작하고 동반 패키지가 필요 없습니다.
+HTTP 전송 계층이 없는 곳(브라우저 확장 프로그램 MV3 메시징, Node Worker IPC, WebSocket 이벤트, DB DTO, 도메인 엔터티)에서 모델을 선언하고, `oa-gen typegen`으로 타입을, `oa-gen generate:guards`로 외부 의존성 없는 타입 가드를 만드는 방법을 다룹니다. 이 문서는 `@oa-sdk/codegen` 0.10.0 기준입니다. 두 명령은 `@oa-sdk/codegen`만 있으면 동작하고 동반 패키지가 필요 없습니다.
 
 ```bash
 npm install --save-dev @oa-sdk/codegen

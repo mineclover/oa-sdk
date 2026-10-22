@@ -11,9 +11,10 @@ rest describes the lanes used to build and test this repository.
 ## Consumer support
 
 - **Node.js**: every published `@oa-sdk/*` package declares `engines.node: ">=22.0.0"`.
-  The CI `public-release-runtime` job packs the release candidates and installs
+  The local full gate (`pnpm ci:local`) packs the release candidates and installs
   them on Node.js 22, 24 and 26, then imports every public entry point and runs
-  `oa-gen --help`, `oa-gen typegen` and `oa-gen mock`.
+  `oa-gen --help`, `oa-gen typegen` and `oa-gen mock`. The essential GitHub job
+  does not run this matrix.
 - **Bun**: not covered by CI. `oa-gen init` can write Bun scripts for the Elysia
   target, but Bun is not a supported runtime.
 - **TypeScript**: published declarations are emitted with `typescript@5.9.3`
@@ -38,8 +39,8 @@ Use `source scripts/use-node-version.sh stable` for the default lane or
 `source scripts/use-node-version.sh node26` before running the Node 26 lane.
 
 Node 26 is a Current release, not an LTS release. Keep Node 24 LTS as the
-production lane; the Node 26 job is forward-compatibility validation only and
-must not become a release or deployment requirement. See the official [Node.js release schedule](https://nodejs.org/en/about/previous-releases).
+production lane; the Node 26 lane in `pnpm ci:local` is forward-compatibility
+validation only and must not become a release or deployment requirement. See the official [Node.js release schedule](https://nodejs.org/en/about/previous-releases).
 
 Regular `@oa-sdk/*` packages pin `typescript` 5.9.3 as a development dependency,
 with these exceptions: `@oa-sdk/parser` declares `typescript@^5.0.0` as a runtime
