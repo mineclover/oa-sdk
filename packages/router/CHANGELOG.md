@@ -1,5 +1,18 @@
 # @oa-sdk/router
 
+## 0.2.5
+
+### Patch Changes
+
+- Verify the router targets against the latest upstream frameworks.
+
+  - Hono 4.13 (was 4.12): the real-Hono streaming test passes unchanged.
+  - Express 5.3: added a real Express server test for SSE `AsyncIterable` and NDJSON Node `Readable`
+    bodies, with the declared content type.
+  - Fastify 5.12.7, Elysia 1.4.30 and `@elysiajs/node` 1.4.5 are already current.
+  - Added `express`, `@types/express` and the Hono update to the router devDependencies. No generated
+    router code changed; the published API is unchanged.
+
 ## 0.2.4
 
 ### Patch Changes

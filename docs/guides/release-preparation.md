@@ -131,7 +131,7 @@ npm에는 0.3.0까지만 있다면, core를 빼고 parser나 codegen을 export�
   `@oa-sdk/codegen` 자신과 companion(`@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`),
   그리고 `microservice`·`enterprise` archetype의 `@oa-sdk/core`가 여기에 해당한다.
 - `oa-gen`은 companion을 dynamic import하고, companion이 설치되어 있지 않으면 같은 range로 고정한
-  설치 명령(예: `npm install --save-dev "@oa-sdk/router@^0.2.4"`)을 출력한다.
+  설치 명령(예: `npm install --save-dev "@oa-sdk/router@^0.2.5"`)을 출력한다.
 
 이 range는 public manifest를 거치지 않는다. release policy상 Core Platform package인 codegen은
 Downstream companion을 devDependencies로만 참조할 수 있고 public manifest에서는 devDependencies가

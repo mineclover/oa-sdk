@@ -1,6 +1,6 @@
 # 백엔드 핸들러 계약 구현 가이드 (Backend Handler Contracts)
 
-API 계약에서 만든 핸들러 계약(handler contract)에 맞춰 비즈니스 로직을 구현하고, Fastify·Hono·Express·Elysia 라우터에 연결하는 방법을 설명합니다. 이 문서는 `@oa-sdk/codegen` 0.10.0과 `@oa-sdk/router` 0.2.4 기준입니다.
+API 계약에서 만든 핸들러 계약(handler contract)에 맞춰 비즈니스 로직을 구현하고, Fastify·Hono·Express·Elysia 라우터에 연결하는 방법을 설명합니다. 이 문서는 `@oa-sdk/codegen` 0.10.0과 `@oa-sdk/router` 0.2.5 기준입니다.
 
 - `oa-gen generate`는 서버 쪽에 프레임워크와 무관한 핸들러 계약(`<id>.contract.ts`)을 만들고, 대상 프레임워크가 Fastify·Express·Hono·Elysia 중 하나로 정해지면 그 프레임워크용 라우터(`<id>.router.ts`)도 만듭니다(3.2절). 이 계약과 라우터에는 요청·응답 타입이 없습니다. 타입이 있는 계약과 라우터가 필요하면 빌드 스크립트에서 `@oa-sdk/router`의 `generateHandlerContract()`와 `generateRouter()`를 호출해 파일로 씁니다(3.1절).
 - 생성기는 구현 파일을 쓰지 않으므로, 계약과 라우터를 다시 생성해도 구현 코드는 그대로입니다.
@@ -269,7 +269,8 @@ async updateUser({ params, query, headers, body }) {
 3. **오류 응답**: `return { status: 404, body: { code: 'NOT_FOUND', message: '...' } }`.
 4. **스트리밍**: 상태 200 또는 206(`StreamingResponse`)으로 `body`에 스트림을 넣으면 JSON으로 직렬화하지 않고 그대로 보냅니다. `ReadableStream<Uint8Array>`, `Uint8Array`, `AsyncIterable<Uint8Array | string>`, Node 스트림(`pipe()`를 가진 객체)을 Fastify·Hono·Express에서 사용할 수 있습니다. 라우터는 `AsyncIterable`을 Web `ReadableStream`으로 감싸고 응답마다 반복자를 하나만 만듭니다. `content-type` 헤더 이름은 소문자로 씁니다([4절 예제](#4-핸들러-구현)). `ReadableStream.from(events()).pipeThrough(new TextEncoderStream())`처럼 미리 변환해도 됩니다.
    - Fastify(5.12.7에서 확인): `AsyncIterable`·`ReadableStream`·Node 스트림을 모두 선언한 `Content-Type`으로 보내고(SSE·NDJSON 테스트), 클라이언트가 끊으면 원본 반복자의 `return()`을 호출합니다.
-   - Hono(4.12에서 확인): 응답마다 반복자를 한 번만 만들므로 재사용 가능한 iterable도 첫 청크를 반복하지 않습니다. 응답을 취소하면 `iterator.return()`을 호출하고, Node 스트림도 같은 경로로 처리합니다.
+   - Hono(4.13에서 확인): 응답마다 반복자를 한 번만 만들므로 재사용 가능한 iterable도 첫 청크를 반복하지 않습니다. 응답을 취소하면 `iterator.return()`을 호출하고, Node 스트림도 같은 경로로 처리합니다.
+   - Express(5.3에서 확인): `AsyncIterable`과 Node `Readable` 본문을 선언한 `Content-Type`으로 전송합니다.
    - Elysia(1.4 기본 어댑터에서 확인): 라우터가 `AsyncIterable`·Node 스트림을 Web `ReadableStream`으로 변환하므로 `app.handle()`/`app.fetch()`가 `Received non-Uint8Array chunk`로 실패하거나 `data: data: {...}`로 이중 프레임을 만들지 않습니다. 헤더 이름은 라우터가 소문자로 맞춰 `content-type` 중복을 피합니다. `@elysiajs/node` 어댑터는 아직 테스트하지 않았으므로 사용하는 버전에서 확인합니다.
 
 라우터는 반환값이 `body` 속성을 가진 객체이고, `status`가 없거나 숫자이며, `headers`가 없거나 객체이면 `{ status, body, headers }` 응답 봉투로 해석해 `body`만 보냅니다. 따라서 `body` 필드를 가진 엔티티를 본문으로 돌려줄 때는 `return { status: 200, body: entity }`처럼 반드시 감쌉니다.
