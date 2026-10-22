@@ -7,7 +7,7 @@ Worktrees: main only · Open PRs: none
 
 ## 1. Current state
 
-- `main` includes PR #13 (`5d9e59e2`), PR #14 (`153dfa22`), PR #15 (`9326c7ff`), PR #16 (`f27ca51f`), PR #17 (`975a008c`), PR #18 (`7de51c04`), PR #19 (`bfa136f3`), PR #20 (`2e55d182`) and PR #21 (`32615cb2`), and is in sync with `origin/main`. No other local branches or worktrees; 0 pending changesets; the dependency-refresh changeset is consumed into the versioned candidate `@oa-sdk/tools@0.2.1` + `@oa-sdk/mcp-mesh@0.1.2` (not exported or published). `2026-10-22-core-v0.10.0`, `@oa-sdk/webmcp-peer@0.2.1`, and `@oa-sdk/router@0.2.4`/`0.2.5` are published.
+- `main` includes PR #13 (`5d9e59e2`), PR #14 (`153dfa22`), PR #15 (`9326c7ff`), PR #16 (`f27ca51f`), PR #17 (`975a008c`), PR #18 (`7de51c04`), PR #19 (`bfa136f3`), PR #20 (`2e55d182`) and PR #21 (`32615cb2`), and is in sync with `origin/main`. No other local branches or worktrees; 0 pending changesets; the dependency-refresh changeset is consumed into `@oa-sdk/tools@0.2.1` + `@oa-sdk/mcp-mesh@0.1.2`, exported as `2026-10-23-tools-v0.2.1` and waiting on `oa-sdk-releases` PR #11 (not published). `2026-10-22-core-v0.10.0`, `@oa-sdk/webmcp-peer@0.2.1`, and `@oa-sdk/router@0.2.4`/`0.2.5` are published.
 - **CI policy while Actions billing is broken:** run `pnpm ci:local` (superset of `.github/workflows/ci.yml`) and treat an all-green local run as the merge/release gate. The versioned-candidate run on 2026-10-23 00:35–00:53 local passed all 46 lanes.
 - Last full local test run: **661 files / 9,297 tests pass** (turbo suites 637/9,029 — codegen 211/4,012, dpm 121, mock-server 46, router 19/209, client 16/277 — plus integration 73, TypeSpec plugin e2e 130, schema 62 and rollback 3).
 - The 46-lane local CI mirror covers build/typecheck, 4 test groups, integration, e2e, schema validation/rollback, governance, Node 22/24/26 public runtime, TS7 on Node 26, parser bench, and NestJS/FastAPI governance. The current run supersedes the earlier combined-tree run through PR #9.
@@ -42,7 +42,8 @@ Worktrees: main only · Open PRs: none
 | Branch/worktree cleanup | 24 merged branches + 6 verifier worktrees + 4 superseded branches removed; SHAs in `.../opencode/branch-sha-archive-2026-10-22.txt` (outside the repo) |
 | Stabilization pass (2026-10-22, `960a7205`) | full `pnpm ci:local` 46/46 lanes pass (661 files / 9,297 tests); registry versions and release tags re-confirmed; no code changes required |
 | Dependency security refresh (2026-10-22) | `pnpm audit --prod` 107 → **0**; full audit 94 → 4 dev-only. Hono 4.13.13, MCP SDK 1.32.1, NestJS 11.2.7/Swagger 11.4.7, Redocly 2.67/Spectral 6.17, Vite 6.4.5/8.3.5; patched transitive overrides |
-| Versioned dependency-refresh candidate | `pnpm version-packages` consumed the changeset and produced `@oa-sdk/tools@0.2.1` + dependent `@oa-sdk/mcp-mesh@0.1.2`; CHANGELOGs, version tables and the type-registry baseline updated; full `pnpm ci:local` 46/46 passes. Not exported or published |
+| Versioned dependency-refresh candidate | `pnpm version-packages` consumed the changeset and produced `@oa-sdk/tools@0.2.1` + dependent `@oa-sdk/mcp-mesh@0.1.2`; CHANGELOGs, version tables and the type-registry baseline updated; full `pnpm ci:local` 46/46 passes |
+| Release candidate export (2026-10-23) | `pnpm release:preflight` passed; official export created `oa-sdk-releases` release `2026-10-23-tools-v0.2.1` from source `3d6d5d5e` (2 tarballs, consumer smoke + `validate-release.mjs` passed); [PR #11](https://github.com/mineclover/oa-sdk-releases/pull/11) open. Not published |
 
 ## 3. Verification evidence
 
@@ -51,6 +52,7 @@ Worktrees: main only · Open PRs: none
 - **Dependency-refresh interface checks:** tools 9/74, spec-lens 16/180 (4 skipped), codegen 211/4,012 including the hardened `fs.watch` startup test, NestJS 11 typecheck/build + `openapi-governance.sh ci`, Redocly/Spectral schema validation, and Node 22/24/26 public runtime all pass.
 - **Versioned candidate (2026-10-23 00:35–00:53 local):** `pnpm version-packages` consumed the dependency-refresh changeset and produced `@oa-sdk/tools@0.2.1` + `@oa-sdk/mcp-mesh@0.1.2`; CHANGELOGs, the version table and the type-registry baseline are updated. The full `pnpm ci:local` passed 46/46 lanes (661 files / 9,297 tests), including `check:package-versions`, `type-registry:check` and the Node 22/24/26 public runtime. No export or npm publish has run. Log: `../oa-sdk-local-ci-versioned-final2/local-ci.log`.
 - **Flake hardening:** the `webmcp-peer` real-relay backpressure test now retries twice because it depends on OS socket backpressure; 10/10 isolated runs and the downstream suite pass after the change.
+- **Official export (2026-10-23, source `3d6d5d5e`):** clean-worktree `pnpm release:preflight` passed; `pnpm release:export -- --output ../oa-sdk-releases --release-id 2026-10-23-tools-v0.2.1 --version @oa-sdk/tools=0.2.1 --version @oa-sdk/mcp-mesh=0.1.2` produced 2 tarballs. The exporter's sanitized consumer smoke imported 3 public surfaces with TypeScript 5.9.3, and `oa-sdk-releases/scripts/validate-release.mjs --release 2026-10-23-tools-v0.2.1` passed. PR: [mineclover/oa-sdk-releases#11](https://github.com/mineclover/oa-sdk-releases/pull/11) (open, mergeable, no CI checks configured). No npm publish has run.
 - Full suite: `pnpm test:core:ci`, `test:downstream:ci`, `test:maintenance:ci`, `test:internal:ci`, `test:integration`, `test:e2e:typespec-plugin`.
 - Feature end-to-end:
   - TypeSpec → `schema-typespec-check --provenance` → `typegen --graph-semantic-index`: 207/207 hosts matched generated lines and `.tsp` evidence; all three hashes matched; a mismatched provenance failed without writing output.
@@ -114,11 +116,11 @@ These are current, documented limitations rather than stale docs:
 - **CI billing:** see P0.1. Run `pnpm ci:local` (log path printed at the end; `LOCAL_CI_KEEP=1` keeps it). Do not treat red GitHub checks as code failures until billing is restored.
 - **npm credentials (2026-10-22):** the `oa-sdk-releases` `NPM_TOKEN` was replaced at 09:47 UTC after the previous token began returning 401. Router 0.2.4 published on the next run. Keep the token's expiry/scope in mind; the workflow now verifies every published version from the public registry. Trusted publishing remains an untested fallback (`trusted_publishing=true`) until the npm trusted publisher is configured.
 - **Release artifacts:** the `archive/chunk-stream-0.2.0-publish` tag (`23afe831`) is the original published release commit; keep it.
-- **Release repository (local):** `/Users/junwoobang/workflow/oa-sdk-releases` is clean and in sync with `origin/main` at `965c6d8` (`2026-10-22-router-v0.2.5`). Local release records include `2026-10-22-core-v0.10.0`, `2026-10-22-webmcp-peer-v0.2.1`, and `2026-10-22-router-v0.2.4`/`v0.2.5`; the new `@oa-sdk/tools@0.2.1` + `@oa-sdk/mcp-mesh@0.1.2` candidate has no release record yet.
+- **Release repository (local):** `/Users/junwoobang/workflow/oa-sdk-releases` has `main` at `965c6d8` (`2026-10-22-router-v0.2.5`) plus the pushed release branch `release/2026-10-23-tools-v0.2.1` at `79759a9`. Local release records include `2026-10-22-core-v0.10.0`, `2026-10-22-webmcp-peer-v0.2.1`, `2026-10-22-router-v0.2.4`/`v0.2.5`, and the exported candidate `2026-10-23-tools-v0.2.1` (PR #11, not yet published).
 - **Generated files:** do not edit `.merged*.yaml`, `dist/`, or the graph sidecar by hand. Regenerate with the documented command; the sidecar is hash-bound to the generated TypeScript.
 
 ## 6. Suggested order
 
 1. Restore GitHub Actions billing.
-2. Review the versioned `@oa-sdk/tools@0.2.1` + `@oa-sdk/mcp-mesh@0.1.2` candidate, run `pnpm release:preflight`, then export/promote from `oa-sdk-releases` with the chosen release ID.
+2. Review and merge [oa-sdk-releases#11](https://github.com/mineclover/oa-sdk-releases/pull/11) (`2026-10-23-tools-v0.2.1`), then run the external **Publish npm release** workflow with that release ID. The export and source preflight are already complete.
 3. `docs/internal/todo.md` has no open `[ ]` entries; new work starts from a fresh PRD/backlog item.
