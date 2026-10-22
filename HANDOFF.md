@@ -114,6 +114,7 @@ These are current, documented limitations rather than stale docs:
 - **CI billing:** see P0.1. Run `pnpm ci:local` (log path printed at the end; `LOCAL_CI_KEEP=1` keeps it). Do not treat red GitHub checks as code failures until billing is restored.
 - **npm credentials (2026-10-22):** the `oa-sdk-releases` `NPM_TOKEN` was replaced at 09:47 UTC after the previous token began returning 401. Router 0.2.4 published on the next run. Keep the token's expiry/scope in mind; the workflow now verifies every published version from the public registry. Trusted publishing remains an untested fallback (`trusted_publishing=true`) until the npm trusted publisher is configured.
 - **Release artifacts:** the `archive/chunk-stream-0.2.0-publish` tag (`23afe831`) is the original published release commit; keep it.
+- **Release repository (local):** `/Users/junwoobang/workflow/oa-sdk-releases` is clean and in sync with `origin/main` at `965c6d8` (`2026-10-22-router-v0.2.5`). Local release records include `2026-10-22-core-v0.10.0`, `2026-10-22-webmcp-peer-v0.2.1`, and `2026-10-22-router-v0.2.4`/`v0.2.5`; the new `@oa-sdk/tools@0.2.1` + `@oa-sdk/mcp-mesh@0.1.2` candidate has no release record yet.
 - **Generated files:** do not edit `.merged*.yaml`, `dist/`, or the graph sidecar by hand. Regenerate with the documented command; the sidecar is hash-bound to the generated TypeScript.
 
 ## 6. Suggested order
