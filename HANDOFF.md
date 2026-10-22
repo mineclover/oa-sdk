@@ -7,7 +7,7 @@ Worktrees: main only · Open PRs: none
 
 ## 1. Current state
 
-- `main` includes PR #13 (`5d9e59e2`), PR #14 (`153dfa22`), PR #15 (`9326c7ff`), PR #16 (`f27ca51f`) and PR #17 (`975a008c`), and is in sync with `origin/main`. No other local branches or worktrees; 0 pending changesets; `2026-10-22-core-v0.10.0` and `@oa-sdk/webmcp-peer@0.2.1` are published.
+- `main` includes PR #13 (`5d9e59e2`), PR #14 (`153dfa22`), PR #15 (`9326c7ff`), PR #16 (`f27ca51f`), PR #17 (`975a008c`) and PR #18 (`7de51c04`), and is in sync with `origin/main`. No other local branches or worktrees; 0 pending changesets; `2026-10-22-core-v0.10.0` and `@oa-sdk/webmcp-peer@0.2.1` are published.
 - **CI policy while Actions billing is broken:** run `pnpm ci:local` (mirrors `.github/workflows/ci.yml`) and treat an all-green local run as the merge/release gate. The 2026-10-22 run passed every lane.
 - Last full local test run: **654 files / 9,209 tests pass** (turbo suites 635/9,006, integration 73, TypeSpec plugin e2e 130). The follow-up branch adds codegen 211/4,012, client 16/277, ast-sync 8/77, router 19/206, TypeSpec decorators 11/108 and spec-lens-contract 2/40 passing suites.
 - The 43-lane local CI mirror (build, typecheck, 4 test groups, integration, e2e, schema, governance, Node 26/TS7, public runtime, NestJS/FastAPI governance) passed on the combined tree through PR #9. Later changes re-ran the full codegen suite (211 files / 4,007 tests) and every docs/governance gate.
@@ -31,7 +31,10 @@ Worktrees: main only · Open PRs: none
 | `2026-10-22-core-v0.10.0` npm release | published from `oa-sdk-releases` (source tag `archive/2026-10-22-core-v0.10.0` → `bc7c6f8d`) |
 | PR #16 webmcp-peer version fix | merged (`f27ca51f`) |
 | PR #17 `pnpm ci:local` mirror | merged (`975a008c`) |
+| PR #18 Elysia streaming + release-tooling hardening | merged (`7de51c04`) |
+| `@oa-sdk/router@0.2.4` | versioned and in `oa-sdk-releases`; **publish blocked by expired npm credentials** |
 | `2026-10-22-webmcp-peer-v0.2.1` npm patch | published (source tag `archive/2026-10-22-webmcp-peer-v0.2.1` → `f27ca51f`) |
+| `2026-10-22-router-v0.2.4` | release artifact merged in `oa-sdk-releases`; publish pending valid npm credentials |
 | Branch/worktree cleanup | 24 merged branches + 6 verifier worktrees + 4 superseded branches removed; SHAs in `.../opencode/branch-sha-archive-2026-10-22.txt` (outside the repo) |
 
 ## 3. Verification evidence
@@ -59,6 +62,7 @@ Run locally with **pnpm 11.28.6** (the repo requires `>=11.28.6 <12`; `mise exec
 2. **Released: `2026-10-22-core-v0.10.0`.** 39 changesets consumed (12 minor, 11 patch), 0 pending. Source tag `archive/2026-10-22-core-v0.10.0` → `bc7c6f8d`. Export used 21 packages (`openapi-projection-contract@0.2.0` was unchanged and already published) and is in [`oa-sdk-releases` release `2026-10-22-core-v0.10.0`](https://github.com/mineclover/oa-sdk-releases/releases/tag/2026-10-22-core-v0.10.0); publish run [39708720909](https://github.com/mineclover/oa-sdk-releases/actions/runs/39708720909) succeeded.
 3. **Post-release patch released: `@oa-sdk/webmcp-peer@0.2.1`.** Local CI caught `PACKAGE_VERSION` still reporting `0.1.0`; PR #16 fixed it and refreshed the browser-runtime smoke allowlist. Patch release `2026-10-22-webmcp-peer-v0.2.1` is in `oa-sdk-releases` (publish run [39716844893](https://github.com/mineclover/oa-sdk-releases/actions/runs/39716844893)), source tag `archive/2026-10-22-webmcp-peer-v0.2.1` → `f27ca51f`.
 4. **Post-release checks passed.** All registry versions resolve (`@oa-sdk/tools@0.2.0` and `@oa-sdk/webmcp-peer@0.2.1` needed CDN propagation time; `--prefer-online` and the registry document confirm them). A fresh consumer installed the published codegen/client/router/mock-server, generated a client and TanStack options, passed `tsc --noEmit`, and served `GET /users` 200 via `oa-gen mock`. Version tables are already synced in source.
+5. **`@oa-sdk/router@0.2.4` publish is blocked on npm credentials.** The release artifact is merged in `oa-sdk-releases/releases/2026-10-22-router-v0.2.4`, but `NPM_TOKEN` now returns **401 Unauthorized** (`npm whoami` fails; publish returns 404 for the scoped package). A trusted-publishing attempt also failed (OIDC path is not configured for the package). Refresh the repository/environment `NPM_TOKEN` (granular `@oa-sdk` write token with 2FA bypass) or configure the trusted publisher (owner `mineclover`, repository `oa-sdk-releases`, workflow `publish.yml`, environment `npm-publish`), then rerun **Publish npm release** with `release_id=2026-10-22-router-v0.2.4`.
 
 ### P1 — main use-case gaps (highest UX impact)
 
@@ -93,6 +97,7 @@ Remaining `[ ]` items in [docs/internal/todo.md](./docs/internal/todo.md) are ou
 - **pnpm:** 11.28.6 required. The system `pnpm` (10.30.3) fails the `engines.pnpm` check; use `mise exec`, corepack, or `~/.local/share/mise/installs/pnpm/11.28.6/pnpm`.
 - **Node:** published packages require `>=22`; this repo's development engines require `>=24`; local Node is 24.20.0. `oa-gen init` intentionally writes **`@types/node ^22.0.0`** so generated projects do not typecheck Node 24-only APIs. If changing this, derive the major from the target project's `engines.node`/`.nvmrc`/`.node-version` instead of hard-coding 24.
 - **CI billing:** see P0.1. Run `pnpm ci:local` (log path printed at the end; `LOCAL_CI_KEEP=1` keeps it). Do not treat red GitHub checks as code failures until billing is restored.
+- **npm credentials (2026-10-22):** the `oa-sdk-releases` `NPM_TOKEN` expired or was revoked. The last successful publish was the core v0.10.0 run at 02:00 UTC; by 05:31 UTC `npm whoami` returned 401 and router 0.2.4 could not publish. Trusted publishing is not configured yet. Do not tag/announce router 0.2.4 until the workflow succeeds.
 - **Release artifacts:** the `archive/chunk-stream-0.2.0-publish` tag (`23afe831`) is the original published release commit; keep it.
 - **Generated files:** do not edit `.merged*.yaml`, `dist/`, or the graph sidecar by hand. Regenerate with the documented command; the sidecar is hash-bound to the generated TypeScript.
 
