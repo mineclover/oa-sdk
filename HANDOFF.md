@@ -1,6 +1,6 @@
 # oa-sdk Engineering Handoff
 
-Last updated: 2026-10-22
+Last updated: 2026-10-23
 Repository: `/Users/junwoobang/workflow/oa-sdk`
 Main: `main` (PR #21 merged; in sync with `origin/main`; use `git log -1 --oneline`)
 Worktrees: main only · Open PRs: none
