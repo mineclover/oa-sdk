@@ -75,15 +75,24 @@ Run locally with **pnpm 11.28.6** (the repo requires `>=11.28.6 <12`; `mise exec
 
 ## 4. Remaining work
 
-### P0 — release and CI
+### Open — P0/P1
 
 1. **GitHub Actions billing is still blocked, and GitHub CI is now the essential subset.** PR/main runs fail in 0–4s with "The job was not started because recent account payments have failed or your spending limit needs to be increased." `.github/workflows/ci.yml` keeps one job: core/downstream build, typecheck and tests, integration, TypeSpec plugin e2e, parser bench, docs/API/CLI/boundary/type-registry/package-version/workspace gates and the browser smoke. `pnpm ci:local` is the full superset (maintenance/internal workspaces, schema validation/rollback, public runtime Node 22/24/26, TS7, NestJS/FastAPI governance). Treat a green local run as CI success.
+2. **Publish verification window (optional hardening).** The first 2026-10-23 publish run published both packages but failed after 5 minutes because `@oa-sdk/mcp-mesh@0.1.2` took about 7 minutes to appear on the registry; rerun [39818377072](https://github.com/mineclover/oa-sdk-releases/actions/runs/39818377072) passed. Consider extending or retrying `verifyPublished` in `oa-sdk-releases/scripts/publish-release.mjs`.
+3. **npm trusted publishing (optional hardening).** Publish logs warn that npm tokens bypassing 2FA are being restricted. Configure the npm trusted publisher for `mineclover/oa-sdk-releases` before the token path stops working; the workflow already supports `trusted_publishing=true`.
+
+### Dev-only dependency advisories
+
+`pnpm audit --prod` is **0**. The full audit leaves 4 dev-only advisories: `braces` and `sprintf-js` have no patched release, `uuid` needs an incompatible Azure MSAL major, and `esbuild` is a Windows dev-server low.
+
+### Released (record)
+
 2. **Released: `2026-10-22-core-v0.10.0`.** 39 changesets consumed (12 minor, 11 patch), 0 pending. Source tag `archive/2026-10-22-core-v0.10.0` → `bc7c6f8d`. Export used 21 packages (`openapi-projection-contract@0.2.0` was unchanged and already published) and is in [`oa-sdk-releases` release `2026-10-22-core-v0.10.0`](https://github.com/mineclover/oa-sdk-releases/releases/tag/2026-10-22-core-v0.10.0); publish run [39708720909](https://github.com/mineclover/oa-sdk-releases/actions/runs/39708720909) succeeded.
 3. **Post-release patch released: `@oa-sdk/webmcp-peer@0.2.1`.** Local CI caught `PACKAGE_VERSION` still reporting `0.1.0`; PR #16 fixed it and refreshed the browser-runtime smoke allowlist. Patch release `2026-10-22-webmcp-peer-v0.2.1` is in `oa-sdk-releases` (publish run [39716844893](https://github.com/mineclover/oa-sdk-releases/actions/runs/39716844893)), source tag `archive/2026-10-22-webmcp-peer-v0.2.1` → `f27ca51f`.
 4. **Post-release checks passed.** All registry versions resolve (`@oa-sdk/tools@0.2.0` at that release and `@oa-sdk/webmcp-peer@0.2.1` needed CDN propagation time; `--prefer-online` and the registry document confirm them). A fresh consumer installed the published codegen/client/router/mock-server, generated a client and TanStack options, passed `tsc --noEmit`, and served `GET /users` 200 via `oa-gen mock`. Version tables are already synced in source.
 5. **`@oa-sdk/router@0.2.4` is published.** After the expired token was replaced at 09:47 UTC, **Publish npm release** [39758279894](https://github.com/mineclover/oa-sdk-releases/actions/runs/39758279894) succeeded in 1m14s. The release is in [`oa-sdk-releases`](https://github.com/mineclover/oa-sdk-releases/releases/tag/2026-10-22-router-v0.2.4), `npm view @oa-sdk/router version` is `0.2.4`, and the source tag is `archive/2026-10-22-router-v0.2.4` → `7de51c04`.
 
-### P1 — main use-case gaps (highest UX impact)
+### Resolved P1 — main use-case gaps
 
 These are current, documented limitations rather than stale docs:
 
@@ -96,16 +105,16 @@ These are current, documented limitations rather than stale docs:
 10. ~~**`generate:guards` fails on dotted component names.**~~ **Fixed (2026-10-22).** Guard exports are normalized (`isOaSdkTypeSpec_StandardError`) while the declaration keeps `data is OaSdkTypeSpec.StandardError`; split files and `--schemas` matching use the normalized/original names respectively.
 11. ~~**`check-artifact` / `drift:check` only read top-level `specs`.**~~ **Fixed (2026-10-22).** Both now resolve targets through `resolveConfigWithDefaults`, so `product.specs`-only configs pass.
 
-### P2 — design decisions / todo backlog
+### Resolved P2 — design decisions / todo backlog
 
 12. ~~`@traceId` shared `trackingId` across OpenAPI variants.~~ **Decided (2026-10-22): shared.** `@traceId` emits `x-oa-sdk-trace.declarationId` (a hash of the declaration source location). `buildSpecTraceabilityGraph` accepts an explicit id shared by nodes with the same `declarationId`; independent declarations or missing evidence still fail.
 13. ~~`@traceId` propagation through shared types and derived scalars.~~ **Resolved (2026-10-22):** the copied extension carries the original declaration's `declarationId`, so shared parameters/anonymous types and `scalar B extends A` are treated as lineage; distinct declarations still collide.
 14. ~~`ScenarioMachineContext.customData` TypeSpec definition.~~ **Done (2026-10-22):** added to `scenario.tsp` with a two-way field-set drift test.
 15. ~~Remaining ast-sync type boundaries.~~ **Done (2026-10-22):** JSON Schema/typia parsing goes through validators, internal `symbol.id`/temp-dir/declaration-name access is modelled, and Ajv/standalone imports are typed. `type-registry:check`: explicit `any` 134→120, unvalidated deserialize 118→117.
 
-[docs/internal/todo.md](./docs/internal/todo.md) currently has no open `[ ]` items; the remaining work is the P0 billing/release follow-up above.
+[docs/internal/todo.md](./docs/internal/todo.md) currently has no open `[ ]` items; only the open P0/P1 hardening above remains.
 
-### P3 — verification/hardening
+### Resolved P3 — verification/hardening
 
 16. ~~**Model B packaged-client path.**~~ **Verified (2026-10-22).** Built `@my-org/api-client` with `generate:client --pack`, packed it (and local `@oa-sdk/{core,parser,openapi-projection-contract,client}` tarballs) into a fresh consumer, generated TanStack in combined and `--split` modes with `--client-import @my-org/api-client --types-import @my-org/api-client`, and ran `tsc --noEmit` with `skipLibCheck: false`. Both layouts passed without an alias module.
 17. ~~Re-check the `outputRouting` + `--split` defect with a real `oa.config.ts` before changing code.~~ Done 2026-10-22: not reproducible; regression coverage added (P1.6).
