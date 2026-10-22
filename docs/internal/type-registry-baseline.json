@@ -66959,7 +66959,7 @@
         "runtime": "neutral",
         "semanticHash": "cba3efb197d5a044125eafb30bd48308c5b8d02bf44e4807d72f749b853abd6b",
         "shapeHash": "9f7c7ede1eb274dc2e2a8011022f45cc45c2e60b576ec9800aab7f6bdf911cc4",
-        "syntaxHash": "fb1ce020f33f28e425f3825e83be8b74b4c37f617f55711a4135b7c9f183cf6d"
+        "syntaxHash": "331dce8949923dec789c78d0effaffb201e7a8b2adc0f51ffeff1751767bc513"
       },
       {
         "filePath": "packages/tools/src/peer.ts",
@@ -72872,7 +72872,7 @@
         "syntaxHash": "e468fae258fff35898aef05fe6a6da6ccde78e05e58af5c1bba938bd1f37adc3"
       }
     ],
-    "digest": "3ed6314ec5147dad1b0c60be6bcdbd8a9a2cbf8a8d580f29aecc236fe26b361e",
+    "digest": "dc3102af0b3a5d620d8b0075875dec059bfbe2d40497f5886736d6a550acf8ea",
     "publicSurfaces": [
       {
         "exportKey": "./guards",
@@ -85462,7 +85462,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "a41d0849d11460ea32ff0c65b065aeb2282c19a82df8bfad1df6efbbe7dc71c9",
+      "contentHash": "3ba61ddd44e3420b392126ec5cb80f30c711d39a4d8923734bd529eb6eaefbe0",
       "filePath": "packages/tools/src/peer.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/tools",
@@ -85485,6 +85485,13 @@
     {
       "contentHash": "2202f51fbd24586bee7eadf0a7b06d21570d76d219b0e758b6be53151607830a",
       "filePath": "packages/tools/src/types.ts",
+      "origin": "handwritten",
+      "packageName": "@oa-sdk/tools",
+      "role": "authority"
+    },
+    {
+      "contentHash": "8109865878c2afb4c677b191daac2b4b699a4efe7cedaf86defb3dd4b7625534",
+      "filePath": "packages/tools/src/version.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/tools",
       "role": "authority"

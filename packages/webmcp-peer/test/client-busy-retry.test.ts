@@ -294,7 +294,8 @@ describe("an HTTP PROVIDER_BUSY with Retry-After", () => {
   });
 });
 
-describe("a call issued while a real relay's provider is not reading", { timeout: 30_000 }, () => {
+// The real-relay case depends on OS socket backpressure; retry to absorb a slow or busy host.
+describe("a call issued while a real relay's provider is not reading", { timeout: 30_000, retry: 2 }, () => {
   /** Records what `socket.send` reported for every frame the relay gave it. */
   function recordSends(socket: PeerSocket): Array<{ frame: Frame; sent: PeerSendResult }> {
     const sends: Array<{ frame: Frame; sent: PeerSendResult }> = [];

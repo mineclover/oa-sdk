@@ -15,6 +15,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { ToolApp, createToolApp } from './app.js'
 import type { ToolDefinition } from './types.js'
+import { PACKAGE_VERSION } from './version.js'
 import {
   PeerCallResponseSchema,
   PeerStatusSchema,
@@ -288,7 +289,7 @@ export async function createWebMcpPeerApp(options: WebMcpPeerAppOptions = {}): P
   const client = new WebMcpPeerBridgeClient(options, sharedClient)
   const app = createToolApp({
     name: options.name ?? 'webmcp-peer-app',
-    version: options.version ?? '0.2.0',
+    version: options.version ?? PACKAGE_VERSION,
     description: options.description ?? 'Universal WebMCP Browser Peer Bridge',
   })
 
