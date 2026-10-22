@@ -183,6 +183,7 @@ function parseSummary(summary: Fields): SpecTraceabilitySummary {
 function parseNode(node: Fields): SpecTraceabilityNode {
   const method = node.optionalString('method')
   const openApiPath = node.optionalString('openApiPath')
+  const declarationId = node.optionalString('declarationId')
   return {
     pointer: node.string('pointer'),
     canonicalId: node.string('canonicalId'),
@@ -190,6 +191,7 @@ function parseNode(node: Fields): SpecTraceabilityNode {
     symbol: node.string('symbol'),
     trackingId: node.string('trackingId'),
     trackingIdSource: node.oneOf('trackingIdSource', TRACKING_ID_SOURCES),
+    ...(declarationId !== undefined ? { declarationId } : {}),
     stableKey: node.string('stableKey'),
     contentHash: node.string('contentHash'),
     replaces: node.stringArray('replaces'),

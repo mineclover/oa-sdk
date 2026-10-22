@@ -674,5 +674,13 @@ op updateWidget(@path id: string, @body body: MergePatchUpdate<Widget>): Widget;
       expect(trackingId(name), name).toBe('TRC-PART-001')
       expect(trackingId(name, 'properties', 'label'), name).toBe('TRC-PART-LABEL-001')
     }
+
+    // The clones carry the declaration they were built from, so `oa-gen trace` can tell a
+    // variant sharing an id from two independent declarations colliding.
+    const declarationId = (...keys: string[]): unknown => child(schemas, ...keys, 'x-oa-sdk-trace', 'declarationId')
+    expect(declarationId('Widget')).toMatch(/^tsd_[0-9a-f]{16}$/)
+    expect(declarationId('WidgetMergePatchUpdate')).toBe(declarationId('Widget'))
+    expect(declarationId('PartMergePatchUpdate')).toBe(declarationId('Part'))
+    expect(declarationId('Widget')).not.toBe(declarationId('Part'))
   }, 60_000)
 })

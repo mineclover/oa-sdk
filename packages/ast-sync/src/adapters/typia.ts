@@ -60,6 +60,26 @@ export const TYPIA_TYPE_TAG_NAMES = new Set([
   'Default',
 ]);
 
+function isJsonValue(value: unknown): boolean {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return true;
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (Array.isArray(value)) return value.every(isJsonValue);
+  if (typeof value === 'object') {
+    return Object.values(value as Record<string, unknown>).every(isJsonValue);
+  }
+  return false;
+}
+
+/** Reads a `@default` tag as JSON when it is a JSON value, and as a literal string otherwise. */
+function parseJsonDefaultTag(value: string): unknown {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return isJsonValue(parsed) ? parsed : value;
+  } catch {
+    return value;
+  }
+}
+
 /**
  * Parses JSDoc comment blocks to extract Typia validation tags and preserve non-Typia documentation.
  */
@@ -129,11 +149,7 @@ function parseTypiaJSDoc(rawComment: string | undefined): ParsedJSDoc {
           constraints.pattern = tagValue;
         } else if (tagName === 'default') {
           activeNonTypiaIndex = -1;
-          try {
-            defaultValue = JSON.parse(tagValue);
-          } catch {
-            defaultValue = tagValue;
-          }
+          defaultValue = parseJsonDefaultTag(tagValue);
           constraints.default = defaultValue;
         } else if (TYPIA_TAG_NAMES.has(tagName)) {
           activeNonTypiaIndex = -1;

@@ -320,7 +320,15 @@ declare module '@tanstack/react-query' {
     queryKey: TQueryKey;
     queryFn: (ctx: { signal?: AbortSignal }) => Promise<TQueryFnData>;
   };
+  export type QueryObserverOptions<TQueryFnData, TError, TData, TQueryData, TQueryKey> = {
+    queryKey: TQueryKey;
+    queryFn: (ctx: { signal?: AbortSignal }) => Promise<TQueryFnData>;
+  };
   export type UseMutationOptions<TData, TError, TVariables, TContext> = {
+    mutationKey?: readonly unknown[];
+    mutationFn: (variables: TVariables) => Promise<TData>;
+  };
+  export type MutationObserverOptions<TData, TError, TVariables, TContext> = {
     mutationKey?: readonly unknown[];
     mutationFn: (variables: TVariables) => Promise<TData>;
   };

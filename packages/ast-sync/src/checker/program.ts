@@ -10,6 +10,14 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
+/** Temporary directories owned by virtual programs, kept outside the TypeScript program. */
+const programTempDirs = new WeakMap<ts.Program, string>();
+
+/** Returns the temporary directory a virtual program was created with, if any. */
+export function getProgramTempDir(program: ts.Program): string | undefined {
+  return programTempDirs.get(program);
+}
+
 /**
  * Creates a ts.Program backed by an isolated temporary directory,
  * guaranteeing native TypeScript compiler module resolution and binder symbol binding.
@@ -42,7 +50,7 @@ export function createVirtualProgram(
   };
 
   const program = ts.createProgram(filePaths, options);
-  (program as any).__tempDir = tempDir;
+  programTempDirs.set(program, tempDir);
 
   return program;
 }
@@ -112,8 +120,8 @@ export function createProgramFromTsconfig(
  * @param program The ts.Program instance to clean up
  */
 export function cleanupProgram(program: ts.Program): void {
-  const tempDir = (program as any).__tempDir;
-  if (tempDir && typeof tempDir === 'string' && fs.existsSync(tempDir)) {
+  const tempDir = getProgramTempDir(program);
+  if (tempDir !== undefined && fs.existsSync(tempDir)) {
     try {
       fs.rmSync(tempDir, { recursive: true, force: true });
     } catch {

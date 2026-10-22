@@ -17,7 +17,7 @@ const TIME_PART =
  * Zero-runtime-dependency format validators for JSON Schema Draft 2020-12 and OpenAPI 3.1.
  * Emits pure inlinable RegExp literals and standalone predicates with 0 external require/import.
  */
-const STANDALONE_FORMATS: Record<string, RegExp | boolean | { type: string; validate: (v: any) => boolean }> = {
+const STANDALONE_FORMATS: Record<string, RegExp | boolean> = {
   'date-time': new RegExp(`^${DATE_PART}[Tt\\s]${TIME_PART}$`, 'i'),
   date: new RegExp(`^${DATE_PART}$`),
   time: new RegExp(`^(?:${TIME_PART})$`, 'i'),
@@ -526,8 +526,7 @@ export async function generateStandaloneGuards(
   }
 
   // Initialize Ajv 2020 with standalone source output configuration
-  const AjvCtor: any = (Ajv2020 as any).default ?? Ajv2020
-  const ajv = new AjvCtor({
+  const ajv = new Ajv2020({
     code: { source: true, esm: true },
     strict: false,
     allErrors: false,
@@ -535,6 +534,8 @@ export async function generateStandaloneGuards(
 
   // Register standalone zero-dependency formats
   for (const [name, format] of Object.entries(STANDALONE_FORMATS)) {
+    // `false` disables a format in this table; Ajv only accepts `true` or a validator.
+    if (format === false) continue
     ajv.addFormat(name, format)
   }
 
@@ -573,7 +574,6 @@ export async function generateStandaloneGuards(
     }
   }
 
-  const standaloneCodeFn: any = (standaloneCode as any).default ?? standaloneCode
   const artifacts: GeneratedGuardArtifact[] = []
 
   const tieredGuards = new Set<string>()
@@ -614,7 +614,7 @@ export async function generateStandaloneGuards(
 
     for (const guard of resolvedGuards) {
       const fileBase = toGuardIdentifier(guard.typeName?.trim() || guard.name)
-      const rawJs: string = standaloneCodeFn(ajv, { [guard.name]: guard.name })
+      const rawJs: string = standaloneCode(ajv, { [guard.name]: guard.name })
       const jsContent = postProcessGeneratedJs(rawJs, {
         fastPaths,
         dispatches,
@@ -697,7 +697,7 @@ export async function generateStandaloneGuards(
   }
 
   // Monolithic mode: compile standalone ESM code
-  const rawJs: string = standaloneCodeFn(ajv, mapping)
+  const rawJs: string = standaloneCode(ajv, mapping)
   const jsContent = postProcessGeneratedJs(rawJs, { fastPaths, dispatches, tieredGuards })
 
   // Generate TypeScript .d.ts declarations

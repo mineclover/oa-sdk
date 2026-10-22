@@ -35,6 +35,8 @@ model ScenarioMachineContext {
   onlyBreaking?: boolean;
   breadcrumbs: ScenarioStepProvenance[];
   completedGoals: string[];
+  @doc("호스트가 시나리오 전환 사이에 보존하는 임의 데이터")
+  customData?: Record<unknown>;
 }
 
 @doc("시나리오 단계 감사 이력")

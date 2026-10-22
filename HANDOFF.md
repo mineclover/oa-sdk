@@ -8,7 +8,7 @@ Worktrees: main only · Open PRs: none
 ## 1. Current state
 
 - `main` includes PR #13 (`5d9e59e2`) and is in sync with `origin/main`. No other local branches or worktrees.
-- Last full local test run: **654 files / 9,209 tests pass** (turbo suites 635/9,006, integration 73, TypeSpec plugin e2e 130). The follow-up branch adds codegen 211/4,011, client 16/277 and ast-sync 8/75 passing suites.
+- Last full local test run: **654 files / 9,209 tests pass** (turbo suites 635/9,006, integration 73, TypeSpec plugin e2e 130). The follow-up branch adds codegen 211/4,012, client 16/277, ast-sync 8/77, router 19/206, TypeSpec decorators 11/108 and spec-lens-contract 2/40 passing suites.
 - The 43-lane local CI mirror (build, typecheck, 4 test groups, integration, e2e, schema, governance, Node 26/TS7, public runtime, NestJS/FastAPI governance) passed on the combined tree through PR #9. Later changes re-ran the full codegen suite (211 files / 4,007 tests) and every docs/governance gate.
 - **GitHub Actions cannot start jobs**: PR checks show 0 steps because the account's billing limit is reached. All evidence above is from local runs.
 
@@ -37,7 +37,7 @@ Worktrees: main only · Open PRs: none
   - CLI journey: `init` → `validate` → `lint` → `diff` → `generate` (spec and config) → `mock` (`GET /users` 200).
   - chunk-stream 0.2.0: imports, CRDT LWW/commutativity, vector-clock merge, LTTB 100→10.
 - Governance: `check:docs`, `check:api-index`, `check:cli-spec`, `check:spec-governance`, `check:feature-tests`, `check:codegen-boundaries`, `type-registry:check`, `test:docs-gates`, `check:workspace-scope` all pass.
-- Follow-up branch (2026-10-22): `typecheck:core`, `typecheck:downstream`, the full codegen suite (211/4,011), client (16/277), ast-sync (8/75), and every governance gate above pass. Vue/Svelte adapter support was also checked against the published `@tanstack/vue-query` 5.104.5 and `@tanstack/svelte-query` 5.90.2 declaration files: both `export * from "@tanstack/query-core"`, so the generated `QueryObserverOptions` / `MutationObserverOptions` / `InfiniteQueryObserverOptions` imports resolve.
+- Follow-up branch (2026-10-22): `typecheck:core`, `typecheck:downstream`, the full codegen suite (211/4,012), client (16/277), ast-sync (8/77), router (19/206), spec-lens-contract (2/40), typespec-decorators (11/108), and every governance gate above pass. Real-framework streaming tests cover Fastify 5.12.7 and Hono 4.12. The Model B packed-tarball consumer typechecks both combined and split TanStack output. Vue/Svelte adapter support was also checked against the published `@tanstack/vue-query` 5.104.5 and `@tanstack/svelte-query` 5.90.2 declaration files: both `export * from "@tanstack/query-core"`, so the generated `QueryObserverOptions` / `MutationObserverOptions` / `InfiniteQueryObserverOptions` imports resolve.
 
 Run locally with **pnpm 11.28.6** (the repo requires `>=11.28.6 <12`; `mise exec` or corepack works). Source of truth for lanes: `.github/workflows/ci.yml`.
 
@@ -46,7 +46,7 @@ Run locally with **pnpm 11.28.6** (the repo requires `>=11.28.6 <12`; `mise exec
 ### P0 — release and CI
 
 1. **Restore GitHub Actions billing.** All PR jobs currently fail at 0 steps, so GitHub is not a usable gate. Until it is fixed, run the local lanes above before merging.
-2. **Cut the next release.** `changeset status` currently bumps `@oa-sdk/chunk-stream`, `codegen`, `client`, `parser`, `peer-server`, `peer-transport`, `surface-ir`, `telemetry`, `tools`, `typespec-decorators`, `rpc`, `webmcp-peer` at **minor** and 10 other packages at **patch** (38 changeset files total). Review the changesets, run the release process in [release management](./docs/internal/release-management.md), publish, then merge the release commit back to `main` like the chunk-stream 0.2.0 merge-back. npm auth is currently missing (`npm whoami` is 401), so publishing cannot be done from this machine until a token is provided.
+2. **Cut the next release.** `changeset status` currently bumps `@oa-sdk/chunk-stream`, `codegen`, `client`, `parser`, `peer-server`, `peer-transport`, `surface-ir`, `telemetry`, `tools`, `typespec-decorators`, `rpc`, `webmcp-peer` at **minor** and 11 other packages at **patch** (39 changeset files total). Review the changesets, run the release process in [release management](./docs/internal/release-management.md), publish, then merge the release commit back to `main` like the chunk-stream 0.2.0 merge-back. npm auth is currently missing (`npm whoami` is 401), so publishing cannot be done from this machine until a token is provided.
 3. **Post-release checks:** public runtime smoke, packed-package installs, and the version table in [release management](./docs/internal/release-management.md) / [guide index](./docs/guides/README.md) updated to the published versions.
 
 ### P1 — main use-case gaps (highest UX impact)
@@ -58,22 +58,22 @@ These are current, documented limitations rather than stale docs:
 6. ~~**`outputRouting` + `--split` breaks relative imports (TS2307).**~~ **Not reproduced (2026-10-22).** `pattern`, `byKind` in separate directories, explicit `--output`, and alias/relative modes all produced resolvable imports; added a regression test that resolves every relative import in pattern-routed output. Reopen with a concrete config if it recurs.
 7. ~~**`@oa-sdk/client` TanStack `TError` omits transport errors.**~~ **Fixed (2026-10-22).** Generated option/hook error types are `<Op>Error | Error`; todo and guide updated.
 8. ~~**Streaming operations still generate `QueryOptions`/hooks.**~~ **Fixed (2026-10-22).** SSE/NDJSON/JSONL operations keep keys but emit no options or hooks; infinite queries use `[...listKey, 'infinite']`, so list/infinite caches no longer collide while prefix invalidation still works.
-9. **Server streaming limits remain.** Fastify/Hono generators now build one iterator per response and wrap `AsyncIterable` in a Web `ReadableStream`, but no Fastify dependency is installed to verify that Fastify accepts a Web stream payload, and a Node-stream cancel path is not covered end-to-end. See [backend handler contracts](./docs/guides/backend-handler-contracts.md).
+9. ~~**Server streaming limits.**~~ **Verified and closed (2026-10-22).** Real Fastify 5.12.7 sends `AsyncIterable`, Web `ReadableStream` and Node streams with the declared content type and cancels the source on client disconnect. Real Hono 4.12 creates one iterator per response and calls `iterator.return()` on cancel; a Node `Readable` follows the same path. Added `streaming-real-frameworks.test.ts` and updated the router/guide docs. Elysia remains the only documented streaming limitation.
 10. ~~**`generate:guards` fails on dotted component names.**~~ **Fixed (2026-10-22).** Guard exports are normalized (`isOaSdkTypeSpec_StandardError`) while the declaration keeps `data is OaSdkTypeSpec.StandardError`; split files and `--schemas` matching use the normalized/original names respectively.
 11. ~~**`check-artifact` / `drift:check` only read top-level `specs`.**~~ **Fixed (2026-10-22).** Both now resolve targets through `resolveConfigWithDefaults`, so `product.specs`-only configs pass.
 
 ### P2 — design decisions / todo backlog
 
-12. `@traceId` shared `trackingId` across OpenAPI variants (visibility and merge-patch clones).
-13. `@traceId` propagation through shared types and derived scalars.
-14. `ScenarioMachineContext.customData` TypeSpec definition (TS/`.tsp` drift).
-15. Remaining ast-sync type boundaries (`JSON.parse` results, `any` in checker/guards).
+12. ~~`@traceId` shared `trackingId` across OpenAPI variants.~~ **Decided (2026-10-22): shared.** `@traceId` emits `x-oa-sdk-trace.declarationId` (a hash of the declaration source location). `buildSpecTraceabilityGraph` accepts an explicit id shared by nodes with the same `declarationId`; independent declarations or missing evidence still fail.
+13. ~~`@traceId` propagation through shared types and derived scalars.~~ **Resolved (2026-10-22):** the copied extension carries the original declaration's `declarationId`, so shared parameters/anonymous types and `scalar B extends A` are treated as lineage; distinct declarations still collide.
+14. ~~`ScenarioMachineContext.customData` TypeSpec definition.~~ **Done (2026-10-22):** added to `scenario.tsp` with a two-way field-set drift test.
+15. ~~Remaining ast-sync type boundaries.~~ **Done (2026-10-22):** JSON Schema/typia parsing goes through validators, internal `symbol.id`/temp-dir/declaration-name access is modelled, and Ajv/standalone imports are typed. `type-registry:check`: explicit `any` 134→120, unvalidated deserialize 118→117.
 
-Items 12–15 are the open `[ ]` entries in [docs/internal/todo.md](./docs/internal/todo.md).
+Remaining `[ ]` items in [docs/internal/todo.md](./docs/internal/todo.md) are outside the P1–P3 list above.
 
 ### P3 — verification/hardening
 
-16. **Model B packaged-client path:** the docs now say `--types-import @my-org/api-client` and `--client-import @my-org/api-client` compile without an alias module. Verify this with a real packed tarball, not only the workspace layout.
+16. ~~**Model B packaged-client path.**~~ **Verified (2026-10-22).** Built `@my-org/api-client` with `generate:client --pack`, packed it (and local `@oa-sdk/{core,parser,openapi-projection-contract,client}` tarballs) into a fresh consumer, generated TanStack in combined and `--split` modes with `--client-import @my-org/api-client --types-import @my-org/api-client`, and ran `tsc --noEmit` with `skipLibCheck: false`. Both layouts passed without an alias module.
 17. ~~Re-check the `outputRouting` + `--split` defect with a real `oa.config.ts` before changing code.~~ Done 2026-10-22: not reproducible; regression coverage added (P1.6).
 18. The TypeSpec graph index tests are already covered by the `typegen` feature row glob (`packages/codegen/src/__tests__/typegen/*.test.ts`); no matrix change is pending.
 
@@ -88,6 +88,5 @@ Items 12–15 are the open `[ ]` entries in [docs/internal/todo.md](./docs/inter
 ## 6. Suggested order
 
 1. Restore GitHub Actions billing.
-2. Review and cut the pending release (38 changesets; `@oa-sdk/client` is now minor), then merge the release commit back. Requires an npm token.
-3. Finish P1.9: verify Fastify with a real instance (Web `ReadableStream` vs `Readable.from`) and add an end-to-end cancellation test.
-4. Decide the P2 items (12–15) and close P3.16 (Model B packed tarball) before advertising the packaged-client path.
+2. Review and cut the pending release (39 changesets: 12 minor, 11 patch), then merge the release commit back. Requires an npm token.
+3. Remaining `[ ]` entries in `docs/internal/todo.md` are new/backlog work, not the P1–P3 handoff list.

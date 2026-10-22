@@ -8,6 +8,7 @@ import {
   createInMemoryProgram,
   createProgramFromTsconfig,
   cleanupProgram,
+  getProgramTempDir,
   getTypeChecker,
   detectCyclesWithChecker,
   getCanonicalSymbolId,
@@ -52,10 +53,11 @@ describe('Milestone 4: Checker-Resolved Symbol ID Cycle Detection', () => {
       const program = createInMemoryProgram({
         'item.ts': 'export interface Item { name: string; }',
       });
-      const tempDir = (program as any).__tempDir;
-      expect(fs.existsSync(tempDir)).toBe(true);
+      const tempDir = getProgramTempDir(program);
+      expect(tempDir).toBeDefined();
+      expect(fs.existsSync(tempDir!)).toBe(true);
       cleanupProgram(program);
-      expect(fs.existsSync(tempDir)).toBe(false);
+      expect(fs.existsSync(tempDir!)).toBe(false);
     });
 
     it('loads multi-file virtual source tree into unified program', () => {

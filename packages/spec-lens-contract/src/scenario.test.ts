@@ -390,6 +390,22 @@ describe('Scenario Topic Navigation & BEHAVIOR FSM Engine', () => {
       expect(pairOf(handoff.state.breadcrumbs.at(-1))).toEqual({ baseId: 'c', headId: 'd' })
     })
 
+    it('keeps ScenarioMachineContext fields in sync between scenario.tsp and types.ts', () => {
+      const tsp = readFileSync(fileURLToPath(new URL('./scenario/scenario.tsp', import.meta.url)), 'utf8')
+      const ts = readFileSync(fileURLToPath(new URL('./scenario/types.ts', import.meta.url)), 'utf8')
+      const fieldsOf = (source: string): string[] => {
+        const body = /interface ScenarioMachineContext \{([\s\S]*?)\n\}/.exec(source)?.[1]
+          ?? /model ScenarioMachineContext \{([\s\S]*?)\n\}/.exec(source)?.[1]
+        return [...(body ?? '').matchAll(/^\s*(\w+)\??\s*:/gm)]
+          .map((match) => match[1]!)
+          .sort()
+      }
+
+      const declaredInTsp = fieldsOf(tsp)
+      expect(declaredInTsp).toContain('customData')
+      expect(fieldsOf(ts)).toEqual(declaredInTsp)
+    })
+
     it('declares every recorded breadcrumb field on ScenarioStepProvenance in scenario.tsp', () => {
       const tsp = readFileSync(fileURLToPath(new URL('./scenario/scenario.tsp', import.meta.url)), 'utf8')
       const body = /model ScenarioStepProvenance \{([\s\S]*?)\n\}/.exec(tsp)?.[1]

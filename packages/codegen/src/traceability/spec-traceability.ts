@@ -111,6 +111,11 @@ export type SpecTraceabilityNode = {
   /** 불변 추적 ID (@traceId 명시값 또는 결정론적 trk_<16hex>) */
   trackingId: string
   trackingIdSource: 'explicit' | 'generated'
+  /**
+   * TypeSpec declaration evidence for an explicit id. Variants/clones emitted from one
+   * declaration share it, so their shared trackingId is lineage rather than a duplicate.
+   */
+  declarationId?: string
   /** 결정론적 안정 키 (oa-meta:v1:<32hex>) */
   stableKey: string
   /** 정규화된 정의 본문 SHA-256 해시 */
@@ -246,6 +251,8 @@ export type SpecImpactAnalysis = {
 
 type RawTraceMetadata = {
   trackingId?: string
+  /** Hash of the TypeSpec declaration the explicit id is written on (see @traceId). */
+  declarationId?: string
   replaces: string[]
   requirements: string[]
   typeSpecSource?: {
@@ -512,6 +519,20 @@ export function buildSpecTraceabilityGraph(
 
   for (const [trackingId, group] of nodesByTrackingId.entries()) {
     if (group.length <= 1) continue
+    // One `@traceId` application legitimately appears on the OpenAPI variants TypeSpec's
+    // emitter builds from it (visibility projections, `@versioned` snapshots,
+    // `MergePatchUpdate<T>`). They carry the same `declarationId`; that is lineage, not two
+    // definitions colliding. A shared id without matching declaration evidence (hand-written
+    // OpenAPI, two separate declarations) stays an error.
+    const explicit = group.filter(node => node.trackingIdSource === 'explicit')
+    const declarationIds = new Set(explicit.map(node => node.declarationId))
+    if (
+      explicit.length === group.length
+      && declarationIds.size === 1
+      && !declarationIds.has(undefined)
+    ) {
+      continue
+    }
     const pointers = group.map(item => item.pointer).sort()
     for (const item of group) {
       diagnostics.push({
@@ -957,6 +978,7 @@ function createTraceNode(input: {
     symbol,
     trackingId,
     trackingIdSource,
+    ...(traceMeta.declarationId ? { declarationId: traceMeta.declarationId } : {}),
     stableKey,
     contentHash,
     replaces,
@@ -975,6 +997,7 @@ function extractRawTraceMetadata(record: Record<string, unknown>): RawTraceMetad
   const rawMeta = record['x-oa-metadata']
   const rawSamchonEvidence = record['x-samchon-evidence']
   let trackingId: string | undefined
+  let declarationId: string | undefined
   const replaces: string[] = []
   const requirements: string[] = []
   let typeSpecSource: RawTraceMetadata['typeSpecSource']
@@ -983,6 +1006,9 @@ function extractRawTraceMetadata(record: Record<string, unknown>): RawTraceMetad
     const traceObj = rawTrace as Record<string, unknown>
     if (typeof traceObj.trackingId === 'string' && traceObj.trackingId.trim().length > 0) {
       trackingId = traceObj.trackingId.trim()
+    }
+    if (typeof traceObj.declarationId === 'string' && traceObj.declarationId.trim().length > 0) {
+      declarationId = traceObj.declarationId.trim()
     }
     if (typeof traceObj.replaces === 'string' && traceObj.replaces.trim().length > 0) {
       replaces.push(traceObj.replaces.trim())
@@ -1064,6 +1090,7 @@ function extractRawTraceMetadata(record: Record<string, unknown>): RawTraceMetad
 
   return {
     ...(trackingId ? { trackingId } : {}),
+    ...(declarationId ? { declarationId } : {}),
     replaces: Array.from(new Set(replaces)),
     requirements: Array.from(new Set(requirements)),
     ...(typeSpecSource ? { typeSpecSource } : {}),

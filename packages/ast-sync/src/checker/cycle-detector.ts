@@ -13,6 +13,7 @@ import {
   type ContractTypeShape,
 } from '../taxonomy/features.js';
 import { classifyTypeShape, collectShapeFeatures } from '../taxonomy/analyzer.js';
+import { getProgramTempDir } from './program.js';
 
 export interface SymbolCycleResult {
   readonly schemaDependencies: ReadonlyMap<string, ReadonlySet<string>>;
@@ -24,6 +25,20 @@ export interface SymbolCycleResult {
 let symbolIdCounter = 1;
 const symbolToIdMap = new WeakMap<ts.Symbol, number>();
 
+/** TypeScript's binder keeps a numeric `id` on symbols, outside the public type. */
+type SymbolWithInternalId = ts.Symbol & { id?: unknown };
+
+function readInternalSymbolId(symbol: ts.Symbol): number | undefined {
+  const id = (symbol as SymbolWithInternalId).id;
+  return typeof id === 'number' && id > 0 ? id : undefined;
+}
+
+/** Reads the name of a declaration when it is a plain identifier. */
+function declarationName(declaration: ts.Declaration): string | undefined {
+  const name = (declaration as ts.NamedDeclaration).name;
+  return name !== undefined && ts.isIdentifier(name) ? name.text : undefined;
+}
+
 /**
  * Extract a unique, canonical positive integer symbol ID.
  *
@@ -31,15 +46,14 @@ const symbolToIdMap = new WeakMap<ts.Symbol, number>();
  * fallback guaranteeing unique deterministic identity.
  */
 export function getCanonicalSymbolId(symbol: ts.Symbol): number {
-  if ((symbol as any).id && typeof (symbol as any).id === 'number' && (symbol as any).id > 0) {
-    return (symbol as any).id;
-  }
+  const internalId = readInternalSymbolId(symbol);
+  if (internalId !== undefined) return internalId;
   let id = symbolToIdMap.get(symbol);
   if (id === undefined) {
     id = symbolIdCounter++;
     symbolToIdMap.set(symbol, id);
     try {
-      (symbol as any).id = id;
+      (symbol as SymbolWithInternalId).id = id;
     } catch {
       // Ignore if symbol object is sealed
     }
@@ -188,7 +202,7 @@ export function detectCyclesWithChecker(
 ): SymbolCycleResult {
   const checker = program.getTypeChecker();
   const files = sourceFiles ?? program.getSourceFiles().filter((f) => !f.isDeclarationFile);
-  const tempDir = (program as any).__tempDir;
+  const tempDir = getProgramTempDir(program);
 
   const symbolIdMap = new Map<number, string>();
   const declarationSymbols = new Map<string, ts.Symbol>();
@@ -266,8 +280,9 @@ export function detectCyclesWithChecker(
     const features = new Set<ContractShapeFeature>();
     const isCyclic = detectedCycles.has(declId);
 
+    const currentName = declarationName(declNode);
     collectShapeFeatures(declNode, features, {
-      currentName: (declNode as any).name?.text,
+      ...(currentName !== undefined ? { currentName } : {}),
       cyclicNames: cyclicDeclNames,
     });
 

@@ -137,11 +137,10 @@ On Node.js, Elysia's default adapter has no `.listen()`; create the app with
   documented 2xx) as JSON.
 - **Envelope**: `return { status, body, headers? }` sets the status and headers.
 - **Streaming**: with status 200 or 206 (`StreamingResponse`), a stream in `body` is sent as is
-  instead of being serialized to JSON. A `ReadableStream<Uint8Array>` and a `Uint8Array` work with
-  all four routers. The contract's `StreamingBody` type also accepts an
-  `AsyncIterable<Uint8Array | string>` and a Node stream (anything with `pipe()`), but the routers
-  handle those differently. Turn an async generator into a `ReadableStream<Uint8Array>` and write
-  header names in lowercase:
+  instead of being serialized to JSON. A `ReadableStream<Uint8Array>`, a `Uint8Array`, an
+  `AsyncIterable<Uint8Array | string>` and a Node stream (anything with `pipe()`) work on Fastify,
+  Hono and Express. The routers wrap an `AsyncIterable` in a `ReadableStream` and create one
+  iterator per response. Write header names in lowercase:
 
   ```ts
   import { ReadableStream, TextEncoderStream } from 'node:stream/web'
@@ -150,24 +149,19 @@ On Node.js, Elysia's default adapter has no `.listen()`; create the app with
   return { status: 200, body, headers: { 'content-type': 'text/event-stream' } }
   ```
 
-  - Fastify cannot send an `AsyncIterable` (known defect). The router hands `body` to Fastify
-    unchanged, which answers 500 `FST_ERR_REP_INVALID_PAYLOAD_TYPE` when the `Content-Type` is not
-    JSON (for example `text/event-stream`), and 200 `{}` when none is set.
+  - **Fastify** (verified with Fastify 5.12.7): the router converts an `AsyncIterable` to a Web
+    `ReadableStream` before `reply.send`. Fastify sends `AsyncIterable`, `ReadableStream` and Node
+    streams with the declared `Content-Type` (SSE and NDJSON are tested), and cancels the source
+    iterator when the client disconnects.
+  - **Hono** (verified with Hono 4.12): the router creates one iterator per response and wraps it in
+    a `ReadableStream`, so reusable iterables are consumed once instead of restarting per chunk.
+    Cancelling the response calls `iterator.return()`. A Node stream goes through the same path.
   - Elysia on Node.js with its default adapter (`app.handle()`, `app.fetch`) fails on an
     `AsyncIterable` of strings with `Received non-Uint8Array chunk`. With the `@elysiajs/node`
     adapter it does not fail, but for a `text/event-stream` response Elysia wraps each generator
     value in another SSE frame (`data: data: {...}`). Elysia also adds its own `content-type` to
     `ReadableStream` and `AsyncIterable` bodies, so a handler header named `'Content-Type'` goes out
     as two values (`text/event-stream, text/plain`).
-  - Hono calls `body[Symbol.asyncIterator]()` again for every chunk it reads from a body that is not
-    a `ReadableStream` or `Uint8Array` (known defect). An object whose `[Symbol.asyncIterator]()`
-    returns a new iterator on each call (`{ async *[Symbol.asyncIterator]() { ... } }`) therefore
-    repeats its first chunk forever. A Node stream (`Readable.from()` and others), which works with
-    Express, Fastify, and Elysia, sends the right bytes on Hono but gains a set of `error`, `close`,
-    and other listeners per chunk that are never removed: 50 chunks leave 51 `error` listeners and
-    trigger `MaxListenersExceededWarning`, and a long-lived SSE stream keeps adding them. An async
-    generator object returned as is works on Hono, because its `[Symbol.asyncIterator]()` returns
-    itself, but it is subject to the Fastify and Elysia limits above.
 
 A router treats a returned object as an envelope when it has a `body` property, its `status` is
 absent or a number, and its `headers` are absent or an object; it then sends only `body`. Wrap an
