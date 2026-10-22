@@ -1,5 +1,10 @@
 name: CI
 
+# Essential GitHub gate only. The full lane set (maintenance/internal workspaces, schema
+# validation, rollback, public runtime on Node 22/24/26, TS7, NestJS/FastAPI governance) runs
+# locally with `pnpm ci:local`; GitHub Actions billing currently cannot start those jobs anyway.
+# Keep this workflow to the product-critical build/typecheck/test and governance checks.
+
 on:
   push:
     branches: [main]
@@ -15,14 +20,14 @@ concurrency:
 
 jobs:
   ci:
-    name: Build, Typecheck & Test
+    name: Essential build, typecheck & test
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: false
-          fetch-depth: 0  # spec diff에 base branch 이력 필요
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
         with:
@@ -36,141 +41,38 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # ── Turborepo local cache ──────────────────────────────
-      # turbo.json sets no cacheDir, so turbo keeps its local cache in
-      # .turbo/cache. Restoring it lets packages whose task hash is unchanged
-      # replay build and typecheck results. test:ci is never cached, so every
-      # test still runs. The key prefix changes with the lockfile and any
-      # turbo.json, which also bounds how large the reused cache can grow.
-      - name: Restore Turborepo local cache
-        id: turbo-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: .turbo/cache
-          key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'turbo.json', 'packages/*/turbo.json', 'apps/*/turbo.json') }}-${{ github.sha }}
-          restore-keys: |
-            turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'turbo.json', 'packages/*/turbo.json', 'apps/*/turbo.json') }}-
-
-      # ── Build ──────────────────────────────────────────────
       - name: Build core platform
         run: pnpm build:core
 
       - name: Build downstream SDKs
         run: pnpm build:downstream
 
-      - name: Build maintenance packages
-        run: pnpm build:maintenance
-
-      - name: Build application and reference workspaces
-        run: pnpm build:internal
-
-      - name: Build CI scripts
-        run: pnpm build:scripts
-
-      # ── Share build outputs ────────────────────────────────
-      # The jobs below verify this build instead of rebuilding it:
-      # public-release-runtime packs every distribution candidate (Core and
-      # Downstream) from these dist folders, typescript-7-current checks these
-      # declarations and compiles the merged spec (.merged.yaml), and
-      # governance-references runs this oa-gen CLI. Archive before the tests,
-      # some of which rebuild their package. tar keeps repository-relative
-      # paths and the executable bit tsup sets on CLI entrypoints, which
-      # upload-artifact would drop.
-      - name: Archive workspace build outputs
-        run: tar -cf "${RUNNER_TEMP}/workspace-build-outputs.tar" packages/*/dist packages/schemas/src/.merged.yaml
-
-      - name: Upload workspace build outputs
-        uses: actions/upload-artifact@v4
-        with:
-          name: workspace-build-outputs
-          path: ${{ runner.temp }}/workspace-build-outputs.tar
-          if-no-files-found: error
-          retention-days: 1
-          overwrite: true
-
-      # ── Typecheck ──────────────────────────────────────────
       - name: Typecheck core platform
         run: pnpm typecheck:core
 
       - name: Typecheck downstream SDKs
         run: pnpm typecheck:downstream
 
-      - name: Typecheck maintenance packages
-        run: pnpm typecheck:maintenance
-
-      - name: Typecheck application and reference workspaces
-        run: pnpm typecheck:internal
-
-      # ── Test ───────────────────────────────────────────────
       - name: Test core platform
         run: pnpm test:core:ci
 
       - name: Test downstream SDKs
         run: pnpm test:downstream:ci
 
-      - name: Test maintenance packages
-        run: pnpm test:maintenance:ci
-
-      - name: Test application workspaces
-        run: pnpm test:internal:ci
-
-      - name: Test integration harnesses (shared-context and EWIC)
+      - name: Test integration harnesses
         run: pnpm test:integration
 
-      - name: Test TypeSpec plugin pipeline end to end (shipped plugins, generated code typecheck)
+      - name: Test TypeSpec plugin pipeline end to end
         run: pnpm test:e2e:typespec-plugin
 
-      # Last turbo invocation in this job. Save even when a test failed: cache
-      # entries are task results addressed by their input hash and test:ci
-      # writes none, so a red run still hands its builds to the next run.
-      - name: Save Turborepo local cache
-        if: ${{ !cancelled() && steps.turbo-cache.outcome == 'success' && steps.turbo-cache.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v4
-        with:
-          path: .turbo/cache
-          key: ${{ steps.turbo-cache.outputs.cache-primary-key }}
+      - name: Parser $ref expansion budget
+        timeout-minutes: 10
+        env:
+          BENCH_PARSER_BUDGET_SCALE: '2'
+        run: pnpm bench:parser
 
-      # ── Schema validation ──────────────────────────────────
-      # packages/schemas was already built by build:core. Reuse that exact
-      # TypeSpec artifact instead of compiling the same bundle in every gate.
-      - name: Validate prepared schema artifact
-        run: |
-          pnpm --filter @oa-sdk/schemas run validate:spectral
-          pnpm --filter @oa-sdk/schemas run validate:redocly
-          node packages/codegen/dist/cli/index.js validate --spec packages/schemas/src/.merged.yaml --require-32
-          pnpm --filter @oa-sdk/schemas run test
-
-      - name: TypeSpec downstream consumption
-        run: pnpm schema:downstream-check -- --spec packages/schemas/src/.merged.yaml --skip-build
-
-      # ── Freshness check: generated files up to date? ───────
-      - name: Schema freshness check
-        run: |
-          node packages/codegen/dist/cli/index.js check-artifact --head packages/schemas/src/.merged.3.1.yaml --artifact packages/schemas/dist/openapi.yaml
-          if ! git diff --exit-code packages/schemas/src/.merged.3.1.yaml packages/schemas/src/.merged.3.1.meta.json packages/schemas/src/.merged.upgraded.3.2.yaml; then
-            echo "::error::Schema generated files are stale. Run 'pnpm --filter @oa-sdk/schemas run bundle' and commit the results."
-            exit 1
-          fi
-
-      - name: OpenAPI rollback path
-        run: |
-          pnpm test:schema-rollback-check
-          pnpm schema:rollback-check -- --typespec-report packages/schemas/src/.builder/typespec-bundle-report.json
-
-      # ── API index drift check ────────────────────────────────
-      - name: API index consistency
-        run: |
-          pnpm test:api-index
-          pnpm check:api-index
-
-      - name: CLI spec consistency
-        run: pnpm check:cli-spec
-
-      - name: Codegen boundary consistency
-        run: pnpm check:codegen-boundaries
-
-      - name: Type Registry governance
-        run: pnpm type-registry:check
+      - name: Package version constants
+        run: pnpm check:package-versions
 
       - name: Browser runtime entrypoint boundary
         run: node apps/preview/scripts/browser-runtime-smoke.mjs
@@ -180,217 +82,11 @@ jobs:
           pnpm test:docs-gates
           pnpm check:docs
 
-      - name: Feature test matrix consistency
-        run: pnpm check:feature-tests
-
-      - name: DPM package surface smoke
-        run: pnpm check:dpm-surface
-
-      - name: OA Gen package surface smoke
-        run: pnpm --filter @oa-sdk/codegen run smoke:pack
-
-      - name: Package version constants
-        run: pnpm check:package-versions
-
-      - name: Workspace scope and release policy
-        run: pnpm check:workspace-scope
-
-      # ── Spec diff (PR only) ────────────────────────────────
-      - name: API spec diff
-        if: github.event_name == 'pull_request'
+      - name: Governance manifests
         run: |
-          pnpm spec:diff -- --git origin/${{ github.base_ref }} >> "$GITHUB_STEP_SUMMARY"
-          pnpm schema:check-contract-version -- --base-ref origin/${{ github.base_ref }} >> "$GITHUB_STEP_SUMMARY"
-
-  # Timing gate in its own job, with no `needs`: it runs beside the ci job, a
-  # failure still fails the workflow, but it cannot skip the ci job's
-  # deterministic gates or the jobs that need ci, and it can be re-run alone.
-  parser-bench:
-    name: Parser $ref expansion budget
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: false
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11.28.6
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      # The bench runs the parser source through tsx, which resolves the
-      # parser's workspace dependencies to their dist. Build only the
-      # parser's declared workspace dependencies (today @oa-sdk/core and
-      # @oa-sdk/openapi-projection-contract) so this job does not wait for
-      # the ci job's build artifact.
-      - name: Build parser dependencies
-        run: pnpm exec turbo run build --filter='@oa-sdk/parser^...'
-
-      # Parser $ref expansion gate (Goal 69). Samples are main-thread CPU
-      # time, so time spent waiting for a core does not count. The time
-      # budgets were calibrated on an Apple M3 Pro with about 3x headroom; a
-      # hosted runner has roughly half its single-thread speed, so scale 2
-      # keeps similar headroom here. The ring growth limit pairs the two sizes
-      # round by round and is never scaled. A catastrophic regression aborts
-      # within seconds; the timeout is only a backstop.
-      - name: Parser $ref expansion budget
-        timeout-minutes: 10
-        env:
-          BENCH_PARSER_BUDGET_SCALE: '2'
-        run: pnpm bench:parser
-
-  public-release-runtime:
-    name: Public release runtime / Node ${{ matrix.node }}
-    needs: ci
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node: [22, 24, 26]
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11.28.6
-
-      # Public artifacts are built (in the ci job) and packed (here) with the
-      # repository development toolchain. Only consumer execution is switched
-      # to the advertised engines.node matrix below. Every matrix leg packs the
-      # one build the ci job verified, as a release publishes one artifact.
-      - name: Set up development Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Download workspace build outputs
-        uses: actions/download-artifact@v4
-        with:
-          name: workspace-build-outputs
-          path: ${{ runner.temp }}
-
-      - name: Restore public release candidates
-        run: tar -xf "${RUNNER_TEMP}/workspace-build-outputs.tar"
-
-      - name: Prepare packed public consumer
-        run: node scripts/public-runtime-smoke.mjs prepare "${RUNNER_TEMP}/oa-sdk-public-runtime"
-
-      - name: Set up consumer Node ${{ matrix.node }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node }}
-
-      - name: Smoke public imports and CLI
-        run: node scripts/public-runtime-smoke.mjs verify "${RUNNER_TEMP}/oa-sdk-public-runtime" "${{ matrix.node }}"
-
-  typescript-7-current:
-    name: Node 26 / TypeScript 7 / ttsc compatibility
-    needs: ci
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11.28.6
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 26
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      # The TS 7 lane is a no-emit check of the one declaration surface the
-      # stable lane (Node 24 + TypeScript 5) emits; it does not build
-      # (docs/guides/typescript-compatibility.md). So it checks the
-      # declarations the ci job built instead of rebuilding them on Node 26.
-      # The archive also carries the merged spec for codegen's compile check.
-      - name: Download workspace build outputs
-        uses: actions/download-artifact@v4
-        with:
-          name: workspace-build-outputs
-          path: ${{ runner.temp }}
-
-      - name: Restore stable Core declarations
-        run: tar -xf "${RUNNER_TEMP}/workspace-build-outputs.tar"
-
-      - name: Check TypeScript 7 and ttsc compatibility
-        run: pnpm check:ts7
-
-  governance-references:
-    name: OpenAPI governance reference gates
-    needs: ci
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: false
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11.28.6
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - uses: astral-sh/setup-uv@v6
-
-      - name: Install workspace dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Download workspace build outputs
-        uses: actions/download-artifact@v4
-        with:
-          name: workspace-build-outputs
-          path: ${{ runner.temp }}
-
-      - name: Restore OA Gen CLI
-        run: tar -xf "${RUNNER_TEMP}/workspace-build-outputs.tar"
-
-      - name: Run NestJS reference governance
-        working-directory: apps/nestjs-ref
-        env:
-          OA_GEN: node ../../packages/codegen/dist/cli/index.js
-        run: bash scripts/openapi-governance.sh ci
-
-      - name: Run FastAPI reference governance
-        working-directory: apps/fastapi-ref
-        env:
-          OA_GEN: node ../../packages/codegen/dist/cli/index.js
-        run: |
-          uv sync
-          bash scripts/openapi-governance.sh ci
-
-      - name: Upload NestJS governance evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: nestjs-ref-openapi-governance
-          path: apps/nestjs-ref/.oa-sdk/governance
-          if-no-files-found: warn
-
-      - name: Upload FastAPI governance evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: fastapi-ref-openapi-governance
-          path: apps/fastapi-ref/.oa-sdk/governance
-          if-no-files-found: warn
+          pnpm test:api-index
+          pnpm check:api-index
+          pnpm check:cli-spec
+          pnpm check:codegen-boundaries
+          pnpm type-registry:check
+          pnpm check:workspace-scope
