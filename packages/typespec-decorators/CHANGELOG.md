@@ -1,5 +1,52 @@
 # @oa-sdk/typespec-decorators
 
+## 0.4.0
+
+### Minor Changes
+
+- e4e82a7: Shared `@traceId` variants are accepted as lineage, ast-sync type boundaries are modelled, and Fastify/Hono streaming is verified with the real frameworks.
+
+  **@oa-sdk/typespec-decorators**
+
+  - `@traceId` now emits `x-oa-sdk-trace.declarationId` next to `trackingId`. It is a hash of the
+    declaration the application is written on, so visibility variants and `MergePatchUpdate<T>`
+    clones (and shared parameter/anonymous types and derived scalars) carry the same evidence.
+  - The `.tsp` documentation and README describe the shared-variant policy instead of listing it as
+    a known defect that fails `oa-gen trace --verify`.
+
+  **@oa-sdk/codegen**
+
+  - `buildSpecTraceabilityGraph` accepts one explicit `trackingId` when every node has the same
+    `declarationId`; an id shared by independent declarations, or without evidence, still reports
+    `traceability/duplicate-tracking-id`.
+  - The trace sidecar validator accepts the optional `declarationId` field.
+
+  **@oa-sdk/ast-sync**
+
+  - JSON Schema `read()`/`patch()` validate parsed input through `toJsonSchemaObject` /
+    `parseJsonSchemaObject`; typia `@default` tags go through `parseJsonDefaultTag`.
+  - Replaced the remaining explicit `any` escapes: TypeScript's internal `symbol.id` and declaration
+    names have modelled accessors, virtual-program temp directories live in a `WeakMap` exposed by
+    `getProgramTempDir`, and Ajv/standalone imports plus format validators are typed.
+
+  **@oa-sdk/spec-lens-contract**
+
+  - Added `customData?: Record<unknown>` to `ScenarioMachineContext` in `scenario.tsp`, matching the
+    TypeScript interface, with a drift test.
+
+  **@oa-sdk/router**
+
+  - Added real Fastify 5.12 / Hono 4.12 streaming tests: `AsyncIterable`, Web `ReadableStream` and
+    Node streams send with the declared content type, and client disconnects cancel the source
+    iterator. Documentation now describes the verified behaviour instead of the retired defects.
+
+- f0edbd0: Validate `@chunkStream`, `@traceId` and the wire decorators the way their documentation says. Review the items marked **behavior change** when upgrading.
+
+  - `@chunkStream` honors the `targetChunkBytes`, `maxResidentBytes` and `maxL1MemoryBytes` overrides and emits `maxL1MemoryBytes` (default half of `maxResidentBytes`) after `maxResidentBytes` in `x-oa-sdk-chunk-stream`. **Behavior change:** a wrongly typed or out-of-range numeric or string option, or an options argument that is not an object, reports `invalid-chunk-stream-rule` and emits no extension instead of silently falling back to defaults, so such specs no longer compile.
+  - **Behavior change:** `@traceId` puts `x-oa-sdk-trace.trackingId` on the declaring type and on the clones TypeSpec's mutation engine makes of it, so `@versioned` services and `MergePatchUpdate<T>` variants compile and carry the id in every per-version document, where they used to report Duplicate traceId. Derived copies (`model B is A`, `op b is a`, operations cloned by `interface B extends A`, spread copies and template instances, `@friendlyName` ones included) compile without an id; `model B is A` and template instances used to fail with Duplicate traceId. A template instantiated once no longer carries the template's id.
+  - `@rpc` and `@wireFormat` on an interface apply to each of its operations (operation values win), and `@protobuf` or a `methodName` on an interface reports a diagnostic instead of compiling and emitting nothing. `$onValidate` reports duplicate `@field` numbers; a property that redeclares an inherited one, such as a narrowed discriminator, replaces it and is not reported.
+  - `@oa-sdk/typespec-decorators/governance` exports `verifyAtlasSchemaDrift`, `AtlasSchemaInspectOutputSchema` and the drift report types. There is no `./storage-drift` subpath.
+
 ## 0.3.0
 
 ### Minor Changes

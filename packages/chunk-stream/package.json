@@ -1,6 +1,6 @@
 {
   "name": "@oa-sdk/chunk-stream",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "High-performance Monomorphic Chunk Stream runtime, memory residency leases, and virtualization engine",
   "private": false,
   "type": "module",

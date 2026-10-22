@@ -1,5 +1,170 @@
 # @oa-sdk/codegen
 
+## 0.10.0
+
+### Minor Changes
+
+- 8a06e73: Let `oa-gen typegen` write a TypeSpec origin graph semantic index.
+
+  Pass `--typespec-provenance <json> --graph-semantic-index <json> --graph-file <project-relative>` together with `--output`. Each generated declaration becomes a host with the owning TypeSpec declaration's `.tsp` file and line as evidence, and the sidecar is hash-bound to the generated TypeScript, the restored OpenAPI document and the provenance. `typegen` fails without writing either output when the provenance describes another document or leaves a generated declaration without an owner. With `--incremental`, the index is its own generation target and is reused or regenerated together with the types.
+
+  The new surface is `buildTypeSpecGeneratedGraphSemanticIndex()`, `TYPESPEC_TS_GRAPH_SEMANTIC_SCHEMA`, `typeSpecGraphProvenanceSchema` and the `GeneratedTypeDeclaration`/`TypeSpecGraphProvenance` types.
+
+- 1f37428: Make the TypeSpec plugin pipeline (`@oa-sdk/codegen/plugin`) generate code that compiles as documented, and stop its `clean` from deleting directories outside the project. Review the items marked **behavior change** when upgrading.
+
+  - `runTspPluginPipeline` `clean` removes only a real strict subdirectory of the working directory or the OS temp directory. It never removes the working directory, its ancestors, or a directory that is or contains the TypeSpec entrypoint, and reports `TSP_CLEAN_SKIPPED` instead. It used to remove any path that contained `dist`, `generated`, `tmp` or `temp`, inside the project or not. `builder.build({ outputDir })` is honored instead of writing to and cleaning `./src/generated`.
+  - **Behavior change:** when `pluginClient` ran in the same pipeline and `clientFile` is unset, `pluginTanstackQuery` emits `api-client.ts` with the `<clientName>` interface, `create<clientName>()`, `<clientName>CallOptions` and `<clientName>ResponseError`, and `queries.ts`/`hooks.ts` import it; the new `clientAdapter` and `adapterOutput` options turn it off or move it. A 2xx resolves to `data`, a failure with a declared JSON error model rejects with the parsed body, and every other failure rejects with `<clientName>ResponseError` (`status`, `body`, `response`). The TanStack modules used to import an `ApiClient` that `pluginClient` never emitted. Non-split tiers `options` and `hooks`, in the plugin and in `oa-gen generate:tanstack --tier`, write self-contained combined code.
+  - **Behavior change:** in the generated `client.ts`, `<Fn>Errors` aliases `<Base>ErrorByStatus` and `isErrorStatus` narrows per status (`KnownErrorStatus` and `ErrorStatusResult` are exported). Request headers are `Record<string, unknown>`, serialized in OpenAPI simple style, and `clientClass: false` keeps a module-private transport and compiles. The axios transport reads text and parses bodies like the fetch transport, so an empty body gives `undefined` instead of `''`, and 204/205/304 responses get a null body. An operation whose function name would be a reserved word, a module binding or another operation's name gets a `_` suffix (`delete` becomes `delete_`), and such a short name is not emitted (`Pets_delete` gives only `petsDelete`). Self-referential and duplicate type aliases are no longer emitted.
+  - `TspProjectBuilder.build()` always recompiles, and `cwd` also applies to `introspect()` and `watch()`. `vitePluginTsp` builds once on dev startup, honors `runOnDev: false`, resolves a relative config against Vite's root, and reports a failed rebuild through the logger and the error overlay instead of a full reload. The default `//` banner is added only to JS/TS, `.proto` and `.jsonc` files, so JSON output stays valid. `pluginWire` always imports `BinaryCodecAdapter` and refers to models by their `types.ts` names, and the reserved `raw-binary` codec reports `WIRE_CODEC_NOT_IMPLEMENTED`.
+  - New exports from `@oa-sdk/codegen/plugin`: `readClientSdkManifest`, `CLIENT_SDK_MANIFEST_KEY`, `ClientSdkManifest`, `RenderedClientOperation`, `absolutizeTspInput`, `TypeSpecCompilationError`, `isTspPluginEntry`, `DEFAULT_GENERATED_BANNER`, `VitePluginTspResolvedConfig`, `VitePluginTspDevServer` and `VitePluginTspErrorPayload`. `TspWatchEvent` gains `error`, and `RunTspPluginPipelineOptions` gains `oldProgram`.
+
+- 4538f7c: Make the Protobuf codecs of `ProtobufCodecTargetAdapter` (`pluginWire` codec `protobuf`) lossless and wire-compatible with the `.proto` schema that `Proto3TargetAdapter` emits, verified against protobufjs in both directions.
+
+  - Nested messages and repeated messages are length-delimited submessages. They were written as `Number(value)`, which threw for every model with a nested object (7 of the 16 schema examples of the production contract).
+  - Component enums travel as member numbers and decode back to their JSON values. Objects with only `additionalProperties` of a scalar, enum, or message type become `map<string, V>`. Unions, anonymous objects, and nested arrays are sent as JSON text in a `string` field instead of `String(value)` (`"[object Object]"`).
+  - Scalars use their real wire types: 64-bit varints for negative and large values, zigzag for `sint32`/`sint64`, 4-byte `float` / `fixed32` / `sfixed32`, 8-byte `fixed64` / `sfixed64`. 64-bit values decode to `number` when safe and to `bigint` otherwise. Integers outside their type's range, non-integers, and unknown enum values throw instead of being truncated. `format: byte` strings travel as raw bytes and decode back to base64.
+  - Repeated numeric and enum fields are written packed, and both packed and unpacked forms are read. Unknown fields are skipped; truncated input throws `RangeError`; decoded map keys cannot change object prototypes; required lists and maps decode as empty when absent.
+  - `extractWireSchemaFromOas` classifies each field (`kind`: `scalar`, `enum`, `message`, `map`, `json`, with the new `WireFieldKind` and `WireMapValue` types), records enum JSON values in `WireEnum.literals`, maps integer formats (`int8`–`int32` → `int32`, `uint8`–`uint32` → `uint32`, `uint64`), and maps unformatted integers to `int64` instead of `int32`. Automatic field numbers skip numbers declared explicitly and the reserved 19000–19999 range.
+  - The `.proto` output references nested types by their message name (including service method input and output), emits `map<>` fields, keeps comments on one line, sanitizes identifiers (with `json_name` when a field name changes), and prefixes enum member names that would clash across enums in the package scope.
+
+- 9743fb4: Add `oa-gen ref-projection`, which exports the ref-preserving `$ref` graph of an OpenAPI document as the versioned JSON artifact `oa-sdk.ref-projection.v1` (registered as `experimental` in the artifact compatibility policy).
+
+  - Nodes are the reusable declarations of the entry document and the external targets its `$ref`s reach. Each resolved `$ref` occurrence whose occurrence and target both lie inside a node is one edge, marked `none`, `guarded` or `unguarded` recursion; every other occurrence is named by a diagnostic.
+  - With `--provenance <map written by oa-gen build-spec --provenance>`, each node carries the `canonicalId` of its nearest enclosing provenance entry and its fragment `sourcePath` relative to the project root, or the reason it has none.
+  - The output has no timestamps, is sorted, and is validated against its JSON Schema before it is written. The same codegen version writes byte-identical output for inputs with the same bytes at the same project-root-relative paths.
+  - The library exports `createRefProjectionArtifact`, `serializeRefProjectionArtifact`, `validateRefProjectionArtifact`, `REF_PROJECTION_SCHEMA_VERSION`, `REF_PROJECTION_ARTIFACT_SCHEMA_V1` and their types; `docs/cli-spec/oa-sdk.ref-projection.v1.schema.json` mirrors the schema.
+
+  Provenance maps read by `oa-gen ref-projection`, and by `oa-gen review` and `oa-gen review-bundle` through `--base-provenance` and `--head-provenance`, now reject an entry whose `canonicalId` is empty.
+
+- f0edbd0: Make Interface Sketch parsing, trace graphs and the contract canary match the source they read. Review the items marked **behavior change** when upgrading.
+
+  - `@oa-sdk/surface-ir` **behavior change:** `INTERFACE_SKETCH_IR_VERSION` is `oa-sdk.interface-sketch-ir.v2`. `InterfaceSketchIr` has a required `diagnostics: SketchDiagnostic[]` and `SketchUnionOrEnumIr` a required `members: SketchVariantIr[]`; `SketchModelIr` gains `templateParameters`, and `baseModel` also covers `extends` and keeps template arguments. `versionHash` values change. The parser is a tokenizer and recursive-descent scanner, so `extends`, templated and `is X;` models and bodies with nested braces are no longer dropped or truncated, and doc comments and decorators attach only to the declaration that follows them.
+  - `@oa-sdk/codegen`: `emitSketchArtifacts` accepts a v2 or a v1 IR, upgrading the v1 one, and throws for any other version. Emitted OpenAPI refs point to `#/components/schemas/`, enums carry their values instead of their member names, unions become `anyOf`, undeclared types are tagged `x-oa-sdk-sketch-unresolved-type`, and the Python stub uses `@dataclass(kw_only=True)` (Python 3.10+) so it imports whatever the field order. `oa-gen sketch verify` and `check-contract` use the domain (`--domain`, else the file basename) as the spec name, so `versionHash` no longer depends on the machine, and `verify`, `emit`, `check-contract` and `compare` exit 1 when the IR has error diagnostics. The CLI governance manifest declares the sketch report schema `oa-sdk.interface-sketch-ir.v2`.
+  - `@oa-sdk/codegen`: `oa-gen trace` links path-item-level `parameters` `$ref`s to every operation of the path, includes the generated `*PathParams`, `*QueryParams` and `*HeaderParams` symbols of `$ref` parameters, and reads `x-persona` arrays and object-shaped storage, behavior and DPM refs. **Behavior change:** `SpecTraceGovernanceCapabilities` has a required `personas: string[]` (`persona` is deprecated), and interface operation ids are qualified as `operation:<file>:<Interface>.<op>`, with a new `typespec-provenance/duplicate-declaration-id` diagnostic. The spec, provenance map and manifest inputs of `oa-gen trace` are validated, and `loadSpecTraceabilitySidecar` validates the whole sidecar.
+  - `@oa-sdk/ast-sync`: `checkImplementationContract` counts a contracted name only when the file binds it. Comments, strings, call sites, property reads and plain imports of an operation no longer count. It honors `language` (`'auto'` detects Python), no longer treats TypeScript `#private` member lines as comments, and matches lock-reflex patterns only in code.
+
+- 4538f7c: Project TypeSpec/OpenAPI operations onto typed RPC procedures.
+
+  - `@oa-sdk/surface-ir`: `buildRpcContract(document, options?)` and `toRpcContract(ir, document, options?)` produce the JSON contract `oa-sdk.rpc-contract.v1`. Each operation becomes a dotted-name procedure (`@rpc` service/method names, else the camel-cased first tag and the operationId) with one object input that merges its parameters and request body, its success output, declared error responses, and the HTTP binding needed to rebuild the REST request. Streaming operations are skipped with a warning; collisions are reported as diagnostics.
+  - `@oa-sdk/codegen`: `pluginRpc()` and `generateRpcModule(contract, options?)` emit a module with the `<Name>Procedures` type map and the `<name>Contract` data.
+  - `@oa-sdk/rpc` (new, private): `createRpcClient` / `createRpcServer` with JSON-RPC 2.0 (`createJsonRpcTransport`, `createJsonRpcFetchHandler`, `handleJsonRpc`) and REST binding (`createHttpTransport`, `createRestFetchHandler`) transports, `createLocalTransport`, `RpcError`, and an Ajv validator at `@oa-sdk/rpc/ajv`.
+
+- 4538f7c: Fix the clients that `RpcContractTargetAdapter` (the `rpc-contract` codec of `pluginWire`) generates.
+
+  - Path, query, header, and cookie parameters are now part of the generated methods (`method(request, params, options)`, or `method(params, options)` without a body) and fill the declared route. Path-level parameters and route variables without a declaration are included; `.` and `..` path values are rejected. Server handlers receive `params` as a third argument when a method has parameters.
+  - Request and response bodies follow their declared media types: JSON is serialized directly, and Protobuf / MessagePack messages are encoded and decoded with the `codecs` option, now a model-name → `BinaryCodecAdapter` map (or an array of maps), such as `getGeneratedProtobufCodecs()`. A binary message without a codec fails before the request is sent. Previously the body was passed to `fetch` unserialized and every response was parsed as JSON.
+  - Failed calls reject with the exported `WireRpcError` (`method`, `status`, decoded `body`).
+  - `extractWireSchemaFromOas` infers `wireFormat` from the declared media types (`json` when nothing binary is declared) instead of always `protobuf`, picks the lowest 2xx response, and adds `parameters`, `requestBody`, and `response` to each `WireMethod` (new `WireParameter`, `WireParameterLocation`, `WirePayload` types).
+  - Without `typesImport`, model references in the generated module are typed `unknown` instead of naming types that are not imported. Descriptions are emitted through the escaping JSDoc formatter.
+
+- 0f84ddf: Extract complete wire schemas from composed, map-shaped and namespaced models. **Behavior change:** regenerate `.proto` files and codecs together after upgrading, because field numbers and default names can change.
+
+  - `extractWireSchemaFromOas` merges `allOf` members (inline objects and component `$ref`s), so TypeSpec `extends` models keep their inherited fields. Automatic field numbers are assigned after the explicit ones, inherited fields first, so an inheriting model without `@field` numbers can get other numbers than an earlier version generated. Duplicate or invalid explicit `x-oa-sdk-protobuf-field` numbers (outside 1–536870911, or in the reserved 19000–19999) throw.
+  - Default service, tag and method names use `pascalCase` from `@oa-sdk/core` (`TodoItems_list` becomes `TodoItemsList`, not `TodoItemslist`). Map-only and free-form object components become `kind: 'object'` models with a MessagePack codec and a TypeScript type but no `.proto` message or Protobuf codec, instead of empty messages that dropped their content. `WireModel.tsTypeName` and `WireEnum.tsTypeName` hold the `types.ts` names, which the generated Protobuf, MessagePack and RPC TypeScript now uses, so models in sub-namespaces compile.
+  - Generated Protobuf decoders fill absent required scalar and enum fields with their proto3 defaults. The synthetic empty message is named `Empty` unless a model, enum or service already uses that name, and `Empty2`, `Empty3` and so on otherwise (`emptyMessageName` and `WireNameScope` are exported). The generated RPC client rejects an empty path value (`''`, `[]`) with a `TypeError` before the request.
+  - `Proto3TargetAdapter` honors its `emitEmptyMessage` constructor default. `TypeSpecWirePipeline` treats a string as a path only when it has no newline, `;` or brace and ends in `.tsp` or exists on disk, instead of whenever it contains `model`, `service` or `namespace`, and gains `extractModelFromFile` and `extractModelFromSource`.
+
+### Patch Changes
+
+- 6239a85: Make `pluginClient` generate a compiling `client.ts` when operation type names or `clientName` collide with names the module declares or refers to.
+
+  - **Behavior change:** a per-operation type in `client.ts` (an import from the types file such as `<Base>Response`, or a declared `<Fn>Data`, `<Fn>Response`, `<Fn>Errors`, `<Fn>ErrorUnion` or fallback) whose name is a type `client.ts` declares (the client class, `RequestParameters`, `RequestOptions`, `KnownErrorStatus`, `ClientResult`, `ClientResponse`, `ErrorUnion`, `ErrorStatusResult`, `ClientConfig`) or a global type it refers to gets a `_` suffix (then `_2`, ...), like operation function names. A root-level operation `client` has its response type as `ClientResponse_` in `client.ts` (imported as `ClientResponse as ClientResponse_` and re-exported, or declared as `void` without a success response), and `ClientResponse` stays the generic helper. The types file is unchanged. Before, the import clashed with the helper or the `void` fallback duplicated it, and `client.ts` did not compile.
+  - **Behavior change:** `pluginClient({ clientName })` reports a `CLIENT_INVALID_CLIENT_NAME` error diagnostic and emits no `client.ts` (nor the `client:sdk` manifest) when `clientName` is not an identifier, is a reserved word or a TypeScript predefined type name, is another name `client.ts` declares (`createClient`, `client`, `ClientConfig`, ...), is a global it refers to (`fetch`, `Response`, `Record`, ...), or is a name it binds where it refers to the class (`TData`, `TError`, `config`). Before, such a name declared a class that shadowed the global or clashed with the helper. A `clientName` named like an operation function or type is accepted, and the operation name is escaped instead.
+
+- fe143f7: Improve the onboarding path.
+
+  - `oa-gen init` now adds `@types/node` at `^22.0.0`, matching the Node.js 22 floor the packages require (it added `^20.0.0` before), and prints the install and `generate` steps after the summary.
+  - Loading an `oa.config.ts` that imports a package the project has not installed now appends an install hint to the error, instead of only the bare `Cannot find package` message.
+
+- c565468: Make `oa-gen typegen` emit a compiling declaration for a recursive map schema.
+
+  - **Behavior change:** a component schema that is a recursive map (`type: object` with `additionalProperties` that refers back to the schema, directly or around a cycle) was emitted as `export type Node = Record<string, Node>`, which TypeScript rejects with TS2456 ("Type alias 'Node' circularly references itself"). It is now emitted as an index-signature object type (`export type Node = { [key: string]: Node }`, or `export interface Node { [key: string]: Node }` under `--style interface`). Non-recursive maps keep the shorter `Record<string, T>` spelling.
+
+- 791657c: Report a `typegen --incremental` run with `--graph-semantic-index` as regenerating both outputs when only the index needs a fresh generation. Because the index is derived from the declarations of a fresh generation, the types are regenerated too; the command no longer prints `typegen up to date, regeneration skipped` for the types and then rewrites them.
+- 3063402: TanStack options/keys now work for Vue and Svelte, streaming operations no longer emit unusable cache artifacts, and guard generation accepts dotted TypeSpec contract names.
+
+  **@oa-sdk/client**
+
+  - Tier 2 (pure query/mutation options) imports the framework-neutral `QueryObserverOptions`,
+    `MutationObserverOptions` and `InfiniteQueryObserverOptions` types that every TanStack adapter
+    re-exports from `@tanstack/query-core`, instead of React-only `UndefinedInitialDataOptions` /
+    `UseMutationOptions`. `generate:tanstack --framework vue|svelte` output now compiles.
+  - Streaming operations (SSE, NDJSON, JSONL, `application/stream+json` in the response or request
+    body) keep their query keys but no longer generate `QueryOptions`, `MutationOptions` or hooks,
+    because a `queryFn` returning an `AsyncGenerator` cannot be cached.
+  - Infinite query options use a distinct key (`[...<listKey>, 'infinite']`). List and infinite
+    caches with the same filters no longer collide, and invalidating the list key still matches the
+    infinite entry by prefix.
+  - `TError` for operations with a documented error model is now `<Op>Error | Error`, so transport
+    failures (network errors, aborts, `ApiClientResponseError`) are part of the generated type.
+
+  **@oa-sdk/codegen**
+
+  - `generate:tanstack --split --tier options|hooks` emits the lower tiers the requested tier imports
+    (`options` → keys + queries, `hooks` → keys + queries + hooks), so the output compiles.
+  - `generate:tanstack --framework vue|svelte --tier hooks` fails with a clear error instead of writing
+    React hooks against a Vue/Svelte package.
+  - `check-artifact` and `drift:check` read targets through `resolveConfigWithDefaults`, so a config
+    that declares only `product.specs` no longer fails with `specs 목록이 비어 있습니다`.
+  - Added a regression test for pattern-based `outputRouting` with `--split`, resolving every generated
+    relative import against the routed files.
+
+  **@oa-sdk/ast-sync**
+
+  - Standalone guards normalize component names that are not JavaScript identifiers (for example the
+    TypeSpec namespace-qualified `OaSdkTypeSpec.StandardError` to `isOaSdkTypeSpec_StandardError`)
+    while keeping the qualified type in the `data is ...` declaration. Split mode uses the normalized
+    file name and imports the namespace root (`import type { OaSdkTypeSpec }`) because
+    `import type { A.B }` is invalid TypeScript. `--schemas` matching accepts the original dotted name.
+
+- e4e82a7: Shared `@traceId` variants are accepted as lineage, ast-sync type boundaries are modelled, and Fastify/Hono streaming is verified with the real frameworks.
+
+  **@oa-sdk/typespec-decorators**
+
+  - `@traceId` now emits `x-oa-sdk-trace.declarationId` next to `trackingId`. It is a hash of the
+    declaration the application is written on, so visibility variants and `MergePatchUpdate<T>`
+    clones (and shared parameter/anonymous types and derived scalars) carry the same evidence.
+  - The `.tsp` documentation and README describe the shared-variant policy instead of listing it as
+    a known defect that fails `oa-gen trace --verify`.
+
+  **@oa-sdk/codegen**
+
+  - `buildSpecTraceabilityGraph` accepts one explicit `trackingId` when every node has the same
+    `declarationId`; an id shared by independent declarations, or without evidence, still reports
+    `traceability/duplicate-tracking-id`.
+  - The trace sidecar validator accepts the optional `declarationId` field.
+
+  **@oa-sdk/ast-sync**
+
+  - JSON Schema `read()`/`patch()` validate parsed input through `toJsonSchemaObject` /
+    `parseJsonSchemaObject`; typia `@default` tags go through `parseJsonDefaultTag`.
+  - Replaced the remaining explicit `any` escapes: TypeScript's internal `symbol.id` and declaration
+    names have modelled accessors, virtual-program temp directories live in a `WeakMap` exposed by
+    `getProgramTempDir`, and Ajv/standalone imports plus format validators are typed.
+
+  **@oa-sdk/spec-lens-contract**
+
+  - Added `customData?: Record<unknown>` to `ScenarioMachineContext` in `scenario.tsp`, matching the
+    TypeScript interface, with a drift test.
+
+  **@oa-sdk/router**
+
+  - Added real Fastify 5.12 / Hono 4.12 streaming tests: `AsyncIterable`, Web `ReadableStream` and
+    Node streams send with the declared content type, and client disconnects cancel the source
+    iterator. Documentation now describes the verified behaviour instead of the retired defects.
+
+- Updated dependencies [9743fb4]
+- Updated dependencies [fadcf07]
+- Updated dependencies [3063402]
+- Updated dependencies [f0edbd0]
+- Updated dependencies [e4e82a7]
+- Updated dependencies [f0edbd0]
+- Updated dependencies [4538f7c]
+  - @oa-sdk/parser@0.5.0
+  - @oa-sdk/surface-ir@0.2.0
+  - @oa-sdk/ast-sync@0.2.1
+  - @oa-sdk/typespec-decorators@0.4.0
+
 ## 0.9.0
 
 ### Minor Changes
@@ -21,6 +186,7 @@
   A reused run does not parse or compile the spec and leaves the workspace index unchanged. Every incremental run prints one status line on stderr: `incremental: typegen up to date, regeneration skipped (<output>)` or `incremental: typegen regenerating (<reason>)`. An input that may have changed while typegen generated, or that a run cannot check again, is recorded as unverified and makes the next run regenerate (`input not verified: <path> (<reason>)`); before Node.js 22.15, a target with authored JavaScript decorators therefore regenerates every time. Files that decorator code reads by itself are not tracked. When the SQLite index is unavailable, typegen regenerates (`incremental state unavailable`).
 
   The records live in two new workspace index tables, `generation_targets` and `generation_target_observations`. They are additive: the index schema version is unchanged, older readers ignore them, and a compatibility reset clears them with the rest of the cache.
+
 - `oa-gen typegen` and `oa-gen validate` without `--incremental` no longer scan the entry spec for a workspace index they do not use.
 - New `oa-gen surface --spec <openapi|typespec>` builds the target-neutral surface IR of the new `@oa-sdk/surface-ir` dependency and writes `surface-ir.json`, the Forge projection, one OpenAPI Overlay per top-level Forge command and `surface-manifest.json` to `--out-dir` (default `artifacts/surface/forge`). It accepts `--target forge` (the only target), `--mapping <json|yaml>` for operation group, method, lifecycle and CLI overrides, and `--fail-on-warning`.
 - Normalization (`normalizeOpenApiDocument()`, `oa-gen normalize`, `oa-gen collect`) handles a node that the input shares at several locations, for example through YAML aliases, at every location: noise removal and key ordering apply at each, and the output keeps the input's sharing, cycles included. Before, only the first location was normalized. `upgradeOpenApiDocumentTo32()` (`oa-gen upgrade`, `oa-gen collect`) reports a conversion at every location of a shared container instead of only the first.

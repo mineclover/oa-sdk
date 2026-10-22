@@ -1,6 +1,6 @@
 {
   "name": "@oa-sdk/chunk-stream-react",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "React 18/19 hooks, playback timeline synchronization, and peer awareness for Chunk Stream runtime",
   "private": false,
   "type": "module",

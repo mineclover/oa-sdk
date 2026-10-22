@@ -1,5 +1,14 @@
 # @oa-sdk/chunk-stream-react
 
+## 0.2.1
+
+### Patch Changes
+
+- Updated dependencies [4cae342]
+  - @oa-sdk/chunk-stream@0.3.0
+  - @oa-sdk/chunk-stream-ui@0.2.1
+  - @oa-sdk/chunk-stream-crdt@0.1.2
+
 ## 0.2.0
 
 ### Minor Changes

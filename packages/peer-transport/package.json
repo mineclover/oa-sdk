@@ -1,6 +1,6 @@
 {
   "name": "@oa-sdk/peer-transport",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "P2P WebRTC DataChannel transport, local bridge signaling, and resilient F5 refresh buffering for WebMCP",
   "private": false,
   "type": "module",

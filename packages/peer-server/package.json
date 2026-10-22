@@ -1,6 +1,6 @@
 {
   "name": "@oa-sdk/peer-server",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Authoritative WebMCP Peering, Signaling, Rendezvous, and Local Daemon Server",
   "private": false,
   "type": "module",

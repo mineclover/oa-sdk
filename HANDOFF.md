@@ -38,7 +38,8 @@ Worktrees: main only · Open PRs: none
   - CLI journey: `init` → `validate` → `lint` → `diff` → `generate` (spec and config) → `mock` (`GET /users` 200).
   - chunk-stream 0.2.0: imports, CRDT LWW/commutativity, vector-clock merge, LTTB 100→10.
 - Governance: `check:docs`, `check:api-index`, `check:cli-spec`, `check:spec-governance`, `check:feature-tests`, `check:codegen-boundaries`, `type-registry:check`, `test:docs-gates`, `check:workspace-scope` all pass.
-- Follow-up branch (2026-10-22): `typecheck:core`, `typecheck:downstream`, the full codegen suite (211/4,012), client (16/277), ast-sync (8/77), router (19/206), spec-lens-contract (2/40), typespec-decorators (11/108), and every governance gate above pass. Real-framework streaming tests cover Fastify 5.12.7 and Hono 4.12. The Model B packed-tarball consumer typechecks both combined and split TanStack output. Vue/Svelte adapter support was also checked against the published `@tanstack/vue-query` 5.104.5 and `@tanstack/svelte-query` 5.90.2 declaration files: both `export * from "@tanstack/query-core"`, so the generated `QueryObserverOptions` / `MutationObserverOptions` / `InfiniteQueryObserverOptions` imports resolve.
+- Follow-up branch (2026-10-22): `typecheck:core`, `typecheck:downstream`, the full codegen suite (211/4,012), client (16/277), ast-sync (8/77), router (19/206), spec-lens-contract (2/40), typespec-decorators (11/108), and every governance gate above pass. Real-framework streaming tests cover Fastify 5.12.7 and Hono 4.12. The Model B packed-tarball consumer typechecks both combined and split TanStack output.
+- Release candidate `2026-10-22-core-v0.10.0` (`6affdab5`): full `pnpm release:preflight` passed on the clean versioned worktree; `release:export --dry-run --skip-registry-preflight` built all 22 public tarballs and its sanitized consumer smoke imported 51 public surfaces with TypeScript 5.9.3 (output is non-promotable and kept outside the repo). Vue/Svelte adapter support was also checked against the published `@tanstack/vue-query` 5.104.5 and `@tanstack/svelte-query` 5.90.2 declaration files: both `export * from "@tanstack/query-core"`, so the generated `QueryObserverOptions` / `MutationObserverOptions` / `InfiniteQueryObserverOptions` imports resolve.
 
 Run locally with **pnpm 11.28.6** (the repo requires `>=11.28.6 <12`; `mise exec` or corepack works). Source of truth for lanes: `.github/workflows/ci.yml`.
 
@@ -47,8 +48,8 @@ Run locally with **pnpm 11.28.6** (the repo requires `>=11.28.6 <12`; `mise exec
 ### P0 — release and CI
 
 1. **Restore GitHub Actions billing.** All PR jobs currently fail at 0 steps, so GitHub is not a usable gate. Until it is fixed, run the local lanes above before merging.
-2. **Cut the next release.** `changeset status` currently bumps `@oa-sdk/chunk-stream`, `codegen`, `client`, `parser`, `peer-server`, `peer-transport`, `surface-ir`, `telemetry`, `tools`, `typespec-decorators`, `rpc`, `webmcp-peer` at **minor** and 11 other packages at **patch** (39 changeset files total). Review the changesets, run the release process in [release management](./docs/internal/release-management.md), publish, then merge the release commit back to `main` like the chunk-stream 0.2.0 merge-back. npm auth is currently missing (`npm whoami` is 401), so publishing cannot be done from this machine until a token is provided.
-3. **Post-release checks:** public runtime smoke, packed-package installs, and the version table in [release management](./docs/internal/release-management.md) / [guide index](./docs/guides/README.md) updated to the published versions.
+2. **Next release is versioned.** `release/next` contains the `2026-10-22-core-v0.10.0` candidate (`6affdab5`): 39 changesets consumed (12 minor, 11 patch), version tables synced, 0 pending changesets. Clean-worktree `pnpm release:preflight` passed, and `release:export --dry-run --skip-registry-preflight` produced all 22 public tarballs with the sanitized consumer smoke (51 public imports, TypeScript 5.9.3). Remaining: choose the official release ID, run the official export from a clean candidate into `oa-sdk-releases`, and approve promotion there — the source repository does not npm-publish (`npm whoami` is also 401 locally).
+3. **Post-promotion checks:** public runtime smoke, packed-package installs, and confirming the version table in [release management](./docs/internal/release-management.md) against the promoted registry versions.
 
 ### P1 — main use-case gaps (highest UX impact)
 
@@ -89,5 +90,5 @@ Remaining `[ ]` items in [docs/internal/todo.md](./docs/internal/todo.md) are ou
 ## 6. Suggested order
 
 1. Restore GitHub Actions billing.
-2. Review and cut the pending release (39 changesets: 12 minor, 11 patch), then merge the release commit back. Requires an npm token.
+2. Merge the versioned `release/next` candidate after review, then run the official export/promotion from `oa-sdk-releases` with the chosen release ID.
 3. Remaining `[ ]` entries in `docs/internal/todo.md` are new/backlog work, not the P1–P3 handoff list.
