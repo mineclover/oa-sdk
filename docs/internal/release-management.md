@@ -78,7 +78,7 @@ schema/spec 관리 제품을 소유하고, Downstream Integration 열다섯 패�
 | Downstream Integration | `@oa-sdk/chunk-stream-react` | `0.2.1` | React 18/19 hooks, playback timeline synchronization, peer awareness |
 | Downstream Integration | `@oa-sdk/peer-transport` | `0.2.0` | Shared bridge client, packet validation, bounded reconnect queue |
 | Downstream Integration | `@oa-sdk/peer-server` | `0.2.0` | Local peer registry, authenticated HTTP dispatch and provider RPC correlation |
-| Downstream Integration | `@oa-sdk/webmcp-peer` | `0.2.0` | Unified 3-tier WebMCP peer server routing, browser provider, and external agent client SDK |
+| Downstream Integration | `@oa-sdk/webmcp-peer` | `0.2.1` | Unified 3-tier WebMCP peer server routing, browser provider, and external agent client SDK |
 | Downstream Integration | `@oa-sdk/collab-workspace` | `0.1.1` | In-memory workspace lattice, scoped AI edits and intent locks |
 | Downstream Integration | `@oa-sdk/mcp-mesh` | `0.1.1` | Domain/session library, validated tool routing and CLI |
 | Downstream Integration | `@oa-sdk/telemetry` | `0.2.0` | Design-driven telemetry, tracking symbol registry, XState v5 inspector, and DPM pseudonymization bridge |

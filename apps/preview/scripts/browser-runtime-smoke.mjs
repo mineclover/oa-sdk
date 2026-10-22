@@ -82,7 +82,11 @@ assertSurfaceDelta(
   '@oa-sdk/codegen/typegen/browser',
   typegenNode,
   typegenBrowser,
-  ['analyzeExternalSchemaRefs'],
+  [
+    'analyzeExternalSchemaRefs',
+    'TYPESPEC_TS_GRAPH_SEMANTIC_SCHEMA',
+    'buildTypeSpecGeneratedGraphSemanticIndex',
+  ],
   [],
 )
 assertSurfaceDelta('@oa-sdk/router/browser', routerNode, routerBrowser, [], [])
@@ -97,6 +101,7 @@ assertSurfaceDelta(
     'generateTanstackQuery',
     'getOperationTag',
     'isQueryOperation',
+    'isStreamingOperation',
     'toKeyFactoryName',
   ],
   [],

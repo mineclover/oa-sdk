@@ -7,7 +7,7 @@ export const PROTOCOL_VERSION = "2025-11-25";
  * in its `user-agent`. It must equal `version` in package.json: a test fails when a release bumps one
  * without the other.
  */
-export const PACKAGE_VERSION = "0.1.0";
+export const PACKAGE_VERSION = "0.2.1";
 
 export type PeerMcpTransportMessage = Record<string, unknown> | string;
 
