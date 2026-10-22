@@ -20,11 +20,11 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@hono/node-server": "^2.0.0",
+    "@hono/node-server": "^2.0.10",
     "@oa-sdk/codegen": "workspace:*",
     "@oa-sdk/spec-lens-contract": "workspace:*",
     "@oa-sdk/parser": "workspace:*",
-    "hono": "^4.7.11"
+    "hono": "^4.13.13"
   },
   "optionalDependencies": {
     "better-sqlite3": "^12.4.1"

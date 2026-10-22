@@ -35,11 +35,11 @@
   "dependencies": {
     "@hono/node-server": "^1.13.0",
     "@hono/swagger-ui": "^0.5.3",
-    "@modelcontextprotocol/sdk": "^1.26.0",
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
     "commander": "^12.1.0",
-    "hono": "^4.6.0"
+    "hono": "^4.13.13"
   },
   "peerDependencies": {
     "zod": ">=3.0.0"

@@ -14,17 +14,17 @@
     "typecheck": "tsc --noEmit -p ."
   },
   "dependencies": {
+    "@oa-sdk/client": "workspace:*",
+    "@oa-sdk/codegen": "workspace:*",
     "@oa-sdk/mock-server": "workspace:*",
     "@oa-sdk/parser": "workspace:*",
-    "@oa-sdk/codegen": "workspace:*",
     "@oa-sdk/router": "workspace:*",
-    "@oa-sdk/client": "workspace:*",
     "msw": "^2.13.4",
     "yaml": "^2.0.0"
   },
   "devDependencies": {
-    "vite": "^8.0.8",
     "typescript": "5.9.3",
+    "vite": "^8.3.5",
     "vitest": "^4.1.12"
   },
   "msw": {
