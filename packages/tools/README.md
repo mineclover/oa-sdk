@@ -7,10 +7,10 @@ You write each tool yourself with `defineTool()` or `createSchemaTool()`. The pa
 generate tools from an OpenAPI or TypeSpec contract; `createSchemaTool()` wraps a JSON Schema object
 you pass in, such as a component schema emitted from your TypeSpec or OpenAPI source.
 
-> npm has 0.2.0. This README describes the 0.2.0 surface; 0.2.1 is a dependency-only patch that is
-> not on npm yet. If you install 0.1.1, read [Upgrading from 0.1.1](#upgrading-from-011) first: its
-> HTTP servers have none of the [HTTP boundary](#http-boundary) checks, so they accept any `Origin`,
-> have no bearer token option, and answer a thrown tool error with the exception message.
+> npm has 0.2.1. This README describes the 0.2.1 surface. If you install 0.1.1, read
+> [Upgrading from 0.1.1](#upgrading-from-011) first: its HTTP servers have none of the
+> [HTTP boundary](#http-boundary) checks, so they accept any `Origin`, have no bearer token option,
+> and answer a thrown tool error with the exception message.
 
 ---
 
@@ -20,7 +20,7 @@ you pass in, such as a component schema emitted from your TypeSpec or OpenAPI so
 npm install @oa-sdk/tools
 ```
 
-This installs 0.2.0, which requires Node.js 22 or later. (0.1.1 also needed
+This installs 0.2.1, which requires Node.js 22 or later. (0.1.1 also needed
 `@oa-sdk/chunk-stream-ui`; see [Upgrading from 0.1.1](#upgrading-from-011).)
 
 | Optional package | When you need it |
