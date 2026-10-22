@@ -50,6 +50,23 @@ async function waitFor<T>(read: () => T | undefined, timeoutMs = 30_000): Promis
   }
 }
 
+/**
+ * `fs.watch` has no "ready" event. Rewrite a benign change until the watcher reports one, so a
+ * test that writes immediately after `watch()` cannot race the OS watcher startup on a busy host.
+ */
+async function waitForWatcherReady(
+  tsp: ReturnType<typeof createTspProject>,
+  events: TspWatchEvent[],
+): Promise<void> {
+  const deadline = Date.now() + 5_000
+  while (events.length === 0 && Date.now() < deadline) {
+    tsp.write(['/a'])
+    await new Promise(resolveDelay => setTimeout(resolveDelay, 100))
+  }
+  if (events.length === 0) throw new Error('watcher did not become ready')
+  events.length = 0
+}
+
 afterEach(() => {
   for (const dir of scratchDirs.splice(0)) rmSync(dir, { recursive: true, force: true })
 })
@@ -223,6 +240,7 @@ describe('TypeSpec Builder Platform: TspProjectBuilder & createTspBuilder', () =
     const events: TspWatchEvent[] = []
     const handle = builder.watch(event => { events.push(event) }, { debounceMs: 50 })
     try {
+      await waitForWatcherReady(tsp, events)
       tsp.write(['/a', '/b'])
       const event = await waitFor(() => events.find(e => e.result?.routesCount === 2 || e.error !== undefined))
       expect(event.error).toBeUndefined()
@@ -240,6 +258,7 @@ describe('TypeSpec Builder Platform: TspProjectBuilder & createTspBuilder', () =
     const events: TspWatchEvent[] = []
     const handle = builder.watch(event => { events.push(event) }, { debounceMs: 50 })
     try {
+      await waitForWatcherReady(tsp, events)
       writeFileSync(tsp.main, 'this is not typespec {{{')
       const event = await waitFor(() => events.find(e => e.error !== undefined || e.result !== undefined))
       expect(event.result).toBeUndefined()
