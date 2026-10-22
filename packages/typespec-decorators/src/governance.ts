@@ -4,6 +4,7 @@
  * @doc discussions/intent-modularization-convention/track-c-oa-sdk-delegation/01-OA-SDK-OWNERSHIP-AND-DELEGATION-PLAN.md#todo-oa-01
  */
 
+import { getSourceLocation } from '@typespec/compiler'
 import type {
   DecoratorContext,
   DiagnosticTarget,
@@ -18,6 +19,7 @@ import type {
   Type,
   Union,
 } from '@typespec/compiler'
+import { createHash } from 'node:crypto'
 import { SyntaxKind, type Node } from '@typespec/compiler/ast'
 import { getExtensions, setExtension } from '@typespec/openapi'
 import {
@@ -99,6 +101,8 @@ interface AugmentedTrackingId {
   /** The type the statement names: the first type it ran on. */
   readonly named: TraceabilityTarget
   readonly trackingId: string
+  /** Declaration identity written next to the id (see {@link traceDeclarationId}). */
+  readonly declarationId?: string | undefined
   /**
    * Whether `named` is a concrete element, which carries the id, rather than part of a template;
    * `undefined` until `$onValidate` decides it (see {@link isConcreteAugmentTarget}).
@@ -254,11 +258,45 @@ export function $traceId(
   // of the declaration (each version document of a `@versioned` service is emitted from
   // one) is that same element in another view of the program, so it keeps the id.
   const application = context.decoratorTarget
+  const declarationId = traceDeclarationId(application)
   if (isSyntaxNode(application) && application.kind === SyntaxKind.AugmentDecoratorStatement) {
-    applyAugmentedTrackingId(context.program, application, target, normalized)
+    applyAugmentedTrackingId(context.program, application, target, normalized, declarationId)
   } else if (isDeclaringType(context, target)) {
-    writeTrackingId(context.program, target, normalized)
+    writeTrackingId(context.program, target, normalized, declarationId)
   }
+}
+
+/**
+ * Identity of the declaration a decorator application is written on, stable across every type
+ * TypeSpec derives from it: the OpenAPI emitter's visibility variants and mutator clones
+ * (`@versioned` snapshots, `MergePatchUpdate<T>`) replay the same application and therefore carry
+ * the same identity. Two separate `@traceId` applications get different identities (the compiler
+ * rejects reusing an id on a second declaration anyway).
+ *
+ * The value is a hash so `x-oa-sdk-trace` does not embed absolute source paths. `oa-gen trace`
+ * uses it to accept one tracking id shared by variants of one declaration, while still reporting
+ * the same id on genuinely different declarations (for example a hand-written OpenAPI file).
+ */
+function traceDeclarationId(application: DiagnosticTarget | undefined): string | undefined {
+  if (!isSyntaxNode(application)) return undefined
+  const declaration = application.kind === SyntaxKind.AugmentDecoratorStatement
+    ? application
+    : application.parent
+  if (declaration === undefined) return undefined
+  // Synthetic declarations (programmatically built decorator contexts, JS namespaces) have no
+  // real source file. Only a source declaration gets evidence.
+  let location: ReturnType<typeof getSourceLocation>
+  try {
+    location = getSourceLocation(declaration)
+  } catch {
+    return undefined
+  }
+  if (location.isSynthetic === true || location.file.path.length === 0) return undefined
+  const digest = createHash('sha256')
+    .update(`${location.file.path}\0${location.pos}`)
+    .digest('hex')
+    .slice(0, 16)
+  return `tsd_${digest}`
 }
 
 /**
@@ -282,18 +320,29 @@ export function $onValidate(program: Program): void {
     const owner = named.kind === 'ModelProperty' && named.model !== undefined ? owners.get(named.model) : undefined
     augmented.carries = owner !== undefined && !isPartOfTemplate(owner)
     if (augmented.carries) {
-      for (const target of augmented.undecided) writeTrackingId(program, target, augmented.trackingId)
+      for (const target of augmented.undecided) {
+        writeTrackingId(program, target, augmented.trackingId, augmented.declarationId)
+      }
     }
     augmented.undecided.length = 0
   })
 }
 
-function writeTrackingId(program: Program, target: TraceabilityTarget, trackingId: string): void {
+function writeTrackingId(
+  program: Program,
+  target: TraceabilityTarget,
+  trackingId: string,
+  declarationId?: string | undefined,
+): void {
   const existing = getExtensions(program, target).get(TRACE_EXTENSION)
   const trace = typeof existing === 'object' && existing !== null && !Array.isArray(existing)
     ? existing as Record<string, unknown>
     : {}
-  setExtension(program, target, TRACE_EXTENSION, { ...trace, trackingId })
+  setExtension(program, target, TRACE_EXTENSION, {
+    ...trace,
+    trackingId,
+    ...(declarationId !== undefined ? { declarationId } : {}),
+  })
 }
 
 /**
@@ -345,18 +394,25 @@ function applyAugmentedTrackingId(
   augment: Node,
   target: TraceabilityTarget,
   trackingId: string,
+  declarationId?: string | undefined,
 ): void {
   // Only this function writes the state map under AUGMENT_TARGET_STATE_KEY.
   const augments = program.stateMap(AUGMENT_TARGET_STATE_KEY)
   let augmented = augments.get(augment as never) as AugmentedTrackingId | undefined
   if (augmented === undefined) {
-    augmented = { named: target, trackingId, carries: isConcreteAugmentTarget(target), undecided: [] }
+    augmented = {
+      named: target,
+      trackingId,
+      ...(declarationId !== undefined ? { declarationId } : {}),
+      carries: isConcreteAugmentTarget(target),
+      undecided: [],
+    }
     augments.set(augment as never, augmented)
   } else if (!isSameDeclaration(target, augmented.named)) {
     return
   }
   if (augmented.carries === undefined) augmented.undecided.push(target)
-  else if (augmented.carries) writeTrackingId(program, target, trackingId)
+  else if (augmented.carries) writeTrackingId(program, target, trackingId, augmented.declarationId)
 }
 
 /**

@@ -51,39 +51,44 @@ boundaries를 확인했다. 현재 production source의 기준은 TypeSpec valid
 
 2026-10-19 안정화 pass([최근 완료](#x-2026-10-19-시스템-안정화-pass))에서 고치지 않고 남긴 항목이다.
 
-### [ ] `@traceId` trackingId를 공유하는 OpenAPI variant (설계 결정 필요)
+### [x] `@traceId` trackingId를 공유하는 OpenAPI variant (설계 결정 필요)
 배경: `x-oa-sdk-trace.trackingId`는 선언한 type과 그 mutator clone에 붙는다. 그래서 한 OpenAPI 문서 안에서 `@typespec/openapi3`의 visibility variant(`WidgetCreate`, `WidgetUpdate`)와 `MergePatchUpdate<T>` variant(`WidgetMergePatchUpdate`, 참조된 model의 `PartMergePatchUpdate`)가 원본과 같은 id를 갖고, `oa-gen trace --verify`가 `traceability/duplicate-tracking-id`를 보고한다. decorator 시점에는 merge-patch clone과 versioned snapshot clone을 구분할 수 없다. 이 한계는 [`packages/typespec-decorators/README.md`](../../packages/typespec-decorators/README.md)에 적혀 있다. 이 repo에는 `@traceId`와 `MergePatchUpdate`·`@versioned`를 함께 쓰는 `.tsp`가 없어 CI gate는 영향을 받지 않는다.
 작업:
 1. 같은 선언에서 나온 variant가 id를 공유하는 것을 허용할지, variant별 id를 파생할지 결정한다.
 2. 공유를 허용하면 `packages/codegen/src/traceability/spec-traceability.ts`의 duplicate grouping이 TypeSpec provenance가 같은 선언으로 해소되는 중복 explicit id를 받아들이게 한다.
 완료 기준: `@traceId`를 visibility·`MergePatchUpdate` variant와 함께 쓰는 fixture에서 `oa-gen trace --verify`가 결정한 정책대로 동작하는 테스트가 있다.
+완료 (2026-10-22): **공유를 허용한다.** decorator가 `x-oa-sdk-trace.declarationId`(선언 소스 위치의 해시)를 trackingId와 함께 emit하고, `buildSpecTraceabilityGraph`는 explicit id가 모두 있고 declarationId가 하나로 일치하면 variant로 보고 diagnostic을 내지 않는다. declarationId가 없거나 다르면 기존처럼 `traceability/duplicate-tracking-id` 오류다. 테스트: `typespec-trace-id-copies.test.ts`의 `MergePatchUpdate` fixture, `governance.emitter.test.ts`의 declarationId 공유 검사.
 
-### [ ] 공유 type과 파생 scalar로 퍼지는 `@traceId`
+### [x] 공유 type과 파생 scalar로 퍼지는 `@traceId`
 배경: TypeSpec은 `interface B extends A`가 복제한 operation의 `parameters`와 `op b is a`·`model B is A`의 익명 body·return·property type을 복제하지 않고 공유한다. 그래서 그런 type의 member에 붙인 `@traceId`가 파생된 모든 operation·schema 아래에 나타난다. inline parameter와 property는 trace graph node가 아니라 `oa-gen trace --verify`도 이를 보고하지 않는다. 또 `@typespec/openapi3`는 `scalar B extends A`의 schema를 A의 extension과 함께 만들어 두 schema가 같은 trackingId를 갖고, `oa-gen trace --verify`가 `traceability/duplicate-tracking-id`를 보고한다. 두 경우 모두 이번 pass 전부터 있었고, [`packages/typespec-decorators/README.md`](../../packages/typespec-decorators/README.md)와 `lib/governance.tsp`에 known limit으로 적었다.
 작업:
 1. id를 가진 parameters model이나 익명 type이 둘 이상의 concrete operation·model에서 도달 가능하면 `$onValidate`에서 진단할지 결정한다(`operationsByParameters`가 공유 관계를 이미 안다).
 2. 파생 scalar는 trace 쪽에서 base scalar provenance로 중복을 해소할지, decorator가 경고할지 결정한다.
 완료 기준: 두 경우의 fixture에서 결정한 정책대로 진단하거나 `oa-gen trace --verify`가 통과하는 테스트가 있다.
+완료 (2026-10-22): **공유를 허용하고 provenance로 해소한다.** 공유 parameters/익명 type과 `scalar B extends A`의 extension은 원 선언의 `declarationId`를 함께 가지므로 12번 정책으로 통과한다. 별도 선언에 같은 id를 쓰는 것은 compiler가 이미 거부하고, declarationId가 다른 중복은 trace가 계속 오류로 보고한다. `lib/governance.tsp`와 decorator README의 known limit을 정책 설명으로 바꿨다.
 
 ### [x] `@oa-sdk/client` TanStack `TError`에 transport 오류 포함
 배경: `packages/client/src/tanstack/options-factory-generator.ts`와 `hook-factory-generator.ts`는 error model이 있으면 query·mutation error 타입을 `<Op>Error`로만 둔다. 실제로 reject될 수 있는 네트워크 오류, abort, `ApiClientResponseError`는 `TError`에 없다. 지금은 [client and query consumption](../guides/client-and-query-consumption.md) 가이드가 `instanceof`로 좁히는 방법을 안내한다.
 작업: `TError`를 `<Op>Error | Error`로 넓힐지 결정하고, 넓히면 두 생성기, 생성 결과 테스트, 가이드를 함께 바꾼다.
 완료 (2026-10-22): 두 생성기의 error model 타입을 `<Op>Error | Error`로 넓혔다. 옵션 팩토리·훅·생성 결과 테스트와 [client and query consumption](../guides/client-and-query-consumption.md) 7.3절을 함께 바꿨다.
 
-### [ ] `ScenarioMachineContext.customData`의 TypeSpec 정의
+### [x] `ScenarioMachineContext.customData`의 TypeSpec 정의
 배경: `packages/spec-lens-contract/src/scenario/types.ts`의 `ScenarioMachineContext`에는 `customData?: Record<string, unknown>`이 있지만 `scenario.tsp`의 `model ScenarioMachineContext`에는 없다. 이번 pass 전부터 있던 TS·TypeSpec drift다.
 작업: `scenario.tsp`에 `customData?: Record<unknown>;`(필요하면 `@doc`)을 추가할지, TS field를 없앨지 결정한다.
 완료 기준: 두 정의의 field 집합이 같다.
+완료 (2026-10-22): `scenario.tsp`에 `customData?: Record<unknown>`과 `@doc`를 추가하고, 두 파일의 field 집합을 비교하는 회귀 테스트를 넣었다.
 
-### [ ] ast-sync에 남은 type boundary
+### [x] ast-sync에 남은 type boundary
 배경: 이번 pass의 대상 밖이라 그대로 둔 boundary다. `packages/ast-sync/src/adapters/json-schema.ts`의 `read()`·`patch()`와 `adapters/typia.ts`의 `default` tag 값은 `JSON.parse` 결과를 검증 없이 쓴다. `checker/cycle-detector.ts`(TypeScript `symbol.id`, `__tempDir`), `checker/program.ts`(`__tempDir`), `guards/generator.ts`(Ajv·standalone default export, format validator)에는 명시적 `any`가 남아 있다.
 작업: `JSON.parse` 결과를 이름 있는 validator로 검증하고, `any` 접근을 modeled type이나 guard로 바꾼다.
 완료 기준: `pnpm type-registry:check`의 boundary evidence에 이 파일들이 나오지 않는다.
+완료 (2026-10-22): JSON Schema `read()`/`patch()`는 `toJsonSchemaObject`/`parseJsonSchemaObject`로 검증하고, typia `@default`는 `parseJsonDefaultTag`로 JSON 값만 받는다. `symbol.id`/`__tempDir`/declaration name은 modeled type, exported accessor, `WeakMap`으로 바꿨고 Ajv/standalone default import와 format validator의 `any`도 제거했다. `type-registry:check` 기준 explicit `any` 134→120, unvalidated deserialize 118→117.
 
-### [ ] `oa-gen generate:tanstack --tier hooks`의 vue·svelte hook
+### [x] `oa-gen generate:tanstack --tier hooks`의 vue·svelte hook
 배경: `packages/codegen/src/cli/commands/generate-tanstack.ts`는 `--tier hooks`이면 `--framework vue|svelte`에서도 `includeHooks`를 켠다. `@oa-sdk/client`의 hook 생성기는 React 형식의 `use*` hook을 만들기 때문에, 그 출력이 `@tanstack/vue-query`·`@tanstack/svelte-query`를 import하면서 React 전용 API 형태를 쓴다. 이번 pass 전부터 있던 동작이며 문서에 없다.
 작업: vue·svelte에서 `--tier hooks`를 거부할지, framework별 hook 생성기를 둘지 결정하고 CLI 도움말과 [CLI command reference](../guides/cli-command-reference.md)를 맞춘다.
 완료 기준: vue·svelte target의 `--tier hooks` 결과가 해당 패키지에 대해 type-check되거나, 명확한 오류로 거부된다.
+완료 (2026-10-22): `--framework vue|svelte --tier hooks`를 오류로 거부하고, keys+options는 프레임워크 중립 타입으로 컴파일되게 했다([PR #13](https://github.com/mineclover/oa-sdk/pull/13)).
 
 ## spec-lens 잔여 항목
 

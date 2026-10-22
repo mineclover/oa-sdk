@@ -208,4 +208,24 @@ describe('JsonSchemaTypeAdapter (V3 Unified Architecture)', () => {
     expect(parsed.properties.published).toBeDefined();
     expect(parsed.properties.published.type).toBe('boolean');
   });
+
+  it('rejects parsed input that is not a JSON Schema object', () => {
+    expect(() => jsonAdapter.read('[]')).toThrow(/must be a JSON object/);
+    expect(() => jsonAdapter.read('"text"')).toThrow(/must be a JSON object/);
+    expect(() => jsonAdapter.read('{')).toThrow(/not valid JSON/);
+    expect(() => jsonAdapter.read('{"type": 1}')).toThrow(/"type" must be a string or an array of strings/);
+    expect(() => jsonAdapter.read('{"required": [1]}')).toThrow(/"required" must be an array of strings/);
+    expect(() => jsonAdapter.read('{"properties": []}')).toThrow(/"properties" must be an object/);
+  });
+
+  it('falls back to a fresh document when patching malformed input', () => {
+    const target: EntitySpec = {
+      id: 'fallback',
+      name: 'Fallback',
+      kind: 'schema',
+      properties: { id: { name: 'id', type: 'string', optional: false } },
+    };
+    const written = jsonAdapter.patch('{', target);
+    expect(JSON.parse(written).properties.id.type).toBe('string');
+  });
 });

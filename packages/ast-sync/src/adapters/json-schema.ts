@@ -38,6 +38,72 @@ export interface JsonSchemaObject {
   [key: string]: unknown;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function assertStringMember(value: Record<string, unknown>, key: string): void {
+  if (value[key] !== undefined && typeof value[key] !== 'string') {
+    throw new TypeError(`JSON Schema member "${key}" must be a string`);
+  }
+}
+
+function assertNumberMember(value: Record<string, unknown>, key: string): void {
+  if (value[key] !== undefined && typeof value[key] !== 'number') {
+    throw new TypeError(`JSON Schema member "${key}" must be a number`);
+  }
+}
+
+function assertArrayOfStrings(value: Record<string, unknown>, key: string): void {
+  if (value[key] === undefined) return;
+  const member = value[key];
+  if (!Array.isArray(member) || member.some(item => typeof item !== 'string')) {
+    throw new TypeError(`JSON Schema member "${key}" must be an array of strings`);
+  }
+}
+
+/**
+ * Validates the members this adapter reads before returning a parsed JSON Schema.
+ * `JSON.parse` returns `unknown`; handing it to the entity parser without checking these
+ * shapes would let a malformed document become a lie in `EntitySpec`.
+ */
+function toJsonSchemaObject(value: Record<string, unknown>): JsonSchemaObject {
+  for (const key of ['$schema', '$id', 'title', 'description', 'pattern', 'format']) {
+    assertStringMember(value, key);
+  }
+  for (const key of ['minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum', 'minLength', 'maxLength', 'multipleOf']) {
+    assertNumberMember(value, key);
+  }
+  assertArrayOfStrings(value, 'required');
+  if (
+    value.type !== undefined
+    && typeof value.type !== 'string'
+    && !(Array.isArray(value.type) && value.type.every(item => typeof item === 'string'))
+  ) {
+    throw new TypeError('JSON Schema member "type" must be a string or an array of strings');
+  }
+  if (value.properties !== undefined && !isRecord(value.properties)) {
+    throw new TypeError('JSON Schema member "properties" must be an object');
+  }
+  if (value.$defs !== undefined && !isRecord(value.$defs)) {
+    throw new TypeError('JSON Schema member "$defs" must be an object');
+  }
+  return value as JsonSchemaObject;
+}
+
+function parseJsonSchemaObject(source: string): JsonSchemaObject {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(source);
+  } catch (error) {
+    throw new TypeError(`JSON Schema is not valid JSON: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  if (!isRecord(parsed)) {
+    throw new TypeError('JSON Schema must be a JSON object');
+  }
+  return toJsonSchemaObject(parsed);
+}
+
 /**
  * Parses a JSON Schema property definition into EntityPropertySpec.
  */
@@ -251,8 +317,9 @@ export class JsonSchemaTypeAdapter implements TypeAdapter<string | Record<string
    * Parses JSON Schema Draft 2020-12 into normalized EntitySpec.
    */
   public read(source: string | Record<string, unknown>): EntitySpec {
-    const raw: JsonSchemaObject =
-      typeof source === 'string' ? JSON.parse(source) : (source as JsonSchemaObject);
+    const raw: JsonSchemaObject = typeof source === 'string'
+      ? parseJsonSchemaObject(source)
+      : toJsonSchemaObject(source);
 
     const schemaName = raw.title || raw.$id?.split('/').pop()?.replace(/\.json$/, '') || 'AnonymousSchema';
     const requiredSet = new Set(Array.isArray(raw.required) ? raw.required : []);
@@ -340,7 +407,9 @@ export class JsonSchemaTypeAdapter implements TypeAdapter<string | Record<string
   ): string {
     let raw: JsonSchemaObject;
     try {
-      raw = typeof originalSource === 'string' ? JSON.parse(originalSource) : { ...originalSource };
+      raw = typeof originalSource === 'string'
+        ? parseJsonSchemaObject(originalSource)
+        : toJsonSchemaObject({ ...originalSource });
     } catch {
       return this.write(targetSpec);
     }

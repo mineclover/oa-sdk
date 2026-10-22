@@ -73,6 +73,27 @@ interface BasesV2 extends Bases {}
 };
 `
 
+const MERGE_PATCH_TSP = `
+import "@typespec/http";
+import "@oa-sdk/typespec-decorators/governance";
+
+using Http;
+using OaSdkTypeSpec;
+
+@service(#{ title: "Merge patch trace" })
+namespace MergePatchTrace;
+
+@traceId("TRC-PART-001")
+model Part { @traceId("TRC-PART-LABEL-001") label: string; }
+
+@traceId("TRC-WIDGET-001")
+model Widget { @traceId("TRC-WIDGET-NAME-001") name: string; part: Part; }
+
+@route("/widgets/{id}") @get op getWidget(@path id: string): Widget;
+@route("/widgets/{id}") @patch(#{ implicitOptionality: false })
+op updateWidget(@path id: string, @body body: MergePatchUpdate<Widget>): Widget;
+`
+
 describe('TypeSpec @traceId copies through the trace gate', () => {
   it('compiles `model Derived is Base` through openapi3 and passes buildSpecTraceabilityGraph without duplicate ids', async () => {
     const directory = typeSpecProject(DERIVED_TYPES_TSP)
@@ -96,6 +117,25 @@ describe('TypeSpec @traceId copies through the trace gate', () => {
     // Operations cloned by `interface BasesV2 extends Bases`.
     expect(tracking('#/paths/~1bases/get')).toEqual(['explicit', 'TRC-LIST-BASES-001'])
     expect(tracking('#/paths/~1v2~1bases/get')).toEqual(['generated', 'generated'])
+  }, 60_000)
+
+  it('accepts one id shared by MergePatchUpdate variants of the same declaration', async () => {
+    const directory = typeSpecProject(MERGE_PATCH_TSP)
+    const { document } = await compileTypeSpecInMemory(join(directory, 'main.tsp'))
+
+    const graph = buildSpecTraceabilityGraph({ spec: document })
+
+    expect(graph.diagnostics).toEqual([])
+    const widget = graph.nodes['#/components/schemas/Widget']!
+    const patch = graph.nodes['#/components/schemas/WidgetMergePatchUpdate']!
+    expect(widget.trackingIdSource).toBe('explicit')
+    expect(widget.trackingId).toBe('TRC-WIDGET-001')
+    expect(patch.trackingId).toBe('TRC-WIDGET-001')
+    expect(widget.declarationId).toMatch(/^tsd_[0-9a-f]{16}$/)
+    expect(patch.declarationId).toBe(widget.declarationId)
+    // A different declaration has different evidence, so a shared id across these still fails.
+    const part = graph.nodes['#/components/schemas/Part']!
+    expect(part.declarationId).not.toBe(widget.declarationId)
   }, 60_000)
 
   it('lets `oa-gen trace --verify` accept the emitted document', async () => {

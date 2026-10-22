@@ -33,10 +33,15 @@ extern dec pseudonymize(
  * it is written on, and on mutator clones of it (e.g. `@versioned` snapshots).
  * Types TypeSpec derives from that declaration (`is` copies, interface-extends clones,
  * spread copies, template instances) do not carry it; give such a type its own @traceId.
+ * Each emission also carries `x-oa-sdk-trace.declarationId`, a hash of the declaration the
+ * application is written on. Visibility variants and `MergePatchUpdate<T>` clones share that
+ * id, so `oa-gen trace` accepts one tracking id across them; two independent declarations
+ * still produce different ids (and the compiler rejects reusing an id on a second one).
  * Known limits: parameters and anonymous types that TypeSpec shares between a declaration
  * and its derived types (interface-extends operation parameters, anonymous body/return/property
  * types of `op is`/`model is`) keep the id under every derived element, and
- * `scalar B extends A` inherits A's id through the OpenAPI emitter.
+ * `scalar B extends A` inherits A's id through the OpenAPI emitter; those emissions share the
+ * declarationId of the declaration they came from.
  * An id may be written in only one @traceId application per program.
  */
 extern dec traceId(

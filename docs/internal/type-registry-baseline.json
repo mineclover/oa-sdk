@@ -1735,13 +1735,6 @@
         "line": 150
       },
       {
-        "boundaryId": "type-boundary:0c996cbbb7b0082164cdef89433b0325",
-        "column": 31,
-        "filePath": "packages/ast-sync/src/checker/cycle-detector.ts",
-        "kind": "any",
-        "line": 191
-      },
-      {
         "boundaryId": "type-boundary:0ccf4c57e9de277700b678b54477f3fa",
         "column": 17,
         "filePath": "packages/rpc/src/http-codec.ts",
@@ -2008,13 +2001,6 @@
         "targetType": "80:\"Def\""
       },
       {
-        "boundaryId": "type-boundary:2b1105df96f757b6ff4ef5675b6e52e8",
-        "column": 91,
-        "filePath": "packages/ast-sync/src/guards/generator.ts",
-        "kind": "any",
-        "line": 20
-      },
-      {
         "boundaryId": "type-boundary:2c567bc27536e479a6e36b9098acdcc5",
         "column": 12,
         "filePath": "packages/spec-lens/src/presentation/http/server.ts",
@@ -2087,6 +2073,14 @@
         "sourceType": "c.json"
       },
       {
+        "boundaryId": "type-boundary:313e390a95b2f6803aaf95c717d5ba86",
+        "column": 29,
+        "filePath": "packages/ast-sync/src/adapters/typia.ts",
+        "kind": "deserialize",
+        "line": 76,
+        "sourceType": "JSON.parse"
+      },
+      {
         "boundaryId": "type-boundary:31b068135c518c154459a3d525d70843",
         "column": 63,
         "filePath": "packages/mock-server/src/plugins/in-memory-store.ts",
@@ -2107,13 +2101,6 @@
         "filePath": "packages/codegen/src/cli/lib/typespec-ast-diff.ts",
         "kind": "any",
         "line": 119
-      },
-      {
-        "boundaryId": "type-boundary:334a246d22cb4dca069dd2b68abb42fb",
-        "column": 23,
-        "filePath": "packages/ast-sync/src/checker/cycle-detector.ts",
-        "kind": "any",
-        "line": 35
       },
       {
         "boundaryId": "type-boundary:35cad82e57d569fb8c9087698dbb1bf0",
@@ -2153,13 +2140,6 @@
         "kind": "deserialize",
         "line": 94,
         "sourceType": "c.json"
-      },
-      {
-        "boundaryId": "type-boundary:38632065b4364640c8c999df132d709e",
-        "column": 18,
-        "filePath": "packages/ast-sync/src/checker/cycle-detector.ts",
-        "kind": "any",
-        "line": 42
       },
       {
         "boundaryId": "type-boundary:386463ba4815e63e867cf68c102207c6",
@@ -2279,13 +2259,6 @@
         "sourceType": "JSON.parse"
       },
       {
-        "boundaryId": "type-boundary:49e1a66c25678e26350d88ab15cb470e",
-        "column": 36,
-        "filePath": "packages/ast-sync/src/guards/generator.ts",
-        "kind": "any",
-        "line": 529
-      },
-      {
         "boundaryId": "type-boundary:4aef80db96ae842d47d8c10f7b2136fc",
         "column": 14,
         "filePath": "packages/rpc/src/http-codec.ts",
@@ -2365,13 +2338,6 @@
         "sourceType": "c.json"
       },
       {
-        "boundaryId": "type-boundary:52488773f7ffa2e7740b77a525e0424d",
-        "column": 18,
-        "filePath": "packages/ast-sync/src/guards/generator.ts",
-        "kind": "any",
-        "line": 529
-      },
-      {
         "boundaryId": "type-boundary:52c75f15a49b7cb4d2c94791da73fb89",
         "column": 44,
         "filePath": "packages/tools/src/app.ts",
@@ -2384,13 +2350,6 @@
         "filePath": "packages/codegen/src/cli/commands/generate-zod.ts",
         "kind": "any",
         "line": 62
-      },
-      {
-        "boundaryId": "type-boundary:544865f553d318848ba4c1fb9c743396",
-        "column": 27,
-        "filePath": "packages/ast-sync/src/guards/generator.ts",
-        "kind": "any",
-        "line": 576
       },
       {
         "boundaryId": "type-boundary:556039551e6903db856fbe0527ebc63e",
@@ -2460,13 +2419,6 @@
         "filePath": "packages/codegen/src/cli/commands/generate-client.ts",
         "kind": "any",
         "line": 85
-      },
-      {
-        "boundaryId": "type-boundary:5dd8d673fa5040e4dcf9e3cec08e1c84",
-        "column": 15,
-        "filePath": "packages/ast-sync/src/checker/program.ts",
-        "kind": "any",
-        "line": 45
       },
       {
         "boundaryId": "type-boundary:5deca8ac0509fb56a6e8191ba3eabc2a",
@@ -2668,26 +2620,12 @@
         "sourceType": "JSON.parse"
       },
       {
-        "boundaryId": "type-boundary:779f00d60d66924631f154aa495700e1",
-        "column": 33,
-        "filePath": "packages/ast-sync/src/checker/cycle-detector.ts",
-        "kind": "any",
-        "line": 270
-      },
-      {
         "boundaryId": "type-boundary:77bc27fb9766232cee2cb713a0532d22",
         "column": 10,
         "filePath": "packages/codegen/src/cli/lib/typespec-bundle-check.ts",
         "kind": "deserialize",
         "line": 966,
         "sourceType": "JSON.parse"
-      },
-      {
-        "boundaryId": "type-boundary:77bee4ae49c82650f6a5c86503362ce0",
-        "column": 82,
-        "filePath": "packages/ast-sync/src/checker/cycle-detector.ts",
-        "kind": "any",
-        "line": 34
       },
       {
         "boundaryId": "type-boundary:78b7a3f6a7ede2d6373ea59e2c057739",
@@ -2720,14 +2658,6 @@
         "filePath": "packages/mock-server/src/plugins/in-memory-store.ts",
         "kind": "any",
         "line": 7
-      },
-      {
-        "boundaryId": "type-boundary:7c20c1c11de4f3c310396715901a7aed",
-        "column": 50,
-        "filePath": "packages/ast-sync/src/adapters/json-schema.ts",
-        "kind": "deserialize",
-        "line": 343,
-        "sourceType": "JSON.parse"
       },
       {
         "boundaryId": "type-boundary:7fc098a0a631bc4424cd6d259fe95cb9",
@@ -3067,10 +2997,10 @@
       },
       {
         "boundaryId": "type-boundary:a832b8aa846cc6f18ceaa187dba96a8a",
-        "column": 36,
+        "column": 14,
         "filePath": "packages/ast-sync/src/adapters/json-schema.ts",
         "kind": "deserialize",
-        "line": 255,
+        "line": 97,
         "sourceType": "JSON.parse"
       },
       {
@@ -3203,13 +3133,6 @@
         "line": 173
       },
       {
-        "boundaryId": "type-boundary:b4270e9058a73eb03a9e9485b89ab8e3",
-        "column": 52,
-        "filePath": "packages/ast-sync/src/guards/generator.ts",
-        "kind": "any",
-        "line": 576
-      },
-      {
         "boundaryId": "type-boundary:b742b04ceb8c0ac78f26c96af0b30ea7",
         "column": 52,
         "filePath": "packages/codegen/src/cli/lib/load-spec.ts",
@@ -3268,14 +3191,6 @@
         "filePath": "packages/codegen/src/zodgen/runtime-adapter.ts",
         "kind": "any",
         "line": 28
-      },
-      {
-        "boundaryId": "type-boundary:c1cb85d917b7dfd6656080356a019f34",
-        "column": 28,
-        "filePath": "packages/ast-sync/src/adapters/typia.ts",
-        "kind": "deserialize",
-        "line": 133,
-        "sourceType": "JSON.parse"
       },
       {
         "boundaryId": "type-boundary:c1f0aa9cbe6b6749466c41c5c640e601",
@@ -3378,13 +3293,6 @@
         "sourceType": "JSON.parse"
       },
       {
-        "boundaryId": "type-boundary:c920b056a4f4150b24c4fa639c516694",
-        "column": 47,
-        "filePath": "packages/ast-sync/src/checker/cycle-detector.ts",
-        "kind": "any",
-        "line": 34
-      },
-      {
         "boundaryId": "type-boundary:c9274074a284252a347094a995fba26a",
         "column": 21,
         "filePath": "packages/codegen/src/cli/commands/mock.ts",
@@ -3398,13 +3306,6 @@
         "kind": "deserialize",
         "line": 141,
         "sourceType": "sharedTextDecoder.decode"
-      },
-      {
-        "boundaryId": "type-boundary:c9c7020e071b680451c73205dc72b947",
-        "column": 31,
-        "filePath": "packages/ast-sync/src/checker/program.ts",
-        "kind": "any",
-        "line": 115
       },
       {
         "boundaryId": "type-boundary:ca33b308a4149fbeb70fa76f9e636e73",
@@ -3488,13 +3389,6 @@
         "kind": "deserialize",
         "line": 205,
         "sourceType": "c.json"
-      },
-      {
-        "boundaryId": "type-boundary:d41070f6dd9e8b50cbf49e3e4e5204e5",
-        "column": 18,
-        "filePath": "packages/ast-sync/src/checker/cycle-detector.ts",
-        "kind": "any",
-        "line": 34
       },
       {
         "boundaryId": "type-boundary:d63514437d228199973bd2c918b9a46d",
@@ -5479,6 +5373,36 @@
       },
       {
         "filePath": "packages/ast-sync/src/adapters/json-schema.ts",
+        "identity": "packages/ast-sync/src/adapters/json-schema.ts#src/adapters/json-schema.ts#neutral#@oa-sdk/ast-sync:src/adapters/json-schema.ts#assertArrayOfStrings#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/ast-sync:src/adapters/json-schema.ts#assertArrayOfStrings",
+        "runtime": "neutral",
+        "semanticHash": "1e23bb47904f64bc83943c1511c47da4fe8419b5f55def20713e447d56aff0f4",
+        "shapeHash": "c7d48f73ffe16c7dd8218c20d304d487b4e62a28c94ad17b18abe238ed2337a0",
+        "syntaxHash": "c3e0c2f4d52ff499cc530be09e36e8d6fb6e2424d88037f1b1376cefde37dbcf"
+      },
+      {
+        "filePath": "packages/ast-sync/src/adapters/json-schema.ts",
+        "identity": "packages/ast-sync/src/adapters/json-schema.ts#src/adapters/json-schema.ts#neutral#@oa-sdk/ast-sync:src/adapters/json-schema.ts#assertNumberMember#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/ast-sync:src/adapters/json-schema.ts#assertNumberMember",
+        "runtime": "neutral",
+        "semanticHash": "2f8ae5abbb33fa8e395e059a799b2370c4d9fadca958004fb84865ba548263f8",
+        "shapeHash": "c7d48f73ffe16c7dd8218c20d304d487b4e62a28c94ad17b18abe238ed2337a0",
+        "syntaxHash": "a4c41bdcde7fd0eac490609ebdf3a3d79baa04fe137c1cff3937df54744e9001"
+      },
+      {
+        "filePath": "packages/ast-sync/src/adapters/json-schema.ts",
+        "identity": "packages/ast-sync/src/adapters/json-schema.ts#src/adapters/json-schema.ts#neutral#@oa-sdk/ast-sync:src/adapters/json-schema.ts#assertStringMember#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/ast-sync:src/adapters/json-schema.ts#assertStringMember",
+        "runtime": "neutral",
+        "semanticHash": "7903d41ff581f35f3b4a11d19caeb48a204f82a4072a367fc615225bc96e5658",
+        "shapeHash": "c7d48f73ffe16c7dd8218c20d304d487b4e62a28c94ad17b18abe238ed2337a0",
+        "syntaxHash": "85be325a1facc2d92168ecceb5830278c169f2d7f7cec8cbf58a792a108cd73d"
+      },
+      {
+        "filePath": "packages/ast-sync/src/adapters/json-schema.ts",
         "identity": "packages/ast-sync/src/adapters/json-schema.ts#src/adapters/json-schema.ts#neutral#@oa-sdk/ast-sync:src/adapters/json-schema.ts#emitPropertySchema#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/ast-sync:src/adapters/json-schema.ts#emitPropertySchema",
@@ -5486,6 +5410,16 @@
         "semanticHash": "dd335b05aa47f69d8692b270c7661a085e592653ff44e702cff28fd69388f2c4",
         "shapeHash": "181224bfa8237a80604090c0c69192292105d850dfa6e2d988d8e041ac2a81a6",
         "syntaxHash": "9e08e9945a7f7586525bd7f268900c255869c90064a31a9e501828dce0c1d2aa"
+      },
+      {
+        "filePath": "packages/ast-sync/src/adapters/json-schema.ts",
+        "identity": "packages/ast-sync/src/adapters/json-schema.ts#src/adapters/json-schema.ts#neutral#@oa-sdk/ast-sync:src/adapters/json-schema.ts#isRecord#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/ast-sync:src/adapters/json-schema.ts#isRecord",
+        "runtime": "neutral",
+        "semanticHash": "817aaa54f5db297323f930f2f365a5f08e4d402aa0beeeb893f52cb744c77d5a",
+        "shapeHash": "c91435eb4555d6c825407db05a6f1c9d47975c263b297896e25bbd7ddaf682c0",
+        "syntaxHash": "2355fbd7a17dea651464fd1829f053432b437b8521d4b8ed72062990473bdf49"
       },
       {
         "filePath": "packages/ast-sync/src/adapters/json-schema.ts",
@@ -5505,7 +5439,7 @@
         "runtime": "neutral",
         "semanticHash": "8d4221a0617114fb6ccde90c1cde3e152ed8cda07b6b42dcd050c7aac49968e7",
         "shapeHash": "32fb68b3ce4db5508fbe15b1f5dbe08770982178cb91d5c12e94b14462c47da6",
-        "syntaxHash": "5508ff3056046a72246f51a30e83d22ff2ca6d3310345339b392606bd5e3e19a"
+        "syntaxHash": "30c2d675e873742b3fdc4b5f5c8300eef5a26b56f07bc867f8369b87e5511f85"
       },
       {
         "filePath": "packages/ast-sync/src/adapters/json-schema.ts",
@@ -5519,6 +5453,16 @@
       },
       {
         "filePath": "packages/ast-sync/src/adapters/json-schema.ts",
+        "identity": "packages/ast-sync/src/adapters/json-schema.ts#src/adapters/json-schema.ts#neutral#@oa-sdk/ast-sync:src/adapters/json-schema.ts#parseJsonSchemaObject#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/ast-sync:src/adapters/json-schema.ts#parseJsonSchemaObject",
+        "runtime": "neutral",
+        "semanticHash": "38c27f6f93f9293671622c3f9237a742f3f6806437e97d8b5bb33fda26da60e6",
+        "shapeHash": "47d4357a35195405c44a59f6108fd65128b7455bd3b77b9165f97e622c2574fa",
+        "syntaxHash": "6d59ce9016efa664ad34ac8db7913d18c5e9359ac226c28772556f4cd859b0bb"
+      },
+      {
+        "filePath": "packages/ast-sync/src/adapters/json-schema.ts",
         "identity": "packages/ast-sync/src/adapters/json-schema.ts#src/adapters/json-schema.ts#neutral#@oa-sdk/ast-sync:src/adapters/json-schema.ts#parseProperty#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/ast-sync:src/adapters/json-schema.ts#parseProperty",
@@ -5526,6 +5470,16 @@
         "semanticHash": "bc0e63d2e158c07b8f985634c86a6d597bba0a01a14d403eb307825fcc05f7bc",
         "shapeHash": "ea3fb28545dd16f79ddc9e8458124f420a14fc4a0cc70c024c244e430828ec5f",
         "syntaxHash": "74561abd7d87e8680e3aef0aa8eff2e256ae3c038e01f669a4086a59fdf14c89"
+      },
+      {
+        "filePath": "packages/ast-sync/src/adapters/json-schema.ts",
+        "identity": "packages/ast-sync/src/adapters/json-schema.ts#src/adapters/json-schema.ts#neutral#@oa-sdk/ast-sync:src/adapters/json-schema.ts#toJsonSchemaObject#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/ast-sync:src/adapters/json-schema.ts#toJsonSchemaObject",
+        "runtime": "neutral",
+        "semanticHash": "e84b95b060c1e268c60f02f21c8337de3b22214e7124d771186b6ea4538a1c4b",
+        "shapeHash": "e62f639a03b3c0347a19fa09fb4018b8a8cbc795df298e4a999ffd662d496328",
+        "syntaxHash": "064d4e153c433c26a161245df76ed50278892379cdbb4c7a6ce0135462b2a08b"
       },
       {
         "filePath": "packages/ast-sync/src/adapters/ts-ast.ts",
@@ -5599,6 +5553,16 @@
       },
       {
         "filePath": "packages/ast-sync/src/adapters/typia.ts",
+        "identity": "packages/ast-sync/src/adapters/typia.ts#src/adapters/typia.ts#neutral#@oa-sdk/ast-sync:src/adapters/typia.ts#isJsonValue#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/ast-sync:src/adapters/typia.ts#isJsonValue",
+        "runtime": "neutral",
+        "semanticHash": "6d93364808cd7fb78f7ec7a2ba60162b49a69c3330118367a96bc30727a649f6",
+        "shapeHash": "5798a75726bee020c0170a618817e15b6b9abdd47644acaa6a540564550b13c1",
+        "syntaxHash": "9694c0a2e3fdeda4a659bef7daf26197e13e55e4909a36ff1a4af0ce92befbf8"
+      },
+      {
+        "filePath": "packages/ast-sync/src/adapters/typia.ts",
         "identity": "packages/ast-sync/src/adapters/typia.ts#src/adapters/typia.ts#neutral#@oa-sdk/ast-sync:src/adapters/typia.ts#ParsedJSDoc#interface",
         "kind": "interface",
         "qualifiedName": "@oa-sdk/ast-sync:src/adapters/typia.ts#ParsedJSDoc",
@@ -5616,6 +5580,16 @@
         "semanticHash": "c26a9d322448243ea8e8771f07914fa673f04e9e986481f79bb954433a34d5a6",
         "shapeHash": "dcc92ba03482196d97c2cc4585bc6b1ea35b4b1b00e9b5000045acd991a5a3ec",
         "syntaxHash": "a613d5dacd36cb4ba86a0bfd50057354b52b75af070754a00ae921d179a207ea"
+      },
+      {
+        "filePath": "packages/ast-sync/src/adapters/typia.ts",
+        "identity": "packages/ast-sync/src/adapters/typia.ts#src/adapters/typia.ts#neutral#@oa-sdk/ast-sync:src/adapters/typia.ts#parseJsonDefaultTag#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/ast-sync:src/adapters/typia.ts#parseJsonDefaultTag",
+        "runtime": "neutral",
+        "semanticHash": "b4d57b2e542f5f3ad81c351451266d78fece4063528a18fd136cf1a94dc90ae7",
+        "shapeHash": "0afaf2ad123ae97921bec470642734fd0be8ffebeed8abbddd50f68049ca5114",
+        "syntaxHash": "639dc2156fc52632027fd7c8be54e1d9abe8c8b71f9039bb992c1cd5dd24c2de"
       },
       {
         "filePath": "packages/ast-sync/src/adapters/typia.ts",
@@ -5645,7 +5619,7 @@
         "runtime": "neutral",
         "semanticHash": "67ba4cae4132e46b742a5cf4643bc05ffe7f9ffc3972a99c5175774c31490dd2",
         "shapeHash": "ef9a71c5df2c3e11e03c7d8ab0c33a74b761a407acd73c26643ce59d79d19269",
-        "syntaxHash": "908a23b9a86e851f3e5c5a2e876ee60610d5de38b5e6ae848dda8993ec1cf0bf"
+        "syntaxHash": "6e50419c2fe8856685e207713eef37cbdccc4138ef8ef5f76d241c3ad44cef97"
       },
       {
         "filePath": "packages/ast-sync/src/adapters/typia.ts",
@@ -5729,13 +5703,23 @@
       },
       {
         "filePath": "packages/ast-sync/src/checker/cycle-detector.ts",
+        "identity": "packages/ast-sync/src/checker/cycle-detector.ts#src/checker/cycle-detector.ts#neutral#@oa-sdk/ast-sync:src/checker/cycle-detector.ts#declarationName#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/ast-sync:src/checker/cycle-detector.ts#declarationName",
+        "runtime": "neutral",
+        "semanticHash": "961b8dc570351523b2b51c3450e42ac4fd4ee969840830f4955b417fba514497",
+        "shapeHash": "a6c4d82de1d43ae9606926155f92b4de62dea40937f40470a93f250f2a80c684",
+        "syntaxHash": "afc8a41517814f0bcc0d9d3040fe4c08dc69e2f2f41521e556bdc61539c37f68"
+      },
+      {
+        "filePath": "packages/ast-sync/src/checker/cycle-detector.ts",
         "identity": "packages/ast-sync/src/checker/cycle-detector.ts#src/checker/cycle-detector.ts#neutral#@oa-sdk/ast-sync:src/checker/cycle-detector.ts#detectCyclesWithChecker#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/ast-sync:src/checker/cycle-detector.ts#detectCyclesWithChecker",
         "runtime": "neutral",
         "semanticHash": "c7334fd107b48b76cc495561d4b490cf8d082e772c3db9f2834fcc1f12272530",
         "shapeHash": "02a7425a7b78c5a8bdd745a3680a8e6da9227ae01549fd13fee757d7245ff359",
-        "syntaxHash": "55930cdfc670bf774fd887c59225c0af5d68626adec301c807a6a3fbf4102353"
+        "syntaxHash": "e3f76b610fc65fb5d154dc1e4b266b922ed97ea8d26a8716452d4eb4cf2c0997"
       },
       {
         "filePath": "packages/ast-sync/src/checker/cycle-detector.ts",
@@ -5745,7 +5729,7 @@
         "runtime": "neutral",
         "semanticHash": "f888fe30c90564fe3c34e8d975800962e0673033c46da69fabee3793347dc48b",
         "shapeHash": "23213a7e85519c265862a3a9dcaa8aa3b36d946b75c5b7238b880db0155405c6",
-        "syntaxHash": "17988fa5adadba3d3128a9764816bc8a96268224892464d2c25b968471010eeb"
+        "syntaxHash": "1fc1ffa7e20b22b7234d9599df7dff6fdf9611bd43a8e9ed851aec553307e73a"
       },
       {
         "filePath": "packages/ast-sync/src/checker/cycle-detector.ts",
@@ -5756,6 +5740,16 @@
         "semanticHash": "b919d89196d33663d7306a185b1983376b0f858db140d0882970efa5e97cdf1a",
         "shapeHash": "6ee574a1094fbdc761e81534f54959444695fab726e13623978d28a4be72da3c",
         "syntaxHash": "112eb91da4b16b744fdf8c1b167680c5f6c635a377279d29206838ce57b53012"
+      },
+      {
+        "filePath": "packages/ast-sync/src/checker/cycle-detector.ts",
+        "identity": "packages/ast-sync/src/checker/cycle-detector.ts#src/checker/cycle-detector.ts#neutral#@oa-sdk/ast-sync:src/checker/cycle-detector.ts#readInternalSymbolId#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/ast-sync:src/checker/cycle-detector.ts#readInternalSymbolId",
+        "runtime": "neutral",
+        "semanticHash": "4e345a7afc6d4567ff193edce0a34cd85a5ef794d01b471d2c046106dc3edcb6",
+        "shapeHash": "06d2aa78a2009d68f94750356f72740f25629e0f96c2c44040ac8291afe8ba89",
+        "syntaxHash": "6289d58a1eec1af18bbed37498b9935c53378e62249aaf33d4559eccf8f789a8"
       },
       {
         "filePath": "packages/ast-sync/src/checker/cycle-detector.ts",
@@ -5789,6 +5783,16 @@
       },
       {
         "filePath": "packages/ast-sync/src/checker/cycle-detector.ts",
+        "identity": "packages/ast-sync/src/checker/cycle-detector.ts#src/checker/cycle-detector.ts#neutral#@oa-sdk/ast-sync:src/checker/cycle-detector.ts#SymbolWithInternalId#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/ast-sync:src/checker/cycle-detector.ts#SymbolWithInternalId",
+        "runtime": "neutral",
+        "semanticHash": "617822d85502ff870216f1020738e77c42aac03c8765f5d94c3a551f6a11e9ea",
+        "shapeHash": "e6c87846e13d6b25803c35d4583375b86e03aa2e9ed8a4c7a186a53f7b1babba",
+        "syntaxHash": "7cbec68e0bf780a717a1e764fe9bdbe38d64b3aa61c3f4cafc4d98ec5201ac8d"
+      },
+      {
+        "filePath": "packages/ast-sync/src/checker/cycle-detector.ts",
         "identity": "packages/ast-sync/src/checker/cycle-detector.ts#src/checker/cycle-detector.ts#neutral#@oa-sdk/ast-sync:src/checker/cycle-detector.ts#withRecursiveReference#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/ast-sync:src/checker/cycle-detector.ts#withRecursiveReference",
@@ -5805,7 +5809,7 @@
         "runtime": "neutral",
         "semanticHash": "ffbda51726f44a5656aa7b0b887815b348184d4f6aaaa7a1833b1d7575455ec2",
         "shapeHash": "47449f7ad414eff610f3e36bebd23bc64dafdef6f7ad7abc6685584c988cca53",
-        "syntaxHash": "63d0bbaa84ce1aa0a82977e32e1b89cdef799e7bbce972fb6a84a0f8d19c369a"
+        "syntaxHash": "5b3b92f6f089ecf5a4781fec41c418c96be194d685511951c23a96b8c9d34aea"
       },
       {
         "filePath": "packages/ast-sync/src/checker/program.ts",
@@ -5825,7 +5829,17 @@
         "runtime": "neutral",
         "semanticHash": "0d1884b803ccd8681d46f52b97f0bfbd01d6c2a5b2d8294948c978e696b5d82a",
         "shapeHash": "8be7d9f48692d2837cdc5d16230112c5362e14073379ac743143bccbd77c591b",
-        "syntaxHash": "9b1e95548600b7a51b52a17a4e5778804cb16bad77ca8b1da37af1db923bf133"
+        "syntaxHash": "a9070ad20128d5aa5124d77257d7937a5a0f86a4a632649923cb7e0e9ffa5ad2"
+      },
+      {
+        "filePath": "packages/ast-sync/src/checker/program.ts",
+        "identity": "packages/ast-sync/src/checker/program.ts#src/checker/program.ts#neutral#@oa-sdk/ast-sync:src/checker/program.ts#getProgramTempDir#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/ast-sync:src/checker/program.ts#getProgramTempDir",
+        "runtime": "neutral",
+        "semanticHash": "597ee58da8f114fe2e63647265545cd2df907d7e09acf3d589f30b8189d8ef26",
+        "shapeHash": "247c92ec80bd8dc1100ba24457ee7e9ae67958e1c4fb1748f3f2a326258323b3",
+        "syntaxHash": "6e606c734e538f09def9dbea0d573bde86e531ea670678729151c1315a2f63e7"
       },
       {
         "filePath": "packages/ast-sync/src/checker/program.ts",
@@ -6375,7 +6389,7 @@
         "runtime": "neutral",
         "semanticHash": "8788988a14dc71873de58aa5bf8e8736759b31e8639cecf99f3f90b0b56d166a",
         "shapeHash": "9e94f93f91c0c1585e22f8468294bf0696b02e05b86d16bd561e9cac5b5deb44",
-        "syntaxHash": "dddbabb8b6fe9c74feb499e37094bd3cd56951f156132cac8275b155e864d75d"
+        "syntaxHash": "cdacfbf396f89b977fadcb7c45049f96121b63af74423058f396316271ec6a56"
       },
       {
         "filePath": "packages/ast-sync/src/guards/generator.ts",
@@ -29365,7 +29379,7 @@
         "runtime": "neutral",
         "semanticHash": "98c2bd6ccd46c74d70244244147e822ed0b9ee65c88c5eabc4eaa8c03e4ca320",
         "shapeHash": "35ec0c1af6e225aefb7047047d6ab58cd6d6428f89987fb6295a5ab351efb25a",
-        "syntaxHash": "6205b97a9d5a311215bd2c2578c41ea99238293723daf357a4d69417b47bab4f"
+        "syntaxHash": "2f6763d7f545de2ecb7f7ec17ebc9216d91811bfedc33cf58dd711b254c7fa94"
       },
       {
         "filePath": "packages/codegen/src/traceability/spec-traceability.ts",
@@ -29405,7 +29419,7 @@
         "runtime": "neutral",
         "semanticHash": "267e41c7e07425ff96d128507d10bdc78a84cf53c86138f9484c1c03642afe2e",
         "shapeHash": "787bb69a9b64a4aca17728380516874658df95041a3a95ec41c256b7e4ca4afe",
-        "syntaxHash": "f8a417b6d883ec60888e3995945871f9a234af22998a8cd3a88d0593dd1b01ff"
+        "syntaxHash": "56f75acf96032515975055921de47a357461932984b19bdf7aaf0a50dbddb340"
       },
       {
         "filePath": "packages/codegen/src/traceability/spec-traceability.ts",
@@ -29425,7 +29439,7 @@
         "runtime": "neutral",
         "semanticHash": "cf350905ed0dd96040a804bce904903b838da73d372057864ea974c2840f3627",
         "shapeHash": "e9565bf9c691c135d789536ea1091df65b1ef502f423ee2ddec4385fe3fd5627",
-        "syntaxHash": "cd9188ea6a4636c15859fb64e599b36dd85c991d6203a5891371a2d3412bc6b7"
+        "syntaxHash": "dabbfa3a46b38b649b1b24b8700c0cb11dc55009fcbf2f086e7a4286d72f734a"
       },
       {
         "filePath": "packages/codegen/src/traceability/spec-traceability.ts",
@@ -29563,9 +29577,9 @@
         "kind": "type-alias",
         "qualifiedName": "@oa-sdk/codegen:src/traceability/spec-traceability.ts#RawTraceMetadata",
         "runtime": "neutral",
-        "semanticHash": "92db83d87e610c55380dc2a7bfd741f9e97d1e29231473d8350b9ad32d1a7d62",
-        "shapeHash": "2e5216605982f17aa70c5863e5c67182853934a40b44ab9d1b77a87102c0f54b",
-        "syntaxHash": "652ab70b27b98f606fb24fe56ffd8757f0dc4940f292e8d6ee25280875b4bfe2"
+        "semanticHash": "4cedcda19b78f20d46f0a560999bcc31472d885a17f1ccc1a19275a6fc1d18f7",
+        "shapeHash": "4c3833d26b8fb8d16318d3eb2efe1c612e21b57deb2af3311ba7707ff8f80449",
+        "syntaxHash": "b29298e4fae667f317b095a434bcf1286f5e45b12bb8ac57c7b8244d2df7c8b8"
       },
       {
         "filePath": "packages/codegen/src/traceability/spec-traceability.ts",
@@ -29693,9 +29707,9 @@
         "kind": "type-alias",
         "qualifiedName": "@oa-sdk/codegen:src/traceability/spec-traceability.ts#SpecTraceabilityNode",
         "runtime": "neutral",
-        "semanticHash": "89dcefc0c030690cb4d67ceb973ca7256d91bca6884fbaa46ba036de4efd1a98",
-        "shapeHash": "b1d94611b3631ee769ac1d49b7609edc899310d09af2e6988654449166504208",
-        "syntaxHash": "27d53a65b5317c7f5bbcf6af8d1769f889c7732b5562f2efa2f291df9cc6641e"
+        "semanticHash": "ca7130debb952cad86a14d109f983d9188b902f799eb7f09be5dddce7db8d07e",
+        "shapeHash": "5a12b7e45869d6dc88eb9443708feeb7652adb52a7df92e001e7d53d3e0dae55",
+        "syntaxHash": "f0fe359de29302f784571a34682f17f39cc80f71d517c5168cb81c27aa9d5dd3"
       },
       {
         "filePath": "packages/codegen/src/traceability/spec-traceability.ts",
@@ -29905,7 +29919,7 @@
         "runtime": "neutral",
         "semanticHash": "b6090f6f1bcf274b467c3eb6be6b6cae7d21a66dbc1c83378bd9d9aa1dc97b35",
         "shapeHash": "c87a447bf2987fe43a0f2b0a4d9cd7f52a1e7d9b4c4360dbc614cace487aaa4b",
-        "syntaxHash": "46cc550a828cb8e49cd9f8892c55f89edb53d383aeb968c30d087e5dfbdda9ad"
+        "syntaxHash": "cf4a16d3950de413e5eeb9753511754a246047af5836c03d69b05daee215fc5f"
       },
       {
         "filePath": "packages/codegen/src/traceability/trace-inputs.ts",
@@ -67635,7 +67649,7 @@
         "runtime": "neutral",
         "semanticHash": "2d79f68acf5753bd4c74142772d1b3afeff5029372b8cc3a37f002909d937c01",
         "shapeHash": "0f06b50cc594de1210cd790009b06ebf9f76c0be0d0b46f01f17d44b0322199d",
-        "syntaxHash": "236212567608a734d3097284f5ee5e4f98479dd5ae2afe4c5cab23f76c845394"
+        "syntaxHash": "6806ff31eee2dc641ffca79354e265965f7df75383e31f7b56ddeece40dedd77"
       },
       {
         "filePath": "packages/typespec-decorators/src/governance.ts",
@@ -67685,7 +67699,7 @@
         "runtime": "neutral",
         "semanticHash": "a6e9d5bb8c4be9a94a1e0185d8686dea5c7ed591192b614fd887c922eb3dee55",
         "shapeHash": "fb18299fbebc40429f4af1ec74ef990a5f1a432fb9f4b09df8a54766972310c7",
-        "syntaxHash": "d3dbb989302a0506f3577bdf916a0537e272221adc4f604f47b2b54c706302db"
+        "syntaxHash": "41a0abaf8d2be23ea02e37c55eb0c5a7c8f4b94572463372919707e9e36a0df4"
       },
       {
         "filePath": "packages/typespec-decorators/src/governance.ts",
@@ -67693,9 +67707,9 @@
         "kind": "function",
         "qualifiedName": "@oa-sdk/typespec-decorators:src/governance.ts#applyAugmentedTrackingId",
         "runtime": "neutral",
-        "semanticHash": "6e1d253c8e9aee657105339a5ad4129344b34c8b5bc954bc859b42fe8db7e794",
-        "shapeHash": "89e3f0097ad2f7198f52949b7a945286e3b848d2ba66d083bcb7e12afb2b2b04",
-        "syntaxHash": "e7c09b4ac7f438f2c263927d0e3d0af33cda537a5260ec0b08199c722ad52781"
+        "semanticHash": "0b8cd06c9318d43de273dd5a1de4503bfb76dbf4c53bcac6f85b69a9262551a8",
+        "shapeHash": "fc6be31a3fc0b3da2ef76f6e743435c87d4a9674e09530f6c0ddd57592ba0ded",
+        "syntaxHash": "dcd8ba24fd24600f77383feddc7c0d508348066051d6cd61fa6888ed7fd0f8cd"
       },
       {
         "filePath": "packages/typespec-decorators/src/governance.ts",
@@ -67703,9 +67717,9 @@
         "kind": "interface",
         "qualifiedName": "@oa-sdk/typespec-decorators:src/governance.ts#AugmentedTrackingId",
         "runtime": "neutral",
-        "semanticHash": "5a476cbe64c5a3a937319dbafc7ee9ff77917333553113757a6989dbf10ca794",
-        "shapeHash": "2dcba682e0b1a5f640f13eeb64d97f08fab61ec49779b3d06514c3b58c5cf9ff",
-        "syntaxHash": "a285c2e9985171e2d525018802b3fdeaf1031683b916bb726a1ff63e6810d56a"
+        "semanticHash": "e31256bac3d86e28733dddcf8d9a2641764281fe3b3ea4d1d81cc2331d89c4cc",
+        "shapeHash": "2c46fcd53b0abfbeccc0b5ec026ade3f1c2778504a283c1c50ea62eb17ba2ee9",
+        "syntaxHash": "eca354e4549b375c0c260b5e09492a920eed1a9512c4a61fd32f400aa4425e46"
       },
       {
         "filePath": "packages/typespec-decorators/src/governance.ts",
@@ -67829,13 +67843,23 @@
       },
       {
         "filePath": "packages/typespec-decorators/src/governance.ts",
+        "identity": "packages/typespec-decorators/src/governance.ts#src/governance.ts#neutral#@oa-sdk/typespec-decorators:src/governance.ts#traceDeclarationId#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/typespec-decorators:src/governance.ts#traceDeclarationId",
+        "runtime": "neutral",
+        "semanticHash": "fe4736bc1cd3e0728b24242472aa2e95f0ee39b0f471e4ea3bf9a0b205bc4bc8",
+        "shapeHash": "376af92597bf1a57e52828646caf98a596024b8d19f56968ad31d496770f8fcf",
+        "syntaxHash": "c34bb9592aed04f9ccb12987574a70b29a425ece8bd24a1be06408a358750bb0"
+      },
+      {
+        "filePath": "packages/typespec-decorators/src/governance.ts",
         "identity": "packages/typespec-decorators/src/governance.ts#src/governance.ts#neutral#@oa-sdk/typespec-decorators:src/governance.ts#writeTrackingId#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/typespec-decorators:src/governance.ts#writeTrackingId",
         "runtime": "neutral",
-        "semanticHash": "0b2d4a8f24542c251b9185b7a5d79e1173638f9d06f77eb9e8b5985c88130f5e",
-        "shapeHash": "049d22f53310a90a66d3649fcca925e0a7044b1d4d6102ef51ce511ba84ae166",
-        "syntaxHash": "6cc792652b01742dfeef69dd65a47e730793484961de9078e912799fcb2a2995"
+        "semanticHash": "b3ae19e9dec54178e398a9707003631704692af7288ae127b4ff3e7ceba1e0ab",
+        "shapeHash": "d25094bd61cf29e397d65963f464314702f627bd4d0694baa08154f98f991dd8",
+        "syntaxHash": "bd56935863ed7baee30a1039f92950302eed6ebfc8a0c4359a0f20cd34150404"
       },
       {
         "filePath": "packages/typespec-decorators/src/protobuf.ts",
@@ -72848,7 +72872,7 @@
         "syntaxHash": "e468fae258fff35898aef05fe6a6da6ccde78e05e58af5c1bba938bd1f37adc3"
       }
     ],
-    "digest": "7c67a0e52e228b1ae8beaaa2376831dbf54d5719d15b299c14649b7e23b9c774",
+    "digest": "b084c6d1c709d150c86de4bdf280ed25d90666b40e063f1d5794c9cf0e090d44",
     "publicSurfaces": [
       {
         "exportKey": "./guards",
@@ -72918,6 +72942,7 @@
           "getCanonicalSymbolId:value",
           "getDeclarationShapesInSource:value",
           "getNormalizedDeclarationId:value",
+          "getProgramTempDir:value",
           "getTypeChecker:value",
           "referencedSymbols:value",
           "resolveAlias:value",
@@ -72926,7 +72951,7 @@
           "withRecursiveReference:value"
         ],
         "filePath": "packages/ast-sync/src/index.ts",
-        "hash": "8fa3fd0c42d42180946f5788b43367d1906aed2173d29f3dfb06a4a052cdf344",
+        "hash": "672deb6c9bad1bba30538e0820c965e28f2c02a932667ddca83eb327929db731",
         "packageName": "@oa-sdk/ast-sync",
         "runtime": "neutral"
       },
@@ -77464,7 +77489,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "57765b790c0da15d6f55fd7084ce43435c81d56881a576aeb775305b55c02864",
+      "contentHash": "2bf107e9001d8d01645d7f0c1643ab8c3f7934f05270e7d93b97d3e33bc44d69",
       "filePath": "packages/ast-sync/src/adapters/json-schema.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/ast-sync",
@@ -77478,7 +77503,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "77e4b2b1e35ea76f755c30975747e88d5ad852c12df88b3b4232cf3bd80d5436",
+      "contentHash": "ad9874fd872d67992ca678237372b7edce830e2ab269b53bf07566ace6b5627e",
       "filePath": "packages/ast-sync/src/adapters/typia.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/ast-sync",
@@ -77492,7 +77517,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "24afaab6ebd8f490b692656f1af5a55ffecb7bc8ee5f7a1aca7c3f28837408a9",
+      "contentHash": "840124c04241334fde822ab8a7c028982e01ff0cb8d70aaf2792c3fc1f4157e6",
       "filePath": "packages/ast-sync/src/checker/cycle-detector.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/ast-sync",
@@ -77506,7 +77531,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "47bbc32a107a17b753621d2744622d4e8089e6f8c9349c4c346c305b33499004",
+      "contentHash": "49a06bc0a0a71e36235ba12190e1f5979303c5c1a83d931b40a17926ef26cdaf",
       "filePath": "packages/ast-sync/src/checker/program.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/ast-sync",
@@ -77534,7 +77559,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "a2bb3ce2465fe5e960e119462311c923411b1158d6625478ed2ad9049207b1c5",
+      "contentHash": "b392571511396ced29e4ff14c2ff6bab50f69a23d534fd6f51ec7d4d30f54653",
       "filePath": "packages/ast-sync/src/guards/generator.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/ast-sync",
@@ -79403,14 +79428,14 @@
       "role": "authority"
     },
     {
-      "contentHash": "92e2a4d8404f9f9fdea7048c93c5d300ce9e4b24b95ed3b45afa0eb4dd4dd914",
+      "contentHash": "43e5b090dd57cb69ca236981d125958657b094cb2e54b84cf65e3b750273f270",
       "filePath": "packages/codegen/src/traceability/spec-traceability.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
     },
     {
-      "contentHash": "676706b34a0948e8d515b171cea14d06f4bc02c6fe641f55fc8f9848041d6378",
+      "contentHash": "3b277ffe44588e3356294c25d5603987add0e3e7838f92735cd0a5cc9f99e09b",
       "filePath": "packages/codegen/src/traceability/trace-inputs.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -85514,7 +85539,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "7a2b2d36309b4574c0dc83eca604efd47d961f84adcfd0d53f6f2eb5672cd398",
+      "contentHash": "f1119b3de2ed6f804b99738bd1a6b4eb7dcc42d4522f9aa9910a6bdbfd7fa382",
       "filePath": "packages/typespec-decorators/src/governance.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/typespec-decorators",
