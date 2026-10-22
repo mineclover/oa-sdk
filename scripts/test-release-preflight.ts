@@ -16,13 +16,14 @@ assert.throws(() => parseReleasePreflightArgs(['--allow-dirty', '--allow-dirty']
 
 assert.deepEqual(
   draftReleasePreflightGates.map(gate => gate.label),
-  ['check:docs', 'check:spec-governance', 'check:release-policy'],
+  ['check:docs', 'check:package-versions', 'check:spec-governance', 'check:release-policy'],
 )
 assert.deepEqual(
   releasePreflightGates.map(gate => gate.label),
   [
     'build:core',
     'check:docs',
+    'check:package-versions',
     'check:spec-governance',
     'check:release-policy',
     'schema:validate',

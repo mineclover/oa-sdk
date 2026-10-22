@@ -563,6 +563,9 @@ export async function mountAll(fastifyInstance: any) {
             noUnusedLocals: true,
             noUnusedParameters: true,
             noEmit: true,
+            // The ambient framework shims below stand in for runtime packages; the real Elysia
+            // 1.4 declarations use syntax that TypeScript 5.9 rejects inside its own .d.ts.
+            skipLibCheck: true,
           },
         },
         null,

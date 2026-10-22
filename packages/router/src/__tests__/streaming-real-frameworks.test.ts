@@ -2,8 +2,10 @@ import { describe, it, expect, afterEach } from 'vitest'
 import { Readable } from 'node:stream'
 import Fastify from 'fastify'
 import { Hono } from 'hono'
+import { Elysia } from 'elysia'
 import ts from 'typescript'
 import { parseDocument, type OasDocument } from '@oa-sdk/parser/browser'
+import { renderElysiaRouter } from '../targets/elysia.js'
 import { renderFastifyRouter } from '../targets/fastify.js'
 import { renderHonoRouter } from '../targets/hono.js'
 
@@ -54,6 +56,7 @@ function loadGeneratedRouter(code: string): Record<string, any> {
     exports,
     (id: string) => {
       if (id === 'hono') return { Hono }
+      if (id === 'elysia') return { Elysia }
       throw new Error(`unexpected runtime import: ${id}`)
     },
     mod,
@@ -228,5 +231,82 @@ describe('streaming responses through real Fastify and Hono', () => {
     await reader.read()
     await reader.cancel()
     await expect.poll(() => cancelState.returned, { timeout: 2000 }).toBe(true)
+  })
+
+  it('Elysia streams envelope and direct AsyncIterable/Node Readable bodies', async () => {
+    const router = loadGeneratedRouter(
+      renderElysiaRouter(parsed, {
+        mode: 'contract',
+        contractName: 'StreamHandlers',
+        contractImport: './contract',
+      }),
+    )
+    const app = router.createRouter({
+      getSse: async () => ({
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' },
+        body: asyncIterable(['data: one\n\n', 'data: two\n\n']),
+      }),
+      getNdjson: async () => ({
+        status: 200,
+        headers: { 'Content-Type': 'application/x-ndjson' },
+        body: Readable.from(['{"n":1}\n', '{"n":2}\n']),
+      }),
+    })
+
+    const sse = await app.handle(new Request('http://localhost/sse'))
+    expect(sse.status).toBe(200)
+    expect(sse.headers.get('content-type')).toBe('text/event-stream')
+    expect(await sse.text()).toBe('data: one\n\ndata: two\n\n')
+
+    const ndjson = await app.handle(new Request('http://localhost/ndjson'))
+    expect(ndjson.status).toBe(200)
+    expect(ndjson.headers.get('content-type')).toBe('application/x-ndjson')
+    expect(await ndjson.text()).toBe('{"n":1}\n{"n":2}\n')
+
+    // Direct return (no { status, body } envelope) takes the same conversion path.
+    const direct = router.createRouter({
+      getSse: async () => asyncIterable(['data: direct\n\n']),
+      getNdjson: async () => Readable.from(['{"n":3}\n']),
+    })
+    const directSse = await direct.handle(new Request('http://localhost/sse'))
+    expect(await directSse.text()).toBe('data: direct\n\n')
+    const directNdjson = await direct.handle(new Request('http://localhost/ndjson'))
+    expect(await directNdjson.text()).toBe('{"n":3}\n')
+  })
+
+  it('Elysia cancels the source iterator on response cancel', async () => {
+    const state = { returned: false }
+    const router = loadGeneratedRouter(
+      renderElysiaRouter(parsed, {
+        mode: 'contract',
+        contractName: 'StreamHandlers',
+        contractImport: './contract',
+      }),
+    )
+    const app = router.createRouter({
+      getSse: async () => ({
+        status: 200,
+        body: {
+          async *[Symbol.asyncIterator]() {
+            try {
+              for (let i = 0; ; i++) {
+                yield `data: ${i}\n\n`
+                await new Promise(resolve => setTimeout(resolve, 5))
+              }
+            } finally {
+              state.returned = true
+            }
+          },
+        },
+      }),
+      getNdjson: async () => ({ status: 200, body: '{}' }),
+    })
+
+    const response = await app.handle(new Request('http://localhost/sse'))
+    const reader = response.body!.getReader()
+    await reader.read()
+    await reader.cancel()
+    await expect.poll(() => state.returned, { timeout: 2000 }).toBe(true)
   })
 })

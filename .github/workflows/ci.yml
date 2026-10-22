@@ -189,6 +189,9 @@ jobs:
       - name: OA Gen package surface smoke
         run: pnpm --filter @oa-sdk/codegen run smoke:pack
 
+      - name: Package version constants
+        run: pnpm check:package-versions
+
       - name: Workspace scope and release policy
         run: pnpm check:workspace-scope
 

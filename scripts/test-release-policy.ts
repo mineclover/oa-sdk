@@ -55,6 +55,7 @@ assert.deepEqual(createPublicNpmVersionQueryArgs('@oa-sdk/core@0.1.3'), [
   '@oa-sdk/core@0.1.3',
   'version',
   '--json',
+  '--prefer-online',
   '--registry',
   'https://registry.npmjs.org/',
   '--@oa-sdk:registry=https://registry.npmjs.org/',
