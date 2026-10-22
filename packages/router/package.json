@@ -1,6 +1,6 @@
 {
   "name": "@oa-sdk/router",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "OAS 3.2 spec → typed server router stubs",
   "private": false,
   "type": "module",
@@ -37,10 +37,12 @@
   },
   "devDependencies": {
     "@elysiajs/node": "^1.4.5",
+    "@types/express": "^5.0.6",
     "@types/node": "^22.0.0",
     "elysia": "^1.4.30",
+    "express": "^5.3.0",
     "fastify": "^5.12.7",
-    "hono": "^4.12.14",
+    "hono": "^4.13.13",
     "tsup": "^8.5.1",
     "typescript": "5.9.3",
     "vitest": "^4.1.12"

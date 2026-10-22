@@ -6,7 +6,7 @@ audience:
   competence: intermediate
 productVersions:
   - "@oa-sdk/codegen 0.10.0"
-  - "@oa-sdk/router 0.2.4"
+  - "@oa-sdk/router 0.2.5"
   - "@oa-sdk/client 0.3.0"
 owner: "OA SDK maintainers"
 status: active

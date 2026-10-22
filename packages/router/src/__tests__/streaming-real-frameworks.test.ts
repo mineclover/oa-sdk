@@ -3,9 +3,11 @@ import { Readable } from 'node:stream'
 import Fastify from 'fastify'
 import { Hono } from 'hono'
 import { Elysia } from 'elysia'
+import express from 'express'
 import ts from 'typescript'
 import { parseDocument, type OasDocument } from '@oa-sdk/parser/browser'
 import { renderElysiaRouter } from '../targets/elysia.js'
+import { renderExpressRouter } from '../targets/express.js'
 import { renderFastifyRouter } from '../targets/fastify.js'
 import { renderHonoRouter } from '../targets/hono.js'
 
@@ -57,6 +59,7 @@ function loadGeneratedRouter(code: string): Record<string, any> {
     (id: string) => {
       if (id === 'hono') return { Hono }
       if (id === 'elysia') return { Elysia }
+      if (id === 'express') return { Router: express.Router }
       throw new Error(`unexpected runtime import: ${id}`)
     },
     mod,
@@ -308,5 +311,46 @@ describe('streaming responses through real Fastify and Hono', () => {
     await reader.read()
     await reader.cancel()
     await expect.poll(() => state.returned, { timeout: 2000 }).toBe(true)
+  })
+
+  it('Express 5 streams AsyncIterable and Node Readable bodies', async () => {
+    const router = loadGeneratedRouter(
+      renderExpressRouter(parsed, {
+        mode: 'contract',
+        contractName: 'StreamHandlers',
+        contractImport: './contract',
+      }),
+    )
+    const app = express()
+    app.use(router.createRouter({
+      getSse: async () => ({
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' },
+        body: asyncIterable(['data: one\n\n', 'data: two\n\n']),
+      }),
+      getNdjson: async () => ({
+        status: 200,
+        headers: { 'Content-Type': 'application/x-ndjson' },
+        body: Readable.from(['{"n":1}\n', '{"n":2}\n']),
+      }),
+    }))
+    const server = app.listen(0)
+    try {
+      await new Promise<void>(resolve => server.once('listening', () => resolve()))
+      const address = server.address()
+      if (typeof address !== 'object' || address === null) throw new Error('Express did not bind a port')
+      const base = `http://127.0.0.1:${address.port}`
+
+      const sse = await fetch(`${base}/sse`)
+      expect(sse.status).toBe(200)
+      expect(sse.headers.get('content-type')).toBe('text/event-stream')
+      expect(await sse.text()).toBe('data: one\n\ndata: two\n\n')
+
+      const ndjson = await fetch(`${base}/ndjson`)
+      expect(ndjson.status).toBe(200)
+      expect(await ndjson.text()).toBe('{"n":1}\n{"n":2}\n')
+    } finally {
+      await new Promise<void>(resolve => server.close(() => resolve()))
+    }
   })
 })

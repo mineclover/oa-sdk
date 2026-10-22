@@ -10,7 +10,7 @@ productVersions:
   - "@oa-sdk/core 0.3.1"
   - "@oa-sdk/parser 0.5.0"
   - "@oa-sdk/client 0.3.0"
-  - "@oa-sdk/router 0.2.4"
+  - "@oa-sdk/router 0.2.5"
   - "@oa-sdk/mock-server 0.1.5"
 tested:
   environment: "Node.js 24.19, npm 11.17"

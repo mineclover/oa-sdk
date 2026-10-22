@@ -153,9 +153,11 @@ On Node.js, Elysia's default adapter has no `.listen()`; create the app with
     `ReadableStream` before `reply.send`. Fastify sends `AsyncIterable`, `ReadableStream` and Node
     streams with the declared `Content-Type` (SSE and NDJSON are tested), and cancels the source
     iterator when the client disconnects.
-  - **Hono** (verified with Hono 4.12): the router creates one iterator per response and wraps it in
+  - **Hono** (verified with Hono 4.13): the router creates one iterator per response and wraps it in
     a `ReadableStream`, so reusable iterables are consumed once instead of restarting per chunk.
     Cancelling the response calls `iterator.return()`. A Node stream goes through the same path.
+  - **Express** (verified with Express 5.3): `AsyncIterable` and Node `Readable` bodies stream with
+    the declared content type.
   - **Elysia** (default adapter verified with Elysia 1.4): the router converts an `AsyncIterable`
     (including a Node `Readable`) to a Web `ReadableStream` before returning it, so `app.handle()`
     and `app.fetch()` no longer fail with `Received non-Uint8Array chunk` or wrap generator values
