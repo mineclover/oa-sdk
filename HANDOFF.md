@@ -7,7 +7,7 @@ Worktrees: main only · Open PRs: none
 
 ## 1. Current state
 
-- `main` includes PR #13 (`5d9e59e2`) and is in sync with `origin/main`. No other local branches or worktrees.
+- `main` includes PR #13 (`5d9e59e2`) and PR #14 (`153dfa22`), and is in sync with `origin/main`. No other local branches or worktrees.
 - Last full local test run: **654 files / 9,209 tests pass** (turbo suites 635/9,006, integration 73, TypeSpec plugin e2e 130). The follow-up branch adds codegen 211/4,012, client 16/277, ast-sync 8/77, router 19/206, TypeSpec decorators 11/108 and spec-lens-contract 2/40 passing suites.
 - The 43-lane local CI mirror (build, typecheck, 4 test groups, integration, e2e, schema, governance, Node 26/TS7, public runtime, NestJS/FastAPI governance) passed on the combined tree through PR #9. Later changes re-ran the full codegen suite (211 files / 4,007 tests) and every docs/governance gate.
 - **GitHub Actions cannot start jobs**: PR checks show 0 steps because the account's billing limit is reached. All evidence above is from local runs.
@@ -25,6 +25,7 @@ Worktrees: main only · Open PRs: none
 | PR #11 onboarding UX + docs consistency | merged (`e960e74f`) |
 | PR #12 engineering handoff | merged (`e40301ea`) |
 | PR #13 TanStack P1 fixes + dotted guard names | merged (`5d9e59e2`) |
+| PR #14 real streaming + P2 design decisions + P3.16 | merged (`153dfa22`) |
 | Branch/worktree cleanup | 24 merged branches + 6 verifier worktrees + 4 superseded branches removed; SHAs in `.../opencode/branch-sha-archive-2026-10-22.txt` (outside the repo) |
 
 ## 3. Verification evidence
