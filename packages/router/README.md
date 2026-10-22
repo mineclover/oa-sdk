@@ -139,7 +139,7 @@ On Node.js, Elysia's default adapter has no `.listen()`; create the app with
 - **Streaming**: with status 200 or 206 (`StreamingResponse`), a stream in `body` is sent as is
   instead of being serialized to JSON. A `ReadableStream<Uint8Array>`, a `Uint8Array`, an
   `AsyncIterable<Uint8Array | string>` and a Node stream (anything with `pipe()`) work on Fastify,
-  Hono and Express. The routers wrap an `AsyncIterable` in a `ReadableStream` and create one
+  Hono, Elysia and Express. The routers wrap an `AsyncIterable` in a `ReadableStream` and create one
   iterator per response. Write header names in lowercase:
 
   ```ts
@@ -156,12 +156,12 @@ On Node.js, Elysia's default adapter has no `.listen()`; create the app with
   - **Hono** (verified with Hono 4.12): the router creates one iterator per response and wraps it in
     a `ReadableStream`, so reusable iterables are consumed once instead of restarting per chunk.
     Cancelling the response calls `iterator.return()`. A Node stream goes through the same path.
-  - Elysia on Node.js with its default adapter (`app.handle()`, `app.fetch`) fails on an
-    `AsyncIterable` of strings with `Received non-Uint8Array chunk`. With the `@elysiajs/node`
-    adapter it does not fail, but for a `text/event-stream` response Elysia wraps each generator
-    value in another SSE frame (`data: data: {...}`). Elysia also adds its own `content-type` to
-    `ReadableStream` and `AsyncIterable` bodies, so a handler header named `'Content-Type'` goes out
-    as two values (`text/event-stream, text/plain`).
+  - **Elysia** (default adapter verified with Elysia 1.4): the router converts an `AsyncIterable`
+    (including a Node `Readable`) to a Web `ReadableStream` before returning it, so `app.handle()`
+    and `app.fetch()` no longer fail with `Received non-Uint8Array chunk` or wrap generator values
+    in a second SSE frame. Header names are lowercased to avoid a duplicate `content-type`. The
+    `@elysiajs/node` adapter is not covered by the test suite; use the default adapter or verify
+    your adapter version.
 
 A router treats a returned object as an envelope when it has a `body` property, its `status` is
 absent or a number, and its `headers` are absent or an object; it then sends only `body`. Wrap an

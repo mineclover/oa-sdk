@@ -270,7 +270,7 @@ async updateUser({ params, query, headers, body }) {
 4. **스트리밍**: 상태 200 또는 206(`StreamingResponse`)으로 `body`에 스트림을 넣으면 JSON으로 직렬화하지 않고 그대로 보냅니다. `ReadableStream<Uint8Array>`, `Uint8Array`, `AsyncIterable<Uint8Array | string>`, Node 스트림(`pipe()`를 가진 객체)을 Fastify·Hono·Express에서 사용할 수 있습니다. 라우터는 `AsyncIterable`을 Web `ReadableStream`으로 감싸고 응답마다 반복자를 하나만 만듭니다. `content-type` 헤더 이름은 소문자로 씁니다([4절 예제](#4-핸들러-구현)). `ReadableStream.from(events()).pipeThrough(new TextEncoderStream())`처럼 미리 변환해도 됩니다.
    - Fastify(5.12.7에서 확인): `AsyncIterable`·`ReadableStream`·Node 스트림을 모두 선언한 `Content-Type`으로 보내고(SSE·NDJSON 테스트), 클라이언트가 끊으면 원본 반복자의 `return()`을 호출합니다.
    - Hono(4.12에서 확인): 응답마다 반복자를 한 번만 만들므로 재사용 가능한 iterable도 첫 청크를 반복하지 않습니다. 응답을 취소하면 `iterator.return()`을 호출하고, Node 스트림도 같은 경로로 처리합니다.
-   - Elysia: Node.js에서 기본 어댑터(`app.handle()`, `app.fetch`)로 처리하면 문자열 청크를 내는 `AsyncIterable`이 `Received non-Uint8Array chunk`로 실패합니다. `@elysiajs/node` 어댑터에서는 실패하지 않지만, `content-type`이 `text/event-stream`이면 Elysia가 generator의 각 값을 다시 SSE 프레임으로 감싸 `data: data: {...}`가 나갑니다. 또 `ReadableStream`·`AsyncIterable` 본문에는 Elysia가 자기 `content-type`을 붙이므로, 헤더 이름을 `'Content-Type'`으로 주면 `text/event-stream, text/plain`처럼 값이 두 개 나갑니다.
+   - Elysia(1.4 기본 어댑터에서 확인): 라우터가 `AsyncIterable`·Node 스트림을 Web `ReadableStream`으로 변환하므로 `app.handle()`/`app.fetch()`가 `Received non-Uint8Array chunk`로 실패하거나 `data: data: {...}`로 이중 프레임을 만들지 않습니다. 헤더 이름은 라우터가 소문자로 맞춰 `content-type` 중복을 피합니다. `@elysiajs/node` 어댑터는 아직 테스트하지 않았으므로 사용하는 버전에서 확인합니다.
 
 라우터는 반환값이 `body` 속성을 가진 객체이고, `status`가 없거나 숫자이며, `headers`가 없거나 객체이면 `{ status, body, headers }` 응답 봉투로 해석해 `body`만 보냅니다. 따라서 `body` 필드를 가진 엔티티를 본문으로 돌려줄 때는 `return { status: 200, body: entity }`처럼 반드시 감쌉니다.
 

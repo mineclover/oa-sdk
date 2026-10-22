@@ -58599,7 +58599,7 @@
         "runtime": "neutral",
         "semanticHash": "724c1557a15fa4b4b69c9c496e35ce7cb5aba16040f95719d0a5f01d7f45436a",
         "shapeHash": "083907b3d5664c50cd4647e96546741dd98e9e2728c077ea12f218fe9a8364dd",
-        "syntaxHash": "e5de76da5fc4630949d33b8436bdd7cd2c70b5a2d7137b8cfb257a52eb351fdc"
+        "syntaxHash": "79544fd6fe04479a6ff8057dc1b8d2ac7848492378d2288ff4ccf34f5bc69a33"
       },
       {
         "filePath": "packages/router/src/targets/express.ts",
@@ -72872,7 +72872,7 @@
         "syntaxHash": "e468fae258fff35898aef05fe6a6da6ccde78e05e58af5c1bba938bd1f37adc3"
       }
     ],
-    "digest": "b084c6d1c709d150c86de4bdf280ed25d90666b40e063f1d5794c9cf0e090d44",
+    "digest": "3ed6314ec5147dad1b0c60be6bcdbd8a9a2cbf8a8d580f29aecc236fe26b361e",
     "publicSurfaces": [
       {
         "exportKey": "./guards",
@@ -84860,7 +84860,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "2fb56f642017ed2737a55ddb5dd3e7e0c266e619b894a0d36919c3b641ac28cd",
+      "contentHash": "4b0b1a527d49ac5a9ba406ad608b9fa412b700c121a6b8f33f2593bbc92fc563",
       "filePath": "packages/router/src/targets/elysia.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/router",
@@ -85777,7 +85777,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "cb0e76a34219bcba3a257f4e6a2dfa58aebda6c8d186c3f51cea15f9b8a2d59e",
+      "contentHash": "1ff1d0531ffdffd183e5c8e79ab87205ad719b14f01e7641300ed7788466b81d",
       "filePath": "packages/webmcp-peer/src/client/types.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/webmcp-peer",

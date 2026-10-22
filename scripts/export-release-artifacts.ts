@@ -187,7 +187,7 @@ function main(): void {
 
     assert(existsSync(join(sourceRoot, 'LICENSE')), 'root LICENSE is required for public release artifacts')
     assert(!existsSync(releaseDirectory), `release directory already exists: ${relative(outputRoot, releaseDirectory)}`)
-    if (!args.dryRun) validateReleaseRepository(outputRoot, configuration.repository)
+    if (!args.dryRun) validateReleaseRepository(outputRoot, configuration.repository, configuration.candidates)
     mkdirSync(join(releaseDirectory, 'packages'), { recursive: true })
 
     const packages: ReleasePackage[] = []
@@ -746,9 +746,22 @@ function runConsumerImportProbe(
   console.log(run([process.execPath, probePath], consumerDirectory).trim())
 }
 
-function validateReleaseRepository(path: string, publicRepository: string): void {
+function validateReleaseRepository(
+  path: string,
+  publicRepository: string,
+  candidates: readonly string[],
+): void {
   const policy = readJson(join(path, 'release-policy.json')) as Record<string, unknown>
   assert(policy.repository === publicRepository, `release repository must declare ${publicRepository}`)
+  assert(Array.isArray(policy.distributionCandidates), 'release repository release-policy.json must list distributionCandidates')
+  const declared = new Set(
+    policy.distributionCandidates.filter((item): item is string => typeof item === 'string'),
+  )
+  const missing = candidates.filter(candidate => !declared.has(candidate))
+  assert(
+    missing.length === 0,
+    `release repository release-policy.json is missing distribution candidates: ${missing.join(', ')}. Update it in the release PR before exporting.`,
+  )
 }
 
 type WorkspacePackage = { directory: string; version: unknown }
@@ -836,6 +849,8 @@ export function createPublicNpmVersionQueryArgs(target: string): string[] {
     target,
     'version',
     '--json',
+    // A stale npm cache made a just-published version look absent during the 2026-10-22 release.
+    '--prefer-online',
     '--registry',
     PUBLIC_NPM_REGISTRY,
     PUBLIC_OA_SDK_SCOPE_REGISTRY_OPTION,

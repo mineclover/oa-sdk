@@ -26,6 +26,7 @@ export const releasePreflightGates: readonly ReleasePreflightGate[] = [
   // the Core dependency closure before any such gate.
   rootScriptGate('build:core'),
   rootScriptGate('check:docs'),
+  rootScriptGate('check:package-versions'),
   rootScriptGate('check:spec-governance'),
   rootScriptGate('check:release-policy'),
   rootScriptGate('schema:validate'),
@@ -46,6 +47,7 @@ export const releasePreflightGates: readonly ReleasePreflightGate[] = [
  */
 export const draftReleasePreflightGates: readonly ReleasePreflightGate[] = [
   rootScriptGate('check:docs'),
+  rootScriptGate('check:package-versions'),
   rootScriptGate('check:spec-governance'),
   rootScriptGate('check:release-policy'),
 ]

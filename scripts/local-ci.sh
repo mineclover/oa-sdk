@@ -85,6 +85,7 @@ run "check:docs" pnpm check:docs
 run "check:feature-tests" pnpm check:feature-tests
 run "check:dpm-surface" pnpm check:dpm-surface
 run "codegen smoke:pack" pnpm --filter @oa-sdk/codegen run smoke:pack
+run "check:package-versions" pnpm check:package-versions
 run "check:workspace-scope" pnpm check:workspace-scope
 
 run "bench:parser (scale 2)" env BENCH_PARSER_BUDGET_SCALE=2 pnpm bench:parser
