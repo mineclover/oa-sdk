@@ -7,7 +7,7 @@ Worktrees: main only · Open PRs: none
 
 ## 1. Current state
 
-- `main` includes PR #13 (`5d9e59e2`), PR #14 (`153dfa22`), PR #15 (`9326c7ff`), PR #16 (`f27ca51f`), PR #17 (`975a008c`), PR #18 (`7de51c04`) and PR #19 (`bfa136f3`), and is in sync with `origin/main`. No other local branches or worktrees; 0 pending changesets; `2026-10-22-core-v0.10.0` and `@oa-sdk/webmcp-peer@0.2.1` are published.
+- `main` includes PR #13 (`5d9e59e2`), PR #14 (`153dfa22`), PR #15 (`9326c7ff`), PR #16 (`f27ca51f`), PR #17 (`975a008c`), PR #18 (`7de51c04`), PR #19 (`bfa136f3`) and PR #20 (`2e55d182`), and is in sync with `origin/main`. No other local branches or worktrees; 0 pending changesets; `2026-10-22-core-v0.10.0` and `@oa-sdk/webmcp-peer@0.2.1` are published.
 - **CI policy while Actions billing is broken:** run `pnpm ci:local` (mirrors `.github/workflows/ci.yml`) and treat an all-green local run as the merge/release gate. The 2026-10-22 run passed every lane.
 - Last full local test run: **654 files / 9,209 tests pass** (turbo suites 635/9,006, integration 73, TypeSpec plugin e2e 130). The follow-up branch adds codegen 211/4,012, client 16/277, ast-sync 8/77, router 19/206, TypeSpec decorators 11/108 and spec-lens-contract 2/40 passing suites.
 - The 43-lane local CI mirror (build, typecheck, 4 test groups, integration, e2e, schema, governance, Node 26/TS7, public runtime, NestJS/FastAPI governance) passed on the combined tree through PR #9. Later changes re-ran the full codegen suite (211 files / 4,007 tests) and every docs/governance gate.
@@ -33,6 +33,7 @@ Worktrees: main only · Open PRs: none
 | PR #17 `pnpm ci:local` mirror | merged (`975a008c`) |
 | PR #18 Elysia streaming + release-tooling hardening | merged (`7de51c04`) |
 | PR #19 essential GitHub CI + full local gate | merged (`bfa136f3`) |
+| PR #20 current-version + CI-topology docs | merged (`2e55d182`) |
 | `@oa-sdk/router@0.2.4` | published after the npm token was refreshed (source tag `archive/2026-10-22-router-v0.2.4` → `7de51c04`) |
 | `2026-10-22-webmcp-peer-v0.2.1` npm patch | published (source tag `archive/2026-10-22-webmcp-peer-v0.2.1` → `f27ca51f`) |
 | `2026-10-22-router-v0.2.4` npm patch | published (source tag `archive/2026-10-22-router-v0.2.4` → `7de51c04`) |
