@@ -184,8 +184,8 @@ isolated temporary consumer, dynamically imports every concrete public export, r
 `validate`, and `typegen` when codegen is included, and compiles the consumer with the repository's
 TypeScript 5 toolchain. Review and merge the generated
 `releases/<release-id>/manifest.json` and `.tgz` files in `oa-sdk-releases`; its manual **Publish npm
-release** workflow validates the same artifact boundary before publishing. `trusted_publishing`
-defaults to `true` (GitHub OIDC); `NPM_TOKEN` is only the explicit `false` fallback.
+release** workflow validates the same artifact boundary before publishing. It uses GitHub OIDC
+trusted publishing only and does not pass a long-lived `NPM_TOKEN` to the publish step.
 
 Do not create an official export from a dirty worktree. A tarball makes its compiled code public, so the
 artifact-only repository protects private history and unshipped materials, not the executable code itself.

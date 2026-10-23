@@ -217,19 +217,16 @@ PR에서 다음을 확인한 뒤 merge한다.
 
 ### 4.2 Trusted publishing으로 publish
 
-`oa-sdk-releases`의 `publish.yml`은 `trusted_publishing=true`가 기본이다. GitHub OIDC로
-인증하며 publish step에 `NPM_TOKEN`을 넘기지 않는다. `false`는 trust 설정을 진단할 때만 쓰는
-token fallback이다.
+`oa-sdk-releases`의 `publish.yml`은 GitHub OIDC 전용이다. publish step에 `NPM_TOKEN`을
+넘기지 않고 항상 `publish-release.mjs --trusted`를 실행한다.
 
 ```bash
 gh workflow run "Publish npm release" \
   --repo mineclover/oa-sdk-releases \
-  -f release_id=<release-id> \
-  -f trusted_publishing=true
+  -f release_id=<release-id>
 ```
 
-GitHub UI에서는 `Actions` → `Publish npm release` → `Run workflow`에서 release ID를 넣고
-`trusted_publishing`을 체크된 상태로 둔다.
+GitHub UI에서는 `Actions` → `Publish npm release` → `Run workflow`에서 release ID만 넣는다.
 
 package별 trusted publisher는 최초 한 번 interactive 2FA로 설정한다. 설정 값은 owner
 `mineclover`, repository `oa-sdk-releases`, workflow `publish.yml`, environment `npm-publish`,
@@ -268,7 +265,7 @@ source repository의 `pnpm release` 또는 `pnpm release:export`는 이 최종 p
 - [ ] 같은 release candidate commit의 `pnpm ci:local`이 통과했고, GitHub CI가 실행됐다면 필수 lane도 통과했다.
 - [ ] contract change라면 TypeSpec snapshot 및 semver evidence를 검토했다.
 - [ ] external artifact repository의 manifest와 SHA-512를 검토하고 release PR을 merge했다.
-- [ ] export한 package마다 trusted publisher가 설정됐고, 첫 OIDC publish가 성공했다. token fallback을 썼다면 그 이유를 기록했다.
+- [ ] export한 package마다 trusted publisher가 설정됐고, 첫 OIDC publish가 성공했다.
 - [ ] `npm view --prefer-online`으로 `latest`를 확인하고 GitHub Release/tag를 만들었다.
 - [ ] 첫 trusted publish 성공 후 token 기반 publishing을 제한하고 `NPM_TOKEN`을 은퇴시켰다.
 - [ ] 실제 npm promotion은 authorized external workflow에서만 실행했다.

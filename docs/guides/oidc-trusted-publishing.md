@@ -15,14 +15,14 @@ Status: active operating guide. Last reviewed 2026-10-23.
 | GitHub environment | `npm-publish` |
 | Trusted publisher | GitHub Actions |
 | 허용 action | `npm publish`, `npm stage publish` |
-| `trusted_publishing` 기본값 | `true` (OIDC) |
-| Token fallback | `false`일 때만 `NPM_TOKEN` 사용 |
+| Credential path | GitHub OIDC only (no token input) |
 | 검증된 package | `@oa-sdk/tools`, `@oa-sdk/mcp-mesh` |
 | 첫 OIDC publish | `2026-10-23-tools-v0.2.2` (run `39892391866`) |
 
-`publish.yml`은 `trusted_publishing=true`일 때 publish step에서 `NPM_TOKEN`과
-`NODE_AUTH_TOKEN`을 제거하고 GitHub OIDC로 인증한다. npm은 GitHub가 발급한 단기 token을
-registry publish token으로 교환하고 provenance를 자동 생성한다.
+`publish.yml`은 publish step에 `NPM_TOKEN`/`NODE_AUTH_TOKEN`을 넘기지 않고 GitHub OIDC로
+인증한다. npm은 GitHub가 발급한 단기 token을 registry publish token으로 교환하고 provenance를
+자동 생성한다. `publish-release.mjs`의 token 경로는 local/emergency manual run에만 남아 있고,
+GitHub Actions workflow는 항상 `--trusted`를 사용한다.
 
 ## 2. OIDC가 동작하는 조건
 
@@ -97,15 +97,14 @@ npm trust list @oa-sdk/mcp-mesh
 ### 3.3 첫 publish 검증
 
 trust 설정은 **첫 성공적인 OIDC publish**로 검증된다. 설정 후 2일 안에 성공하지 못하면 만료되므로,
-설정 직후 다음 release를 `trusted_publishing=true`로 배포한다.
+설정 직후 다음 release를 OIDC workflow로 배포한다.
 
 `oa-sdk-releases`에서:
 
 ```bash
 gh workflow run "Publish npm release" \
   --repo mineclover/oa-sdk-releases \
-  -f release_id=<release-id> \
-  -f trusted_publishing=true
+  -f release_id=<release-id>
 ```
 
 성공 로그에 다음이 보여야 한다.
@@ -149,7 +148,7 @@ npm trust github @oa-sdk/tools \
 1. `publish.yml`의 파일명 또는 environment를 먼저 바꾼다.
 2. npm의 기존 trust 연결을 revoke한다.
 3. 새 파일명/environment로 `npm trust github`를 다시 실행한다.
-4. `publish.yml`의 `trusted_publishing` 기본값이 `true`인지 확인한다.
+4. `publish.yml`이 `--trusted`로 publish하는지, `NPM_TOKEN` env가 없는지 확인한다.
 5. 다음 release에서 OIDC publish를 검증한다.
 
 workflow 파일명을 바꾸면 npm 설정과 `publish.yml`의 `--file` 값이 함께 바뀌어야 한다.
@@ -161,13 +160,12 @@ environment를 바꾸면 `publish.yml`의 `environment:`와 npm 설정의 enviro
    완료한다.
 2. `pnpm release:export`로 `oa-sdk-releases/releases/<release-id>/`를 만든다.
 3. `oa-sdk-releases`에 release PR을 만들고 merge한다.
-4. **Publish npm release**를 실행한다. `trusted_publishing`은 기본 `true`다.
+4. **Publish npm release**를 실행한다. workflow는 항상 OIDC를 사용한다.
 
 ```bash
 gh workflow run "Publish npm release" \
   --repo mineclover/oa-sdk-releases \
-  -f release_id=<release-id> \
-  -f trusted_publishing=true
+  -f release_id=<release-id>
 ```
 
 5. Registry를 확인한다.
@@ -193,7 +191,8 @@ publish workflow는 artifact boundary를 검증하고, 이미 배포된 version�
 3. npm 계정의 사용하지 않는 granular token을 revoke한다.
 4. private dependency 설치에 token이 필요하면 publish 권한이 없는 read-only token을 별도로 쓴다.
 
-`trusted_publishing=false`는 trust 설정을 진단할 때만 사용하는 임시 fallback으로 남긴다.
+GitHub Actions workflow에는 token fallback이 없다. local/emergency manual run에서만
+`publish-release.mjs`를 `--trusted` 없이 실행해 token 경로를 쓸 수 있다.
 
 ## 7. 트러블슈팅
 
