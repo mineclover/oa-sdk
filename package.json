@@ -88,6 +88,7 @@
     "test:docs-gates": "node --import tsx scripts/test-validation-gates.ts",
     "check:feature-tests": "node --import tsx scripts/check-feature-test-matrix.ts",
     "check:codegen-boundaries": "node --import tsx scripts/check-codegen-boundaries.ts",
+    "check:cross-repo-projection": "bash scripts/check-cross-repo-projection.sh",
     "type-registry:check": "node --import tsx scripts/type-registry-governance.ts",
     "type-registry:write": "node --import tsx scripts/type-registry-governance.ts --write",
     "test:type-registry-governance": "node --import tsx scripts/test-type-registry-governance.ts",
