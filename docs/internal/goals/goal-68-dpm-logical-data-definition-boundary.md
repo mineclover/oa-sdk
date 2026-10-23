@@ -30,12 +30,12 @@ Goal 68 owns this contract plane only. Cross-identity search, draft/edit/publish
 and authoring convenience are a follow-on control-plane capability after the neutral artifact
 is stable; they are not silently included in the Goal 68 compiler scope.
 
-Private owner: [`mineclover/data-governance`](https://github.com/mineclover/data-governance)
+Owner: [`mineclover/data-governance`](https://github.com/mineclover/data-governance)
 (created 2026-07-15; the initial extraction is recorded in the canonical repository history; repository is private). The accepted
 decision is recorded in the [external owner decision record](https://github.com/mineclover/data-governance/blob/main/docs/internal/goals/owner-decision-record.md) and [Goal 68.4 owner acceptance issue](https://github.com/mineclover/data-governance/issues/1); GitHub Issues are enabled at
 `https://github.com/mineclover/data-governance/issues`, and its owner CI passed in
 workflow [29427810791](https://github.com/mineclover/data-governance/actions/runs/29427810791) for
-the selected private source ref; the structured owner acceptance form is available at
+the selected source ref; the structured owner acceptance form is available at
 [`dpm-owner-acceptance.yml`](https://github.com/mineclover/data-governance/blob/main/.github/ISSUE_TEMPLATE/dpm-owner-acceptance.yml).
 
 ## Expressive boundary
@@ -96,7 +96,7 @@ flowchart LR
 ## Governance gate
 
 `@oa-sdk/dpm` remains a private, maintenance-only workspace and is now a compatibility/source
-implementation for the canonical private `data-governance` owner. This is a compatibility/migration
+implementation for the canonical public `data-governance` owner. This is a compatibility/migration
 boundary goal, not an approved new Core Platform feature. The private owner decision records the
 release authority, artifact contract, compatibility window, canonical document location, and
 rollback rule.
@@ -114,7 +114,7 @@ becomes a forwarding adapter for one subsequent compatibility release.
 
 The accepted 2026-07-15 owner decision records:
 
-- canonical implementation site: private `mineclover/data-governance`;
+- canonical implementation site: public `mineclover/data-governance`;
 - formal release authority: `mineclover` repository owner, with delegated maintainers preparing
   but not unilaterally approving contract/version changes;
 - package policy: private, non-published, and outside Core Platform feature scope;

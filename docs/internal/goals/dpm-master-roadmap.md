@@ -50,7 +50,7 @@ production pseudonymization       = outside current oa-sdk boundary
 
 | Phase | Goal history | Capability | Current status | Gap after phase |
 |---|---|---|---|---|
-| 0. Governance | ADR-010, release policy, package architecture, Goal 68.0 | DPM package ownership, implementation site and safety boundary | Private `mineclover/data-governance` owner and private acceptance recorded | public release metadata and breaking removal |
+| 0. Governance | ADR-010, release policy, package architecture, Goal 68.0 | DPM package ownership, implementation site and safety boundary | Public `mineclover/data-governance` owner and owner acceptance recorded | breaking removal and future release metadata |
 | 1. Relationship contract | Goals 4–6, 64, 67 | manifest, entity, relationship, column policy, validator, compiler, typed identity | Implemented | logical field identity is not yet cross-bound to API/catalog |
 | 2. Evidence and proposal | Goals 7–19, 24–26, 31, 33, 37, 38, 51–56 | catalog/profile evidence, discovery proposals, thresholds, provenance, endpoint resolution | Implemented | evidence does not itself become data binding or relationship approval |
 | 3. Approval and durability | Goals 23, 27–30, 32, 34–50, 58, 59, 61, 63 | gateway workflow, registry approval, storage, audit and reports | Implemented within declared boundary | no production token/vault/data-plane execution |
