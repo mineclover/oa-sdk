@@ -27,10 +27,11 @@ TypeSpec source에서 materialize하며, Definition Builder fragments/targets는
 - 두 항목의 2026-10-23 검토 결과와 다음 작업은
   [Backlog Handoff](./backlog-handoff-2026-10-23.md)에 정리했다. cross-repo submodule pin은
   `origin/main`의 pushed commit으로 재고정했고 `pnpm check:cross-repo-projection` 수동 gate를
-  추가했다. DPM production data-plane은 owner decision 전까지 no-op이다.
+  추가했다. shared PRD US-001–US-013와 MCP PRD US-001–US-009는 완료이며 US-013 full gate도
+  통과했다. DPM production data-plane은 owner decision 전까지 no-op이다.
 
-OA SDK 기본 기능 안정화의 현재 작업은 문서·gate drift 감시와 bounded cross-repo projection
-integration이다.
+OA SDK 기본 기능 안정화의 현재 작업은 문서·gate drift 감시다. bounded cross-repo projection
+integration은 shared PRD US-001–US-013과 MCP PRD US-001–US-009 완료로 닫혔다.
 
 ### [x] Historical — OpenAPI definition builder: current-domain fragment backfill
 배경: 당시 migration plan에서 `packages/schemas/src/fragments`와 `packages/schemas/src/targets`를

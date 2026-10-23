@@ -1,6 +1,8 @@
 # PRD: Shared OpenAPI Projection Validation
 
-Status: bun-graph-db side implemented on `origin/main` (`c065557`). OA SDK-side contract work is complete for US-002 through US-007: `@oa-sdk/openapi-projection-contract`, projection profiles, metadata extensions, `validateOpenApiProjection()`, and Definition Builder projection validation are implemented. US-008 through US-012 are marked complete against the pinned bun-graph-db tree; verification was `bun run typecheck` plus the three focused projection tests (15 tests, 301 assertions). US-001 vocabulary reconciliation and US-013 final full cross-repo gates remain open.
+Status: bun-graph-db side implemented on `origin/main` (`c065557`). OA SDK-side contract work is complete for US-002 through US-007: `@oa-sdk/openapi-projection-contract`, projection profiles, metadata extensions, `validateOpenApiProjection()`, and Definition Builder projection validation are implemented. US-001 through US-013 are complete against the pinned bun-graph-db tree. Final verification (2026-10-23): `pnpm ci:local` reported `LOCAL CI: ALL PASS`; `pnpm schema:validate` passed; `oa-gen build-spec` + `oa-gen validate` passed for all seven targets (public, admin, internal, book-notebook, local/staging/production parity); bun-graph-db `typecheck`, `build`, and `lint` passed; 11 focused projection/runtime/smoke test files passed (77 tests, 989 assertions).
+
+Note on US-001: the bun-graph-db boundary doc is already consistent with its `package.json`. The dependency is the intentional development-only local file dependency (`file:../../packages/openapi-projection-contract`), not the published npm package; that path resolves to the OA SDK contract package at version `0.2.0`. Earlier OA SDK handoff notes described this as a published-package dependency and are corrected.
 
 ## Overview
 
@@ -46,11 +48,13 @@ For final verification story, also run:
 **Description:** As a maintainer, I want the current draft vocabulary docs and adapter tests corrected before adding a package so that the new contract starts from a consistent baseline.
 
 **Acceptance Criteria:**
-- [ ] OA SDK adapter test maps registry diagnostics, target diagnostics, emit diagnostics, and validation diagnostics into the shared diagnostic envelope.
-- [ ] OA SDK adapter test includes at least one diagnostic case proving registry diagnostics survive mapping.
-- [ ] bun-graph-db shared boundary doc defines every type referenced in its vocabulary block, including `SchemaTypeTarget` or removes unused references.
-- [ ] OA SDK and bun-graph-db vocabulary docs use the same field names for `projection`, `refs`, `diagnostics`, `sources`, `versionHash`, and `typeTargets`.
-- [ ] Existing adapter tests remain thin field mappings and do not duplicate projection logic.
+- [x] OA SDK adapter test maps registry diagnostics, target diagnostics, emit diagnostics, and validation diagnostics into the shared diagnostic envelope.
+- [x] OA SDK adapter test includes at least one diagnostic case proving registry diagnostics survive mapping.
+- [x] bun-graph-db shared boundary doc defines every type referenced in its vocabulary block, including `SchemaTypeTarget` or removes unused references.
+- [x] OA SDK and bun-graph-db vocabulary docs use the same field names for `projection`, `refs`, `diagnostics`, `sources`, `versionHash`, and `typeTargets`.
+- [x] Existing adapter tests remain thin field mappings and do not duplicate projection logic.
+
+Verification: `packages/parser/src/__tests__/schema-engine-vocabulary-adapter.test.ts` asserts registry, target, emit, and emit-validation diagnostic codes survive mapping and that the registry diagnostic keeps its file source coordinate. `docs/internal/architecture/007-shared-schema-engine-vocabulary.md` and `references/bun-graph-db/docs/development/SHARED_SCHEMA_ENGINE_BOUNDARY.md` both define `SchemaTypeTarget` and use the same envelope field names. `packages/parser/src/definition-openapi-projection.ts` is a field-mapping adapter and does not reimplement projection logic.
 
 ### US-002: Create OpenAPI Projection Contract Package
 **Description:** As a schema platform maintainer, I want a shared contract package so that both systems can import the same projection result types without importing each other's source-specific code.
@@ -203,15 +207,25 @@ For final verification story, also run:
 **Description:** As a release maintainer, I want full verification across OA SDK and bun-graph-db so that the OpenAPI projection contract is safe to build on.
 
 **Acceptance Criteria:**
-- [ ] OA SDK full quality gates pass.
-- [ ] bun-graph-db full focused quality gates pass.
-- [ ] `pnpm build` passes.
-- [ ] `bun run build` passes.
-- [ ] OA SDK `oa-gen build-spec` and `oa-gen validate` pass for all definition builder targets.
-- [ ] bun-graph-db focused projection/runtime tests pass.
-- [ ] bun-graph-db GraphQL/MCP projection smoke tests pass.
-- [ ] No temporary generated output directories are left in the worktree.
-- [ ] Remaining dirty files are documented by category if unrelated work is present.
+- [x] OA SDK full quality gates pass.
+- [x] bun-graph-db full focused quality gates pass.
+- [x] `pnpm build` passes.
+- [x] `bun run build` passes.
+- [x] OA SDK `oa-gen build-spec` and `oa-gen validate` pass for all definition builder targets.
+- [x] bun-graph-db focused projection/runtime tests pass.
+- [x] bun-graph-db GraphQL/MCP projection smoke tests pass.
+- [x] No temporary generated output directories are left in the worktree.
+- [x] Remaining dirty files are documented by category if unrelated work is present.
+
+Verification (2026-10-23):
+
+- OA SDK: `pnpm ci:local` → `LOCAL CI: ALL PASS` (install, all build/typecheck groups, core/downstream/maintenance/internal tests, integration, e2e, schema validation/rollback/diff, api-index/docs/feature/type-registry gates, DPM surface, pack smoke, Node 22/24/26 public runtime, TS7, NestJS/FastAPI governance).
+- OA SDK schema: `pnpm schema:validate` passed (`oa-gen validate --require-32`: 0 warnings, 0 infos).
+- Definition builder targets: `build-spec` and `validate --profile full-api-document --require-32` passed for `public-api`, `admin-api`, `internal-api`, `book-notebook-api`, `local-parity-api`, `staging-parity-api`, and `production-parity-api`; diagnostics files contained 0 entries.
+- bun-graph-db: `bun run typecheck`, `bun run build`, and `bun run lint --max-diagnostics=20` passed (lint reported one Biome schema-version info, no errors).
+- bun-graph-db projection/runtime/smoke: 11 focused test files → 77 pass, 0 fail, 989 assertions.
+- Cross-repo gate: `pnpm check:cross-repo-projection` passed (15 pass, 0 fail, 301 assertions) with the submodule HEAD equal to `origin/main` (`c065557`).
+- Worktree: only documentation changes from this verification remain; no temporary generated output is tracked or left behind.
 
 ## Functional Requirements
 

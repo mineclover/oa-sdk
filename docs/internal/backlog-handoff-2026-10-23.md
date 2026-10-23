@@ -1,7 +1,7 @@
 # Backlog Handoff — cross-repo projection / DPM runtime
 
 Last updated: 2026-10-23
-Status: review complete; no implementation started
+Status: cross-repo projection complete (shared PRD US-001–US-013, MCP PRD US-001–US-009); DPM remains owner-gated
 Scope: [MCP OpenAPI Projection Tools](../../tasks/prd-mcp-openapi-projection-tools.md),
 [Shared OpenAPI Projection Validation](../../tasks/prd-shared-openapi-projection-validation.md),
 [DPM runtime/storage follow-up](./goals/goal-5-dpm-runtime-storage-integration.md)
@@ -12,7 +12,7 @@ Scope: [MCP OpenAPI Projection Tools](../../tasks/prd-mcp-openapi-projection-too
 
 | 항목 | 판단 | 먼저 필요한 것 |
 | --- | --- | --- |
-| cross-repo bun-graph-db/MCP projection | 구현은 대부분 존재하지만 **submodule pin이 원격에 없는 로컬 commit**을 가리킨다 | bun-graph-db commit 정리·push, pin 재고정, PRD 상태 reconciliation |
+| cross-repo bun-graph-db/MCP projection | **완료 (2026-10-23).** pin 재고정, PRD reconciliation, US-013 full gate 통과 | 소스 저장소 GitHub Actions billing 복구만 남음 |
 | DPM runtime/storage | Goal 5의 storage/runtime integration은 완료됐고, 남은 것은 **명시적으로 oa-sdk 범위 밖인 production data-plane**이다 | `mineclover/data-governance`의 owner decision/PRD, security·deployment 계약 |
 
 ## 현재 기준 상태
@@ -38,8 +38,8 @@ Scope: [MCP OpenAPI Projection Tools](../../tasks/prd-mcp-openapi-projection-too
   `OpenApiProjectionResult`/`validateOpenApiProjection()`을 공유한다.
 
 oa-sdk 쪽 contract work(US-002–US-007)는 완료되어 `@oa-sdk/openapi-projection-contract@0.2.0`으로
-배포되어 있다. PRD 문서는 US-001 vocabulary reconciliation과 US-008–US-013 cross-repo wiring을
-아직 open으로 표시하지만, **bun-graph-db 쪽 구현은 이미 origin/main에 올라가 있다.**
+배포되어 있다. shared PRD US-001–US-013와 MCP PRD US-001–US-009는 완료로 정리했고,
+**bun-graph-db 쪽 구현은 이미 origin/main에 올라가 있다.**
 
 ### A.2 확인된 구현
 
@@ -57,8 +57,11 @@ oa-sdk 쪽 contract work(US-002–US-007)는 완료되어 `@oa-sdk/openapi-proje
   - `tests/integration/mcp-table-projection-tools-list.test.ts`
   - `tests/integration/projection-graphql-mcp-smoke.test.ts`
 
-`bun-graph-db/package.json`은 `@oa-sdk/openapi-projection-contract`를 `0.2.0`으로 의존한다.
-즉 published contract package를 사용하는 cross-repo 경계는 이미 연결되어 있다.
+`bun-graph-db/package.json`은 `@oa-sdk/openapi-projection-contract`를
+`file:../../packages/openapi-projection-contract`로 의존한다. 이는 published npm artifact가 아니라
+같은 workspace layout의 OA SDK 패키지(version `0.2.0`)를 가리키는 의도된 개발용 경로다.
+bun-graph-db의 `scripts/ci-versions.ts`와 CI workflow도 이 parent layout을 검증하므로,
+두 저장소는 이 경계를 그대로 유지한다.
 
 ### A.3 검증 결과
 
@@ -87,10 +90,11 @@ bun test \
    - `origin/main`에서 `bun run typecheck`와 focused 3 tests(15 tests, 301 assertions)가 통과한다.
    - projection feature 자체는 원래부터 `origin/main`에 있었다(`5f2e4b2`, `d3007dd` 등).
 
-2. **PRD 상태가 실제 구현과 어긋난다.**
-   - `prd-shared-openapi-projection-validation.md`는 US-008–US-013을 open으로 표시한다.
+2. ~~**PRD 상태가 실제 구현과 어긋난다.**~~ **Resolved 2026-10-23.**
+   - `prd-shared-openapi-projection-validation.md`의 US-001–US-012를 실제 구현 기준으로 `[x]` 처리했다.
    - bun-graph-db origin/main에는 dependency, adapters, MCP tools, smoke tests가 이미 있다.
-   - US-001 vocabulary reconciliation이 실제로 끝났는지는 별도 확인이 필요하다.
+   - US-001 vocabulary reconciliation은 OA SDK adapter test와 양쪽 vocabulary 문서를 직접 확인해
+     완료로 판정했다. bun-graph-db boundary doc은 package.json과 일치하므로 수정이 필요 없었다.
 
 3. **oa-sdk CI는 submodule을 검사하지 않는다.**
    - `.github/workflows/ci.yml`은 `submodules: false`로 checkout한다.
@@ -98,9 +102,10 @@ bun test \
    - 현재는 `references/bun-graph-db`의 focused test를 수동으로 실행해야 한다.
 
 4. **contract release 경계가 있다.**
-   - bun-graph-db는 published `@oa-sdk/openapi-projection-contract@0.2.0`을 쓴다.
-   - contract type/validator를 바꾸면 새 contract release와 bun-graph-db dependency bump가 필요하다.
-   - 이 작업은 oa-sdk의 일반 patch release와 별도로 조정해야 한다.
+   - bun-graph-db는 OA SDK workspace의 contract 패키지(현재 version `0.2.0`)를 file dependency로 쓴다.
+   - contract type/validator를 바꾸면 bun-graph-db는 같은 트리에서 즉시 영향을 받고,
+     배포 소비자는 새 contract release가 필요하다.
+   - published consumer용 contract release는 oa-sdk의 일반 patch release와 별도로 조정한다.
 
 ### A.5 권장 다음 작업
 
@@ -108,12 +113,12 @@ bun test \
    - 부모 pin을 `origin/main`의 `c065557`로 재고정했다.
    - 로컬 92개 commit은 `backup/local-2026-10-23` branch에만 남겼다.
 
-2. **PRD 상태를 reconciliation한다.** (부분 완료)
-   - shared PRD US-008–US-012와 MCP PRD US-001–US-009를 `[x]`로 표시했다.
+2. **PRD 상태를 reconciliation한다.** (완료)
+   - shared PRD US-001–US-013와 MCP PRD US-001–US-009를 `[x]`로 표시했다.
    - MCP PRD는 typecheck/build/lint와 focused tests까지 완료됐다.
-   - shared PRD의 US-001 vocabulary reconciliation과 US-013 final cross-repo gate는 아직 open이다.
-     bun-graph-db boundary doc의 local-file dependency 예시는 published `0.2.0` 사용과 어긋나므로
-     read-only reference 정책상 해당 repo에서 별도 수정이 필요하다.
+   - US-001 vocabulary reconciliation은 OA SDK 쪽 확인만으로 닫혔다. bun-graph-db boundary doc의
+     local-file dependency 예시는 실제 `package.json` 및 `scripts/ci-versions.ts`와 일치하며,
+     published package 사용 서술은 OA SDK handoff 문서 쪽 오류였다.
 
 3. **cross-repo verification을 문서화하거나 CI에 추가한다.** (수동 gate 추가)
    - `scripts/check-cross-repo-projection.sh`와 `pnpm check:cross-repo-projection`을 추가했다.
@@ -125,6 +130,18 @@ bun test \
    - `docs/internal/todo.md`의 backlog 문구
    - `HANDOFF.md`의 cross-repo 상태
    - `tasks/prd-shared-openapi-projection-validation.md`, `tasks/prd-mcp-openapi-projection-tools.md`
+
+### A.6 Final verification (2026-10-23)
+
+- OA SDK: `pnpm ci:local` → `LOCAL CI: ALL PASS`.
+- OA SDK schema: `pnpm schema:validate` 통과 (`oa-gen validate --require-32`, 0 warnings, 0 infos).
+- Definition builder: 7개 target(`public`, `admin`, `internal`, `book-notebook`, `local/staging/production parity`)에 대해
+  `oa-gen build-spec` + `oa-gen validate --profile full-api-document --require-32` 통과, diagnostics 0.
+- bun-graph-db: `bun run typecheck`, `bun run build`, `bun run lint --max-diagnostics=20` 통과
+  (lint는 Biome schema-version info 1건, 오류 없음).
+- bun-graph-db projection/runtime/smoke: 11개 파일 **77 pass, 0 fail, 989 assertions**.
+- `pnpm check:cross-repo-projection`: **15 pass, 0 fail, 301 assertions**, submodule HEAD = `origin/main` (`c065557`).
+- worktree에는 이번 문서 변경만 남았고 temporary generated output은 남기지 않았다.
 
 ---
 
@@ -203,9 +220,9 @@ physical FK mutation, control-plane search/edit/publish”를 활성화하지 �
 ### 권장 순서
 
 1. ~~cross-repo submodule pin 정책 결정~~ — read-only reference, `c065557` pin (2026-10-23)
-2. ~~pushed commit으로 pin 재고정~~ — 완료. 남은 것은 US-001 vocabulary reconciliation과
-   US-013/US-009 full build/lint gate
-3. cross-repo gate 실행: `pnpm check:cross-repo-projection` (수동)
+2. ~~pushed commit으로 pin 재고정~~ — 완료. ~~US-001 vocabulary reconciliation~~ — 완료.
+   ~~US-013 full build/lint gate~~ — 완료 (A.6)
+3. ~~cross-repo gate 실행: `pnpm check:cross-repo-projection` (수동)~~ — 완료
 4. DPM은 owner decision 전까지 **no-op** 유지 (B.4)
 5. GitHub Actions billing 복구 후 source CI를 다시 활성화
 

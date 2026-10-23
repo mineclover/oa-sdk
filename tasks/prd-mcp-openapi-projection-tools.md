@@ -2,7 +2,9 @@
 
 Status: implemented on bun-graph-db `origin/main` (`c065557`). Verification: `bun run typecheck`,
 `bun run build`, `bun run lint` (no errors; one Biome schema-version info), and the three focused
-projection tests (15 tests, 301 assertions). The shared PRD's final cross-repo US-013 remains open.
+projection tests (15 tests, 301 assertions). All MCP PRD stories are complete. The shared PRD's
+US-013 final cross-repo gate also passed on 2026-10-23 (`pnpm ci:local` all pass; bun-graph-db
+focused projection/runtime/smoke suites 77 tests, 989 assertions).
 
 ## Overview
 
