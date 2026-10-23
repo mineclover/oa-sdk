@@ -1,10 +1,21 @@
 # Artifact Release Preparation
 
-Status: active operating guide. Last reviewed 2026-10-22.
+Status: active operating guide. Last reviewed 2026-10-23.
 
 이 가이드는 oa-sdk의 **public package artifact**를 준비하는 maintainer를 위한 것이다.
 이 source repository에서 npm publish를 실행하지 않는다. 실제 registry promotion은
 별도 `oa-sdk-releases` repository의 승인된 workflow가 담당한다.
+
+## 실행 위치
+
+| 단계 | 디렉토리 | 명령 |
+| --- | --- | --- |
+| version 확정, CI, preflight, export | `oa-sdk` source checkout | `pnpm changeset`, `pnpm version-packages`, `pnpm ci:local`, `pnpm release:preflight`, `pnpm release:export` |
+| release artifact commit/PR | `oa-sdk-releases` checkout | `git checkout -b`, `git add`, `git commit`, `git push`, `gh pr create` |
+| npm promotion | GitHub Actions | `Publish npm release` workflow 또는 `gh workflow run ... --repo mineclover/oa-sdk-releases` |
+| registry 확인 | 어디서나 | `npm view ... --prefer-online` |
+
+`npm trust` 명령은 npm registry 작업이라 어느 디렉토리에서든 실행할 수 있지만, **interactive 2FA 세션**이 필요하다. CI의 `NPM_TOKEN`으로는 read(`npm trust list`)와 write 모두 `E403`이므로 workflow에서 실행할 수 없다.
 
 ## 시작 전 확인
 
@@ -182,15 +193,66 @@ pnpm release:export -- --dry-run --skip-registry-preflight \
 promotion 입력으로 사용하지 않는다. official export는 반드시 clean, committed candidate에서
 `--dry-run` 없이 다시 수행한다.
 
-## 4. External promotion을 승인한다
+## 4. Release PR과 npm promotion
 
-`oa-sdk-releases` repository에서 다음을 확인한 뒤에만 그 repository의 publish workflow를
-승인한다.
+### 4.1 `oa-sdk-releases` release PR
+
+export가 만든 `releases/<release-id>/`를 branch로 commit하고 PR을 만든다.
+
+```bash
+cd ../oa-sdk-releases
+git checkout -b release/<release-id>
+git add releases/<release-id>
+git commit -m "release: <release-id>"
+git push -u origin HEAD
+gh pr create
+```
+
+PR에서 다음을 확인한 뒤 merge한다.
 
 - release ID, source commit, package/version, tarball SHA-512가 review record와 일치한다.
 - package tarball에는 source, test, source map, private repository metadata가 포함되지 않는다.
 - required review/branch protection이 충족됐다.
 - npm provenance/OIDC 및 registry 권한이 외부 workflow에만 부여돼 있다.
+
+### 4.2 Trusted publishing으로 publish
+
+`oa-sdk-releases`의 `publish.yml`은 `trusted_publishing=true`가 기본이다. GitHub OIDC로
+인증하며 publish step에 `NPM_TOKEN`을 넘기지 않는다. `false`는 trust 설정을 진단할 때만 쓰는
+token fallback이다.
+
+```bash
+gh workflow run "Publish npm release" \
+  --repo mineclover/oa-sdk-releases \
+  -f release_id=<release-id> \
+  -f trusted_publishing=true
+```
+
+GitHub UI에서는 `Actions` → `Publish npm release` → `Run workflow`에서 release ID를 넣고
+`trusted_publishing`을 체크된 상태로 둔다.
+
+package별 trusted publisher는 최초 한 번 interactive 2FA로 설정한다. 설정 값은 owner
+`mineclover`, repository `oa-sdk-releases`, workflow `publish.yml`, environment `npm-publish`,
+allowed action `npm publish`다. `npm trust list <package>`로 확인한다. `npm trust github`의
+`E409`는 이미 같은 설정이 있다는 뜻이고, CI token의 `E403`은 자동 관리가 금지된 것이다.
+자세한 수동 절차와 `E409`/`E403` 트러블슈팅은 `oa-sdk-releases/README.md`를 따른다.
+
+첫 OIDC publish가 성공해야 trust 설정이 검증된다. 설정 후 2일 안에 성공하지 못하면 만료되므로
+삭제 후 재생성해야 한다.
+
+publish workflow는 artifact boundary를 검증하고, 이미 배포된 version은 skip하며, registry
+전파를 최대 15분 기다린다. 전파 지연으로 검증이 실패하면 **같은 release ID로 재실행**한다.
+이미 배포된 version은 다시 publish하지 않는다.
+
+### 4.3 배포 확인
+
+```bash
+npm view @oa-sdk/<package> version --prefer-online
+npm view @oa-sdk/<package> dist-tags --json --prefer-online
+```
+
+`latest`가 새 version을 가리키는지 확인하고 GitHub Release/tag를 만든다. 첫 trusted publish가
+성공하면 npm package 설정에서 token 기반 publishing을 제한하고 `NPM_TOKEN`을 은퇴시킨다.
 
 source repository의 `pnpm release` 또는 `pnpm release:export`는 이 최종 promotion을 대신하지
 않는다.
@@ -203,7 +265,10 @@ source repository의 `pnpm release` 또는 `pnpm release:export`는 이 최종 p
 - [ ] codegen을 export했다면 `oa-gen`이 안내하는 package(companion, `@oa-sdk/core`)가 built-against version으로 같은 export에 포함됐거나 이미 npm에 있다.
 - [ ] 같은 release candidate commit의 `pnpm ci:local`이 통과했고, GitHub CI가 실행됐다면 필수 lane도 통과했다.
 - [ ] contract change라면 TypeSpec snapshot 및 semver evidence를 검토했다.
-- [ ] external artifact repository의 manifest와 SHA-512를 검토했다.
+- [ ] external artifact repository의 manifest와 SHA-512를 검토하고 release PR을 merge했다.
+- [ ] export한 package마다 trusted publisher가 설정됐고, 첫 OIDC publish가 성공했다. token fallback을 썼다면 그 이유를 기록했다.
+- [ ] `npm view --prefer-online`으로 `latest`를 확인하고 GitHub Release/tag를 만들었다.
+- [ ] 첫 trusted publish 성공 후 token 기반 publishing을 제한하고 `NPM_TOKEN`을 은퇴시켰다.
 - [ ] 실제 npm promotion은 authorized external workflow에서만 실행했다.
 
 정책의 전체 근거와 현재 판단 입력은 [Release Readiness](../internal/release-readiness.md),
