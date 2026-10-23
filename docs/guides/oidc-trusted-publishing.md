@@ -181,9 +181,11 @@ publish workflow는 artifact boundary를 검증하고, 이미 배포된 version�
 전파를 최대 15분 기다린다. 전파 지연으로 검증이 실패하면 **같은 release ID로 재실행**한다.
 이미 배포된 tarball은 교체하지 않는다.
 
-## 6. Token publish 제한 및 NPM_TOKEN 은퇴
+## 6. Token publish 제한 (선택)
 
-첫 OIDC publish가 성공한 뒤에는 long-lived token 경로를 제한한다.
+현재 oa-sdk는 publish workflow를 OIDC-only로 유지하고 기존 `NPM_TOKEN`을 **만료되도록** 두기로
+했다. workflow가 token을 전달받지 않으므로 token이 만료되어도 배포에 영향이 없다. 아래는 token을
+조기에 revoke하거나 token 기반 publish를 제한하려는 경우의 절차다.
 
 1. 각 package의 npm Settings → Publishing access에서
    **“Require two-factor authentication and disallow tokens”**를 설정한다.

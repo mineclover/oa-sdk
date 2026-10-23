@@ -250,8 +250,10 @@ npm view @oa-sdk/<package> version --prefer-online
 npm view @oa-sdk/<package> dist-tags --json --prefer-online
 ```
 
-`latest`가 새 version을 가리키는지 확인하고 GitHub Release/tag를 만든다. 첫 trusted publish가
-성공하면 npm package 설정에서 token 기반 publishing을 제한하고 `NPM_TOKEN`을 은퇴시킨다.
+`latest`가 새 version을 가리키는지 확인하고 GitHub Release/tag를 만든다. token 기반 publishing
+제한과 `NPM_TOKEN` 은퇴는 선택적 hardening이다. 이 저장소는 publish workflow를 OIDC-only로
+유지하고 기존 token을 만료시키기로 했으며, workflow가 token을 받지 않으므로 만료는 배포에
+영향을 주지 않는다.
 
 source repository의 `pnpm release` 또는 `pnpm release:export`는 이 최종 promotion을 대신하지
 않는다.
@@ -267,7 +269,7 @@ source repository의 `pnpm release` 또는 `pnpm release:export`는 이 최종 p
 - [ ] external artifact repository의 manifest와 SHA-512를 검토하고 release PR을 merge했다.
 - [ ] export한 package마다 trusted publisher가 설정됐고, 첫 OIDC publish가 성공했다.
 - [ ] `npm view --prefer-online`으로 `latest`를 확인하고 GitHub Release/tag를 만들었다.
-- [ ] 첫 trusted publish 성공 후 token 기반 publishing을 제한하고 `NPM_TOKEN`을 은퇴시켰다.
+- [ ] workflow가 OIDC-only이고 publish step에 token이 전달되지 않는지 확인했다. token publishing 제한/은퇴는 선택적 hardening이다.
 - [ ] 실제 npm promotion은 authorized external workflow에서만 실행했다.
 
 정책의 전체 근거와 현재 판단 입력은 [Release Readiness](../internal/release-readiness.md),
