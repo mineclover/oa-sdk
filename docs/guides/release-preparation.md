@@ -235,7 +235,9 @@ package별 trusted publisher는 최초 한 번 interactive 2FA로 설정한다. 
 `mineclover`, repository `oa-sdk-releases`, workflow `publish.yml`, environment `npm-publish`,
 allowed action `npm publish`다. `npm trust list <package>`로 확인한다. `npm trust github`의
 `E409`는 이미 같은 설정이 있다는 뜻이고, CI token의 `E403`은 자동 관리가 금지된 것이다.
-자세한 수동 절차와 `E409`/`E403` 트러블슈팅은 `oa-sdk-releases/README.md`를 따른다.
+자세한 수동 절차, trust 관계 갱신, `E409`/`E403` 트러블슈팅은
+[OIDC Trusted Publishing 설정 및 업데이트 가이드](./oidc-trusted-publishing.md)와
+`oa-sdk-releases/README.md`를 따른다.
 
 첫 OIDC publish가 성공해야 trust 설정이 검증된다. 설정 후 2일 안에 성공하지 못하면 만료되므로
 삭제 후 재생성해야 한다.

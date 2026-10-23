@@ -309,3 +309,4 @@ oa-sdk 저장소 자체의 패키지 소스, production TypeSpec 계약, 문서�
 - **[TypeSpec IDE 설정 가이드](./typespec-ide-setup.md)**: 저장소에 포함된 VSCode/Cursor 권장 설정, LSP, 코드 조각(Snippets).
 - **[기본 스펙 사용 기준](./basic-spec-usage.md)**: 저장소 스펙 원본, 승인 snapshot, 생성물의 소유권 경계.
 - **[패키지 릴리즈 준비 가이드](./release-preparation.md)**: 메인테이너용 artifact 전용 패키지 릴리즈 절차.
+- **[OIDC Trusted Publishing 설정 및 업데이트 가이드](./oidc-trusted-publishing.md)**: npm trusted publisher 최초 설정, E409/E403 대응, repository·workflow·environment 변경 시 trust 관계 갱신, OIDC publish 검증과 token 은퇴 절차.
