@@ -179,6 +179,11 @@ Core Platform인 `@oa-sdk/surface-ir`와 `@oa-sdk/codegen`(`pluginRpc`, `generat
 
 ### DPM temporary reactivation — 2026-07-14
 
+> **Amendment 2026-10-23:** the canonical `mineclover/data-governance` repository is public and
+> `@oa-sdk/dpm@0.1.2` was published to npm on 2026-07-28. The "private" and "no publish" wording
+> below records the 2026-07-14 decision only. Phase 10 production data-plane scope remains
+> explicitly deferred.
+
 The roadmap execution request for Goal 68 records a temporary scope reactivation for
 `@oa-sdk/dpm` in this monorepo. The current canonical implementation site is
 `mineclover/oa-sdk/packages/dpm`; the package remains private and is still excluded from

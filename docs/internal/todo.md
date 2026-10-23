@@ -28,7 +28,7 @@ TypeSpec source에서 materialize하며, Definition Builder fragments/targets는
   [Backlog Handoff](./backlog-handoff-2026-10-23.md)에 정리했다. cross-repo submodule pin은
   `origin/main`의 pushed commit으로 재고정했고 `pnpm check:cross-repo-projection` 수동 gate를
   추가했다. shared PRD US-001–US-013와 MCP PRD US-001–US-009는 완료이며 US-013 full gate도
-  통과했다. DPM production data-plane은 owner decision 전까지 no-op이다.
+  통과했다. Phase 10 DPM production data-plane은 별도 runtime owner decision 전까지 no-op이다.
 
 OA SDK 기본 기능 안정화의 현재 작업은 문서·gate drift 감시다. bounded cross-repo projection
 integration은 shared PRD US-001–US-013과 MCP PRD US-001–US-009 완료로 닫혔다.

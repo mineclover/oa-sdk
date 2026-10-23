@@ -7,7 +7,7 @@ DPM phase 순서와 gap 정렬은 [DPM Master Roadmap](./dpm-master-roadmap.md)�
 
 ## Current
 
-- Goal 68 is active with private owner acceptance recorded. DPM-86 through DPM-90 are complete; DPM-90 is backed by the private `mineclover/data-governance` repository, owner workflow `29427810791`, external runtime/declaration/rollback/workflow/pack rehearsal, owner `check:docs`, T1 release-gate verification, and [Goal 68.4 Issue #1](https://github.com/mineclover/data-governance/issues/1). The external owner is canonical for the extraction contract; public registry publication and breaking removal remain separately gated.
+- Goal 68 is active with owner acceptance recorded. DPM-86 through DPM-90 are complete; DPM-90 is backed by the public `mineclover/data-governance` repository, owner workflow `29427810791`, external runtime/declaration/rollback/workflow/pack rehearsal, owner `check:docs`, T1 release-gate verification, and [Goal 68.4 Issue #1](https://github.com/mineclover/data-governance/issues/1). The external owner is canonical for the extraction contract and published `@oa-sdk/dpm@0.1.2` on 2026-07-28; breaking removal remains separately gated.
 - Goal 69 is active: 69.1-69.4 and 69.6 are done (shared `$ref` expansion memo, linear completeness scan, DAG-safe client serializer, `bench:parser` gate, single parse per target in `oa-gen generate`). 69.5a is done: recursive schemas whose cycle descends into the instance are allowed, with one rule shared by parse and lint. 69.5b (`resolveRefGraph` one node per occurrence, SCC-based cycle diagnostics) and 69.7 (`projectRefGraph`, adopted by spec-lens) are done. Goal 70 Phase A consumes `projectRefGraph`.
 - Goal 70 (Sirius Web studio integration): Phase A B1·B2 (versioned ref-projection export, shared `canonicalId` mapping) complete and integrated on 2026-10-06; B3 (Sirius importer) waits for the B4 comparison with `apps/spec-lens`.
 - Remaining workstreams, pending decisions, and conflicts with uncommitted changes are tracked in [Orchestration Handoff](./orchestration-handoff.md).
@@ -428,7 +428,7 @@ DPM phase 순서와 gap 정렬은 [DPM Master Roadmap](./dpm-master-roadmap.md)�
 - [x] DPM-87 - Namespace-safe identity contract
 - [x] DPM-88 - Semantic API/catalog binding validation
 - [x] DPM-89 - Compiler and provenance artifact integration
-- [x] DPM-90 - External extraction rehearsal and private owner acceptance (private repository, owner decision, compatibility window, canonical document ownership, rollback sign-off, and CI-backed runtime/declaration/rollback/workflow/pack rehearsal recorded; public release remains disabled)
+- [x] DPM-90 - External extraction rehearsal and owner acceptance (public repository, owner decision, compatibility window, canonical document ownership, rollback sign-off, and CI-backed runtime/declaration/rollback/workflow/pack rehearsal recorded; `@oa-sdk/dpm@0.1.2` published 2026-07-28)
 
 ## Done Criteria
 

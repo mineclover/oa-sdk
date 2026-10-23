@@ -13,7 +13,7 @@ Scope: [MCP OpenAPI Projection Tools](../../tasks/prd-mcp-openapi-projection-too
 | 항목 | 판단 | 먼저 필요한 것 |
 | --- | --- | --- |
 | cross-repo bun-graph-db/MCP projection | **완료 (2026-10-23).** pin 재고정, PRD reconciliation, US-013 full gate 통과 | 소스 저장소 GitHub Actions billing 복구만 남음 |
-| DPM runtime/storage | Goal 5의 storage/runtime integration은 완료됐고, 남은 것은 **명시적으로 oa-sdk 범위 밖인 production data-plane**이다 | `mineclover/data-governance`의 owner decision/PRD, security·deployment 계약 |
+| DPM runtime/storage | Goal 5의 storage/runtime integration은 완료됐고, `@oa-sdk/dpm@0.1.2`도 canonical public owner repo에서 배포됐다. 남은 것은 **명시적으로 oa-sdk 범위 밖인 Phase 10 production data-plane**이다 | `mineclover/data-governance`의 Phase 10 runtime owner decision/PRD, security·deployment 계약 |
 
 ## 현재 기준 상태
 
@@ -158,8 +158,10 @@ bun test \
 - DPM-14: job/validation report persistence
 - storage-backed demo/smoke gate
 
-`@oa-sdk/dpm`은 private, maintenance-only package이며 changeset/release track에서 제외되어 있다.
-최신 local CI에서 dpm suite 121 files가 통과했다.
+`@oa-sdk/dpm`은 maintenance-only package이며 changeset/release track에서 제외되어 있다.
+canonical owner repository `mineclover/data-governance`는 **public**이고,
+`@oa-sdk/dpm@0.1.2`가 2026-07-28에 npm에 배포되어 현재 `latest`다. 최신 local CI에서
+dpm suite 121 files가 통과했다.
 
 ### B.2 남은 것으로 오해하기 쉬운 범위
 
@@ -179,10 +181,12 @@ physical FK mutation, control-plane search/edit/publish”를 활성화하지 �
 
 ### B.3 소유권과 release 경계
 
-- canonical external owner: `mineclover/data-governance`
-- oa-sdk `@oa-sdk/dpm`은 extraction candidate / compatibility implementation
-- public package metadata, registry publication, breaking removal은 owner-approved `T1` release gate
-- 현재 no scope reactivation authorized
+- canonical external owner: `mineclover/data-governance` (public repository)
+- oa-sdk `@oa-sdk/dpm`은 maintenance-only compatibility implementation이며, canonical owner가
+  `@oa-sdk/dpm@0.1.2`를 2026-07-28에 배포했다
+- `@oa-sdk/dpm`의 향후 release와 breaking removal은 owner-approved `v*` release gate를 따른다
+- Phase 10 production data-plane scope reactivation은 **승인되지 않았다** (별도 runtime owner
+  decision 필요)
 
 ### B.4 권장 다음 작업
 
@@ -190,7 +194,7 @@ physical FK mutation, control-plane search/edit/publish”를 활성화하지 �
    - Goal 5 이후의 “runtime/storage”는 이미 완료된 storage integration이 아니라 production
      data-plane이므로, 새 PRD/decision 없이 `packages/dpm`에 추가하면 scope 위반이다.
 
-2. **진행하려면 `mineclover/data-governance`에서 decision record를 먼저 만든다.**
+2. **Phase 10을 진행하려면 `mineclover/data-governance`에서 runtime owner decision record를 먼저 만든다.**
    - user problem과 대상 dataset
    - runtime owner와 deployment authority
    - vault/tokenization security model
@@ -223,7 +227,7 @@ physical FK mutation, control-plane search/edit/publish”를 활성화하지 �
 2. ~~pushed commit으로 pin 재고정~~ — 완료. ~~US-001 vocabulary reconciliation~~ — 완료.
    ~~US-013 full build/lint gate~~ — 완료 (A.6)
 3. ~~cross-repo gate 실행: `pnpm check:cross-repo-projection` (수동)~~ — 완료
-4. DPM은 owner decision 전까지 **no-op** 유지 (B.4)
+4. Phase 10 production data-plane은 별도 runtime owner decision 전까지 **no-op** 유지 (B.4)
 5. GitHub Actions billing 복구 후 source CI를 다시 활성화
 
 ## 참고

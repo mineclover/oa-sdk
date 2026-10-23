@@ -18,6 +18,8 @@ Downstream Integration 12개 패키지(`router`, `client`, `mock-server`, `chunk
 
 `dpm`, `personas`, `typia-mock`은 maintenance-only다. 별도 decision이 없는
 상태에서 허용되는 goal은 security, compatibility, migration/extraction에 한정한다.
+`@oa-sdk/dpm@0.1.2`는 canonical owner repository(`mineclover/data-governance`, public)에서
+2026-07-28에 배포되었고, Phase 10 production data-plane은 여전히 deferred다.
 App/reference workspace는 Core roadmap 밖의 consumer surface다. Markdown editor와 GitLab agent
 operations의 신규 목표는 각각 `markdown-editor`, `gitlab-agent-ops` 저장소에서 관리한다.
 

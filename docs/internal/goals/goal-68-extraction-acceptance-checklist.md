@@ -1,6 +1,11 @@
 # Goal 68.4 — External Extraction Acceptance Checklist
 
-**Status: private owner acceptance recorded 2026-07-15; public registry release remains disabled**
+**Status: owner acceptance recorded 2026-07-15; `@oa-sdk/dpm@0.1.2` published 2026-07-28; breaking removal remains gated**
+
+> **Amendment 2026-10-23:** the canonical `mineclover/data-governance` repository is public and
+> `@oa-sdk/dpm@0.1.2` was published to npm on 2026-07-28. The "private" and "public release
+> disabled" wording below records the 2026-07-15 decision only. Phase 10 production data-plane
+> scope remains deferred.
 
 > Parent: [Goal 68 — DPM Logical Data Definition and Extraction Boundary](./goal-68-dpm-logical-data-definition-boundary.md)
 >
