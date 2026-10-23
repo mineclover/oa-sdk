@@ -1,6 +1,6 @@
 # PRD: Shared OpenAPI Projection Validation
 
-Status: partially implemented. OA SDK-side contract work is complete for US-002 through US-007: `@oa-sdk/openapi-projection-contract`, projection profiles, metadata extensions, `validateOpenApiProjection()`, and Definition Builder projection validation are implemented. US-001 vocabulary reconciliation and US-008 through US-013 cross-repo bun-graph-db/MCP wiring remain outside the current oa-sdk workspace and are intentionally left open.
+Status: bun-graph-db side implemented on `origin/main` (`c065557`). OA SDK-side contract work is complete for US-002 through US-007: `@oa-sdk/openapi-projection-contract`, projection profiles, metadata extensions, `validateOpenApiProjection()`, and Definition Builder projection validation are implemented. US-008 through US-012 are marked complete against the pinned bun-graph-db tree; verification was `bun run typecheck` plus the three focused projection tests (15 tests, 301 assertions). US-001 vocabulary reconciliation and US-013 final full cross-repo gates remain open.
 
 ## Overview
 
@@ -135,69 +135,69 @@ For final verification story, also run:
 **Description:** As a bun-graph-db maintainer, I want to consume the shared projection contract without importing OA SDK implementation internals so that bun adapters compile against the same types.
 
 **Acceptance Criteria:**
-- [ ] Add a local development dependency from bun-graph-db to `@oa-sdk/openapi-projection-contract` using the repository-relative path used in this workspace.
-- [ ] bun-graph-db imports only contract package types/helpers, not OA SDK parser/codegen internals.
-- [ ] bun-graph-db typecheck passes with the contract package dependency.
-- [ ] Document that the local file dependency is a development integration path until the package is published or vendored.
-- [ ] No bun-graph-db repository, GraphQL, MCP, or storage code is moved into the contract package.
+- [x] Add a local development dependency from bun-graph-db to `@oa-sdk/openapi-projection-contract` using the repository-relative path used in this workspace.
+- [x] bun-graph-db imports only contract package types/helpers, not OA SDK parser/codegen internals.
+- [x] bun-graph-db typecheck passes with the contract package dependency.
+- [x] Document that the local file dependency is a development integration path until the package is published or vendored.
+- [x] No bun-graph-db repository, GraphQL, MCP, or storage code is moved into the contract package.
 
 ### US-009: Add bun-graph-db Component-Bundle Adapter
 **Description:** As a bun-graph-db maintainer, I want table schema projections adapted into OpenAPI 3.2 component bundles so that runtime DB metadata can use OpenAPI-compatible validation tooling.
 
 **Acceptance Criteria:**
-- [ ] Add adapter from `TableSchemaProjection` to `OpenApiProjectionResult`.
-- [ ] Adapter sets profile to `component-bundle`.
-- [ ] Adapter emits OpenAPI 3.2 document with `openapi`, `info`, empty `paths`, and `components.schemas`.
-- [ ] Adapter maps `$defs` entries into `components.schemas`.
-- [ ] Adapter rewrites internal `$defs` refs to `#/components/schemas/...`.
-- [ ] Adapter preserves projection refs.
-- [ ] Adapter preserves projection diagnostics.
-- [ ] Adapter preserves DB source coordinates.
-- [ ] Adapter forwards `versionHash`.
-- [ ] Tests cover a valid table schema projection becoming a valid component-bundle projection.
-- [ ] Tests cover projection error diagnostics surviving adapter mapping.
+- [x] Add adapter from `TableSchemaProjection` to `OpenApiProjectionResult`.
+- [x] Adapter sets profile to `component-bundle`.
+- [x] Adapter emits OpenAPI 3.2 document with `openapi`, `info`, empty `paths`, and `components.schemas`.
+- [x] Adapter maps `$defs` entries into `components.schemas`.
+- [x] Adapter rewrites internal `$defs` refs to `#/components/schemas/...`.
+- [x] Adapter preserves projection refs.
+- [x] Adapter preserves projection diagnostics.
+- [x] Adapter preserves DB source coordinates.
+- [x] Adapter forwards `versionHash`.
+- [x] Tests cover a valid table schema projection becoming a valid component-bundle projection.
+- [x] Tests cover projection error diagnostics surviving adapter mapping.
 
 ### US-010: Add bun-graph-db Operation-Contract Adapter
 **Description:** As a bun-graph-db validation user, I want create/update node contracts represented as OpenAPI operations so that request payload validation can use the common OpenAPI projection interface.
 
 **Acceptance Criteria:**
-- [ ] Adapter can emit `operation-contract` profile for a table projection.
-- [ ] Operation contract includes create node path or synthetic path.
-- [ ] Create node operation requestBody references projected create input schema.
-- [ ] Update node operation requestBody references projected update input schema.
-- [ ] Update node operation includes a required `nodeId` path parameter or equivalent operation parameter.
-- [ ] OperationIds are stable and table-specific.
-- [ ] Response stubs are valid OpenAPI responses.
-- [ ] Tests validate operation-contract output with `validateOpenApiProjection()`.
-- [ ] Tests validate create payload success/failure through the shared validation path where supported.
-- [ ] Tests validate update payload partial semantics are preserved.
+- [x] Adapter can emit `operation-contract` profile for a table projection.
+- [x] Operation contract includes create node path or synthetic path.
+- [x] Create node operation requestBody references projected create input schema.
+- [x] Update node operation requestBody references projected update input schema.
+- [x] Update node operation includes a required `nodeId` path parameter or equivalent operation parameter.
+- [x] OperationIds are stable and table-specific.
+- [x] Response stubs are valid OpenAPI responses.
+- [x] Tests validate operation-contract output with `validateOpenApiProjection()`.
+- [x] Tests validate create payload success/failure through the shared validation path where supported.
+- [x] Tests validate update payload partial semantics are preserved.
 
 ### US-011: Align bun-graph-db MCP tools/list Schema Generation
 **Description:** As an MCP client, I want table-scoped tools/list schemas to derive from OpenAPI projection output so that MCP schema output does not drift from the shared validation surface.
 
 **Acceptance Criteria:**
-- [ ] MCP schema generation can consume bun-graph-db `OpenApiProjectionResult`.
-- [ ] Existing `TableSchemaProjection` direct mapper remains only as a compatibility fallback during migration.
-- [ ] Create node MCP tool input schema is derived from OpenAPI projection components.
-- [ ] Update node MCP tool input schema is derived from OpenAPI projection components.
-- [ ] Projection diagnostics still appear in MCP `_meta`.
-- [ ] Unusable projections still fall back safely and set `usable: false`.
-- [ ] Existing table-scoped tools remain listed.
-- [ ] Focused MCP tools/list tests pass.
-- [ ] GraphQL/MCP projection smoke test confirms schema refresh after table schema changes.
+- [x] MCP schema generation can consume bun-graph-db `OpenApiProjectionResult`.
+- [x] Existing `TableSchemaProjection` direct mapper remains only as a compatibility fallback during migration.
+- [x] Create node MCP tool input schema is derived from OpenAPI projection components.
+- [x] Update node MCP tool input schema is derived from OpenAPI projection components.
+- [x] Projection diagnostics still appear in MCP `_meta`.
+- [x] Unusable projections still fall back safely and set `usable: false`.
+- [x] Existing table-scoped tools remain listed.
+- [x] Focused MCP tools/list tests pass.
+- [x] GraphQL/MCP projection smoke test confirms schema refresh after table schema changes.
 
 ### US-012: Document As-Is/To-Be Architecture
 **Description:** As an architect, I want the as-is/to-be alignment documented so that future work does not confuse OpenAPI projection sharing with schema engine implementation sharing.
 
 **Acceptance Criteria:**
-- [ ] OA SDK architecture docs describe the as-is/to-be alignment.
-- [ ] bun-graph-db shared SchemaEngine boundary docs describe the as-is/to-be alignment.
-- [ ] Docs state that native source models remain separate.
-- [ ] Docs state that OpenAPI 3.2 is the validation and exchange projection interface.
-- [ ] Docs state that the shared package is a contract and validation package, not a shared source loader or engine.
-- [ ] Docs include extraction gates for any future shared implementation.
-- [ ] Docs define the three projection profiles and intended consumers.
-- [ ] Docs include migration notes for bun-graph-db MCP schema generation.
+- [x] OA SDK architecture docs describe the as-is/to-be alignment.
+- [x] bun-graph-db shared SchemaEngine boundary docs describe the as-is/to-be alignment.
+- [x] Docs state that native source models remain separate.
+- [x] Docs state that OpenAPI 3.2 is the validation and exchange projection interface.
+- [x] Docs state that the shared package is a contract and validation package, not a shared source loader or engine.
+- [x] Docs include extraction gates for any future shared implementation.
+- [x] Docs define the three projection profiles and intended consumers.
+- [x] Docs include migration notes for bun-graph-db MCP schema generation.
 
 ### US-013: Final Cross-Repo Verification
 **Description:** As a release maintainer, I want full verification across OA SDK and bun-graph-db so that the OpenAPI projection contract is safe to build on.

@@ -79,13 +79,13 @@ bun test \
 
 ### A.4 발견된 정합성 문제 (우선순위 순)
 
-1. **부모 repo가 원격에 없는 submodule commit을 pin하고 있다.**
-   - 부모 pin: `cecef25f94e02dc8ecd368547e7d2c071788812e`
-   - `cecef25`는 bun-graph-db `origin/main`에 없다.
-   - 로컬 submodule은 `origin/main`보다 **92 commits ahead**다.
-   - 따라서 fresh clone에서 `git submodule update --init`을 하면 pin을 checkout하지 못할 수 있다.
-   - projection feature 자체는 `origin/main`에 있다(`5f2e4b2`, `d3007dd` 등).
-     pin이 가리키는 92개 local commit에는 projection 외 MCP/VCS/schema 작업도 포함되어 있다.
+1. ~~**부모 repo가 원격에 없는 submodule commit을 pin하고 있다.**~~ **Resolved 2026-10-23.**
+   - 기존 부모 pin: `cecef25f94e02dc8ecd368547e7d2c071788812e` (bun-graph-db `origin/main`에 없음)
+   - 정책: `references/bun-graph-db`를 **read-only reference**로 유지한다.
+   - 로컬 92개 commit은 `backup/local-2026-10-23` branch에 보존했다(pin에는 포함하지 않음).
+   - 부모 pin을 **`c065557` (`origin/main`)** 로 재고정했다. fresh clone에서 resolve 가능하다.
+   - `origin/main`에서 `bun run typecheck`와 focused 3 tests(15 tests, 301 assertions)가 통과한다.
+   - projection feature 자체는 원래부터 `origin/main`에 있었다(`5f2e4b2`, `d3007dd` 등).
 
 2. **PRD 상태가 실제 구현과 어긋난다.**
    - `prd-shared-openapi-projection-validation.md`는 US-008–US-013을 open으로 표시한다.
@@ -104,27 +104,25 @@ bun test \
 
 ### A.5 권장 다음 작업
 
-1. **submodule 정책을 먼저 결정한다.**
-   - (a) `references/bun-graph-db`를 read-only reference로 둔다면: 로컬 92 commits를 버리고
-     origin/main의 pushed commit으로 pin을 재고정한다.
-   - (b) contributing submodule로 유지한다면: 로컬 92 commits를 review·push하고, 그 pushed commit으로
-     pin을 갱신한다.
-   - 어느 쪽이든 **원격에서 resolve 가능한 commit**만 pin해야 한다.
+1. ~~**submodule 정책을 먼저 결정한다.**~~ **Done 2026-10-23.** read-only reference로 결정했다.
+   - 부모 pin을 `origin/main`의 `c065557`로 재고정했다.
+   - 로컬 92개 commit은 `backup/local-2026-10-23` branch에만 남겼다.
 
-2. **PRD 상태를 reconciliation한다.**
-   - bun-graph-db origin/main 기준으로 US-008–US-013의 실제 완료 여부를 체크한다.
-   - US-001 vocabulary reconciliation이 남아 있으면 별도 작은 작업으로 분리한다.
-   - 완료된 story에는 test/commit evidence를 PRD에 기록한다.
+2. **PRD 상태를 reconciliation한다.** (부분 완료)
+   - US-008–US-012(shared PRD)와 US-001–US-008(MCP PRD)을 `[x]`로 표시했다.
+   - US-001 vocabulary reconciliation과 US-013/US-009의 full build/lint gate는 아직 open이다.
+   - 완료된 story에는 origin/main commit과 focused test evidence를 status 줄에 기록했다.
 
-3. **cross-repo verification을 문서화하거나 CI에 추가한다.**
-   - 최소한 `bun run typecheck` + focused 3 test files를 release 전 수동 gate로 문서화한다.
-   - CI에 넣는다면 submodule checkout과 bun setup이 필요하므로 별도 job으로 분리한다.
+3. **cross-repo verification을 문서화하거나 CI에 추가한다.** (수동 gate 추가)
+   - `scripts/check-cross-repo-projection.sh`와 `pnpm check:cross-repo-projection`을 추가했다.
+   - 이 gate는 submodule HEAD가 `origin/main`에 있는지 확인한 뒤 typecheck와 focused 3 tests를 실행한다.
+   - parent CI는 여전히 `submodules: false`이므로 자동 CI에는 넣지 않았다.
 
-4. **parent pin과 문서를 함께 갱신한다.**
+4. **parent pin과 문서를 함께 갱신한다.** (완료)
    - `references/bun-graph-db` pin
    - `docs/internal/todo.md`의 backlog 문구
    - `HANDOFF.md`의 cross-repo 상태
-   - 필요하면 `@oa-sdk/openapi-projection-contract` release note
+   - `tasks/prd-shared-openapi-projection-validation.md`, `tasks/prd-mcp-openapi-projection-tools.md`
 
 ---
 
@@ -202,10 +200,12 @@ physical FK mutation, control-plane search/edit/publish”를 활성화하지 �
 
 ### 권장 순서
 
-1. cross-repo submodule pin 정책 결정 (A.5.1)
-2. pushed commit으로 pin 재고정 + PRD reconciliation (A.5.2–A.5.4)
-3. DPM은 owner decision 전까지 **no-op** 유지 (B.4)
-4. GitHub Actions billing 복구 후 source CI를 다시 활성화
+1. ~~cross-repo submodule pin 정책 결정~~ — read-only reference, `c065557` pin (2026-10-23)
+2. ~~pushed commit으로 pin 재고정~~ — 완료. 남은 것은 US-001 vocabulary reconciliation과
+   US-013/US-009 full build/lint gate
+3. cross-repo gate 실행: `pnpm check:cross-repo-projection` (수동)
+4. DPM은 owner decision 전까지 **no-op** 유지 (B.4)
+5. GitHub Actions billing 복구 후 source CI를 다시 활성화
 
 ## 참고
 
