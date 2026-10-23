@@ -1,5 +1,12 @@
 # @oa-sdk/mcp-mesh
 
+## 0.1.3
+
+### Patch Changes
+
+- Updated dependencies
+  - @oa-sdk/tools@0.2.2
+
 ## 0.1.2
 
 ### Patch Changes

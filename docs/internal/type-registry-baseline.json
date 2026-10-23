@@ -72872,7 +72872,7 @@
         "syntaxHash": "e468fae258fff35898aef05fe6a6da6ccde78e05e58af5c1bba938bd1f37adc3"
       }
     ],
-    "digest": "dc3102af0b3a5d620d8b0075875dec059bfbe2d40497f5886736d6a550acf8ea",
+    "digest": "d558a93ddcd506910cd1207396fe68614472ef855cbc0c43696d450f4c39a74a",
     "publicSurfaces": [
       {
         "exportKey": "./guards",
@@ -85490,7 +85490,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "8109865878c2afb4c677b191daac2b4b699a4efe7cedaf86defb3dd4b7625534",
+      "contentHash": "ee8b2942f0082738c2ede8dc8225917a583feded5226a56d2b6f3e9dc64c44b7",
       "filePath": "packages/tools/src/version.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/tools",

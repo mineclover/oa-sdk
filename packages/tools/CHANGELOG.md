@@ -1,5 +1,11 @@
 # @oa-sdk/tools
 
+## 0.2.2
+
+### Patch Changes
+
+- Align `@hono/node-server` with the 2.x release used by `@oa-sdk/spec-lens`, removing a duplicate major from the workspace. The `serve()` and `ServerType` surface used by `@oa-sdk/tools` is unchanged.
+
 ## 0.2.1
 
 ### Patch Changes
@@ -12,6 +18,7 @@
   - `pnpm audit --prod` now reports no known vulnerabilities. The full audit is down to four
     dev-only advisories: `braces` and `sprintf-js` have no patched release, `uuid` would require an
     incompatible major bump through Azure MSAL, and `esbuild` is a Windows-only dev-server low.
+
 - Keep the WebMCP peer app's default version in sync with the package version through
   `PACKAGE_VERSION`.
 

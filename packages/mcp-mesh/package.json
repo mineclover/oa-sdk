@@ -1,6 +1,6 @@
 {
   "name": "@oa-sdk/mcp-mesh",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Multi-MCP Hub, 1:N Domain Skill vs Session Instance Registry, WebMCP Skill Hydration, and Meta-Skill Orchestrator",
   "private": false,
   "type": "module",

@@ -1,6 +1,6 @@
 {
   "name": "@oa-sdk/tools",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Universal Tool Engine for Model Context Protocol (MCP), Commander CLI, and Hono REST APIs",
   "private": false,
   "type": "module",
@@ -33,7 +33,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@hono/node-server": "^1.13.0",
+    "@hono/node-server": "^2.1.5",
     "@hono/swagger-ui": "^0.5.3",
     "@modelcontextprotocol/sdk": "^1.32.1",
     "ajv": "^8.20.0",
