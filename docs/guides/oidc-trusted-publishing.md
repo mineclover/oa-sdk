@@ -194,6 +194,10 @@ publish workflow는 artifact boundary를 검증하고, 이미 배포된 version�
 GitHub Actions workflow에는 token fallback이 없다. local/emergency manual run에서만
 `publish-release.mjs`를 `--trusted` 없이 실행해 token 경로를 쓸 수 있다.
 
+token을 즉시 revoke하지 않고 만료되도록 두는 경우에도 workflow 변경은 필요 없다. workflow는
+token을 전달받지 않으므로 만료가 OIDC 배포에 영향을 주지 않는다. 다만 npm Publishing access를
+조이지 않았다면 만료 전까지 token 경로가 registry에 남아 있다는 점은 감수해야 한다.
+
 ## 7. 트러블슈팅
 
 | 증상 | 원인 | 조치 |
