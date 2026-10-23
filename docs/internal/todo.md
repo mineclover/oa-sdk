@@ -24,6 +24,9 @@ TypeSpec source에서 materialize하며, Definition Builder fragments/targets는
   ([MCP OpenAPI Projection Tools](../../tasks/prd-mcp-openapi-projection-tools.md)).
 - DPM runtime/storage/API-DB 연결 후속은 maintenance/extraction context이며, 새 feature 착수에는
   [Platform Scope](./platform-scope.md)의 scope-reactivation decision이 필요하다.
+- 두 항목의 2026-10-23 검토 결과와 다음 작업은
+  [Backlog Handoff](./backlog-handoff-2026-10-23.md)에 정리했다. cross-repo는 submodule pin이
+  원격에 없는 로컬 commit을 가리키고, DPM production data-plane은 owner decision 전까지 no-op이다.
 
 OA SDK 기본 기능 안정화의 현재 작업은 문서·gate drift 감시와 bounded cross-repo projection
 integration이다.
