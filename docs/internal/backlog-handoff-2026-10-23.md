@@ -109,9 +109,11 @@ bun test \
    - 로컬 92개 commit은 `backup/local-2026-10-23` branch에만 남겼다.
 
 2. **PRD 상태를 reconciliation한다.** (부분 완료)
-   - US-008–US-012(shared PRD)와 US-001–US-008(MCP PRD)을 `[x]`로 표시했다.
-   - US-001 vocabulary reconciliation과 US-013/US-009의 full build/lint gate는 아직 open이다.
-   - 완료된 story에는 origin/main commit과 focused test evidence를 status 줄에 기록했다.
+   - shared PRD US-008–US-012와 MCP PRD US-001–US-009를 `[x]`로 표시했다.
+   - MCP PRD는 typecheck/build/lint와 focused tests까지 완료됐다.
+   - shared PRD의 US-001 vocabulary reconciliation과 US-013 final cross-repo gate는 아직 open이다.
+     bun-graph-db boundary doc의 local-file dependency 예시는 published `0.2.0` 사용과 어긋나므로
+     read-only reference 정책상 해당 repo에서 별도 수정이 필요하다.
 
 3. **cross-repo verification을 문서화하거나 CI에 추가한다.** (수동 gate 추가)
    - `scripts/check-cross-repo-projection.sh`와 `pnpm check:cross-repo-projection`을 추가했다.

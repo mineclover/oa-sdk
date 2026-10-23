@@ -1,8 +1,8 @@
 # PRD: MCP OpenAPI Projection Tools
 
-Status: implemented on bun-graph-db `origin/main` (`c065557`). Verification was `bun run typecheck`
-plus the three focused projection tests (15 tests, 301 assertions). US-009's full build/lint gate
-remains open.
+Status: implemented on bun-graph-db `origin/main` (`c065557`). Verification: `bun run typecheck`,
+`bun run build`, `bun run lint` (no errors; one Biome schema-version info), and the three focused
+projection tests (15 tests, 301 assertions). The shared PRD's final cross-repo US-013 remains open.
 
 ## Overview
 
@@ -146,15 +146,15 @@ For final verification story, also run:
 **Description:** As a release maintainer, I want final verification for MCP OpenAPI projection export so that the feature is safe to rely on.
 
 **Acceptance Criteria:**
-- [ ] `bun run typecheck` passes.
-- [ ] `bun run lint --max-diagnostics=20` passes.
-- [ ] `bun run build` passes.
-- [ ] Focused MCP projection export unit tests pass.
-- [ ] MCP tools/list projection integration test passes.
-- [ ] GraphQL/MCP projection smoke test passes.
-- [ ] Invalid projection fallback test passes.
-- [ ] No temporary test artifacts remain.
-- [ ] Remaining dirty files are documented if unrelated work exists.
+- [x] `bun run typecheck` passes.
+- [x] `bun run lint --max-diagnostics=20` passes.
+- [x] `bun run build` passes.
+- [x] Focused MCP projection export unit tests pass.
+- [x] MCP tools/list projection integration test passes.
+- [x] GraphQL/MCP projection smoke test passes.
+- [x] Invalid projection fallback test passes.
+- [x] No temporary test artifacts remain.
+- [x] Remaining dirty files are documented if unrelated work exists.
 
 ## Functional Requirements
 
