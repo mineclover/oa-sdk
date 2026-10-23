@@ -189,11 +189,11 @@ output row를 반환하지 않는다. DB 연결, vault resolver, production row 
 현재 `data_definitions` 구조와 `@oa-sdk/dpm/data` public seam은 논리 field/API/DB object
 식별을 분리하는 compatibility slice로 추가되었다. namespace-safe identity contract는 Goal 68.1로
 완료했고 artifact/catalog semantic binding은 Goal 68.2로 완료했다. Goal 68.3의 neutral
-artifact와 compiled provenance 통합도 완료했으며, private external owner
-`mineclover/data-governance`를 생성하고 DPM extraction rehearsal과 private owner acceptance를
-완료했다. External owner가 extraction contract의 canonical owner이며, `oa-sdk`는 첫 accepted
-owner artifact release(`T1`)까지 source/compatibility implementation으로 유지되고 이후 한 번의
-compatibility release 동안 forwarding adapter로 동작한다. Public registry publication과 breaking
+artifact와 compiled provenance 통합도 완료했으며, public external owner
+`mineclover/data-governance`를 생성하고 DPM extraction rehearsal과 owner acceptance를
+완료했다. External owner가 extraction contract의 canonical owner이고 `@oa-sdk/dpm@0.1.2`를
+2026-07-28에 배포했다. `oa-sdk`는 non-publishing source/compatibility mirror이며 한 번의
+compatibility release 동안 forwarding adapter로 동작한다. 향후 release와 breaking
 removal은 별도 승인 대상이며 scope-gated
 [Goal 68](./goals/goal-68-dpm-logical-data-definition-boundary.md)을 따른다.
 
