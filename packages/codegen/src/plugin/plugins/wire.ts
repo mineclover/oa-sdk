@@ -11,10 +11,10 @@
  * @oa-sdk/codegen
  */
 
-import type { TspGeneratedFile, TspPlugin, TspPluginContext } from '../types.js'
 import { TypeSpecWirePipeline } from '../../wire-adapter/typespec-wire-pipeline.js'
 import type { WireSchemaModel } from '../../wire-adapter/wire-schema-model.js'
 import { wireTypeNames } from '../../wire-adapter/wire-type-names.js'
+import type { TspGeneratedFile, TspPlugin, TspPluginContext } from '../types.js'
 
 /**
  * Wire artifacts pluginWire can emit:
@@ -76,10 +76,20 @@ export function pluginWire(
 ): TspPlugin<PluginWireOptions> {
   return {
     name: 'wire',
+    purposes: ['api', 'data', 'interface'],
     dependencies: ['typescript'],
 
     async generate(context: TspPluginContext, opts?: PluginWireOptions): Promise<void> {
       const mergedOpts: PluginWireOptions = { ...options, ...opts }
+      if (context.config.purpose === 'data' && mergedOpts.codecs?.includes('rpc-contract')) {
+        context.reportDiagnostic({
+          plugin: 'wire',
+          code: 'PIPELINE_PURPOSE_MISMATCH',
+          severity: 'error',
+          message: 'RPC contracts belong in an api/interface pipeline, not a data pipeline.',
+        })
+        return
+      }
       const pipeline = mergedOpts.pipeline ?? new TypeSpecWirePipeline(true)
 
       const doc = context.document

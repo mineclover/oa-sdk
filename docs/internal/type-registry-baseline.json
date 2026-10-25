@@ -1655,7 +1655,7 @@
         "column": 16,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "deserialize",
-        "line": 109,
+        "line": 110,
         "sourceType": "JSON.parse"
       },
       {
@@ -1723,7 +1723,7 @@
         "column": 13,
         "filePath": "packages/codegen/src/config.ts",
         "kind": "double-assertion",
-        "line": 1452,
+        "line": 1462,
         "sourceType": "159:\"unknown\"",
         "targetType": "80:\"OaConfig\""
       },
@@ -1747,7 +1747,7 @@
         "column": 21,
         "filePath": "packages/codegen/src/cli/commands/validate.ts",
         "kind": "any",
-        "line": 110
+        "line": 111
       },
       {
         "boundaryId": "type-boundary:0da3cbcdc92b7de885017812a6a37de1",
@@ -1975,7 +1975,7 @@
         "column": 32,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "any",
-        "line": 290
+        "line": 291
       },
       {
         "boundaryId": "type-boundary:27041dcd5ef6edd59d4ab4ac2d7d22a9",
@@ -2030,7 +2030,7 @@
         "column": 26,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "any",
-        "line": 239
+        "line": 240
       },
       {
         "boundaryId": "type-boundary:2d4978f1748a7046388d7872456c1a9d",
@@ -2518,7 +2518,7 @@
         "column": 73,
         "filePath": "packages/codegen/src/cli/commands/generate.ts",
         "kind": "any",
-        "line": 590
+        "line": 592
       },
       {
         "boundaryId": "type-boundary:6ab290b49824de61ed51eaef1a6c9809",
@@ -2671,7 +2671,7 @@
         "column": 15,
         "filePath": "packages/codegen/src/cli/commands/validate.ts",
         "kind": "deserialize",
-        "line": 109,
+        "line": 110,
         "sourceType": "JSON.parse"
       },
       {
@@ -2785,7 +2785,7 @@
         "column": 82,
         "filePath": "packages/codegen/src/cli/commands/validate.ts",
         "kind": "any",
-        "line": 254
+        "line": 271
       },
       {
         "boundaryId": "type-boundary:8d3fcd11d81d082593eebd9276d52b3c",
@@ -2937,7 +2937,7 @@
         "column": 24,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "double-assertion",
-        "line": 274,
+        "line": 275,
         "sourceType": "159:\"unknown\"",
         "targetType": "80:\"Record\"|30:\"<\"|154:\"string\"|28:\",\"|159:\"unknown\"|32:\">\""
       },
@@ -2976,7 +2976,7 @@
         "column": 24,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "double-assertion",
-        "line": 255,
+        "line": 256,
         "sourceType": "159:\"unknown\"",
         "targetType": "80:\"Record\"|30:\"<\"|154:\"string\"|28:\",\"|159:\"unknown\"|32:\">\""
       },
@@ -2993,7 +2993,7 @@
         "column": 51,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "any",
-        "line": 256
+        "line": 257
       },
       {
         "boundaryId": "type-boundary:a832b8aa846cc6f18ceaa187dba96a8a",
@@ -3047,7 +3047,7 @@
         "column": 53,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "any",
-        "line": 495
+        "line": 504
       },
       {
         "boundaryId": "type-boundary:acd27b5af3244e06e88e47e58f3be50e",
@@ -3076,7 +3076,7 @@
         "column": 45,
         "filePath": "packages/codegen/src/cli/commands/validate.ts",
         "kind": "any",
-        "line": 166
+        "line": 183
       },
       {
         "boundaryId": "type-boundary:af9e4de06f33a3a5cfe94f144a988d47",
@@ -3204,7 +3204,7 @@
         "column": 21,
         "filePath": "packages/codegen/src/cli/commands/validate.ts",
         "kind": "any",
-        "line": 127
+        "line": 128
       },
       {
         "boundaryId": "type-boundary:c33dec9cf6bfa4e32203d8c0f8872f5d",
@@ -3282,7 +3282,7 @@
         "column": 66,
         "filePath": "packages/codegen/src/cli/commands/validate.ts",
         "kind": "any",
-        "line": 168
+        "line": 185
       },
       {
         "boundaryId": "type-boundary:c85197fefd980d7f85c2d735c6ff9c97",
@@ -3441,7 +3441,7 @@
         "column": 34,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "double-assertion",
-        "line": 145,
+        "line": 146,
         "sourceType": "159:\"unknown\"",
         "targetType": "80:\"T\""
       },
@@ -3450,7 +3450,7 @@
         "column": 51,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "any",
-        "line": 239
+        "line": 240
       },
       {
         "boundaryId": "type-boundary:def0771650fd4f3013938cc8d094c967",
@@ -3487,7 +3487,7 @@
         "column": 36,
         "filePath": "packages/codegen/src/cli/commands/validate.ts",
         "kind": "any",
-        "line": 149
+        "line": 166
       },
       {
         "boundaryId": "type-boundary:e3c42912e36402476aa1b5f46b3c4ed9",
@@ -3625,7 +3625,7 @@
         "column": 34,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "double-assertion",
-        "line": 126,
+        "line": 127,
         "sourceType": "159:\"unknown\"",
         "targetType": "80:\"T\""
       },
@@ -3656,7 +3656,7 @@
         "column": 51,
         "filePath": "packages/codegen/src/spec-projector.ts",
         "kind": "any",
-        "line": 275
+        "line": 276
       },
       {
         "boundaryId": "type-boundary:f769b457a1a7e17d9fd72c4e1dbbccbc",
@@ -6389,7 +6389,7 @@
         "runtime": "neutral",
         "semanticHash": "8788988a14dc71873de58aa5bf8e8736759b31e8639cecf99f3f90b0b56d166a",
         "shapeHash": "9e94f93f91c0c1585e22f8468294bf0696b02e05b86d16bd561e9cac5b5deb44",
-        "syntaxHash": "cdacfbf396f89b977fadcb7c45049f96121b63af74423058f396316271ec6a56"
+        "syntaxHash": "fc54a247b7389ea8104f5e2ed7ad0a66335b8039133f55e32ee870343ca31f6f"
       },
       {
         "filePath": "packages/ast-sync/src/guards/generator.ts",
@@ -6447,9 +6447,9 @@
         "kind": "interface",
         "qualifiedName": "@oa-sdk/ast-sync:src/guards/types.ts#StandaloneGuardGeneratorOptions",
         "runtime": "neutral",
-        "semanticHash": "94d38e9813957d19130498fe88fd0fe3b8c73591bcf2eb35c83c7a890676ac49",
-        "shapeHash": "3ae3e55f3a6c64d621fa16ac5fdf459e6c3b037ff27f781d613d26f66b28aa1b",
-        "syntaxHash": "14cf683b785862318c9640926eba067d6180b698cc0acd235ac0f76dcd240b17"
+        "semanticHash": "063cce41888a4e85bbcd5655bae801090e27ff6b46ac3473b5d74156fda52473",
+        "shapeHash": "dacaaa4bd52d383d140b70ec7cd9174c71188d3497d8cfdcf4e2ea180b23c4a8",
+        "syntaxHash": "9258e4531b42c758139e2cb1e3757dd71999faece799bfe4d6a290933806c549"
       },
       {
         "filePath": "packages/ast-sync/src/guards/types.ts",
@@ -11039,7 +11039,7 @@
         "runtime": "neutral",
         "semanticHash": "c53ac158b270202f508db2649ea76ce67a0358c80769fe812917fe415bb2c783",
         "shapeHash": "633f77afce59f723d7c61eb3b1e67f5c69c37cfb9b39c0acbda192b11c7ca38d",
-        "syntaxHash": "b4de23cf15d5525efbccac9405ea71fcb4d0c52433cac9abcc05f36f772e2ca2"
+        "syntaxHash": "6fb260ecf0f6a3120b798b5ee000f3f32f856878862ad5c096f09b2442664bfa"
       },
       {
         "filePath": "packages/codegen/src/cli/commands/generate.ts",
@@ -11699,7 +11699,7 @@
         "runtime": "neutral",
         "semanticHash": "937925e5d0af67b7a5551f56b96daf1087369aedb1101f0a2a1e87e8b0a818d2",
         "shapeHash": "62426cd7f9d189704a89db043a44156c31e47068814f3cae49b9be45023b3688",
-        "syntaxHash": "bd771f6bf05a7b3829bb921653cac3e93e84f2b7e0e0bb46038eb0d592aa9d7b"
+        "syntaxHash": "ee4b1b18436bcf238f0516a112dd58adaa65630f44b686282bc641c88dae3ab2"
       },
       {
         "filePath": "packages/codegen/src/cli/commands/validate.ts",
@@ -25877,9 +25877,9 @@
         "kind": "interface",
         "qualifiedName": "@oa-sdk/codegen:src/config.ts#ProfileTargetConfig",
         "runtime": "neutral",
-        "semanticHash": "d1d7df7ecbdb2355cd6d282c20c7a131093a14b8494d22aaca68581e0b0998a8",
-        "shapeHash": "070207437577a49b6663942bbcb123b4b492cf6049d5da2c14e2ed11d13fdc56",
-        "syntaxHash": "19a5cbf5c4c9d3e6ad924bfb26c981d78436495031863e2582d278f37aeaab7c"
+        "semanticHash": "3ae1bd615810a798106a712e701de352842818007818ebc99a59c96738e70e2d",
+        "shapeHash": "0021c9d62f9d751621bfaf9e14aeb74f6639ce98e46d3c924f68e98fe18a2a3b",
+        "syntaxHash": "4c5db04cebe93932bdc6605759b0be37d58dcb76fd27e23cbc8dbd3b3467e8ec"
       },
       {
         "filePath": "packages/codegen/src/config.ts",
@@ -25999,7 +25999,7 @@
         "runtime": "neutral",
         "semanticHash": "caecfb4479b55d2ff3a6eef7449453fdb4f3d4fa78be67acc4ed440eb59a1a51",
         "shapeHash": "6696a36b877a997b56e8badceeeee142e634e3bd81240d924bcd8f91b5df11a5",
-        "syntaxHash": "e92d5fbc39c0df20bbceaf4bbafc4741128cf8cd00739ec74c15ab97b4cf7a73"
+        "syntaxHash": "19b5f9aaab58e6ccf08be411df415440c1fae2700e622f6190c88f806b90dd48"
       },
       {
         "filePath": "packages/codegen/src/drizzle/converter.ts",
@@ -26272,6 +26272,36 @@
         "syntaxHash": "54e5420636be36654ad20982fbe044b522ff68db3b9075dc07ca0864592c61c6"
       },
       {
+        "filePath": "packages/codegen/src/pipeline-purpose.ts",
+        "identity": "packages/codegen/src/pipeline-purpose.ts#src/pipeline-purpose.ts#neutral#@oa-sdk/codegen:src/pipeline-purpose.ts#assertPipelinePurpose#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/pipeline-purpose.ts#assertPipelinePurpose",
+        "runtime": "neutral",
+        "semanticHash": "854e1149235b76e2fbf9e9cb1dee85317856105bf47d7baf55bca502cb7b0c79",
+        "shapeHash": "fb2dbe03201b4b280715ea038c1ee5719e56e51cc770497a092a6668d2bc12e1",
+        "syntaxHash": "9ac0d79d59000d26accbe8a544819874588971745d22bf0c84c9f6e1e8234b48"
+      },
+      {
+        "filePath": "packages/codegen/src/pipeline-purpose.ts",
+        "identity": "packages/codegen/src/pipeline-purpose.ts#src/pipeline-purpose.ts#neutral#@oa-sdk/codegen:src/pipeline-purpose.ts#isPipelinePurpose#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/pipeline-purpose.ts#isPipelinePurpose",
+        "runtime": "neutral",
+        "semanticHash": "1bed4cbb3f591c9ab18d9dbd54ce9a14a07478a8327d7d320d460dc77cc355b0",
+        "shapeHash": "a4da8543c7a406f76d81c47e61bd92631f3863a47e18a06d26cef04aa8ed0bc8",
+        "syntaxHash": "6d1358e44235f9a441ae989ce2c7ad29d6faf6560d4f204b03f62bf1445aec67"
+      },
+      {
+        "filePath": "packages/codegen/src/pipeline-purpose.ts",
+        "identity": "packages/codegen/src/pipeline-purpose.ts#src/pipeline-purpose.ts#neutral#@oa-sdk/codegen:src/pipeline-purpose.ts#PipelinePurpose#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/pipeline-purpose.ts#PipelinePurpose",
+        "runtime": "neutral",
+        "semanticHash": "5865941609ab0c0d5f9196e43e0035ae5c5684306c035983ca844052bd356d9b",
+        "shapeHash": "050680fadcba048f6f77270a3ca5933009282eff4c774cc1da6afbace579bca4",
+        "syntaxHash": "cca3f89648c0fc80c8b49867bc3c8a705a304e24f9fdef13dbfeb25fed160e2d"
+      },
+      {
         "filePath": "packages/codegen/src/plugin/builder.ts",
         "identity": "packages/codegen/src/plugin/builder.ts#src/plugin/builder.ts#neutral#@oa-sdk/codegen:src/plugin/builder.ts#contentTypes#function",
         "kind": "function",
@@ -26449,7 +26479,7 @@
         "runtime": "neutral",
         "semanticHash": "e39d8a4170e6ec1f9f52175af0e283f09550468d07e764656b60fbaac3c399c2",
         "shapeHash": "8a895f370416c6dd7c9072d9febd89837b7e2f7c73d526bfe20953ad611d31d7",
-        "syntaxHash": "33a19ce26bf8dfc563eac5172803ec7656b76836e2f26ebe806ed52b8be64769"
+        "syntaxHash": "33017dd0484c2b6e89d52e1211783d2adffce10b350561c1b897d232f4d14e38"
       },
       {
         "filePath": "packages/codegen/src/plugin/builder.ts",
@@ -26799,7 +26829,7 @@
         "runtime": "neutral",
         "semanticHash": "7688b1da054de4eec372a81ac2e84adad8fa2db91c99d6570f536c1a54c08b8f",
         "shapeHash": "1a2a2e8e7283e8048c4c9a80922592910229a72c658d067ed3a48f7d7135ab25",
-        "syntaxHash": "8b8932ab84127dc0d5fa4c101f32c1b9b5030847383144b025502b0d80181b0c"
+        "syntaxHash": "4fd9a4d8244de40b0ab3865c7f88f5b2ad12233407cfef50c556eff75311373f"
       },
       {
         "filePath": "packages/codegen/src/plugin/context.ts",
@@ -26909,7 +26939,7 @@
         "runtime": "neutral",
         "semanticHash": "4a0794637eedc11872f631a03c8b136f71f8ad0e9694883a5e23e2b6b8661bc6",
         "shapeHash": "af422f052ce36a81d018502fa15f7b4e04d73a8af1e54f7150fe9c82759f168a",
-        "syntaxHash": "da9226499b972073a59fb7a1d3eab037e4781c8788fdd7a25ac349b90cb1f2d3"
+        "syntaxHash": "d8577197a3c784268fb727ff0fe9253373309423bc0af10860323813f6b95f47"
       },
       {
         "filePath": "packages/codegen/src/plugin/plugins/client.ts",
@@ -26959,7 +26989,7 @@
         "runtime": "neutral",
         "semanticHash": "7bf1207775b991278e2a42204823b1d33d58f7a1e0bcd7508af7a4d0e580e798",
         "shapeHash": "b3bcdf84ca00b386c970ced155c30a46120a531bccb83c7f90b1d978b5ec8961",
-        "syntaxHash": "56ffc1920931e21147b4159adfb851898cfc3d00fb43a26e45a96a6afcd354cd"
+        "syntaxHash": "2c7a903b038ddce4254a764d9051ffda062f2b7fef39ca8e924794893b80beca"
       },
       {
         "filePath": "packages/codegen/src/plugin/plugins/router.ts",
@@ -26999,7 +27029,7 @@
         "runtime": "neutral",
         "semanticHash": "65b71d2338f332e6e5c2ff0c2db94a15fd1fdd7ee620aee9b1076b6acfedea1d",
         "shapeHash": "63396589c18858f677509e804ec9f4a79901ce13b9d5f2d12a6a28a5a7c59e61",
-        "syntaxHash": "2b3de51567b22c0732f527848b2152956e9c8e3703b3b2ec8f407bdb81b3b29b"
+        "syntaxHash": "31b8cfb502f45e1e3d46ed0fe0d1cb48477a1a3aa92c6735a2f297b813758380"
       },
       {
         "filePath": "packages/codegen/src/plugin/plugins/rpc.ts",
@@ -27249,7 +27279,7 @@
         "runtime": "neutral",
         "semanticHash": "e53819db2eec840964294797e39b32bba890c648ac6c7ee9bde52f0e0ea2a681",
         "shapeHash": "78340c7d906348dad2006884b413cdb54ad6164aac3562209f00b29ea7abf70d",
-        "syntaxHash": "aa9ed36984a2f78b90734b8a8406cf86aa63d6d135a6f8a8bed7f48d28b7060a"
+        "syntaxHash": "7b005a7635abc41fbb0dcab15d25086519e21018972a076120c370d6ba10e404"
       },
       {
         "filePath": "packages/codegen/src/plugin/plugins/tanstack-query.ts",
@@ -27307,9 +27337,9 @@
         "kind": "function",
         "qualifiedName": "@oa-sdk/codegen:src/plugin/plugins/typescript.ts#generateRuntimeTypeGuards",
         "runtime": "neutral",
-        "semanticHash": "d6a521dd4f8650d44bf4323a7017cc9e13dd48c19d2ea420a73ccae339c949cf",
-        "shapeHash": "a3446e2ae99f003df1619ceed180b92bf9a41a6820259ce7c7265c47db9d5218",
-        "syntaxHash": "54049e05c17c3132faedb4d3791ab58e70a597454d307fe28e6dd5359687bca0"
+        "semanticHash": "a77d8bcb00e59ce43c3bf141ad20631a0d4556b2fee85f4e7f85f4dd4053bb72",
+        "shapeHash": "79856eac141ac699e1ba39e5f9ba5bc3174b49313aff1041517aed4cd145aff6",
+        "syntaxHash": "88b322e127f3510b8df8490aef2df3cb466e6b03bd5e6b5785149b0906ce5845"
       },
       {
         "filePath": "packages/codegen/src/plugin/plugins/typescript.ts",
@@ -27319,7 +27349,7 @@
         "runtime": "neutral",
         "semanticHash": "1349f823ba8757ed57fc2e2b044faa4850fdfaf5482b24e104504e464aa40379",
         "shapeHash": "15734178b2e33957f25d3cb8f1091b20a22429397fe3e0b75742b0bfd3e0ed34",
-        "syntaxHash": "ed964ddb91555940725f95bc5395add355ddabd6f5fd4daaa8ed4fc3624e3739"
+        "syntaxHash": "9a29ce98e3a2d0bbd254a2fb618a6cd2ed5709bc9bc82f33fa38ca256511b87b"
       },
       {
         "filePath": "packages/codegen/src/plugin/plugins/typescript.ts",
@@ -27359,7 +27389,7 @@
         "runtime": "neutral",
         "semanticHash": "346ca798756bc43c61a3326c6bb48c343e9038b9ad77c68451c8bb190db7b984",
         "shapeHash": "6c83a01edf55086b39fdf16da79731a2e6fd3fa87ab684cdfbe862823fd031ba",
-        "syntaxHash": "41b999e3f665b7c68a44806b5030864124b6269d6d79cedd51e15a91cdaa994a"
+        "syntaxHash": "a3fb64e8947d3a197e34813bedb3f7c0af4a38edcab464801562a96e9f0fbc91"
       },
       {
         "filePath": "packages/codegen/src/plugin/plugins/wire.ts",
@@ -27429,7 +27459,7 @@
         "runtime": "neutral",
         "semanticHash": "20333ea7c3ff9f6743bc982195c6af9e0ef184e7eafc055704c5019dd92ac00d",
         "shapeHash": "7eae5bcd0532578a6e607156b6afd69daf396073d084c846e7951ceed233aa90",
-        "syntaxHash": "08e54676f99433207eff3dfceae800daafab314126016514efb21e4c89cffe66"
+        "syntaxHash": "72b1ca4dea0507ec82a9b98ed873782e54dd059250cdbd0f0c7d797de5e52c54"
       },
       {
         "filePath": "packages/codegen/src/plugin/runner.ts",
@@ -27517,9 +27547,9 @@
         "kind": "interface",
         "qualifiedName": "@oa-sdk/codegen:src/plugin/types.ts#TspConfig",
         "runtime": "neutral",
-        "semanticHash": "3ecfdf134ab870964d18c682650eaefc784a893e8a6e9b637208ff1a8c34f702",
-        "shapeHash": "b6226095bc0f068b45709a1ca95d627c3c9d4bda54c38be2ee9e12443307185c",
-        "syntaxHash": "1c1e4d2493b6bcc1bf2b4ca32f48c0b057f4cb41c87fb6d74d68c1b4929956a5"
+        "semanticHash": "5747a1e2205843ebea5ab8b7126b956011c4c496c37aa8f61ef5cbf5d572a446",
+        "shapeHash": "6810d59694da755a9a9c1dfffbca93a48757dec3003dfa9e170189b1fbdc99ee",
+        "syntaxHash": "a22f4792e5bd073709dfc363c00b9606cd0bce7cfe0af59ab574346d11de324b"
       },
       {
         "filePath": "packages/codegen/src/plugin/types.ts",
@@ -27577,9 +27607,9 @@
         "kind": "interface",
         "qualifiedName": "@oa-sdk/codegen:src/plugin/types.ts#TspPlugin",
         "runtime": "neutral",
-        "semanticHash": "803bda28ee1f7a9e75d6d13ace5049585478bd2439672c12c34365173407d3ea",
-        "shapeHash": "f2efc40269f9a5f9439485c812b7e4d1da2cb625ba862cb4d164720527becd6a",
-        "syntaxHash": "0b31e1d926f99b33a7760e930ea3e64995f879477a6e71bbd922b8edc79ddc66"
+        "semanticHash": "95673327b74d991bb20a31b7c762a91e4e6ddf91da2fc8afc3f584f9efe67387",
+        "shapeHash": "d9a459f37b1e224b554a52a559c22b97c3be4cf1a2589dd26a99c271eaf3860a",
+        "syntaxHash": "40fbb302c16219e3181cddd452ed89009a1eda1ea516cdb0f3733b07454e3dc1"
       },
       {
         "filePath": "packages/codegen/src/plugin/types.ts",
@@ -27669,7 +27699,7 @@
         "runtime": "neutral",
         "semanticHash": "259d3b9a730d5fdfd922388442b9d03a23134eabfa6745a106c1eaeb6c7bd2b7",
         "shapeHash": "14b2d323e3682f08ce8bb6444f01972e6f74aebaaa8414b925e04a30fda7f8d0",
-        "syntaxHash": "e7949c7344d34f84d4a952efc6df2250dc9a0775d4fd443b05bb3820db295612"
+        "syntaxHash": "aaac2349989f220aed0de313a42357b1d08b27529c19978870592663caae60e7"
       },
       {
         "filePath": "packages/codegen/src/plugin/vite.ts",
@@ -28869,7 +28899,7 @@
         "runtime": "neutral",
         "semanticHash": "7741c658e32048b74daa0be2e33b89e2f84241c04c0bf4ab5a3b99f563d9b42c",
         "shapeHash": "cdca3bcd5460aac6a5c5dbeca6c14ae1a9ab53e6f142f8fd2e3fd963a230d32f",
-        "syntaxHash": "0a061336e57825eb80a6aa765e5e33a1ed47ae9a2b7ebf0a0877cbcdf3b7d082"
+        "syntaxHash": "5b3988b30b5c9ed67e9aaab1933260ad52e006274038660af1d9ef605efaf6d9"
       },
       {
         "filePath": "packages/codegen/src/spec-projector.ts",
@@ -28879,7 +28909,7 @@
         "runtime": "neutral",
         "semanticHash": "5ce51b2ca810ac8ff866a777f2ef5442b6ea8eada199030539ab4a0700620fd1",
         "shapeHash": "83e72c2af6dfc318be2b76a228cae14c32d9388b64253f931627daf00606e115",
-        "syntaxHash": "2e02d1fde7320179ad3ffdd6a0095e82cfccea87fe60cc4a1d9beb15479fa79a"
+        "syntaxHash": "362db1bd2f5804be90060ff3528ca53d3bcc8bc996971639de716b4df9bc506d"
       },
       {
         "filePath": "packages/codegen/src/spec-projector.ts",
@@ -29340,6 +29370,26 @@
         "semanticHash": "dda35efb0e788db2d7209a495ecb776cdde35da4ee9b46337c9ea9748e908901",
         "shapeHash": "90c68c1eb10c87e81f3264f3ca3e5a6eb48487b204870715972c5f6b6834ff54",
         "syntaxHash": "7da9bdc7b1cae2643a3a14d550b3ebf6c7a66f76f61e0f93ad291c80f5f07289"
+      },
+      {
+        "filePath": "packages/codegen/src/standalone-guards/generator.ts",
+        "identity": "packages/codegen/src/standalone-guards/generator.ts#src/standalone-guards/generator.ts#neutral#@oa-sdk/codegen:src/standalone-guards/generator.ts#generateStandaloneGuards#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/standalone-guards/generator.ts#generateStandaloneGuards",
+        "runtime": "neutral",
+        "semanticHash": "cbf65036a5645237c1b86bd3f0bfea719733d54fa99a3b9bf3db5acd4feb5c63",
+        "shapeHash": "9e94f93f91c0c1585e22f8468294bf0696b02e05b86d16bd561e9cac5b5deb44",
+        "syntaxHash": "d57beba6dc9ddc94dca75ace15a629f12caa4f4bead23f5848f1477c130dfe53"
+      },
+      {
+        "filePath": "packages/codegen/src/standalone-guards/generator.ts",
+        "identity": "packages/codegen/src/standalone-guards/generator.ts#src/standalone-guards/generator.ts#neutral#@oa-sdk/codegen:src/standalone-guards/generator.ts#remapDefinitionRefs#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/standalone-guards/generator.ts#remapDefinitionRefs",
+        "runtime": "neutral",
+        "semanticHash": "4e621b107c3e36f5edbc90a8be1d9e88082f540073b5a8c14460bd2fc1a83e33",
+        "shapeHash": "7afc08d93f260969b5372bad37bfe2d4081cff0c55c58c37891a9e56d88876ce",
+        "syntaxHash": "a07d46f01c8837bb42ab2f94f1ece645829174683d9e8642babedbb907c6f82c"
       },
       {
         "filePath": "packages/codegen/src/traceability/spec-traceability.ts",
@@ -72872,7 +72922,7 @@
         "syntaxHash": "e468fae258fff35898aef05fe6a6da6ccde78e05e58af5c1bba938bd1f37adc3"
       }
     ],
-    "digest": "d558a93ddcd506910cd1207396fe68614472ef855cbc0c43696d450f4c39a74a",
+    "digest": "23524cc32777574b4aa76205fadc2da412b8e6685024ff278373453f6299084b",
     "publicSurfaces": [
       {
         "exportKey": "./guards",
@@ -73328,6 +73378,7 @@
           "CreatePluginContextOptions:type",
           "CreateTspBuilderOptions:type",
           "NormalizedPluginRegistration:type",
+          "PipelinePurpose:type",
           "PluginClientOptions:type",
           "PluginRouterOptions:type",
           "PluginRpcOptions:type",
@@ -73397,7 +73448,7 @@
           "vitePluginTsp:value"
         ],
         "filePath": "packages/codegen/src/plugin/index.ts",
-        "hash": "54fa11f749d78f06ad7f88332342c6ccad48a077fa86fc8fddf0e1dcec5d4d7f",
+        "hash": "e43c57001b13dc05b5e56a5579ad1075a9b1da9610ff6774809c4bffddb8c0b9",
         "packageName": "@oa-sdk/codegen",
         "runtime": "neutral"
       },
@@ -73644,6 +73695,7 @@
           "ParallelEvidenceV1:type",
           "ParsedTsconfig:type",
           "PathDispatcher:mixed",
+          "PipelinePurpose:type",
           "PluginClientOptions:type",
           "PluginRouterOptions:type",
           "PluginRpcOptions:type",
@@ -73970,7 +74022,7 @@
           "zodToSchema:mixed"
         ],
         "filePath": "packages/codegen/src/index.ts",
-        "hash": "8f8427c15748671ef8d1c2e6daf7ffe2606ae64fec0892c8be2b12e75939b14a",
+        "hash": "6ef28a0abdf3ee4b9396d821f55a45a2d2e52f3d5eef64e56561d2183af642ac",
         "packageName": "@oa-sdk/codegen",
         "runtime": "neutral"
       },
@@ -77559,7 +77611,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "b392571511396ced29e4ff14c2ff6bab50f69a23d534fd6f51ec7d4d30f54653",
+      "contentHash": "5059d7c49b7cc223af74aa673ecf385e2f2802b132c18a303c8d473ba04939a2",
       "filePath": "packages/ast-sync/src/guards/generator.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/ast-sync",
@@ -77573,7 +77625,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "516936c18e0e7196b0d4fdde9930d274c23ea2f343e34292d518ce87d09643e5",
+      "contentHash": "d004ea295354f456a123cb7a9617437b8e6f0ab87871d1c22cc08b7dc9c547e9",
       "filePath": "packages/ast-sync/src/guards/types.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/ast-sync",
@@ -78231,7 +78283,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "63502d9ac41e070c60e0b691f669d3f9474a2dc1d5320dc7e825d419be88a69a",
+      "contentHash": "46bfea3170c00b3d0ea9503fbda3c25b62b6c1343bc654977a0d58abe56dc205",
       "filePath": "packages/codegen/src/cli/commands/generate.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -78392,7 +78444,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "fa4ff4444f714a93dd87db7b994243f130af6804bbebeeb55583ce32c216c3f8",
+      "contentHash": "f9ec3b1d2fc9b7ec7e8fec79e9c759ace54356ab0d63a7703b5a57ef4e44193a",
       "filePath": "packages/codegen/src/cli/commands/validate.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -79099,7 +79151,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "326d8f990f9f67e910aa9f3777394c0ce79d790446ef4fa5424433b50bdb00fd",
+      "contentHash": "0803d71b948d20628d06db93e4d8e9f1f6da10c7cfb77bb9e4fcfb2b1bb06536",
       "filePath": "packages/codegen/src/config.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -79155,14 +79207,21 @@
       "role": "authority"
     },
     {
-      "contentHash": "b561ba09c5a0f830ac88996427c14462c9530e56ca97084384c24f8841e827f1",
+      "contentHash": "86376b2ad9398a059bdc9c7507911ae9f9f408fa964e609e411ccd9066748c6f",
       "filePath": "packages/codegen/src/index.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
     },
     {
-      "contentHash": "b69d914fd6e6d46e76ef06c457abd0c74773f26bc7c335655e17e24602f8f372",
+      "contentHash": "b180f77727bbe96b4f49253d73019126ca14ed24e3905259648cdbb8c08dfc61",
+      "filePath": "packages/codegen/src/pipeline-purpose.ts",
+      "origin": "handwritten",
+      "packageName": "@oa-sdk/codegen",
+      "role": "authority"
+    },
+    {
+      "contentHash": "6180a248ae7f01ce47fe0ae3c33650d8a32220b90ba77512db5b50ed0058c387",
       "filePath": "packages/codegen/src/plugin/builder.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -79183,7 +79242,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "3d065ad9f506d88e1fcbb30a4884d1a389b34f9c6110741520a2c4909ddc970c",
+      "contentHash": "ad6f8b64dfd0665e0d3d647e8d780b56f5276da47d47abd6cdd4d5bfa3658575",
       "filePath": "packages/codegen/src/plugin/config.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -79211,21 +79270,21 @@
       "role": "authority"
     },
     {
-      "contentHash": "b85bbf027f793ea8b99895d0b9682fc6e21c946b8214da40b7967294aa136627",
+      "contentHash": "f7145fe5bf16b677102d084606dabbe4cab037ccdc10230d3ba5a631ed66dc89",
       "filePath": "packages/codegen/src/plugin/plugins/client.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
     },
     {
-      "contentHash": "e35a3fadf28b60909c0ed42a9cb2ae2e701cd274b92a576d4072d2c8849f75b2",
+      "contentHash": "77d8a9a8f60258b1871c5b46cd259214e05f9582824a051c4a5bf19686bb950e",
       "filePath": "packages/codegen/src/plugin/plugins/router.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
     },
     {
-      "contentHash": "bef783dd523881fb36c4153bd44ce3c40acc6f938ec1686b8c2e920aade61044",
+      "contentHash": "71842cf2b51bc833cb5be93a624b9fafd4c5389753a3073cd2d53611a17cd317",
       "filePath": "packages/codegen/src/plugin/plugins/rpc.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -79239,28 +79298,28 @@
       "role": "authority"
     },
     {
-      "contentHash": "ca676b0cc9711ae8dec091c6df7aa8a45c2ba27606a51297dc2f4e34a71ed88f",
+      "contentHash": "bcdd74a2c9844a724e2ce7ddf67700e6e70eb95e2432f1ac4562447c5ff83ccc",
       "filePath": "packages/codegen/src/plugin/plugins/tanstack-query.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
     },
     {
-      "contentHash": "978e7e27508b1019b1bc84b6123cddefa25c1c8f29e4d0feb7be91db3e2aa54c",
+      "contentHash": "30d3cdf3ede22e26a0a76cd5f3d11f91ce7e28bd8ecd834af952dbc579022f39",
       "filePath": "packages/codegen/src/plugin/plugins/typescript.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
     },
     {
-      "contentHash": "0feec48f8f5bc85f428f0260a1d398da8f923c97de2e40c0a3556567214bc3ac",
+      "contentHash": "7cd816a7340f1fd7b569762b9786236f05e5097796d2a7b082a014fe37c272e5",
       "filePath": "packages/codegen/src/plugin/plugins/wire.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
     },
     {
-      "contentHash": "37183cbb98eacfe04e0cea4ff30afd1d654e676cb4a568d7692c9f447b1fc254",
+      "contentHash": "3bf84ce9921f4bb39072ae2dcb6157c7bf25af853550af96321468b31a6d37e0",
       "filePath": "packages/codegen/src/plugin/runner.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -79274,14 +79333,14 @@
       "role": "authority"
     },
     {
-      "contentHash": "e92e741e7fbdd93abb42354b73d38662150cc6b6631e42f91e855ad38151cbe5",
+      "contentHash": "b2bc2943567bbadce2eacad42a4dbd66f3566023b0a4634307af7db8fadcde90",
       "filePath": "packages/codegen/src/plugin/types.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
     },
     {
-      "contentHash": "fd39dc4b2b53b16035efe9d6bf6cf0822202f1e7f774014da0b2b0870c925f04",
+      "contentHash": "7f6aa2201697e25a7ea1477b76bbb9ff0b27807849d49804cb98a057fc47d3e7",
       "filePath": "packages/codegen/src/plugin/vite.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -79386,7 +79445,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "5129ea8c0da39c261b0164fbadf58f3b5ea863762f4c83356ace7ea7e7e50cc6",
+      "contentHash": "51ed1fe4ca724159647e769bd55d939ae1ec8980cdbdc2453f021858862e0acf",
       "filePath": "packages/codegen/src/spec-projector.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -79400,14 +79459,14 @@
       "role": "authority"
     },
     {
-      "contentHash": "d3199681ea391f63eeecc56dd72f9cefb37dfd03a3b613ec8402fa0f424c3da9",
+      "contentHash": "07e1d32d44abbdefa85cf090d6dae222dbe1620452d435ef488f1a721a22162a",
       "filePath": "packages/codegen/src/standalone-guards/generator.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
     },
     {
-      "contentHash": "9f18196540be567b7def5557aed5d8f64d381d98fc82d0561dc68fea733abe24",
+      "contentHash": "3fba646a6d8e88e1e083f9bbc4882e4bfe1cd295b67e214a8b8ab16d6ef418b8",
       "filePath": "packages/codegen/src/standalone-guards/index.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",

@@ -2,6 +2,13 @@
 
 문서 기준 체크포인트: [문서·스펙 거버넌스](./spec-governance/README.md) (2026-07-24). 제품 변경 이력은 [Changelog](./changelog.md)에서 관리한다.
 
+**처음 기능을 고를 때는 [기능 선택 지도](./guides/feature-map.md)부터 읽는다.** 목적별 기능과
+Core/Downstream, 저장소 전용, maintenance, 외부 제품·미래 TODO의 경계를 함께 안내한다.
+
+세 목표(API 엔드포인트·데이터 구조·소비자 인터페이스)의 격리와 공통 구성 API는
+[용도별 파이프라인 구성](./guides/pipeline-configuration.md)을 따른다.
+최신 구현의 검증 범위와 한계는 [2026-10-25 완료 기록](./internal/pipeline-isolation-checkpoint-2026-10-25.md)에 정리했다.
+
 ---
 
 ## 🧭 역할 및 작업별 최적 탐색 경로 (Optimal Navigation Journeys)
@@ -65,6 +72,7 @@
 
 | 목적 | 먼저 볼 문서 |
 |---|---|
+| 어떤 기능을 어디서 쓸 수 있는지, 설치·유지보수·외부 제품 경계 확인 | [기능 선택 지도](./guides/feature-map.md) |
 | 전체 가이드 색인 지도와 역할별 추천 경로 확인 | [가이드 종합 색인 및 아키텍처 지도](./guides/README.md) |
 | TypeSpec(.tsp) 기반 5분 빠른 API 엔드포인트 선언 및 실시간 Mock 테스트 | [TypeSpec 5분 퀵스타트](./guides/typespec/01-quickstart-5min.md) |
 | HTTP 엔드포인트 없는 순수 데이터 모델/DTO 선언 및 가드 생성 | [순수 타입 선언 및 가드 실무 가이드](./guides/pure-types-and-guards.md) |
@@ -146,6 +154,7 @@
 | [백엔드 핸들러 계약 구현](./guides/backend-handler-contracts.md) | `@oa-sdk/router` 순수 핸들러 계약(`*.contract.ts`), 비즈니스 격리 및 라우터 바인딩 |
 | [Quick Start](./guides/quick-start.md) | 공개 `oa-gen` 설치 또는 private source의 5분 파이프라인 체험 |
 | [라이브러리 진입점 지도](./guides/library-entrypoints.md) | package root/subpath와 artifact 경계 |
+| [기능 선택 지도](./guides/feature-map.md) | 목적별 기능·상태·시작 문서와 DB/저장소 전용/외부 TODO 경계 |
 | [코드젠 워크플로](./guides/use-cases/codegen-workflow.md) | Drizzle → OAS → TS → 라우터 → 클라이언트 |
 | [NestJS Swagger / FastAPI Governance](./guides/use-cases/nestjs-swagger-governance.md) | NestJS Swagger / FastAPI 산출물 → oa-sdk 계약 관리 레퍼런스 |
 | [bun-graph-db projection 소비](./guides/use-cases/bun-graph-db-projections.md) | bun-graph-db OpenAPI full document/table projection → OA SDK |

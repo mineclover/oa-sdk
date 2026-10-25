@@ -1,7 +1,7 @@
 # Release Readiness
 
 Status: active
-Last reviewed: 2026-10-23
+Last reviewed: 2026-10-25
 Policy authority: [`release-policy.json`](./release-policy.json)
 
 이 문서는 oa-sdk source repository에서 **검토 가능한 public artifact를 만들 준비가 되었는지**
@@ -29,12 +29,13 @@ Policy authority: [`release-policy.json`](./release-policy.json)
 
 ## 현재 판단 입력
 
-| 항목 | 2026-10-22 기준 | 다음 판단 |
+| 항목 | 2026-10-25 기준 (과거 배포 기록 포함) | 다음 판단 |
 | --- | --- | --- |
-| Public artifact candidates | release policy의 `distributionCandidates` 20개 (`core`, `openapi-projection-contract`, `typespec-decorators`, `parser`, `codegen`, `ast-sync`, `tools`, `surface-ir`, `chunk-stream*`, `peer-transport`, `peer-server`, `collab-workspace`, `mcp-mesh`, `router`, `client`, `mock-server`) | 선택한 package와 target version을 release record에 고정 |
-| Release-tracked, non-candidate packages | `schemas`, `spec-lens-contract`, `spec-lens` 3개 | package lifecycle이 곧 public npm 배포 승인은 아님 |
+| Public artifact candidates | release policy의 `distributionCandidates` 22개 (`core`, `openapi-projection-contract`, `typespec-decorators`, `parser`, `codegen`, `ast-sync`, `tools`, `surface-ir`, `chunk-stream*`, `peer-transport`, `peer-server`, `webmcp-peer`, `collab-workspace`, `mcp-mesh`, `router`, `client`, `mock-server`, `telemetry`) | 선택한 package와 target version을 release record에 고정 |
+| Release-tracked, non-candidate packages | `schemas`, `spec-lens-contract`, `spec-lens`, `rpc` 4개 | package lifecycle이 곧 public npm 배포 승인은 아님 |
 | Version intent | **Published 2026-10-22:** `2026-10-22-core-v0.10.0` (source `bc7c6f8d`, 21 packages; [release](https://github.com/mineclover/oa-sdk-releases/releases/tag/2026-10-22-core-v0.10.0), [publish run](https://github.com/mineclover/oa-sdk-releases/actions/runs/39708720909)), patch `@oa-sdk/webmcp-peer` `0.2.1` ([release](https://github.com/mineclover/oa-sdk-releases/releases/tag/2026-10-22-webmcp-peer-v0.2.1)), and patches `@oa-sdk/router` `0.2.4` and `0.2.5` ([0.2.5 release](https://github.com/mineclover/oa-sdk-releases/releases/tag/2026-10-22-router-v0.2.5), [publish run](https://github.com/mineclover/oa-sdk-releases/actions/runs/39769873333)). `@oa-sdk/openapi-projection-contract@0.2.0` was already published and was not re-exported. | 다음 release는 새 changeset에서 version intent를 다시 고정한다. |
-| Published 2026-10-23 | `@oa-sdk/tools` `0.2.2` and its dependent `@oa-sdk/mcp-mesh` `0.1.3` were exported as `2026-10-23-tools-v0.2.2` from source `d9bdb374` ([release](https://github.com/mineclover/oa-sdk-releases/releases/tag/2026-10-23-tools-v0.2.2), [publish run](https://github.com/mineclover/oa-sdk-releases/actions/runs/39892391866)). This was the first publish through GitHub OIDC trusted publishing. | Registry `latest` confirms both versions. No changesets remain. The workflow is OIDC-only; the unused `NPM_TOKEN` is left to expire, so no workflow change is needed when it does. |
+| Published 2026-10-23 | `@oa-sdk/tools` `0.2.2` and its dependent `@oa-sdk/mcp-mesh` `0.1.3` were exported as `2026-10-23-tools-v0.2.2` from source `d9bdb374` ([release](https://github.com/mineclover/oa-sdk-releases/releases/tag/2026-10-23-tools-v0.2.2), [publish run](https://github.com/mineclover/oa-sdk-releases/actions/runs/39892391866)). This was the first publish through GitHub OIDC trusted publishing. | 당시 registry `latest`에서 두 버전을 확인했고 잔여 Changeset은 없었다. OIDC-only workflow이며, 사용하지 않는 `NPM_TOKEN`의 만료로 workflow를 변경할 필요는 없다. |
+| Checkout implementation 2026-10-25 | 용도별 파이프라인·공유 가드 구현 및 [완료·검증 기록](./pipeline-isolation-checkpoint-2026-10-25.md). [`purpose-isolated-pipelines`](../../.changeset/purpose-isolated-pipelines.md)는 codegen·ast-sync minor 의도다. | 초안 preflight만 실행했다. 공식 full preflight·export·publish·원격 CI 재실행은 별도이며 이번 작업에 포함하지 않는다. |
 | TypeSpec baseline | approved snapshot과 restored contract drift가 검증 대상 | contract를 변경했다면 snapshot diff와 downstream gate를 다시 실행 |
 | Runtime API launch | production server/auth metadata는 이 source repository에서 확정하지 않음 | 실제 API 공개는 runtime owner의 base URL·issuer·scope 결정 전까지 보류 |
 | npm promotion | external artifact repository가 소유 | 그 repository의 approval, manifest, provenance/OIDC 정책을 확인한 뒤에만 승인 |

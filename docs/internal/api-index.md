@@ -1204,6 +1204,7 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `TspGeneratedFile` | `plugin/types.ts` | 인메모리 가상 생성 파일 메타데이터 및 내용 인터페이스 |
 | `TspPluginDiagnostic` | `plugin/types.ts` | 플러그인 실행 중 보고되는 진단 메시지 인터페이스 |
 | `TspConfig` | `plugin/types.ts` | TypeSpec SSOT 플러그인 파이프라인 설정 인터페이스 |
+| `PipelinePurpose` | `pipeline-purpose.ts` | `api` / `data` / `interface` 용도 격리. `TspConfig.purpose`와 `ProfileTargetConfig.purpose`가 같은 admission 규칙을 사용 |
 | `TspConfigInput` | `plugin/types.ts` | TypeSpec 입력 경로 또는 상세 설정 객체 유니온 |
 | `TspConfigInputObject` | `plugin/types.ts` | TypeSpec 엔트리포인트 및 프로젝트 디렉터리 설정 객체 |
 | `TspPluginEntry` | `plugin/types.ts` | 플러그인 단독 또는 튜플 옵션 등록 엔트리 타입 |
@@ -2052,4 +2053,3 @@ Surface IR RPC contract를 소비해 typed procedure client/server, JSON-RPC 2.0
 | `FileAiRunLedgerStore`, `SqliteAiRunLedgerStore` | `webmcp-peer/src/server/ledger-stores.ts` | `AiRunLedger`용 파일 JSONL 및 SQLite WAL 영속 저장소 |
 | `PeerCapability`, `ClientSessionStatus`, `ClientSessionTicket`, `PendingApprovalRequest`, `PendingMcpRequest`, `RoomEntry`, `WebMcpPeerServerOptions` | `webmcp-peer/src/server/types.ts` | 서버 룸 엔트리, 클라이언트 세션 티켓, 승인 대기열, 진행 요청(`PendingMcpRequest.ticket`은 요청을 인증한 ticket이라 ticket이 끝나면 HTTP 진행 요청도 끝난다) 및 커스텀 HTTP/WS 확장 훅 계약. `WebMcpPeerServerOptions`의 상한·시간 option은 `maxRoomTtlMs`(기본 24시간), `approvalTimeoutMs`(기본 5분, MCP 요청 timeout과 별개), `mcpRequestTimeoutMs`(기본 30초, 최소 1초), `webSocketPingIntervalMs`·`webSocketIdleTimeoutMs`(기본 30초·75초), `maxRooms`(기본 10000, 보존 중인 room 포함), `trustProxy`(기본 `false`)이고 기본값과 범위는 spec 3장이다. 내장 서버는 `argv`·`loadEnvFiles`를 지정할 때만 CLI 인자와 `.env`를 읽으며 `cwd`는 설정·`.env`·상대 경로의 기준이다 |
 | `WebMcpPeerServer`, `createWebMcpPeerServer` | `webmcp-peer/src/server/peer-server.ts` | 룸 제어 평면, Streamable HTTP MCP 라우터(`/p/:id/mcp`), WebSocket 시그널링 중계 및 확장 훅 실행 서버. provider socket이 (다시) 붙으면 승인 상태와 room이 살아 있는 동안 끝난 ticket의 종료 frame을 replay하고, 끝난 ticket이 있으면 그 앞의 `ready`에 그 frame의 type을 `ticketEnded`로 담는다(protected `endedTicketFrameType`, R-ROOM-053, R-SIG-006). 두 transport는 id 없는 것을 포함한 모든 `tools/call`을 같은 검사(protected `toolCallRefusal`, R-MCP-020)로 거르고, provider가 보낸 `notifications/tools/list_changed`는 버리며(R-SIG-004), room 만료는 아직 끝나지 않은 ticket만 `expired`로 끝낸다(R-ROOM-048). relay의 자격은 bearer token뿐이고 OAuth discovery metadata를 제공하지 않는다(R-HTTP-019) |
-

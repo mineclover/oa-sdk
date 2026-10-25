@@ -362,7 +362,7 @@ async function runConfigDrivenPipeline(
 
   // Companion-backed outputs only exist for projected specs; without specs nothing needs a companion.
   const companions = new CompanionLoader(importCompanion)
-  if (specs.length > 0) {
+  if (specs.some(spec => spec.purpose !== 'data')) {
     await assertExplicitCompanionOutputsAvailable(config, companions)
   }
   const outcomes = new CompanionOutputOutcomes(explicitCompanionOutputs(config))
@@ -501,6 +501,7 @@ async function runConfigDrivenPipeline(
     const output = GENERATE_COMPANION_OUTPUTS.contracts
     const supportedRouterTargets = new Set(['hono', 'express', 'fastify', 'elysia'])
     for (const res of specResults) {
+      if (res.target.purpose === 'data') continue
       const id = res.target.id
       const rawRouterTarget = routerConfig?.target ?? res.target.target ?? resolvedConfig.product?.framework
       const shouldEmitContract = contractsConfig?.pureHandlers !== false
@@ -583,6 +584,7 @@ async function runConfigDrivenPipeline(
   if (clientConfig?.enabled !== false) {
     const output = GENERATE_COMPANION_OUTPUTS.client
     for (const res of specResults) {
+      if (res.target.purpose === 'data') continue
       const id = res.target.id
       const generated = await generateCompanionOutput(output, ['@oa-sdk/client'], id, async () => {
         const client = await loadCompanionFor(output, '@oa-sdk/client', id)
@@ -614,6 +616,7 @@ async function runConfigDrivenPipeline(
   {
     const output = GENERATE_COMPANION_OUTPUTS.tanstack
     for (const res of specResults) {
+      if (res.target.purpose === 'data') continue
       const id = res.target.id
       const generated = await generateCompanionOutput(output, ['@oa-sdk/client'], id, async () => {
         const client = await loadCompanionFor(output, '@oa-sdk/client', id)
@@ -671,6 +674,7 @@ async function runConfigDrivenPipeline(
   {
     const output = GENERATE_COMPANION_OUTPUTS.crdt
     for (const res of specResults) {
+      if (res.target.purpose === 'data') continue
       if (!declaresCrdtEntity(res)) continue
 
       const id = res.target.id

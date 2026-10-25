@@ -23,6 +23,7 @@ export interface PluginRpcOptions extends RpcModuleOptions {
 export function pluginRpc(options: PluginRpcOptions = {}): TspPlugin<PluginRpcOptions> {
   return {
     name: 'rpc',
+    purposes: ['api', 'interface'],
 
     generate(context: TspPluginContext, opts?: PluginRpcOptions): void {
       const mergedOpts: PluginRpcOptions = { ...options, ...opts }

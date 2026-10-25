@@ -4,6 +4,10 @@ OpenAPI 스펙 변경 이력 관리·관측 도구. TypeSpec production project�
 Definition Builder rollback project의 source 변경을 수집하고, 브라우저 UI에서
 diff·provenance·source 의존 그래프를 시각화한다.
 
+**사용 범위:** `@oa-sdk/spec-lens`와 UI는 비공개 저장소 전용 workspace다. `.spec-lens.db`에
+로컬 SQLite 캐시를 사용하며 일반 npm 사용자의 검증·타입/SDK 생성에 실행을 요구하지 않는다.
+외부 DPM의 상시·공유 검색용 DB와는 별개다([기능 선택 지도](../guides/feature-map.md)).
+
 > **추적 범위**: spec-lens는 `project.sourceRoot`와 TypeSpec project의 명시적
 > `observation`으로 선언한 외부 경로를 건드린 커밋만 타임라인 후보로 표시한다. 앱 코드 변경 커밋은 잡히지 않는다.
 

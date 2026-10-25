@@ -2,13 +2,18 @@
 
 이 문서는 엔지니어의 역할과 목적에 따라 가장 적합한 문서를 빠르게 찾을 수 있도록 **시작하기**, **선언자 트랙(Author Track)**, **소비자 트랙(Consumer Track)**, **기여자·메인테이너** 경로로 나눈 가이드 탐색 지도를 제공합니다. 다른 프로젝트에서 공개 패키지를 쓰는 흐름과 oa-sdk 저장소 자체에 기여하는 흐름은 서로 다른 문서를 따릅니다.
 
+무엇을 쓸지 아직 정하지 않았다면 [기능 선택 지도](./feature-map.md)에서 목적별 기능과
+설치·저장소 전용·maintenance·외부 제품·TODO 경계를 먼저 확인합니다.
+
+API·데이터 구조·소비자 인터페이스를 각각 빌드할 때는 [용도별 파이프라인 구성](./pipeline-configuration.md)을 따릅니다.
+
 ---
 
 ## oa-sdk가 해결하는 문제와 핵심 가치
 
 oa-sdk는 API 계약(API가 받는 요청과 돌려주는 응답의 약속)을 관리하는 도구 모음입니다. 사람이 고치는 원본을 하나로 정하고, 그 원본에서 만드는 OpenAPI 문서, TypeScript 타입, 클라이언트, 핸들러 계약을 언제든 다시 만들 수 있는 생성물로 다룹니다. mock 서버도 같은 원본을 읽어 띄웁니다. 이 절은 사용자 관점의 요약이며, 제품 범위의 정본은 [Platform Scope](../internal/platform-scope.md#core-mission)입니다.
 
-이 절의 동작은 `@oa-sdk/codegen` 0.10.0 기준입니다. 공개 패키지는 Node.js 22 이상에서 동작합니다. registry에 배포된 버전은 [변경 이력](../changelog.md)과 `npm view @oa-sdk/codegen version`으로 확인합니다.
+이 절의 동작은 저장소의 `@oa-sdk/codegen` 0.10.0 구현 기준이며 npm의 현재 버전을 뜻하지 않습니다. 공개 패키지는 Node.js 22 이상에서 동작합니다. 변경 내용은 [변경 이력](../changelog.md), 실제 배포 버전은 `npm view @oa-sdk/codegen version`으로 확인합니다.
 
 ### 왜 계약 관리 도구가 필요한가
 
@@ -89,6 +94,7 @@ npx oa-gen collect --spec ./openapi.raw.yaml --normalized ./openapi.normalized.y
 4. **[라이브러리 진입점 지도](./library-entrypoints.md)**: `@oa-sdk/*` 패키지별 배포 상태와 import할 수 있는 entrypoint.
 5. **[TypeScript 호환성](./typescript-compatibility.md)**: 공개 패키지 사용자 요구사항과 저장소의 컴파일러 검증 lane.
 6. **[프로젝트 온보딩 & 점진적 도입 플레이북](./onboarding-playbook.md)**: 기존·신규 프로젝트에 단계적으로 도입하는 순서와 Fastify·Express·Hono·Elysia·NestJS 연결 레시피.
+7. **[용도별 파이프라인 구성](./pipeline-configuration.md)**: API·데이터·인터페이스 용도 선택, 공통 구성 API, 용도별 예시, 출력·실패 규칙과 검증 위치.
 
 oa-sdk 저장소 자체에 기여하는 경우는 아래 4절(기여자·메인테이너)을 따릅니다.
 

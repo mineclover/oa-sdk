@@ -179,14 +179,22 @@ Core Platform인 `@oa-sdk/surface-ir`와 `@oa-sdk/codegen`(`pluginRpc`, `generat
 
 ### DPM temporary reactivation — 2026-07-14
 
-> **Amendment 2026-10-23:** the canonical `mineclover/data-governance` repository is public and
-> `@oa-sdk/dpm@0.1.2` was published to npm on 2026-07-28. The "private" and "no publish" wording
-> below records the 2026-07-14 decision only. Phase 10 production data-plane scope remains
-> explicitly deferred.
+> **Amendment 2026-10-25:** the canonical owner for new DPM features and releases is the public
+> [mineclover/data-governance](https://github.com/mineclover/data-governance) repository. This oa-sdk
+> workspace remains a private, non-publishing maintenance/source compatibility mirror; external
+> package versions and later features are not this mirror's release or implementation status.
+> [Always-on/shared search is deferred TODO](https://github.com/mineclover/data-governance/blob/main/docs/internal/goals/shared-search-todo.md).
+> The external file-based read-only CLI needs no DB/Docker; retained SQL/local rehearsal evidence
+> does not authorize further database/privilege/adapter/service work. Phase 10 production data-plane
+> remains deferred. The location and temporary authority below describe the 2026-07-14 decision only.
+
+The earlier 2026-10-23 amendment recorded the external publication of `@oa-sdk/dpm@0.1.2` on
+2026-07-28. This is retained release history, not a claim that the oa-sdk mirror publishes or
+that this is the external registry's current version.
 
 The roadmap execution request for Goal 68 records a temporary scope reactivation for
-`@oa-sdk/dpm` in this monorepo. The current canonical implementation site is
-`mineclover/oa-sdk/packages/dpm`; the package remains private and is still excluded from
+`@oa-sdk/dpm` in this monorepo. At that decision, the temporary implementation site was
+`mineclover/oa-sdk/packages/dpm`; the local package remains private and is still excluded from
 the Core Platform release track.
 
 | Decision item | Recorded decision |
@@ -236,11 +244,12 @@ OpenAPI code generation, or physical database mutation scope.
 infra/orchestrator/UI와 운영 문서를 소유한다. `gitlab-agent-ops`는 `markdown-editor`를 단방향으로
 소비하며, 두 제품은 이 monorepo의 workspace, release policy, CI 책임에 포함되지 않는다.
 
-남은 물리 분리 후보는 다음과 같다.
+DPM 신규 기능·배포의 canonical owner는 이미 외부 `data-governance`다. oa-sdk의 DPM mirror 유지·축소와
+나머지 후보의 분리는 별도 판단이며, `personas`까지 이전 완료했다는 뜻은 아니다.
 
 | Candidate | Current surface | Rationale |
 | --- | --- | --- |
-| `data-governance` | `@oa-sdk/dpm`, `@oa-sdk/personas` | DPM 및 persona 계약 추출 |
+| `data-governance` | `@oa-sdk/dpm` mirror, `@oa-sdk/personas` 후보 | DPM 외부 owner는 확정; local mirror 유지·축소와 persona 계약 추출은 별도 판단 |
 | `typia-adapter` | `@oa-sdk/typia-mock` | 컴파일러 변환기 격리 및 ILlmApplication 목 서버 외부화 |
 
 workspace 의존자가 없는 패키지의 유지·추출·제거 판단 자료는 [`package-hygiene-decisions.md`](./package-hygiene-decisions.md)에 둔다(사용자 결정 대기).
@@ -252,7 +261,7 @@ workspace 의존자가 없는 패키지의 유지·추출·제거 판단 자료�
 | Command | Scope |
 | --- | --- |
 | `pnpm build`, `pnpm test`, `pnpm typecheck` | Core Platform 11개 package |
-| `pnpm build:downstream`, `pnpm test:downstream`, `pnpm typecheck:downstream` | Downstream Integration 열두 package |
+| `pnpm build:downstream`, `pnpm test:downstream`, `pnpm typecheck:downstream` | Downstream Integration 15개 package |
 | `pnpm build:maintenance`, `pnpm test:maintenance`, `pnpm typecheck:maintenance` | Maintenance-only compatibility proof |
 | `pnpm build:internal`, `pnpm test:internal`, `pnpm typecheck:internal` | App/reference workspace |
 | `pnpm build:all`, `pnpm test:all`, `pnpm typecheck:all` | 전체 monorepo 회귀 |

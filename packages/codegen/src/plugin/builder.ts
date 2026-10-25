@@ -10,6 +10,7 @@ import type {
   OasResponse,
   OasSchema,
 } from '@oa-sdk/parser'
+import { assertPipelinePurpose } from '../pipeline-purpose.js'
 import {
   absolutizeTspInput,
   compileTypeSpecInMemory,
@@ -385,6 +386,7 @@ export class TspProjectBuilder {
     this.cachedCompilerResult = compilerResult
 
     const { document, routesCount, sourceFiles } = compilerResult
+    assertPipelinePurpose(document, config.purpose)
     const operations: TspIntrospectedOperation[] = []
     const tagsSet = new Set<string>()
 

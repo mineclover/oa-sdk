@@ -7,6 +7,7 @@ import {
   type StandaloneGuardGeneratorOptions,
   type StandaloneGuardTarget,
 } from '../../src/index.js'
+import { typecheckGeneratedFiles } from '../../src/__tests__/plugin/helpers/typecheck-generated.js'
 
 describe('Standalone Guard Generator Unit Tests', () => {
   const createTempDir = async () => {
@@ -36,7 +37,13 @@ describe('Standalone Guard Generator Unit Tests', () => {
         ],
       })
 
-      expect(artifacts.length).toBe(4) // guards.js, guards.d.ts, index.js, index.d.ts
+      expect(artifacts.map(artifact => path.basename(artifact.filePath)).sort()).toEqual([
+        'guards.d.ts', 'guards.js', 'index.d.ts', 'index.js', 'types.d.ts',
+      ])
+      expect(typecheckGeneratedFiles({
+        files: Object.fromEntries(artifacts.map(artifact => [path.basename(artifact.filePath), artifact.content])),
+        compilerOptions: { skipLibCheck: false },
+      })).toEqual([])
       const jsArtifact = artifacts.find(a => a.filePath.endsWith('guards.js'))!
       expect(jsArtifact.content).toContain('function isEmail')
       expect(jsArtifact.content).toContain('function isUuid')

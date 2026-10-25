@@ -9,25 +9,26 @@
  *   3. Standalone type guards via AJV
  */
 
+import { createHash } from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { createHash } from 'node:crypto'
-import type { z } from 'zod'
 import {
   OPENAPI_PROJECTION_PROFILE_EXTENSION,
-  OPENAPI_PROJECTION_VERSION_HASH_EXTENSION,
-  OPENAPI_PROJECTION_SOURCES_EXTENSION,
   OPENAPI_PROJECTION_REFS_EXTENSION,
+  OPENAPI_PROJECTION_SOURCES_EXTENSION,
+  OPENAPI_PROJECTION_VERSION_HASH_EXTENSION,
   type SchemaRefEdge,
   type SchemaSourceCoordinate,
 } from '@oa-sdk/openapi-projection-contract'
 import { appendJsonPointer, loadSchema, type RouteIndex } from '@oa-sdk/parser'
-import type { ProfileTargetConfig, GuardTargetConfig } from './config.js'
+import type { z } from 'zod'
+import { auditCspBundle, type CspAuditResult } from './cli/commands/audit-csp.js'
 import { loadModule, profileTargetArtifactPaths, resolveProfileTarget } from './cli/lib/config-loader.js'
-import { zodToSchema } from './zod-to-schema.js'
+import type { GuardTargetConfig, ProfileTargetConfig } from './config.js'
+import { assertPipelinePurpose } from './pipeline-purpose.js'
 import { generateStandaloneGuards } from './standalone-guards/index.js'
 import type { GeneratedGuardArtifact } from './standalone-guards/types.js'
-import { auditCspBundle, type CspAuditResult } from './cli/commands/audit-csp.js'
+import { zodToSchema } from './zod-to-schema.js'
 
 export interface TargetSpecProjectionResult {
   target: ProfileTargetConfig
@@ -402,6 +403,8 @@ export async function projectTargetSpec(
     }
   }
 
+  assertPipelinePurpose(openApiDoc, target.purpose)
+
   // Canonical core OpenAPI doc (stripped of any pre-existing vendor extensions)
   const coreOpenApiDoc = stripSchemaEngineExtensions(openApiDoc)
   const versionHash = computeVersionHash(coreOpenApiDoc)
@@ -465,15 +468,21 @@ export async function projectTargetGuards(
   // Aggregate all schemas from projected specs
   const aggregateDefs: Record<string, unknown> = {}
   const aggregateSchemas: Record<string, unknown> = {}
+  const merge = (target: Record<string, unknown>, key: string, value: unknown): void => {
+    if (Object.hasOwn(target, key) && stableStringify(target[key]) !== stableStringify(value)) {
+      throw new Error(`Conflicting guard schema "${key}" across spec targets. Use separate guard outputs for different contracts.`)
+    }
+    Object.defineProperty(target, key, { value, enumerable: true, configurable: true, writable: true })
+  }
 
   for (const res of specResults) {
     const defs = (res.jsonSchemaDoc.$defs as Record<string, unknown>) ?? {}
     for (const [key, val] of Object.entries(defs)) {
-      aggregateDefs[key] = val
+      merge(aggregateDefs, key, val)
     }
     const schemas = ((res.openApiDoc.components as Record<string, unknown>)?.schemas as Record<string, unknown>) ?? {}
     for (const [key, val] of Object.entries(schemas)) {
-      aggregateSchemas[key] = val
+      merge(aggregateSchemas, key, val)
     }
   }
 

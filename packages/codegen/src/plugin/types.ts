@@ -1,6 +1,9 @@
-import type { Program } from '@typespec/compiler'
 import type { OasDocument, ParsedDocument } from '@oa-sdk/parser'
 import type { SurfaceIr } from '@oa-sdk/surface-ir'
+import type { Program } from '@typespec/compiler'
+import type { PipelinePurpose } from '../pipeline-purpose.js'
+
+export type { PipelinePurpose } from '../pipeline-purpose.js'
 
 export type SurfaceIR = SurfaceIr
 export type { SurfaceIr }
@@ -98,6 +101,8 @@ export interface TspPlugin<TOptions = unknown> {
    * Unique name identifying the plugin (e.g. 'typescript', 'client', 'tanstack-query', 'router', 'wire').
    */
   readonly name: string
+  /** Supported contract goals. Custom plugins without this field remain caller-managed. */
+  readonly purposes?: readonly PipelinePurpose[] | undefined
 
   /**
    * List of plugin names that MUST run prior to this plugin.
@@ -170,6 +175,8 @@ export type TspPluginEntry =
  * Configuration options for TypeSpec SSOT plugin pipeline.
  */
 export interface TspConfig {
+  /** Isolate API, model-only data, or consumer interfaces; omitted keeps legacy mixed behavior. */
+  purpose?: PipelinePurpose | undefined
   /** Input TypeSpec file path (.tsp) or project folder containing main.tsp */
   input: TspConfigInput
   /** Output directory where generated files will be written */

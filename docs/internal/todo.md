@@ -5,7 +5,7 @@
 > [release-readiness.md](./release-readiness.md)를 따른다. 이 문서의 완료 항목은 구현·결정
 > 이력이며, 현재 제품 roadmap 자체가 아니다.
 > 증분 설계: [ADR-006 — SQLite 기반 증분 Workspace Index](./architecture/006-incremental-workspace-index.md)
-> 다음 PRD: DPM runtime/storage 후속은 [Data Pseudonymization Manifest](../../tasks/prd-data-pseudonymization-manifest.md)와 [Goal 5](./goals/goal-5-dpm-runtime-storage-integration.md)를 참조. 외부 연동 backlog는 [MCP OpenAPI Projection Tools](../../tasks/prd-mcp-openapi-projection-tools.md)를 참조.
+> 참고 이력: DPM runtime/storage의 기존 설계는 [Data Pseudonymization Manifest](../../tasks/prd-data-pseudonymization-manifest.md)와 [Goal 5](./goals/goal-5-dpm-runtime-storage-integration.md)에 보존한다. 이 문서들이 다음 구현 착수를 지시하지는 않는다. 외부 연동 backlog는 [MCP OpenAPI Projection Tools](../../tasks/prd-mcp-openapi-projection-tools.md)를 참조.
 
 ---
 
@@ -24,6 +24,10 @@ TypeSpec source에서 materialize하며, Definition Builder fragments/targets는
   ([MCP OpenAPI Projection Tools](../../tasks/prd-mcp-openapi-projection-tools.md)).
 - DPM runtime/storage/API-DB 연결 후속은 maintenance/extraction context이며, 새 feature 착수에는
   [Platform Scope](./platform-scope.md)의 scope-reactivation decision이 필요하다.
+- 신규 DPM 기능·배포는 외부 [data-governance](https://github.com/mineclover/data-governance)가 소유한다.
+  상시·공유 검색은 [TODO-SHARED-SEARCH](https://github.com/mineclover/data-governance/blob/main/docs/internal/goals/shared-search-todo.md)로
+  보류했으며, 현재 외부 파일 기반 read-only CLI는 DB 없이 동작한다. 기존 SQL/검증 자료는 참고로
+  보존하고 DB·권한·adapter·서비스 작업은 자동 재개하지 않는다.
 - 두 항목의 2026-10-23 검토 결과와 다음 작업은
   [Backlog Handoff](./backlog-handoff-2026-10-23.md)에 정리했다. cross-repo submodule pin은
   `origin/main`의 pushed commit으로 재고정했고 `pnpm check:cross-repo-projection` 수동 gate를
@@ -32,6 +36,15 @@ TypeSpec source에서 materialize하며, Definition Builder fragments/targets는
 
 OA SDK 기본 기능 안정화의 현재 작업은 문서·gate drift 감시다. bounded cross-repo projection
 integration은 shared PRD US-001–US-013과 MCP PRD US-001–US-009 완료로 닫혔다.
+
+### [x] 2026-10-25 용도별 파이프라인·가드 정합성 및 문서 정리
+
+`api` / `data` / `interface` 명시적 격리, 공통 구성 API·standalone 가드 엔진 연결,
+진단 실패 시 기존 출력 보존과 기능 선택 문서를 완료했다. 기존 purpose 미지정 설정은 유지한다.
+전체·정렬 후 회귀의 구분, 검증 결과·한계·환경 정리 범위는
+[완료·검증 기록](./pipeline-isolation-checkpoint-2026-10-25.md)에 남겼다.
+Changeset은 릴리스 의도이며 미배포 상태다. DPM 공유 검색·DB·권한·adapter·서비스 작업은
+위 보류 경계를 유지한다.
 
 ### [x] Historical — OpenAPI definition builder: current-domain fragment backfill
 배경: 당시 migration plan에서 `packages/schemas/src/fragments`와 `packages/schemas/src/targets`를

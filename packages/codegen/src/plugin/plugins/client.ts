@@ -105,6 +105,7 @@ export function readClientSdkManifest(context: TspPluginContext): ClientSdkManif
 export function pluginClient(options: PluginClientOptions = {}): TspPlugin<PluginClientOptions> {
   return {
     name: 'client',
+    purposes: ['api', 'interface'],
     dependencies: ['typescript'],
     generate: (context: TspPluginContext, hookOptions?: PluginClientOptions) => {
       const merged: PluginClientOptions = { ...options, ...hookOptions }

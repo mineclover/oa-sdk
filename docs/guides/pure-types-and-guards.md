@@ -28,7 +28,7 @@ HTTP operation(`@route`, `op`, `paths`) 없이 모델만 선언하는 세 가지
 
 ### 방식 A: TypeSpec (`.tsp`)
 
-`typegen`과 `generate:guards`는 `.tsp` 파일을 직접 받아 `@oa-sdk/codegen`에 들어 있는 TypeSpec 컴파일러로 메모리에서 컴파일합니다. namespace에 `@service`가 없으면 OpenAPI 문서가 만들어지지 않아 빈 결과가 나오므로(종료 코드는 0), 모델만 담은 파일에도 `@service`를 붙입니다.
+`typegen`과 `generate:guards`는 `.tsp` 파일을 직접 받아 `@oa-sdk/codegen`에 들어 있는 TypeSpec 컴파일러로 메모리에서 컴파일합니다. namespace에 `@service`가 없으면 모델이 방출되지 않을 수 있으므로 모델만 담은 파일에도 `@service`를 붙입니다. 기존 단독 명령과 달리, 신규 [용도별 파이프라인](./pipeline-configuration.md)의 `purpose: 'data'`는 모델·operation이 모두 비면 실패합니다.
 
 ```typespec
 // models/events.tsp
@@ -194,9 +194,9 @@ npx oa-gen generate:guards --input models/events.tsp -o src/guards --type-import
 | `index.js`, `index.d.ts` | `guards.js`를 다시 export |
 | `package.json` | `{ "type": "module" }` (ESM) |
 
-- `--type-import`는 `.d.ts`가 타입을 가져올 경로입니다. 생성된 `.d.ts` 파일 위치 기준으로 쓰므로, 위 예처럼 `src/guards/`에서 `src/types/events.ts`를 가리키면 `../types/events.js`입니다. 생략하면 `.d.ts`가 import 없이 타입 이름을 참조해 `TS2304`(`skipLibCheck`가 꺼진 경우)가 나거나 좁혀진 타입이 `any`가 되므로 항상 지정합니다.
+- `--type-import`는 `.d.ts`가 타입을 가져올 경로입니다. 생성된 `.d.ts` 파일 위치 기준으로 쓰므로, 위 예처럼 `src/guards/`에서 `src/types/events.ts`를 가리키면 `../types/events.js`입니다. 신규 checkout에서는 생략 시 같은 원본으로 `types.d.ts`를 함께 생성해 미정의 타입 참조를 방지합니다. 이미 생성한 타입 모듈을 공유하려면 명시합니다.
 - `--split`이면 `guards/<TypeName>.js`·`.d.ts`로 나눠 쓰고 `index.js`가 모두 다시 export합니다. 파일이 한 단계 깊어지므로 `--type-import` 경로도 한 단계 더 올라가야 합니다(`../../types/events.js`).
-- `--schemas EditorActivityEvent,TextRange`로 대상 컴포넌트를 고를 수 있습니다. 점이 들어간 컴포넌트 이름(TypeSpec의 `OaSdkTypeSpec.StandardError` 등)도 원래 이름으로 고를 수 있고, 함수 이름은 JavaScript 식별자로 정규화됩니다(`isOaSdkTypeSpec_StandardError`). `.d.ts`의 타입 술어는 `data is OaSdkTypeSpec.StandardError`를 유지하며 namespace 루트(`OaSdkTypeSpec`)를 import합니다.
+- `--schemas EditorActivityEvent,TextRange`로 대상 컴포넌트를 고를 수 있습니다. 점이 들어간 컴포넌트 이름(TypeSpec의 `OaSdkTypeSpec.StandardError` 등)도 원래 이름으로 고를 수 있고, 함수 이름은 JavaScript 식별자로 정규화됩니다(`isOaSdkTypeSpec_StandardError`). 신규 codegen 경로의 타입 술어는 typegen과 같은 선언 이름(`OaSdkTypeSpecStandardError`)을 import합니다.
 - `oa-gen generate --target standalone-guards --input <파일> --out-dir <디렉터리>`도 같은 가드를 만듭니다. `oa.config.ts`의 `guards` 설정으로 `oa-gen generate`에 포함할 수도 있습니다([선언적 스펙 설정](./declarative-spec-configuration.md#63-독립형-정적-타입-가드-guards)).
 
 ---
@@ -270,4 +270,3 @@ socket.on('message', (buffer) => {
 - 가드는 외부 패키지를 import하지 않고 `eval`을 쓰지 않으므로 MV3 확장 프로그램 같은 제한된 환경에도 넣을 수 있습니다.
 - 다형성 유니언, 상속 모델, 정밀한 수치 제약이 필요한 엔터티는 [스키마 아키텍처 및 작성 규칙](./schema-architecture-and-conventions.md)을 참고합니다.
 - XState v6 상태 머신 런타임 스키마 검증이나 `ttsc` 컴파일러 트랜스폼을 통한 무의존성 AOT Standard Schema 생성이 필요한 경우, [멀티 티어 스키마 및 ttsc·Atlas 가이드](./schema-architecture-and-ttsc-guide.md)를 참고합니다.
-

@@ -469,6 +469,7 @@ export {
   vitePluginTsp,
 } from './plugin/index.js'
 export type {
+  PipelinePurpose,
   TspPlugin,
   TspPluginContext,
   TspGeneratedFile,
@@ -512,4 +513,3 @@ export {
   emitSketchArtifacts,
 } from './sketch-emitter/index.js'
 export type { SketchEmittedArtifacts } from './sketch-emitter/index.js'
-

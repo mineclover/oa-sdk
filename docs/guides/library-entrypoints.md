@@ -2,15 +2,17 @@
 
 oa-sdk는 하나의 runtime SDK가 아니라 OpenAPI 계약을 작성·검증·소비·관찰하는 workspace다.
 아래 표는 신규 사용자가 import 또는 변경을 시작할 때의 첫 경계이며, 각 패키지를 npm에서 설치할 수
-있는지도 함께 보여 준다. 전체 export symbol은 [API index](../internal/api-index.md)가 정본이며, 이 문서는
-기능 선택과 공개 entrypoint를 안내한다. 이 문서의 상태는 `@oa-sdk/codegen` 0.10.0 기준이다.
+있는지 판단할 배포 기록도 함께 보여 준다. 전체 export symbol은 [API index](../internal/api-index.md)가 정본이다.
+목적별 기능 선택은 [기능 선택 지도](./feature-map.md), 구체적인 import 선택은 이 문서를 따른다.
+구현 설명은 저장소의 `@oa-sdk/codegen` 0.10.0 기준이며 npm 현재 버전을 뜻하지 않는다.
 
-`배포` 열의 뜻은 다음과 같다. 설치할 수 있는 버전은 [변경 이력](../changelog.md)에서 확인한다.
+`배포` 열은 저장소의 배포 기록·계획이며 실시간 registry 조회 결과가 아니다.
+변경 내용은 [변경 이력](../changelog.md), 실제 설치 가능 버전은 `npm view <package> version`으로 확인한다.
 
-- **npm**: 이미 npm에 배포되어 있다.
-- **0.9.0부터**: `@oa-sdk/codegen` 0.9.0 릴리스에서 처음 npm에 배포된다. 이 릴리스 전에는 npm에서 설치할 수 없다.
-- **후보·미배포**: 배포 후보(`distributionCandidates`)지만 아직 npm에 없다.
-- **비공개**: `private: true`인 저장소 전용 패키지다. npm에 배포하지 않으며 oa-sdk 저장소 밖에서는 설치할 수 없다.
+- **npm**: 기존 npm 배포 기록이 있는 패키지다. checkout의 version과 현재 registry 버전이 같다는 뜻은 아니다.
+- **0.9.0부터**: `@oa-sdk/codegen` 0.9.0 릴리스부터의 배포 대상으로 안내된 패키지다. 설치 시 registry에서 확인한다.
+- **배포 후보**: 배포 후보(`distributionCandidates`)로 등록됐지만 이 문서에서 배포 완료를 확인하지 않은 패키지다. 후보 등록만으로 설치 가능성을 보장하지 않는다.
+- **비공개**: 이 저장소의 `private: true` workspace다. 여기서 npm에 배포하지 않는다. 같은 이름의 외부 제품 배포 여부와는 별개다.
 
 공개 패키지는 모두 Node.js 22 이상을 요구한다.
 
@@ -41,18 +43,18 @@ oa-sdk는 하나의 runtime SDK가 아니라 OpenAPI 계약을 작성·검증·�
 | `@oa-sdk/chunk-stream-ui` | npm | UI Action 어댑터, ContentPort 원자적 배치 브리지, StoryboardDocument 스트림 변환 및 재생 브리지 | package root | [API index](../internal/api-index.md) |
 | `@oa-sdk/chunk-stream-timeseries` | npm | 다채널 시계열 텔레메트리 어댑터, LTTB 다운샘플링, 데시메이션 | package root | [API index](../internal/api-index.md) |
 | `@oa-sdk/chunk-stream-react` | npm | React 18/19 타임라인 재생 및 스크러빙 훅, 피어 상주 인식, 원격 측정 오버레이 | package root | [API index](../internal/api-index.md) |
-| `@oa-sdk/telemetry` | 후보·미배포 | 설계 주도 텔레메트리, 추적 심볼 레지스트리, XState v5 비침습 인스펙터, DPM 가명화 브릿지 및 다중 프로바이더(GTM/Sentry/OTel) 디스패처 | package root | [Design-Driven Telemetry](../concepts/design-driven-telemetry.md) |
+| `@oa-sdk/telemetry` | 배포 후보 | 추적 심볼 레지스트리, XState v5 비침습 인스펙터, HMAC sanitizer 및 다중 프로바이더(GTM/Sentry/OTel) 디스패처. `@oa-sdk/dpm`에 의존하지 않음 | package root | [telemetry README](../../packages/telemetry/README.md), [Design-Driven Telemetry](../concepts/design-driven-telemetry.md) |
 
 ## 도구·피어 통신
 
 | 패키지 | 배포 | 시작 역할 | 공개 entrypoint | 먼저 볼 자료 |
 | --- | --- | --- | --- | --- |
 | `@oa-sdk/tools` | npm | JSON Schema로 정의한 도구를 MCP·CLI·HTTP로 노출하는 adapter(`defineTool`, `createSchemaTool`, `createMcpServer`, `createCli`). 계약에서 도구를 자동 생성하지는 않는다 | package root | [tools README](../../packages/tools/README.md) |
-| `@oa-sdk/webmcp-peer` | 후보·미배포 | 룸 기반 Streamable HTTP MCP 라우터·WebSocket 시그널링 데몬(`server`), 브라우저/호스트 Provider(`provider`), 외부 에이전트/CLI 세션 클라이언트(`client`), 초대 링크·프로필·헬스 프로브(`config`)를 아우르는 3-Tier 단일 통합 패키지 (런타임 의존성 0개) | package root, `./config`, `./client`, `./provider`, `./server` | [webmcp-peer README](../../packages/webmcp-peer/README.md), [WebMCP 프로젝션 가이드](./webmcp-projection-and-relay-guide.md) |
-| `@oa-sdk/peer-transport` | 후보·미배포 | 3채널(mcp-jsonrpc, crdt-delta, presence) 패킷 다중화, 우선순위 버퍼링, WebMcpBridgeClient, WebSocketTransportAdapter, CloudTransitClient (런타임 의존성 0개) | package root, `./adapters` | [WebMCP 프로젝션 가이드](./webmcp-projection-and-relay-guide.md) |
-| `@oa-sdk/peer-server` | 후보·미배포 | 기본 포트 8787의 HTTP 피어 레지스트리, 랑데부 디스크립터, WebSocket 시그널링/패킷 중계(`relay`), Cloud Transit Proxy(`cloud`, `/transit/:peer/mcp`) | package root, `./relay`, `./cloud` | [WebMCP 프로젝션 가이드](./webmcp-projection-and-relay-guide.md) |
-| `@oa-sdk/collab-workspace` | 후보·미배포 | path/line 검증을 포함한 in-memory Tree-Lattice와 scoped intent locks | package root | [WebMCP peering mesh](../concepts/webmcp-peering-mesh-and-collab.md) |
-| `@oa-sdk/mcp-mesh` | 후보·미배포 | canonical domain skill, runtime session, validated namespaced routing, peer session hydration 및 CLI(bin `oa-mesh`, `oa-tools`) | package root, `./cli` | [WebMCP 프로젝션 가이드](./webmcp-projection-and-relay-guide.md) |
+| `@oa-sdk/webmcp-peer` | 배포 후보 | 룸 기반 Streamable HTTP MCP 라우터·WebSocket 시그널링 데몬(`server`), 브라우저/호스트 Provider(`provider`), 외부 에이전트/CLI 세션 클라이언트(`client`), 초대 링크·프로필·헬스 프로브(`config`)를 아우르는 3-Tier 단일 통합 패키지 (런타임 의존성 0개) | package root, `./config`, `./client`, `./provider`, `./server` | [webmcp-peer README](../../packages/webmcp-peer/README.md), [WebMCP 프로젝션 가이드](./webmcp-projection-and-relay-guide.md) |
+| `@oa-sdk/peer-transport` | 배포 후보 | 3채널(mcp-jsonrpc, crdt-delta, presence) 패킷 다중화, 우선순위 버퍼링, WebMcpBridgeClient, WebSocketTransportAdapter, CloudTransitClient (런타임 의존성 0개) | package root, `./adapters` | [WebMCP 프로젝션 가이드](./webmcp-projection-and-relay-guide.md) |
+| `@oa-sdk/peer-server` | 배포 후보 | 기본 포트 8787의 HTTP 피어 레지스트리, 랑데부 디스크립터, WebSocket 시그널링/패킷 중계(`relay`), Cloud Transit Proxy(`cloud`, `/transit/:peer/mcp`) | package root, `./relay`, `./cloud` | [WebMCP 프로젝션 가이드](./webmcp-projection-and-relay-guide.md) |
+| `@oa-sdk/collab-workspace` | 배포 후보 | path/line 검증을 포함한 in-memory Tree-Lattice와 scoped intent locks | package root | [WebMCP peering mesh](../concepts/webmcp-peering-mesh-and-collab.md) |
+| `@oa-sdk/mcp-mesh` | 배포 후보 | canonical domain skill, runtime session, validated namespaced routing, peer session hydration 및 CLI(bin `oa-mesh`, `oa-tools`) | package root, `./cli` | [WebMCP 프로젝션 가이드](./webmcp-projection-and-relay-guide.md) |
 
 ## 저장소 전용 패키지 (비공개)
 
@@ -64,14 +66,14 @@ Core Platform의 저장소 전용 패키지이고, `@oa-sdk/rpc`는 Downstream I
 | 패키지 | 배포 | 시작 역할 | 공개 entrypoint | 먼저 볼 자료 |
 | --- | --- | --- | --- | --- |
 | `@oa-sdk/schemas` | 비공개 | production TypeSpec source와 generated OpenAPI artifact | package root, `./openapi.yaml`, `./openapi.json` | [기본 스펙 사용 기준](./basic-spec-usage.md) |
-| `@oa-sdk/spec-lens` | 비공개 | contract history, graph, provenance observation | package root | [TypeSpec provenance 계획](../internal/typespec-roundtrip/declaration-ref-provenance-validation-plan.md) |
+| `@oa-sdk/spec-lens` | 비공개 | 로컬 SQLite 캐시 기반 contract history, graph, provenance observation | package root | [Spec-Lens 사용법](../spec-lens/README.md) |
 | `@oa-sdk/spec-lens-contract` | 비공개 | Spec Lens HTTP API의 browser-safe wire contract | package root | [API index](../internal/api-index.md) |
 | `@oa-sdk/rpc` | 비공개 | TypeSpec 계약의 operation을 typed RPC procedure로 호출·제공하는 runtime. JSON-RPC 2.0과 원래 REST route를 같은 handler로 처리(런타임 의존성 0개, `./ajv`만 선택적 peer `ajv`) | package root, `./ajv` | [rpc README](../../packages/rpc/README.md) |
 | `@oa-sdk/typespec-tooling` | 비공개 | TypeSpec IDE 설정 템플릿, 생산성 스니펫, 커스텀 linter 규칙 모음 | package root, `./snippets`, `./linter` | [TypeSpec IDE 설정](./typespec-ide-setup.md) |
 | `@oa-sdk/typespec-erd` | 비공개 | logical ERD TypeSpec prototype와 artifact CLI(bin `oa-erd`) | package root | [논리 ERD authoring](./typespec-logical-erd-authoring.md) |
 | `@oa-sdk/logical-erd-contract` | 비공개 | logical ERD artifact·validation·semantic diff contract | package root | [논리 ERD authoring](./typespec-logical-erd-authoring.md) |
 | `@oa-sdk/typia-mock` | 비공개 | typia LLM application 기반 mock validation | package root | [API index](../internal/api-index.md) |
-| `@oa-sdk/dpm` | 비공개 | relationship-first DPM manifest, catalog, logical-data binding(bin `oa-dpm`). npm의 같은 이름 패키지는 이 저장소가 배포한 것이 아니다 | package root, `./package`, `./catalog`, `./data`, `./profile`, `./relationship`, `./gateway`, `./storage`, `./publishing`, `./execution` | [DPM roadmap](../internal/goals/dpm-master-roadmap.md) |
+| `@oa-sdk/dpm` | 비공개 | relationship-first DPM manifest, catalog, logical-data binding(bin `oa-dpm`)의 maintenance/source compatibility mirror. npm의 같은 이름 패키지는 외부 owner가 배포하며 mirror와 버전·기능을 동일시하지 않음 | package root, `./package`, `./catalog`, `./data`, `./profile`, `./relationship`, `./gateway`, `./storage`, `./publishing`, `./execution` | [mirror README](../../packages/dpm/README.md), [canonical data-governance](https://github.com/mineclover/data-governance) |
 | `@oa-sdk/personas` | 비공개 | persona registry와 domain matrix validation | package root, `./registry.yaml`, `./traits/*`, `./domains/*` | [API index](../internal/api-index.md) |
 | `@oa-sdk/ttsc-compile-fixture` | 비공개 | generated TypeScript의 TypeScript-Go compile compatibility fixture. 일반 library import 대상으로 사용하지 않는다 | 없음 | [TypeScript 호환성](./typescript-compatibility.md) |
 

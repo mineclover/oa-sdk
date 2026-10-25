@@ -218,6 +218,7 @@ export function pluginTanstackQuery(
 ): TspPlugin<PluginTanstackQueryOptions> {
   return {
     name: 'tanstack-query',
+    purposes: ['api', 'interface'],
     dependencies: ['typescript', 'client'],
 
     async generate(context: TspPluginContext, opts?: PluginTanstackQueryOptions): Promise<void> {

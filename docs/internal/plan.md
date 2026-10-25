@@ -21,7 +21,11 @@ generation, mock/runtime testing, diff/drift/freshness review를 연결한다. �
 
 Status: active
 
-현재 제품 투자는 [Platform Scope](./platform-scope.md)의 Core Platform(9개 패키지)에 집중하며, 배포 아티팩트의 실사용성(Viability), 엔터프라이즈 거버넌스, 개발자 경험(DX)을 극대화하는 4단계 실효성 로드맵을 운영한다.
+현재 제품 투자는 [Platform Scope](./platform-scope.md)의 Core Platform(11개 패키지)에 집중하며, 배포 아티팩트의 실사용성(Viability), 엔터프라이즈 거버넌스, 개발자 경험(DX)을 극대화하는 4단계 실효성 로드맵을 운영한다.
+
+2026-10-25 용도별 파이프라인 격리·가드 정합성 보강은 checkout 구현을 완료했다.
+[완료·검증 기록](./pipeline-isolation-checkpoint-2026-10-25.md)을 따르며, npm 배포나 신규 DPM
+작업의 착수를 뜻하지 않는다.
 
 ### 마일스톤 및 호라이즌 개요
 

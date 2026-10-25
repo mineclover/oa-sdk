@@ -1,4 +1,4 @@
-export { generateStandaloneGuards } from '@oa-sdk/ast-sync/guards';
+export { generateStandaloneGuards } from './generator.js';
 export type {
   GeneratedGuardArtifact,
   StandaloneGuardGeneratorOptions,

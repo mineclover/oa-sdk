@@ -111,12 +111,16 @@ export function vitePluginTsp(options?: VitePluginTspOptions): VitePluginTspResu
       if (command === 'serve') return
       if (options?.runOnBuild === false) return
       const result = await getBuilder().build()
+      const failure = describeRebuildFailure(result, undefined)
+      if (failure !== undefined) throw new Error(failure)
       options?.onBuildSuccess?.(result)
     },
     async configureServer(server: VitePluginTspDevServer) {
       if (options?.runOnDev === false) return
       const devBuilder = getBuilder()
       const initialResult = await devBuilder.build()
+      const initialFailure = describeRebuildFailure(initialResult, undefined)
+      if (initialFailure !== undefined) throw new Error(initialFailure)
       options?.onBuildSuccess?.(initialResult)
 
       if (options?.watch !== false) {

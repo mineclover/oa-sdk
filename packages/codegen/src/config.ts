@@ -7,6 +7,7 @@
  */
 
 import { z } from "zod"
+import { isPipelinePurpose, type PipelinePurpose } from "./pipeline-purpose.js"
 import type { OutputOptions } from "./types.js"
 
 // ============================================================================
@@ -175,6 +176,8 @@ export interface PersonaGovernanceConfig {
  * Domain profile specification target configuration.
  */
 export interface ProfileTargetConfig {
+  /** Same contract goal admission rules as TspConfig.purpose. */
+  purpose?: PipelinePurpose | undefined
   /** Unique target identifier (e.g. "devlink-contracts", "fastify-api") */
   id: string
   /** Path to source schema file or module (e.g. "openapi.yaml", "src/schemas.ts") */
@@ -624,6 +627,7 @@ export const personaGovernanceConfigSchema = z.object({
 })
 
 export const profileTargetConfigSchema = z.object({
+  purpose: z.enum(["api", "data", "interface"]).optional(),
   id: z.string().min(1, "Target id is required and must be a non-empty string"),
   profile: z.enum(OPENAPI_PROJECTION_PROFILES, {
     message: "profile must be one of: 'component-bundle', 'operation-contract', 'full-api-document'",
@@ -783,6 +787,12 @@ export function validateOaConfig(config: unknown): ConfigValidationResult {
     }
 
     const spec = item as Record<string, unknown>
+    if (spec.purpose !== undefined && !isPipelinePurpose(spec.purpose)) {
+      errors.push({
+        path: `${prefix}.purpose`,
+        message: "purpose must be api, data, or interface",
+      })
+    }
 
     // id
     if (typeof spec.id !== "string" || spec.id.trim().length === 0) {

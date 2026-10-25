@@ -96,6 +96,7 @@ export function pluginRouter(
 ): TspPlugin<PluginRouterOptions> {
   return {
     name: 'router',
+    purposes: ['api', 'interface'],
     dependencies: ['typescript'],
 
     async generate(context: TspPluginContext, opts?: PluginRouterOptions): Promise<void> {

@@ -26,6 +26,29 @@ describe('TypeSpec Builder Platform: vitePluginTsp', () => {
     expect(typeof plugin.closeBundle).toBe('function')
   })
 
+  it.each(['build', 'serve'] as const)('rejects %s startup diagnostics without a success callback', async command => {
+    const onBuildSuccess = vi.fn()
+    const plugin = vitePluginTsp({
+      config: {
+        input: petstoreFile,
+        dryRun: true,
+        plugins: [{
+          name: 'invalid',
+          generate(context) {
+            context.reportDiagnostic({ severity: 'error', message: 'invalid contract' })
+          },
+        }],
+      },
+      watch: false,
+      onBuildSuccess,
+    })
+    plugin.configResolved({ command })
+    await expect(
+      command === 'build' ? plugin.buildStart() : plugin.configureServer({}),
+    ).rejects.toThrow('invalid contract')
+    expect(onBuildSuccess).not.toHaveBeenCalled()
+  })
+
   it('executes buildStart and triggers onBuildSuccess callback', async () => {
     const captured: TspPipelineResult[] = []
 

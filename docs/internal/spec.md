@@ -3,7 +3,8 @@
 > 개념 정의: [Concepts](../concepts.md) / 기본 사용 기준: [basic-spec-usage.md](../guides/basic-spec-usage.md) / API 상세: [api-index.md](./api-index.md) / OAS 커버리지: [oas32-coverage.md](./oas32-coverage.md) / 기능별 테스트: [feature-test-matrix.md](./feature-test-matrix.md)
 
 > 제품 범위와 신규 작업 승인 기준: [Platform Scope](./platform-scope.md). 이 문서의 `✅`는
-> 구현·검증 현황을 뜻하며 active product scope나 신규 feature 투자 승인을 뜻하지 않는다.
+> 구현·검증 현황을 뜻하며 active product scope, npm 배포·운영 준비 또는 신규 feature 투자 승인을 뜻하지 않는다.
+> 사용자 목적별 진입점은 [기능 선택 지도](../guides/feature-map.md)를 따른다.
 
 ---
 
@@ -13,7 +14,7 @@
 Core Platform
   core                        공유 기반 유틸리티
   openapi-projection-contract 외부 schema producer projection 경계
-  typespec-decorators      production TypeSpec extension helper와 provenance 경계
+  typespec-decorators          production TypeSpec extension helper와 provenance 경계
   schemas                     TypeSpec/OpenAPI schema SSOT와 artifact
   parser                      OAS 3.2 파서, IR, ref, lint, validate, query
   surface-ir                  target-neutral API surface IR, Forge projection, RPC contract 투영
@@ -24,8 +25,8 @@ Core Platform
   tools                       TypeSpec JSON Schema 기반 MCP/CLI 도구 브릿지
 
 Downstream Integration
-  router                      Hono/Express typed stub
-  client                      typed fetch SDK와 SSE
+  router                      Hono/Express/Fastify/Elysia 라우터 코드와 순수 핸들러 계약 생성
+  client                      typed fetch SDK, SSE/NDJSON과 TanStack Query v5 생성
   mock-server                 AJV mock engine, adapter, test helper
   chunk-stream                bounded chunk stream primitives
   chunk-stream-crdt           CRDT chunk merge and state helpers
@@ -50,7 +51,8 @@ Apps and references
 Core Platform은 schema/spec 관리 방향을 소유한다. Downstream은 그 계약을 소비해 검증하지만
 Core 자체는 아니다. Maintenance-only는 security, compatibility, migration만 허용하며 새 기능은
 scope-reactivation decision이 필요하다. Markdown editor와 GitLab agent operations 제품은 각각
-`markdown-editor`, `gitlab-agent-ops` 독립 저장소가 소유한다.
+`markdown-editor`, `gitlab-agent-ops` 독립 저장소가 소유한다. DPM 신규 기능·배포는
+외부 [data-governance](https://github.com/mineclover/data-governance)가 소유하고 이 저장소는 비공개 mirror를 유지한다.
 
 안정화 lane은 Node.js 24 LTS와 TypeScript 5.9.3을 사용하며, 기본 CI와 `.nvmrc`도 이 lane을
 기준으로 한다. Node.js 26 Current 호환성 lane은 TypeScript 7.0.2와 `ttsc` 0.26.0으로 Core
@@ -67,7 +69,7 @@ baseline과 맞춘다.
 machine-readable SSOT다. 사람이 읽는 요약은
 [`feature-test-matrix.md`](./feature-test-matrix.md)에 둔다.
 
-현재 매핑은 57개 기능 그룹과 CLI spec drift guard를 포함한 테스트 경로 패턴을 관리한다.
+현재 매핑은 64개 기능 그룹과 CLI spec drift guard를 포함한 테스트 경로 패턴을 관리한다.
 
 ```bash
 pnpm check:feature-tests
@@ -166,6 +168,7 @@ marker.
 | 기능 | 상세 |
 |------|------|
 | Zod 4 → OAS | discriminator, nullable, enum, 전 타입 커버리지 |
+| 용도별 파이프라인 | `TspConfig.purpose`와 `ProfileTargetConfig.purpose`가 `api` / `data` / `interface` admission을 공유한다. data는 HTTP operation·endpoint companion 출력을 제외하며 빈 모델 방출은 실패한다. 플러그인 오류 시 기존 출력 보존, Vite 최초 실패 전파, 공통 standalone guard 엔진·typegen 이름 매핑, 자체 guard 타입 선언과 타깃 충돌 거부를 제공한다. [구성 가이드](../guides/pipeline-configuration.md) 참조. |
 | ZodLazy → $ref | 재귀 스키마 지원 (refs 컨텍스트 기반) |
 | OAS → Zod 4 generation | `generateZodFromSpec`, `createZod4Algebra` — OpenAPI 3.2 Schema (Draft 2020-12) to Zod 4 code emission, `prefixItems` tuple, `exclusiveMinimum/Maximum` numeric bounds, discriminator defaultMapping, `z.lazy()` cycle resolution, dynamic in-memory validator (`createRuntimeZodValidators`) |
 | Zod preflight validation & normalization | `normalizeOpenApiDocument` 사전 정규화, parser lint/validation fail-fast 진단 및 `ZodGenerationPreflightError`, `--validate`, `--no-validate`, `--lint`, `--force`, `--no-normalize` 제어 |
@@ -300,6 +303,9 @@ v1 config는 live parser가 제공되지 않는 deliberate migration boundary다
 
 ## `@oa-sdk/spec-lens` ✅
 
+비공개 저장소 전용 관측 도구다. `.spec-lens.db` 로컬 SQLite 캐시는 일반 codegen의 필수 서비스나
+DPM 상시·공유 검색용 DB가 아니다. 실행 절차는 [Spec-Lens](../spec-lens/README.md)를 따른다.
+
 | 기능 | 상세 |
 |------|------|
 | Project identity | `SpecProjectConfig`와 snapshot/diff는 `definition-builder | typespec-bundle` 판별 유니온이다. TypeSpec project의 기본 config surface는 repo-relative `observation.{candidates,evidence}`이며, 내부에서는 typed `observationInputs` (`candidate-only | evidence-only`)로 정규화해 정렬된 class/path 목록 자체를 manifest digest와 함께 hash한다. `candidate-only`는 revision 후보만 확장하고 `evidence-only`는 revision별 hash 또는 `missing`/`unreadable` provenance envelope를 남긴다. 입력은 최대 16개이며 `evidence-only`는 파일만 최대 4개(각 2 MiB, 총 8 MiB), adapter당 동시 읽기 2개로 제한한다. `watchPaths`는 전자의 호환 별칭이고 세 config surface는 동시에 줄 수 없다. `SpecProjectKey`는 source kind/root, manifest-or-target digest, builder/snapshot schema version, credential-free repository coordinate, branch/ref observation identity, 그리고 TypeSpec compiler/runtime package, trusted decorator digest, codegen restore contract, 구체적인 source/artifact/compiler resource policy fingerprint를 함께 hash한다. 서로 다른 source/ref/toolchain의 snapshot, diff, timeline, path read model은 같은 cache namespace를 공유하지 않는다. |
@@ -312,8 +318,12 @@ v1 config는 live parser가 제공되지 않는 deliberate migration boundary다
 ## `@oa-sdk/dpm` ✅
 
 > Maintenance-only separation candidate. 아래 내용은 현재 구현과 compatibility proof를 기록한다.
-> 신규 DPM feature goal은 [Platform Scope](./platform-scope.md)의 reactivation decision 없이는
-> 시작하지 않는다.
+> 이 저장소의 `@oa-sdk/dpm`은 비공개 maintenance/source compatibility mirror이며 신규 기능·배포의
+> canonical owner는 [mineclover/data-governance](https://github.com/mineclover/data-governance)다.
+> 외부 owner의 최신 CLI·배포·검증 결과를 mirror 기능으로 간주하지 않는다. 상시·공유 검색은 외부의
+> [미래 TODO](https://github.com/mineclover/data-governance/blob/main/docs/internal/goals/shared-search-todo.md)이며
+> 현재 외부 파일 기반 read-only CLI에는 DB가 필요 없다. 기존 SQL·storage·검증 자료는 보존하되
+> DB/adapter/서비스 작업을 재개하지 않는다. 신규 oa-sdk 작업은 [Platform Scope](./platform-scope.md)를 따른다.
 
 | 기능 | 상세 |
 |------|------|
@@ -404,8 +414,10 @@ DPM profile baseline repository summary invariant: `packages/dpm/src/storage/pro
 
 ## `@oa-sdk/router` ✅
 
-Hono/Express 스텁. `OasDocument | ParsedDocument` 입력. typegen 타입 import, JSDoc, 204.
-Content-type aware 스텁 + security requirement hints. Hono 타입드 라우터 (응답/바디 타입 캐스팅).
+`generateRouter()`는 Hono/Express/Fastify/Elysia 라우터 코드를, `generateHandlerContract()`는 프레임워크와
+무관한 `*.contract.ts` 핸들러 계약을 생성하는 빌드 타임 함수다. `OasDocument | ParsedDocument`를 입력받아
+문자열을 반환하며 runtime mount helper나 CLI는 제공하지 않는다. 비즈니스 구현과 서버 구성은 사용자 책임이다.
+기존 Hono/Express stub 경로도 유지한다. typegen 타입 import, JSDoc, content-type과 security requirement hints를 생성한다.
 문서화된 응답 헤더가 있으면 `Partial<XxxResponseHeaders>` stub과 header setter helper를 생성해 Hono/Express 핸들러에서 타입 힌트를 유지.
 Webhook 핸들러 스텁 생성.
 `negotiateResponseMediaType`은 RFC 9110 §12.5.1대로 서버 media type(선언 type, 없으면 `application/json`, 그다음 codec type)마다

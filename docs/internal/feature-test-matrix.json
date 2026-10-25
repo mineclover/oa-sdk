@@ -1842,6 +1842,32 @@
       ]
     },
     {
+      "id": "pipeline-purpose-isolation",
+      "name": "Purpose-isolated contract pipelines",
+      "category": "codegen",
+      "package": "@oa-sdk/codegen",
+      "description": "Shared purpose admission for API, data-only and consumer interface pipelines; data targets exclude HTTP companions; standalone guard parity, generated declaration naming, target collision rejection and no-write diagnostic failures.",
+      "capabilities": [
+        "TspConfig.purpose and ProfileTargetConfig.purpose",
+        "data-only models without endpoint companions",
+        "plugin and CLI standalone guard semantic parity",
+        "strict generated types and guards consumer compilation",
+        "conflicting target schema rejection",
+        "in-memory guard artifact rendering",
+        "failed build output preservation and Vite startup failure"
+      ],
+      "testPaths": [
+        "packages/codegen/src/__tests__/pipeline-isolation.test.ts",
+        "packages/codegen/src/__tests__/plugin/runner.test.ts",
+        "packages/codegen/src/__tests__/plugin/vite-plugin.test.ts",
+        "packages/ast-sync/test/guards-rendering.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/codegen test",
+        "pnpm --filter @oa-sdk/ast-sync test"
+      ]
+    },
+    {
       "id": "typespec-plugin-pipeline",
       "name": "TypeSpec plugin pipeline",
       "category": "codegen",

@@ -4,6 +4,7 @@ import { dirname, isAbsolute, relative, resolve, sep } from 'node:path'
 import { formatGeneratedTs } from '@oa-sdk/core'
 import type { OasDocument } from '@oa-sdk/parser'
 import type { Program } from '@typespec/compiler'
+import { assertPipelinePurpose } from '../pipeline-purpose.js'
 import { absolutizeTspInput, compileTypeSpecInMemory } from './compiler.js'
 import { validateTspConfig } from './config.js'
 import { createPluginContext } from './context.js'
@@ -117,6 +118,13 @@ export async function runTspPluginPipeline(
 
   // 2. Topological sort
   const sortedRegistrations = sortPluginEntries(config.plugins)
+  if (config.purpose) {
+    for (const { plugin } of sortedRegistrations) {
+      if (plugin.purposes && !plugin.purposes.includes(config.purpose)) {
+        throw new Error(`Plugin "${plugin.name}" does not support purpose "${config.purpose}"; configure a separate pipeline.`)
+      }
+    }
+  }
 
   // 3. In-memory TypeSpec compilation (or override)
   let document: OasDocument
@@ -141,6 +149,8 @@ export async function runTspPluginPipeline(
     entrypoint = compileResult.entrypoint
     routesCount = compileResult.routesCount
   }
+
+  assertPipelinePurpose(document, config.purpose)
 
   // 4. Resolve destination output directory
   const rawOut = config.outputDir ?? config.output ?? './src/generated'
@@ -181,7 +191,9 @@ export async function runTspPluginPipeline(
   const emittedFiles: string[] = []
   const files = context.getFiles()
 
-  if (!config.dryRun) {
+  // A diagnostic failure is a failed build, not permission to replace the last good output.
+  const hasErrorDiagnostic = context.diagnostics.some(d => d.severity === 'error')
+  if (!config.dryRun && !hasErrorDiagnostic) {
     if (config.clean && existsSync(outputDir)) {
       if (isSafeToClean(outputDir, cwd, entrypoint)) {
         rmSync(outputDir, { recursive: true, force: true })
@@ -231,8 +243,6 @@ export async function runTspPluginPipeline(
   }
 
   const durationMs = Date.now() - startTime
-  const hasErrorDiagnostic = context.diagnostics.some(d => d.severity === 'error')
-
   return {
     success: !hasErrorDiagnostic,
     files,

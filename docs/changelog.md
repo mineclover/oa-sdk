@@ -2,6 +2,14 @@
 
 릴리스 단위가 아닌, 굵직한 surface 변경이 떨어졌을 때 한 항목으로 기록한다. 자세한 구현 상태는 [spec.md](./internal/spec.md), API 단일 소스는 [api-index.md](./internal/api-index.md), 기능↔테스트는 [feature-test-matrix.md](./internal/feature-test-matrix.md) 참조.
 
+## 2026-10-25 — 용도별 파이프라인 격리 및 가드 정합성 (checkout 구현, 미배포)
+
+- `TspConfig.purpose`와 `specs[].purpose`에서 `api` / `data` / `interface` 용도를 구분한다. 기존 설정은 유지하고, data target은 HTTP operation·endpoint companion 출력을 제외한다.
+- 플러그인 오류 진단 시 기존 산출물을 보존하고 Vite 최초 실행도 실패로 처리한다.
+- CLI·플러그인 가드를 같은 standalone 엔진과 typegen 이름 매핑으로 연결한다. 자체 `types.d.ts`, 플러그인 `guards.runtime.js`·`.d.ts`를 생성하고 상이한 동명 타깃 스키마는 거부한다.
+- 구성·호환성·현재 model-only TypeSpec의 `@service` 제약은 [용도별 파이프라인 구성](./guides/pipeline-configuration.md)을 따른다. Changeset은 릴리스 의도이며 배포 완료가 아니다.
+- 전체 회귀·정렬 후 검증, 알려진 한계와 환경 정리 범위는 [완료·검증 기록](./internal/pipeline-isolation-checkpoint-2026-10-25.md)에 보존했다.
+
 ## 2026-10-22 — typegen 정합성, TypeSpec graph semantic index, 온보딩·문서 정리 (`@oa-sdk/codegen`)
 
 - **typegen 재귀 map**: `additionalProperties`가 자기 자신이나 순환을 가리키는 map schema를 `export type Node = Record<string, Node>`로 내보내 TypeScript가 TS2456으로 거부하던 것을 index-signature object type(`{ [key: string]: Node }`)으로 고쳤다. `--style interface`는 interface로 내고, 비재귀 map은 `Record<string, T>`를 유지한다.

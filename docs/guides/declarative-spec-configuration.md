@@ -23,6 +23,10 @@ sourceOfTruth:
 > `@oa-sdk/codegen`을 설치한 프로젝트의 `oa.config.ts` 설정을 설명합니다. 설치와 `oa-gen init`은
 > [Quick Start](./quick-start.md) 0단계를 따릅니다. 이 문서는 `@oa-sdk/codegen` 0.10.0 기준입니다.
 
+신규 checkout에서는 `specs[].purpose`로 `api` / `data` / `interface`를 구분합니다.
+생성·검증과 TypeSpec 빌더에서 같은 규칙을 쓰는 방법은 [용도별 파이프라인 구성](./pipeline-configuration.md)을
+참고합니다. 미지정 설정은 기존 동작을 유지하며 npm 배포 여부와는 별개입니다.
+
 ---
 
 ## 1. 개요

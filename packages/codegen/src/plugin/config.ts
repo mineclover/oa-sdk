@@ -1,9 +1,10 @@
+import { isPipelinePurpose } from '../pipeline-purpose.js'
 import {
+  TspConfigValidationError,
   type TspConfig,
   type TspConfigInput,
   type TspPlugin,
   type TspPluginEntry,
-  TspConfigValidationError,
 } from './types.js'
 
 function isTspPlugin(value: unknown): value is TspPlugin<unknown> {
@@ -49,6 +50,9 @@ export function validateTspConfig(raw: unknown): TspConfig {
   }
 
   const config = raw as Record<string, unknown>
+  if (config.purpose !== undefined && !isPipelinePurpose(config.purpose)) {
+    details.push('Field "purpose" must be "api", "data", or "interface"')
+  }
 
   // 1. Validate input
   if (!config.input) {
@@ -102,6 +106,7 @@ export function validateTspConfig(raw: unknown): TspConfig {
   const normalizedOutput = (output as string | undefined) ?? './src/generated'
 
   return {
+    ...(config.purpose === undefined ? {} : { purpose: config.purpose as TspConfig['purpose'] }),
     input: config.input as TspConfigInput,
     output: normalizedOutput,
     outputDir: normalizedOutput,

@@ -19,6 +19,9 @@ TypeSpec(`.tsp`)을 단일 정본(SSOT: Single Source of Truth)으로 삼고, �
 
 이 문서는 `@oa-sdk/codegen` 0.10.0, `@oa-sdk/client` 0.3.0, `@oa-sdk/router` 0.2.5, `@typespec/compiler` 1.16.0 기준입니다.
 
+신규 checkout의 `purpose: 'api' | 'data' | 'interface'` 구성과 용도별 격리·실패 처리·가드 runtime
+출력은 [용도별 파이프라인 구성](./pipeline-configuration.md)을 따릅니다. npm 배포 여부와는 별개입니다.
+
 - 저장소 전반의 빠른 시작 및 CLI 사용법은 [Quick Start](./quick-start.md)를 참고하십시오.
 - TypeSpec 정본 작성 규칙과 네임스페이스 구조는 [TypeSpec 작성 규칙](./typespec-authoring-conventions.md)을 참고하십시오.
 - 생성된 클라이언트 및 TanStack Query의 일반 소비 패턴은 [클라이언트 및 쿼리 소비 가이드](./client-and-query-consumption.md)를 참고하십시오.

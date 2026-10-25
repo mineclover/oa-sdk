@@ -34,6 +34,10 @@ export interface StandaloneGuardGeneratorOptions {
   split?: boolean | undefined
   /** Optional module/package specifier for TypeScript type imports (e.g., '@oa-sdk/models' or './types.js') */
   typeImportSpecifier?: string | undefined
+  /** Schema name -> generated TypeScript declaration name. Does not change schema identity or guard exports. */
+  typeNames?: Readonly<Record<string, string>> | undefined
+  /** Render artifacts without creating directories, package metadata, or files. */
+  dryRun?: boolean | undefined
   /** Whether to generate TypeScript declaration (.d.ts) files. Defaults to true. */
   generateDeclarations?: boolean | undefined
   /** Target module format. Defaults to 'esm'. */

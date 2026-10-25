@@ -2,6 +2,15 @@
 
 Relationship-first Data Pseudonymization Manifest toolkit for turning database and profile evidence into reviewable, executable pseudonymization contracts.
 
+> **Repository boundary:** this oa-sdk workspace is a private, non-publishing maintenance/source
+> compatibility mirror. The canonical owner for new DPM features and releases is
+> [mineclover/data-governance](https://github.com/mineclover/data-governance). The same-named npm
+> package is released there; its version and features must not be inferred from this mirror.
+> The surface and loops below document the retained local implementation, not a new service activation.
+> Always-on/shared search is a [deferred TODO](https://github.com/mineclover/data-governance/blob/main/docs/internal/goals/shared-search-todo.md).
+> The canonical owner's file-based read-only CLI needs no database or Docker. Existing SQL/storage
+> evidence does not make that CLI DB-dependent or authorize further adapter/service work.
+
 ## Consumer Surface
 
 Prefer package subpaths for new consumers. The root `@oa-sdk/dpm` entrypoint remains a compatibility aggregate, but focused imports keep product code tied to the smallest stable surface.
@@ -18,7 +27,8 @@ Prefer package subpaths for new consumers. The root `@oa-sdk/dpm` entrypoint rem
 | `@oa-sdk/dpm/publishing` | AI schema context and physical foreign-key recommendation projections | `src/public/publishing.ts` |
 | `@oa-sdk/dpm/execution` | caller-owned in-memory row transforms and post-run relationship integrity checks | `src/public/execution.ts` |
 
-`package.json` publishes the same subpaths and `src/index.ts` re-exports the category barrels for compatibility.
+`package.json` exposes the same subpaths and `src/index.ts` re-exports the category barrels for compatibility.
+These public import paths are not npm publication of this private workspace.
 
 ## Practical Loops
 

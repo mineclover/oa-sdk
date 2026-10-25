@@ -474,6 +474,31 @@ describe('TypeSpec SSOT Plugin Pipeline Runner (runTspPluginPipeline)', () => {
   })
 
   describe('5. Diagnostics & Execution Status', () => {
+    it('preserves the last good output when a plugin reports an error', async () => {
+      writeFileSync(join(tempDir, 'previous.ts'), 'export const previous = true\n')
+      const result = await runTspPluginPipeline({
+        input: petstoreFile,
+        output: tempDir,
+        plugins: [{
+          name: 'invalid',
+          generate(context: TspPluginContext) {
+            context.addFile({
+              path: 'next.ts',
+              content: 'export const next = true',
+              sourcePlugin: 'invalid',
+            })
+            context.reportDiagnostic({ severity: 'error', message: 'invalid contract' })
+          },
+        }],
+      }, {
+        document: { openapi: '3.2.0', info: { title: 'Invalid', version: '1' }, paths: {} },
+      })
+      expect(result.success).toBe(false)
+      expect(result.emittedFiles).toEqual([])
+      expect(readFileSync(join(tempDir, 'previous.ts'), 'utf8')).toBe('export const previous = true\n')
+      expect(existsSync(join(tempDir, 'next.ts'))).toBe(false)
+    })
+
     it('sets success: false when plugin reports an error diagnostic', async () => {
       const failingPlugin: TspPlugin = {
         name: 'diagnostician',

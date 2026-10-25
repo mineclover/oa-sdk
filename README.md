@@ -12,6 +12,8 @@ oa-sdk는 비즈니스 로직을 대신 쓰거나 API를 호스팅하지 않습�
 
 > 🚀 **다른 프로젝트에서 시작**: [Quick Start](./docs/guides/quick-start.md) — npm 설치부터 검증·타입 생성·mock 서버까지
 >
+> 🗺️ **기능부터 고르기**: [기능 선택 지도](./docs/guides/feature-map.md) — 목적별 기능·설치 경계·저장소 전용·외부 제품·TODO 구분
+>
 > 🧩 **이 저장소에 기여**: [기여자 온보딩](./docs/guides/onboarding-playbook.md#9-oa-sdk-모노레포-기여자-온보딩), [TypeSpec 기여 워크플로](./docs/guides/typespec/01-quickstart-5min.md) — `packages/schemas`의 production 계약 수정
 >
 > 🎮 **실행 데모**: [실행 데모 가이드](./docs/examples/README.md) (저장소 안에서 `pnpm --filter @oa-sdk/playground run demo:all`로 데모 7개 실행)
@@ -40,7 +42,8 @@ oa-sdk는 비즈니스 로직을 대신 쓰거나 API를 호스팅하지 않습�
 패키지 릴리스 대상과 제외 workspace의 machine-readable 기준은
 [`docs/internal/release-policy.json`](./docs/internal/release-policy.json)에 둔다. 패키지별 배포 상태(npm 배포,
 `@oa-sdk/codegen` 0.9.0 릴리스부터 배포, 배포 후보, 비공개)는 [라이브러리 진입점 지도](./docs/guides/library-entrypoints.md)가
-정리하고, 설치할 수 있는 버전은 [변경 이력](./docs/changelog.md)에서 확인한다.
+정리한다. 구현·배포 후보·공개 import는 실제 npm 배포와 별개이며, 설치 직전 registry 버전을 확인한다.
+이 저장소의 source version이나 [변경 이력](./docs/changelog.md)만으로 현재 npm 버전을 단정하지 않는다.
 
 ### Core Platform
 
@@ -61,9 +64,10 @@ oa-sdk는 비즈니스 로직을 대신 쓰거나 API를 호스팅하지 않습�
 ### Downstream Integration Libraries
 
 Core 계약을 소비하고 end-to-end 사용 가능성을 검증하는 release-tracked 계층입니다.
-`@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`는 `@oa-sdk/codegen` 0.9.0 릴리스에서 처음 npm에
-배포됩니다. `@oa-sdk/peer-transport`, `@oa-sdk/peer-server`, `@oa-sdk/collab-workspace`, `@oa-sdk/mcp-mesh`는
-배포 후보이지만 아직 npm에 없습니다.
+`@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`는 `@oa-sdk/codegen` 0.9.0 릴리스부터의
+배포 대상입니다. `@oa-sdk/peer-transport`, `@oa-sdk/peer-server`, `@oa-sdk/webmcp-peer`,
+`@oa-sdk/collab-workspace`, `@oa-sdk/mcp-mesh`, `@oa-sdk/telemetry`는 배포 후보이며,
+`@oa-sdk/rpc`는 비공개 workspace입니다. 실제 설치 가능 버전은 registry에서 확인합니다.
 
 | 패키지 | 역할 |
 |--------|------|
@@ -77,8 +81,11 @@ Core 계약을 소비하고 end-to-end 사용 가능성을 검증하는 release-
 | `@oa-sdk/chunk-stream-react` | React playback·telemetry·awareness hooks |
 | `@oa-sdk/peer-transport` | HTTP bridge client와 sender 기반 packet channel |
 | `@oa-sdk/peer-server` | 로컬 peer registry와 인증된 HTTP RPC dispatch |
+| `@oa-sdk/webmcp-peer` | room 기반 MCP router/relay, 브라우저·호스트 provider, 외부 에이전트 client와 승인·catalog 경계 (호스팅 서비스 아님) |
 | `@oa-sdk/collab-workspace` | 인메모리 파일 lattice, presence와 intent lock |
 | `@oa-sdk/mcp-mesh` | domain/session registry, tool routing과 CLI |
+| `@oa-sdk/telemetry` | 추적 심볼 registry, XState v5 inspector, dispatcher와 HMAC sanitizer (`@oa-sdk/dpm` 의존성 없음) |
+| `@oa-sdk/rpc` | (비공개, 저장소 전용) typed unary RPC client/server, JSON-RPC 2.0·REST binding (streaming 제외) |
 
 ### Maintenance-only Separation Candidates
 
@@ -88,7 +95,7 @@ scope-reactivation decision이 있어야 합니다.
 
 | 패키지 | 역할 |
 |--------|------|
-| `@oa-sdk/dpm` | Relationship-first Data Pseudonymization Manifest schema와 fixture gate를 포함한 toolkit. catalog/profile/Kafka evidence를 review, approval, audit, registry/storage/gateway/publishing workflow로 연결 ([Concept](./docs/concepts/data-pseudonymization-manifest.md)) |
+| `@oa-sdk/dpm` | Relationship-first DPM 계약·catalog/profile·review workflow의 비공개 maintenance/source compatibility mirror. 신규 기능·배포는 외부 `data-governance`가 소유 ([Concept](./docs/concepts/data-pseudonymization-manifest.md)) |
 | `@oa-sdk/personas` | OpenAPI 위 persona matrix와 trait registry. HTTP 91개 + CLI 11개 persona, 9 trait dimension, 8 CLI, roleplay/e2e governance와 test 자동 생성 ([Concept](./docs/concepts/data-persona.md)) |
 | `@oa-sdk/typia-mock` | typia `ILlmApplication` 기반 LLM function-call validation/mock server |
 | `@oa-sdk/logical-erd-contract` | private TypeSpec logical-ERD prototype의 중립 artifact contract |
@@ -121,6 +128,12 @@ manifest 밖에서 관리합니다.
 저장소인 `markdown-editor`를 submodule/workspace dependency로 소비하며 Markdown source를 복제해
 소유하지 않습니다. 기존 `@oa-sdk/*` package name은 배포 namespace 결정 전까지 호환용으로 유지합니다.
 
+DPM의 canonical owner는 별도 공개 저장소 [mineclover/data-governance](https://github.com/mineclover/data-governance)입니다.
+이 저장소의 비공개 `@oa-sdk/dpm` mirror를 외부의 같은 이름 npm 패키지와 버전·기능이 같다고 보지 않습니다.
+외부 DPM의 파일 기반 read-only CLI는 DB 없이 동작하며, 상시·공유 검색은
+[미래 TODO](https://github.com/mineclover/data-governance/blob/main/docs/internal/goals/shared-search-todo.md)입니다.
+Spec-Lens의 로컬 SQLite 캐시와 이 미래 검색 서비스는 별개입니다.
+
 ## 사용 방법
 
 ### 공개 npm 패키지 사용
@@ -137,8 +150,8 @@ npx oa-gen --help
 ```
 
 `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`, `@oa-sdk/surface-ir`는 `@oa-sdk/codegen` 0.9.0
-릴리스에서 처음 npm에 배포된다. 이 릴리스 전에는 npm에서 설치할 수 없다. 설치할 수 있는 버전은
-[변경 이력](./docs/changelog.md)에서 확인한다. `@oa-sdk/codegen`은 `@oa-sdk/core`, `@oa-sdk/parser` 등
+릴리스부터의 배포 대상으로 안내되어 있다. 실제 설치 가능한 버전은 registry에서 확인한다.
+`@oa-sdk/codegen`은 `@oa-sdk/core`, `@oa-sdk/parser` 등
 런타임 의존성을 함께 설치하므로, 라이브러리 API를 직접 import할 때만 해당 패키지를 따로 추가한다.
 
 동반 패키지(companion package)는 `oa-gen`이 핸들러 계약, 클라이언트 SDK, mock 서버를 만들 때 불러오는

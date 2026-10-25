@@ -485,6 +485,25 @@ export async function generateStandaloneGuards(
   } = options
 
   const outDir = path.resolve(rawOutDir)
+  const writeFile = async (filePath: string, content: string): Promise<void> => {
+    if (options.dryRun) return
+    await fs.mkdir(path.dirname(filePath), { recursive: true })
+    await fs.writeFile(filePath, content, 'utf8')
+  }
+  const ensurePackage = async (): Promise<void> => {
+    if (options.dryRun) return
+    await fs.mkdir(outDir, { recursive: true })
+    const pkgPath = path.join(outDir, 'package.json')
+    try {
+      await fs.access(pkgPath)
+    } catch {
+      await fs.writeFile(pkgPath, JSON.stringify({ type: 'module' }, null, 2) + '\n', 'utf8')
+    }
+  }
+  const declarationType = (guard: StandaloneGuardTarget): string | undefined => {
+    const name = guard.typeName?.trim()
+    return name ? options.typeNames?.[name] ?? name : undefined
+  }
   let resolvedGuards = options.guards && options.guards.length > 0
     ? options.guards
     : autoDiscoverGuards(schemaDocument)
@@ -602,7 +621,6 @@ export async function generateStandaloneGuards(
 
   if (split) {
     const guardsDir = path.join(outDir, 'guards')
-    await fs.mkdir(guardsDir, { recursive: true })
 
     const guardToFileBase = new Map<string, string>()
     for (const g of resolvedGuards) {
@@ -624,7 +642,7 @@ export async function generateStandaloneGuards(
       })
 
       const jsFilePath = path.join(guardsDir, `${fileBase}.js`)
-      await fs.writeFile(jsFilePath, jsContent, 'utf8')
+      await writeFile(jsFilePath, jsContent)
       artifacts.push({
         filePath: jsFilePath,
         content: jsContent,
@@ -633,7 +651,7 @@ export async function generateStandaloneGuards(
 
       if (generateDeclarations) {
         const dtsLines: string[] = []
-        const tName = guard.typeName?.trim()
+        const tName = declarationType(guard)
         if (tName && typeImportSpecifier) {
           dtsLines.push(`import type { ${typeImportRoot(tName)} } from '${typeImportSpecifier}';`)
           dtsLines.push('')
@@ -648,7 +666,7 @@ export async function generateStandaloneGuards(
         }
         const dtsContent = dtsLines.join('\n') + '\n'
         const dtsFilePath = path.join(guardsDir, `${fileBase}.d.ts`)
-        await fs.writeFile(dtsFilePath, dtsContent, 'utf8')
+        await writeFile(dtsFilePath, dtsContent)
         artifacts.push({
           filePath: dtsFilePath,
           content: dtsContent,
@@ -660,21 +678,12 @@ export async function generateStandaloneGuards(
       indexDtsLines.push(`export * from './guards/${fileBase}.js';`)
     }
 
-    // Ensure outDir exists
-    await fs.mkdir(outDir, { recursive: true })
-
-    // Ensure package.json with "type": "module" exists so Node.js resolves .js files natively as ESM in all environments
-    const pkgPath = path.join(outDir, 'package.json')
-    try {
-      await fs.access(pkgPath)
-    } catch {
-      await fs.writeFile(pkgPath, JSON.stringify({ type: 'module' }, null, 2) + '\n', 'utf8')
-    }
+    await ensurePackage()
 
     // 1. index.js
     const indexJsPath = path.join(outDir, 'index.js')
     const indexJsContent = indexJsLines.join('\n') + '\n'
-    await fs.writeFile(indexJsPath, indexJsContent, 'utf8')
+    await writeFile(indexJsPath, indexJsContent)
     artifacts.push({
       filePath: indexJsPath,
       content: indexJsContent,
@@ -685,7 +694,7 @@ export async function generateStandaloneGuards(
     if (generateDeclarations) {
       const indexDtsPath = path.join(outDir, 'index.d.ts')
       const indexDtsContent = indexDtsLines.join('\n') + '\n'
-      await fs.writeFile(indexDtsPath, indexDtsContent, 'utf8')
+      await writeFile(indexDtsPath, indexDtsContent)
       artifacts.push({
         filePath: indexDtsPath,
         content: indexDtsContent,
@@ -705,7 +714,7 @@ export async function generateStandaloneGuards(
   const dtsDeclarations: string[] = []
 
   for (const guard of resolvedGuards) {
-    const tName = guard.typeName?.trim()
+    const tName = declarationType(guard)
     if (tieredGuards.has(guard.name)) {
       dtsDeclarations.push(`export declare function ${guard.name}Fast(data: unknown): boolean;`)
     }
@@ -725,20 +734,11 @@ export async function generateStandaloneGuards(
   dtsLines.push(...dtsDeclarations)
   const dtsContent = dtsLines.join('\n') + '\n'
 
-  // Ensure output directory exists
-  await fs.mkdir(outDir, { recursive: true })
-
-  // Ensure package.json with "type": "module" exists so Node.js resolves .js files natively as ESM in all environments
-  const pkgPath = path.join(outDir, 'package.json')
-  try {
-    await fs.access(pkgPath)
-  } catch {
-    await fs.writeFile(pkgPath, JSON.stringify({ type: 'module' }, null, 2) + '\n', 'utf8')
-  }
+  await ensurePackage()
 
   // 1. guards.js
   const guardsJsPath = path.join(outDir, 'guards.js')
-  await fs.writeFile(guardsJsPath, jsContent, 'utf8')
+  await writeFile(guardsJsPath, jsContent)
   artifacts.push({
     filePath: guardsJsPath,
     content: jsContent,
@@ -748,7 +748,7 @@ export async function generateStandaloneGuards(
   // 2. guards.d.ts
   if (generateDeclarations) {
     const guardsDtsPath = path.join(outDir, 'guards.d.ts')
-    await fs.writeFile(guardsDtsPath, dtsContent, 'utf8')
+    await writeFile(guardsDtsPath, dtsContent)
     artifacts.push({
       filePath: guardsDtsPath,
       content: dtsContent,
@@ -759,7 +759,7 @@ export async function generateStandaloneGuards(
   // 3. index.js
   const indexJsContent = `export * from './guards.js';\n`
   const indexJsPath = path.join(outDir, 'index.js')
-  await fs.writeFile(indexJsPath, indexJsContent, 'utf8')
+  await writeFile(indexJsPath, indexJsContent)
   artifacts.push({
     filePath: indexJsPath,
     content: indexJsContent,
@@ -770,7 +770,7 @@ export async function generateStandaloneGuards(
   if (generateDeclarations) {
     const indexDtsContent = `export * from './guards.js';\n`
     const indexDtsPath = path.join(outDir, 'index.d.ts')
-    await fs.writeFile(indexDtsPath, indexDtsContent, 'utf8')
+    await writeFile(indexDtsPath, indexDtsContent)
     artifacts.push({
       filePath: indexDtsPath,
       content: indexDtsContent,

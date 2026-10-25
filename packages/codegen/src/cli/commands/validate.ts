@@ -1,18 +1,5 @@
-import { readFileSync, existsSync } from 'node:fs'
-import { relative, join } from 'node:path'
-import { validateDocument } from '@oa-sdk/parser'
-import type { Command, CommandArgValue } from '../lib/types.js'
-import { loadSpecDocumentAsync } from '../lib/load-spec.js'
-import { formatLintLocation } from '../lib/diagnostics.js'
-import { bool, optStr, str } from '../lib/args.js'
-import { createCliSourceLocationResolver, type CliSourceLocationResolver } from '../lib/source-locations.js'
-import {
-  closeCliIncrementalRun,
-  createCliIncrementalRun,
-  recordCliIncrementalIndex,
-} from '../lib/incremental.js'
-import type { WorkspaceDiagnosticRecord } from '../../workspace-index.js'
-import { CliExitError } from '../lib/errors.js'
+import { existsSync, readFileSync } from 'node:fs'
+import { join, relative } from 'node:path'
 import {
   isOpenApiProjectionProfile,
   OPENAPI_PROJECTION_PROFILES,
@@ -20,9 +7,23 @@ import {
   type OpenApiProjectionProfile,
   type SchemaValidateResult,
 } from '@oa-sdk/openapi-projection-contract'
-import { loadOaConfig, resolveProfileTarget } from '../lib/config-loader.js'
-import { projectTargetSpec } from '../../spec-projector.js'
+import { validateDocument } from '@oa-sdk/parser'
 import { resolveConfigWithDefaults, type ProfileTargetConfig } from '../../config.js'
+import { assertPipelinePurpose } from '../../pipeline-purpose.js'
+import { projectTargetSpec } from '../../spec-projector.js'
+import type { WorkspaceDiagnosticRecord } from '../../workspace-index.js'
+import { bool, optStr, str } from '../lib/args.js'
+import { loadOaConfig, resolveProfileTarget } from '../lib/config-loader.js'
+import { formatLintLocation } from '../lib/diagnostics.js'
+import { CliExitError } from '../lib/errors.js'
+import {
+  closeCliIncrementalRun,
+  createCliIncrementalRun,
+  recordCliIncrementalIndex,
+} from '../lib/incremental.js'
+import { loadSpecDocumentAsync } from '../lib/load-spec.js'
+import { createCliSourceLocationResolver, type CliSourceLocationResolver } from '../lib/source-locations.js'
+import type { Command, CommandArgValue } from '../lib/types.js'
 
 export const validate: Command = {
   name: 'validate',
@@ -137,6 +138,22 @@ async function runConfigDrivenValidation(specs: readonly ProfileTargetConfig[], 
         overallFailed = true
         continue
       }
+    }
+
+    try {
+      assertPipelinePurpose(doc, target.purpose)
+    } catch (error) {
+      rows.push({
+        id: target.id,
+        profile: target.profile ?? 'full-api-document',
+        status: 'FAIL',
+        errors: 1,
+        warnings: 0,
+        artifactPath: relative(rootDir, artifactPath),
+        diagnostics: [error instanceof Error ? error.message : String(error)],
+      })
+      overallFailed = true
+      continue
     }
 
     const targetDiagnostics: string[] = []
