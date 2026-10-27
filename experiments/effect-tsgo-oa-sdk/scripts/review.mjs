@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, statSync } from "node:fs";
 import path from "node:path";
+import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { assessEffectDiagnostics } from "./diagnostics-contract.mjs";
 
@@ -15,7 +16,10 @@ const sources = [
   "package.json", "package-lock.json", "contract/openapi.yaml", "tsconfig.json",
   "tsconfig.negative.json", "src/service.ts", "src/negative/floating-effect.ts",
   "scripts/diagnostics-contract.mjs", "scripts/review.mjs",
-  "test/diagnostics-contract.test.mjs", "test/runtime.test.mjs"
+  "test/diagnostics-contract.test.mjs", "test/runtime.test.mjs",
+  "Dockerfile", "compose.yaml", "scripts/run-docker.sh",
+  "docs/docker-test-environment.md", "docs/reference-sources.md",
+  "docs/verification-protocol.md"
 ];
 const generated = ["src/api/types.ts", "src/api/client.ts", "src/api/schemas.ts"];
 
@@ -69,13 +73,20 @@ const receipt = {
   timestamp: new Date().toISOString(),
   intent: "Independent OA SDK contract generation + Effect 4 runtime + Effect TSGO checks; no TTSC",
   node: process.version,
+  runtime: {
+    platform: process.platform,
+    architecture: process.arch,
+    osRelease: os.release(),
+    declaredContainer: process.env.OA_EFFECT_DOCKER_CONTAINER === "1",
+    declaredBaseImage: process.env.OA_EFFECT_BASE_IMAGE ?? null
+  },
   toolchain: tools,
   sourceBefore: before,
   steps: [],
   verdict: "blocked"
 };
 const blockers = [];
-if (Number(process.versions.node.split(".")[0]) < 26) blockers.push("node-26-required-for-reference-matrix");
+if (Number(process.versions.node.split(".")[0]) !== 26) blockers.push("node-26-required-for-reference-matrix");
 if (!existsSync(path.join(root, "package-lock.json"))) blockers.push("lockfile-missing-run-npm-install-and-commit-lock");
 for (const [name, detail] of Object.entries(tools)) {
   if (!detail.installed) blockers.push(name + "-not-installed");
