@@ -11,6 +11,8 @@ services:
     environment:
       CI: "true"
       NPM_CONFIG_CACHE: /home/node/.npm
+      OA_EFFECT_DOCKER_CONTAINER: "1"
+      OA_EFFECT_BASE_IMAGE: node:26-bookworm
     volumes:
       # Only the isolated reference subtree, not the oa-sdk monorepo root.
       - type: bind
