@@ -1,7 +1,8 @@
 # Separate review-only toolchain. Do not install OA SDK source-workspace deps here.
 # node:26-bookworm is a moving major/OS tag; record the resolved image digest
 # alongside each reviewed run and optionally pin @sha256 after validation.
-FROM node:26-bookworm
+ARG NODE_IMAGE=node:26-bookworm
+FROM ${NODE_IMAGE}
 
 WORKDIR /workspace
 # Compose binds the experiment directory and mounts empty named volumes on
