@@ -6,12 +6,12 @@
 
 | 단계 | 입력 | 성공의 최소 증거 | 검수에서 금지할 해석 |
 | --- | --- | --- | --- |
-| 환경 E0 | Node 26 Docker 이미지, 잠금 파일, pinned deps | 실제 이미지 digest, Node/TS7·Effect 설치 판본, lock hash | moving Docker 태그를 고정 digest라고 주장 |
+| 환경 E0 | Node 26 Docker 이미지, 잠금 파일, pinned deps | Docker pull 후 **실제 digest 기반 빌드**, TS7+Effect version suffix, Node/ARCH, lock hash | moving Docker 태그를 고정 digest라고 주장 |
 | 계약 E1 | OpenAPI 3.2 원본 | OA validate 종료코드 0 | TypeSpec production 계약 승인으로 간주 |
-| 생성 E2 | E1 + OA SDK codegen/client/Zod | 타입, typed fetch client, Zod 생성 + 파일 해시 | 생성된 산출물 직접 보정 |
+| 생성 E2 | E1 + OA SDK codegen/client/Zod | 타입, typed fetch client, Zod 생성 + **누락/빈 파일 차단** + 파일 해시 | 생성된 산출물 직접 보정 |
 | 정적 E3 | E2 + `src/service.ts` | Effect TSGO TS7 컴파일 성공 및 full diagnostics coverage | 일반 TypeScript 통과를 Effect 규칙 실행으로 간주 |
-| 음성 E4 | 분리된 `floating-effect.ts` | error-level `floatingEffect` 진단, 해당 진단 파일·위치, 예상 nonzero exit | 의도된 오류를 앱 정상 컴파일 판정으로 합침 |
-| 실행 E5 | E2 + JS emit | HTTP 200 시 1회 호출, 404·200 bad schema 각 typed Effect Fail | runtime 성공이 LSP CodeAction 검증까지 증명 |
+| 음성 E4 | 분리된 `floating-effect.ts` | error-level `floatingEffect` 진단, **해당 정확한 fixture 경로**, 예상 nonzero exit | 다른 파일의 동일 규칙 진단으로 수용 |
+| 실행 E5 | E2 + JS emit | HTTP 200 시 1회 호출, 404·200 bad schema의 typed Effect Fail, Effect cancellation → fetch signal abort | runtime 성공이 LSP CodeAction 검증까지 증명 |
 | 회귀 E6 | E0~E5, 동일 source/config revision | 재실행 시 재현성, 변경 없는 소스 입력, 저장 위치, 관측된 실패·미실행 분리 | `candidate-passed`를 제품 채택·배포 가능 판정으로 확대 |
 
 ## 검수 레시트
@@ -31,7 +31,7 @@
 
 - [ ] `package-lock.json` 생성/커밋 및 반복 `npm ci` 성공
 - [ ] Node 26/Docker 이미지 digest와 native TSGo 컴파일러 판본 확인
-- [ ] `npm run review`의 모든 필수 단계와 8개 Node 계약 테스트 통과
+- [ ] `npm run review`의 모든 필수 단계, 17개 Node 계약 테스트, 런타임 테스트 4개 이상 통과
 - [ ] 실제 Effect 서비스의 200/404/잘못된 200 응답 기대 Fail와 부작용 횟수 확인
 - [ ] negative diagnostic의 정확한 source/version/rule/파일 범위 확인
 - [ ] 비용/관측/디버깅 보조 적합성 리뷰 후 '유효한 독립 레퍼런스' 승격 결정
