@@ -38,7 +38,7 @@ bash scripts/run-docker.sh verify
 cat .reports/latest.json
 ```
 
-`verify`는 매 실행마다 `npm ci --no-audit --no-fund`로 잠금 파일을 검증한 뒤, Node의 진단 계약 테스트와 `npm run review`를 실행한다. 이후 실제 OA-SDK CLI 생성, Effect TSGO 타입 검사·진단, JS emit, Node HTTP 런타임 테스트가 수행된다.
+`verify`는 매 실행마다 `npm ci --no-audit --no-fund`로 잠금 파일을 검증한 뒤, **17개 Node 계약 테스트**와 `npm run review`를 실행한다. 이후 실제 OA-SDK CLI 생성, Effect TSGO 타입 검사·진단, JS emit, Node HTTP 런타임 테스트가 수행된다.
 
 `npm ci`는 불일치한 lockfile을 암묵적으로 수정하지 않는다. 기대하는 negative fixture의 진단은 정상 빌드 결과와 별도로 평가하며, `npm run review`가 `candidate-passed`를 출력해도 **해당 회차만** 검증한 것이다.
 
@@ -53,7 +53,7 @@ bash scripts/run-docker.sh image
 docker image inspect node:26-bookworm --format '{{json .RepoDigests}}'
 ```
 
-`node:26-bookworm`은 **moving tag**이며 영구적인 digest pin이 아니다. 첫 정상 검증에서 pull된 이미지 digest를 확인하고, 재현성이 필요한 공식 검증·CI 단계에서 `FROM node:26-bookworm@sha256:<실제 digest>`로 고정한다. 확인 전에는 digest를 추측하지 않는다.
+`node:26-bookworm`은 **moving tag**이다. 실행 스크립트는 매번 태그를 pull하고 실제 `node@sha256:...`를 얻어 **같은 digest를 Docker 빌드 인자와 실행 환경에 전달**한다. `.reports/docker-base-image.json`에 관측값이 남는다. 검증 회차 사이 동일 이미지까지 보장하려면 최초 정상 검증에서 확보한 실제 digest를 후속 운영·CI의 버전 관리 대상으로 승격해야 한다. 미확인 digest를 추정하지 않는다.
 
 ## 실행 환경 격리
 
@@ -73,7 +73,7 @@ Linux host UID/GID가 1000이 아닌 경우 bind 경로에 쓸 권한을 확인�
 
 | 결과 | 의미 | 조치 |
 | --- | --- | --- |
-| `blocked` | Node 26/lockfile/정확한 의존성/바이너리 등 준비 누락 | 선행 단계 해결 후 재실행 |
+| `blocked` | Node 26/lockfile/이미지 digest/정확한 의존성/바이너리 등 준비 누락 | 선행 단계 해결 후 재실행 |
 | `failed-or-incomplete` | 계약 생성·컴파일·진단·실행 단계의 실제 실패 | `.reports/latest.json`에서 실패 단계 및 stderr 확인 |
 | `candidate-passed` | 해당 입력 digest와 toolchain으로 검수 단계를 관측 | 독립 리뷰, 성능, 에디터 LSP 및 반복성 검증 |
 
