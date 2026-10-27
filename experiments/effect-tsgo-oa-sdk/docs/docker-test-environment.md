@@ -38,7 +38,7 @@ bash scripts/run-docker.sh verify
 cat .reports/latest.json
 ```
 
-`verify`는 매 실행마다 `npm ci --no-audit --no-fund`로 잠금 파일을 검증한 뒤, **17개 Node 계약 테스트**와 `npm run review`를 실행한다. 이후 실제 OA-SDK CLI 생성, Effect TSGO 타입 검사·진단, JS emit, Node HTTP 런타임 테스트가 수행된다.
+`verify`는 매 실행마다 `npm ci --no-audit --no-fund`로 잠금 파일을 검증한 뒤 `npm run review`를 실행하며, **17개 Node 계약 테스트는 review 내부에서 한 번만 실행**한다. 이후 실제 OA-SDK CLI 생성, Effect TSGO 타입 검사·진단, JS emit, Node HTTP 런타임 테스트가 수행된다.
 
 `npm ci`는 불일치한 lockfile을 암묵적으로 수정하지 않는다. 기대하는 negative fixture의 진단은 정상 빌드 결과와 별도로 평가하며, `npm run review`가 `candidate-passed`를 출력해도 **해당 회차만** 검증한 것이다.
 
