@@ -47,3 +47,24 @@ test("unknown severity cannot masquerade as clean output", () => {
   const r = assessEffectDiagnostics({ diagnostics: [{ ...floating, severity: "none" }], summary });
   assert.equal(r.status, "blocked");
 });
+
+test("an unrelated file cannot satisfy the negative fixture expectation", () => {
+  const r = assessEffectDiagnostics({
+    diagnostics: [{ ...floating, file: "src/service.ts" }],
+    summary: { ...summary, errors: 1 }
+  }, { expectedRule: "floatingEffect", expectedFile: "src/negative/floating-effect.ts" });
+  assert.equal(r.status, "failed");
+});
+
+test("absolute Linux/Windows negative paths preserve expected rule identity", () => {
+  for (const file of [
+    "/workspace/src/negative/floating-effect.ts",
+    String.raw`C:\\workspace\\src\\negative\\floating-effect.ts`
+  ]) {
+    const r = assessEffectDiagnostics({
+      diagnostics: [{ ...floating, file }],
+      summary: { ...summary, errors: 1 }
+    }, { expectedRule: "floatingEffect", expectedFile: "src/negative/floating-effect.ts" });
+    assert.equal(r.status, "passed", file);
+  }
+});
