@@ -5,6 +5,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        NODE_IMAGE: ${OA_EFFECT_NODE_IMAGE_DIGEST:-node:26-bookworm}
     image: effect-tsgo-oa-reference:node26
     working_dir: /workspace
     init: true
@@ -13,6 +15,7 @@ services:
       NPM_CONFIG_CACHE: /home/node/.npm
       OA_EFFECT_DOCKER_CONTAINER: "1"
       OA_EFFECT_BASE_IMAGE: node:26-bookworm
+      OA_EFFECT_BASE_IMAGE_DIGEST: ${OA_EFFECT_NODE_IMAGE_DIGEST:-}
     volumes:
       # Only the isolated reference subtree, not the oa-sdk monorepo root.
       - type: bind
