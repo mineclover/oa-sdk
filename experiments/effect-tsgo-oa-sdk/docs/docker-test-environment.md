@@ -49,7 +49,9 @@ bash scripts/run-docker.sh contracts
 # 컨테이너 이미지 조회
 bash scripts/run-docker.sh image
 
-# 사용된 기초 이미지의 digest를 실행 레시트와 함께 수동 기록
+# 실행 스크립트가 기록한 실제 레지스트리 digest
+cat .reports/docker-base-image.json
+# 별도 확인: 로컬에 내려받은 Node 공식 이미지
 docker image inspect node:26-bookworm --format '{{json .RepoDigests}}'
 ```
 
