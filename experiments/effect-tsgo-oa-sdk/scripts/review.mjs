@@ -94,6 +94,11 @@ const receipt = {
 const blockers = [];
 if (Number(process.versions.node.split(".")[0]) !== 26) blockers.push("node-26-required-for-reference-matrix");
 if (!existsSync(path.join(root, "package-lock.json"))) blockers.push("lockfile-missing-run-npm-install-and-commit-lock");
+if (process.env.OA_EFFECT_DOCKER_CONTAINER === "1" &&
+    !/@sha256:[0-9a-f]{64}$/.test(process.env.OA_EFFECT_BASE_IMAGE_DIGEST ?? "")) {
+  blockers.push("docker-base-image-digest-missing-or-invalid");
+}
+
 for (const [name, detail] of Object.entries(tools)) {
   if (!detail.installed) blockers.push(name + "-not-installed");
   else if (detail.installed.version !== detail.pinned) blockers.push(name + "-version-mismatch");
