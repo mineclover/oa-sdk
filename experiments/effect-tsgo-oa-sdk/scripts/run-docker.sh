@@ -34,6 +34,16 @@ if [[ "$mode" == "image" ]]; then
   docker compose images
   exit
 fi
+# Refuse invalid modes/lockfile state before making any network calls or builds.
+if [[ "$mode" == "bootstrap" && -e package-lock.json ]]; then
+  echo "package-lock.json already exists: refusing implicit lock regeneration." >&2
+  echo "Review changes explicitly and use 'verify' for frozen installs." >&2
+  exit 2
+fi
+if [[ "$mode" == "verify" && ! -s package-lock.json ]]; then
+  echo "No package-lock.json: run 'bootstrap' first." >&2
+  exit 2
+fi
 
 # Resolve the moving tag once and use the exact same digest for the build.
 # A tag name alone cannot prove which compiler runtime was used.
@@ -50,11 +60,6 @@ printf '{"schema":"oa-effect-docker-image/v1","baseTag":"node:26-bookworm","base
 printf 'Node base image: %s\n' "$image_digest" >&2
 docker compose build --pull test
 if [[ "$mode" == "bootstrap" ]]; then
-  if [[ -e package-lock.json ]]; then
-    echo "package-lock.json already exists: refusing implicit lock regeneration." >&2
-    echo "Review changes explicitly and use 'verify' for frozen installs." >&2
-    exit 2
-  fi
   docker compose run --rm test npm install --package-lock-only --ignore-scripts --no-audit --no-fund
   if [[ ! -s package-lock.json ]]; then
     echo "Lockfile was not produced; bootstrap failed." >&2
@@ -62,11 +67,7 @@ if [[ "$mode" == "bootstrap" ]]; then
   fi
   echo "Lockfile generated. Review and commit package-lock.json before promotion." >&2
 elif [[ "$mode" == "contracts" ]]; then
-  docker compose run --rm test node --test test/diagnostics-contract.test.mjs
+  docker compose run --rm test node --test --test-reporter=tap test/diagnostics-contract.test.mjs test/review-policy.test.mjs
 else
-  if [[ ! -s package-lock.json ]]; then
-    echo "No package-lock.json: run 'bootstrap' first." >&2
-    exit 2
-  fi
   docker compose run --rm test
 fi
