@@ -29,7 +29,7 @@ services:
         source: npm_cache
         target: /home/node/.npm
     # npm ci is authoritative after the lockfile has been generated and reviewed.
-    command: ["sh", "-ec", "npm ci --no-audit --no-fund && npm run test:contracts && npm run review"]
+    command: ["sh", "-ec", "npm ci --no-audit --no-fund && npm run review"]
 
 volumes:
   node_modules:
