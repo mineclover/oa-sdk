@@ -1,0 +1,31 @@
+{
+  "name": "@reference/effect-tsgo-oa-sdk",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Isolated public-consumer reference: OA SDK generated contracts + Effect 4 and Effect TSGO static checks",
+  "engines": {
+    "node": ">=26.0.0"
+  },
+  "scripts": {
+    "contract:validate": "oa-gen validate --spec ./contract/openapi.yaml --require-32",
+    "contract:generate": "oa-gen typegen --spec ./contract/openapi.yaml --output ./src/api/types.ts && oa-gen generate:client --spec ./contract/openapi.yaml --types-import ./types.js --output ./src/api/client.ts && oa-gen generate:zod --spec ./contract/openapi.yaml --output ./src/api/schemas.ts",
+    "typecheck": "effect-tsgo tsc@7.0.2 -p tsconfig.json --noEmit",
+    "diagnostics": "effect-tsgo diagnostics --project tsconfig.json --format json",
+    "diagnostics:negative": "effect-tsgo diagnostics --project tsconfig.negative.json --format json",
+    "build": "effect-tsgo tsc@7.0.2 -p tsconfig.json",
+    "test:contracts": "node --test test/diagnostics-contract.test.mjs",
+    "test:runtime": "node --test test/runtime.test.mjs",
+    "review": "node scripts/review.mjs"
+  },
+  "dependencies": {
+    "effect": "4.0.6",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@oa-sdk/codegen": "0.10.0",
+    "@oa-sdk/client": "0.3.0",
+    "@effect/tsgo": "0.59.0",
+    "typescript": "7.0.2"
+  }
+}
