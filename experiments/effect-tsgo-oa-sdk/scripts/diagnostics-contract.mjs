@@ -45,10 +45,12 @@ export function assessEffectDiagnostics(raw, { expectedRule = null, expectedFile
     return { status: "blocked", reason: "missing-or-partial-effect-analysis", coverage, findings };
   }
   if (expectedRule !== null) {
-    const matchesFile = (file) =>
-      expectedFile === null ||
-      file.replace(/\\/g, "/").replace(/^\\.\\//, "").endsWith("/" + expectedFile) ||
-      file.replace(/\\/g, "/").replace(/^\\.\\//, "") === expectedFile;
+    const matchesFile = (file) => {
+      if (expectedFile === null) return true;
+      const platformNeutral = file.split(String.fromCharCode(92)).join("/");
+      const normalized = platformNeutral.startsWith("./") ? platformNeutral.slice(2) : platformNeutral;
+      return normalized === expectedFile || normalized.endsWith("/" + expectedFile);
+    };
     const matched = findings.some(d => d.rule === expectedRule && d.severity === "error" && matchesFile(d.file));
     return {
       status: matched ? "passed" : "failed",
