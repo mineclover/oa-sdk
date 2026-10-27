@@ -45,9 +45,9 @@ if [[ ! "$image_digest" =~ ^[a-zA-Z0-9._/-]+@sha256:[0-9a-f]{64}$ ]]; then
 fi
 export OA_EFFECT_NODE_IMAGE_DIGEST="$image_digest"
 mkdir -p .reports
-printf '{"schema":"oa-effect-docker-image/v1","baseTag":"node:26-bookworm","baseDigest":"%s","recordedAtUtc":"%s"}\\n' \
+printf '{"schema":"oa-effect-docker-image/v1","baseTag":"node:26-bookworm","baseDigest":"%s","recordedAtUtc":"%s"}\n' \
   "$image_digest" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > .reports/docker-base-image.json
-printf 'Node base image: %s\\n' "$image_digest" >&2
+printf 'Node base image: %s\n' "$image_digest" >&2
 docker compose build --pull test
 if [[ "$mode" == "bootstrap" ]]; then
   if [[ -e package-lock.json ]]; then
