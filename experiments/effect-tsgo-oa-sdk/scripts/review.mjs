@@ -5,6 +5,7 @@ import path from "node:path";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { assessEffectDiagnostics } from "./diagnostics-contract.mjs";
+import { assessGeneratedArtifacts, assessNodeTap, assessCompilerVersion } from "./review-policy.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const outPath = path.join(root, ".reports", "latest.json");
@@ -16,7 +17,8 @@ const sources = [
   "package.json", "package-lock.json", "contract/openapi.yaml", "tsconfig.json",
   "tsconfig.negative.json", "src/service.ts", "src/negative/floating-effect.ts",
   "scripts/diagnostics-contract.mjs", "scripts/review.mjs",
-  "test/diagnostics-contract.test.mjs", "test/runtime.test.mjs",
+  "test/diagnostics-contract.test.mjs", "test/review-policy.test.mjs",
+  "test/runtime.test.mjs", "test/cancellation.test.mjs", "scripts/review-policy.mjs",
   "Dockerfile", "compose.yaml", "scripts/run-docker.sh",
   "docs/docker-test-environment.md", "docs/reference-sources.md",
   "docs/verification-protocol.md"
@@ -62,6 +64,9 @@ function spawn(name, args) {
     signal: processResult.signal, error: processResult.error?.message ?? null,
     durationMs: Math.round(performance.now() - start),
     stdout: (processResult.stdout ?? "").slice(-32768),
+    stdoutByteCount: Buffer.byteLength(processResult.stdout ?? ""),
+    // Parsed in memory; never serialize full possibly sensitive tool output in the receipt.
+    _rawStdout: processResult.stdout ?? "",
     stderr: (processResult.stderr ?? "").slice(-32768)
   };
 }
@@ -78,7 +83,8 @@ const receipt = {
     architecture: process.arch,
     osRelease: os.release(),
     declaredContainer: process.env.OA_EFFECT_DOCKER_CONTAINER === "1",
-    declaredBaseImage: process.env.OA_EFFECT_BASE_IMAGE ?? null
+    declaredBaseImage: process.env.OA_EFFECT_BASE_IMAGE ?? null,
+    recordedBaseImageDigest: process.env.OA_EFFECT_BASE_IMAGE_DIGEST ?? null
   },
   toolchain: tools,
   sourceBefore: before,
@@ -107,37 +113,58 @@ if (blockers.length) {
   writeReceipt();
 } else {
   let stopped = false;
-  function step(id, cmd, args, { exitCode = 0, diagnosticMode = null } = {}) {
+  function step(id, cmd, args, {
+    exitCode = 0,
+    diagnosticMode = null,
+    checkGenerated = false,
+    minimumTapTests = 0,
+    checkCompiler = false
+  } = {}) {
     if (stopped) {
       receipt.steps.push({ id, state: "not-run", reason: "upstream-failed" });
       return;
     }
     const result = spawn(cmd, args);
+    const { _rawStdout, ...processSummary } = result;
     let assessment = null;
     if (diagnosticMode !== null) {
-      assessment = assessEffectDiagnostics(result.stdout, {
-        expectedRule: diagnosticMode === "negative" ? "floatingEffect" : null
+      assessment = assessEffectDiagnostics(_rawStdout, {
+        expectedRule: diagnosticMode === "negative" ? "floatingEffect" : null,
+        expectedFile: diagnosticMode === "negative" ? "src/negative/floating-effect.ts" : null
       });
     }
+    let validation = null;
+    if (checkGenerated) validation = assessGeneratedArtifacts(root, generated);
+    if (minimumTapTests > 0) validation = assessNodeTap(_rawStdout, { minimumTests: minimumTapTests });
+    if (checkCompiler) validation = assessCompilerVersion(_rawStdout);
     const ok = !result.error && result.signal === null &&
       result.status === exitCode &&
-      (!assessment || assessment.status === "passed");
+      (!assessment || assessment.status === "passed") &&
+      (!validation || validation.status === "passed");
     receipt.steps.push({
       id, state: ok ? "passed" : "failed",
       ...(assessment ? { assessment } : {}),
-      process: result
+      ...(validation ? { validation } : {}),
+      process: processSummary
     });
     if (!ok) stopped = true;
   }
+  step("diagnostic-contract-unit-tests", "node", [
+    "--test", "--test-reporter=tap",
+    "test/diagnostics-contract.test.mjs", "test/review-policy.test.mjs"
+  ], { minimumTapTests: 17 });
   step("contract-validation", "oa-gen", ["validate", "--spec", "./contract/openapi.yaml", "--require-32"]);
   step("type-generation", "oa-gen", ["typegen", "--spec", "./contract/openapi.yaml", "--output", "./src/api/types.ts"]);
   step("client-generation", "oa-gen", ["generate:client", "--spec", "./contract/openapi.yaml", "--types-import", "./types.js", "--output", "./src/api/client.ts"]);
-  step("zod-generation", "oa-gen", ["generate:zod", "--spec", "./contract/openapi.yaml", "--output", "./src/api/schemas.ts"]);
+  step("zod-generation", "oa-gen", ["generate:zod", "--spec", "./contract/openapi.yaml", "--output", "./src/api/schemas.ts"], { checkGenerated: true });
+  step("effect-patched-compiler-version", "effect-tsgo", ["tsc@7.0.2", "--version"], { checkCompiler: true });
   step("effect-typescript-check", "effect-tsgo", ["tsc@7.0.2", "-p", "tsconfig.json", "--noEmit"]);
   step("valid-effect-diagnostics", "effect-tsgo", ["diagnostics", "--project", "tsconfig.json", "--format", "json"], { diagnosticMode: "positive" });
   step("invalid-effect-diagnostics", "effect-tsgo", ["diagnostics", "--project", "tsconfig.negative.json", "--format", "json"], { diagnosticMode: "negative", exitCode: 1 });
   step("effect-typescript-emit", "effect-tsgo", ["tsc@7.0.2", "-p", "tsconfig.json"]);
-  step("runtime-transport-and-schema", "node", ["--test", "test/runtime.test.mjs"]);
+  step("runtime-transport-and-schema", "node", [
+    "--test", "--test-reporter=tap", "test/runtime.test.mjs", "test/cancellation.test.mjs"
+  ], { minimumTapTests: 4 });
   receipt.verdict = stopped ? "failed-or-incomplete" : "candidate-passed";
   // Passing this harness is evidence of this run only, not approval, release readiness,
   // independent review, or Effect Runtime DevTools integration.
