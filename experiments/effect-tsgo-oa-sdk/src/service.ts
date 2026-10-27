@@ -35,7 +35,7 @@ export function createProfileService(baseUrl: string) {
   return {
     getProfile: (profileId: string) =>
       Effect.tryPromise({
-        try: () => client.getProfile({ profileId }),
+        try: (signal) => client.getProfile({ profileId }, { signal }),
         catch: (original) => isGetProfileClientError(original, 404)
           ? new ProfileNotFoundError(profileId, original.body.code)
           : new ProfileTransportError(profileId, original)
