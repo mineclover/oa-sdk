@@ -18,16 +18,23 @@ Evaluate a public OA SDK consumer checked and run through Effect TSGO **without 
 
 The generated Zod schema is the only runtime payload-schema definition for this fixture. Do not re-declare the same Profile schema in Effect Schema; Effect owns orchestration, not the contract.
 
-## Reproduce in Node 26
+## Docker-first local test environment (Node 26)
 
-Node 26 is the baseline of this reference because the OA SDK repository's TS7 consumer verification already targets Node 26. It is NOT the minimum for all public OA packages.
+This reference now has a dedicated Docker environment (Docker Compose v2 and `node:26-bookworm`). The image tag is still floating until its **real pulled digest** has been recorded and reviewed. Docker is the primary test environment; no OA SDK root pnpm install or host TypeScript-Go binary is required.
 
-    cd experiments/effect-tsgo-oa-sdk
-    npm install
-    npm run test:contracts
-    npm run review
+```bash
+cd experiments/effect-tsgo-oa-sdk
+bash scripts/run-docker.sh bootstrap   # first run: generate package-lock.json
+# review and commit package-lock.json
+bash scripts/run-docker.sh verify      # npm ci + contract tests + OA/Effect review
+cat .reports/latest.json
+```
 
-The first npm install creates package-lock.json, which must be retained with a completed compatibility result. The authoring environment could not access npm, so no lockfile has been fabricated or committed yet. After the first successful lockfile generation, use npm ci for subsequent reproducibility.
+The two-step flow refuses to silently overwrite an existing lockfile. Repeated verification is `npm ci` based, not `npm install` based. Container `node_modules` and npm cache are separate Docker volumes and never share the host's TSGo native binaries.
+
+Docs: [Docker test environment](./docs/docker-test-environment.md) · [reference sources](./docs/reference-sources.md) · [verification protocol](./docs/verification-protocol.md).
+
+A native Node 26 run without Docker is possible after the first verified npm lockfile, but is **not** the primary environment for this reference. The Docker engine was not available in the assistant's authoring session, so native end-to-end Docker execution remains pending.
 
 npm run review runs:
 1. Check installed exact package versions, Node 26 and lockfile presence; fail closed when missing.
