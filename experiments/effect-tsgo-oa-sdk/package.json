@@ -14,8 +14,8 @@
     "diagnostics": "effect-tsgo diagnostics --project tsconfig.json --format json",
     "diagnostics:negative": "effect-tsgo diagnostics --project tsconfig.negative.json --format json",
     "build": "effect-tsgo tsc@7.0.2 -p tsconfig.json",
-    "test:contracts": "node --test test/diagnostics-contract.test.mjs",
-    "test:runtime": "node --test test/runtime.test.mjs",
+    "test:contracts": "node --test --test-reporter=tap test/diagnostics-contract.test.mjs test/review-policy.test.mjs",
+    "test:runtime": "node --test --test-reporter=tap test/runtime.test.mjs test/cancellation.test.mjs",
     "review": "node scripts/review.mjs"
   },
   "dependencies": {
