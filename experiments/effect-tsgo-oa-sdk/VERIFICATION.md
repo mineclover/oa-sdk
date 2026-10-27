@@ -35,3 +35,24 @@ Commands executed in the local container with these identical bytes:
 ## Promotion gate
 
 An independently reproducible Node 26 execution with exact installed package versions and a committed package-lock.json must run npm run review and attach the run-scoped .reports/latest.json; all gate states must be reviewed before accepting the reference. Candidate-passed is still a result of that one run, not deployment or endorsement.
+
+## Docker environment verification (2026-10-27)
+
+After the independent reference setup was extended for local Docker execution, the current `Dockerfile`, `compose.yaml` and `scripts/run-docker.sh` were copied to the local audit environment, and their **Git blob SHA-1 IDs were verified identical to the GitHub branch**:
+
+| File | Git blob SHA | Result |
+| --- | --- | --- |
+| `Dockerfile` | `edc473177a683c1b522370231c63443a8896541c` | Source identity confirmed |
+| `compose.yaml` | `16cd8022090f08c3d6b902eb254dab19535b9a9b` | YAML parsed, isolated bind and named volumes verified statically |
+| `scripts/run-docker.sh` | `270677591f85339fbbcbd50cefe765adc5a9f0db` | `bash -n` PASS, `--help` PASS |
+
+Additional failure-path checks used a **fake Docker CLI**, without contacting the Docker Engine:
+
+- `verify` with missing `package-lock.json`: exit 2 (blocked).
+- `bootstrap` with existing `package-lock.json`: exit 2 (will not silently rewrite).
+- `bootstrap` with fake `docker compose run` returning success but no lockfile: exit 1 (missing output is not PASS).
+- Real Docker CLI is absent from the audit environment; `verify` without it returns exit 2 with a clear precondition error.
+
+**Evidence scope:** these tests establish shell/YAML structure and script failure classification, **not** Docker image pull, actual Compose startup, `npm ci`, real OA-SDK generation, Effect TSGO compilation or runtime behavior. Those remain open in [Docker test environment](./docs/docker-test-environment.md) and [verification protocol](./docs/verification-protocol.md).
+
+Note: earlier entries above report the previous `scripts/review.mjs` blob `27ce7db...` from the initial reference. The current script has since been changed to fingerprint Docker/source documentation and record OS/architecture; its current blob SHA is `b4b74308dada20745edb085857d3611b45b66da2`. The earlier script run must not be represented as a run of the modified script.
