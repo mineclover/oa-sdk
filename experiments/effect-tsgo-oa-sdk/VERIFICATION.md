@@ -56,3 +56,53 @@ Additional failure-path checks used a **fake Docker CLI**, without contacting th
 **Evidence scope:** these tests establish shell/YAML structure and script failure classification, **not** Docker image pull, actual Compose startup, `npm ci`, real OA-SDK generation, Effect TSGO compilation or runtime behavior. Those remain open in [Docker test environment](./docs/docker-test-environment.md) and [verification protocol](./docs/verification-protocol.md).
 
 Note: earlier entries above report the previous `scripts/review.mjs` blob `27ce7db...` from the initial reference. The current script has since been changed to fingerprint Docker/source documentation and record OS/architecture; its current blob SHA is `b4b74308dada20745edb085857d3611b45b66da2`. The earlier script run must not be represented as a run of the modified script.
+
+## Continuation — hardening and observable blockers (2026-10-27)
+
+### Exact-source local checks (not a native integration run)
+
+Reproduced the following current files in the local Node 22.16.0 audit container. The `git hash-object` values **matched the GitHub blob SHA** at the time of verification.
+
+| File | Git blob SHA | Local observation |
+| --- | --- | --- |
+| `scripts/review-policy.mjs` | `f17810149d8a07032e4f8210425c56123ed8c30c` | `node --check` passed |
+| `test/review-policy.test.mjs` | `0f8c8aca06e5ec982dc05506d261c6a7c269d81e` | 7 tests pass |
+| `scripts/diagnostics-contract.mjs` | `d42ab5df2c807b9ec79e286985f2f5eb15ed4871` | Parsed during tests |
+| `test/diagnostics-contract.test.mjs` | `4c82992ee585e470b69ba4d9568267e568bf10b4` | 10 tests pass, including exact negative fixture and Windows path |
+| `scripts/review.mjs` | `6e8043f34534c97c793a60681a3cbd71a8f4a52a` | `node --check` passed; blocked exit 1 / 0 integration stages |
+| `scripts/run-docker.sh` | `c3aebbfc267522067208b9a7fa862b352ed008a3` | `bash -n` passed; fake-Docker guard tests |
+| `compose.yaml` | `25125ba62e47a1225c03eca04d15025260e69972` | YAML parser + isolated mounts/build arg/command structural assertions passed |
+
+Commands actually executed:
+
+```bash
+node --test --test-reporter=tap test/diagnostics-contract.test.mjs test/review-policy.test.mjs
+# 17 tests / 17 pass / 0 fail / 0 skip
+
+node --check scripts/review.mjs
+node scripts/review.mjs
+# blocked, exit code 1, no real integration stage started
+bash -n scripts/run-docker.sh
+```
+
+The last review invocation reported missing Node 26, missing package-lock.json and six missing pinned dependencies. `inputsUnchanged=true`. These observations were from the isolated local audit path with exact script bytes; **they do not imply a full OA SDK consumer check**.
+
+Fake-Docker script contract checks, not real Docker execution:
+- `verify` with absent lockfile refuses before image download (exit 2).
+- `bootstrap` with an existing lockfile refuses before image download (exit 2).
+- `contracts` with a syntactically valid fake `node@sha256:...` digest records a structurally valid JSON base-image receipt and reaches the declared command. **The fake CLI does not run tests or build an image.**
+- `contracts` with an invalid digest refuses before calling Compose build (exit 2).
+
+### Behavior code authored, execution pending
+
+- The Effect consumer now forwards `Effect.tryPromise`'s `AbortSignal` to the generated OA client method options.
+- `test/cancellation.test.mjs` checks laziness, one request, abort propagation, Effect interruption cause, and no retry. **Requires installed `effect@4.0.6`, generated client and JS output; not run.**
+- Review stages now validate the actual `+effect-tsgo` TS7 compiler version suffix, generated file non-emptiness, positive/negative diagnostic rule+location, and TAP test counts. A successful subprocess exit without actual test cases cannot produce `candidate-passed`.
+- `run-docker.sh` now resolves the pulled Node base image's real digest and uses that exact digest as a Compose build arg. It records `.reports/docker-base-image.json`; `review.mjs` requires a digest in Docker runs. No digest was invented or promoted.
+- Docker Compose runs `npm ci` and `npm run review`; the 17 test cases are invoked **once within the review receipt** rather than twice.
+
+### Still blocked
+
+**No Docker CLI/daemon, no npm registry access (`EAI_AGAIN`), and zero active Colab workers** in this session. Therefore actual `node:26-bookworm` pull/build, lockfile generation, npm ci, OA validation/codegen, Effect TSGO TS7 analysis, emitted JS, cancellation/runtime test, LSP debugging and performance measurements remain **unexecuted**. Neither a fake-Docker run nor the 17 pure contract tests provide evidence of end-to-end compatibility.
+
+Follow-up tracking: [OA SDK Issue #24](https://github.com/mineclover/oa-sdk/issues/24) and [Draft PR #23](https://github.com/mineclover/oa-sdk/pull/23). A passing run-scoped review receipt and actual checked-in npm lockfile are still required before adoption.
