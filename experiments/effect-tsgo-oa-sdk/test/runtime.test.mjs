@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { once } from "node:events";
 import { test } from "node:test";
-import { Effect, Exit } from "effect";
+import { Cause, Effect, Exit } from "effect";
 import { createProfileService } from "../dist/service.js";
 
 async function withProfileServer(run) {
@@ -45,6 +45,10 @@ test("404 stays a typed Effect failure; it is not an empty profile", async () =>
   await withProfileServer(async (baseUrl, requests) => {
     const exit = await Effect.runPromiseExit(createProfileService(baseUrl).getProfile("missing"));
     assert.equal(Exit.isFailure(exit), true);
+    const failures = Exit.isFailure(exit) ? exit.cause.reasons.filter(Cause.isFailReason) : [];
+    assert.equal(failures.length, 1);
+    assert.equal(failures[0].error._tag, "ProfileNotFoundError");
+    assert.equal(failures[0].error.code, "NOT_FOUND");
     assert.equal(requests.length, 1);
   });
 });
@@ -53,6 +57,9 @@ test("invalid 200 response fails OA generated runtime schema validation", async 
   await withProfileServer(async (baseUrl, requests) => {
     const exit = await Effect.runPromiseExit(createProfileService(baseUrl).getProfile("invalid"));
     assert.equal(Exit.isFailure(exit), true);
+    const failures = Exit.isFailure(exit) ? exit.cause.reasons.filter(Cause.isFailReason) : [];
+    assert.equal(failures.length, 1);
+    assert.equal(failures[0].error._tag, "ProfilePayloadError");
     assert.equal(requests.length, 1);
   });
 });
