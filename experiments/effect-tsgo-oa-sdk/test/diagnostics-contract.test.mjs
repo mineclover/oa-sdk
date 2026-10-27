@@ -59,7 +59,7 @@ test("an unrelated file cannot satisfy the negative fixture expectation", () => 
 test("absolute Linux/Windows negative paths preserve expected rule identity", () => {
   for (const file of [
     "/workspace/src/negative/floating-effect.ts",
-    String.raw`C:\\workspace\\src\\negative\\floating-effect.ts`
+    String.raw`C:\workspace\src\negative\floating-effect.ts`
   ]) {
     const r = assessEffectDiagnostics({
       diagnostics: [{ ...floating, file }],
