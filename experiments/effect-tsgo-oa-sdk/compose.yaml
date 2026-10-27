@@ -1,0 +1,31 @@
+name: effect-tsgo-oa-reference
+
+services:
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: effect-tsgo-oa-reference:node26
+    working_dir: /workspace
+    init: true
+    environment:
+      CI: "true"
+      NPM_CONFIG_CACHE: /home/node/.npm
+    volumes:
+      # Only the isolated reference subtree, not the oa-sdk monorepo root.
+      - type: bind
+        source: .
+        target: /workspace
+      # Avoid host OS/architecture binary contamination (TS-Go native executables).
+      - type: volume
+        source: node_modules
+        target: /workspace/node_modules
+      - type: volume
+        source: npm_cache
+        target: /home/node/.npm
+    # npm ci is authoritative after the lockfile has been generated and reviewed.
+    command: ["sh", "-ec", "npm ci --no-audit --no-fund && npm run test:contracts && npm run review"]
+
+volumes:
+  node_modules:
+  npm_cache:
