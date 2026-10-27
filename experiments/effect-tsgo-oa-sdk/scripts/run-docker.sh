@@ -35,7 +35,20 @@ if [[ "$mode" == "image" ]]; then
   exit
 fi
 
-docker compose build test
+# Resolve the moving tag once and use the exact same digest for the build.
+# A tag name alone cannot prove which compiler runtime was used.
+docker pull node:26-bookworm >/dev/null
+image_digest="$(docker image inspect node:26-bookworm --format '{{range .RepoDigests}}{{println .}}{{end}}' | grep -m1 '@sha256:' || true)"
+if [[ ! "$image_digest" =~ ^[a-zA-Z0-9._/-]+@sha256:[0-9a-f]{64}$ ]]; then
+  echo "REFUSED: no verified registry manifest digest for node:26-bookworm." >&2
+  exit 2
+fi
+export OA_EFFECT_NODE_IMAGE_DIGEST="$image_digest"
+mkdir -p .reports
+printf '{"schema":"oa-effect-docker-image/v1","baseTag":"node:26-bookworm","baseDigest":"%s","recordedAtUtc":"%s"}\\n' \
+  "$image_digest" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > .reports/docker-base-image.json
+printf 'Node base image: %s\\n' "$image_digest" >&2
+docker compose build --pull test
 if [[ "$mode" == "bootstrap" ]]; then
   if [[ -e package-lock.json ]]; then
     echo "package-lock.json already exists: refusing implicit lock regeneration." >&2
