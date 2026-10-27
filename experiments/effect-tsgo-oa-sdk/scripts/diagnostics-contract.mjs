@@ -3,7 +3,7 @@
  * not equivalent to an empty error list, even when the command exits zero.
  * Source of JSON format: Effect-TS/tsgo/etsdiagnostics/diagnostics.go.
  */
-export function assessEffectDiagnostics(raw, { expectedRule = null } = {}) {
+export function assessEffectDiagnostics(raw, { expectedRule = null, expectedFile = null } = {}) {
   let report;
   try {
     report = typeof raw === "string" ? JSON.parse(raw) : raw;
@@ -45,7 +45,11 @@ export function assessEffectDiagnostics(raw, { expectedRule = null } = {}) {
     return { status: "blocked", reason: "missing-or-partial-effect-analysis", coverage, findings };
   }
   if (expectedRule !== null) {
-    const matched = findings.some(d => d.rule === expectedRule && d.severity === "error");
+    const matchesFile = (file) =>
+      expectedFile === null ||
+      file.replace(/\\/g, "/").replace(/^\\.\\//, "").endsWith("/" + expectedFile) ||
+      file.replace(/\\/g, "/").replace(/^\\.\\//, "") === expectedFile;
+    const matched = findings.some(d => d.rule === expectedRule && d.severity === "error" && matchesFile(d.file));
     return {
       status: matched ? "passed" : "failed",
       reason: matched ? "expected-rule-observed" : "expected-rule-missing",
