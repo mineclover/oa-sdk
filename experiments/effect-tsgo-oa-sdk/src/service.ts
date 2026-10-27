@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { createClient } from "./api/client.js";
+import { createClient, isGetProfileClientError } from "./api/client.js";
 import { ProfileSchema } from "./api/schemas.js";
 import type { Profile } from "./api/types.js";
 
@@ -8,6 +8,13 @@ export class ProfileTransportError extends Error {
   readonly _tag = "ProfileTransportError" as const;
   constructor(readonly profileId: string, readonly original: unknown) {
     super(`Profile request failed: ${profileId}`);
+  }
+}
+
+export class ProfileNotFoundError extends Error {
+  readonly _tag = "ProfileNotFoundError" as const;
+  constructor(readonly profileId: string, readonly code: string) {
+    super(`Profile not found: ${profileId} (${code})`);
   }
 }
 
@@ -29,7 +36,9 @@ export function createProfileService(baseUrl: string) {
     getProfile: (profileId: string) =>
       Effect.tryPromise({
         try: () => client.getProfile({ profileId }),
-        catch: (original) => new ProfileTransportError(profileId, original)
+        catch: (original) => isGetProfileClientError(original, 404)
+          ? new ProfileNotFoundError(profileId, original.body.code)
+          : new ProfileTransportError(profileId, original)
       }).pipe(
         Effect.flatMap((payload) =>
           Effect.try({
