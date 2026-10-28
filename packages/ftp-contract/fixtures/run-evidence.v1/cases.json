@@ -1,0 +1,35 @@
+{
+  "declaration": { "kind": "schema-declaration", "namespace": "oa-sdk.ftp", "id": "run-evidence", "revision": "1" },
+  "base": "valid-lifecycle.json",
+  "notice": "Each case applies RFC 6902 operations to the base artifact. Expected outcomes come from the declaration, not from any implementation's output.",
+  "cases": [
+    { "id": "RE1-ACCEPT-BASE", "clauses": ["T-J02"], "patch": [], "expected": "accept" },
+    { "id": "RE1-ACCEPT-ATTEMPT", "clauses": ["RUN-01"], "patch": [
+      { "op": "replace", "path": "/observations/0/unit", "value": "attempt" },
+      { "op": "add", "path": "/observations/0/domainAttemptId", "value": "attempt-1" }
+    ], "expected": "accept" },
+    { "id": "RE1-ACCEPT-RETRY", "clauses": ["RUN-01"], "patch": [{ "op": "add", "path": "/retryOfRunId", "value": "run-previous" }], "expected": "accept" },
+    { "id": "RE1-REJECT-MISSING-EVIDENCE-ID", "clauses": ["T-J02"], "patch": [{ "op": "remove", "path": "/evidenceId" }], "expected": "reject", "at": "", "keyword": "required" },
+    { "id": "RE1-REJECT-MISSING-DIAGNOSTICS", "clauses": ["T-J02"], "patch": [{ "op": "remove", "path": "/diagnostics" }], "expected": "reject", "at": "", "keyword": "required" },
+    { "id": "RE1-REJECT-MISSING-POINT-REVISION", "clauses": ["T-J02", "REF-02"], "patch": [{ "op": "remove", "path": "/observations/0/point/revision" }], "expected": "reject", "at": "/observations/0/point", "keyword": "required" },
+    { "id": "RE1-REJECT-MISSING-COVERAGE-LOSS", "clauses": ["T-J02", "EVD-04"], "patch": [{ "op": "remove", "path": "/coverage/0/loss" }], "expected": "reject", "at": "/coverage/0", "keyword": "required" },
+    { "id": "RE1-REJECT-NULL-EVIDENCE-ID", "clauses": ["T-J02"], "patch": [{ "op": "replace", "path": "/evidenceId", "value": null }], "expected": "reject", "at": "/evidenceId", "keyword": "type" },
+    { "id": "RE1-REJECT-NULL-OPTIONAL-RETRY", "clauses": ["T-J02", "WIRE-01"], "patch": [{ "op": "add", "path": "/retryOfRunId", "value": null }], "expected": "reject", "at": "/retryOfRunId", "keyword": "type" },
+    { "id": "RE1-REJECT-NULL-ORDER", "clauses": ["T-J02", "WIRE-01"], "patch": [{ "op": "replace", "path": "/observations/0/order", "value": null }], "expected": "reject", "at": "/observations/0/order", "keyword": "type" },
+    { "id": "RE1-REJECT-NULL-OBSERVATIONS", "clauses": ["T-J02"], "patch": [{ "op": "replace", "path": "/observations", "value": null }], "expected": "reject", "at": "/observations", "keyword": "type" },
+    { "id": "RE1-REJECT-ATTEMPT-WITHOUT-ID", "clauses": ["RUN-01"], "patch": [{ "op": "replace", "path": "/observations/0/unit", "value": "attempt" }], "expected": "reject", "at": "/observations/0", "keyword": "required" },
+    { "id": "RE1-REJECT-EMPTY-IDENTIFIER", "clauses": ["T-J02"], "patch": [{ "op": "replace", "path": "/runId", "value": "" }], "expected": "reject", "at": "/runId", "keyword": "minLength" },
+    { "id": "RE1-REJECT-UNKNOWN-FIELD", "clauses": ["WIRE-01"], "patch": [{ "op": "add", "path": "/evidenceID", "value": "typo" }], "expected": "reject", "at": "", "keyword": "additionalProperties" },
+    { "id": "RE1-REJECT-NONCANONICAL-SEQUENCE", "clauses": ["EVD-03", "WIRE-01"], "patch": [{ "op": "replace", "path": "/observations/0/order/sequence", "value": "01" }], "expected": "reject", "at": "/observations/0/order/sequence", "keyword": "pattern" },
+    { "id": "RE1-REJECT-NUMBER-SEQUENCE", "clauses": ["WIRE-01"], "patch": [{ "op": "replace", "path": "/observations/0/order/sequence", "value": 1 }], "expected": "reject", "at": "/observations/0/order/sequence", "keyword": "type" },
+    { "id": "RE1-REJECT-UNKNOWN-STATUS", "clauses": ["EVD-04"], "patch": [{ "op": "replace", "path": "/executionStatus", "value": "PASSED" }], "expected": "reject", "at": "/executionStatus", "keyword": "enum" },
+    { "id": "RE1-REJECT-YEAR-0000", "clauses": ["WIRE-02"], "patch": [{ "op": "replace", "path": "/observations/0/receivedAt", "value": "0000-01-01T00:00:00Z" }], "expected": "reject", "at": "/observations/0/receivedAt", "keyword": "pattern" },
+    { "id": "RE1-REJECT-TEN-DIGIT-FRACTION", "clauses": ["WIRE-02"], "patch": [{ "op": "replace", "path": "/observations/0/receivedAt", "value": "2024-01-01T00:00:00.1234567890Z" }], "expected": "reject", "at": "/observations/0/receivedAt", "keyword": "pattern" },
+    { "id": "RE1-REJECT-LEAP-SECOND", "clauses": ["WIRE-02"], "patch": [{ "op": "replace", "path": "/observations/0/receivedAt", "value": "2016-12-31T23:59:60Z" }], "expected": "reject", "at": "/observations/0/receivedAt", "keyword": "pattern" },
+    { "id": "RE1-REJECT-OFFSET-TIME", "clauses": ["WIRE-02"], "patch": [{ "op": "replace", "path": "/observations/0/receivedAt", "value": "2024-01-01T09:00:00+09:00" }], "expected": "reject", "at": "/observations/0/receivedAt", "keyword": "pattern" },
+    { "id": "RE1-REJECT-NONLEAP-FEB-29", "clauses": ["WIRE-02"], "patch": [{ "op": "replace", "path": "/observations/0/receivedAt", "value": "2023-02-29T00:00:00Z" }], "expected": "reject", "at": "/observations/0/receivedAt", "keyword": "calendar" },
+    { "id": "RE1-REJECT-APRIL-31", "clauses": ["WIRE-02"], "patch": [{ "op": "replace", "path": "/observations/0/receivedAt", "value": "2024-04-31T00:00:00Z" }], "expected": "reject", "at": "/observations/0/receivedAt", "keyword": "calendar" },
+    { "id": "RE1-REJECT-CENTURY-FEB-29", "clauses": ["WIRE-02"], "patch": [{ "op": "replace", "path": "/observations/0/receivedAt", "value": "1900-02-29T00:00:00Z" }], "expected": "reject", "at": "/observations/0/receivedAt", "keyword": "calendar" },
+    { "id": "RE1-ACCEPT-400-YEAR-FEB-29", "clauses": ["WIRE-02"], "patch": [{ "op": "replace", "path": "/observations/0/receivedAt", "value": "2000-02-29T00:00:00Z" }], "expected": "accept" }
+  ]
+}

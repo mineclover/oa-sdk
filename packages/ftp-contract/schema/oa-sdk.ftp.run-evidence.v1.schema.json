@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:oa-sdk:ftp:run-evidence:1",
+  "title": "Functional Test Platform RunEvidence v1",
+  "description": "Canonical oa-sdk exchange declaration for one sealed FTP RunEvidence snapshot. Every object is closed and no field admits null except the free-form observation payload. Calendar validity of receivedAt is checked by the package validator because JSON Schema format is only an annotation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["evidenceId", "runId", "planId", "observations", "coverage", "diagnostics", "executionStatus"],
+  "properties": {
+    "evidenceId": { "$ref": "#/$defs/Identifier" },
+    "runId": { "$ref": "#/$defs/Identifier" },
+    "planId": { "$ref": "#/$defs/Identifier" },
+    "retryOfRunId": { "$ref": "#/$defs/Identifier" },
+    "observations": { "type": "array", "items": { "$ref": "#/$defs/Observation" } },
+    "coverage": { "type": "array", "items": { "$ref": "#/$defs/Coverage" } },
+    "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/Diagnostic" } },
+    "executionStatus": { "enum": ["COMPLETED", "INTERRUPTED", "ERROR"] }
+  },
+  "$defs": {
+    "Identifier": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ExactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "namespace", "id", "revision"],
+      "properties": {
+        "kind": { "$ref": "#/$defs/Identifier" },
+        "namespace": { "$ref": "#/$defs/Identifier" },
+        "id": { "$ref": "#/$defs/Identifier" },
+        "revision": { "$ref": "#/$defs/Identifier" }
+      }
+    },
+    "OccurrenceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceId", "occurrenceId"],
+      "properties": {
+        "sourceId": { "$ref": "#/$defs/Identifier" },
+        "occurrenceId": { "$ref": "#/$defs/Identifier" }
+      }
+    },
+    "Unit": { "enum": ["request", "attempt"] },
+    "Sequence": {
+      "description": "Canonical nonnegative decimal integer string. Compared as an exact integer, never lexicographically.",
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]*)$"
+    },
+    "WallTime": {
+      "description": "UTC wall time YYYY-MM-DDTHH:mm:ss[.fraction]Z with year 0001-9999 and a 1-9 digit fraction. Day-of-month validity is checked by the package validator.",
+      "type": "string",
+      "pattern": "^(?!0000)[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:\\.[0-9]{1,9})?Z$"
+    },
+    "Observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observationId", "sourceId", "occurrenceId", "point", "requestId", "unit", "type"],
+      "properties": {
+        "observationId": { "$ref": "#/$defs/Identifier" },
+        "sourceId": { "$ref": "#/$defs/Identifier" },
+        "occurrenceId": { "$ref": "#/$defs/Identifier" },
+        "point": { "$ref": "#/$defs/ExactRef" },
+        "requestId": { "$ref": "#/$defs/Identifier" },
+        "invocationId": { "$ref": "#/$defs/Identifier" },
+        "unit": { "$ref": "#/$defs/Unit" },
+        "domainAttemptId": { "$ref": "#/$defs/Identifier" },
+        "type": { "$ref": "#/$defs/Identifier" },
+        "payload": { "description": "Any JSON value defined by the observation point revision, including null." },
+        "order": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["streamId", "sequence"],
+          "properties": {
+            "streamId": { "$ref": "#/$defs/Identifier" },
+            "sequence": { "$ref": "#/$defs/Sequence" }
+          }
+        },
+        "causedBy": { "type": "array", "items": { "$ref": "#/$defs/OccurrenceRef" } },
+        "receivedAt": { "$ref": "#/$defs/WallTime" },
+        "traceId": { "$ref": "#/$defs/Identifier" }
+      },
+      "if": {
+        "required": ["unit"],
+        "properties": { "unit": { "const": "attempt" } }
+      },
+      "then": { "required": ["domainAttemptId"] }
+    },
+    "Coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceId", "requestId", "point", "unit", "startBoundary", "endBoundary", "closure", "loss"],
+      "properties": {
+        "sourceId": { "$ref": "#/$defs/Identifier" },
+        "requestId": { "$ref": "#/$defs/Identifier" },
+        "point": { "$ref": "#/$defs/ExactRef" },
+        "unit": { "$ref": "#/$defs/Unit" },
+        "startBoundary": { "$ref": "#/$defs/Identifier" },
+        "endBoundary": { "$ref": "#/$defs/Identifier" },
+        "closure": { "enum": ["closed", "open", "unknown"] },
+        "loss": { "enum": ["none", "known", "unknown"] },
+        "lossBasis": { "type": "string" }
+      }
+    },
+    "Diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "component", "message"],
+      "properties": {
+        "code": { "$ref": "#/$defs/Identifier" },
+        "component": { "$ref": "#/$defs/Identifier" },
+        "message": { "type": "string" },
+        "requestIds": { "type": "array", "items": { "$ref": "#/$defs/Identifier" } }
+      }
+    }
+  }
+}

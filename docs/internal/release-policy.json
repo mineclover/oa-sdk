@@ -99,6 +99,7 @@
         "@oa-sdk/personas",
         "@oa-sdk/typia-mock",
         "@oa-sdk/logical-erd-contract",
+        "@oa-sdk/ftp-contract",
         "@oa-sdk/typespec-erd",
         "@oa-sdk/typespec-tooling",
         "@oa-sdk/ttsc-compile-fixture"
@@ -148,6 +149,7 @@
     "@oa-sdk/personas",
     "@oa-sdk/typia-mock",
     "@oa-sdk/logical-erd-contract",
+    "@oa-sdk/ftp-contract",
     "@oa-sdk/typespec-erd",
     "@oa-sdk/typespec-tooling",
     "@oa-sdk/ttsc-compile-fixture",

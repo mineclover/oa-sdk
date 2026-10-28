@@ -1,0 +1,45 @@
+{
+  "evidenceId": "evidence-fixture",
+  "runId": "run-fixture",
+  "planId": "plan-fixture",
+  "observations": [
+    {
+      "observationId": "delivery-s",
+      "sourceId": "producer",
+      "occurrenceId": "s",
+      "point": { "kind": "observation", "namespace": "fixture", "id": "request-events", "revision": "1" },
+      "requestId": "r1",
+      "unit": "request",
+      "type": "STARTED",
+      "order": { "streamId": "request-stream", "sequence": "1" },
+      "receivedAt": "2024-02-29T23:59:59.123456789Z"
+    },
+    {
+      "observationId": "delivery-d",
+      "sourceId": "producer",
+      "occurrenceId": "d",
+      "point": { "kind": "observation", "namespace": "fixture", "id": "request-events", "revision": "1" },
+      "requestId": "r1",
+      "unit": "request",
+      "type": "DONE",
+      "payload": null,
+      "order": { "streamId": "request-stream", "sequence": "2" },
+      "causedBy": [{ "sourceId": "producer", "occurrenceId": "s" }]
+    }
+  ],
+  "coverage": [
+    {
+      "sourceId": "producer",
+      "requestId": "r1",
+      "point": { "kind": "observation", "namespace": "fixture", "id": "request-events", "revision": "1" },
+      "unit": "request",
+      "startBoundary": "before-request",
+      "endBoundary": "request-fence",
+      "closure": "closed",
+      "loss": "none",
+      "lossBasis": "fixture producer contract covers request until fence"
+    }
+  ],
+  "diagnostics": [],
+  "executionStatus": "COMPLETED"
+}

@@ -17,7 +17,7 @@ release candidate의 현재 판단 입력과 source/external 책임 경계는
 
 ## Current State
 
-현재 정책 스냅샷: v5 · 4 tracks · Core Platform 11 · Downstream 15 · release-tracked 26 · ignored 11 · distribution candidates 22.
+현재 정책 스냅샷: v5 · 4 tracks · Core Platform 11 · Downstream 15 · release-tracked 26 · ignored 12 · distribution candidates 22.
 
 - Root package는 private monorepo이며 Changesets가 설치되어 있다.
 - Root monorepo와 app/reference workspace는 private이다. `pnpm release`는 `pnpm release:export`에
@@ -96,6 +96,7 @@ schema/spec 관리 제품을 소유하고, Downstream Integration 열다섯 패�
 | Maintenance-only | `@oa-sdk/personas` | Data-governance separation candidate; security, compatibility, migration only |
 | Maintenance-only | `@oa-sdk/typia-mock` | Experiment/archive candidate; security, compatibility, migration only |
 | Maintenance-only | `@oa-sdk/logical-erd-contract` | Private TypeSpec ERD prototype's neutral artifact contract; no DPM or physical DB dependency |
+| Maintenance-only | `@oa-sdk/ftp-contract` | Private canonical exchange declarations consumed by the Functional Test Platform (RunEvidence v1); no FTP runtime, target or runner dependency |
 | Maintenance-only | `@oa-sdk/typespec-erd` | Private TypeSpec ERD prototype and `oa-erd` CLI; no OpenAPI/codegen runtime dependency |
 | Maintenance-only | `@oa-sdk/typespec-tooling` | Private TypeSpec IDE tooling and linting utilities |
 | Maintenance-only | `@oa-sdk/ttsc-compile-fixture` | Isolated TS 7 compiler fixture; policy-tracked but excluded from bulk build/test/typecheck tasks because it has no package task surface |
