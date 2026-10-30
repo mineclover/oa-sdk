@@ -550,7 +550,13 @@ async function runConfigDrivenPipelineInternal(
   for (const target of specs) {
     const result = await projectTargetSpec(target, rootDir)
     const targetResolved = resolveProfileTarget(result.target, rootDir)
-    const canReuse = incremental !== undefined && resolvedConfig.guards === undefined
+    // TypeSpec compilation observes imports, package manifests, and decorator
+    // module graphs that this target bundle has not recorded yet. Keep the
+    // safe full-generation fallback until those compiler observations are
+    // persisted alongside the target bundle.
+    const canReuse = incremental !== undefined
+      && resolvedConfig.guards === undefined
+      && !targetResolved.resolvedSchemaEntry.endsWith('.tsp')
     let reused = false
     if (canReuse) {
       const incrementalTarget = createGenerateIncrementalTarget({
