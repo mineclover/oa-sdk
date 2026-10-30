@@ -17,7 +17,7 @@ release candidate의 현재 판단 입력과 source/external 책임 경계는
 
 ## Current State
 
-현재 정책 스냅샷: v5 · 4 tracks · Core Platform 11 · Downstream 16 · release-tracked 27 · ignored 12 · distribution candidates 22.
+현재 정책 스냅샷: v5 · 4 tracks · Core Platform 11 · Downstream 17 · release-tracked 28 · ignored 11 · distribution candidates 23.
 
 - Root package는 private monorepo이며 Changesets가 설치되어 있다.
 - Root monorepo와 app/reference workspace는 private이다. `pnpm release`는 `pnpm release:export`에
@@ -29,7 +29,7 @@ release candidate의 현재 판단 입력과 source/external 책임 경계는
   `@oa-sdk/chunk-stream`, `@oa-sdk/chunk-stream-crdt`, `@oa-sdk/chunk-stream-ui`,
   `@oa-sdk/chunk-stream-timeseries`, `@oa-sdk/chunk-stream-react`, `@oa-sdk/peer-transport`,
   `@oa-sdk/peer-server`, `@oa-sdk/webmcp-peer`, `@oa-sdk/collab-workspace`, `@oa-sdk/mcp-mesh`,
-  `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`, `@oa-sdk/telemetry`는 public npm **distribution candidate**다. 이 패키지는 allowlisted
+  `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`, `@oa-sdk/telemetry`, `@oa-sdk/ftp-contract`는 public npm **distribution candidate**다. 이 패키지는 allowlisted
   `dist`/`lib` artifact만 pack하고 provenance를 요구하며, exporter의 archive/consumer smoke가 실제
   tarball에서 export/bin target, workspace protocol 제거, 설치 후 소비 가능성을 검증한다.
   source manifest는 `private: false`, public Node floor인 `engines.node: ">=22.0.0"`, 그리고
@@ -44,15 +44,15 @@ release candidate의 현재 판단 입력과 source/external 책임 경계는
   candidate의 실제 registry 배포는 별도 artifact repository의 승인된 workflow만 수행한다.
 - Internal dependencies는 모두 `workspace:` protocol을 사용한다. Changesets config는 내부 의존성
   bump를 `patch`로 전파한다.
-- Release policy v5는 Core Platform 11개와 Downstream Integration 15개, 총 26개 release-tracked package와
+- Release policy v5는 Core Platform 11개와 Downstream Integration 17개, 총 28개 release-tracked package와
   11개 ignored workspace를 관리한다. Release
   tracking은 제품 scope와 일치시키되, Core Platform과 Downstream Integration을 서로 다른
   architecture tier로 유지한다.
 
 ## Release-Tracked Packages
 
-아래 26개 패키지는 package-level versioning 후보로 유지한다. Core Platform 열한 패키지가
-schema/spec 관리 제품을 소유하고, Downstream Integration 열다섯 패키지는 그 계약의 소비 가능성을
+아래 28개 패키지는 package-level versioning 후보로 유지한다. Core Platform 열한 패키지가
+schema/spec 관리 제품을 소유하고, Downstream Integration 열일곱 패키지는 그 계약의 소비 가능성을
 증명한다.
 
 | Tier | Package | Current version | Role |
@@ -84,6 +84,7 @@ schema/spec 관리 제품을 소유하고, Downstream Integration 열다섯 패�
 | Downstream Integration | `@oa-sdk/telemetry` | `0.2.0` | Design-driven telemetry, tracking symbol registry, XState v5 inspector, and DPM pseudonymization bridge |
 | Downstream Integration | `@oa-sdk/rpc` | `0.2.0` | Private RPC runtime over the Surface IR RPC contract: typed client/server, JSON-RPC 2.0 and REST binding |
 | Downstream Integration | `@oa-sdk/popup-bridge` | `0.1.0` | Private popup bridge: origin-verified handshake, symmetric JSON-RPC over `MessageChannel`, contract-first type declarations and RPC generation utilities |
+| Downstream Integration | `@oa-sdk/ftp-contract` | `0.2.1` | Publicly distributable Functional Test Platform exchange declarations (RunEvidence v1); no FTP runtime, target or runner dependency |
 
 ## Ignored Workspaces
 
@@ -97,7 +98,6 @@ schema/spec 관리 제품을 소유하고, Downstream Integration 열다섯 패�
 | Maintenance-only | `@oa-sdk/personas` | Data-governance separation candidate; security, compatibility, migration only |
 | Maintenance-only | `@oa-sdk/typia-mock` | Experiment/archive candidate; security, compatibility, migration only |
 | Maintenance-only | `@oa-sdk/logical-erd-contract` | Private TypeSpec ERD prototype's neutral artifact contract; no DPM or physical DB dependency |
-| Maintenance-only | `@oa-sdk/ftp-contract` | Private canonical exchange declarations consumed by the Functional Test Platform (RunEvidence v1); no FTP runtime, target or runner dependency |
 | Maintenance-only | `@oa-sdk/typespec-erd` | Private TypeSpec ERD prototype and `oa-erd` CLI; no OpenAPI/codegen runtime dependency |
 | Maintenance-only | `@oa-sdk/typespec-tooling` | Private TypeSpec IDE tooling and linting utilities |
 | Maintenance-only | `@oa-sdk/ttsc-compile-fixture` | Isolated TS 7 compiler fixture; policy-tracked but excluded from bulk build/test/typecheck tasks because it has no package task surface |

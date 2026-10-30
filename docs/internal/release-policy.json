@@ -37,7 +37,8 @@
     "@oa-sdk/router",
     "@oa-sdk/client",
     "@oa-sdk/mock-server",
-    "@oa-sdk/telemetry"
+    "@oa-sdk/telemetry",
+    "@oa-sdk/ftp-contract"
   ],
   "optionalPeerEntryPoints": {
     "@oa-sdk/mock-server": {
@@ -89,7 +90,8 @@
         "@oa-sdk/mcp-mesh",
         "@oa-sdk/telemetry",
         "@oa-sdk/rpc",
-        "@oa-sdk/popup-bridge"
+        "@oa-sdk/popup-bridge",
+        "@oa-sdk/ftp-contract"
       ]
     },
     "maintenance": {
@@ -100,7 +102,6 @@
         "@oa-sdk/personas",
         "@oa-sdk/typia-mock",
         "@oa-sdk/logical-erd-contract",
-        "@oa-sdk/ftp-contract",
         "@oa-sdk/typespec-erd",
         "@oa-sdk/typespec-tooling",
         "@oa-sdk/ttsc-compile-fixture"
@@ -144,14 +145,14 @@
     "@oa-sdk/mcp-mesh",
     "@oa-sdk/telemetry",
     "@oa-sdk/rpc",
-    "@oa-sdk/popup-bridge"
+    "@oa-sdk/popup-bridge",
+    "@oa-sdk/ftp-contract"
   ],
   "ignored": [
     "@oa-sdk/dpm",
     "@oa-sdk/personas",
     "@oa-sdk/typia-mock",
     "@oa-sdk/logical-erd-contract",
-    "@oa-sdk/ftp-contract",
     "@oa-sdk/typespec-erd",
     "@oa-sdk/typespec-tooling",
     "@oa-sdk/ttsc-compile-fixture",

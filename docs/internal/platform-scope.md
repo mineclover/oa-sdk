@@ -98,8 +98,8 @@ archi-adr validate/render`다.
 | Tier | Workspaces | Policy |
 | --- | --- | --- |
 | Core Platform | `core`, `openapi-projection-contract`, `typespec-decorators`, `schemas`, `parser`, `surface-ir`, `codegen`, `spec-lens`, `spec-lens-contract`, `ast-sync`, `tools` (11개) | 제품 방향과 신규 기능 투자의 기본 범위 (Downstream은 `devDependencies`로만 참조 가능) |
-| Downstream Integration | `router`, `client`, `mock-server`, `chunk-stream`, `chunk-stream-crdt`, `chunk-stream-ui`, `chunk-stream-timeseries`, `chunk-stream-react`, `peer-transport`, `peer-server`, `webmcp-peer`, `collab-workspace`, `mcp-mesh`, `telemetry`, `rpc`, `popup-bridge` (16개) | Core 계약을 소비하거나 Core와 독립된 integration runtime을 end-to-end로 증명하는 release-tracked surface (`rpc`, `popup-bridge`를 제외하고 `distributionCandidates` 승격 완료) |
-| Maintenance-only | `dpm`, `personas`, `typia-mock`, `logical-erd-contract`, `ftp-contract`, `typespec-erd`, `typespec-tooling`, `ttsc-compile-fixture` (8개) | security, compatibility, migration 작업만 허용하는 분리 후보 또는 승인된 독립 prototype. `@oa-sdk/typia-mock`은 Core Platform에서 TS 컴파일러 변환기 복잡도를 격리하면서 Samchon ILlmApplication 통합점을 유지하는 유지보수 경계다. `@oa-sdk/ftp-contract`는 Functional Test Platform과의 교환 계약만 유지한다. |
+| Downstream Integration | `router`, `client`, `mock-server`, `chunk-stream`, `chunk-stream-crdt`, `chunk-stream-ui`, `chunk-stream-timeseries`, `chunk-stream-react`, `peer-transport`, `peer-server`, `webmcp-peer`, `collab-workspace`, `mcp-mesh`, `telemetry`, `rpc`, `popup-bridge`, `ftp-contract` (17개) | Core 계약을 소비하거나 Core와 독립된 integration runtime을 end-to-end로 증명하는 release-tracked surface (`rpc`, `popup-bridge`를 제외하고 `distributionCandidates` 승격 완료) |
+| Maintenance-only | `dpm`, `personas`, `typia-mock`, `logical-erd-contract`, `typespec-erd`, `typespec-tooling`, `ttsc-compile-fixture` (7개) | security, compatibility, migration 작업만 허용하는 분리 후보 또는 승인된 독립 prototype. `@oa-sdk/typia-mock`은 Core Platform에서 TS 컴파일러 변환기 복잡도를 격리하면서 Samchon ILlmApplication 통합점을 유지하는 유지보수 경계다. |
 | Apps and references | `nestjs-ref`, `playground`, `preview`, `spec-lens-ui` (4개) | 배포 라이브러리가 아닌 검증, reference, UI workspace |
 
 Downstream Integration은 Core Platform 자체가 아니다. 이 계층의 API와 테스트는 Core 계약의

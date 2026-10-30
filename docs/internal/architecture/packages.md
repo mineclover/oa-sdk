@@ -21,7 +21,7 @@ oa-sdk/
     mock-server/   @oa-sdk/mock-server  AJV Mock 서버 (MSW + Node HTTP) + 테스트 헬퍼 [downstream]
     router/        @oa-sdk/router       OAS → Hono/Express 라우터 스텁 [downstream]
     client/        @oa-sdk/client       OAS → fetch 클라이언트 SDK + 인증 + 재시도 [downstream]
-    ftp-contract/  @oa-sdk/ftp-contract Functional Test Platform exchange contract [maintenance]
+    ftp-contract/  @oa-sdk/ftp-contract Functional Test Platform exchange contract [downstream]
     dpm/           @oa-sdk/dpm          Relationship-first Data Pseudonymization Manifest toolkit [maintenance]
     personas/      @oa-sdk/personas     Data Persona trait registry + persona matrix + validator [maintenance]
     typia-mock/    @oa-sdk/typia-mock   typia ILlmApplication 검증 서버 [maintenance]
@@ -50,8 +50,8 @@ other downstream packages are grouped rather than omitted from the workspace inv
 | Scope tier | 패키지 | 소유 범위 |
 |---|---|---|
 | Core Platform | `@oa-sdk/core`, `@oa-sdk/openapi-projection-contract`, `@oa-sdk/typespec-decorators`, `@oa-sdk/schemas`, `@oa-sdk/parser`, `@oa-sdk/codegen`, `@oa-sdk/spec-lens`, `@oa-sdk/spec-lens-contract`, `@oa-sdk/ast-sync`, `@oa-sdk/tools` | TypeSpec authoring/승격과 OpenAPI artifact/intake, 파싱·검증·생성·변경 관측, AST adapter, MCP/CLI 도구 브릿지. Downstream runtime은 계약을 소비하지만 이 방향을 결정하지 않는다. |
-| Downstream Integration | `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`, `@oa-sdk/rpc`, `@oa-sdk/popup-bridge` 및 peer/chunk/collab/telemetry 패키지 | Core 계약을 server stub, fetch client, mock/procedure/runtime integration으로 소비하고 호환성을 증명 |
-| Maintenance-only | `@oa-sdk/dpm`, `@oa-sdk/personas`, `@oa-sdk/typia-mock`, `@oa-sdk/logical-erd-contract`, `@oa-sdk/ftp-contract`, `@oa-sdk/typespec-erd`, `@oa-sdk/typespec-tooling`, `@oa-sdk/ttsc-compile-fixture` | 기존 계약의 security, compatibility, migration 유지. Logical ERD/FTP는 bounded exchange contract이고 신규 기능은 scope reactivation 전까지 금지 |
+| Downstream Integration | `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`, `@oa-sdk/rpc`, `@oa-sdk/popup-bridge`, `@oa-sdk/ftp-contract` 및 peer/chunk/collab/telemetry 패키지 | Core 계약을 server stub, fetch client, mock/procedure/runtime integration으로 소비하고 호환성을 증명 |
+| Maintenance-only | `@oa-sdk/dpm`, `@oa-sdk/personas`, `@oa-sdk/typia-mock`, `@oa-sdk/logical-erd-contract`, `@oa-sdk/typespec-erd`, `@oa-sdk/typespec-tooling`, `@oa-sdk/ttsc-compile-fixture` | 기존 계약의 security, compatibility, migration 유지. Logical ERD는 bounded exchange contract이고 신규 기능은 scope reactivation 전까지 금지 |
 | Apps/reference | `@oa-sdk/nestjs-ref`, `@oa-sdk/playground`, `@oa-sdk/preview`, `@oa-sdk/spec-lens-ui` | reference, E2E, preview, UI consumer surface. library ownership 없음 |
 
 `@oa-sdk/dpm`은 API 스펙 패키지의 확장이 아니라 논리 데이터 계약 패키지다. DB catalog나
@@ -81,7 +81,7 @@ client       ← core + parser
 rpc          ← surface-ir (procedure contract runtime; downstream consumer)
 popup-bridge ← independent browser runtime; no API contract ownership
 
--- maintenance boundary --
+-- independent downstream boundary --
 dpm          ← openapi-projection-contract
 ftp-contract ← independent Functional Test Platform exchange boundary
 personas     ← 독립

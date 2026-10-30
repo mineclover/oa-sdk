@@ -84,6 +84,7 @@ assert.deepEqual(configuration.candidates, [
   '@oa-sdk/client',
   '@oa-sdk/mock-server',
   '@oa-sdk/telemetry',
+  '@oa-sdk/ftp-contract',
 ])
 assert.equal(requiresReleasePreflight(false), true)
 assert.equal(requiresReleasePreflight(true), false)

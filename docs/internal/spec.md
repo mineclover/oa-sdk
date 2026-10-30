@@ -41,9 +41,10 @@ Downstream Integration
   telemetry                   design-driven telemetry envelope, dispatchers, and XState inspector
   rpc                         RPC contract runtime: typed client/server, JSON-RPC 2.0, REST binding (private)
   popup-bridge                cross-origin popup handshake and MessageChannel RPC runtime (private)
+  ftp-contract                Functional Test Platform exchange declarations (public distribution candidate)
 
 Maintenance-only
-  dpm, personas, typia-mock, logical-erd-contract, ftp-contract, typespec-erd, typespec-tooling, ttsc-compile-fixture
+  dpm, personas, typia-mock, logical-erd-contract, typespec-erd, typespec-tooling, ttsc-compile-fixture
 
 Apps and references
   nestjs-ref, playground, preview, spec-lens-ui
