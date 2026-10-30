@@ -121,3 +121,9 @@ byte 수를 기록한다. 목표는 단일 leaf 변경에서 전체 output 재�
 - leaf/high-fanout/ref/config fixture의 timing과 regenerated unit 증거가 기록된다.
 
 이 조건을 만족하기 전에는 `partial patch`를 public CLI promise로 문서화하지 않는다.
+
+## 현재 검증 evidence
+
+Target bundle incremental reuse는 실제 CLI에서 확인했다: [2026-10-30 실행 리포트](../../reports/generate-incremental-20261030.md).
+이 검증은 `generate`의 OpenAPI target을 대상으로 하며, TypeSpec compiler observation을 포함한
+전체 generation input graph와 source AST patch의 완료를 의미하지 않는다.
