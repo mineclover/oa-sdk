@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "kind": "test-run",
+  "runId": "freshness-20261026-management",
+  "recordedAt": "2026-10-26T14:06:51.644Z",
+  "startedAt": "2026-10-26T14:03:54.292Z",
+  "sourceBinding": "captured-after-execution",
+  "sourceHashes": {
+    "packages/codegen/src/__tests__/drift-check-cli.test.ts": "c2e768a4e454746145ae6c0088943ccfa4e42faa14aa514e95de67a9d5596aef"
+  },
+  "revision": "020ec128a6c2aa5ee729e6005451a85267752421",
+  "worktree": "dirty",
+  "nodeVersion": "v24.22.1",
+  "command": "vitest run src/__tests__/drift-check-cli.test.ts --maxWorkers 1 --no-file-parallelism --reporter=json (packages/codegen, NODE_PATH unset)",
+  "reporterSha256": "7327325fc7c75e68c155f95f5564383da5641cdd745ea666f401e5e7f867aa63",
+  "passed": 11,
+  "failed": 0,
+  "skipped": 0,
+  "executedPassed": 11,
+  "cachedPassed": 0,
+  "passedFiles": 1,
+  "files": [
+    {
+      "file": "packages/codegen/src/__tests__/drift-check-cli.test.ts",
+      "package": "@oa-sdk/codegen",
+      "track": "core",
+      "resultSource": "executed",
+      "cases": 11,
+      "failed": 0,
+      "skipped": 0,
+      "tests": [
+        {
+          "title": "oa-gen check-artifact and drift:check CLI Test Suite Suite 1: Config-Driven Spec Freshness Verification passes with exit code 0 when all committed artifacts match source schemas",
+          "status": "passed"
+        },
+        {
+          "title": "oa-gen check-artifact and drift:check CLI Test Suite Suite 1: Config-Driven Spec Freshness Verification reads targets from product.specs when top-level specs is absent",
+          "status": "passed"
+        },
+        {
+          "title": "oa-gen check-artifact and drift:check CLI Test Suite Suite 2: Spec Mutation Drift Detection detects drift and exits with code 1 when a source schema is modified",
+          "status": "passed"
+        },
+        {
+          "title": "oa-gen check-artifact and drift:check CLI Test Suite Suite 3: Missing Committed Artifact exits with code 1 when a committed artifact is deleted from disk",
+          "status": "passed"
+        },
+        {
+          "title": "oa-gen check-artifact and drift:check CLI Test Suite Suite 4: Empty (0-Byte) or Corrupt Artifact exits with code 1 when an artifact is 0 bytes",
+          "status": "passed"
+        },
+        {
+          "title": "oa-gen check-artifact and drift:check CLI Test Suite Suite 4: Empty (0-Byte) or Corrupt Artifact exits with code 1 when artifact contains invalid JSON",
+          "status": "passed"
+        },
+        {
+          "title": "oa-gen check-artifact and drift:check CLI Test Suite Suite 5: Single-Target Manual Invocation Mode verifies freshness via explicit --artifact and --schema flags",
+          "status": "passed"
+        },
+        {
+          "title": "oa-gen check-artifact and drift:check CLI Test Suite Suite 5: Single-Target Manual Invocation Mode preserves legacy --head and --artifact flags for OpenAPI specs",
+          "status": "passed"
+        },
+        {
+          "title": "oa-gen check-artifact and drift:check CLI Test Suite Suite 6: JSON Output Format Conformance emits schema-conforming JSON payload with --format json",
+          "status": "passed"
+        },
+        {
+          "title": "oa-gen check-artifact and drift:check CLI Test Suite Suite 7: Global --root Subdirectory Execution discovers project root and succeeds when invoked from a nested subdirectory",
+          "status": "passed"
+        },
+        {
+          "title": "oa-gen check-artifact and drift:check CLI Test Suite Suite 8: CLI Alias Parity drift:check and check-artifact exhibit equivalent behavior and help output",
+          "status": "passed"
+        }
+      ]
+    }
+  ]
+}

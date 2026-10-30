@@ -1,0 +1,201 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:oa-sdk:ftp:test-definition:1",
+  "title": "Functional Test Platform TestDefinition v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "definitionId",
+    "target",
+    "claim",
+    "criterion",
+    "method",
+    "dataset",
+    "criterionCombination"
+  ],
+  "properties": {
+    "definitionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "target": {
+      "$ref": "#/$defs/ExactRef"
+    },
+    "claim": {
+      "$ref": "#/$defs/ExactRef"
+    },
+    "criterion": {
+      "$ref": "#/$defs/ExactRef"
+    },
+    "method": {
+      "$ref": "#/$defs/ExactRef"
+    },
+    "dataset": {
+      "$ref": "#/$defs/ExactRef"
+    },
+    "criterionCombination": {
+      "enum": [
+        "all",
+        "any"
+      ]
+    }
+  },
+  "$defs": {
+    "Identifier": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ExactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "namespace",
+        "id",
+        "revision"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "namespace": {
+          "type": "string",
+          "minLength": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "AliasRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "scope",
+        "alias"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "alias": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "DefinitionRef": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "namespace",
+            "id",
+            "revision"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "minLength": 1
+            },
+            "namespace": {
+              "type": "string",
+              "minLength": 1
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "revision": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "scope",
+            "alias"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "minLength": 1
+            },
+            "scope": {
+              "type": "string",
+              "minLength": 1
+            },
+            "alias": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      ]
+    },
+    "Profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "revision"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "JsonValue": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/JsonValue"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          }
+        }
+      ]
+    }
+  }
+}

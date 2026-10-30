@@ -1,0 +1,3491 @@
+{
+  "source": "2026-10-26 saved Turbo core/downstream test logs, not a new test run",
+  "countUnit": "Vitest expanded test cases; multiple assertions within one case count once",
+  "passed": 8188,
+  "executedPassed": 6002,
+  "cachedPassed": 2186,
+  "skipped": 4,
+  "passedFiles": 476,
+  "packages": {
+    "@oa-sdk/spec-lens-contract": {
+      "track": "core",
+      "passed": 40,
+      "resultSource": "cache"
+    },
+    "@oa-sdk/openapi-projection-contract": {
+      "track": "core",
+      "passed": 197,
+      "resultSource": "cache"
+    },
+    "@oa-sdk/core": {
+      "track": "core",
+      "passed": 119,
+      "resultSource": "cache"
+    },
+    "@oa-sdk/typespec-decorators": {
+      "track": "core",
+      "passed": 113,
+      "resultSource": "executed"
+    },
+    "@oa-sdk/ast-sync": {
+      "track": "core",
+      "passed": 81,
+      "resultSource": "executed"
+    },
+    "@oa-sdk/parser": {
+      "track": "core",
+      "passed": 692,
+      "resultSource": "cache"
+    },
+    "@oa-sdk/surface-ir": {
+      "track": "core",
+      "passed": 42,
+      "resultSource": "cache"
+    },
+    "@oa-sdk/schemas": {
+      "track": "core",
+      "passed": 62,
+      "resultSource": "executed"
+    },
+    "@oa-sdk/tools": {
+      "track": "core",
+      "passed": 102,
+      "resultSource": "executed"
+    },
+    "@oa-sdk/codegen": {
+      "track": "core",
+      "passed": 4041,
+      "resultSource": "executed"
+    },
+    "@oa-sdk/spec-lens": {
+      "track": "core",
+      "passed": 180,
+      "resultSource": "executed"
+    },
+    "@oa-sdk/peer-transport": {
+      "track": "downstream",
+      "passed": 55,
+      "resultSource": "cache"
+    },
+    "@oa-sdk/chunk-stream": {
+      "track": "downstream",
+      "passed": 15,
+      "resultSource": "cache"
+    },
+    "@oa-sdk/peer-server": {
+      "track": "downstream",
+      "passed": 74,
+      "resultSource": "cache"
+    },
+    "@oa-sdk/chunk-stream-ui": {
+      "track": "downstream",
+      "passed": 11,
+      "resultSource": "cache"
+    },
+    "@oa-sdk/chunk-stream-crdt": {
+      "track": "downstream",
+      "passed": 7,
+      "resultSource": "cache"
+    },
+    "@oa-sdk/chunk-stream-timeseries": {
+      "track": "downstream",
+      "passed": 5,
+      "resultSource": "cache"
+    },
+    "@oa-sdk/telemetry": {
+      "track": "downstream",
+      "passed": 99,
+      "resultSource": "cache"
+    },
+    "@oa-sdk/collab-workspace": {
+      "track": "downstream",
+      "passed": 9,
+      "resultSource": "cache"
+    },
+    "@oa-sdk/chunk-stream-react": {
+      "track": "downstream",
+      "passed": 6,
+      "resultSource": "cache"
+    },
+    "@oa-sdk/client": {
+      "track": "downstream",
+      "passed": 277,
+      "resultSource": "executed"
+    },
+    "@oa-sdk/mock-server": {
+      "track": "downstream",
+      "passed": 815,
+      "resultSource": "cache"
+    },
+    "@oa-sdk/router": {
+      "track": "downstream",
+      "passed": 209,
+      "resultSource": "executed"
+    },
+    "@oa-sdk/mcp-mesh": {
+      "track": "downstream",
+      "passed": 17,
+      "resultSource": "executed"
+    },
+    "@oa-sdk/webmcp-peer": {
+      "track": "downstream",
+      "passed": 864,
+      "resultSource": "executed"
+    },
+    "@oa-sdk/rpc": {
+      "track": "downstream",
+      "passed": 56,
+      "resultSource": "executed"
+    }
+  },
+  "files": [
+    {
+      "track": "core",
+      "package": "@oa-sdk/spec-lens-contract",
+      "file": "packages/spec-lens-contract/src/index.test.ts",
+      "cases": 2,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/spec-lens-contract",
+      "file": "packages/spec-lens-contract/src/scenario.test.ts",
+      "cases": 38,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/openapi-projection-contract",
+      "file": "packages/openapi-projection-contract/src/validation.test.ts",
+      "cases": 7,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/openapi-projection-contract",
+      "file": "packages/openapi-projection-contract/src/profile-semantics.test.ts",
+      "cases": 16,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/openapi-projection-contract",
+      "file": "packages/openapi-projection-contract/src/import-smoke.test.ts",
+      "cases": 2,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/openapi-projection-contract",
+      "file": "packages/openapi-projection-contract/src/projection-extensions.test.ts",
+      "cases": 5,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/openapi-projection-contract",
+      "file": "packages/openapi-projection-contract/test/surface-extensions.test.ts",
+      "cases": 15,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/openapi-projection-contract",
+      "file": "packages/openapi-projection-contract/test/e2e/discriminated-union.e2e.test.ts",
+      "cases": 44,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/openapi-projection-contract",
+      "file": "packages/openapi-projection-contract/test/e2e/surface-extensions.e2e.test.ts",
+      "cases": 53,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/openapi-projection-contract",
+      "file": "packages/openapi-projection-contract/test/adversarial-proposals-1-2.test.ts",
+      "cases": 25,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/openapi-projection-contract",
+      "file": "packages/openapi-projection-contract/src/discriminated-union.test.ts",
+      "cases": 15,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/openapi-projection-contract",
+      "file": "packages/openapi-projection-contract/test/discriminated-union.test.ts",
+      "cases": 15,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/core",
+      "file": "packages/core/src/__tests__/wire-format.test.ts",
+      "cases": 18,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/core",
+      "file": "packages/core/src/__tests__/format.test.ts",
+      "cases": 11,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/core",
+      "file": "packages/core/src/__tests__/strings.test.ts",
+      "cases": 24,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/core",
+      "file": "packages/core/src/__tests__/response-utils.test.ts",
+      "cases": 18,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/core",
+      "file": "packages/core/src/__tests__/codegen-utils.test.ts",
+      "cases": 15,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/core",
+      "file": "packages/core/src/__tests__/root.test.ts",
+      "cases": 31,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/core",
+      "file": "packages/core/src/__tests__/http.test.ts",
+      "cases": 2,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/typespec-decorators",
+      "file": "packages/typespec-decorators/src/governance.emitter.test.ts",
+      "cases": 10,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/typespec-decorators",
+      "file": "packages/typespec-decorators/src/decorators.emitter.test.ts",
+      "cases": 5,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/typespec-decorators",
+      "file": "packages/typespec-decorators/src/contracts.emitter.test.ts",
+      "cases": 2,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/typespec-decorators",
+      "file": "packages/typespec-decorators/src/tool-pipeline.test.ts",
+      "cases": 5,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/typespec-decorators",
+      "file": "packages/typespec-decorators/src/protobuf.emitter.test.ts",
+      "cases": 1,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/typespec-decorators",
+      "file": "packages/typespec-decorators/src/protobuf.test.ts",
+      "cases": 8,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/typespec-decorators",
+      "file": "packages/typespec-decorators/src/storage-drift.test.ts",
+      "cases": 10,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/typespec-decorators",
+      "file": "packages/typespec-decorators/src/decorators.test.ts",
+      "cases": 26,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/typespec-decorators",
+      "file": "packages/typespec-decorators/src/chunk-stream.test.ts",
+      "cases": 30,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/typespec-decorators",
+      "file": "packages/typespec-decorators/src/governance.test.ts",
+      "cases": 10,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/typespec-decorators",
+      "file": "packages/typespec-decorators/src/behavior-xstate-aot.test.ts",
+      "cases": 4,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/typespec-decorators",
+      "file": "packages/typespec-decorators/src/modular-slices.test.ts",
+      "cases": 2,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/ast-sync",
+      "file": "packages/ast-sync/test/guards-rendering.test.ts",
+      "cases": 4,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/ast-sync",
+      "file": "packages/ast-sync/test/guards-split-dispatch.test.ts",
+      "cases": 1,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/ast-sync",
+      "file": "packages/ast-sync/test/guards-tiered.test.ts",
+      "cases": 2,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/ast-sync",
+      "file": "packages/ast-sync/test/guards-dotted-names.test.ts",
+      "cases": 3,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/ast-sync",
+      "file": "packages/ast-sync/test/adapters/json-schema.test.ts",
+      "cases": 7,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/ast-sync",
+      "file": "packages/ast-sync/test/taxonomy.test.ts",
+      "cases": 15,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/ast-sync",
+      "file": "packages/ast-sync/test/contract-canary.test.ts",
+      "cases": 15,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/ast-sync",
+      "file": "packages/ast-sync/test/ast-sync.test.ts",
+      "cases": 3,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/ast-sync",
+      "file": "packages/ast-sync/test/checker-cycle.test.ts",
+      "cases": 31,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/resolver-baseline.test.ts",
+      "cases": 3,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/ref-projection.test.ts",
+      "cases": 6,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/route-index-parity.test.ts",
+      "cases": 33,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/deref-document-identity.test.ts",
+      "cases": 137,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/validate.test.ts",
+      "cases": 20,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/definition-openapi-emit.test.ts",
+      "cases": 2,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/schema-engine-vocabulary-adapter.test.ts",
+      "cases": 2,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/ref-expansion-memo.test.ts",
+      "cases": 10,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/ref-resolver-contract.test.ts",
+      "cases": 6,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/ref-graph.test.ts",
+      "cases": 10,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/deref.test.ts",
+      "cases": 27,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/lint.test.ts",
+      "cases": 26,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/route-match.test.ts",
+      "cases": 60,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/parse-document.test.ts",
+      "cases": 22,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/test/surface-lint.test.ts",
+      "cases": 21,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/definition-id.test.ts",
+      "cases": 8,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/test/ts-operation-extractor.test.ts",
+      "cases": 39,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/ref-completeness.test.ts",
+      "cases": 14,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/schema-loader.test.ts",
+      "cases": 16,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/definition-registry.test.ts",
+      "cases": 17,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/tags.test.ts",
+      "cases": 10,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/definition-target.test.ts",
+      "cases": 5,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/recursion-guard.test.ts",
+      "cases": 19,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/source-location.test.ts",
+      "cases": 2,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/parse-edge-cases.test.ts",
+      "cases": 17,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/lint-rules-coverage.test.ts",
+      "cases": 12,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/definition-output-names.test.ts",
+      "cases": 6,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/test/e2e/surface-lint.e2e.test.ts",
+      "cases": 14,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/server.test.ts",
+      "cases": 9,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/parsed-document.test.ts",
+      "cases": 2,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/deref-edge-cases.test.ts",
+      "cases": 7,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/test/adversarial-surface-lint.test.ts",
+      "cases": 15,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/query.test.ts",
+      "cases": 19,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/fold.test.ts",
+      "cases": 18,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/pipeline.test.ts",
+      "cases": 6,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/json-pointer.test.ts",
+      "cases": 34,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/definition-node.test.ts",
+      "cases": 2,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/downgrade-roundtrip.test.ts",
+      "cases": 10,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/fold-type-union.test.ts",
+      "cases": 3,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/parser",
+      "file": "packages/parser/src/__tests__/route-match-oracle.test.ts",
+      "cases": 3,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/surface-ir",
+      "file": "packages/surface-ir/test/surface-ir.test.ts",
+      "cases": 4,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/surface-ir",
+      "file": "packages/surface-ir/test/hash.test.ts",
+      "cases": 16,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/surface-ir",
+      "file": "packages/surface-ir/test/interface-sketch.test.ts",
+      "cases": 9,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/surface-ir",
+      "file": "packages/surface-ir/test/current-spec.test.ts",
+      "cases": 1,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/surface-ir",
+      "file": "packages/surface-ir/test/rpc-contract.test.ts",
+      "cases": 12,
+      "resultSource": "cache"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/schemas",
+      "file": "packages/schemas/scripts/__tests__/roundtrip-lossless.test.ts",
+      "cases": 1,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/schemas",
+      "file": "packages/schemas/scripts/__tests__/upgrade.test.ts",
+      "cases": 22,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/schemas",
+      "file": "packages/schemas/scripts/__tests__/downgrade.test.ts",
+      "cases": 35,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/schemas",
+      "file": "packages/schemas/scripts/__tests__/definition-fixtures.test.ts",
+      "cases": 4,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/tools",
+      "file": "packages/tools/test/package-boundary.test.ts",
+      "cases": 4,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/tools",
+      "file": "packages/tools/test/schema-bridge.test.ts",
+      "cases": 7,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/tools",
+      "file": "packages/tools/test/mcp-2026-07-28.test.ts",
+      "cases": 9,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/tools",
+      "file": "packages/tools/test/chunk-stream-tools.test.ts",
+      "cases": 2,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/tools",
+      "file": "packages/tools/test/tool-engine.test.ts",
+      "cases": 10,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/tools",
+      "file": "packages/tools/test/schema-validation.test.ts",
+      "cases": 6,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/tools",
+      "file": "packages/tools/test/security-boundaries.test.ts",
+      "cases": 7,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/tools",
+      "file": "packages/tools/test/boundary-validation.test.ts",
+      "cases": 22,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/tools",
+      "file": "packages/tools/src/openapi-hydrator-pipeline.test.ts",
+      "cases": 4,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/tools",
+      "file": "packages/tools/test/peer.test.ts",
+      "cases": 7,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/tools",
+      "file": "packages/tools/src/tool-pipeline-regressions.test.ts",
+      "cases": 24,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/challenger-m3.test.ts",
+      "cases": 33,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/e2e/tier1-feature-coverage.test.ts",
+      "cases": 81,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/typespec-authored-bundle.test.ts",
+      "cases": 10,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/diff-cli.test.ts",
+      "cases": 33,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/e2e/tier2-boundary-cases.test.ts",
+      "cases": 81,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/e2e/tier3-interactions.test.ts",
+      "cases": 16,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/adversarial/m2-pipeline-challenger.test.ts",
+      "cases": 15,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/typegen/type-semantics.test.ts",
+      "cases": 19,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/challenger-m3-breaking-diff.test.ts",
+      "cases": 37,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/typegen-incremental.test.ts",
+      "cases": 29,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/tsp-diff.test.ts",
+      "cases": 33,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/drift-check-cli.test.ts",
+      "cases": 11,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/e2e/tier4-real-world.test.ts",
+      "cases": 8,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/root-discovery-cli.test.ts",
+      "cases": 12,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/challenger-m4-subdirectory.test.ts",
+      "cases": 62,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/tsp-diff-git-entry.test.ts",
+      "cases": 24,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/cli-scenarios.test.ts",
+      "cases": 52,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/config-cli.test.ts",
+      "cases": 7,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/schema-approve-typespec-reference.test.ts",
+      "cases": 10,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/pipeline-isolation.test.ts",
+      "cases": 26,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/tsp-diff-adversarial.test.ts",
+      "cases": 18,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/cli-drift.test.ts",
+      "cases": 17,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/e2e-onboarding/tier1-features.test.ts",
+      "cases": 85,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/challenger-m4-guards.test.ts",
+      "cases": 32,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/e2e-onboarding/tier2-boundaries.test.ts",
+      "cases": 40,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/challenger-m5-adversarial-stress.test.ts",
+      "cases": 19,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/tsp-diff-stress.test.ts",
+      "cases": 25,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/plugin/plugin-tanstack-query.test.ts",
+      "cases": 24,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/roundtrip.test.ts",
+      "cases": 9,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/plugin/plugin-client.test.ts",
+      "cases": 25,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/e2e/subdirectory-conformance.test.ts",
+      "cases": 18,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/cli-build-spec.test.ts",
+      "cases": 15,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/typespec-bounded-process.test.ts",
+      "cases": 8,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/cli-review-paths.test.ts",
+      "cases": 5,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/cli.test.ts",
+      "cases": 16,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/cli-ref-projection.test.ts",
+      "cases": 4,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/adversarial/m3-live-mock-hot-reload-challenger.test.ts",
+      "cases": 12,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/typespec-extension-schema-version.test.ts",
+      "cases": 10,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/challenger-m5-adversarial-hardening.test.ts",
+      "cases": 19,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/mock.test.ts",
+      "cases": 20,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/cli-tsp-sidecar.test.ts",
+      "cases": 7,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/public-api.test.ts",
+      "cases": 5,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/typespec-roundtrip-loss-gate.test.ts",
+      "cases": 1,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/cli-openapi-collect.test.ts",
+      "cases": 7,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/cli-review-bundle.test.ts",
+      "cases": 10,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/e2e-onboarding/tier4-scenarios.test.ts",
+      "cases": 5,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/challenger-m2.test.ts",
+      "cases": 31,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/typegen/generate-types.test.ts",
+      "cases": 60,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/plugin/plugin-wire.test.ts",
+      "cases": 12,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/cli/pack-client.test.ts",
+      "cases": 2,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/challenger-m3-adversarial.test.ts",
+      "cases": 21,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/plugin/stress-m1.test.ts",
+      "cases": 17,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/plugin/vite-plugin.test.ts",
+      "cases": 11,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/cli-duplicate-review.test.ts",
+      "cases": 4,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/usability/builder-usability-scenario.test.ts",
+      "cases": 19,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/subprocess-compile-cache.test.ts",
+      "cases": 13,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/plugin/plugin-rpc.test.ts",
+      "cases": 3,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/typegen/compile-check.test.ts",
+      "cases": 3,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/plugin/builder.test.ts",
+      "cases": 12,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/wire-adapter/protobuf-codec-interop.test.ts",
+      "cases": 18,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/typespec-spec-lens.test.ts",
+      "cases": 9,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/cli-target-check.test.ts",
+      "cases": 4,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/zodgen/adversarial-challenger-1.test.ts",
+      "cases": 23,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/plugin/multi-status-error.test.ts",
+      "cases": 5,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/cli/generate-pipeline.test.ts",
+      "cases": 8,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/audit-csp-prefilter.test.ts",
+      "cases": 102,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/e2e-onboarding/tier3-combinations.test.ts",
+      "cases": 21,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/cli/multi-file-spec-companions.test.ts",
+      "cases": 14,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/e2e/proposal-3-4-adversarial.e2e.test.ts",
+      "cases": 11,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/plugin/adversarial-m1.test.ts",
+      "cases": 26,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/typegen/schema-fidelity.test.ts",
+      "cases": 13,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/wire-adapter/rpc-contract-target-adapter.test.ts",
+      "cases": 5,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/plugin/compiler.test.ts",
+      "cases": 9,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/spec-watcher.test.ts",
+      "cases": 21,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/plugin/runner.test.ts",
+      "cases": 21,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/cli/companion-packages.test.ts",
+      "cases": 23,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/wire-adapter/wire-type-names.test.ts",
+      "cases": 2,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/e2e/zod4-generator.e2e.test.ts",
+      "cases": 98,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/cli/commands/__tests__/tsp-codegen-direct.test.ts",
+      "cases": 6,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/crdt-pipeline.test.ts",
+      "cases": 2,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/adversarial-m5.test.ts",
+      "cases": 23,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/standalone-guards/generator.test.ts",
+      "cases": 21,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/init/contract-baseline.test.ts",
+      "cases": 12,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/wire-adapter/typespec-wire-pipeline.test.ts",
+      "cases": 14,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/e2e/cli-expansions.e2e.test.ts",
+      "cases": 62,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/audit-csp/diverse-code-patterns.test.ts",
+      "cases": 10,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/cli-schema-coverage.test.ts",
+      "cases": 57,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/builder-projection-validation.test.ts",
+      "cases": 2,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/plugin/plugin-typescript.test.ts",
+      "cases": 10,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/audit-csp/audit-csp.test.ts",
+      "cases": 15,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/cli/startup-module-graph.test.ts",
+      "cases": 2,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/plugin/adversarial-m4.test.ts",
+      "cases": 30,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/adversarial/r1-r2-stress.test.ts",
+      "cases": 15,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/e2e/standalone-guards.e2e.test.ts",
+      "cases": 27,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/plugin/e2e-contracts.test.ts",
+      "cases": 8,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/traceability/typespec-trace-id-copies.test.ts",
+      "cases": 5,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/cli/generate-companion-packages.test.ts",
+      "cases": 19,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/builder-multi-target.test.ts",
+      "cases": 1,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/cli-parallel-evidence.test.ts",
+      "cases": 1,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/cli/challenger-m3-generate-init.test.ts",
+      "cases": 8,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/builder-users-fragments.test.ts",
+      "cases": 2,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/builder-replacement-dry-run.test.ts",
+      "cases": 1,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/init/companion-packages.test.ts",
+      "cases": 51,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/cli/generate-orphan-pruning.test.ts",
+      "cases": 11,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/builder-health-fragments.test.ts",
+      "cases": 3,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/builder-parity-artifact.test.ts",
+      "cases": 2,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/cli/sketch-command.test.ts",
+      "cases": 10,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/builder-common-fragments.test.ts",
+      "cases": 3,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/audit-csp/docs-syntax-validation.test.ts",
+      "cases": 14,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/cli/generate-tanstack.test.ts",
+      "cases": 16,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/ref-projection-artifact.test.ts",
+      "cases": 16,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/config-loader.test.ts",
+      "cases": 28,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/behavior-recorder.test.ts",
+      "cases": 29,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/audit-csp/adversarial-csp.test.ts",
+      "cases": 20,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/e2e/proposal-integration.e2e.test.ts",
+      "cases": 6,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/cli/init.test.ts",
+      "cases": 23,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/init/retained-config.test.ts",
+      "cases": 8,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/sketch-emitter/sketch-emitter.test.ts",
+      "cases": 6,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/incremental-hash-once.test.ts",
+      "cases": 2,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/standalone-guards/cli.test.ts",
+      "cases": 6,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/init/pnpm-workspace.test.ts",
+      "cases": 15,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/openapi-collect.test.ts",
+      "cases": 18,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/schema-pipeline-e2e.test.ts",
+      "cases": 2,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/e2e/typia-benchmark-docs.e2e.test.ts",
+      "cases": 203,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/builder-incremental-targets.test.ts",
+      "cases": 1,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/output-routing.test.ts",
+      "cases": 51,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/builder-parity-targets.test.ts",
+      "cases": 2,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/workspace-index.test.ts",
+      "cases": 17,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/e2e/zod4-preflight-cli.e2e.test.ts",
+      "cases": 16,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/duplicate-review.test.ts",
+      "cases": 4,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/type-registry.test.ts",
+      "cases": 4,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/drizzle/integration.test.ts",
+      "cases": 10,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/apitomy/index.test.ts",
+      "cases": 14,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/diff-referenced-files.test.ts",
+      "cases": 3,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/zod-to-schema.test.ts",
+      "cases": 90,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/challenger-tier5-config.test.ts",
+      "cases": 325,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/typespec-ref-provenance.test.ts",
+      "cases": 13,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/behavior-projection.test.ts",
+      "cases": 1,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/cli/validate-profile.test.ts",
+      "cases": 7,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/codegen-source-adapters.test.ts",
+      "cases": 6,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/cli/generate-summary.test.ts",
+      "cases": 10,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/traceability/spec-traceability.test.ts",
+      "cases": 14,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/plugin/plugin-router.test.ts",
+      "cases": 10,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/e2e/ast-bidirectional-sync.e2e.test.ts",
+      "cases": 53,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/polymorphic-dispatch.test.ts",
+      "cases": 1,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/bundle-external-refs.test.ts",
+      "cases": 10,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/workspace-index-fallback.test.ts",
+      "cases": 5,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/init/retired-scripts.test.ts",
+      "cases": 8,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/zodgen/schema-to-zod.test.ts",
+      "cases": 51,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/generator.test.ts",
+      "cases": 16,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/source-file-adapters.test.ts",
+      "cases": 4,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/cli/cli-unification.test.ts",
+      "cases": 7,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/init/oa-sdk-packages.test.ts",
+      "cases": 17,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/target-coverage.test.ts",
+      "cases": 4,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/cli/cli-runner.test.ts",
+      "cases": 2,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/zodgen/generate-zod-preflight.test.ts",
+      "cases": 25,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/drizzle/converter.test.ts",
+      "cases": 14,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/openapi-governance-scaffold.test.ts",
+      "cases": 11,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/type-registry-extractor.test.ts",
+      "cases": 3,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/behavior-query-metrics.test.ts",
+      "cases": 1,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/audit-csp/typespec-patterns-and-video-transitions-proof.test.ts",
+      "cases": 12,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/ast-sync/typia-adapter.stress.test.ts",
+      "cases": 16,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/config-schema.test.ts",
+      "cases": 44,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/ast-sync/typia-adapter.test.ts",
+      "cases": 13,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/ast-sync/type-sync.test.ts",
+      "cases": 5,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/typegen/typespec-graph-semantic.test.ts",
+      "cases": 8,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/openapi-inventory.test.ts",
+      "cases": 3,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/typespec-roundtrip-report.test.ts",
+      "cases": 7,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/cli/audit-shape.test.ts",
+      "cases": 7,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/zod-edge-cases.test.ts",
+      "cases": 30,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/ast-sync/zod-adapter.test.ts",
+      "cases": 3,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/builder-index.test.ts",
+      "cases": 4,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/type-registry-canonical-ir.test.ts",
+      "cases": 3,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/ast-sync/ast-sync-integration.test.ts",
+      "cases": 4,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/review-bundle.test.ts",
+      "cases": 5,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/typespec-sidecar.test.ts",
+      "cases": 7,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/parallel-evidence.test.ts",
+      "cases": 3,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/init/targets.test.ts",
+      "cases": 19,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/typespec-sidecar-to-extensions.test.ts",
+      "cases": 7,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/runtime-openapi-fetch.test.ts",
+      "cases": 2,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/init/schema-detector.test.ts",
+      "cases": 6,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/openapi-source-fragments.test.ts",
+      "cases": 3,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/openapi-breaking-diff.test.ts",
+      "cases": 2,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/init/composition.test.ts",
+      "cases": 24,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/init/archetypes.test.ts",
+      "cases": 30,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/zodgen/runtime-adapter.test.ts",
+      "cases": 12,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/cli/lint-categories.test.ts",
+      "cases": 11,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/ast-sync/ts-ast-adapter.test.ts",
+      "cases": 3,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/init/script-invocations.test.ts",
+      "cases": 64,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/typegen/conversion-coverage.test.ts",
+      "cases": 86,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/schema-hashing.test.ts",
+      "cases": 27,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/tsp-export.test.ts",
+      "cases": 10,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/plugin/context.test.ts",
+      "cases": 17,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/typegen/schema-to-ts.test.ts",
+      "cases": 50,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/cli/companion-install-guidance.test.ts",
+      "cases": 11,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/schema-governance-boundary.test.ts",
+      "cases": 3,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/cli/commands/__tests__/surface.test.ts",
+      "cases": 1,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/typegen/annotations.test.ts",
+      "cases": 10,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/plugin/sorter.test.ts",
+      "cases": 15,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/e2e-routing.test.ts",
+      "cases": 3,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/init/package-patcher.test.ts",
+      "cases": 10,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/typegen/schema-to-ts-stage1.test.ts",
+      "cases": 8,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/public-package-boundary.test.ts",
+      "cases": 3,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/drizzle/naming.test.ts",
+      "cases": 20,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/cli/built-against-versions.test.ts",
+      "cases": 3,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/contract-version-policy.test.ts",
+      "cases": 5,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/ast-sync/text-edit.test.ts",
+      "cases": 9,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/test/ast-sync/diff-engine.test.ts",
+      "cases": 4,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/cli/commands/__tests__/tsp-scaffold.test.ts",
+      "cases": 7,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/drizzle/extractor.test.ts",
+      "cases": 9,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/artifact-compatibility-policy.test.ts",
+      "cases": 1,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/codegen",
+      "file": "packages/codegen/src/__tests__/typegen/schema-fidelity-public-api.test.ts",
+      "cases": 1,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/spec-lens",
+      "file": "packages/spec-lens/src/__tests__/cli-config.test.ts",
+      "cases": 8,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/spec-lens",
+      "file": "packages/spec-lens/src/__tests__/cache/sqlite-tsconfig-invalidation.test.ts",
+      "cases": 12,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/spec-lens",
+      "file": "packages/spec-lens/src/__tests__/refresh-timeline.test.ts",
+      "cases": 6,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/spec-lens",
+      "file": "packages/spec-lens/src/__tests__/source-read-budget.test.ts",
+      "cases": 3,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/spec-lens",
+      "file": "packages/spec-lens/src/__tests__/file-diff-adapter.test.ts",
+      "cases": 7,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/spec-lens",
+      "file": "packages/spec-lens/src/__tests__/typespec-bundle-snapshot-builder.test.ts",
+      "cases": 3,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/spec-lens",
+      "file": "packages/spec-lens/src/__tests__/sqlite-cache.test.ts",
+      "cases": 33,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/spec-lens",
+      "file": "packages/spec-lens/src/__tests__/github-api-source-read-budget.test.ts",
+      "cases": 12,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/spec-lens",
+      "file": "packages/spec-lens/src/__tests__/gitlab-source-budget.test.ts",
+      "cases": 8,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/spec-lens",
+      "file": "packages/spec-lens/src/__tests__/scenario-cli.test.ts",
+      "cases": 9,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/spec-lens",
+      "file": "packages/spec-lens/src/__tests__/query-handlers.test.ts",
+      "cases": 18,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/spec-lens",
+      "file": "packages/spec-lens/src/__tests__/revision-pagination.test.ts",
+      "cases": 12,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/spec-lens",
+      "file": "packages/spec-lens/src/__tests__/cache-key.test.ts",
+      "cases": 18,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/spec-lens",
+      "file": "packages/spec-lens/src/__tests__/snapshot-builder-diff.test.ts",
+      "cases": 9,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/spec-lens",
+      "file": "packages/spec-lens/src/__tests__/get-graph-query.test.ts",
+      "cases": 8,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/spec-lens",
+      "file": "packages/spec-lens/src/__tests__/local-git-adapter.test.ts",
+      "cases": 14,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/peer-transport",
+      "file": "packages/peer-transport/test/bridge-protocol.test.ts",
+      "cases": 12,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/peer-transport",
+      "file": "packages/peer-transport/test/cloud-transit-client.test.ts",
+      "cases": 9,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/peer-transport",
+      "file": "packages/peer-transport/test/peer-transport.test.ts",
+      "cases": 12,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/peer-transport",
+      "file": "packages/peer-transport/test/relay-protocol.test.ts",
+      "cases": 13,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/peer-transport",
+      "file": "packages/peer-transport/test/websocket-adapter.test.ts",
+      "cases": 9,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/chunk-stream",
+      "file": "packages/chunk-stream/test/chunk-stream.test.ts",
+      "cases": 15,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/peer-server",
+      "file": "packages/peer-server/test/signaling-room-session.test.ts",
+      "cases": 18,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/peer-server",
+      "file": "packages/peer-server/test/room-store.test.ts",
+      "cases": 8,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/peer-server",
+      "file": "packages/peer-server/test/peer-server.test.ts",
+      "cases": 7,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/peer-server",
+      "file": "packages/peer-server/test/relay-and-cloud-transit.test.ts",
+      "cases": 7,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/peer-server",
+      "file": "packages/peer-server/test/request-boundaries.test.ts",
+      "cases": 9,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/peer-server",
+      "file": "packages/peer-server/test/transit-access.test.ts",
+      "cases": 10,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/peer-server",
+      "file": "packages/peer-server/test/e2e-relay-lifecycle.test.ts",
+      "cases": 5,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/peer-server",
+      "file": "packages/peer-server/test/relay-server-hardening.test.ts",
+      "cases": 10,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/chunk-stream-ui",
+      "file": "packages/chunk-stream-ui/test/ui.test.ts",
+      "cases": 11,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/chunk-stream-crdt",
+      "file": "packages/chunk-stream-crdt/test/crdt.test.ts",
+      "cases": 7,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/chunk-stream-timeseries",
+      "file": "packages/chunk-stream-timeseries/test/timeseries.test.ts",
+      "cases": 5,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/telemetry",
+      "file": "packages/telemetry/test/grammar.test.ts",
+      "cases": 5,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/telemetry",
+      "file": "packages/telemetry/test/registry.test.ts",
+      "cases": 4,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/telemetry",
+      "file": "packages/telemetry/test/envelope.test.ts",
+      "cases": 5,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/telemetry",
+      "file": "packages/telemetry/test/dpm-adapter.test.ts",
+      "cases": 26,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/telemetry",
+      "file": "packages/telemetry/test/dispatcher.test.ts",
+      "cases": 19,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/telemetry",
+      "file": "packages/telemetry/test/hmac-sha256.test.ts",
+      "cases": 3,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/telemetry",
+      "file": "packages/telemetry/test/xstate-inspector.test.ts",
+      "cases": 37,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/collab-workspace",
+      "file": "packages/collab-workspace/test/collab-workspace.test.ts",
+      "cases": 9,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/chunk-stream-react",
+      "file": "packages/chunk-stream-react/test/react.test.ts",
+      "cases": 6,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/client",
+      "file": "packages/client/src/__tests__/tanstack-query-stress.test.ts",
+      "cases": 12,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/client",
+      "file": "packages/client/src/__tests__/sse-client.test.ts",
+      "cases": 14,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/client",
+      "file": "packages/client/src/__tests__/resilient-chunk-reader.test.ts",
+      "cases": 11,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/client",
+      "file": "packages/client/src/__tests__/client-convention-usability.test.ts",
+      "cases": 10,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/client",
+      "file": "packages/client/src/__tests__/tanstack-infinite-adversarial.test.ts",
+      "cases": 33,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/client",
+      "file": "packages/client/src/__tests__/messagepack-codec-hardening.test.ts",
+      "cases": 25,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/client",
+      "file": "packages/client/src/__tests__/runtime-schema.test.ts",
+      "cases": 2,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/client",
+      "file": "packages/client/src/__tests__/crdt-client.test.ts",
+      "cases": 8,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/client",
+      "file": "packages/client/src/__tests__/client-edge-cases.test.ts",
+      "cases": 9,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/client",
+      "file": "packages/client/src/__tests__/generate-client.test.ts",
+      "cases": 51,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/client",
+      "file": "packages/client/src/__tests__/e2e-tanstack.test.ts",
+      "cases": 5,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/client",
+      "file": "packages/client/src/__tests__/tanstack-query.test.ts",
+      "cases": 26,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/client",
+      "file": "packages/client/src/__tests__/challenger-signal-stress.test.ts",
+      "cases": 19,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/client",
+      "file": "packages/client/src/__tests__/tanstack-stress.test.ts",
+      "cases": 11,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/client",
+      "file": "packages/client/src/__tests__/binary-codec-adapters.test.ts",
+      "cases": 15,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/client",
+      "file": "packages/client/src/__tests__/client-signal-infinite.test.ts",
+      "cases": 26,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/unit/built-cli-freshness.test.ts",
+      "cases": 18,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/unit/entry-points.test.ts",
+      "cases": 4,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/integration/adapter-integrity.test.ts",
+      "cases": 11,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/unit/network-chaos.test.ts",
+      "cases": 10,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/integration/edge-cases.test.ts",
+      "cases": 14,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/integration/node-http.test.ts",
+      "cases": 34,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/integration/override.test.ts",
+      "cases": 7,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/integration/stateful-plugin.test.ts",
+      "cases": 4,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/integration/route-filter.test.ts",
+      "cases": 22,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/integration/framework.test.ts",
+      "cases": 35,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/integration/cli-multi-file.test.ts",
+      "cases": 1,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/integration/webhook-callback-loop.test.ts",
+      "cases": 1,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/integration/streaming-e2e.test.ts",
+      "cases": 11,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/integration/stress.test.ts",
+      "cases": 11,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/oas32/spec-mediatype.test.ts",
+      "cases": 9,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/unit/cli.test.ts",
+      "cases": 13,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/integration/msw.test.ts",
+      "cases": 24,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/integration/auth-contract.test.ts",
+      "cases": 6,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/unit/route-responses.test.ts",
+      "cases": 46,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/unit/validator-body.test.ts",
+      "cases": 22,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/unit/validator-params.test.ts",
+      "cases": 36,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/integration/response-bytes.test.ts",
+      "cases": 26,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/unit/callbacks.test.ts",
+      "cases": 5,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/unit/handler.test.ts",
+      "cases": 8,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/unit/stream.test.ts",
+      "cases": 53,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/unit/classifier.test.ts",
+      "cases": 29,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/oas32/spec-schema.test.ts",
+      "cases": 19,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/unit/picker-minimal.test.ts",
+      "cases": 29,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/oas32/spec-parameters.test.ts",
+      "cases": 15,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/unit/picker-streaming.test.ts",
+      "cases": 16,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/oas32/spec-examples.test.ts",
+      "cases": 16,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/integration/msw-override.test.ts",
+      "cases": 6,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/unit/route-filter.test.ts",
+      "cases": 19,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/unit/security.test.ts",
+      "cases": 45,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/unit/picker-body.test.ts",
+      "cases": 16,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/oas32/spec-responses.test.ts",
+      "cases": 18,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/unit/preflight.test.ts",
+      "cases": 5,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/unit/deref.test.ts",
+      "cases": 12,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/unit/pipeline.test.ts",
+      "cases": 13,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/unit/generate.test.ts",
+      "cases": 46,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/unit/xml.test.ts",
+      "cases": 5,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/unit/testing.test.ts",
+      "cases": 8,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/unit/schema-loader.test.ts",
+      "cases": 18,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/unit/fold.test.ts",
+      "cases": 32,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/unit/error-redaction.test.ts",
+      "cases": 2,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mock-server",
+      "file": "packages/mock-server/src/__tests__/unit/picker-status.test.ts",
+      "cases": 15,
+      "resultSource": "cache"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/router",
+      "file": "packages/router/src/__tests__/handler-contract.test.ts",
+      "cases": 7,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/router",
+      "file": "packages/router/src/__tests__/crdt-contract.test.ts",
+      "cases": 4,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/router",
+      "file": "packages/router/src/__tests__/binary-body-stub.test.ts",
+      "cases": 3,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/router",
+      "file": "packages/router/src/__tests__/streaming-contract.test.ts",
+      "cases": 6,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/router",
+      "file": "packages/router/src/__tests__/fastify-target.test.ts",
+      "cases": 4,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/router",
+      "file": "packages/router/src/__tests__/elysia-target.test.ts",
+      "cases": 4,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/router",
+      "file": "packages/router/src/__tests__/demuxer.test.ts",
+      "cases": 8,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/server-approval-lease.test.ts",
+      "cases": 21,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/router",
+      "file": "packages/router/src/__tests__/r1-r2-r6-defenses.test.ts",
+      "cases": 8,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/router",
+      "file": "packages/router/src/__tests__/handler-contract-context.test.ts",
+      "cases": 9,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/router",
+      "file": "packages/router/src/__tests__/accept-negotiation.test.ts",
+      "cases": 10,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/router",
+      "file": "packages/router/src/__tests__/router-binary-codec.test.ts",
+      "cases": 9,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/client-busy-retry.test.ts",
+      "cases": 13,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/router",
+      "file": "packages/router/src/__tests__/hono-null-body-status.test.ts",
+      "cases": 4,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/router",
+      "file": "packages/router/src/__tests__/generate-router.test.ts",
+      "cases": 41,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/router",
+      "file": "packages/router/src/__tests__/router-edge-cases.test.ts",
+      "cases": 7,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/router",
+      "file": "packages/router/src/__tests__/streaming-real-frameworks.test.ts",
+      "cases": 8,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/live-demo.e2e.test.ts",
+      "cases": 21,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/router",
+      "file": "packages/router/src/__tests__/tanstack-query-parity.test.ts",
+      "cases": 2,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/server-upgrade.test.ts",
+      "cases": 20,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/server-mcp-routing.test.ts",
+      "cases": 21,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/server-pending-settlement.test.ts",
+      "cases": 14,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/server-http-security.test.ts",
+      "cases": 28,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/provider-approval-state.test.ts",
+      "cases": 14,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/server-provider-reattach.test.ts",
+      "cases": 14,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/client-pending-limit.test.ts",
+      "cases": 19,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/server-publish-rate-limit.test.ts",
+      "cases": 9,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/relay-message-limit.test.ts",
+      "cases": 56,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/server-room-lifecycle.test.ts",
+      "cases": 19,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/router",
+      "file": "packages/router/src/__tests__/challenger-tier5-context.test.ts",
+      "cases": 29,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/client-session.test.ts",
+      "cases": 110,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/server-error-model.test.ts",
+      "cases": 11,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/server-byte-order-mark.test.ts",
+      "cases": 4,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/server-signaling-frames.test.ts",
+      "cases": 13,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/client-request-limit.test.ts",
+      "cases": 16,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/provider-data-channel.test.ts",
+      "cases": 16,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/mcp-http-interop.test.ts",
+      "cases": 20,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/provider-register-limit.test.ts",
+      "cases": 23,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/protocol-spec.test.ts",
+      "cases": 11,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/server-http-body.test.ts",
+      "cases": 11,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/provider-tool-call.test.ts",
+      "cases": 61,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/catalog-contract.test.ts",
+      "cases": 9,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/client-config.test.ts",
+      "cases": 17,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/webmcp-peer.test.ts",
+      "cases": 5,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/server-catalog-hash.test.ts",
+      "cases": 4,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/server-durable-ledger.test.ts",
+      "cases": 7,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/server-config-optin.test.ts",
+      "cases": 8,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/provider-reconnect.test.ts",
+      "cases": 44,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/client-catalog-hash.test.ts",
+      "cases": 6,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/router",
+      "file": "packages/router/src/__tests__/challenger-m1-empirical-stress.test.ts",
+      "cases": 35,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/server-ws-frames.test.ts",
+      "cases": 178,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/router",
+      "file": "packages/router/src/__tests__/adversarial-stress.test.ts",
+      "cases": 11,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/server-register-evaluation.test.ts",
+      "cases": 5,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mcp-mesh",
+      "file": "packages/mcp-mesh/test/mcp-mesh.test.ts",
+      "cases": 6,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mcp-mesh",
+      "file": "packages/mcp-mesh/test/peer-allow-list.test.ts",
+      "cases": 3,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mcp-mesh",
+      "file": "packages/mcp-mesh/test/cli.test.ts",
+      "cases": 7,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/mcp-mesh",
+      "file": "packages/mcp-mesh/test/peer-cli.test.ts",
+      "cases": 1,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/webmcp-peer",
+      "file": "packages/webmcp-peer/test/relay-backpressure.test.ts",
+      "cases": 16,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/rpc",
+      "file": "packages/rpc/test/wire-hardening.test.ts",
+      "cases": 26,
+      "resultSource": "executed"
+    },
+    {
+      "track": "downstream",
+      "package": "@oa-sdk/rpc",
+      "file": "packages/rpc/test/rpc.test.ts",
+      "cases": 30,
+      "resultSource": "executed"
+    },
+    {
+      "track": "core",
+      "package": "@oa-sdk/spec-lens",
+      "file": "packages/spec-lens/src/__tests__/gitlab-adapter.integration.test.ts",
+      "cases": 0,
+      "failed": 0,
+      "skipped": 4,
+      "resultSource": "executed"
+    }
+  ],
+  "schemaVersion": 1,
+  "kind": "test-run",
+  "runId": "core-downstream-20261026-historical",
+  "recordedAt": "2026-10-26",
+  "sourceBinding": "unrecorded",
+  "sourceHashes": {},
+  "failed": 0
+}

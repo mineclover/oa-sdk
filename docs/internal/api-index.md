@@ -1728,6 +1728,19 @@ EntitySpec IR과 소스 코드의 동기화, 타입 어댑터, shape 분류 및 
 | `ToolAppConfig`, `ToolApp`, `createToolApp`, `createApp` | `tools/src/app.ts` | 도구 registry와 adapter lifecycle을 묶는 앱 |
 | `WebMcpPeerRecord`, `WebMcpPeerStatus`, `WebMcpPeerConfig`, `WebMcpPeerAppOptions`, `WebMcpPeerBridgeClient`, `createWebMcpPeerApp` | `tools/src/peer.ts` | WebMCP peer 연결 계약, bridge 상태 문서와 bridge client |
 | `ChunkStreamToolsOptions`, `createChunkStreamTools`, `registerChunkStreamTools` | `tools/src/chunk-stream.ts` | chunk-stream 도구 생성과 앱 등록 |
+| `toStandardSchemaWithJson`, `StandardSchemaWithJson`, `StandardSchemaV1Props`, `StandardSchemaIssue`, `StandardSchemaResult`, `StandardJsonSchemaOptions` | `tools/src/standard-schema.ts` | 원본 parser의 검증·변환 출력을 보존하는 Standard Schema/JSON Schema bridge. 선택 guard는 parse 결과에 추가 적용 |
+| `hydrateToolsFromOpenApi`, `HydrateToolsOptions`, `HydratedOpenApiBundle`, `HydratedToolDefinition`, `HydratedToolMeta`, `HydratedCliFlagMeta`, `HydratedPositionalArgMeta` | `tools/src/openapi-hydrator.ts` | OpenAPI tool metadata를 handler·CLI·MCP 실행 계약으로 연결. 확인 필수 모델은 명시적 confirm 또는 긍정 elicitation을 요구 |
+| `createCliAnythingProgram`, `runCliAnythingArgv`, `CliAnythingProgramOptions`, `CliAnythingExecutionResult` | `tools/src/cli-anything.ts` | hydrated tool을 Commander 명령으로 노출하고 실행 결과 수집 |
+| `registerToolsOnMcpUse`, `RegisterMcpUseOptions`, `RegisteredMcpUseSurface`, `McpUseLikeServer`, `McpUseCallToolResponse`, `McpUseToolCallback`, `McpUseToolRegistrationDefinition` | `tools/src/mcp-use.ts` | 호환 MCP host에 schema·callback·reserved interface 등록 |
+| `buildMcpUseSkillsSnapshot`, `Sep2640SkillEntry`, `Sep2640SkillFileEntry`, `Sep2640SkillsSnapshot` | `tools/src/mcp-use.ts` | skill 디렉터리의 SEP-2640 snapshot 구성 |
+| `CommandOutcome`, `isCommandOutcome`, `normalizeCommandOutcome`, `canonicalJsonStringify`, `computeCanonicalSha256` | `tools/src/reserved-interfaces.ts` | 공유 실행 결과와 canonical fingerprint |
+| `AnyPipelineToolHandler`, `SinglePhaseToolHandler`, `TwoPhaseMutationHandler`, `ElicitationContext`, `isTwoPhaseMutationHandler` | `tools/src/reserved-interfaces.ts` | 단일 실행 및 plan/commit·확인 handler 계약 |
+| `FileSessionStore`, `ProjectSessionRecord`, `SessionSnapshotEntry`, `SessionMutationInput`, `SessionStateRestorer` | `tools/src/reserved-interfaces.ts` | 프로젝트 ID hash와 저장 identity 검사로 분리한 session/undo/redo. commitMutation은 commit·snapshot을 한 파일 잠금에서 직렬화하고, MCP/CLI undo·redo는 복원 콜백 성공 뒤에만 이력을 이동한다 |
+| `PreviewBundleStore`, `PreviewBundleV1`, `PreviewArtifactEntry`, `HandoffEnvelopeStore`, `HandoffEnvelopeV1` | `tools/src/reserved-interfaces.ts` | preview bundle과 단계 간 handoff envelope 저장 계약 |
+| `generateHarnessManualFromSpec`, `generateSkillMarkdownFromSpec` | `tools/src/openapi-hydrator.ts` | hydrated metadata로 harness manual과 skill Markdown 생성 |
+| `createUnifiedTableIR`, `computeTableIrFingerprint`, `planTableIrPatch`, `renderTableIrToMarkdown`, `UnifiedTableIR`, `UnifiedTableCell`, `UnifiedTableColumnMeta`, `TablePatchOperation`, `TablePatchPlan`, `DocumentTableAdapterKind`, `VALID_DOCUMENT_TABLE_ADAPTER_KINDS` | `tools/src/table-ir.ts` | 통합 table IR·fingerprint·patch 계획과 Markdown 표현 |
+| `createTableApplyTwoPhaseHandler` | `tools/src/table-ir.ts` | 표 patch의 plan/commit handler 구성 |
+| `readTableFromFile`, `writeTableToFile`, `inferAdapterKindFromPath`, `readZipBuffer`, `createZipBuffer` | `tools/src/table-file-io.ts` | 로컬 table 파일 변환. 임의 문서·외부 제품 상호운용 보장은 별도 검증 필요 |
 
 ---
 
@@ -1941,6 +1954,15 @@ project identity, snapshot builder, source adapter, SQLite cache와 CQRS query h
 
 OpenAPI component, persona, DPM 및 CRDT 메타데이터를 TypeSpec에서 선언한다.
 
+Tool pipeline 확장은 실행 표면의 metadata를 선언한다. 실제 확인·잠금·snapshot 보장은 이를 소비하는 runtime에서 수행한다.
+
+| Export | 정의 | 용도 |
+|---|---|---|
+| `$oaTool`, `$toolGroup`, `$cliFlag`, `$positional`, `$mcpSurface`, `$reservedMcpInterfaces`, `$tableAdapter` | `typespec-decorators/src/tool-pipeline.ts` | 도구·CLI flag·위치 인자·MCP 표면·reserved interface·table adapter metadata 선언 |
+| `$pipelineInspect`, `$pipelinePlan`, `$pipelineApply`, `$pipelineVerify`, `$pipelineHandoff`, `$pipelineDestructive` | `typespec-decorators/src/tool-pipeline.ts` | 단계별 execution/lock/snapshot/confirmation preset 적용 |
+| `TOOL_EXTENSION`, `TOOL_GROUP_EXTENSION`, `CLI_FLAG_EXTENSION`, `POSITIONAL_EXTENSION`, `MCP_SURFACE_EXTENSION`, `RESERVED_MCP_INTERFACES_EXTENSION`, `TABLE_ADAPTER_EXTENSION` | `typespec-decorators/src/constants.ts` | OpenAPI extension key |
+| `PIPELINE_STAGE_PRESETS`, `VALID_PIPELINE_STAGES`, `VALID_EXECUTION_MODELS`, `VALID_SESSION_LOCKS`, `VALID_MCP_VISIBILITIES`, `VALID_RESERVED_MCP_INTERFACES`, `VALID_TABLE_ADAPTER_KINDS`, `VALID_TOOL_IDENTIFIER_PATTERN` | `typespec-decorators/src/constants.ts` | tool metadata 검증과 단계별 preset의 허용값 |
+
 | Export | 정의 | 용도 |
 |---|---|---|
 | `namespace` | `typespec-decorators/src/decorators.ts` | TypeSpec decorator namespace |
@@ -2017,6 +2039,39 @@ Surface IR RPC contract를 소비해 typed procedure client/server, JSON-RPC 2.0
 | `createRpcClient`, `createRpcCaller`, `createLocalTransport`, `RpcCaller`, `RpcClientOptions` | `rpc/src/client.ts` | 중첩 client, 이름 기반 caller, 같은 프로세스 transport |
 | `createHttpTransport`, `createRestFetchHandler`, `errorFromHttpResponse`, `HttpTransportOptions`, `RestFetchHandlerOptions`, `RpcFetchHandler` | `rpc/src/http.ts` | OpenAPI style/explode 직렬화로 원래 REST route를 호출·제공하는 binding |
 | `handleJsonRpc`, `createJsonRpcFetchHandler`, `createJsonRpcTransport`, `toJsonRpcError`, `fromJsonRpcError`, `JsonRpcId`, `JsonRpcRequest`, `JsonRpcResponse`, `JsonRpcErrorObject`, `JsonRpcHandleOptions`, `JsonRpcFetchHandlerOptions`, `JsonRpcTransportOptions` | `rpc/src/json-rpc.ts` | JSON-RPC 2.0 message 처리(batch·notification), HTTP endpoint와 transport |
+
+---
+
+## 팝업 브리지 (`@oa-sdk/popup-bridge`)
+
+별도 Origin에 배포된 팝업을 여는 Origin 검증 핸드셰이크, `MessageChannel` 위의 대칭 JSON-RPC, 계약 기반 타입 선언과 RPC 생성 유틸리티를 제공한다. Host SDK는 `./host`, Popup 런타임은 `./popup`, 테스트 더블은 `./testing` 하위 경로이며 이 색인은 package root를 다룬다. 사용법은 [팝업 브리지 사용 가이드](../guides/popup-bridge.md).
+
+| Export | 정의 | 용도 |
+|---|---|---|
+| `BridgeError`, `BridgeErrorCode`, `BridgeErrorOptions`, `WireError`, `isBridgeError`, `toBridgeError`, `fromWireError` | `popup-bridge/src/protocol/errors.ts` | 문자열 코드를 가진 브리지 오류와 JSON-RPC `error` 변환(`toWire`/`fromWireError`). 예상 밖 오류는 `INTERNAL`로 은닉 |
+| `PROTOCOL_VERSION`, `parseVersion`, `compareVersions`, `satisfies`, `negotiateProtocol` | `popup-bridge/src/protocol/version.ts` | 프로토콜 `major.minor` 협상과 capability 버전 범위(`*`, 정확값, `^`, `~`, `>=`) 판정 |
+| `SESSION_PARAM`, `attachSession`, `readSession`, `createId`, `isBridgeMessage`, `parseBridgeMessage`, `BridgeMessage`, `HelloMessage`, `ConnectMessage`, `RejectMessage`, `ReadyMessage`, `InitFailedMessage`, `CloseMessage`, `CloseReason`, `Capability` | `popup-bridge/src/protocol/messages.ts` | HELLO/CONNECT/READY 등 부트스트랩·제어 메시지와 신뢰할 수 없는 입력의 엄격한 파서, 세션 ID fragment 전달 |
+| `FEATURE_EVENTS_REPLAY`, `FEATURE_EVENTS_COALESCE`, `DEFAULT_FEATURES`, `MAX_FEATURES`, `NO_FEATURES`, `FeatureSet`, `createFeatureSet`, `isFeatureId`, `assertFeatureIds`, `normalizeFeatures`, `negotiateFeatures` | `popup-bridge/src/protocol/features.ts` | 선택 프로토콜 기능 협상: HELLO·CONNECT·READY가 싣는 `features`의 교집합만 사용해 기능을 모르는 상대와 호환. 개발자 옵션은 엄격히(`assertFeatureIds`), 신뢰할 수 없는 입력은 관대하게 읽고(`normalizeFeatures`, 64개 상한, 앞쪽 일부만 훑어 희소 배열로 지연시킬 수 없음) 불변 집합으로 노출 |
+| `REPLAY_METHOD`, `ReplayEntry` | `popup-bridge/src/events/replay.ts` | 이벤트별 유한 재전송 버퍼(`event({ replay })`)와 `bridge.replay` 요청·응답 규격. 놓친 구간을 스냅샷 대신 다시 받고, 버퍼가 덮지 못하면 `gap`으로 알림. 응답은 엄격히 검증 |
+| `CoalescePolicy`, `CoalesceReducer`, `ErasedCoalescePolicy` | `popup-bridge/src/events/coalesce.ts` | 고빈도 이벤트를 창(`windowMs`) 안에서 합치는 선언(`latest` 또는 순수 리듀서, `leading`). 리듀서는 페이로드 타입과 엄격히 비교하고, 계약에는 소거된 형태로 저장 |
+| `createBackoff`, `backoffDelay`, `resolveBackoff`, `Backoff`, `BackoffOptions`, `ResolvedBackoff`, `RetryEvent`, `RetryPhase`, `RetryTarget` | `popup-bridge/src/backoff.ts` | 지터가 있는 유한 지수 백오프 산식(타이머·난수는 호출자가 `Clock`으로 주입). HELLO 재전송과 호스트 재구독이 쓰며 지연은 32비트 타이머 한도 이하로 검증 |
+| `SecurityEvent`, `SecurityListener` | `popup-bridge/src/protocol/security.ts` | Origin·Source·세션 불일치, 무권한 호출을 알리는 보안 이벤트 |
+| `Schema`, `SchemaLike`, `ValidationIssue`, `runSchema` | `popup-bridge/src/contract/schema.ts` | 검증기 중립 스키마(`parse` 객체 또는 함수)와 오류 코드로의 변환(Zod issues 수집) |
+| `defineContract`, `method`, `event`, `assertName`, `RESERVED_PREFIX`, `BridgeContract`, `AnyContract`, `ContractInput`, `MethodSpec`, `AnyMethodSpec`, `MethodMap`, `MethodOptions`, `EventSpec`, `AnyEventSpec`, `EventMap`, `EventName`, `EventOptions`, `ParamsShape`, `CallOptions`, `CallArgs`, `MethodCaller`, `MethodName`, `MethodHandler`, `Handlers`, `HandlerContext`, `HandlerResult`, `InitOf`, `InputOf`, `OutputOf`, `PayloadOf`, `RpcApi` | `popup-bridge/src/contract/define.ts` | 타입 선언 규약: 계약 선언, 이름 규칙 검증, 선언에서 파생되는 호출·핸들러·중첩 클라이언트 타입 |
+| `definePopup`, `PopupDefinition`, `CapabilityRequirement`, `DefinePopupOptions` | `popup-bridge/src/contract/definition.ts` | URL·expectedOrigin·프로토콜 버전·필수 capability를 가진 Host용 팝업 정의(계약에서 파생) |
+| `HandlerRegistry`, `FeatureRegistration` | `popup-bridge/src/contract/registry.ts` | 핸들러를 이름 기준으로 등록하고 `resolve`·`capabilities()`·`missing()`을 제공하는 레지스트리 |
+| `createMethodCaller`, `createRpcApi`, `describeContract`, `MethodCallerOptions`, `RpcInvoke`, `ContractManifest` | `popup-bridge/src/contract/client.ts` | RPC 생성 유틸리티: 입출력 검증 caller, 점 경로 중첩 클라이언트, 직렬화 가능한 계약 매니페스트 |
+| `RpcChannel`, `fromMessagePort`, `createMemoryChannelPair` | `popup-bridge/src/rpc/channel.ts` | 엔드포인트 아래의 전송 추상화와 `MessagePort`·in-memory 구현 |
+| `createRpcEndpoint`, `CANCEL_METHOD`, `RpcEndpoint`, `RpcEndpointOptions`, `RpcRegistration`, `RpcId`, `GuardInfo`, `EndpointLimits`, `LimitEvent` | `popup-bridge/src/rpc/endpoint.ts` | 양방향 대칭 JSON-RPC 2.0 엔드포인트: 타임아웃, `bridge.cancel`, 멱등성 키, guard 훅, 동시 처리·알림 속도 한도(`OVERLOADED`), 복제 불가 값(`NOT_CLONEABLE`) |
+| `withTransfer`, `isTransferred`, `isDataCloneError`, `Transferred` | `popup-bridge/src/rpc/transfer.ts` | `ArrayBuffer` 등을 복사 없이 넘기는 Transferable 지원(핸들러 결과 표시, `DataCloneError` 판별) |
+| `IdempotencyStore` | `popup-bridge/src/rpc/idempotency.ts` | 키 기반 한 번 실행 저장소(성공만 보관, 진행 중 합류, params 불일치 거부) |
+| `browserHostEnvironment`, `browserPopupEnvironment`, `HostEnvironment`, `PopupEnvironment`, `PeerHandle`, `IncomingWindowMessage`, `OpenWindowOptions`, `Clock`, `systemClock` | `popup-bridge/src/env.ts` | 창 접근 어댑터. iframe·확장·데스크톱 셸은 이 인터페이스만 구현해 재사용. `Clock`은 시간·타이머·난수의 주입 지점(테스트는 수동 시계) |
+| `createBridgeNode`, `TOPOLOGY_METHOD`, `BridgeNode`, `BridgeNodeOptions`, `NodeSnapshot`, `TopologyNode`, `TopologyLink`, `TraceEvent` | `popup-bridge/src/node/node.ts` | 페이지 하나의 정체성: 주의 정책·공유 상태·점검 스트림을 이웃 링크 전체와 공유하고, 이웃 트리(`topology`, 기본 비공개)와 직렬화 가능한 스냅샷(`inspect`)·`onTrace`를 제공. 팝업이면서 다른 팝업의 Host인 페이지가 노드 하나를 양쪽에 넘긴다 |
+| `PeerLink`, `PeerAttention`, `LinkRole`, `AttentionRequestOptions`, `AttentionWaitOptions` | `popup-bridge/src/node/link.ts` | Host→팝업과 팝업→Host를 같은 표면으로 다루는 링크(`role`, `peerOrigin`, `status`, `attention`, `replicate`, `call`)와 주의 요청 클라이언트(`request`, `requestAndWait`, 제스처를 유지하는 직접 `focus`, `onAcknowledge`) |
+| `createAttentionManager`, `AttentionManager`, `AttentionOptions`, `AttentionSource`, `browserAttentionSurface`, `AttentionSurface` | `popup-bridge/src/attention/` | 주의 요청을 받는 쪽 정책: 허용 효과·링크별 거부·효과 간 최소 간격·분당 한도, 페이지 상태(앞/보임/숨김)에 따른 `focus`·`blink`·`notification`·`toast` 선택, 돌아오면 점멸 중지와 확인(ack). 브라우저 구현은 탭 제목·파비콘·Notification API |
+| `AttentionRequest`, `AttentionResult`, `AttentionEffect`, `AttentionIntent`, `AttentionUrgency`, `AttentionVisibility`, `AttentionSkipReason`, `AttentionWireRequest`, `ATTENTION_METHOD`, `ATTENTION_ACK_METHOD`, `parseAttentionRequest` | `popup-bridge/src/attention/types.ts` | 주의 요청 규격과 신뢰할 수 없는 요청의 엄격한 파서(알 수 없는 필드 제거, 제목 120자·메시지 500자 제한) |
+| `defineSharedState`, `SharedStateDefinition`, `SharedStateInput`, `SharedStates`, `OwnedState`, `OwnedStateOptions`, `ReplicaState`, `ReplicaStatus`, `StateSnapshot`, `StateChange` | `popup-bridge/src/state/shared.ts` | 소유자 한 곳에 원본을 두고 링크 반대편에 revision이 붙은 전체 스냅샷으로 복제하는 공유 상태. 쓰기는 소유자가 검증·`baseRevision` 충돌 검사(`STATE_CONFLICT`) 후 커밋 |
+| `RpcTrace` | `popup-bridge/src/rpc/endpoint.ts` | 엔드포인트가 끝난 호출과 알림을 관찰자에게 알리는 이벤트(방향·메서드·소요 시간·오류 코드) |
 
 ---
 

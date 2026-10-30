@@ -36,6 +36,10 @@ export default defineConfig({
       '@oa-sdk/collab-workspace': path.resolve(__dirname, 'packages/collab-workspace/src/index.ts'),
       '@oa-sdk/surface-ir': path.resolve(__dirname, 'packages/surface-ir/src/index.ts'),
       '@oa-sdk/rpc': path.resolve(__dirname, 'packages/rpc/src/index.ts'),
+      '@oa-sdk/popup-bridge/host': path.resolve(__dirname, 'packages/popup-bridge/src/host.ts'),
+      '@oa-sdk/popup-bridge/popup': path.resolve(__dirname, 'packages/popup-bridge/src/popup.ts'),
+      '@oa-sdk/popup-bridge/testing': path.resolve(__dirname, 'packages/popup-bridge/src/testing.ts'),
+      '@oa-sdk/popup-bridge': path.resolve(__dirname, 'packages/popup-bridge/src/index.ts'),
     },
   },
 })

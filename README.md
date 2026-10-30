@@ -12,7 +12,7 @@ oa-sdk는 비즈니스 로직을 대신 쓰거나 API를 호스팅하지 않습�
 
 > 🚀 **다른 프로젝트에서 시작**: [Quick Start](./docs/guides/quick-start.md) — npm 설치부터 검증·타입 생성·mock 서버까지
 >
-> 🗺️ **기능부터 고르기**: [기능 선택 지도](./docs/guides/feature-map.md) — 목적별 기능·설치 경계·저장소 전용·외부 제품·TODO 구분
+> 🗺️ **기능부터 고르기**: [기능 선택 지도](./docs/guides/feature-map.md) — 계약 입력 → 코드 생성 → 실행·도구 연결 → 검증·리뷰 → 런타임 지원
 >
 > 🧩 **이 저장소에 기여**: [기여자 온보딩](./docs/guides/onboarding-playbook.md#9-oa-sdk-모노레포-기여자-온보딩), [TypeSpec 기여 워크플로](./docs/guides/typespec/01-quickstart-5min.md) — `packages/schemas`의 production 계약 수정
 >
@@ -67,7 +67,7 @@ Core 계약을 소비하고 end-to-end 사용 가능성을 검증하는 release-
 `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`는 `@oa-sdk/codegen` 0.9.0 릴리스부터의
 배포 대상입니다. `@oa-sdk/peer-transport`, `@oa-sdk/peer-server`, `@oa-sdk/webmcp-peer`,
 `@oa-sdk/collab-workspace`, `@oa-sdk/mcp-mesh`, `@oa-sdk/telemetry`는 배포 후보이며,
-`@oa-sdk/rpc`는 비공개 workspace입니다. 실제 설치 가능 버전은 registry에서 확인합니다.
+`@oa-sdk/rpc`와 `@oa-sdk/popup-bridge`는 비공개 workspace입니다. 실제 설치 가능 버전은 registry에서 확인합니다.
 
 | 패키지 | 역할 |
 |--------|------|
@@ -86,6 +86,7 @@ Core 계약을 소비하고 end-to-end 사용 가능성을 검증하는 release-
 | `@oa-sdk/mcp-mesh` | domain/session registry, tool routing과 CLI |
 | `@oa-sdk/telemetry` | 추적 심볼 registry, XState v5 inspector, dispatcher와 HMAC sanitizer (`@oa-sdk/dpm` 의존성 없음) |
 | `@oa-sdk/rpc` | (비공개, 저장소 전용) typed unary RPC client/server, JSON-RPC 2.0·REST binding (streaming 제외) |
+| `@oa-sdk/popup-bridge` | (비공개, 저장소 전용) 별도 Origin 팝업을 여는 Origin 검증 핸드셰이크, `MessageChannel` 위 양방향 JSON-RPC, 계약 기반 타입 선언·RPC 생성 유틸리티 |
 
 ### Maintenance-only Separation Candidates
 

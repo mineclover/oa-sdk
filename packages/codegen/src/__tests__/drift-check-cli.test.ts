@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import * as path from 'node:path'
 import * as fs from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import { runOaCli } from './e2e/helpers/cli-runner.js'
 import { createWorkspaceFixture, type WorkspaceFixture } from './e2e/helpers/fixture-builder.js'
 
@@ -9,6 +10,15 @@ describe('oa-gen check-artifact and drift:check CLI Test Suite', () => {
 
   beforeEach(async () => {
     fixture = await createWorkspaceFixture({}, 'drift-cli-')
+    // The generated schema runs from the temporary workspace, outside the
+    // monorepo's dependency lookup paths. Supply its declared runtime import.
+    const require = createRequire(import.meta.url)
+    await fs.mkdir(path.join(fixture.rootDir, 'node_modules'), { recursive: true })
+    await fs.symlink(
+      path.dirname(require.resolve('zod/package.json')),
+      path.join(fixture.rootDir, 'node_modules', 'zod'),
+      process.platform === 'win32' ? 'junction' : 'dir',
+    )
   })
 
   afterEach(async () => {

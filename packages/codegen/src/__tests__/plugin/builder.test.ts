@@ -254,16 +254,26 @@ describe('TypeSpec Builder Platform: TspProjectBuilder & createTspBuilder', () =
 
   it('watch() reports TypeSpec compilation failures as event.error', async () => {
     const tsp = createTspProject(['/a'])
-    const builder = createTspBuilder({ input: tsp.main })
+    const builder = createTspBuilder({ input: tsp.main, dryRun: true })
     const events: TspWatchEvent[] = []
     const handle = builder.watch(event => { events.push(event) }, { debounceMs: 50 })
     try {
       await waitForWatcherReady(tsp, events)
       writeFileSync(tsp.main, 'this is not typespec {{{')
-      const event = await waitFor(() => events.find(e => e.error !== undefined || e.result !== undefined))
+      // Readiness writes can still have a successful /a build in flight. Await the error from
+      // the invalid edit instead of mistaking that earlier success for its compilation result.
+      const event = await waitFor(() => events.find(e => e.error !== undefined))
       expect(event.result).toBeUndefined()
       expect(event.error).toBeInstanceOf(Error)
       expect(String((event.error as Error).message)).toContain('TypeSpec compilation failed')
+
+      // The error must not stop the watcher or poison a later valid compilation.
+      tsp.write(['/recovered'])
+      const recovered = await waitFor(() => events.find(e =>
+        e.result?.context.document.paths?.['/recovered'] !== undefined,
+      ))
+      expect(recovered.error).toBeUndefined()
+      expect(recovered.result?.success).toBe(true)
     } finally {
       handle.unwatch()
     }

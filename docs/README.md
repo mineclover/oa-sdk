@@ -2,8 +2,9 @@
 
 문서 기준 체크포인트: [문서·스펙 거버넌스](./spec-governance/README.md) (2026-07-24). 제품 변경 이력은 [Changelog](./changelog.md)에서 관리한다.
 
-**처음 기능을 고를 때는 [기능 선택 지도](./guides/feature-map.md)부터 읽는다.** 목적별 기능과
-Core/Downstream, 저장소 전용, maintenance, 외부 제품·미래 TODO의 경계를 함께 안내한다.
+**처음 기능을 고를 때는 [기능 선택 지도](./guides/feature-map.md)부터 읽는다.**
+계약 입력 → 코드 생성 → 실행·도구 연결 → 검증·리뷰 → 런타임 지원 순서로 기능을 정리했다.
+Core/Downstream, 저장소 전용, maintenance, 외부 제품·미래 TODO는 별도 상태로 표시한다.
 
 세 목표(API 엔드포인트·데이터 구조·소비자 인터페이스)의 격리와 공통 구성 API는
 [용도별 파이프라인 구성](./guides/pipeline-configuration.md)을 따른다.
@@ -62,6 +63,8 @@ Core/Downstream, 저장소 전용, maintenance, 외부 제품·미래 TODO의 �
 
 
 ### 🛡️ 4. 테스트 및 품질 보증 (QA) 경로
+
+현재 보장 범위와 결함 상태는 [검증·리뷰 현황](./internal/verification/status.md), 근거 등록·종료 절차는 [검증 관리 규칙](./internal/verification/README.md)에서 확인한다.
 1. [TEST_INFRA.md](../TEST_INFRA.md): E2E 테스트 빠른 검증 명령어 및 단일 진실 공급원 안내.
 2. [테스트 인프라 (Test Infrastructure)](./concepts/test-infrastructure.md): 불투명 상자(Opaque-Box) 검증 원칙, 4계층 E2E 모델(F01~F16), 서브모듈 불변식, Tier 5 적대적 경화 스트레스 테스트.
 3. [Mock 서버 사용법](./guides/mock-server-usage.md): REST CRUD 자동 라우팅, seed 및 reset을 지원하는 인메모리 상태 유지 Mock 서버 (`--stateful`).
@@ -158,6 +161,8 @@ Core/Downstream, 저장소 전용, maintenance, 외부 제품·미래 TODO의 �
 | [코드젠 워크플로](./guides/use-cases/codegen-workflow.md) | Drizzle → OAS → TS → 라우터 → 클라이언트 |
 | [NestJS Swagger / FastAPI Governance](./guides/use-cases/nestjs-swagger-governance.md) | NestJS Swagger / FastAPI 산출물 → oa-sdk 계약 관리 레퍼런스 |
 | [bun-graph-db projection 소비](./guides/use-cases/bun-graph-db-projections.md) | bun-graph-db OpenAPI full document/table projection → OA SDK |
+| [Bun Graph DB / Kuzu 기능 비교](./guides/use-cases/bun-graph-db-kuzu-comparison.md) | 고정 소스 레퍼런스, 기능 차이, 개선 우선순위와 성능 실험 규약 |
+| [Kuzu 설계의 복합 분석과 적용](./guides/use-cases/bun-graph-db-kuzu-design-adoption.md) | 알고리즘·문서 관리·계층 분리의 장점과 Bun Graph DB 첫 적용 |
 | [World Model 계약 소비](./guides/use-cases/world-model-contract-consumption.md) | World Model contract 검증과 generated client/HTTP integration 준비 |
 | [WIREFRAME-BOOK & XState v6 연동](./guides/use-cases/wireframe-xstate-behavior-integration.md) | TypeSpec data shape → ttsc AOT Standard Schema v1 합성 → XState v6 setup({ schemas }) 0KB 무의존성 연동 |
 | [유저 시나리오 FSM 네비게이션 엔진](./guides/scenario-navigation-fsm-engine.md) | Bounded Context 4대 시나리오, 0 Dead-Ends, 정적 경로 수집기 및 Spec-Lens HUD |

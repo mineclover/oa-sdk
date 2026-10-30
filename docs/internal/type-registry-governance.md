@@ -39,8 +39,8 @@ observations.
    budgets.
 
 The check fails for baseline drift, a missing baseline, an expired/invalid
-allowlist, an unresolved public reexport, a runtime export mismatch, or an
-exceeded boundary budget.
+allowlist, an unresolved public reexport, a runtime export mismatch, or a
+boundary rule that grew against the baseline.
 
 ## Commands
 
@@ -89,12 +89,28 @@ The machine-readable policy is
 
 - workspace roots and scan exclusions;
 - generated-source classification patterns;
-- budgets for explicit `any`, double assertions, and deserialization that is
-  not immediately passed to a named validator;
+- boundary rules for explicit `any`, double assertions, and deserialization that
+  is not immediately passed to a named validator;
 - narrowly scoped false-positive allowlist entries.
 
-Budgets are non-regression ceilings, not quality targets. When a boundary is
-removed, lower its ceiling in the same change. When a ceiling is exceeded:
+Boundary rules are per-file ratchets against the reviewed baseline, not numeric
+budgets. The gate counts each rule per source file (after the allowlist) and
+compares it with the same count recorded in the baseline:
+
+- a file may keep or reduce its count; a reduction needs no policy or baseline
+  edit, and `check` reports it as `resolved` so the next `--write` locks it in;
+- a file whose count grows, or a new file that introduces a boundary, fails the
+  gate even when another file shrank by the same amount;
+- to accept a deliberate increase, review it and run
+  `pnpm type-registry:write -- --allow-increase`. The new floor is the baseline
+  diff in the same change; the flag is rejected without `--write`.
+
+A rule may still carry an optional `maximum` as an absolute workspace-wide cap.
+It is not needed for the ratchet and is not set in the committed policy.
+Moving or renaming a file reads as growth in the new path until the baseline is
+rewritten.
+
+When a ceiling or ratchet fails:
 
 1. `boundary:any`: model the value, use a narrow generic, or accept `unknown`
    and validate it.
@@ -102,6 +118,9 @@ removed, lower its ceiling in the same change. When a ceiling is exceeded:
    validator at the boundary.
 3. `boundary:unvalidated-deserialize`: pass parsed data through a named schema
    validator before assigning a domain type.
+   The detector counts calls that read data (`JSON.parse`, `decode`, and
+   `.json()` without arguments such as `response.json()`). A `.json(value)` call
+   with an argument builds a response, so it is not a boundary.
 
 ## Allowlist accountability
 

@@ -1,0 +1,624 @@
+{
+  "schemaVersion": 1,
+  "kind": "test-run",
+  "runId": "tools-20261030-fr05-fr09-v2",
+  "recordedAt": "2026-10-29T17:38:47.133Z",
+  "startedAt": "2026-10-29T17:38:33.939Z",
+  "sourceBinding": "captured-after-execution",
+  "sourceHashes": {
+    "packages/tools/src/openapi-hydrator-pipeline.test.ts": "67532053c06f8198efe07f4502bc9d4d363f21a9d29ba5c03194eb3261d92d86",
+    "packages/tools/src/table-file-io-regressions.test.ts": "0df22f95a7b139fffe35f17904b09e14d3fe9b144725652c2c0404f9895928db",
+    "packages/tools/src/tool-pipeline-regressions.test.ts": "9b08759c6312ab2eba9320ed9bb733571a5b916fadeedd573c909dc19eefb636",
+    "packages/tools/test/boundary-validation.test.ts": "b08ae7cb21eb89f5b6fe5b77cab99040a9dfa961c4227efff316240bf8c64f3b",
+    "packages/tools/test/chunk-stream-tools.test.ts": "097bdeb88070111b90aa500e608ab113e5e800a9c2fa2d72654970421b7bf605",
+    "packages/tools/test/mcp-2026-07-28.test.ts": "a05c7afc94a3d977b70c4c9fd4b629ba0722b1f6149112fbcbbd63c92c571ffc",
+    "packages/tools/test/package-boundary.test.ts": "1e023d64b1541f36279283d62163f7a696df8eaa093066d2951f0ef0c83e7ee1",
+    "packages/tools/test/peer.test.ts": "f5fcc42cd9c0263f219d808a3ce873fc65554dfd4e89776c7cd36f3e31df4d24",
+    "packages/tools/test/schema-bridge.test.ts": "10692439c4e4c90259f00ac9fb21e0680cefb326af9dc5438c7cfd01b5c73c3a",
+    "packages/tools/test/schema-validation.test.ts": "76f7b8a048834284b7a872a7e359ab588d31dbd9a6db819d5a122a9db2ba4fd2",
+    "packages/tools/test/security-boundaries.test.ts": "534ab5f98375c4b8ff2a35dd9a65a9afe7c0d745c3dcec77c4b8320a25cce140",
+    "packages/tools/test/tool-engine.test.ts": "4b1c4ae0e56a2e8a480de818a9531aba388f7eb138b00a6d971ac5353690e861",
+    "packages/tools/src/app.ts": "66a2daf1fec4ab83c3cb6b10069ee43a150d92bf55f5b8094c9034986f9598b3",
+    "packages/tools/src/chunk-stream.ts": "a65710568cd22e68305e2d57651850210d881824e6a56d533a9e5157b3cb531f",
+    "packages/tools/src/cli-anything.ts": "c83a260615f9aa4b4ecff9a376a1131395042c7364c74d32da53642ec8d2b1aa",
+    "packages/tools/src/cli.ts": "79c4ca5c35a57773908bf337e12b216a7f185113771a9c642b3e0df0af66e02c",
+    "packages/tools/src/context.ts": "15d78fd3fe328b9b8ea6683e155b20fa46c6f1208cd30b9cc1b99ac37e2a1860",
+    "packages/tools/src/http-boundary.ts": "d55e2f9f6ddda3af4a7127ba575d372a66b89b7db409d491ae617e62aa4081a5",
+    "packages/tools/src/http.ts": "937bcfb0048eaa39c48def3845c479e7bed71f561a8b5739347ff3eafc5576ab",
+    "packages/tools/src/index.ts": "a5b4a583d03217ec422aab73c03097b6c7fcc389f5176e15ad8d6f58e7a58837",
+    "packages/tools/src/mcp-use.ts": "f93cdd2e4edc4039dca452375cf40a164c28f8f57fd5cf08b4896e6ddeee5efa",
+    "packages/tools/src/mcp.ts": "9e67296bf93ab11b3f07cb27867ba2b8c1673399e0855cd045aa0150d88b494f",
+    "packages/tools/src/openapi-hydrator.ts": "518cd85005941e27ab3a8d041d3c09003fc85fb5d66f1503f3e8176e32fd588e",
+    "packages/tools/src/peer-protocol.ts": "477aca0600ea842c0af3aac1edffed36d9b5acba305743692a0d173d4409b07b",
+    "packages/tools/src/peer.ts": "3ba61ddd44e3420b392126ec5cb80f30c711d39a4d8923734bd529eb6eaefbe0",
+    "packages/tools/src/reserved-interfaces.ts": "135d386c060f245e379ff632b06b69b4087c9fa05a4e3c0884f046a2a567893f",
+    "packages/tools/src/schema-bridge.ts": "d544f5c97ff60d3ea82868643919bf6b021a068b5cc1b15323fb43abf25dd1eb",
+    "packages/tools/src/schema.ts": "a7ee45e2d5236eae949219d064462260d88ffbae86a2a5e1308161c9ea55b686",
+    "packages/tools/src/standard-schema.ts": "9f85f4a7ba4c8ab9041fa8ac342fe2f228f39f598276d0d0d33836b5a5391d32",
+    "packages/tools/src/table-file-io.ts": "b89b5ba3bebfc02b051c99ec845ec04a584c0b3654f5be79cf23f746a8908807",
+    "packages/tools/src/table-ir.ts": "1195d9fe4a68945b3ce297c9d2a4d5489b1f69b344f1e15f31bc8cc1b42b7186",
+    "packages/tools/src/types.ts": "2202f51fbd24586bee7eadf0a7b06d21570d76d219b0e758b6be53151607830a",
+    "packages/tools/src/version.ts": "ee8b2942f0082738c2ede8dc8225917a583feded5226a56d2b6f3e9dc64c44b7"
+  },
+  "revision": "463fa907346c34410b1e763bedd7c0723868f36c",
+  "worktree": "dirty",
+  "nodeVersion": "v24.22.1",
+  "command": "pnpm --filter @oa-sdk/tools exec vitest run --maxWorkers 1 --no-file-parallelism",
+  "reporterSha256": "2db4be1a96f0a626bace6529662363f4d83bda96478c70e0c5913a3afa8c7133",
+  "passed": 109,
+  "failed": 0,
+  "skipped": 0,
+  "executedPassed": 109,
+  "cachedPassed": 0,
+  "passedFiles": 12,
+  "files": [
+    {
+      "file": "packages/tools/src/openapi-hydrator-pipeline.test.ts",
+      "package": "@oa-sdk/tools",
+      "track": "core",
+      "resultSource": "executed",
+      "cases": 5,
+      "failed": 0,
+      "skipped": 0,
+      "tests": [
+        {
+          "title": "Single-Point Spec Hydrator + CLI-Anything + mcp-use v2 Reserved Interfaces wraps JSON Schema 2020-12 into StandardSchemaWithJson (~standard v1)",
+          "status": "passed"
+        },
+        {
+          "title": "Single-Point Spec Hydrator + CLI-Anything + mcp-use v2 Reserved Interfaces enforces 1:1 spec-handler parity at hydration time",
+          "status": "passed"
+        },
+        {
+          "title": "Single-Point Spec Hydrator + CLI-Anything + mcp-use v2 Reserved Interfaces executes 2-Phase handlers across Stage 1 CLI (--dry-run -> commit -> session undo/redo) and Stage 2 mcp-use (elicit -> handoff)",
+          "status": "passed"
+        },
+        {
+          "title": "Single-Point Spec Hydrator + CLI-Anything + mcp-use v2 Reserved Interfaces reads, patches, and writes real disk files across all 6 document table formats (.xlsx, .docx, .pptx, .md, .csv, .html)",
+          "status": "passed"
+        },
+        {
+          "title": "Single-Point Spec Hydrator + CLI-Anything + mcp-use v2 Reserved Interfaces rejects concurrent table commits whose plans were based on the same fingerprint",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "packages/tools/src/table-file-io-regressions.test.ts",
+      "package": "@oa-sdk/tools",
+      "track": "core",
+      "resultSource": "executed",
+      "cases": 3,
+      "failed": 0,
+      "skipped": 0,
+      "tests": [
+        {
+          "title": "table file I/O external review regressions parses RFC 4180 multiline fields, escaped quotes, and empty records",
+          "status": "passed"
+        },
+        {
+          "title": "table file I/O external review regressions preserves worksheet metadata on a no-op XLSX roundtrip",
+          "status": "passed"
+        },
+        {
+          "title": "table file I/O external review regressions resolves workbook sheet relationships for read and write after sheet reorder",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "packages/tools/src/tool-pipeline-regressions.test.ts",
+      "package": "@oa-sdk/tools",
+      "track": "core",
+      "resultSource": "executed",
+      "cases": 27,
+      "failed": 0,
+      "skipped": 0,
+      "tests": [
+        {
+          "title": "destructive confirmation blocks two-phase MCP mutation when the host cannot elicit",
+          "status": "passed"
+        },
+        {
+          "title": "destructive confirmation blocks single-phase MCP mutation when the host cannot elicit",
+          "status": "passed"
+        },
+        {
+          "title": "destructive confirmation requires an affirmative boolean response: {\"action\":\"decline\"}",
+          "status": "passed"
+        },
+        {
+          "title": "destructive confirmation requires an affirmative boolean response: {\"action\":\"cancel\"}",
+          "status": "passed"
+        },
+        {
+          "title": "destructive confirmation requires an affirmative boolean response: {\"action\":\"accept\"}",
+          "status": "passed"
+        },
+        {
+          "title": "destructive confirmation requires an affirmative boolean response: {\"action\":\"accept\",\"data\":{\"confirm\":false}}",
+          "status": "passed"
+        },
+        {
+          "title": "destructive confirmation requires an affirmative boolean response: {\"action\":\"accept\",\"data\":{\"confirm\":\"true\"}}",
+          "status": "passed"
+        },
+        {
+          "title": "destructive confirmation allows dry-run without confirmation and commits after explicit confirmation or accepted elicitation",
+          "status": "passed"
+        },
+        {
+          "title": "destructive confirmation exposes --confirm on the CLI and rejects an unconfirmed invocation",
+          "status": "passed"
+        },
+        {
+          "title": "commit serialization serializes two-phase commits and snapshots across independent stores",
+          "status": "passed"
+        },
+        {
+          "title": "commit serialization serializes single-phase commits and snapshots across independent stores",
+          "status": "passed"
+        },
+        {
+          "title": "commit serialization releases the lock after a failed commit without creating a snapshot",
+          "status": "passed"
+        },
+        {
+          "title": "commit serialization keeps exclusive locking when snapshots are disabled",
+          "status": "passed"
+        },
+        {
+          "title": "domain session restore restores the domain through the MCP session undo/redo surface",
+          "status": "passed"
+        },
+        {
+          "title": "domain session restore restores the domain through the CLI session undo surface",
+          "status": "passed"
+        },
+        {
+          "title": "domain session restore keeps the history entry when domain restoration fails",
+          "status": "passed"
+        },
+        {
+          "title": "Standard Schema parser semantics preserves Zod refinement failures through every validation entry point",
+          "status": "passed"
+        },
+        {
+          "title": "Standard Schema parser semantics returns transformed values from Zod and custom parsers",
+          "status": "passed"
+        },
+        {
+          "title": "Standard Schema parser semantics applies an optional guard to the parsed output without bypassing the schema",
+          "status": "passed"
+        },
+        {
+          "title": "Standard Schema parser semantics still validates JSON component references",
+          "status": "passed"
+        },
+        {
+          "title": "project session isolation isolates formerly colliding IDs, unicode IDs and their undo histories",
+          "status": "passed"
+        },
+        {
+          "title": "project session isolation rejects invalid ID \".\" before creating session files",
+          "status": "passed"
+        },
+        {
+          "title": "project session isolation rejects invalid ID \"..\" before creating session files",
+          "status": "passed"
+        },
+        {
+          "title": "project session isolation rejects invalid ID \"\" before creating session files",
+          "status": "passed"
+        },
+        {
+          "title": "project session isolation rejects invalid ID \"   \" before creating session files",
+          "status": "passed"
+        },
+        {
+          "title": "project session isolation reads matching legacy sessions, migrates on mutation and rejects legacy identity mismatches",
+          "status": "passed"
+        },
+        {
+          "title": "project session isolation rejects a stored identity mismatch before committing domain changes",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "packages/tools/test/boundary-validation.test.ts",
+      "package": "@oa-sdk/tools",
+      "track": "core",
+      "resultSource": "executed",
+      "cases": 22,
+      "failed": 0,
+      "skipped": 0,
+      "tests": [
+        {
+          "title": "MCP JSON-RPC envelope validation treats a request id of a non-protocol type as an invalid request",
+          "status": "passed"
+        },
+        {
+          "title": "MCP JSON-RPC envelope validation rejects non-object params and echoes a valid id",
+          "status": "passed"
+        },
+        {
+          "title": "MCP JSON-RPC envelope validation reads null params as absent params",
+          "status": "passed"
+        },
+        {
+          "title": "MCP JSON-RPC envelope validation answers tools/call without a string name with invalid params",
+          "status": "passed"
+        },
+        {
+          "title": "MCP JSON-RPC envelope validation still executes a valid tools/call and maps the tool result",
+          "status": "passed"
+        },
+        {
+          "title": "MCP JSON-RPC envelope validation validates the envelope of HTTP bodies before dispatch",
+          "status": "passed"
+        },
+        {
+          "title": "MCP JSON-RPC envelope validation only forwards string MRTR fields from an input_required tool result",
+          "status": "passed"
+        },
+        {
+          "title": "HTTP request body decoding returns unknown without a schema and validates with one",
+          "status": "passed"
+        },
+        {
+          "title": "HTTP request body decoding rejects a non-object REST body before tool validation",
+          "status": "passed"
+        },
+        {
+          "title": "HTTP request body decoding rejects a missing or malformed REST body instead of running the tool with an empty input",
+          "status": "passed"
+        },
+        {
+          "title": "HTTP request body decoding reports a configured status that cannot carry a JSON body as a tool failure",
+          "status": "passed"
+        },
+        {
+          "title": "custom validator objects reads safeParse errors that are not Error instances",
+          "status": "passed"
+        },
+        {
+          "title": "custom validator objects uses safeParse, parse, and validate methods attached to a callable validator",
+          "status": "passed"
+        },
+        {
+          "title": "custom validator objects formats zod-like issues with their paths",
+          "status": "passed"
+        },
+        {
+          "title": "WebMCP peer bridge fallback client reads typed peer fields from the registry and never surfaces credentials",
+          "status": "passed"
+        },
+        {
+          "title": "WebMCP peer bridge fallback client validates bridge status and tool catalogs",
+          "status": "passed"
+        },
+        {
+          "title": "WebMCP peer bridge fallback client keeps the form of bridge status peers and serves them unchanged from the status meta-tools",
+          "status": "passed"
+        },
+        {
+          "title": "WebMCP peer bridge fallback client keeps a valid skill manifest of a registry peer",
+          "status": "passed"
+        },
+        {
+          "title": "WebMCP peer bridge fallback client fails closed on an allowedTools that is not an array",
+          "status": "passed"
+        },
+        {
+          "title": "WebMCP peer bridge fallback client reads a peer registry alias as an own key only",
+          "status": "passed"
+        },
+        {
+          "title": "WebMCP peer bridge fallback client falls back to the registry when the bridge status is not an object",
+          "status": "passed"
+        },
+        {
+          "title": "WebMCP peer bridge fallback client rejects malformed meta-tool and peer-tool arguments with a clear error",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "packages/tools/test/chunk-stream-tools.test.ts",
+      "package": "@oa-sdk/tools",
+      "track": "core",
+      "resultSource": "executed",
+      "cases": 2,
+      "failed": 0,
+      "skipped": 0,
+      "tests": [
+        {
+          "title": "@oa-sdk/tools Chunk Stream Tooling creates and executes standard chunk stream tools",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools Chunk Stream Tooling registers seamlessly onto a ToolApp instance",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "packages/tools/test/mcp-2026-07-28.test.ts",
+      "package": "@oa-sdk/tools",
+      "track": "core",
+      "resultSource": "executed",
+      "cases": 9,
+      "failed": 0,
+      "skipped": 0,
+      "tests": [
+        {
+          "title": "MCP 2026-07-28 Specification Conformance (@oa-sdk/tools) 1. Stateless Execution (No Session Handshake / No Mcp-Session-Id) executes tools/list directly as a stateless HTTP POST request",
+          "status": "passed"
+        },
+        {
+          "title": "MCP 2026-07-28 Specification Conformance (@oa-sdk/tools) 1. Stateless Execution (No Session Handshake / No Mcp-Session-Id) executes server/discover returning protocolVersion, capabilities, and tool list",
+          "status": "passed"
+        },
+        {
+          "title": "MCP 2026-07-28 Specification Conformance (@oa-sdk/tools) 1. Stateless Execution (No Session Handshake / No Mcp-Session-Id) executes tools/call directly without prior session initialization",
+          "status": "passed"
+        },
+        {
+          "title": "MCP 2026-07-28 Specification Conformance (@oa-sdk/tools) 2. Header-Based Routing Validation (Mcp-Method & Mcp-Name) accepts request when headers match body method and tool name",
+          "status": "passed"
+        },
+        {
+          "title": "MCP 2026-07-28 Specification Conformance (@oa-sdk/tools) 2. Header-Based Routing Validation (Mcp-Method & Mcp-Name) rejects request with 400 -32600 when Mcp-Method header does not match body",
+          "status": "passed"
+        },
+        {
+          "title": "MCP 2026-07-28 Specification Conformance (@oa-sdk/tools) 2. Header-Based Routing Validation (Mcp-Method & Mcp-Name) rejects request with 400 -32600 when Mcp-Name header does not match body tool name",
+          "status": "passed"
+        },
+        {
+          "title": "MCP 2026-07-28 Specification Conformance (@oa-sdk/tools) 3. Multi Round-Trip Requests (MRTR) returns input_required status and continuationToken when user confirmation is required",
+          "status": "passed"
+        },
+        {
+          "title": "MCP 2026-07-28 Specification Conformance (@oa-sdk/tools) 3. Multi Round-Trip Requests (MRTR) completes the action in next round-trip when confirmation is provided",
+          "status": "passed"
+        },
+        {
+          "title": "MCP 2026-07-28 Specification Conformance (@oa-sdk/tools) 4. Hono REST API & OpenAPI 3.1 Documentation Integration mounts /mcp route on Hono app and documents headers in OpenAPI 3.1",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "packages/tools/test/package-boundary.test.ts",
+      "package": "@oa-sdk/tools",
+      "track": "core",
+      "resultSource": "executed",
+      "cases": 4,
+      "failed": 0,
+      "skipped": 0,
+      "tests": [
+        {
+          "title": "@oa-sdk/tools package boundary finds the runtime imports of the source tree",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools package boundary keeps every package the source loads out of the bundle built by the \"build\" script",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools package boundary keeps every package the source loads out of the bundle built by the \"dev\" script",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools package boundary loads packages it does not depend on only with import(), so a missing one fails only that path",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "packages/tools/test/peer.test.ts",
+      "package": "@oa-sdk/tools",
+      "track": "core",
+      "resultSource": "executed",
+      "cases": 7,
+      "failed": 0,
+      "skipped": 0,
+      "tests": [
+        {
+          "title": "@oa-sdk/tools — WebMCP Peer Bridge resolves peer record from peer store file",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools — WebMCP Peer Bridge buffers and retries during simulated browser refresh (503 -> 200)",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools — WebMCP Peer Bridge does not retry a 404 response",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools — WebMCP Peer Bridge does not retry an unrelated 503 response",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools — WebMCP Peer Bridge does not retry a network error",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools — WebMCP Peer Bridge does not retry a request timeout",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools — WebMCP Peer Bridge creates ToolApp with meta-tools and registered peer tools",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "packages/tools/test/schema-bridge.test.ts",
+      "package": "@oa-sdk/tools",
+      "track": "core",
+      "resultSource": "executed",
+      "cases": 7,
+      "failed": 0,
+      "skipped": 0,
+      "tests": [
+        {
+          "title": "@oa-sdk/tools — TypeSpec JSON Schema to Tool Bridge 1. Schema Bridge Customization & Normalization creates tool from raw TypeSpec JSON Schema without duplication",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools — TypeSpec JSON Schema to Tool Bridge 1. Schema Bridge Customization & Normalization supports field picking and omitting for high-level agent ergonomics",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools — TypeSpec JSON Schema to Tool Bridge 1. Schema Bridge Customization & Normalization supports property overrides and extensions (e.g. LLM-friendly helper fields)",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools — TypeSpec JSON Schema to Tool Bridge 2. MCP Server Integration with Schema Bridge exposes bridged tools in MCP ListTools format with clean Draft 2020-12 schema",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools — TypeSpec JSON Schema to Tool Bridge 2. MCP Server Integration with Schema Bridge executes bridged tool returning Markdown text response for agent",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools — TypeSpec JSON Schema to Tool Bridge 3. CLI Integration with Schema Bridge creates Commander command hierarchy with options matching the schema",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools — TypeSpec JSON Schema to Tool Bridge 3. CLI Integration with Schema Bridge promptMissingFields returns immediately when all required fields exist",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "packages/tools/test/schema-validation.test.ts",
+      "package": "@oa-sdk/tools",
+      "track": "core",
+      "resultSource": "executed",
+      "cases": 6,
+      "failed": 0,
+      "skipped": 0,
+      "tests": [
+        {
+          "title": "@oa-sdk/tools schema contract validation keeps JSON Schema constraints during normalization",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools schema contract validation validates enum, format, pattern, length, ranges, and composition",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools schema contract validation resolves local component refs and supports validator compilation caching",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools schema contract validation uses custom safeParse and parse contracts without treating them as JSON Schema",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools schema contract validation fails explicitly when a Zod-like schema has no lossless JSON Schema conversion",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools schema contract validation keeps Zod constraints in its generated JSON Schema",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "packages/tools/test/security-boundaries.test.ts",
+      "package": "@oa-sdk/tools",
+      "track": "core",
+      "resultSource": "executed",
+      "cases": 7,
+      "failed": 0,
+      "skipped": 0,
+      "tests": [
+        {
+          "title": "@oa-sdk/tools security boundaries enforces object shape, enum, integer, and nested schema constraints",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools security boundaries rejects malformed or oversized HTTP bodies before tool execution",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools security boundaries requires the configured bearer token for fetch and stateless MCP calls",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools security boundaries protects schema and docs while making the public health policy explicit",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools security boundaries keeps MCP execution errors safe and returns a closeable HTTP handle",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools security boundaries keeps declared tool status codes aligned with runtime responses and OpenAPI",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools security boundaries forwards MCP security options through ToolApp route mounting",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "packages/tools/test/tool-engine.test.ts",
+      "package": "@oa-sdk/tools",
+      "track": "core",
+      "resultSource": "executed",
+      "cases": 10,
+      "failed": 0,
+      "skipped": 0,
+      "tests": [
+        {
+          "title": "@oa-sdk/tools — Universal Tool Engine 1. Schema Normalization & Validation normalizes Zod schema to JSON Schema Draft 2020-12 / OpenAPI 3.1",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools — Universal Tool Engine 1. Schema Normalization & Validation normalizes plain JSON Schema objects preserving definitions",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools — Universal Tool Engine 1. Schema Normalization & Validation validates input against Zod schema",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools — Universal Tool Engine 1. Schema Normalization & Validation validates input against plain JSON Schema required fields",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools — Universal Tool Engine 2. Tool Definition & Execution uses the same context-first contract regardless of parameter names or binding",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools — Universal Tool Engine 2. Tool Definition & Execution executes tool with (ctx, input) signature",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools — Universal Tool Engine 2. Tool Definition & Execution executes middleware pipeline correctly",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools — Universal Tool Engine 3. MCP Server Adapter exposes registered tools in ListTools format",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools — Universal Tool Engine 4. CLI Adapter (Commander) creates command hierarchy with positional args and options",
+          "status": "passed"
+        },
+        {
+          "title": "@oa-sdk/tools — Universal Tool Engine 5. HTTP / Hono Adapter serves OpenAPI 3.1.0 document and REST endpoints",
+          "status": "passed"
+        }
+      ]
+    }
+  ]
+}

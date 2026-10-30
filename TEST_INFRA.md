@@ -1,5 +1,9 @@
 # E2E Test Infrastructure: Output Path Routing Customization Engine & TanStack Query v5 3-Tier Generator
 
+현재 실행 결과·기능별 보장·결함 상태는 [검증 관리](docs/internal/verification/README.md)와
+[자동 생성 현황](docs/internal/verification/status.md)에서 관리한다. 이 문서의 테스트 설계·단계 분류는 실행 완료나 운영 보장을 뜻하지 않는다.
+
+
 ## Test Philosophy & Methodology
 - **Opaque-Box, Requirement-Driven Testing**: All test assertions, interface contracts, and expected behaviors are derived directly from authoritative requirements:
   1. `ORIGINAL_REQUEST.md` (section timestamped `2026-09-12T16:15:58Z`, Requirements §R1–§R5)
@@ -143,4 +147,12 @@ pnpm vitest run tests/e2e/output-routing-tanstack/tier4-scenarios.test.ts
 pnpm vitest run tests/e2e/e2e-output-routing.test.ts
 pnpm vitest run tests/e2e/e2e-tanstack-query.test.ts
 pnpm vitest run tests/e2e/e2e-router-client-parity.test.ts
+```
+
+## 패키지 단위 브라우저 E2E
+
+`@oa-sdk/popup-bridge`는 실제 Chromium으로 서로 다른 Origin 3개를 띄우는 E2E(`packages/popup-bridge/e2e`)를 갖는다. `playwright-core`와 그 버전의 Chromium이 필요해 기본 `test`·CI lane에는 넣지 않고 따로 실행한다.
+
+```bash
+corepack pnpm --filter @oa-sdk/popup-bridge test:e2e
 ```

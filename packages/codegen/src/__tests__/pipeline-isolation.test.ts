@@ -247,6 +247,94 @@ describe('Purpose-isolated pipelines share contract semantics', () => {
 
   // Plugin and standalone outputs share validation semantics and type names.
 
+  it('retains plugin guards for TypeScript identifiers containing dollar signs', async () => {
+    const document: OasDocument = {
+      ...dataDocument,
+      components: { schemas: { '$Value': { type: 'string' } } },
+    }
+    const result = await runTspPluginPipeline({
+      purpose: 'data',
+      input: 'unused.tsp',
+      output: root,
+      plugins: [pluginTypescript({ typeGuards: true })],
+      dryRun: true,
+    }, { document })
+    const files = Object.fromEntries(result.files.map(file => [file.path, file.content]))
+    expect(files['guards.ts']).toContain('export function is$Value(')
+    expect(typecheckGeneratedFiles({ files, compilerOptions: { skipLibCheck: false } })).toEqual([])
+  })
+
+  it.each([
+    ['$defs', false], ['$defs', true],
+    ['definitions', false], ['definitions', true],
+    ['components', false], ['components', true],
+  ] as const)('escapes schema identities in discovered JSON Pointers (%s, split=%s)', async (container, split) => {
+    const schemas = {
+      'Path/Value': { type: 'string', minLength: 1 },
+      'Tilde~Value': { type: 'integer' },
+      'Hash#Value': { type: 'boolean' },
+      'Percent%Value': { type: 'number' },
+    }
+    const schemaDocument = container === 'components'
+      ? { components: { schemas } }
+      : { [container]: schemas }
+    const outDir = join(root, 'escaped')
+    const artifacts = await generateStandaloneGuards({ schemaDocument, outDir, split })
+    const files = Object.fromEntries(artifacts.map(file => [file.filePath.slice(outDir.length + 1), file.content]))
+    expect(typecheckGeneratedFiles({ files, compilerOptions: { skipLibCheck: false } })).toEqual([])
+    const guards = await import(pathToFileURL(join(outDir, 'index.js')).href)
+    expect(guards.isPath_Value('valid')).toBe(true)
+    expect(guards.isPath_Value('')).toBe(false)
+    expect(guards.isTilde_Value(1.5)).toBe(false)
+    expect(guards.isHash_Value(true)).toBe(true)
+    expect(guards.isPercent_Value('wrong')).toBe(false)
+  })
+
+  it.each([false, true])('keeps colliding split identities distinct (split=%s)', async split => {
+    const schemaDocument = {
+      $defs: {
+        'Domain.User': { type: 'string' },
+        Domain_User: { type: 'integer' },
+      },
+    }
+    const outDir = join(root, 'collision')
+    const artifacts = await generateStandaloneGuards({ schemaDocument, outDir, split })
+    expect(new Set(artifacts.map(file => file.filePath)).size).toBe(artifacts.length)
+    const files = Object.fromEntries(artifacts.map(file => [file.filePath.slice(outDir.length + 1), file.content]))
+    expect(typecheckGeneratedFiles({ files, compilerOptions: { skipLibCheck: false } })).toEqual([])
+    const guards = await import(pathToFileURL(join(outDir, 'index.js')).href)
+    expect(guards.isDomain_User('value')).toBe(true)
+    expect(guards.isDomain_User(1)).toBe(false)
+    expect(guards.isDomain_User_2(1)).toBe(true)
+    expect(guards.isDomain_User_2('value')).toBe(false)
+  })
+
+  it('rejects external declaration overrides without their type module before writing', async () => {
+    writeFileSync(join(root, 'guards.js'), 'previous')
+    await expect(generateStandaloneGuards({
+      schemaDocument: { $defs: { User: { type: 'string' } } },
+      outDir: root,
+      typeNames: { User: 'ExternalUser' },
+    })).rejects.toThrow('typeImportSpecifier')
+    expect(readFileSync(join(root, 'guards.js'), 'utf8')).toBe('previous')
+    expect(existsSync(join(root, 'types.d.ts'))).toBe(false)
+  })
+
+  it.each([false, true])('accepts external declaration overrides with a matching type module (split=%s)', async split => {
+    const artifacts = await generateStandaloneGuards({
+      schemaDocument: { $defs: { User: { type: 'string' } } },
+      outDir: root,
+      typeNames: { User: 'ExternalUser' },
+      typeImportSpecifier: split ? '../external.js' : './external.js',
+      split,
+      dryRun: true,
+    })
+    const files = Object.fromEntries(artifacts.map(file => [file.filePath.slice(root.length + 1), file.content]))
+    files['external.ts'] = 'export type ExternalUser = string'
+    expect(files['types.d.ts']).toBeUndefined()
+    expect(typecheckGeneratedFiles({ files, compilerOptions: { skipLibCheck: false } })).toEqual([])
+  })
+
   it('uses full standalone validation in plugins and compiles its complete generated interface', async () => {
     const result = await runTspPluginPipeline({
       purpose: 'data',

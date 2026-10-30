@@ -1,5 +1,9 @@
 # Todo — 이행 대기 태스크
 
+현재 기능 결함의 상태와 종료 조건은 [검증 원장 현황](./verification/status.md)의 결함 표를 따른다.
+날짜별 리뷰의 발견 설명을 읽고, 진행 상태를 바꿀 때는 [registry.json](./verification/registry.json)을 갱신한다. 이 TODO에 같은 결함 상태를 중복 관리하지 않는다.
+
+
 > 완료된 구현은 [spec.md](./spec.md), API 상세는 [api-index.md](./api-index.md)를 참조.
 > 현재 Core Platform 우선순위는 [plan.md](./plan.md), artifact release 판단은
 > [release-readiness.md](./release-readiness.md)를 따른다. 이 문서의 완료 항목은 구현·결정
@@ -37,6 +41,23 @@ TypeSpec source에서 materialize하며, Definition Builder fragments/targets는
 OA SDK 기본 기능 안정화의 현재 작업은 문서·gate drift 감시다. bounded cross-repo projection
 integration은 shared PRD US-001–US-013과 MCP PRD US-001–US-009 완료로 닫혔다.
 
+### [ ] 외부 문서 상호운용 및 자동완성 메타데이터 정합성
+
+현재 `tools-table-file-io`는 로컬·자체 생성 fixture와 CSV·XLSX 회귀만 검증하며, 실제
+Office, LibreOffice, Google Sheets, Notion 산출물의 상호운용은 검증 원장의
+`external-document-interop` 항목에서 미검증이다.
+
+작업:
+1. 실제 제품이 생성한 XLSX·CSV를 read → patch → write → reopen하고 OOXML 관계, 병합,
+   검증, 스타일, 수식, 인코딩, 줄바꿈 보존을 확인한다.
+2. 지원 형식·필드·메타데이터와 공개 export 및 자동완성/API 정보를
+   `api-index`, `library-entrypoints`, `feature-test-matrix`, package declaration/README에
+   함께 갱신한다.
+3. 제품별 fixture와 외부 실행 evidence를 검증 원장에 등록한다.
+
+완료 기준: 실제 제품 조합별 external-e2e 검증 통과, 자동완성/API index gate 통과,
+`external-document-interop` claim의 verified 승격.
+
 ### [x] 2026-10-25 용도별 파이프라인·가드 정합성 및 문서 정리
 
 `api` / `data` / `interface` 명시적 격리, 공통 구성 API·standalone 가드 엔진 연결,
@@ -45,6 +66,12 @@ integration은 shared PRD US-001–US-013과 MCP PRD US-001–US-009 완료로 �
 [완료·검증 기록](./pipeline-isolation-checkpoint-2026-10-25.md)에 남겼다.
 Changeset은 릴리스 의도이며 미배포 상태다. DPM 공유 검색·DB·권한·adapter·서비스 작업은
 위 보류 경계를 유지한다.
+후속 안정화에서 가드 이름·참조·분할 경로·외부 타입 매핑의 재현된 결함 4종을 보강했다.
+전체 Core 28 tasks, Codegen 4,041 tests, clean pack smoke를 통과했다.
+결과는 같은 완료 기록에서 초기 구현 검증과 구분한다.
+별도 tools·decorators 변경을 제외한 격리 스냅샷에서 watcher 테스트의 이벤트 선택 경쟁을
+보강하고, 전체 `ci:local` 46 gates를 통과했다. 최초 실패·10회 반복·재실행 근거는 완료 기록에
+보존하며 현재 전체 작업 트리의 통합 검증·공식 배포 승인과 구분한다.
 
 ### [x] Historical — OpenAPI definition builder: current-domain fragment backfill
 배경: 당시 migration plan에서 `packages/schemas/src/fragments`와 `packages/schemas/src/targets`를

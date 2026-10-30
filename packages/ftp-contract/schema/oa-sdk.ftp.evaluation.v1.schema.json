@@ -1,0 +1,362 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:oa-sdk:ftp:evaluation:1",
+  "title": "Functional Test Platform Evaluation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "evaluationId",
+    "evidenceId",
+    "runId",
+    "criterion",
+    "evaluator",
+    "profile",
+    "requests",
+    "verdict",
+    "coverage",
+    "issues"
+  ],
+  "properties": {
+    "evaluationId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evidenceId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "runId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "criterion": {
+      "$ref": "#/$defs/ExactRef"
+    },
+    "evaluator": {
+      "$ref": "#/$defs/ExactRef"
+    },
+    "profile": {
+      "$ref": "#/$defs/Profile"
+    },
+    "requests": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LifecycleRequestResult"
+      }
+    },
+    "verdict": {
+      "enum": [
+        "PASS",
+        "FAIL",
+        "INCONCLUSIVE",
+        "NOT_APPLICABLE",
+        "ERROR"
+      ]
+    },
+    "coverage": {
+      "$ref": "#/$defs/CoverageSummary"
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EvidenceIssue"
+      }
+    }
+  },
+  "$defs": {
+    "Identifier": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ExactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "namespace",
+        "id",
+        "revision"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "namespace": {
+          "type": "string",
+          "minLength": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "AliasRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "scope",
+        "alias"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "alias": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "DefinitionRef": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "namespace",
+            "id",
+            "revision"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "minLength": 1
+            },
+            "namespace": {
+              "type": "string",
+              "minLength": 1
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "revision": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "scope",
+            "alias"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "minLength": 1
+            },
+            "scope": {
+              "type": "string",
+              "minLength": 1
+            },
+            "alias": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      ]
+    },
+    "Profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "revision"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "OccurrenceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceId",
+        "occurrenceId"
+      ],
+      "properties": {
+        "sourceId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "occurrenceId": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "CriterionResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "verdict",
+        "reasonCodes",
+        "witnesses",
+        "evidenceSufficient"
+      ],
+      "properties": {
+        "verdict": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "INCONCLUSIVE",
+            "NOT_APPLICABLE",
+            "ERROR"
+          ]
+        },
+        "reasonCodes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "witnesses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OccurrenceRef"
+          }
+        },
+        "evidenceSufficient": {
+          "type": "boolean"
+        }
+      }
+    },
+    "LifecycleRequestResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requestId",
+        "started",
+        "terminal",
+        "order"
+      ],
+      "properties": {
+        "requestId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "started": {
+          "$ref": "#/$defs/CriterionResult"
+        },
+        "terminal": {
+          "$ref": "#/$defs/CriterionResult"
+        },
+        "order": {
+          "$ref": "#/$defs/CriterionResult"
+        }
+      }
+    },
+    "CoverageSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minimum",
+        "applicable",
+        "met"
+      ],
+      "properties": {
+        "minimum": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "applicable": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "met": {
+          "type": "boolean"
+        }
+      }
+    },
+    "EvidenceIssue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "component",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "component": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requestIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "occurrences": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OccurrenceRef"
+          }
+        }
+      }
+    },
+    "JsonValue": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/JsonValue"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          }
+        }
+      ]
+    }
+  }
+}

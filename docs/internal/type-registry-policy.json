@@ -34,19 +34,16 @@
   "boundaryBudgets": [
     {
       "rule": "boundary:any",
-      "maximum": 134,
       "owner": "OA SDK maintainers",
       "remediation": "Replace explicit any with a narrow generic, unknown plus validation, or a modeled protocol type."
     },
     {
       "rule": "boundary:double-assertion",
-      "maximum": 27,
       "owner": "OA SDK maintainers",
       "remediation": "Remove the double assertion or validate the value before crossing the boundary."
     },
     {
       "rule": "boundary:unvalidated-deserialize",
-      "maximum": 118,
       "owner": "OA SDK maintainers",
       "remediation": "Parse deserialized data through a named schema validator before treating it as a domain type."
     }

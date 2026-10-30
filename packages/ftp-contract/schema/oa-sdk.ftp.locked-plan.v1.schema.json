@@ -1,0 +1,377 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:oa-sdk:ftp:locked-plan:1",
+  "title": "Functional Test Platform LockedPlan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "planId",
+    "definitions",
+    "bindings",
+    "resolver",
+    "profiles",
+    "requiredCapabilities",
+    "requireInitializationObservation",
+    "concurrency",
+    "closePolicy",
+    "selection",
+    "applications"
+  ],
+  "properties": {
+    "planId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "definitions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Definition"
+      }
+    },
+    "bindings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Binding"
+      }
+    },
+    "resolver": {
+      "$ref": "#/$defs/ExactRef"
+    },
+    "profiles": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Profile"
+      }
+    },
+    "requiredCapabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "requireInitializationObservation": {
+      "type": "boolean"
+    },
+    "concurrency": {
+      "enum": [
+        "serial",
+        "concurrent"
+      ]
+    },
+    "closePolicy": {
+      "$ref": "#/$defs/ClosePolicy"
+    },
+    "selection": {
+      "$ref": "#/$defs/JsonValue"
+    },
+    "applications": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Application"
+      }
+    }
+  },
+  "$defs": {
+    "Identifier": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ExactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "namespace",
+        "id",
+        "revision"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "namespace": {
+          "type": "string",
+          "minLength": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "AliasRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "scope",
+        "alias"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "alias": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "DefinitionRef": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "namespace",
+            "id",
+            "revision"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "minLength": 1
+            },
+            "namespace": {
+              "type": "string",
+              "minLength": 1
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "revision": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "scope",
+            "alias"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "minLength": 1
+            },
+            "scope": {
+              "type": "string",
+              "minLength": 1
+            },
+            "alias": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      ]
+    },
+    "Profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "revision"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "Definition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "dependencies",
+        "body"
+      ],
+      "properties": {
+        "ref": {
+          "$ref": "#/$defs/ExactRef"
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DefinitionRef"
+          }
+        },
+        "body": {
+          "$ref": "#/$defs/JsonValue"
+        }
+      }
+    },
+    "Binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requested",
+        "resolved"
+      ],
+      "properties": {
+        "requested": {
+          "$ref": "#/$defs/DefinitionRef"
+        },
+        "resolved": {
+          "$ref": "#/$defs/ExactRef"
+        }
+      }
+    },
+    "ClosePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "normal",
+        "cancel",
+        "error"
+      ],
+      "properties": {
+        "normal": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "inFlight",
+            "budgetMs"
+          ],
+          "properties": {
+            "inFlight": {
+              "enum": [
+                "drain",
+                "cancel"
+              ]
+            },
+            "budgetMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "cancel": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "inFlight",
+            "budgetMs"
+          ],
+          "properties": {
+            "inFlight": {
+              "enum": [
+                "drain",
+                "cancel"
+              ]
+            },
+            "budgetMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "error": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "inFlight",
+            "budgetMs"
+          ],
+          "properties": {
+            "inFlight": {
+              "enum": [
+                "drain",
+                "cancel"
+              ]
+            },
+            "budgetMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "Application": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "criterion",
+        "scope",
+        "purpose",
+        "status",
+        "basis"
+      ],
+      "properties": {
+        "criterion": {
+          "$ref": "#/$defs/ExactRef"
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "accepted",
+            "candidate"
+          ]
+        },
+        "basis": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "JsonValue": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/JsonValue"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          }
+        }
+      ]
+    }
+  }
+}

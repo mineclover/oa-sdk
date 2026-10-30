@@ -301,7 +301,7 @@ function postProcessGeneratedJs(
 
   // 1. Transform export syntax to standard function
   js = js.replace(
-    /export const (\w+) = (\w+);/g,
+    /export const ([A-Za-z_$][\w$]*) = ([A-Za-z_$][\w$]*);/g,
     (_match, name, fn) => {
       if (extra.dispatches?.has(name)) {
         const disp = extra.dispatches.get(name)!
@@ -413,6 +413,11 @@ function toGuardIdentifier(name: string): string {
   return prefixed.length > 0 ? prefixed : 'isValue'
 }
 
+/** Encode one RFC 6901 token for use inside a URI fragment. */
+function schemaPointerToken(name: string): string {
+  return encodeURIComponent(name.replace(/~/g, '~0').replace(/\//g, '~1'))
+}
+
 /**
  * The importable root of a (possibly qualified) type reference.
  * `OaSdkTypeSpec.StandardError` is imported as its namespace `OaSdkTypeSpec` and used as
@@ -436,7 +441,7 @@ function autoDiscoverGuards(doc: Record<string, unknown>): StandaloneGuardTarget
       targets.push({
         name: toGuardIdentifier(key.startsWith('is') ? key : `is${key}`),
         typeName: key,
-        schema: `${prefix}${key}`,
+        schema: `${prefix}${schemaPointerToken(key)}`,
       })
     }
   }
@@ -450,7 +455,7 @@ function autoDiscoverGuards(doc: Record<string, unknown>): StandaloneGuardTarget
         targets.push({
           name: toGuardIdentifier(key.startsWith('is') ? key : `is${key}`),
           typeName: key,
-          schema: `#/components/schemas/${key}`,
+          schema: `#/components/schemas/${schemaPointerToken(key)}`,
         })
       }
     }
@@ -623,15 +628,22 @@ export async function generateStandaloneGuards(
     const guardsDir = path.join(outDir, 'guards')
 
     const guardToFileBase = new Map<string, string>()
+    const usedFileBases = new Set<string>()
     for (const g of resolvedGuards) {
-      guardToFileBase.set(g.name, toGuardIdentifier(g.typeName?.trim() || g.name))
+      const base = toGuardIdentifier(g.typeName?.trim() || g.name)
+      let fileBase = base
+      let suffix = 2
+      // Keep outputs distinct on case-insensitive filesystems as well.
+      while (usedFileBases.has(fileBase.toLowerCase())) fileBase = `${base}_${suffix++}`
+      usedFileBases.add(fileBase.toLowerCase())
+      guardToFileBase.set(g.name, fileBase)
     }
 
     const indexJsLines: string[] = []
     const indexDtsLines: string[] = []
 
     for (const guard of resolvedGuards) {
-      const fileBase = toGuardIdentifier(guard.typeName?.trim() || guard.name)
+      const fileBase = guardToFileBase.get(guard.name)!
       const rawJs: string = standaloneCode(ajv, { [guard.name]: guard.name })
       const jsContent = postProcessGeneratedJs(rawJs, {
         fastPaths,

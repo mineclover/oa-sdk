@@ -1,6 +1,6 @@
 {
   "name": "@oa-sdk/ftp-contract",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Canonical oa-sdk exchange declarations consumed by the Functional Test Platform",
   "private": true,
   "type": "module",

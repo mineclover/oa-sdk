@@ -17,7 +17,7 @@ release candidate의 현재 판단 입력과 source/external 책임 경계는
 
 ## Current State
 
-현재 정책 스냅샷: v5 · 4 tracks · Core Platform 11 · Downstream 15 · release-tracked 26 · ignored 12 · distribution candidates 22.
+현재 정책 스냅샷: v5 · 4 tracks · Core Platform 11 · Downstream 16 · release-tracked 27 · ignored 12 · distribution candidates 22.
 
 - Root package는 private monorepo이며 Changesets가 설치되어 있다.
 - Root monorepo와 app/reference workspace는 private이다. `pnpm release`는 `pnpm release:export`에
@@ -83,6 +83,7 @@ schema/spec 관리 제품을 소유하고, Downstream Integration 열다섯 패�
 | Downstream Integration | `@oa-sdk/mcp-mesh` | `0.1.3` | Domain/session library, validated tool routing and CLI |
 | Downstream Integration | `@oa-sdk/telemetry` | `0.2.0` | Design-driven telemetry, tracking symbol registry, XState v5 inspector, and DPM pseudonymization bridge |
 | Downstream Integration | `@oa-sdk/rpc` | `0.2.0` | Private RPC runtime over the Surface IR RPC contract: typed client/server, JSON-RPC 2.0 and REST binding |
+| Downstream Integration | `@oa-sdk/popup-bridge` | `0.1.0` | Private popup bridge: origin-verified handshake, symmetric JSON-RPC over `MessageChannel`, contract-first type declarations and RPC generation utilities |
 
 ## Ignored Workspaces
 

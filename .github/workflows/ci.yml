@@ -84,6 +84,9 @@ jobs:
 
       - name: Governance manifests
         run: |
+          pnpm test:verification
+          pnpm check:feature-tests
+          pnpm check:verification
           pnpm test:api-index
           pnpm check:api-index
           pnpm check:cli-spec

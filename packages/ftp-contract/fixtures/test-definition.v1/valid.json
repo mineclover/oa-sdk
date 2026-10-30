@@ -1,0 +1,9 @@
+{
+  "definitionId": "definition-1",
+  "target": { "kind": "target", "namespace": "example", "id": "service", "revision": "1" },
+  "claim": { "kind": "claim", "namespace": "example", "id": "accepted", "revision": "1" },
+  "criterion": { "kind": "criterion", "namespace": "example", "id": "lifecycle", "revision": "1" },
+  "method": { "kind": "method", "namespace": "example", "id": "submit", "revision": "1" },
+  "dataset": { "kind": "dataset", "namespace": "example", "id": "base", "revision": "1" },
+  "criterionCombination": "all"
+}

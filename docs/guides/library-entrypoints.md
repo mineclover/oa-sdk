@@ -59,7 +59,7 @@ oa-sdk는 하나의 runtime SDK가 아니라 OpenAPI 계약을 작성·검증·�
 ## 저장소 전용 패키지 (비공개)
 
 아래 패키지는 oa-sdk 저장소 안에서만 쓴다. `@oa-sdk/schemas`, `@oa-sdk/spec-lens`, `@oa-sdk/spec-lens-contract`는
-Core Platform의 저장소 전용 패키지이고, `@oa-sdk/rpc`는 Downstream Integration의 저장소 전용 패키지이며, 나머지는
+Core Platform의 저장소 전용 패키지이고, `@oa-sdk/rpc`, `@oa-sdk/popup-bridge`는 Downstream Integration의 저장소 전용 패키지이며, 나머지는
 비공개 유지보수 패키지(maintenance-only, 저장소 전용)다
 ([Scope Tiers](../internal/platform-scope.md#scope-tiers)).
 
@@ -69,6 +69,7 @@ Core Platform의 저장소 전용 패키지이고, `@oa-sdk/rpc`는 Downstream I
 | `@oa-sdk/spec-lens` | 비공개 | 로컬 SQLite 캐시 기반 contract history, graph, provenance observation | package root | [Spec-Lens 사용법](../spec-lens/README.md) |
 | `@oa-sdk/spec-lens-contract` | 비공개 | Spec Lens HTTP API의 browser-safe wire contract | package root | [API index](../internal/api-index.md) |
 | `@oa-sdk/rpc` | 비공개 | TypeSpec 계약의 operation을 typed RPC procedure로 호출·제공하는 runtime. JSON-RPC 2.0과 원래 REST route를 같은 handler로 처리(런타임 의존성 0개, `./ajv`만 선택적 peer `ajv`) | package root, `./ajv` | [rpc README](../../packages/rpc/README.md) |
+| `@oa-sdk/popup-bridge` | 비공개 | 별도 Origin 팝업을 여는 Origin 검증 핸드셰이크, `MessageChannel` 위 양방향 JSON-RPC, 계약 기반 타입 선언·RPC 생성 유틸리티(런타임 의존성 0개) | package root, `./host`, `./popup`, `./testing` | [팝업 브리지 사용 가이드](./popup-bridge.md) |
 | `@oa-sdk/typespec-tooling` | 비공개 | TypeSpec IDE 설정 템플릿, 생산성 스니펫, 커스텀 linter 규칙 모음 | package root, `./snippets`, `./linter` | [TypeSpec IDE 설정](./typespec-ide-setup.md) |
 | `@oa-sdk/typespec-erd` | 비공개 | logical ERD TypeSpec prototype와 artifact CLI(bin `oa-erd`) | package root | [논리 ERD authoring](./typespec-logical-erd-authoring.md) |
 | `@oa-sdk/logical-erd-contract` | 비공개 | logical ERD artifact·validation·semantic diff contract | package root | [논리 ERD authoring](./typespec-logical-erd-authoring.md) |

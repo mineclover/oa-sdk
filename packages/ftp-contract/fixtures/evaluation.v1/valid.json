@@ -1,0 +1,17 @@
+{
+  "evaluationId": "evaluation-1",
+  "evidenceId": "evidence-1",
+  "runId": "run-1",
+  "criterion": { "kind": "criterion", "namespace": "example", "id": "lifecycle", "revision": "1" },
+  "evaluator": { "kind": "evaluator", "namespace": "example", "id": "lifecycle", "revision": "1" },
+  "profile": { "id": "request-lifecycle", "revision": "0.1" },
+  "requests": [{
+    "requestId": "request-1",
+    "started": { "verdict": "PASS", "reasonCodes": ["STARTED_OBSERVED"], "witnesses": [], "evidenceSufficient": true },
+    "terminal": { "verdict": "PASS", "reasonCodes": ["TERMINAL_OBSERVED"], "witnesses": [], "evidenceSufficient": true },
+    "order": { "verdict": "PASS", "reasonCodes": ["ORDER_VALID"], "witnesses": [], "evidenceSufficient": true }
+  }],
+  "verdict": "PASS",
+  "coverage": { "minimum": 1, "applicable": 1, "met": true },
+  "issues": []
+}

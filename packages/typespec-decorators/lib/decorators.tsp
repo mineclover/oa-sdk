@@ -5,3 +5,4 @@ import "./behavior.tsp";
 import "./storage.tsp";
 import "./protobuf.tsp";
 import "./chunk-stream.tsp";
+import "./tool-pipeline.tsp";

@@ -84,6 +84,8 @@ run "browser-runtime-smoke" node apps/preview/scripts/browser-runtime-smoke.mjs
 run "test:docs-gates" pnpm test:docs-gates
 run "check:docs" pnpm check:docs
 run "check:feature-tests" pnpm check:feature-tests
+run "test:verification" pnpm test:verification
+run "check:verification" pnpm check:verification
 run "check:dpm-surface" pnpm check:dpm-surface
 run "codegen smoke:pack" pnpm --filter @oa-sdk/codegen run smoke:pack
 run "check:package-versions" pnpm check:package-versions

@@ -52,6 +52,11 @@
       "typespec": "./lib/chunk-stream.tsp",
       "types": "./dist/chunk-stream.d.ts",
       "default": "./dist/chunk-stream.js"
+    },
+    "./tool-pipeline": {
+      "typespec": "./lib/tool-pipeline.tsp",
+      "types": "./dist/tool-pipeline.d.ts",
+      "default": "./dist/tool-pipeline.js"
     }
   },
   "scripts": {

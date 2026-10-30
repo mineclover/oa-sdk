@@ -42,7 +42,11 @@ export type GovernanceRule =
 
 export type BoundaryBudget = {
   rule: BoundaryBudgetRule
-  maximum: number
+  /**
+   * Optional absolute ceiling for the whole workspace. Without it the rule is a per-file
+   * ratchet against the reviewed baseline: a file may keep or reduce its count but not grow it.
+   */
+  maximum?: number
   owner: string
   remediation: string
 }
@@ -160,7 +164,13 @@ export type GovernanceViolation = {
 export type BoundaryBudgetResult = {
   rule: BoundaryBudgetRule
   actual: number
-  maximum: number
+  maximum?: number
+  /** Count recorded in the reviewed baseline (absent when there is no baseline). */
+  baseline?: number
+  /** Boundaries removed relative to the baseline; run `--write` to lock the reduction in. */
+  resolved: number
+  /** Boundaries added relative to the baseline, summed over the files that grew. */
+  increased: number
   allowed: number
   passed: boolean
 }
@@ -195,6 +205,8 @@ export type RunTypeRegistryGovernanceOptions = {
   baselinePath?: string
   databasePath?: string
   writeBaseline?: boolean
+  /** With `writeBaseline`: accept boundaries that grew relative to the baseline. */
+  allowIncrease?: boolean
   writeOutputs?: boolean
   today?: string
 }
@@ -297,8 +309,8 @@ export function validatePolicy(value: unknown): string[] {
       if (!isBoundaryRule(budget.rule)) issues.push(`${prefix}.rule is not supported`)
       else if (seen.has(budget.rule)) issues.push(`${prefix}.rule duplicates ${budget.rule}`)
       else seen.add(budget.rule)
-      if (!Number.isSafeInteger(budget.maximum) || (budget.maximum as number) < 0) {
-        issues.push(`${prefix}.maximum must be a non-negative safe integer`)
+      if (budget.maximum !== undefined && (!Number.isSafeInteger(budget.maximum) || (budget.maximum as number) < 0)) {
+        issues.push(`${prefix}.maximum must be a non-negative safe integer when present`)
       }
       requireNonEmptyString(budget, 'owner', issues, prefix)
       requireNonEmptyString(budget, 'remediation', issues, prefix)
@@ -343,6 +355,9 @@ export function validatePolicy(value: unknown): string[] {
 export function runTypeRegistryGovernance(
   options: RunTypeRegistryGovernanceOptions,
 ): RunTypeRegistryGovernanceResult {
+  if (options.allowIncrease === true && options.writeBaseline !== true) {
+    throw new Error('allowIncrease only applies when writing the baseline; nothing records an accepted increase otherwise')
+  }
   const root = resolve(options.root)
   const policyPath = resolve(root, options.policyPath)
   const policy = loadTypeRegistryPolicy(policyPath)
@@ -387,6 +402,7 @@ export function runTypeRegistryGovernance(
       snapshot,
       registry,
       baseline,
+      allowIncrease: options.allowIncrease === true,
       today: options.today ?? new Date().toISOString().slice(0, 10),
     })
     const report: TypeRegistryReport = {
@@ -779,6 +795,7 @@ function evaluateGovernance(options: {
   snapshot: TypeRegistrySnapshotDocument
   registry: TypeRegistrySnapshot
   baseline: TypeRegistrySnapshotDocument | undefined
+  allowIncrease: boolean
   today: string
 }): {
   budgets: BoundaryBudgetResult[]
@@ -812,34 +829,80 @@ function evaluateGovernance(options: {
     boundaryGroups.get(rule)?.push(boundary)
   }
 
+  const isAllowlisted = (rule: BoundaryBudgetRule, boundary: TypeBoundaryRecord, markUsed: boolean): boolean => {
+    const packageName = packageForFile(packages, boundary.filePath)?.packageName
+    const match = findAllowlist(activeAllowlist, {
+      rule,
+      filePath: boundary.filePath,
+      boundaryId: boundary.boundaryId,
+      ...(packageName === undefined ? {} : { packageName }),
+    })
+    if (match !== undefined && markUsed) usedAllowlist.add(match.id)
+    return match !== undefined
+  }
+
+  // The baseline is counted with the current allowlist, so editing the allowlist never reads as growth.
+  const baselineByRule = new Map<BoundaryBudgetRule, Map<string, number>>()
+  if (options.baseline !== undefined) {
+    const baselineAuthority = new Set(options.baseline.sources
+      .filter(source => source.origin === 'handwritten' && source.role === 'authority')
+      .map(source => source.filePath))
+    for (const rule of boundaryRules()) baselineByRule.set(rule, new Map())
+    for (const boundary of options.baseline.registry.boundaryEvidence) {
+      if (!baselineAuthority.has(boundary.filePath)) continue
+      const rule = boundaryRuleForRecord(boundary)
+      if (rule === undefined || isAllowlisted(rule, boundary, false)) continue
+      const files = baselineByRule.get(rule) as Map<string, number>
+      files.set(boundary.filePath, (files.get(boundary.filePath) ?? 0) + 1)
+    }
+  }
+
   const budgets: BoundaryBudgetResult[] = []
   for (const budget of [...policy.boundaryBudgets].sort((left, right) => left.rule.localeCompare(right.rule))) {
     const boundaries = boundaryGroups.get(budget.rule) ?? []
-    const unallowed = boundaries.filter(boundary => {
-      const packageName = packageForFile(packages, boundary.filePath)?.packageName
-      const match = findAllowlist(activeAllowlist, {
-        rule: budget.rule,
-        filePath: boundary.filePath,
-        boundaryId: boundary.boundaryId,
-        ...(packageName === undefined ? {} : { packageName }),
-      })
-      if (match !== undefined) usedAllowlist.add(match.id)
-      return match === undefined
-    })
+    const unallowed = boundaries.filter(boundary => !isAllowlisted(budget.rule, boundary, true))
     const actual = unallowed.length
+    const currentByFile = new Map<string, number>()
+    for (const boundary of unallowed) currentByFile.set(boundary.filePath, (currentByFile.get(boundary.filePath) ?? 0) + 1)
+
+    const baselineFiles = baselineByRule.get(budget.rule)
+    let resolved = 0
+    let increased = 0
+    if (baselineFiles !== undefined) {
+      for (const filePath of [...new Set([...currentByFile.keys(), ...baselineFiles.keys()])].sort()) {
+        const before = baselineFiles.get(filePath) ?? 0
+        const now = currentByFile.get(filePath) ?? 0
+        if (now < before) resolved += before - now
+        if (now <= before) continue
+        increased += now - before
+        if (options.allowIncrease) continue
+        violations.push({
+          rule: budget.rule,
+          message: `${budget.rule} grew in ${filePath} (${before} -> ${now}); owner=${budget.owner}; ${budget.remediation} To accept it, review the change and run with --write --allow-increase.`,
+          filePath,
+          actual: now,
+          maximum: before,
+        })
+      }
+    }
+
+    const ceilingExceeded = budget.maximum !== undefined && actual > budget.maximum
     budgets.push({
       rule: budget.rule,
       actual,
-      maximum: budget.maximum,
+      ...(budget.maximum === undefined ? {} : { maximum: budget.maximum }),
+      ...(baselineFiles === undefined ? {} : { baseline: [...baselineFiles.values()].reduce((sum, count) => sum + count, 0) }),
+      resolved,
+      increased,
       allowed: boundaries.length - unallowed.length,
-      passed: actual <= budget.maximum,
+      passed: !ceilingExceeded && (increased === 0 || options.allowIncrease),
     })
-    if (actual > budget.maximum) {
+    if (ceilingExceeded) {
       violations.push({
         rule: budget.rule,
         message: `${budget.rule} budget exceeded (${actual} > ${budget.maximum}); owner=${budget.owner}; ${budget.remediation}`,
         actual,
-        maximum: budget.maximum,
+        maximum: budget.maximum as number,
       })
     }
   }

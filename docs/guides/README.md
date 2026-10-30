@@ -2,8 +2,9 @@
 
 이 문서는 엔지니어의 역할과 목적에 따라 가장 적합한 문서를 빠르게 찾을 수 있도록 **시작하기**, **선언자 트랙(Author Track)**, **소비자 트랙(Consumer Track)**, **기여자·메인테이너** 경로로 나눈 가이드 탐색 지도를 제공합니다. 다른 프로젝트에서 공개 패키지를 쓰는 흐름과 oa-sdk 저장소 자체에 기여하는 흐름은 서로 다른 문서를 따릅니다.
 
-무엇을 쓸지 아직 정하지 않았다면 [기능 선택 지도](./feature-map.md)에서 목적별 기능과
-설치·저장소 전용·maintenance·외부 제품·TODO 경계를 먼저 확인합니다.
+무엇을 쓸지 아직 정하지 않았다면 [기능 선택 지도](./feature-map.md)를 따릅니다.
+계약 입력 → 코드 생성 → 실행·도구 연결 → 검증·리뷰 → 런타임 지원 순서로 고르고,
+설치·저장소 전용·maintenance·외부 제품·TODO의 상태를 확인합니다.
 
 API·데이터 구조·소비자 인터페이스를 각각 빌드할 때는 [용도별 파이프라인 구성](./pipeline-configuration.md)을 따릅니다.
 
@@ -284,6 +285,9 @@ TypeSpec(`.tsp`)을 단일 정본(SSOT)으로 삼아 디스크 I/O 없이 인메
   - `pluginRpc`로 procedure 타입과 contract를 생성하고, `@oa-sdk/rpc`의 한 handler 집합으로 JSON-RPC 2.0과 원래 REST route를 함께 제공.
   - `createHttpTransport` / `createJsonRpcTransport` 클라이언트, `handleJsonRpc`로 메시지 채널 연동, `RpcError` 오류 모델.
   - `pluginWire`의 Protobuf codec과 `<Service>RpcClient`: 생성된 `.proto`와 wire 호환(protobufjs 양방향 검증), JSON Schema ↔ Protobuf 매핑, 크기 비교와 한계.
+- **[팝업 브리지](./popup-bridge.md)** (`@oa-sdk/popup-bridge`, 저장소 전용):
+  - 별도 Origin 팝업을 여는 Origin 검증 핸드셰이크와 `MessageChannel` 위 양방향 JSON-RPC(취소·타임아웃·멱등성 키).
+  - `defineContract`/`method`/`event` 타입 선언 규약, `createRpcApi`·`HandlerRegistry` RPC 생성 유틸리티 규격, 오류 코드·와이어 규격, `createMemoryBrowser` 테스트 더블.
 
 ---
 

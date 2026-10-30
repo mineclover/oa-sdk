@@ -1,0 +1,48 @@
+{
+  "name": "@oa-sdk/popup-bridge",
+  "version": "0.1.0",
+  "description": "Transport-agnostic popup bridge: origin-verified handshake, bidirectional JSON-RPC over MessageChannel, and contract-first typed RPC generation",
+  "private": true,
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./host": {
+      "types": "./dist/host.d.ts",
+      "import": "./dist/host.js"
+    },
+    "./popup": {
+      "types": "./dist/popup.d.ts",
+      "import": "./dist/popup.js"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "import": "./dist/testing.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts src/host.ts src/popup.ts src/testing.ts --format esm --dts",
+    "test": "vitest run",
+    "test:ci": "vitest run --maxWorkers 1 --no-file-parallelism",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
+    "clean": "rm -rf dist",
+    "test:e2e": "vitest run -c vitest.e2e.config.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "playwright-core": "^1.64.1",
+    "tsup": "^8.5.1",
+    "typescript": "5.9.3",
+    "vitest": "^4.1.12"
+  }
+}

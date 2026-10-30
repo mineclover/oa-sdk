@@ -54,12 +54,13 @@ try {
     excludePatterns: ['**/__tests__/**'],
     generatedPatterns: ['**/*.generated.ts'],
     boundaryBudgets: [
-      { rule: 'boundary:any', maximum: 0, owner: 'types', remediation: 'model it' },
-      { rule: 'boundary:double-assertion', maximum: 0, owner: 'types', remediation: 'validate it' },
-      { rule: 'boundary:unvalidated-deserialize', maximum: 0, owner: 'types', remediation: 'parse it' },
+      { rule: 'boundary:any', owner: 'types', remediation: 'model it' },
+      { rule: 'boundary:double-assertion', owner: 'types', remediation: 'validate it' },
+      { rule: 'boundary:unvalidated-deserialize', owner: 'types', remediation: 'parse it' },
     ],
     allowlist: [],
   }
+  assert.deepEqual(validatePolicy(policy), [], 'a ratchet-only policy needs no numeric ceilings')
   writeJson(join(workspace, 'governance/policy.json'), policy)
 
   const first = runTypeRegistryGovernance({
@@ -163,6 +164,73 @@ try {
   assert.ok(violationRules.has('boundary:unvalidated-deserialize'))
   assert.ok(violationRules.has('unresolved-public-reexport'))
   assert.ok(violationRules.has('runtime-export-mismatch'))
+
+  // ---- per-file ratchet against the reviewed baseline -------------------------------------------
+  const indexPath = join(packageDirectory, 'src/index.ts')
+  const otherPath = join(packageDirectory, 'src/other.ts')
+  const unsafeBody = [
+    'export type InternalOnly = bigint',
+    'export function unsafe(raw: any): string {',
+    '  const parsed = JSON.parse(raw)',
+    '  return parsed as unknown as string',
+    '}',
+    '',
+  ].join('\n')
+  const run = (extra: Partial<Parameters<typeof runTypeRegistryGovernance>[0]> = {}) =>
+    runTypeRegistryGovernance({ root: workspace, policyPath: 'governance/policy.json', writeOutputs: false, ...extra })
+  const boundaryRules = ['boundary:any', 'boundary:double-assertion', 'boundary:unvalidated-deserialize']
+
+  writeFileSync(indexPath, safeSource)
+  writeFileSync(internalPath, unsafeBody)
+  const grown = run()
+  const internalFile = 'packages/example/src/internal.ts'
+  for (const rule of boundaryRules) {
+    assert.ok(
+      grown.report.violations.some(violation => violation.rule === rule && violation.filePath === internalFile),
+      `${rule} growth in ${internalFile} must fail the ratchet`,
+    )
+  }
+  assert.throws(() => run({ writeBaseline: true }), /Refusing to write a failing/)
+  assert.throws(() => run({ allowIncrease: true }), /allowIncrease only applies when writing/)
+  const accepted = run({ writeBaseline: true, allowIncrease: true })
+  assert.equal(accepted.report.violations.length, 0, '--allow-increase accepts the growth when writing')
+
+  const steady = run()
+  assert.equal(steady.report.violations.length, 0, 'the accepted baseline is the new floor')
+  for (const budget of steady.report.budgets) {
+    assert.equal(budget.actual, budget.baseline)
+    assert.equal(budget.resolved, 0)
+    assert.equal(budget.increased, 0)
+  }
+
+  // Removing a boundary in one file and adding one in another keeps the total but must still fail.
+  writeFileSync(internalPath, 'export type InternalOnly = bigint\n')
+  writeFileSync(otherPath, 'export type Other = string\nexport function loose(raw: any): string { return raw }\n')
+  const swapped = run()
+  const anyBudget = swapped.report.budgets.find(budget => budget.rule === 'boundary:any')!
+  assert.equal(anyBudget.actual, anyBudget.baseline, 'the swap keeps the total unchanged')
+  assert.deepEqual(
+    swapped.report.violations.filter(violation => violation.rule === 'boundary:any').map(violation => violation.filePath),
+    ['packages/example/src/other.ts'],
+  )
+
+  // A pure reduction passes without touching the policy or the baseline, and is reported as resolved.
+  rmSync(otherPath)
+  const reduced = run()
+  assert.equal(reduced.report.violations.length, 0)
+  for (const budget of reduced.report.budgets) {
+    assert.ok(budget.resolved > 0, `${budget.rule} reduction must be reported as resolved`)
+    assert.equal(budget.increased, 0)
+  }
+
+  // An explicit numeric ceiling is still honoured as an absolute cap.
+  writeFileSync(internalPath, unsafeBody)
+  const capped = structuredClone(policy)
+  capped.boundaryBudgets = capped.boundaryBudgets.map(budget => ({ ...budget, maximum: 0 }))
+  writeJson(join(workspace, 'governance/policy-capped.json'), capped)
+  const ceiling = run({ policyPath: 'governance/policy-capped.json' })
+  assert.ok(ceiling.report.violations.some(violation => violation.message.includes('budget exceeded')))
+  writeFileSync(internalPath, 'export type InternalOnly = bigint\n')
 
   const invalidPolicy = structuredClone(policy) as unknown as Record<string, unknown>
   invalidPolicy.allowlist = [{

@@ -169,6 +169,11 @@ handler/client/query/CRDT HTTP 출력이나 그 companion 패키지는 불러오
   `guards.runtime.d.ts`를 함께 생성한다. 소비자 패키지에는 runtime 파일도 포함해야 한다.
 - 프로그램 방식의 `generateStandaloneGuards({ ..., dryRun: true })`는 파일·디렉터리·package metadata를
   쓰지 않고 artifact 목록을 반환한다. `typeNames`는 고급 소비자가 선언 이름을 명시적으로 연결할 때 쓴다.
+- `typeNames`로 자동 typegen 이름을 바꾸면 해당 선언을 제공하는 `typeImportSpecifier`도 지정한다.
+  외부 모듈 없이 자체 `types.d.ts`와 다른 이름을 요청하면 쓰기 전에 실패한다.
+- 스키마 이름의 `/`, `~`, `#`, `%`는 JSON Pointer/URI fragment 규칙에 맞게 처리한다. 분할 가드의
+  파일명은 정규화 후 충돌·대소문자 충돌을 피하도록 suffix를 배정하며, 기존의 충돌 없는 파일명은 유지한다.
+- `$`가 포함된 유효 TypeScript 선언 이름도 플러그인 wrapper와 runtime 양쪽에서 유지한다.
 
 ## 6. 실패 처리와 출력 보존
 

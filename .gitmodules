@@ -4,3 +4,6 @@
 [submodule "references/bun-graph-db"]
 	path = references/bun-graph-db
 	url = https://github.com/mineclover/bun-graph-db
+[submodule "references/kuzu"]
+	path = references/kuzu
+	url = https://github.com/kuzudb/kuzu.git

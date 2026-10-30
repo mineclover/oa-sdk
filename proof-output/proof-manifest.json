@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "oa-sdk",
+  "packageName": "oa-sdk (TypeSpec · OpenAPI 3.2 Contract SSOT & Functional Intent Alignment)",
+  "axis": "[3단계 · 보편 하네스 축 2-① 스펙 관리: 계약 스펙] 기능 의도 단위의 프론트엔드(FE API)–백엔드(BE API) 정렬",
+  "scenarioId": "SEED-SCENARIO-01",
+  "status": "completed",
+  "updatedAt": "2026-10-25T13:18:28.976Z",
+  "designAlignment": {
+    "hiddenDataFlow": "TypeSpec(`.tsp`) 인메모리 컴파일, `@oa-sdk/parser` 단일 AST 해석, 클라이언트·TanStack Query 옵션·백엔드 핸들러 계약(`*.contract.ts`)·라우터(`@oa-sdk/router`)·Mock 서버 코드 자동 생성",
+    "intermediateControlPoint": "사람이 직접 읽고 편집하는 단일 정본인 TypeSpec(`.tsp`) / OpenAPI 3.2 기능 의도 계약 파일 (`evaluateFractionSceneSubmission` 입력·출력·오류 경계 정의)",
+    "visualizedDecisionIntent": "프론트엔드 기능 컴포넌트(FE API)와 백엔드 엔드포인트(BE API)의 기능 의도 1:1 정렬 매트릭스 및 `oa-gen diff` / `tsp diff --fail-on-breaking` 드리프트·파괴적 변경 0건 검증 리포트"
+  },
+  "deliverables": {
+    "captures": [
+      {
+        "id": "control-point",
+        "file": "captures/01-control-point.png",
+        "title": "[중간 관리 포인트] TypeSpec (.tsp) 단일 계약 정본 & FE 기능 컴포넌트–BE 핸들러 계약 매핑 뷰",
+        "description": "`scene_fraction_quiz_01`의 제출 평가 기능(`evaluateFractionSceneSubmission`)을 정의한 `.tsp` 계약 원본과, 이로부터 생성된 프론트엔드 컴포넌트 Props/Query 계약 및 백엔드 `*.contract.ts` 시그니처가 나란히 정렬된 화면"
+      },
+      {
+        "id": "decision-intent",
+        "file": "captures/02-decision-intent.png",
+        "title": "[최종 의사결정 의도 시각화] FE–BE 기능 의도 정렬 상태 & Breaking Change / Runtime Drift 0건 검증 대시보드",
+        "description": "내부 파서·코드 생성 파이프라인은 숨기고, 기능 의도 단위로 묶인 FE 컴포넌트–BE API의 계약 일치율(100%), Breaking Change 유무, 33개 패키지 검증 통과 상태만 시각화한 의사결정 화면"
+      }
+    ],
+    "reference": {
+      "interactiveDemoHtml": "reference/reference-demo.html",
+      "inputSampleJson": "reference/input-sample.json",
+      "outputArtifactJson": "reference/output-artifact.json",
+      "verificationLog": "reference/verification-log.txt",
+      "interactiveHtmlGoal": "`reference-demo.html`에서 `.tsp` 계약 필드(예: `submittedNumerator`, `inspectionScanId`)를 수정·토글해 보면 FE 컴포넌트 API와 BE 라우터 계약의 정렬 상태 및 Breaking Change 경고가 즉시 시각화되는 인터랙티브 레퍼런스 구현",
+      "verifyCommand": "pnpm -r test"
+    }
+  }
+}

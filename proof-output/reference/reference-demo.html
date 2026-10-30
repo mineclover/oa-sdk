@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="graphite">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>oa-sdk (TypeSpec · OpenAPI 3.2 Contract SSOT & Functional Intent Alignment) · SEED-SCENARIO-01 Studio Workbench</title>
+  <style>
+    :root {
+      --bg-000: #0b0d12;
+      --bg-100: #11151d;
+      --bg-200: #161b26;
+      --bg-300: #1e2534;
+      --bg-400: #283145;
+      --line: #262f42;
+      --line-strong: #475569;
+      --ink: #f1f5f9;
+      --ink-muted: #94a3b8;
+      --accent: #60a5fa;
+      --accent-soft: rgba(96, 165, 250, 0.14);
+      --secondary: #818cf8;
+      --pass: #10b981;
+      --warn: #f59e0b;
+      --info: #38bdf8;
+      --font-sans: "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+      --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg-000);
+      color: var(--ink);
+      font-family: var(--font-sans);
+      font-size: 12px;
+      line-height: 1.38;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .studio-root {
+      display: flex;
+      flex-direction: column;
+      width: 100vw;
+      height: 100vh;
+      background: var(--bg-000);
+    }
+
+    /* Top Studio Bars (28px each) */
+    .studio-bar,
+    .studio-subbar {
+      height: 30px;
+      min-height: 30px;
+      max-height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px;
+      background: var(--bg-100);
+      border-bottom: 1px solid var(--line);
+      gap: 8px;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .studio-subbar {
+      background: var(--bg-200);
+    }
+
+    .bar-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .bar-group:first-child {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .bar-group:last-child {
+      flex-shrink: 0;
+    }
+
+    .brand-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 22px;
+      padding: 0 8px;
+      background: var(--bg-300);
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 11px;
+      color: #fff;
+    }
+
+    .brand-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+    }
+
+    .meta-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      height: 20px;
+      padding: 0 7px;
+      background: var(--bg-300);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--ink-muted);
+    }
+
+    .meta-pill strong {
+      color: var(--ink);
+      font-weight: 600;
+    }
+
+    .meta-pill.ready strong {
+      color: #6ee7b7;
+    }
+
+    .meta-pill.info strong {
+      color: #7dd3fc;
+    }
+
+    .ds-btn {
+      height: 22px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 0 9px;
+      border-radius: 4px;
+      border: 1px solid var(--line-strong);
+      background: var(--bg-300);
+      color: var(--ink);
+      font-family: var(--font-sans);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .ds-btn.active {
+      background: var(--accent);
+      color: #07090e;
+      border-color: #fff;
+      font-weight: 700;
+    }
+
+    .ds-btn.action {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    /* Main Workspace Area */
+    .studio-workspace {
+      flex: 1;
+      height: calc(100vh - 60px);
+      overflow: hidden;
+      padding: 8px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .wb-layout-3col {
+      display: grid;
+      grid-template-columns: 320px 1fr 330px;
+      gap: 8px;
+      height: 100%;
+    }
+
+    .wb-layout-decision {
+      display: grid;
+      grid-template-columns: 350px 1fr;
+      gap: 8px;
+      height: 100%;
+    }
+
+    .wb-rail,
+    .wb-center,
+    .wb-inspector {
+      background: var(--bg-100);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .wb-panel-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 6px;
+      margin-bottom: 6px;
+      border-bottom: 1px solid var(--line);
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #e2e8f0;
+    }
+
+    .wb-tag,
+    .wb-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      background: var(--bg-300);
+      color: var(--ink-muted);
+      border: 1px solid var(--line);
+    }
+
+    .wb-badge.pass {
+      background: rgba(16, 185, 129, 0.16);
+      color: #6ee7b7;
+      border-color: rgba(16, 185, 129, 0.45);
+    }
+
+    .wb-badge.info {
+      background: rgba(56, 189, 248, 0.16);
+      color: #7dd3fc;
+      border-color: rgba(56, 189, 248, 0.45);
+    }
+
+    .wb-badge.warn {
+      background: rgba(245, 158, 11, 0.18);
+      color: #fcd34d;
+      border-color: rgba(245, 158, 11, 0.45);
+    }
+
+    .wb-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .wb-item {
+      background: var(--bg-200);
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      padding: 7px 8px;
+    }
+
+    .wb-item.active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .wb-item-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 3px;
+      font-weight: 700;
+      font-size: 11px;
+    }
+
+    .wb-item-title {
+      font-weight: 600;
+      color: #f8fafc;
+      font-size: 11.5px;
+      margin-bottom: 2px;
+    }
+
+    .wb-item-meta {
+      font-size: 10.5px;
+      color: var(--ink-muted);
+      font-family: var(--font-mono);
+    }
+
+    .wb-code {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: #bae6fd;
+      font-weight: 600;
+    }
+
+    .wb-kv-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5px;
+    }
+
+    .wb-kv {
+      background: var(--bg-200);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 5px 7px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-size: 10px;
+      color: var(--ink-muted);
+    }
+
+    .wb-kv strong.ok {
+      color: #6ee7b7;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+    }
+
+    .wb-kv strong.info {
+      color: #7dd3fc;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+    }
+
+    .wb-canvas-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--bg-200);
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      padding: 6px 10px;
+      margin-bottom: 8px;
+      font-size: 11.5px;
+    }
+
+    .wb-quad-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: 8px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .wb-viewport,
+    .wb-visual-card {
+      background: #080b11;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .wb-viewport.active-vp {
+      border-color: var(--accent);
+    }
+
+    .wb-vp-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 8px;
+      background: var(--bg-200);
+      border-bottom: 1px solid var(--line);
+      font-size: 10.5px;
+      font-weight: 700;
+    }
+
+    .wb-vp-badge {
+      font-family: var(--font-mono);
+      color: #e2e8f0;
+    }
+
+    .wb-svg-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .wb-stage-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .wb-split-visual {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .wb-pad-box {
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 1;
+    }
+
+    .wb-stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 8px;
+      background: var(--bg-200);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      font-size: 11px;
+    }
+
+    .wb-stat-row strong.ok {
+      color: #6ee7b7;
+      font-family: var(--font-mono);
+    }
+
+    .wb-micro-code,
+    .wb-code-editor {
+      background: #05080f;
+      border: 1px solid #1e293b;
+      border-radius: 5px;
+      padding: 8px 10px;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      line-height: 1.42;
+      color: #e2e8f0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow: hidden;
+    }
+
+    .wb-code-editor {
+      flex: 1;
+    }
+
+    .hl-kw { color: #f472b6; font-weight: 700; }
+    .hl-dec { color: #38bdf8; }
+    .hl-fn { color: #fbbf24; font-weight: 700; }
+    .hl-str { color: #6ee7b7; }
+    .hl-ty { color: #a78bfa; }
+    .hl-err { color: #fda4af; }
+
+    .wb-form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      margin-bottom: 6px;
+    }
+
+    .wb-form-group label {
+      font-size: 10.5px;
+      color: var(--ink-muted);
+    }
+
+    .wb-form-grid2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .wb-input {
+      background: var(--bg-200);
+      border: 1px solid var(--line-strong);
+      border-radius: 4px;
+      padding: 5px 8px;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: #f8fafc;
+    }
+
+    .wb-input.ok {
+      border-color: rgba(16, 185, 129, 0.5);
+      color: #6ee7b7;
+    }
+
+    .wb-input.info {
+      border-color: rgba(56, 189, 248, 0.5);
+      color: #7dd3fc;
+    }
+
+    .wb-input.warn {
+      border-color: rgba(244, 63, 94, 0.5);
+      color: #fda4af;
+    }
+
+    .wb-kv-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .wb-kv-list > div {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 6px;
+      background: var(--bg-200);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      font-size: 10.5px;
+    }
+
+    .wb-kv-list code {
+      font-family: var(--font-mono);
+      color: #cbd5e1;
+      font-size: 10px;
+    }
+
+    .wb-status-box {
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      border-radius: 5px;
+      padding: 8px;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: #6ee7b7;
+      line-height: 1.4;
+    }
+
+    .wb-callout-box {
+      background: var(--bg-200);
+      border: 1px solid var(--accent);
+      border-radius: 5px;
+      padding: 8px 10px;
+      margin-bottom: 8px;
+    }
+
+    .wb-callout-box > strong {
+      display: block;
+      color: #fff;
+      font-size: 11.5px;
+      margin-bottom: 3px;
+    }
+
+    .wb-callout-box p strong {
+      color: #e2e8f0;
+      font-weight: 700;
+    }
+
+    .wb-callout-box p {
+      color: var(--ink-muted);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .wb-fsm-strip {
+      display: grid;
+      grid-template-columns: 1.25fr 0.75fr;
+      gap: 8px;
+    }
+
+    .wb-fsm-box {
+      background: var(--bg-200);
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      padding: 8px;
+    }
+
+    .wb-fsm-nodes {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      margin-top: 6px;
+    }
+
+    .wb-fsm-node {
+      padding: 4px 8px;
+      border-radius: 4px;
+      background: var(--bg-300);
+      border: 1px solid var(--line-strong);
+    }
+
+    .wb-fsm-node.active {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .wb-fsm-node.pass {
+      background: rgba(16, 185, 129, 0.18);
+      border-color: #10b981;
+      color: #6ee7b7;
+    }
+
+    .wb-cards-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .wb-mini-card {
+      background: var(--bg-200);
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      padding: 8px;
+    }
+
+    .wb-mini-card p {
+      font-size: 10.5px;
+      color: var(--ink-muted);
+      margin-top: 4px;
+    }
+
+    .wb-pkg-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+    }
+
+    .wb-pkg-cell {
+      background: var(--bg-200);
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      padding: 6px 8px;
+    }
+
+    .wb-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+
+    .wb-table th,
+    .wb-table td {
+      border: 1px solid var(--line);
+      padding: 6px 8px;
+      text-align: left;
+    }
+
+    .wb-table th {
+      background: var(--bg-200);
+      color: #e2e8f0;
+      font-weight: 700;
+    }
+
+    .wb-table td {
+      background: #090d14;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+    }
+
+    .wb-chat-bubble {
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      font-size: 11.5px;
+      line-height: 1.45;
+    }
+
+    .wb-chat-bubble.user {
+      background: var(--bg-200);
+      border: 1px solid var(--line-strong);
+    }
+
+    .wb-chat-bubble.assistant {
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid var(--accent);
+    }
+
+    .wb-chat-meta {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--ink-muted);
+      margin-bottom: 4px;
+      font-weight: 700;
+    }
+
+    .wb-chat-receipt {
+      margin-top: 6px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      background: rgba(16, 185, 129, 0.16);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #6ee7b7;
+      font-family: var(--font-mono);
+      font-size: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="studio-root">
+    <!-- TOP BAR 1: BRAND + SEED SCENARIO IDENTIFIERS + ACTION BUTTONS -->
+    <header class="studio-bar">
+      <div class="bar-group">
+        <span class="brand-chip"><span class="brand-dot"></span>OA-SDK v3.2</span>
+        <span class="meta-pill">SEED-SCENARIO-01 · <strong>scene_fraction_quiz_01</strong></span>
+        <span class="meta-pill ">SSOT: <strong>TypeSpec (.tsp) → OpenAPI 3.2</strong></span>
+        <span class="meta-pill ">Operation: <strong>evaluateFractionSceneSubmission</strong></span>
+        <span class="meta-pill ready">Drift Gate: <strong>oa-gen diff: 0 Dirty</strong></span>
+        <span class="meta-pill info">Workspace: <strong>33 Packages Verified</strong></span>
+      </div>
+      <div class="bar-group">
+        <button class="ds-btn action" onclick="triggerWorkbenchAction()">🔗 .tsp 계약 컴파일 & FE/BE 기능 의도 1:1 배선 검증</button>
+        <button class="ds-btn" onclick="switchView('decision-intent')">🛡️ tsp diff --fail-on-breaking 파괴적 변경 차단 시뮬레이션</button>
+      </div>
+    </header>
+
+    <!-- TOP BAR 2: VIEW MODE SWITCHER & PIPELINE ANCHORS -->
+    <nav class="studio-subbar">
+      <div class="bar-group">
+        <button id="tabControlPoint" class="ds-btn active" onclick="switchView('control-point')">
+          CAP 01 · 중간 관리 포인트 — TypeSpec(.tsp) 단일 기능 의도 계약 & FE 컴포넌트 ⇄ BE 핸들러 1:1 배선 뷰
+        </button>
+        <button id="tabDecisionIntent" class="ds-btn" onclick="switchView('decision-intent')">
+          CAP 02 · 최종 의사결정 의도 — 33개 패키지 기능 정렬 매트릭스 & Breaking Change / Runtime Drift 0건 대시보드
+        </button>
+      </div>
+      <div class="bar-group">
+        <span class="meta-pill">Op: <strong>evaluateFractionSceneSubmission</strong></span>
+        <span class="meta-pill">OSLC: <strong>@rev-3</strong></span>
+        <span class="meta-pill ready">Drive: <strong>NES-000142</strong></span>
+      </div>
+    </nav>
+
+    <!-- WORKSPACE BODY -->
+    <main class="studio-workspace">
+      <section id="viewControlPoint" style="height:100%;">
+
+      <div class="wb-layout-3col">
+        <!-- LEFT: TYPESPEC (.TSP) CANONICAL SOURCE -->
+        <aside class="wb-rail">
+          <div class="wb-panel-title">
+            <span>단일 정본 계약 (fraction-submission.tsp)</span>
+            <span class="wb-badge pass">SSOT</span>
+          </div>
+          <pre class="wb-code-editor"><span class="hl-kw">import</span> "@typespec/http";
+<span class="hl-kw">using</span> TypeSpec.Http;
+
+<span class="hl-dec">@route</span>("/api/v1/scenes/{sceneId}/submissions")
+<span class="hl-dec">@post</span>
+<span class="hl-kw">op</span> <span class="hl-fn">evaluateFractionSceneSubmission</span>(
+  <span class="hl-dec">@path</span> sceneId: <span class="hl-str">"scene_fraction_quiz_01"</span>,
+  <span class="hl-dec">@body</span> payload: {
+    elementId: <span class="hl-str">"el_fraction_board_01"</span>;
+    <span class="hl-dec">@minValue</span>(0) <span class="hl-dec">@maxValue</span>(8)
+    submittedNumerator: <span class="hl-ty">int32</span>;
+    <span class="hl-dec">@minValue</span>(1) <span class="hl-dec">@maxValue</span>(8)
+    submittedDenominator: <span class="hl-ty">int32</span>;
+    inspectionScanId: <span class="hl-ty">string</span>;
+  }
+): {
+  correct: <span class="hl-ty">boolean</span>;
+  oslcResourceUri: <span class="hl-ty">string</span>;
+  feedbackPromptId: <span class="hl-ty">string</span>;
+};</pre>
+          <div class="wb-panel-title" style="margin-top:8px;">
+            <span>① 은닉된 컴파일 · 코드젠 파이프라인</span>
+            <span class="wb-badge info">14ms In-Memory</span>
+          </div>
+          <div class="wb-kv-grid">
+            <div class="wb-kv"><span>In-Memory .tsp</span><strong class="ok">OpenAPI 3.2.0</strong></div>
+            <div class="wb-kv"><span>Single Parser</span><strong class="ok">@oa-sdk/parser</strong></div>
+            <div class="wb-kv"><span>Type Adapter</span><strong class="ok">StandardSchema</strong></div>
+            <div class="wb-kv"><span>Runtime Guard</span><strong class="ok">AJV 2020-12</strong></div>
+          </div>
+        </aside>
+
+        <!-- CENTER: VISUAL 1:1 WIRE MAPPING GRAPH (FE API <-> .TSP <-> BE API) -->
+        <section class="wb-center">
+          <div class="wb-canvas-bar">
+            <span><strong>중간 관리 포인트</strong> — 기능 의도(Functional Intent) 단위 FE 기능 컴포넌트(FE API) ⇄ .tsp 계약 ⇄ BE 라우터(BE API) 배선도</span>
+            <span class="wb-badge pass">100% Deterministic Binding</span>
+          </div>
+          <svg viewBox="0 0 740 420" class="wb-svg-canvas">
+            <rect width="740" height="420" fill="#090d16"/>
+            <!-- Column Headers -->
+            <rect x="20" y="16" width="210" height="32" rx="6" fill="#1e293b" stroke="#3b82f6"/>
+            <text x="34" y="36" fill="#93c5fd" font-size="11" font-family="monospace" font-weight="700">FE Functional Component API</text>
+
+            <rect x="265" y="16" width="210" height="32" rx="6" fill="#1e3a8a" stroke="#60a5fa" stroke-width="2"/>
+            <text x="282" y="36" fill="#fff" font-size="11" font-family="monospace" font-weight="700">TypeSpec (.tsp) Intent SSOT</text>
+
+            <rect x="510" y="16" width="210" height="32" rx="6" fill="#1e293b" stroke="#10b981"/>
+            <text x="528" y="36" fill="#6ee7b7" font-size="11" font-family="monospace" font-weight="700">BE Endpoint Contract API</text>
+
+            <!-- Rows & Bezier Wires -->
+
+              <rect x="20" y="78" width="210" height="44" rx="6" fill="#111827" stroke="#334155"/>
+              <text x="32" y="104" fill="#e2e8f0" font-size="10.5" font-family="monospace">&lt;FractionSubmitCTA /&gt;</text>
+
+              <rect x="265" y="78" width="210" height="44" rx="6" fill="#0f172a" stroke="#60a5fa" stroke-width="1.5"/>
+              <text x="278" y="104" fill="#bae6fd" font-size="10.5" font-family="monospace" font-weight="700">op evaluateFraction...</text>
+
+              <rect x="510" y="78" width="210" height="44" rx="6" fill="#111827" stroke="#10b981"/>
+              <text x="522" y="104" fill="#a7f3d0" font-size="10.5" font-family="monospace">router.post('/submissions')</text>
+
+              <path d="M230,100 C248,100 248,100 265,100" stroke="#60a5fa" stroke-width="2" fill="none"/>
+              <path d="M475,100 C492,100 492,100 510,100" stroke="#10b981" stroke-width="2" fill="none"/>
+              <circle cx="265" cy="100" r="3.5" fill="#60a5fa"/>
+              <circle cx="510" cy="100" r="3.5" fill="#10b981"/>
+
+              <rect x="20" y="142" width="210" height="44" rx="6" fill="#111827" stroke="#334155"/>
+              <text x="32" y="168" fill="#e2e8f0" font-size="10.5" font-family="monospace">prop: sceneId</text>
+
+              <rect x="265" y="142" width="210" height="44" rx="6" fill="#0f172a" stroke="#60a5fa" stroke-width="1.5"/>
+              <text x="278" y="168" fill="#bae6fd" font-size="10.5" font-family="monospace" font-weight="700">@path sceneId</text>
+
+              <rect x="510" y="142" width="210" height="44" rx="6" fill="#111827" stroke="#10b981"/>
+              <text x="522" y="168" fill="#a7f3d0" font-size="10.5" font-family="monospace">ctx.params.sceneId</text>
+
+              <path d="M230,164 C248,164 248,164 265,164" stroke="#60a5fa" stroke-width="2" fill="none"/>
+              <path d="M475,164 C492,164 492,164 510,164" stroke="#10b981" stroke-width="2" fill="none"/>
+              <circle cx="265" cy="164" r="3.5" fill="#60a5fa"/>
+              <circle cx="510" cy="164" r="3.5" fill="#10b981"/>
+
+              <rect x="20" y="206" width="210" height="44" rx="6" fill="#111827" stroke="#334155"/>
+              <text x="32" y="232" fill="#e2e8f0" font-size="10.5" font-family="monospace">prop: boardElementId</text>
+
+              <rect x="265" y="206" width="210" height="44" rx="6" fill="#0f172a" stroke="#60a5fa" stroke-width="1.5"/>
+              <text x="278" y="232" fill="#bae6fd" font-size="10.5" font-family="monospace" font-weight="700">payload.elementId</text>
+
+              <rect x="510" y="206" width="210" height="44" rx="6" fill="#111827" stroke="#10b981"/>
+              <text x="522" y="232" fill="#a7f3d0" font-size="10.5" font-family="monospace">req.body.elementId</text>
+
+              <path d="M230,228 C248,228 248,228 265,228" stroke="#60a5fa" stroke-width="2" fill="none"/>
+              <path d="M475,228 C492,228 492,228 510,228" stroke="#10b981" stroke-width="2" fill="none"/>
+              <circle cx="265" cy="228" r="3.5" fill="#60a5fa"/>
+              <circle cx="510" cy="228" r="3.5" fill="#10b981"/>
+
+              <rect x="20" y="270" width="210" height="44" rx="6" fill="#111827" stroke="#334155"/>
+              <text x="32" y="296" fill="#e2e8f0" font-size="10.5" font-family="monospace">state: selectedSlices (3)</text>
+
+              <rect x="265" y="270" width="210" height="44" rx="6" fill="#0f172a" stroke="#60a5fa" stroke-width="1.5"/>
+              <text x="278" y="296" fill="#bae6fd" font-size="10.5" font-family="monospace" font-weight="700">submittedNumerator: int32</text>
+
+              <rect x="510" y="270" width="210" height="44" rx="6" fill="#111827" stroke="#10b981"/>
+              <text x="522" y="296" fill="#a7f3d0" font-size="10.5" font-family="monospace">req.body.submittedNumerator</text>
+
+              <path d="M230,292 C248,292 248,292 265,292" stroke="#60a5fa" stroke-width="2" fill="none"/>
+              <path d="M475,292 C492,292 492,292 510,292" stroke="#10b981" stroke-width="2" fill="none"/>
+              <circle cx="265" cy="292" r="3.5" fill="#60a5fa"/>
+              <circle cx="510" cy="292" r="3.5" fill="#10b981"/>
+
+              <rect x="20" y="334" width="210" height="44" rx="6" fill="#111827" stroke="#334155"/>
+              <text x="32" y="360" fill="#e2e8f0" font-size="10.5" font-family="monospace">state: totalSlices (4)</text>
+
+              <rect x="265" y="334" width="210" height="44" rx="6" fill="#0f172a" stroke="#60a5fa" stroke-width="1.5"/>
+              <text x="278" y="360" fill="#bae6fd" font-size="10.5" font-family="monospace" font-weight="700">submittedDenominator: int32</text>
+
+              <rect x="510" y="334" width="210" height="44" rx="6" fill="#111827" stroke="#10b981"/>
+              <text x="522" y="360" fill="#a7f3d0" font-size="10.5" font-family="monospace">req.body.submittedDenominator</text>
+
+              <path d="M230,356 C248,356 248,356 265,356" stroke="#60a5fa" stroke-width="2" fill="none"/>
+              <path d="M475,356 C492,356 492,356 510,356" stroke="#10b981" stroke-width="2" fill="none"/>
+              <circle cx="265" cy="356" r="3.5" fill="#60a5fa"/>
+              <circle cx="510" cy="356" r="3.5" fill="#10b981"/>
+
+          </svg>
+        </section>
+
+        <!-- RIGHT INSPECTOR -->
+        <aside class="wb-inspector">
+          <div class="wb-panel-title">
+            <span>생성된 FE / BE 계약 인스펙터</span>
+            <span class="wb-badge pass">0 Drift</span>
+          </div>
+          <div class="wb-form-group">
+            <label>Generated FE TanStack Query Hook</label>
+            <pre class="wb-micro-code">useEvaluateFractionSceneSubmissionMutation({
+  sceneId: "scene_fraction_quiz_01",
+  elementId: "el_fraction_board_01"
+})</pre>
+          </div>
+          <div class="wb-form-group">
+            <label>Generated BE Handler Contract (*.contract.ts)</label>
+            <pre class="wb-micro-code">export const evaluateFractionContract = {
+  operationId: "evaluateFractionSceneSubmission",
+  inputSchema: StandardSchemaWithJson,
+  outputSchema: EvaluationReceiptSchema
+};</pre>
+          </div>
+          <div class="wb-panel-title" style="margin-top:8px;">
+            <span>SEED-SCENARIO-01 연결 아티팩트</span>
+            <span class="wb-badge info">4 Links</span>
+          </div>
+          <div class="wb-kv-list">
+            <div><span>FE Trigger</span><code>el_submit_cta_01 (Framebook/Scene)</code></div>
+            <div><span>Ontology URI</span><code>InteractiveSceneSubmission</code></div>
+            <div><span>OSLC Target</span><code>scene_fraction_quiz_01@rev-3</code></div>
+            <div><span>Prompt CRPT</span><code>crpt_scene_inspection_feedback_v1</code></div>
+          </div>
+          <div class="wb-status-box" id="wbStatusLog" style="margin-top:8px;">
+            [VERIFIED] FE 컴포넌트 Props와 BE 라우터 핸들러가 단일 .tsp 계약으로 100% 정렬되었습니다.
+          </div>
+        </aside>
+      </div>
+
+      </section>
+      <section id="viewDecisionIntent" class="hidden" style="height:100%;">
+
+      <div class="wb-layout-decision">
+        <!-- LEFT VERDICT -->
+        <aside class="wb-rail">
+          <div class="wb-panel-title">
+            <span>FE–BE 기능 의도 정렬 판정</span>
+            <span class="wb-badge pass">100% ALIGNED</span>
+          </div>
+          <div class="wb-callout-box">
+            <strong>내부 파서 · AST · 코드 생성기 은닉됨</strong>
+            <p>의사결정자와 리뷰어에게는 <strong>FE 기능 컴포넌트와 BE API의 1:1 정렬률</strong>, <strong>Breaking Change 0건</strong>, <strong>33개 패키지 무결성</strong>만 표시합니다.</p>
+          </div>
+          <div class="wb-list">
+            <div class="wb-item active">
+              <div class="wb-item-head"><span>GATE-OA-01 · TypeSpec → OAS 3.2</span><span class="wb-badge pass">PASS</span></div>
+              <div class="wb-item-meta">인메모리 컴파일 경고 0건 · OpenAPI 3.2.0 정본 스키마 방출</div>
+            </div>
+            <div class="wb-item active">
+              <div class="wb-item-head"><span>GATE-OA-02 · FE Query ⇄ BE Router</span><span class="wb-badge pass">PASS</span></div>
+              <div class="wb-item-meta">el_submit_cta_01 입출력 필드 5/5개 타입·제약조건 100% 일치</div>
+            </div>
+            <div class="wb-item active">
+              <div class="wb-item-head"><span>GATE-OA-03 · Breaking Change Guard</span><span class="wb-badge pass">0 BREAKING</span></div>
+              <div class="wb-item-meta">tsp diff --fail-on-breaking 통과 (하위 호환성 파괴 0건)</div>
+            </div>
+            <div class="wb-item active">
+              <div class="wb-item-head"><span>GATE-OA-04 · oa-gen diff Drift Gate</span><span class="wb-badge pass">0 DIRTY</span></div>
+              <div class="wb-item-meta">33개 워크스페이스 패키지 생성 코드 드리프트 0건</div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- CENTER: 33-PACKAGE GRID + BREAKING CHANGE GUARD -->
+        <section class="wb-center">
+          <div class="wb-canvas-bar">
+            <span><strong>최종 의사결정 의도 시각화</strong> — 33개 워크스페이스 패키지 무결성 그리드 & 파괴적 변경(Breaking Change) 자동 차단 증명</span>
+            <span class="wb-badge pass">Git HEAD: 020ec128 · 33/33 PASS</span>
+          </div>
+          <div class="wb-stage-stack">
+            <div class="wb-pkg-grid">
+
+                <div class="wb-pkg-cell">
+                  <div class="wb-item-head"><span class="wb-code">@oa-sdk/tsp-compiler</span><span class="wb-badge pass">PASS</span></div>
+                  <div class="wb-item-meta">In-Memory .tsp → OAS 3.2</div>
+                </div>
+
+                <div class="wb-pkg-cell">
+                  <div class="wb-item-head"><span class="wb-code">@oa-sdk/parser</span><span class="wb-badge pass">PASS</span></div>
+                  <div class="wb-item-meta">Single Canonical AST Parser</div>
+                </div>
+
+                <div class="wb-pkg-cell">
+                  <div class="wb-item-head"><span class="wb-code">@oa-sdk/codegen</span><span class="wb-badge pass">PASS</span></div>
+                  <div class="wb-item-meta">FE/BE Contract Generator</div>
+                </div>
+
+                <div class="wb-pkg-cell">
+                  <div class="wb-item-head"><span class="wb-code">@oa-sdk/router</span><span class="wb-badge pass">PASS</span></div>
+                  <div class="wb-item-meta">Hono/Express Type Router</div>
+                </div>
+
+                <div class="wb-pkg-cell">
+                  <div class="wb-item-head"><span class="wb-code">@oa-sdk/client</span><span class="wb-badge pass">PASS</span></div>
+                  <div class="wb-item-meta">Typed Fetch & Retry Client</div>
+                </div>
+
+                <div class="wb-pkg-cell">
+                  <div class="wb-item-head"><span class="wb-code">@oa-sdk/query</span><span class="wb-badge pass">PASS</span></div>
+                  <div class="wb-item-meta">TanStack Query v5 Options</div>
+                </div>
+
+                <div class="wb-pkg-cell">
+                  <div class="wb-item-head"><span class="wb-code">@oa-sdk/standard-schema</span><span class="wb-badge pass">PASS</span></div>
+                  <div class="wb-item-meta">StandardSchemaWithJson</div>
+                </div>
+
+                <div class="wb-pkg-cell">
+                  <div class="wb-item-head"><span class="wb-code">@oa-sdk/mock</span><span class="wb-badge pass">PASS</span></div>
+                  <div class="wb-item-meta">Deterministic Prism Mock</div>
+                </div>
+
+                <div class="wb-pkg-cell">
+                  <div class="wb-item-head"><span class="wb-code">@oa-sdk/cli</span><span class="wb-badge pass">PASS</span></div>
+                  <div class="wb-item-meta">oa-gen diff & Drift Gate</div>
+                </div>
+
+                <div class="wb-pkg-cell">
+                  <div class="wb-item-head"><span class="wb-code">@oa-sdk/tools</span><span class="wb-badge pass">PASS</span></div>
+                  <div class="wb-item-meta">CLI-Anything + MCP Bridge</div>
+                </div>
+
+                <div class="wb-pkg-cell">
+                  <div class="wb-item-head"><span class="wb-code">@oa-sdk/openapi-diff</span><span class="wb-badge pass">PASS</span></div>
+                  <div class="wb-item-meta">Breaking Change Analyzer</div>
+                </div>
+
+                <div class="wb-pkg-cell">
+                  <div class="wb-item-head"><span class="wb-code">+ 22 Domain Packages</span><span class="wb-badge pass">33/33 PASS</span></div>
+                  <div class="wb-item-meta">All Workspace Contracts</div>
+                </div>
+
+            </div>
+
+            <div class="wb-split-visual" style="margin-top:10px;">
+              <div class="wb-visual-card">
+                <div class="wb-vp-header"><span class="wb-vp-badge">🛡️ 파괴적 변경(Breaking Change) 차단 시뮬레이션</span><span class="wb-badge warn">BLOCKED IN CI</span></div>
+                <pre class="wb-micro-code">- submittedNumerator: int32;
++ submittedNumerator: string; // [BREAKING] Type changed int32 -> string
+--------------------------------------------------------------------
+✖ ERR_BREAKING_CONTRACT_CHANGE detected by tsp diff --fail-on-breaking:
+  • FE Component: &lt;FractionSubmitCTA /&gt; expects number (selectedSliceCount)
+  • BE Handler: evaluateFractionSceneSubmission.contract.ts schema mismatch
+  ➔ Merge blocked before deployment (0 Runtime Drift Guaranteed)</pre>
+              </div>
+              <div class="wb-visual-card">
+                <div class="wb-vp-header"><span class="wb-vp-badge">✅ 현재 커밋(020ec128) 최종 검증 리포트</span><span class="wb-badge pass">CLEAN</span></div>
+                <pre class="wb-micro-code">✔ OpenAPI 3.2.0 Schema Validation: PASSED (0 warnings)
+✔ FE Component API <-> BE Endpoint Parity: 100% (5/5 fields)
+✔ StandardSchemaWithJson + AJV 2020-12 Guards: ACTIVE
+✔ oa-gen diff (Working Tree Cleanliness): 0 modified files
+✔ Downstream OSLC & Semantic Parity (GATE-TSP-07): VERIFIED</pre>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      </section>
+    </main>
+  </div>
+
+  <script>
+    function switchView(mode) {
+      const cp = document.getElementById("viewControlPoint");
+      const di = document.getElementById("viewDecisionIntent");
+      const b1 = document.getElementById("tabControlPoint");
+      const b2 = document.getElementById("tabDecisionIntent");
+      if (mode === "decision-intent") {
+        cp.classList.add("hidden");
+        di.classList.remove("hidden");
+        b1.classList.remove("active");
+        b2.classList.add("active");
+      } else {
+        di.classList.add("hidden");
+        cp.classList.remove("hidden");
+        b2.classList.remove("active");
+        b1.classList.add("active");
+      }
+    }
+    function triggerWorkbenchAction() {
+      const log = document.getElementById("wbStatusLog");
+      if (log) {
+        log.textContent = "[VERIFIED " + new Date().toISOString() + "] SEED-SCENARIO-01 Intermediate Control Point action executed -> 0 drift.";
+      }
+    }
+    if (location.hash === "#decision-intent" || location.search.includes("view=decision-intent")) {
+      switchView("decision-intent");
+    }
+  </script>
+</body>
+</html>

@@ -692,7 +692,9 @@ function isDeserializeCall(call: ts.CallExpression): boolean {
     return /^(?:deserialize|decode|parseJson|parseJSON)$/.test(callee.text)
   }
   if (!ts.isPropertyAccessExpression(callee)) return false
-  if (callee.name.text === 'json') return true
+  // `response.json()` / `request.json()` read a body. `c.json(value)` and `Response.json(value)`
+  // take an argument and build a response: they serialize, so they are not a deserialize boundary.
+  if (callee.name.text === 'json') return call.arguments.length === 0
   if (callee.name.text === 'decode' || callee.name.text === 'deserialize') return true
   if (callee.name.text !== 'parse') return false
   const owner = callee.expression.getText()

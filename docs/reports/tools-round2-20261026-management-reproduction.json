@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "kind": "defect-reproduction",
+  "recordedAt": "2026-10-26T14:10:00.961Z",
+  "warning": "These observations reproduce defects and are excluded from test pass counts.",
+  "sourceHashes": {
+    "packages/tools/src/table-ir.ts": "66095446c8d56ccc877204e79851a149c733012e43c4d7d315525d1d26ae9eb6",
+    "packages/tools/src/table-file-io.ts": "a723f0ec54d1685a9197732cb97db4b054352b4203448875493fa7a7f0b8c598",
+    "packages/tools/src/mcp-use.ts": "4587596bd6ba46f6800c7c417c01c04dbfb427fd44570a10065ea92c148f5087",
+    "packages/tools/src/cli-anything.ts": "91339238835a6dc4668d1c0c89532445743623adaeb9daf5c7b0c897b7ffefdb",
+    "packages/tools/src/openapi-hydrator.ts": "518cd85005941e27ab3a8d041d3c09003fc85fb5d66f1503f3e8176e32fd588e",
+    "packages/tools/src/reserved-interfaces.ts": "f1c7a8dcf9c77005c84e10f86d96a9edf77c81927adfea2b9ef4493310b3ca9f",
+    "scripts/review-probes/tools-round2.ts": "c76c763f4f841bc7c744b2abf2cce10138ff23fe4d51703acecf0d793f844745"
+  },
+  "observations": {
+    "stalePlan": {
+      "expected": [
+        1,
+        1
+      ],
+      "actual": [
+        0,
+        1
+      ],
+      "reportedSuccess": [
+        true,
+        true
+      ],
+      "snapshots": 2
+    },
+    "undo": {
+      "reportedUndone": true,
+      "sessionValue": 0,
+      "domainValue": 1,
+      "restoreCalls": 0
+    },
+    "multilineCsv": {
+      "expectedRows": 1,
+      "actualRows": 2,
+      "cells": [
+        1,
+        "hello",
+        "world",
+        null
+      ]
+    },
+    "xlsxNoopLoss": {
+      "originalMergedCells": true,
+      "afterMergedCells": false,
+      "originalValidation": true,
+      "afterValidation": false,
+      "sameDataFingerprint": true
+    },
+    "xlsxSelection": {
+      "selectedName": "Budget",
+      "expectedValue": 999,
+      "actualValue": 1,
+      "selectedEntry": "xl/worksheets/sheet1.xml",
+      "expectedEntry": "xl/worksheets/sheet2.xml"
+    }
+  }
+}

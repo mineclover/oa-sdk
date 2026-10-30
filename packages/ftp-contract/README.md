@@ -9,6 +9,26 @@ artifacts.
 
 The package contains no FTP runtime, evaluator, target or runner.
 
+## Lifecycle artifact declarations revision 1
+
+The package now supplies the portable lifecycle artifacts required by FTP:
+
+| Artifact | Declaration | ExactRef id | Mapping ExactRef id |
+| --- | --- | --- | --- |
+| TestDefinition | `schema/oa-sdk.ftp.test-definition.v1.schema.json` | `test-definition` | `test-definition.ftp-core` |
+| LockedPlan | `schema/oa-sdk.ftp.locked-plan.v1.schema.json` | `locked-plan` | `locked-plan.ftp-core` |
+| Evaluation | `schema/oa-sdk.ftp.evaluation.v1.schema.json` | `evaluation` | `evaluation.ftp-core` |
+
+All three declarations use revision `1` under namespace `oa-sdk.ftp`. Their field
+shapes are derived from FTP portable contract v0.1 and current FTP model sources;
+oa-sdk owns the closed object shape, value types, allowed values and null rules,
+while FTP continues to own semantic evaluation, verdict rules and TCKs.
+
+Fixtures, validators, mappings and detached projection helpers are exported from
+the package root and covered by `src/lifecycle.test.ts`. Declaration byte hashes
+are exported from `src/refs.ts`; any byte or mapping change requires a new
+declaration revision.
+
 ## RunEvidence revision 1
 
 | Input | Value |

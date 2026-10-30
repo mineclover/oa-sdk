@@ -81,6 +81,12 @@ export const $lib = createTypeSpecLibrary({
         default: paramMessage`${'message'}`,
       },
     },
+    'invalid-tool-pipeline-rule': {
+      severity: 'error',
+      messages: {
+        default: paramMessage`${'message'}`,
+      },
+    },
   },
 })
 

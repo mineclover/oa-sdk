@@ -175,3 +175,169 @@ export const VALID_REQUIREMENT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{1,127}
 export const VALID_INTENT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{1,127}$/
 export const VALID_DOC_ANCHOR_PATTERN = /^[^\s#]+(?:#[^\s#]+)?$/
 
+// ── CLI-Anything × mcp-use Tool Pipeline Decorator Set (`@toolGroup`, `@pipeline*`, `@oaTool`, `@positional`, `@cliFlag`, `@mcpSurface`, `@tableAdapter`) ──
+export const TOOL_EXTENSION = 'x-oa-sdk-tool'
+export const TOOL_GROUP_EXTENSION = 'x-oa-sdk-tool-group'
+export const RESERVED_MCP_INTERFACES_EXTENSION = 'x-oa-sdk-reserved-interfaces'
+export const POSITIONAL_EXTENSION = 'x-oa-sdk-positional'
+export const CLI_FLAG_EXTENSION = 'x-oa-sdk-cli-flag'
+export const MCP_SURFACE_EXTENSION = 'x-oa-sdk-mcp-surface'
+export const TABLE_ADAPTER_EXTENSION = 'x-oa-sdk-table-adapter'
+
+export const VALID_TOOL_IDENTIFIER_PATTERN = /^[a-z][a-z0-9-]*$/
+
+export const VALID_PIPELINE_STAGES: ReadonlySet<string> = new Set([
+  'inspect',
+  'plan',
+  'apply',
+  'destructive',
+  'verify',
+  'handoff',
+  'custom',
+])
+
+export const VALID_EXECUTION_MODELS: ReadonlySet<string> = new Set([
+  'single-phase',
+  'plan-only',
+  'two-phase-commit',
+  'two-phase-elicit-commit',
+  'verification-gate',
+  'handoff-bridge',
+])
+
+export const VALID_SESSION_LOCKS: ReadonlySet<string> = new Set([
+  'none',
+  'shared-read',
+  'exclusive-file',
+])
+
+export const VALID_RESERVED_MCP_INTERFACES: ReadonlySet<string> = new Set([
+  'session',
+  'dry-run-elicit',
+  'preview-bundle',
+  'handoff-envelope',
+  'sep-2640-skills',
+])
+
+export const VALID_MCP_VISIBILITIES: ReadonlySet<string> = new Set([
+  'model',
+  'app',
+])
+
+export const VALID_TABLE_ADAPTER_KINDS: ReadonlySet<string> = new Set([
+  'calc',
+  'writer',
+  'impress',
+  'markdown',
+  'tabular-ops',
+  'visual-dom',
+])
+
+export interface PipelineStagePresetConfig {
+  readonly stage: string
+  readonly readOnly: boolean
+  readonly destructive: boolean
+  readonly idempotent: boolean
+  readonly openWorld: boolean
+  readonly dryRunSupport: boolean
+  readonly sessionLock: string
+  readonly undoSnapshot: boolean
+  readonly executionModel: string
+  readonly requiresPreviewBundle: boolean
+  readonly requiresHandoffEnvelope: boolean
+}
+
+export const PIPELINE_STAGE_PRESETS: Readonly<Record<string, PipelineStagePresetConfig>> = {
+  inspect: {
+    stage: 'inspect',
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+    openWorld: false,
+    dryRunSupport: false,
+    sessionLock: 'none',
+    undoSnapshot: false,
+    executionModel: 'single-phase',
+    requiresPreviewBundle: false,
+    requiresHandoffEnvelope: false,
+  },
+  plan: {
+    stage: 'plan',
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+    openWorld: false,
+    dryRunSupport: true,
+    sessionLock: 'shared-read',
+    undoSnapshot: false,
+    executionModel: 'plan-only',
+    requiresPreviewBundle: true,
+    requiresHandoffEnvelope: false,
+  },
+  apply: {
+    stage: 'apply',
+    readOnly: false,
+    destructive: false,
+    idempotent: true,
+    openWorld: false,
+    dryRunSupport: true,
+    sessionLock: 'exclusive-file',
+    undoSnapshot: true,
+    executionModel: 'two-phase-commit',
+    requiresPreviewBundle: true,
+    requiresHandoffEnvelope: false,
+  },
+  destructive: {
+    stage: 'destructive',
+    readOnly: false,
+    destructive: true,
+    idempotent: false,
+    openWorld: false,
+    dryRunSupport: true,
+    sessionLock: 'exclusive-file',
+    undoSnapshot: true,
+    executionModel: 'two-phase-elicit-commit',
+    requiresPreviewBundle: true,
+    requiresHandoffEnvelope: false,
+  },
+  verify: {
+    stage: 'verify',
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+    openWorld: false,
+    dryRunSupport: false,
+    sessionLock: 'shared-read',
+    undoSnapshot: false,
+    executionModel: 'verification-gate',
+    requiresPreviewBundle: false,
+    requiresHandoffEnvelope: false,
+  },
+  handoff: {
+    stage: 'handoff',
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+    openWorld: false,
+    dryRunSupport: false,
+    sessionLock: 'shared-read',
+    undoSnapshot: false,
+    executionModel: 'handoff-bridge',
+    requiresPreviewBundle: true,
+    requiresHandoffEnvelope: true,
+  },
+  custom: {
+    stage: 'custom',
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+    openWorld: false,
+    dryRunSupport: false,
+    sessionLock: 'none',
+    undoSnapshot: false,
+    executionModel: 'single-phase',
+    requiresPreviewBundle: false,
+    requiresHandoffEnvelope: false,
+  },
+}
+

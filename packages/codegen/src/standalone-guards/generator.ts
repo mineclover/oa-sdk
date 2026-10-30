@@ -27,6 +27,9 @@ export async function generateStandaloneGuards(
     ?? { [typeof doc.title === 'string' ? doc.title : 'Root']: doc }
   const names = Object.fromEntries(createComponentTypeNameMap(Object.keys(schemas)).byComponentName)
   const ownTypes = !options.typeImportSpecifier && options.generateDeclarations !== false
+  if (ownTypes && Object.entries(options.typeNames ?? {}).some(([schemaName, typeName]) => names[schemaName] !== typeName)) {
+    throw new Error('Custom typeNames require typeImportSpecifier pointing to the matching external declarations.')
+  }
 
   // 2. Render in memory so every caller uses the same validation engine.
   const artifacts = await renderGuards({

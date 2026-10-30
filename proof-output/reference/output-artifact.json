@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "oa-sdk-seed-output/v2",
+  "scenarioId": "SEED-SCENARIO-01",
+  "packageId": "oa-sdk",
+  "verifiedAt": "2026-10-25T13:18:28.976Z",
+  "sharedIdentifiers": {
+    "sceneId": "scene_fraction_quiz_01",
+    "storyboardPageId": "page_math_grade4_unit2_01",
+    "elements": [
+      {
+        "elementId": "el_character_tutor_01",
+        "role": "character-actor",
+        "description": "분수 개념을 설명하는 튜터 캐릭터 (Pose Lab 정면 BODY_25 포즈 & Stage 배치 대상)"
+      },
+      {
+        "elementId": "el_fraction_board_01",
+        "role": "interactive-board",
+        "description": "피자 조각 분수 조작 칠판 (PSD Graphic IR & 2T-SSG HTML /* @editable */ 대상)"
+      },
+      {
+        "elementId": "el_submit_cta_01",
+        "role": "assessment-trigger",
+        "description": "정답 제출 및 XState/FSM 분기 트리거 (검수 사이트 자동 의도 스캔 대상)"
+      }
+    ],
+    "contractOperationId": "evaluateFractionSceneSubmission",
+    "glossaryConceptUri": "urn:semantic:concept:InteractiveSceneSubmission",
+    "oslcResourceUri": "urn:oslc:resource:scene_fraction_quiz_01@rev-3",
+    "promptTemplateId": "crpt_scene_inspection_feedback_v1",
+    "skillPresetId": "preset_scene_domain_authoring_v1",
+    "driveArtifactId": "NES-000142"
+  },
+  "scenarioOutputDescription": "생성된 FE Query 계약 + BE Handler Contract(`*.contract.ts`) + `oa-gen diff` 무결성 리포트(`output-artifact.json`)",
+  "visualizedDecisionIntent": "프론트엔드 기능 컴포넌트(FE API)와 백엔드 엔드포인트(BE API)의 기능 의도 1:1 정렬 매트릭스 및 `oa-gen diff` / `tsp diff --fail-on-breaking` 드리프트·파괴적 변경 0건 검증 리포트",
+  "status": "VERIFIED_PASS"
+}

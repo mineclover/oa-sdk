@@ -1,0 +1,21 @@
+{
+  "planId": "plan-1",
+  "definitions": [
+    { "ref": { "kind": "criterion", "namespace": "example", "id": "lifecycle", "revision": "1" }, "dependencies": [], "body": { "purpose": "lifecycle" } }
+  ],
+  "bindings": [
+    { "requested": { "kind": "criterion", "namespace": "example", "id": "lifecycle", "revision": "1" }, "resolved": { "kind": "criterion", "namespace": "example", "id": "lifecycle", "revision": "1" } }
+  ],
+  "resolver": { "kind": "resolver", "namespace": "example", "id": "memory", "revision": "1" },
+  "profiles": [{ "id": "core", "revision": "0.1" }, { "id": "execution", "revision": "0.1" }],
+  "requiredCapabilities": [],
+  "requireInitializationObservation": false,
+  "concurrency": "serial",
+  "closePolicy": {
+    "normal": { "inFlight": "drain", "budgetMs": 1000 },
+    "cancel": { "inFlight": "cancel", "budgetMs": 1000 },
+    "error": { "inFlight": "drain", "budgetMs": 1000 }
+  },
+  "selection": { "kind": "request-lifecycle", "revision": "0.1", "requests": [] },
+  "applications": [{ "criterion": { "kind": "criterion", "namespace": "example", "id": "lifecycle", "revision": "1" }, "scope": "example", "purpose": "verify lifecycle", "status": "accepted", "basis": "approved fixture" }]
+}

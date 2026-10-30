@@ -9,3 +9,7 @@ Use standalone schema validation for plugin guards, align generated declaration 
 self-contained guard types and reject conflicting schemas across targets. Add in-memory guard
 rendering for composition without disk writes. Existing configurations without purpose retain
 their mixed-pipeline behavior.
+
+Harden schema-name escaping, dollar-sign guard identifiers and split-file collision allocation
+(including case-insensitive filesystems). Reject custom declaration names without a matching
+external type module before replacing output.

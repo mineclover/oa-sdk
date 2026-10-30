@@ -2,6 +2,17 @@
 
 릴리스 단위가 아닌, 굵직한 surface 변경이 떨어졌을 때 한 항목으로 기록한다. 자세한 구현 상태는 [spec.md](./internal/spec.md), API 단일 소스는 [api-index.md](./internal/api-index.md), 기능↔테스트는 [feature-test-matrix.md](./internal/feature-test-matrix.md) 참조.
 
+## 2026-10-28 — 팝업 브리지 (새 private `@oa-sdk/popup-bridge`, checkout 구현, 미배포)
+
+- 별도 Origin에 배포된 팝업을 `window.open`으로 열고 HELLO → CONNECT → READY 핸드셰이크(`origin`·`source`·`sessionId`·`instanceId` 검증, 프로토콜 버전 협상)를 거쳐 `MessageChannel` 위에서 양방향 JSON-RPC 2.0 호출과 구독 이벤트(revision, 누락 감지)를 주고받는다. 취소(`bridge.cancel`), 타임아웃, 멱등성 키, 팝업 새로고침 재연결을 포함한다.
+- 타입 선언 규약(`defineContract`, `method`, `event`, `definePopup`)과 RPC 생성 유틸리티(`createRpcApi`, `createMethodCaller`, `HandlerRegistry`, `describeContract`)를 추가했다. 창 접근은 `HostEnvironment`/`PopupEnvironment`, 전송은 `RpcChannel` 어댑터 뒤에 있다.
+- 검증: 단위·메모리 브라우저 테스트 85개와 실제 Chromium E2E 14개(서로 다른 Origin 3개). Host가 COOP `same-origin`이면 직접 연결이 불가능함을 E2E로 고정했다. Firefox/WebKit과 배포 환경 검증, 인증 정책, Host 새로고침 복구는 후속 과제다.
+- Type Registry 경계 규칙(`any`, 이중 단언, 검증 없는 역직렬화)을 숫자 상한에서 baseline 대비 **파일별 래칫**으로 바꿨다. 줄이는 변경은 정책·baseline 수정 없이 통과하고 `resolved`로 보고되며, 파일별로 늘어난 경우만 실패한다. 의도한 증가는 `type-registry:write -- --allow-increase`로 승인한다. 응답을 만드는 `.json(value)` 호출은 역직렬화로 세지 않는다.
+- `popup-bridge` 안정성·전송: Transferable 지원(`withTransfer`, `call`/`emit`의 `transfer`), 복제 불가 값의 `NOT_CLONEABLE` 오류, 하트비트 기반 `PEER_UNRESPONSIVE` 감지와 `session.health`, 동시 처리·알림 속도 한도(`OVERLOADED`, `rate-limited` 보안 이벤트), `pageshow` 복원 시 자동 재연결(`onReconnect`). 단위 103개와 Chromium E2E 18개로 검증했다.
+- `popup-bridge` 창 네트워크: 팝업이 팝업을 여는 구조(Host → A → B)를 위해 페이지별 노드(`createBridgeNode`)와 `PeerLink`로 양쪽 이웃을 같은 표면으로 다루고, 주의 요청(`attention.request`/`requestAndWait`/`focus`: 창 올리기·탭 제목 점멸·시스템 알림·토스트)을 받는 쪽 정책과 확인(ack)으로 표준화했다. 이웃 트리 조회(기본 비공개)·`inspect`/`onTrace` 점검, revision이 붙은 공유 상태(`defineSharedState`, `STATE_CONFLICT`)를 더했다. 단위 157개와 Chromium E2E 25개(Origin 3개의 중첩 팝업 포함)로 검증했다.
+- `popup-bridge` 기능 협상·재전송·합치기·백오프: 핸드셰이크에서 양쪽이 선택 기능(`events.replay`, `events.coalesce`)을 알리고 교집합만 쓰므로 기능이 없는 상대와도 기존 동작으로 연결된다. 이벤트별 유한 재전송 버퍼(`event({ replay })`, `bridge.replay`, `session.resync`)는 놓친 구간을 스냅샷 없이 되받고, 버퍼가 범위를 덮지 못하면 `gap`으로 알리며 팝업이 새로고침되면(`epoch` 변경) `reset`으로 알린다. 고빈도 이벤트는 창 안에서 합칠 수 있고(`event({ coalesce })`, `latest` 또는 리듀서) revision·`missed` 계산은 일관되게 유지된다(`meta.coalesced`). 팝업 HELLO와 Host 재구독은 상한이 있는 지수 백오프와 지터로 재시도하며 취소·관찰(`retry` 이벤트)이 가능하고 `Clock`으로 시간·난수를 주입한다. 단위 457개와 Chromium E2E 28개로 검증했다.
+- 새 package는 Downstream Integration의 release-tracked private workspace이며 distribution candidate가 아니다. 사용법은 [팝업 브리지 가이드](./guides/popup-bridge.md), 범위 결정은 [platform-scope](./internal/platform-scope.md#popup-bridge-runtime--2026-10-28)에 둔다.
+
 ## 2026-10-25 — 용도별 파이프라인 격리 및 가드 정합성 (checkout 구현, 미배포)
 
 - `TspConfig.purpose`와 `specs[].purpose`에서 `api` / `data` / `interface` 용도를 구분한다. 기존 설정은 유지하고, data target은 HTTP operation·endpoint companion 출력을 제외한다.
@@ -9,6 +20,7 @@
 - CLI·플러그인 가드를 같은 standalone 엔진과 typegen 이름 매핑으로 연결한다. 자체 `types.d.ts`, 플러그인 `guards.runtime.js`·`.d.ts`를 생성하고 상이한 동명 타깃 스키마는 거부한다.
 - 구성·호환성·현재 model-only TypeSpec의 `@service` 제약은 [용도별 파이프라인 구성](./guides/pipeline-configuration.md)을 따른다. Changeset은 릴리스 의도이며 배포 완료가 아니다.
 - 전체 회귀·정렬 후 검증, 알려진 한계와 환경 정리 범위는 [완료·검증 기록](./internal/pipeline-isolation-checkpoint-2026-10-25.md)에 보존했다.
+- 후속 안정화에서 특수문자 JSON Pointer, `$` 타입의 가드 wrapper 누락, 분할 가드 파일명 충돌과 외부 타입 이름 불일치 쓰기를 수정했다. 재현·회귀 범위는 같은 완료 기록의 후속 안정화 절을 따른다.
 
 ## 2026-10-22 — typegen 정합성, TypeSpec graph semantic index, 온보딩·문서 정리 (`@oa-sdk/codegen`)
 

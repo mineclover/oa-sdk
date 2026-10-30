@@ -1,0 +1,465 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-10-30",
+  "runs": [
+    {
+      "id": "core-downstream-20261026-historical",
+      "artifact": "docs/reports/test-evidence-2026-10-26.json"
+    },
+    {
+      "id": "tools-20261026-management",
+      "artifact": "docs/reports/tools-20261026-management.json"
+    },
+    {
+      "id": "freshness-20261026-management",
+      "artifact": "docs/reports/freshness-20261026-management.json"
+    },
+    {
+      "id": "tools-20261030-fr05-fr09-v2",
+      "artifact": "docs/reports/tools-20261030-fr05-fr09-v2.json"
+    }
+  ],
+  "claims": [
+    {
+      "id": "tool-confirmation",
+      "featureId": "tools-confirmation-locking",
+      "statement": "확인 없는 destructive commit 거부",
+      "status": "verified",
+      "level": "integration",
+      "scope": "two-phase-elicit-commit 모델의 로컬 MCP binding 및 CLI",
+      "excludes": [
+        "다른 execution model의 domain 정책",
+        "실계정 MCP host 호환성"
+      ],
+      "sourceFiles": [
+        "packages/tools/src/openapi-hydrator.ts",
+        "packages/tools/src/tool-pipeline-regressions.test.ts",
+        "packages/tools/src/mcp-use.ts",
+        "packages/tools/src/cli-anything.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "regression",
+          "runId": "tools-20261030-fr05-fr09-v2",
+          "file": "packages/tools/src/tool-pipeline-regressions.test.ts",
+          "test": "destructive confirmation blocks two-phase MCP mutation when the host cannot elicit",
+          "assertion": "MCP host에 elicit이 없으면 mutation 0회, isError=true"
+        },
+        {
+          "kind": "regression",
+          "runId": "tools-20261030-fr05-fr09-v2",
+          "file": "packages/tools/src/tool-pipeline-regressions.test.ts",
+          "test": "destructive confirmation exposes --confirm on the CLI and rejects an unconfirmed invocation",
+          "assertion": "미확인 CLI exit1, --confirm 실행 시 mutation 1회"
+        }
+      ]
+    },
+    {
+      "id": "commit-snapshot-serialization",
+      "featureId": "tools-confirmation-locking",
+      "statement": "동일 프로젝트 commit·capture·snapshot 직렬화",
+      "status": "verified",
+      "level": "integration",
+      "scope": "exclusive-file에서 독립 store 두 인스턴스의 commit 경계",
+      "excludes": [
+        "plan의 최신성·OCC",
+        "domain rollback",
+        "프로세스 중단 후 lock 복구"
+      ],
+      "sourceFiles": [
+        "packages/tools/src/openapi-hydrator.ts",
+        "packages/tools/src/reserved-interfaces.ts",
+        "packages/tools/src/tool-pipeline-regressions.test.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "regression",
+          "runId": "tools-20261030-fr05-fr09-v2",
+          "file": "packages/tools/src/tool-pipeline-regressions.test.ts",
+          "test": "commit serialization serializes two-phase commits and snapshots across independent stores",
+          "assertion": "maxActive=1, counter=2, snapshot 순서와 session undo/redo 확인"
+        }
+      ]
+    },
+    {
+      "id": "schema-runtime-semantics",
+      "featureId": "tools-schema-bridge",
+      "statement": "원본 parser의 refinement·변환 출력 보존",
+      "status": "verified",
+      "level": "unit",
+      "scope": "Zod refinement·trim 및 custom parser, JSON component ref",
+      "excludes": [
+        "모든 Zod 변환의 JSON Schema 표현",
+        "비동기 schema parser"
+      ],
+      "sourceFiles": [
+        "packages/tools/src/standard-schema.ts",
+        "packages/tools/src/tool-pipeline-regressions.test.ts",
+        "packages/tools/src/schema.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "regression",
+          "runId": "tools-20261030-fr05-fr09-v2",
+          "file": "packages/tools/src/tool-pipeline-regressions.test.ts",
+          "test": "Standard Schema parser semantics preserves Zod refinement failures through every validation entry point",
+          "assertion": "parse/safeParse/validate/~standard가 denied를 거부"
+        },
+        {
+          "kind": "regression",
+          "runId": "tools-20261030-fr05-fr09-v2",
+          "file": "packages/tools/src/tool-pipeline-regressions.test.ts",
+          "test": "Standard Schema parser semantics returns transformed values from Zod and custom parsers",
+          "assertion": "trim/대문자 변환 출력 보존"
+        }
+      ]
+    },
+    {
+      "id": "project-session-isolation",
+      "featureId": "tools-session-history",
+      "statement": "프로젝트 ID와 undo 이력 분리",
+      "status": "verified",
+      "level": "integration",
+      "scope": "구분자·Unicode·dot segment·legacy identity 검사",
+      "excludes": [
+        "기존 충돌 파일의 자동 병합",
+        "symlink 경계 감사"
+      ],
+      "sourceFiles": [
+        "packages/tools/src/reserved-interfaces.ts",
+        "packages/tools/src/tool-pipeline-regressions.test.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "regression",
+          "runId": "tools-20261030-fr05-fr09-v2",
+          "file": "packages/tools/src/tool-pipeline-regressions.test.ts",
+          "test": "project session isolation isolates formerly colliding IDs, unicode IDs and their undo histories",
+          "assertion": "team/a, team_a, Unicode ID별 state·undo 분리"
+        },
+        {
+          "kind": "regression",
+          "runId": "tools-20261030-fr05-fr09-v2",
+          "file": "packages/tools/src/tool-pipeline-regressions.test.ts",
+          "test": "project session isolation rejects a stored identity mismatch before committing domain changes",
+          "assertion": "identity 불일치 시 domain commit 0회"
+        }
+      ]
+    },
+    {
+      "id": "session-history-only",
+      "featureId": "tools-session-history",
+      "statement": "session JSON의 이력 이동 정합성",
+      "status": "verified",
+      "level": "integration",
+      "scope": "FileSessionStore의 undo/redo history 값만 확인",
+      "excludes": [
+        "실제 domain 데이터 복원",
+        "외부 문서 rollback"
+      ],
+      "sourceFiles": [
+        "packages/tools/src/reserved-interfaces.ts",
+        "packages/tools/src/tool-pipeline-regressions.test.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "regression",
+          "runId": "tools-20261030-fr05-fr09-v2",
+          "file": "packages/tools/src/tool-pipeline-regressions.test.ts",
+          "test": "commit serialization serializes two-phase commits and snapshots across independent stores",
+          "assertion": "history undo/redo와 snapshot 순서 확인"
+        }
+      ]
+    },
+    {
+      "id": "freshness-fixture",
+      "featureId": "cli-codegen-workflow",
+      "statement": "freshness CLI fixture가 Zod를 해석하고 검사에 도달",
+      "status": "verified",
+      "level": "integration",
+      "scope": "NODE_PATH를 제거한 로컬 임시 workspace",
+      "excludes": [
+        "전체 freshness 입력 조합",
+        "사용자 프로젝트의 dependency 자동 설치"
+      ],
+      "sourceFiles": [
+        "packages/codegen/src/__tests__/drift-check-cli.test.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "regression",
+          "runId": "freshness-20261026-management",
+          "file": "packages/codegen/src/__tests__/drift-check-cli.test.ts",
+          "test": "oa-gen check-artifact and drift:check CLI Test Suite Suite 1: Config-Driven Spec Freshness Verification passes with exit code 0 when all committed artifacts match source schemas",
+          "assertion": "generate와 check-artifact/drift:check가 exit0"
+        }
+      ]
+    },
+    {
+      "id": "simple-table-roundtrip",
+      "featureId": "tools-table-file-io",
+      "statement": "자체 생성한 6개 단순 파일 형식의 roundtrip",
+      "status": "verified",
+      "level": "integration",
+      "scope": "같은 writer로 만든 XLSX/DOCX/PPTX/MD/CSV/HTML fixture",
+      "excludes": [
+        "임의 OOXML 문서 보존",
+        "외부 제품 상호운용",
+        "CSV multiline",
+        "재정렬된 workbook"
+      ],
+      "sourceFiles": [
+        "packages/tools/src/table-file-io.ts",
+        "packages/tools/src/openapi-hydrator-pipeline.test.ts",
+        "packages/tools/src/table-ir.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "regression",
+          "runId": "tools-20261030-fr05-fr09-v2",
+          "file": "packages/tools/src/openapi-hydrator-pipeline.test.ts",
+          "test": "Single-Point Spec Hydrator + CLI-Anything + mcp-use v2 Reserved Interfaces reads, patches, and writes real disk files across all 6 document table formats (.xlsx, .docx, .pptx, .md, .csv, .html)",
+          "assertion": "각 형식의 단순 표 read/patch/write assertion"
+        }
+      ]
+    },
+    {
+      "id": "table-plan-freshness",
+      "featureId": "tools-table-mutation",
+      "statement": "표 commit에서 오래된 plan 거부",
+      "status": "verified",
+      "level": "integration",
+      "scope": "임시 데이터의 로컬 재현",
+      "excludes": [
+        "다른 문서 전체에 대한 전수검증"
+      ],
+      "sourceFiles": [
+        "packages/tools/src/table-ir.ts",
+        "packages/tools/src/openapi-hydrator.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "regression",
+          "runId": "tools-20261030-fr05-fr09-v2",
+          "file": "packages/tools/src/openapi-hydrator-pipeline.test.ts",
+          "test": "Single-Point Spec Hydrator + CLI-Anything + mcp-use v2 Reserved Interfaces rejects concurrent table commits whose plans were based on the same fingerprint",
+          "assertion": "동시 두 셀 변경은 첫 commit만 성공하고 stale plan은 TABLE_PLAN_STALE로 거부"
+        }
+      ]
+    },
+    {
+      "id": "domain-undo",
+      "featureId": "tools-session-history",
+      "statement": "undo가 실제 domain 상태 복원",
+      "status": "verified",
+      "level": "integration",
+      "scope": "임시 데이터의 로컬 재현",
+      "excludes": [
+        "다른 문서 전체에 대한 전수검증"
+      ],
+      "sourceFiles": [
+        "packages/tools/src/mcp-use.ts",
+        "packages/tools/src/cli-anything.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "regression",
+          "runId": "tools-20261030-fr05-fr09-v2",
+          "file": "packages/tools/src/tool-pipeline-regressions.test.ts",
+          "test": "domain session restore restores the domain through the MCP session undo/redo surface",
+          "assertion": "MCP undo/redo가 restoreState를 호출하고 실제 domain 상태를 0→1→0→1로 복원"
+        },
+        {
+          "kind": "regression",
+          "runId": "tools-20261030-fr05-fr09-v2",
+          "file": "packages/tools/src/tool-pipeline-regressions.test.ts",
+          "test": "domain session restore restores the domain through the CLI session undo surface",
+          "assertion": "CLI session undo가 restoreState를 호출하고 실제 domain 상태를 복원"
+        },
+        {
+          "kind": "regression",
+          "runId": "tools-20261030-fr05-fr09-v2",
+          "file": "packages/tools/src/tool-pipeline-regressions.test.ts",
+          "test": "domain session restore keeps the history entry when domain restoration fails",
+          "assertion": "복원 실패 시 isError=true이며 undo/redo 이력을 유지"
+        }
+      ]
+    },
+    {
+      "id": "csv-multiline",
+      "featureId": "tools-table-file-io",
+      "statement": "CSV 따옴표 내부 줄바꿈 보존",
+      "status": "verified",
+      "level": "integration",
+      "scope": "임시 데이터의 로컬 재현",
+      "excludes": [
+        "다른 문서 전체에 대한 전수검증"
+      ],
+      "sourceFiles": [
+        "packages/tools/src/table-file-io.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "regression",
+          "runId": "tools-20261030-fr05-fr09-v2",
+          "file": "packages/tools/src/table-file-io-regressions.test.ts",
+          "test": "table file I/O external review regressions parses RFC 4180 multiline fields, escaped quotes, and empty records",
+          "assertion": "multiline·escaped quote·빈 레코드 read가 3개 데이터 행으로 보존"
+        }
+      ]
+    },
+    {
+      "id": "xlsx-preservation",
+      "featureId": "tools-table-file-io",
+      "statement": "XLSX 선택 worksheet의 병합·검증 정보 보존",
+      "status": "verified",
+      "level": "integration",
+      "scope": "임시 데이터의 로컬 재현",
+      "excludes": [
+        "다른 문서 전체에 대한 전수검증"
+      ],
+      "sourceFiles": [
+        "packages/tools/src/table-file-io.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "regression",
+          "runId": "tools-20261030-fr05-fr09-v2",
+          "file": "packages/tools/src/table-file-io-regressions.test.ts",
+          "test": "table file I/O external review regressions preserves worksheet metadata on a no-op XLSX roundtrip",
+          "assertion": "no-op 저장 후 mergeCells/dataValidations와 fingerprint 보존"
+        }
+      ]
+    },
+    {
+      "id": "xlsx-sheet-selection",
+      "featureId": "tools-table-file-io",
+      "statement": "workbook relationship으로 정확한 worksheet 선택",
+      "status": "verified",
+      "level": "integration",
+      "scope": "임시 데이터의 로컬 재현",
+      "excludes": [
+        "다른 문서 전체에 대한 전수검증"
+      ],
+      "sourceFiles": [
+        "packages/tools/src/table-file-io.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "regression",
+          "runId": "tools-20261030-fr05-fr09-v2",
+          "file": "packages/tools/src/table-file-io-regressions.test.ts",
+          "test": "table file I/O external review regressions resolves workbook sheet relationships for read and write after sheet reorder",
+          "assertion": "관계 ID로 Budget→sheet2.xml을 선택하고 read/write 대상과 style을 보존"
+        }
+      ]
+    },
+    {
+      "id": "external-document-interop",
+      "featureId": "tools-table-file-io",
+      "statement": "외부 문서 제품에서 읽기·수정·재열기 상호운용",
+      "status": "unverified",
+      "level": "external-e2e",
+      "scope": "실제 Office/LibreOffice/Google/Notion 제품 조합별 검증 필요",
+      "excludes": [
+        "로컬 fixture 통과로 운영 호환성을 추정하지 않음"
+      ],
+      "sourceFiles": [
+        "packages/tools/src/table-file-io.ts"
+      ],
+      "evidence": []
+    }
+  ],
+  "defects": [
+    {
+      "id": "FR-01",
+      "claimId": "tool-confirmation",
+      "priority": "P1",
+      "state": "fixed",
+      "title": "확인 기능 없는 MCP에서 파괴적 commit 실행",
+      "report": "docs/reports/feature-review-2026-10-26.md",
+      "closeCriteria": "확인 부재/거절에서 mutation0, 명시적 승인 회귀 통과"
+    },
+    {
+      "id": "FR-02",
+      "claimId": "commit-snapshot-serialization",
+      "priority": "P1",
+      "state": "fixed",
+      "title": "snapshot 활성화 시 domain commit 잠금 생략",
+      "report": "docs/reports/feature-review-2026-10-26.md",
+      "closeCriteria": "동시 commit 직렬화와 snapshot 순서, 예외 후 잠금 해제 회귀 통과"
+    },
+    {
+      "id": "FR-03",
+      "claimId": "schema-runtime-semantics",
+      "priority": "P1",
+      "state": "fixed",
+      "title": "JSON 정규화로 Zod 검증·변환 손실",
+      "report": "docs/reports/feature-review-2026-10-26.md",
+      "closeCriteria": "원본 refinement 거부·변환 출력 회귀 통과"
+    },
+    {
+      "id": "FR-04",
+      "claimId": "project-session-isolation",
+      "priority": "P2",
+      "state": "fixed",
+      "title": "프로젝트 ID 충돌과 dot segment 경로 이탈",
+      "report": "docs/reports/feature-review-2026-10-26.md",
+      "closeCriteria": "ID별 state·history 분리와 invalid ID 거부 회귀 통과"
+    },
+    {
+      "id": "TEST-01",
+      "claimId": "freshness-fixture",
+      "priority": "P2",
+      "state": "fixed",
+      "title": "freshness fixture에 Zod 의존성 누락",
+      "report": "docs/reports/feature-review-2026-10-26.md",
+      "closeCriteria": "NODE_PATH 없는 기존 11개 CLI 회귀 통과"
+    },
+    {
+      "id": "FR-05",
+      "claimId": "table-plan-freshness",
+      "priority": "P1",
+      "state": "fixed",
+      "title": "stale plan이 앞선 표 변경을 덮어씀",
+      "report": "docs/reports/feature-review-2026-10-26.md",
+      "closeCriteria": "동시 두 셀 변경 [1,1] 유지 또는 명시적 충돌 거부 회귀"
+    },
+    {
+      "id": "FR-06",
+      "claimId": "domain-undo",
+      "priority": "P1",
+      "state": "fixed",
+      "title": "undo가 domain 복원 없이 성공 반환",
+      "report": "docs/reports/feature-review-2026-10-26.md",
+      "closeCriteria": "MCP·CLI에서 restore 호출 및 실제 데이터 복원, 복원 실패 시 이력 보존 회귀"
+    },
+    {
+      "id": "FR-07",
+      "claimId": "csv-multiline",
+      "priority": "P2",
+      "state": "fixed",
+      "title": "CSV의 따옴표 안 줄바꿈 오독",
+      "report": "docs/reports/feature-review-2026-10-26.md",
+      "closeCriteria": "multiline·escaped quote·빈 레코드 read/write 회귀"
+    },
+    {
+      "id": "FR-08",
+      "claimId": "xlsx-preservation",
+      "priority": "P1",
+      "state": "fixed",
+      "title": "no-op XLSX 저장으로 병합·검증 정보 소실",
+      "report": "docs/reports/feature-review-2026-10-26.md",
+      "closeCriteria": "원본 XML 병합·검증·서식 보존 또는 명시적 unsupported 거부 회귀"
+    },
+    {
+      "id": "FR-09",
+      "claimId": "xlsx-sheet-selection",
+      "priority": "P1",
+      "state": "fixed",
+      "title": "선택한 시트 이름과 읽기/쓰기 worksheet 불일치",
+      "report": "docs/reports/feature-review-2026-10-26.md",
+      "closeCriteria": "관계 ID·재정렬 workbook에서 읽기/쓰기 대상 일치 회귀"
+    }
+  ]
+}

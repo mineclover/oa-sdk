@@ -13,6 +13,7 @@ type CliArgs = {
   baselinePath?: string
   databasePath?: string
   writeBaseline: boolean
+  allowIncrease: boolean
   writeOutputs: boolean
   help: boolean
 }
@@ -28,6 +29,7 @@ try {
       root,
       policyPath: args.policyPath,
       writeBaseline: args.writeBaseline,
+      allowIncrease: args.allowIncrease,
       writeOutputs: args.writeOutputs,
       ...(args.outputDirectory === undefined ? {} : { outputDirectory: args.outputDirectory }),
       ...(args.baselinePath === undefined ? {} : { baselinePath: args.baselinePath }),
@@ -56,6 +58,7 @@ function parseArgs(argv: readonly string[]): CliArgs {
   const args: CliArgs = {
     policyPath: 'docs/internal/type-registry-policy.json',
     writeBaseline: false,
+    allowIncrease: false,
     writeOutputs: true,
     help: false,
   }
@@ -63,6 +66,7 @@ function parseArgs(argv: readonly string[]): CliArgs {
     const argument = argv[index]
     if (argument === '--') continue
     if (argument === '--write') args.writeBaseline = true
+    else if (argument === '--allow-increase') args.allowIncrease = true
     else if (argument === '--no-output') args.writeOutputs = false
     else if (argument === '--help' || argument === '-h') args.help = true
     else if (argument === '--policy') args.policyPath = requiredValue(argv, ++index, argument)
@@ -93,7 +97,11 @@ function printSummary(
   console.log(`  baseline: ${baselineExisted ? report.baselineHash ?? 'loaded' : 'missing'}`)
   console.log(`  outputs: ${relative(root, result.outputDirectory)}`)
   for (const budget of report.budgets) {
-    console.log(`  ${budget.rule}: ${budget.actual}/${budget.maximum} (${budget.allowed} allowlisted)`)
+    console.log(`  ${budget.rule}: ${formatBudget(budget)} (${budget.allowed} allowlisted)`)
+  }
+  const resolved = report.budgets.reduce((sum, budget) => sum + budget.resolved, 0)
+  if (resolved > 0) {
+    console.log(`  resolved vs baseline: ${resolved}; run pnpm type-registry:write to lock the reduction in`)
   }
   console.log(`  diff: ${formatDiff(report.diff)}`)
   console.log(`  violations: ${report.violations.length}`)
@@ -101,6 +109,15 @@ function printSummary(
   if (result.report.allowlist.unused.length > 0) {
     console.log(`  unused allowlist: ${result.report.allowlist.unused.join(', ')}`)
   }
+}
+
+function formatBudget(budget: ReturnType<typeof runTypeRegistryGovernance>['report']['budgets'][number]): string {
+  const parts = [`${budget.actual}`]
+  if (budget.baseline !== undefined) parts.push(`baseline ${budget.baseline}`)
+  if (budget.resolved > 0) parts.push(`-${budget.resolved}`)
+  if (budget.increased > 0) parts.push(`+${budget.increased}`)
+  if (budget.maximum !== undefined) parts.push(`ceiling ${budget.maximum}`)
+  return parts.join(', ')
 }
 
 function formatDiff(diff: TypeRegistryDiff): string {
@@ -133,6 +150,7 @@ indexes the result in SQLite, writes local canonical evidence, and gates drift.
 
 Options:
   --write             Atomically replace the reviewed baseline after all gates pass
+  --allow-increase    With --write: accept boundaries that grew per file vs the baseline
   --policy <path>     Policy JSON (default: docs/internal/type-registry-policy.json)
   --baseline <path>   Reviewed snapshot path
   --output-dir <path> Local snapshot/report directory

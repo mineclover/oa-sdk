@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "oa-sdk-seed-input/v2",
+  "scenarioId": "SEED-SCENARIO-01",
+  "packageId": "oa-sdk",
+  "packageName": "oa-sdk (TypeSpec · OpenAPI 3.2 Contract SSOT & Functional Intent Alignment)",
+  "sharedIdentifiers": {
+    "sceneId": "scene_fraction_quiz_01",
+    "storyboardPageId": "page_math_grade4_unit2_01",
+    "elements": [
+      {
+        "elementId": "el_character_tutor_01",
+        "role": "character-actor",
+        "description": "분수 개념을 설명하는 튜터 캐릭터 (Pose Lab 정면 BODY_25 포즈 & Stage 배치 대상)"
+      },
+      {
+        "elementId": "el_fraction_board_01",
+        "role": "interactive-board",
+        "description": "피자 조각 분수 조작 칠판 (PSD Graphic IR & 2T-SSG HTML /* @editable */ 대상)"
+      },
+      {
+        "elementId": "el_submit_cta_01",
+        "role": "assessment-trigger",
+        "description": "정답 제출 및 XState/FSM 분기 트리거 (검수 사이트 자동 의도 스캔 대상)"
+      }
+    ],
+    "contractOperationId": "evaluateFractionSceneSubmission",
+    "glossaryConceptUri": "urn:semantic:concept:InteractiveSceneSubmission",
+    "oslcResourceUri": "urn:oslc:resource:scene_fraction_quiz_01@rev-3",
+    "promptTemplateId": "crpt_scene_inspection_feedback_v1",
+    "skillPresetId": "preset_scene_domain_authoring_v1",
+    "driveArtifactId": "NES-000142"
+  },
+  "scenarioInputDescription": "`evaluateFractionSceneSubmission` 기능을 정의한 TypeSpec(`.tsp`) 모델 및 OpenAPI 3.2 스펙(`input-sample.json`)",
+  "intermediateControlPoint": "사람이 직접 읽고 편집하는 단일 정본인 TypeSpec(`.tsp`) / OpenAPI 3.2 기능 의도 계약 파일 (`evaluateFractionSceneSubmission` 입력·출력·오류 경계 정의)"
+}

@@ -85,6 +85,26 @@ describe('Type Registry TypeScript extractor', () => {
       .toEqual(withHeader.boundaries?.map(boundary => boundary.boundaryId))
   })
 
+  it('treats `.json()` that reads a body as a deserialize boundary but not response builders', () => {
+    const sourceText = `
+      declare const c: { json(value: unknown, status?: number): Response }
+      declare const upstream: Response
+      declare const request: Request
+      export async function handler() {
+        const fromResponse = await upstream.json()
+        const fromRequest = await request.json()
+        c.json({ ok: true })
+        c.json({ ok: false }, 500)
+        Response.json({ ok: true })
+        return [fromResponse, fromRequest]
+      }
+    `
+    const extracted = extractTypeRegistryFile({ filePath: 'handler.ts', sourceText })
+    const deserialize = extracted.boundaries?.filter(boundary => boundary.kind === 'deserialize') ?? []
+
+    expect(deserialize.map(boundary => boundary.sourceType).sort()).toEqual(['request.json', 'upstream.json'])
+  })
+
   it('keeps overload IDs unique and treats syntactic imports and reexports as unresolved', () => {
     const sourceText = `
       import type { External as Remote } from '@pkg/types'
