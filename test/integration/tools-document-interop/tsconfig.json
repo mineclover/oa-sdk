@@ -1,0 +1,15 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": "../../..",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "types": ["node"],
+    "paths": {
+      "@oa-sdk/tools": ["packages/tools/src/index.ts"]
+    },
+    "noEmit": true
+  },
+  "include": ["*.ts"]
+}

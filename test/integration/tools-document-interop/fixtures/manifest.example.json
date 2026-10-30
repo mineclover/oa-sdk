@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "tools-document-interop/fixture/v1",
+  "product": {
+    "name": "Example Product",
+    "version": "0.0.0",
+    "exportPath": "manual-export",
+    "locale": "en-US"
+  },
+  "format": "xlsx",
+  "encoding": "utf-8",
+  "lineEndings": "crlf",
+  "sourceFile": "example.xlsx",
+  "sourceSha256": "replace-with-fixture-hash",
+  "requiresCredentials": false,
+  "requiresBrowser": false,
+  "requiresInstalledProduct": true,
+  "expected": {
+    "worksheetRelationships": [],
+    "mergeRefs": [],
+    "validationRefs": [],
+    "styleIds": [],
+    "formulaCount": 0,
+    "csvRecords": []
+  }
+}

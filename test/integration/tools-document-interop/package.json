@@ -1,0 +1,15 @@
+{
+  "name": "@oa-sdk/tools-document-interop-harness",
+  "private": true,
+  "type": "module",
+  "description": "Opt-in external document interoperability oracle harness for @oa-sdk/tools",
+  "scripts": {
+    "test": "pnpm --dir ../../.. exec vitest run test/integration/tools-document-interop --maxWorkers 1 --no-file-parallelism",
+    "typecheck": "pnpm --dir ../../.. exec tsc -p test/integration/tools-document-interop/tsconfig.json"
+  },
+  "devDependencies": {
+    "csv-parse": "7.0.3",
+    "csv-stringify": "6.9.0",
+    "exceljs": "4.4.0"
+  }
+}
