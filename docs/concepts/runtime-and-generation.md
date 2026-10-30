@@ -37,15 +37,16 @@ typegen, mock data generation, validation support logic처럼 schema를 여러 �
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
 │ 계층 1: 저작 원천 (Authoring SSOT)                                      │
-│ • TypeScript/Zod 마스터 스키마 (z.object, z.discriminatedUnion)         │
-│ • 개발자 생산성, 정적 타입 추론 (z.infer), 백엔드 인그레스 파싱         │
+│ • 저장소 production API: TypeSpec + versioned decorators/provenance      │
+│ • 외부 TS-first 프로젝트: TypeScript/Zod source를 adapter로 수용        │
+│ • source ownership은 project 설정이 정하며 repository path는 TypeSpec-first│
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │ [oa-gen generate]
                                     ▼
 ┌────────────────────────────────────────────────────────────────────────┐
 │ 계층 2: 사양 표준 프로젝션 (Specification Projection)                  │
 │ • JSON Schema Draft 2020-12 ($defs, numeric exclusiveMinimum: 0)       │
-│ • OpenAPI 3.1 사양 문서 (component-bundle, operation-contract)          │
+│ • OpenAPI 3.2 canonical artifact/intake (component-bundle, operation)   │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │
                   ┌─────────────────┴─────────────────┐
@@ -58,6 +59,11 @@ typegen, mock data generation, validation support logic처럼 schema를 여러 �
 │ • 0 KB 런타임 의존성, 100% CSP 안전 ││ • 극대화된 throughput, 0 KB 런타임 │
 └───────────────────────────────────┘└───────────────────────────────────┘
 ```
+
+계층 1의 source는 project ownership에 따라 달라진다. 이 저장소의 production API는
+`packages/schemas/typespec`가 정본이고, OpenAPI/JSON Schema/TypeScript declaration은
+promotion·build로 관찰되는 artifact다. 외부 project는 OpenAPI나 TypeScript/Zod를 source로
+계속 사용할 수 있지만, 그 입력은 oa-sdk의 projection/validation boundary를 통과한다.
 
 ### 2. Standalone Type Guards (AJV Standalone ESM)
 

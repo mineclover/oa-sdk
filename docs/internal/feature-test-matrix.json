@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-20",
-  "description": "Feature-to-test mapping for oa-sdk. Each feature lists representative automated coverage and the commands that maintain it.",
+  "updatedAt": "2026-10-28",
+  "description": "Feature ownership and representative test paths. This catalog does not attest execution, assertion depth, release readiness, or current guarantees; those are managed by verification/registry.json.",
   "features": [
     {
       "id": "core-utilities",
@@ -114,6 +114,69 @@
         "pnpm --filter @oa-sdk/rpc test",
         "pnpm --filter @oa-sdk/rpc typecheck",
         "pnpm --filter @oa-sdk/codegen test"
+      ]
+    },
+    {
+      "id": "popup-bridge-runtime",
+      "name": "Popup bridge protocol and runtime",
+      "category": "integration",
+      "package": "@oa-sdk/popup-bridge",
+      "description": "Origin-verified popup handshake (HELLO/CONNECT/READY, protocol negotiation, session and instance ids), symmetric JSON-RPC 2.0 over MessageChannel with cancellation, timeouts and idempotency keys, contract-first type declarations and RPC generation utilities, revisioned event subscriptions, popup reload reconnection, and a real-Chromium cross-origin E2E that includes the COOP same-origin limitation. Also covers zero-copy transfers, heartbeat-based hang detection, inbound request and notification limits, and pageshow reconnection, plus the window network for popups that open popups: shared bridge nodes and peer links, attention requests (focus, title blink, notification, toast) with receiver-side policy and acknowledgements, topology and trace inspection, and revisioned shared state. Also covers optional protocol feature negotiation, per-event replay buffers with gap and reset fallback, event coalescing, and cancellable exponential reconnect backoff with jitter.",
+      "capabilities": [
+        "defineContract",
+        "method",
+        "event",
+        "definePopup",
+        "createRpcApi",
+        "createMethodCaller",
+        "HandlerRegistry",
+        "describeContract",
+        "createRpcEndpoint",
+        "createPopupBridge",
+        "createPopupRuntime",
+        "createMemoryBrowser",
+        "origin, source and session verification",
+        "protocol version negotiation",
+        "bridge.cancel and RPC timeout",
+        "idempotency keys",
+        "revisioned event subscriptions",
+        "popup reload reconnection",
+        "COOP same-origin limitation",
+        "withTransfer",
+        "NOT_CLONEABLE errors",
+        "heartbeat and PEER_UNRESPONSIVE",
+        "inbound limits (OVERLOADED, rate-limited)",
+        "pageshow reconnection",
+        "createBridgeNode",
+        "attention requests and acknowledgements",
+        "createAttentionManager",
+        "node topology and trace",
+        "defineSharedState",
+        "protocol feature negotiation",
+        "event replay buffer and bridge.replay",
+        "event coalescing",
+        "reconnect backoff with jitter"
+      ],
+      "testPaths": [
+        "packages/popup-bridge/test/attention.test.ts",
+        "packages/popup-bridge/test/node.test.ts",
+        "packages/popup-bridge/test/state.test.ts",
+        "packages/popup-bridge/test/contract.test.ts",
+        "packages/popup-bridge/test/endpoint.test.ts",
+        "packages/popup-bridge/test/session.test.ts",
+        "packages/popup-bridge/test/subscriptions.test.ts",
+        "packages/popup-bridge/test/features.test.ts",
+        "packages/popup-bridge/test/replay.test.ts",
+        "packages/popup-bridge/test/coalesce.test.ts",
+        "packages/popup-bridge/test/backoff.test.ts",
+        "packages/popup-bridge/test/retry.test.ts",
+        "packages/popup-bridge/test/clock.test.ts",
+        "packages/popup-bridge/e2e/browser.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/popup-bridge test",
+        "pnpm --filter @oa-sdk/popup-bridge typecheck",
+        "pnpm --filter @oa-sdk/popup-bridge test:e2e"
       ]
     },
     {
@@ -1315,7 +1378,8 @@
         "packages/codegen/src/__tests__/cli-parallel-evidence.test.ts",
         "packages/codegen/src/__tests__/behavior-query-metrics.test.ts",
         "packages/codegen/src/__tests__/behavior-recorder.test.ts",
-        "packages/codegen/src/__tests__/behavior-projection.test.ts"
+        "packages/codegen/src/__tests__/behavior-projection.test.ts",
+        "packages/codegen/src/__tests__/drift-check-cli.test.ts"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/codegen test"
@@ -1854,6 +1918,9 @@
         "strict generated types and guards consumer compilation",
         "conflicting target schema rejection",
         "in-memory guard artifact rendering",
+        "escaped schema pointers and dollar-sign guard identifiers",
+        "collision-safe split guard files on case-insensitive filesystems",
+        "external type name override admission and consumer compilation",
         "failed build output preservation and Vite startup failure"
       ],
       "testPaths": [
@@ -1968,7 +2035,8 @@
         "docs/internal/feature-test-matrix.md",
         "docs/internal/feature-test-matrix.json",
         ".ai/spec-loader.yaml",
-        "docs/spec-governance/*.md"
+        "docs/spec-governance/*.md",
+        "scripts/test-verification.ts"
       ],
       "commands": [
         "pnpm test:api-index && pnpm check:api-index",
@@ -1976,7 +2044,9 @@
         "pnpm test:docs-gates",
         "pnpm check:docs",
         "pnpm check:spec-governance",
-        "pnpm check:feature-tests"
+        "pnpm check:feature-tests",
+        "pnpm test:verification",
+        "pnpm check:verification"
       ]
     },
     {
@@ -2025,6 +2095,107 @@
       ],
       "commands": [
         "pnpm test:integration"
+      ]
+    },
+    {
+      "id": "tools-schema-bridge",
+      "name": "Tools Standard Schema bridge",
+      "category": "tools",
+      "package": "@oa-sdk/tools",
+      "lifecycle": "working-tree-prototype",
+      "description": "Schema bridge runtime semantics and optional output guards.",
+      "capabilities": [
+        "parser refinement and transformed output preservation"
+      ],
+      "testPaths": [
+        "packages/tools/src/tool-pipeline-regressions.test.ts",
+        "packages/tools/test/schema-validation.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/tools test",
+        "pnpm check:verification"
+      ]
+    },
+    {
+      "id": "tools-confirmation-locking",
+      "name": "Tools mutation confirmation and locking",
+      "category": "tools",
+      "package": "@oa-sdk/tools",
+      "lifecycle": "working-tree-prototype",
+      "description": "Hydrated MCP/CLI mutation gates and per-project commit locking.",
+      "capabilities": [
+        "explicit destructive confirmation",
+        "commit and snapshot serialization"
+      ],
+      "testPaths": [
+        "packages/tools/src/tool-pipeline-regressions.test.ts",
+        "packages/tools/src/openapi-hydrator-pipeline.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/tools test",
+        "pnpm check:verification"
+      ]
+    },
+    {
+      "id": "tools-session-history",
+      "name": "Tools project sessions and history",
+      "category": "tools",
+      "package": "@oa-sdk/tools",
+      "lifecycle": "working-tree-prototype",
+      "description": "Session JSON history is distinct from restoration of domain data.",
+      "capabilities": [
+        "project identity isolation",
+        "session history undo/redo"
+      ],
+      "testPaths": [
+        "packages/tools/src/tool-pipeline-regressions.test.ts",
+        "packages/tools/src/openapi-hydrator-pipeline.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/tools test",
+        "pnpm check:verification"
+      ]
+    },
+    {
+      "id": "tools-table-mutation",
+      "name": "Tools table patch plan and commit",
+      "category": "tools",
+      "package": "@oa-sdk/tools",
+      "lifecycle": "working-tree-prototype",
+      "description": "Table plans, preview and commit; stale plan checking is tracked separately.",
+      "capabilities": [
+        "table patch planning",
+        "table commit handler"
+      ],
+      "testPaths": [
+        "packages/tools/src/openapi-hydrator-pipeline.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/tools test",
+        "pnpm check:verification"
+      ]
+    },
+    {
+      "id": "tools-table-file-io",
+      "name": "Tools local table file I/O",
+      "category": "tools",
+      "package": "@oa-sdk/tools",
+      "lifecycle": "working-tree-prototype",
+      "description": "Representative local fixtures plus the gated external-document interop harness; product compatibility and autocomplete metadata remain evidence-driven.",
+      "capabilities": [
+        "simple local table roundtrip",
+        "external interop harness contract",
+        "product driver prerequisite detection",
+        "CSV/XLSX oracle comparison"
+      ],
+      "testPaths": [
+        "packages/tools/src/openapi-hydrator-pipeline.test.ts",
+        "packages/tools/src/table-file-io-regressions.test.ts",
+        "test/integration/tools-document-interop/*.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/tools test",
+        "pnpm check:verification"
       ]
     }
   ]

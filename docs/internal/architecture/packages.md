@@ -16,9 +16,12 @@ oa-sdk/
     spec-lens-contract/ @oa-sdk/spec-lens-contract browser-safe spec-lens HTTP contract [core]
     ast-sync/      @oa-sdk/ast-sync     V3 Unified AST bidirectional sync + taxonomy + type guards [core]
     tools/         @oa-sdk/tools        Universal Tool Engine for MCP, CLI, and Schema Bridge [core]
+    rpc/           @oa-sdk/rpc          TypeSpec/Surface IR procedure runtime (JSON-RPC/REST) [downstream]
+    popup-bridge/  @oa-sdk/popup-bridge Origin-verified popup MessageChannel runtime [downstream]
     mock-server/   @oa-sdk/mock-server  AJV Mock 서버 (MSW + Node HTTP) + 테스트 헬퍼 [downstream]
     router/        @oa-sdk/router       OAS → Hono/Express 라우터 스텁 [downstream]
     client/        @oa-sdk/client       OAS → fetch 클라이언트 SDK + 인증 + 재시도 [downstream]
+    ftp-contract/  @oa-sdk/ftp-contract Functional Test Platform exchange contract [maintenance]
     dpm/           @oa-sdk/dpm          Relationship-first Data Pseudonymization Manifest toolkit [maintenance]
     personas/      @oa-sdk/personas     Data Persona trait registry + persona matrix + validator [maintenance]
     typia-mock/    @oa-sdk/typia-mock   typia ILlmApplication 검증 서버 [maintenance]
@@ -38,13 +41,17 @@ oa-sdk/
     references/    OAS 3.2 스펙 분할본
 ```
 
+The physical inventory and release track are authoritative in `docs/internal/release-policy.json`.
+The dependency graph below names boundary-relevant edges; peer, chunk, collab, telemetry, and
+other downstream packages are grouped rather than omitted from the workspace inventory.
+
 ## 패키지 카테고리
 
 | Scope tier | 패키지 | 소유 범위 |
 |---|---|---|
-| Core Platform | `@oa-sdk/core`, `@oa-sdk/openapi-projection-contract`, `@oa-sdk/typespec-decorators`, `@oa-sdk/schemas`, `@oa-sdk/parser`, `@oa-sdk/codegen`, `@oa-sdk/spec-lens`, `@oa-sdk/spec-lens-contract`, `@oa-sdk/ast-sync`, `@oa-sdk/tools` | schema/spec SSOT, 외부 projection 경계, TypeSpec extension, 파싱/검증/생성, 변경 이력 관측, AST 양방향 동기화, MCP/CLI 도구 브릿지 및 wire contract |
-| Downstream Integration | `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server` | Core 계약을 server stub, fetch client, mock runtime으로 투영하고 소비 가능성을 증명 |
-| Maintenance-only | `@oa-sdk/dpm`, `@oa-sdk/personas`, `@oa-sdk/typia-mock`, `@oa-sdk/logical-erd-contract`, `@oa-sdk/typespec-erd`, `@oa-sdk/typespec-tooling`, `@oa-sdk/ttsc-compile-fixture` | 기존 계약의 security, compatibility, migration 유지. Logical ERD는 bounded prototype이고 `ttsc-compile-fixture`는 bulk task 제외 지원 fixture다. 신규 기능은 scope reactivation 전까지 금지 |
+| Core Platform | `@oa-sdk/core`, `@oa-sdk/openapi-projection-contract`, `@oa-sdk/typespec-decorators`, `@oa-sdk/schemas`, `@oa-sdk/parser`, `@oa-sdk/codegen`, `@oa-sdk/spec-lens`, `@oa-sdk/spec-lens-contract`, `@oa-sdk/ast-sync`, `@oa-sdk/tools` | TypeSpec authoring/승격과 OpenAPI artifact/intake, 파싱·검증·생성·변경 관측, AST adapter, MCP/CLI 도구 브릿지. Downstream runtime은 계약을 소비하지만 이 방향을 결정하지 않는다. |
+| Downstream Integration | `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`, `@oa-sdk/rpc`, `@oa-sdk/popup-bridge` 및 peer/chunk/collab/telemetry 패키지 | Core 계약을 server stub, fetch client, mock/procedure/runtime integration으로 소비하고 호환성을 증명 |
+| Maintenance-only | `@oa-sdk/dpm`, `@oa-sdk/personas`, `@oa-sdk/typia-mock`, `@oa-sdk/logical-erd-contract`, `@oa-sdk/ftp-contract`, `@oa-sdk/typespec-erd`, `@oa-sdk/typespec-tooling`, `@oa-sdk/ttsc-compile-fixture` | 기존 계약의 security, compatibility, migration 유지. Logical ERD/FTP는 bounded exchange contract이고 신규 기능은 scope reactivation 전까지 금지 |
 | Apps/reference | `@oa-sdk/nestjs-ref`, `@oa-sdk/playground`, `@oa-sdk/preview`, `@oa-sdk/spec-lens-ui` | reference, E2E, preview, UI consumer surface. library ownership 없음 |
 
 `@oa-sdk/dpm`은 API 스펙 패키지의 확장이 아니라 논리 데이터 계약 패키지다. DB catalog나
@@ -63,7 +70,7 @@ openapi-projection-contract (0 의존)
 core (0 의존)
 schemas      ← parser (build-time TypeSpec validation; source/artifact ownership remains independent)
 parser       ← core + openapi-projection-contract
-codegen      ← core + parser + openapi-projection-contract (+ router, client: optional peer — CLI 전용)
+codegen      ← core + parser + openapi-projection-contract (+ router, client, mock-server: dev/test-only; no runtime edge)
 spec-lens    ← parser + codegen
 spec-lens-contract (0 의존)
 
@@ -71,9 +78,12 @@ spec-lens-contract (0 의존)
 mock-server  ← core + parser
 router       ← core + parser
 client       ← core + parser
+rpc          ← surface-ir (procedure contract runtime; downstream consumer)
+popup-bridge ← independent browser runtime; no API contract ownership
 
 -- maintenance boundary --
 dpm          ← openapi-projection-contract
+ftp-contract ← independent Functional Test Platform exchange boundary
 personas     ← 독립
 typia-mock   ← core + parser (+ typia: peer)
 logical-erd-contract ← 독립 logical ERD artifact contract
@@ -84,6 +94,23 @@ ttsc-compile-fixture ← TS 7 compiler fixture (bulk task 제외)
 Dependency direction과 product ownership은 동일한 개념이 아니다. Maintenance-only package가
 Core package를 import해도 Core roadmap에 포함되지 않으며, Core package는 새 기능을 위해
 maintenance package에 의존해서는 안 된다.
+
+## Release-policy dependency boundary
+
+`pnpm check:release-policy`의 Policy v5 track boundary가 실제 `package.json` graph를 판정하는
+실행 기준이다. 현재 runtime graph는 다음 방향으로 정리된다.
+
+| Graph class | 현재 runtime edge | 의미 |
+|---|---|---|
+| Downstream → Core | `client`/`router`/`mock-server` → `core`, `parser`; `rpc` → `surface-ir`; `mcp-mesh` → `tools`; `telemetry` → `core` | Downstream은 Core 계약·IR·도구 표면을 소비한다. |
+| Maintenance → Core | `dpm` → `openapi-projection-contract`; `typia-mock` → `core`, `parser` | 유지보수/호환성 경계가 Core primitive를 소비한다. |
+| Core → Downstream runtime | 없음 | Core product runtime은 Downstream을 runtime dependency로 끌어오지 않는다. |
+| Core → Downstream development | `codegen`의 router/client/mock peer·dev surface, `tools`의 chunk/peer test surface | 개발·통합 검증에만 허용되는 참조이며 release runtime graph가 아니다. |
+
+`pnpm check:release-policy`는 이 방향, workspace protocol, track 분류, unclassified package,
+private/distribution candidate 및 root command filter를 함께 검증한다. 이 표에 없는 새로운
+workspace edge가 생기면 먼저 release policy와 scope 문서를 갱신하고, Core→Downstream runtime
+edge는 추가하지 않는다.
 
 ## 향후 분리 경계
 

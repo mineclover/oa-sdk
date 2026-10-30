@@ -18,7 +18,7 @@ reviewDue: "2026-11-11"
 
 # 타입 계약을 관리하는 방식
 
-OA SDK에서 타입 관리는 TypeScript 선언을 한 번 더 작성하는 일이 아니라, 이미 권위가 있는 source·schema·생성 산출물 사이의 변화를 증거로 만드는 일이다. 손으로 작성한 production TypeScript는 여전히 타입의 정본이고, TypeSpec은 production API 계약의 정본이며, OpenAPI와 declaration file은 각각 생성·빌드로 관찰되는 결과다. Type Registry와 계약 검증은 이 정본을 대체하지 않고 변경의 영향과 경계 위반을 드러낸다.
+OA SDK에서 타입 관리는 TypeScript 선언을 한 번 더 작성하는 일이 아니라, 이미 권위가 있는 source·schema·생성 산출물 사이의 변화를 증거로 만드는 일이다. 저장소 production API의 저작 정본은 TypeSpec이며, OpenAPI는 promotion·intake·downstream 소비를 위한 artifact다. 외부 TS-first project는 TypeScript/Zod를 source로 구성할 수 있지만 repository production path와 같은 ownership으로 자동 승격되지 않는다. 손으로 작성한 production TypeScript declaration은 public type surface의 정본이고, TypeSpec/OpenAPI source와는 별도의 관찰·소비 경계를 가진다. Type Registry와 계약 검증은 이 정본을 대체하지 않고 변경의 영향과 경계 위반을 드러낸다.
 
 이 구조는 세 가지 다른 실패를 구분하기 위해 필요하다. 선언의 구조가 바뀌었는데 public export가 뒤따르지 않을 수 있고, schema를 재구성한 결과가 TypeScript 표현력을 잃을 수 있으며, TypeSpec에서 OpenAPI를 생성하는 과정이 snapshot이나 provenance와 달라질 수 있다. 하나의 lint 규칙으로는 이 실패를 모두 판단할 수 없다.
 

@@ -40,9 +40,10 @@ Downstream Integration
   mcp-mesh                    validated domain/session tool mesh and CLI
   telemetry                   design-driven telemetry envelope, dispatchers, and XState inspector
   rpc                         RPC contract runtime: typed client/server, JSON-RPC 2.0, REST binding (private)
+  popup-bridge                cross-origin popup handshake and MessageChannel RPC runtime (private)
 
 Maintenance-only
-  dpm, personas, typia-mock, logical-erd-contract, typespec-erd, typespec-tooling, ttsc-compile-fixture
+  dpm, personas, typia-mock, logical-erd-contract, ftp-contract, typespec-erd, typespec-tooling, ttsc-compile-fixture
 
 Apps and references
   nestjs-ref, playground, preview, spec-lens-ui
@@ -53,6 +54,10 @@ Core 자체는 아니다. Maintenance-only는 security, compatibility, migration
 scope-reactivation decision이 필요하다. Markdown editor와 GitLab agent operations 제품은 각각
 `markdown-editor`, `gitlab-agent-ops` 독립 저장소가 소유한다. DPM 신규 기능·배포는
 외부 [data-governance](https://github.com/mineclover/data-governance)가 소유하고 이 저장소는 비공개 mirror를 유지한다.
+
+계약 입력과 소유권은 [Contract Ownership Boundaries](./contract-boundaries.md)를 따른다. 이
+저장소의 production API authoring은 TypeSpec-first이며, OpenAPI 3.2는 TypeSpec promotion의
+canonical artifact이자 외부 producer intake·parser·codegen·runtime 소비 경계다.
 
 안정화 lane은 Node.js 24 LTS와 TypeScript 5.9.3을 사용하며, 기본 CI와 `.nvmrc`도 이 lane을
 기준으로 한다. Node.js 26 Current 호환성 lane은 TypeScript 7.0.2와 `ttsc` 0.26.0으로 Core
@@ -69,7 +74,7 @@ baseline과 맞춘다.
 machine-readable SSOT다. 사람이 읽는 요약은
 [`feature-test-matrix.md`](./feature-test-matrix.md)에 둔다.
 
-현재 매핑은 64개 기능 그룹과 CLI spec drift guard를 포함한 테스트 경로 패턴을 관리한다.
+현재 매핑은 70개 기능 그룹과 CLI spec drift guard를 포함한 테스트 경로 패턴을 관리한다.
 
 ```bash
 pnpm check:feature-tests
@@ -468,6 +473,20 @@ OpenAPI ─▶ extractWireSchemaFromOas ─▶ WireSchemaModel ─▶ Proto3Targ
 
 `@oa-sdk/rpc` root entry는 런타임 의존성이 없고 web 표준 API만 쓴다. production 계약(34 operation)은
 33 procedure로 투영된다(SSE 1개 제외, error 진단 0).
+
+### 팝업 브리지 (`@oa-sdk/popup-bridge`)
+
+별도 Origin의 팝업을 여는 직접 연결 프로토콜이다. OpenAPI 계약과는 독립이며 사용법·와이어 규격·오류 코드는
+[팝업 브리지 가이드](../guides/popup-bridge.md)에 둔다.
+
+| 구성 | 구현 |
+|------|------|
+| 부트스트랩 | `window.postMessage`의 `bridge.hello`(Popup→Host) → `bridge.connect`+`MessageChannel.port2`(Host→Popup). Host는 `source`·`origin === expectedOrigin`·`sessionId`를 검증하고, Popup은 `source === opener`와 `allowedHostOrigins`를 검증한다. 세션 ID는 URL fragment로 전달한다 |
+| 제어 | Port로 `bridge.ready`(capabilities), `bridge.init-failed`, `bridge.close`(`unload`는 재연결 대기) |
+| RPC | 양쪽이 같은 JSON-RPC 2.0 엔드포인트를 쓴다. 확장은 요청의 `meta.idempotencyKey`와 알림 `bridge.cancel`. 예약 메서드 `bridge.ping`·`bridge.subscribe`·`bridge.unsubscribe`, 알림 `bridge.event {name, revision, payload}` |
+| 계약 | `defineContract`가 이름 규칙(`namespace.verb`, `bridge.` 예약, 접두사 충돌 금지)을 검사하고 `methods`(Popup 구현)·`events`·`host`(역방향)를 선언한다. 스키마는 `{parse}` 또는 함수 |
+| 수명 주기 | Host `CREATED→OPENING→WAITING_HELLO→CONNECTING→INITIALIZING→READY→CLOSING→CLOSED/FAILED`. 팝업 새로고침은 새 `instanceId`의 HELLO로 감지해 같은 `init`으로 재연결하고 구독을 복원한다. 창 닫힘은 폴링으로 감지한다 |
+| 제약 | Host의 COOP `same-origin`에서는 `window.opener`가 끊겨 연결할 수 없다(E2E로 고정). Host 새로고침은 자동 복구하지 않는다 |
 
 ### 바이너리 wire
 

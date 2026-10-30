@@ -8,9 +8,11 @@
 
 ## Core Mission
 
-oa-sdk의 핵심 임무는 `@oa-sdk/core`를 기반으로 schema와 OpenAPI spec의 source of truth를
-정의하고, 외부 schema projection을 수용하며, 파싱·검증·생성·변경 이력 관측까지 하나의
-계약 관리 계층으로 연결하는 것이다.
+oa-sdk의 핵심 임무는 `@oa-sdk/core`를 기반으로 **저장소 production API의 TypeSpec authoring
+SSOT**와 **OpenAPI 3.2 canonical artifact/interchange 경계**를 연결하고, 외부 schema
+projection을 수용하며, 파싱·검증·생성·변경 이력 관측까지 하나의 계약 관리 계층으로 연결하는
+것이다. 이 둘과 downstream/runtime·외부 owner의 상세 경계는
+[Contract Ownership Boundaries](./contract-boundaries.md)에 고정한다.
 
 ```text
 @oa-sdk/core
@@ -42,6 +44,21 @@ Core Platform은 다음 11개 패키지다.
 | `@oa-sdk/ast-sync` | V3 TypeScript AST 양방향 무손실 동기화, 구문 특성 분류기, 타입체커 순환 탐지, 독립형 타입 가드 |
 | `@oa-sdk/tools` | TypeSpec JSON Schema 기반 MCP 도구 및 Interactive CLI 브릿지 엔진 |
 
+## Contract ownership boundaries
+
+| 경계 | 정본/입력 | oa-sdk 역할 | 다음 계층 | 소유하지 않는 것 |
+| --- | --- | --- | --- | --- |
+| TypeSpec production API | `packages/schemas/typespec/**/*.tsp` | TypeSpec decorators, provenance, bundle·approval·rollback gate | OpenAPI 3.2 canonical artifact | generated YAML 직접 저작 |
+| OpenAPI artifact/intake | TypeSpec output 또는 외부 producer YAML/JSON/projection envelope | parser IR/ref/lint/validate, normalize/diff/drift/review, codegen | router/client/mock/RPC와 target projection | 외부 artifact의 원래 source model |
+| External producer | NestJS/FastAPI/Zod/Drizzle/TS/Apitomy output | projection/collect/upgrade와 freshness gate | 검증된 artifact 소비 | producer runtime·DB migration |
+| Runtime/downstream | ParsedDocument·Surface IR·JSON Schema | handler/router, SDK, mock, tool/RPC runtime | 사용자 서비스/앱 | 비즈니스 logic, DB, service architecture |
+| Other owner | behavior/FSM, logical ERD, DPM, archi-adr | bounded contract·artifact·CI handoff | 각 owner system | API/BFF/UI/DB/ADR lifecycle, 신규 DPM feature |
+
+Repository production API를 바꿀 때는 TypeSpec를 먼저 수정한다. OpenAPI·TypeScript·router·client·mock
+생성물은 직접 수정하지 않고 promotion/gate를 통해 갱신한다. 외부 OpenAPI/Zod/TypeScript 입력은
+일반 project의 intake adapter로 지원하지만 production TypeSpec SSOT를 자동으로 대체하지 않는다.
+`@oa-sdk/tools`의 caller-owned JSON Schema bridge도 API contract의 source ownership과 별개다.
+
 ## Architecture Governance Boundary
 
 oa-sdk는 실행 가능한 API 계약과 그 계약의 생성·검증·변경 이력을 소유한다. 전체 서비스
@@ -49,7 +66,8 @@ oa-sdk는 실행 가능한 API 계약과 그 계약의 생성·검증·변경 �
 
 | 책임 | 소유 시스템 |
 | --- | --- |
-| TypeSpec/Zod/Drizzle → OpenAPI artifact | oa-sdk |
+| Repository production API TypeSpec → OpenAPI artifact promotion | oa-sdk |
+| External OpenAPI/Zod/Drizzle/TS projection intake and gate | oa-sdk (producer source remains external) |
 | OpenAPI 정규화·검증·diff·drift·codegen·mock | oa-sdk |
 | API·BFF·UI·DB·ADR·Rule·lifecycle 관계 | archi-adr |
 | 조직 architecture standards와 계층 정책 | archi-adr |
@@ -80,8 +98,8 @@ archi-adr validate/render`다.
 | Tier | Workspaces | Policy |
 | --- | --- | --- |
 | Core Platform | `core`, `openapi-projection-contract`, `typespec-decorators`, `schemas`, `parser`, `surface-ir`, `codegen`, `spec-lens`, `spec-lens-contract`, `ast-sync`, `tools` (11개) | 제품 방향과 신규 기능 투자의 기본 범위 (Downstream은 `devDependencies`로만 참조 가능) |
-| Downstream Integration | `router`, `client`, `mock-server`, `chunk-stream`, `chunk-stream-crdt`, `chunk-stream-ui`, `chunk-stream-timeseries`, `chunk-stream-react`, `peer-transport`, `peer-server`, `webmcp-peer`, `collab-workspace`, `mcp-mesh`, `telemetry`, `rpc` (15개) | Core 계약을 소비하고 end-to-end로 증명하는 release-tracked integration surface (`rpc`를 제외하고 `distributionCandidates` 승격 완료) |
-| Maintenance-only | `dpm`, `personas`, `typia-mock`, `logical-erd-contract`, `typespec-erd`, `typespec-tooling`, `ttsc-compile-fixture` (7개) | security, compatibility, migration 작업만 허용하는 분리 후보 또는 승인된 독립 prototype. `@oa-sdk/typia-mock`은 Core Platform에서 TS 컴파일러 변환기 복잡도를 격리하면서 Samchon ILlmApplication 통합점을 유지하는 유지보수 경계다. |
+| Downstream Integration | `router`, `client`, `mock-server`, `chunk-stream`, `chunk-stream-crdt`, `chunk-stream-ui`, `chunk-stream-timeseries`, `chunk-stream-react`, `peer-transport`, `peer-server`, `webmcp-peer`, `collab-workspace`, `mcp-mesh`, `telemetry`, `rpc`, `popup-bridge` (16개) | Core 계약을 소비하거나 Core와 독립된 integration runtime을 end-to-end로 증명하는 release-tracked surface (`rpc`, `popup-bridge`를 제외하고 `distributionCandidates` 승격 완료) |
+| Maintenance-only | `dpm`, `personas`, `typia-mock`, `logical-erd-contract`, `ftp-contract`, `typespec-erd`, `typespec-tooling`, `ttsc-compile-fixture` (8개) | security, compatibility, migration 작업만 허용하는 분리 후보 또는 승인된 독립 prototype. `@oa-sdk/typia-mock`은 Core Platform에서 TS 컴파일러 변환기 복잡도를 격리하면서 Samchon ILlmApplication 통합점을 유지하는 유지보수 경계다. `@oa-sdk/ftp-contract`는 Functional Test Platform과의 교환 계약만 유지한다. |
 | Apps and references | `nestjs-ref`, `playground`, `preview`, `spec-lens-ui` (4개) | 배포 라이브러리가 아닌 검증, reference, UI workspace |
 
 Downstream Integration은 Core Platform 자체가 아니다. 이 계층의 API와 테스트는 Core 계약의
@@ -145,6 +163,21 @@ Core Platform인 `@oa-sdk/surface-ir`와 `@oa-sdk/codegen`(`pluginRpc`, `generat
 | Location | `packages/rpc`에 둔다. 기존 `@oa-sdk/codegen` wire-adapter의 `RpcContractTargetAdapter`는 Protobuf/MessagePack 바이너리 wire client로 남기고(파라미터·codec·오류 처리 수정), JSON procedure 호출은 이 runtime이 맡는다. |
 | Exit condition | 계약 투영, client/server, JSON-RPC 2.0, REST binding, 실제 TypeSpec 컴파일에서 생성한 module의 타입 검사가 회귀 테스트로 고정된다. streaming procedure(SSE, client/bidi streaming)나 WebSocket/peer-transport adapter로 확장할 때 별도 결정을 기록한다. |
 | Boundary | unary 호출만 다룬다. streaming operation은 진단과 함께 계약에서 제외한다. 인증·rate limit·batch 최적화는 transport/server 사용자 책임이며 제공한다고 주장하지 않는다. |
+
+### Popup bridge runtime — 2026-10-28
+
+별도 도메인에 배포된 팝업 웹 애플리케이션을 URL로 열고 초기화 뒤 양방향으로 기능을 호출하는
+프로토콜과 어댑터(타입 선언 규약, RPC 생성 유틸리티 포함)를 요청받아 새 `@oa-sdk/popup-bridge` workspace로 구현했다.
+
+| Decision item | Recorded decision |
+| --- | --- |
+| User problem | Host 웹과 독립 배포된 팝업이 `postMessage`를 직접 다루면 Origin 검증, 초기화 순서, 수명 주기, 호출 규약이 앱마다 달라진다. |
+| Core relation | **없음.** OpenAPI/TypeSpec 계약이나 Surface IR을 소비하지 않는 독립 runtime이다. Downstream에 둔 것은 build/test/typecheck lane과 release-tracked private 등록을 재사용하기 위한 분류이며, 유지보수자가 Core 소비 기준을 엄격히 적용하면 별도 트랙으로 옮길 수 있다. |
+| Owner | OA SDK maintainers가 프로토콜 규격, 오류 코드, 브라우저 호환성 테스트와 문서를 유지한다. |
+| Release/CI | Downstream Integration release-tracked private workspace. downstream build/test/typecheck에 포함하고 distribution candidate 승격과 publish는 별도 결정으로 미룬다. 실제 브라우저 E2E(`test:e2e`)는 `playwright-core`와 Chromium이 필요해 기본 lane에서 제외한다. |
+| Location | `packages/popup-bridge`. 진입점은 root(프로토콜·계약·RPC), `./host`, `./popup`, `./testing`. 런타임 의존성은 없다. |
+| Exit condition | 핸드셰이크, RPC, 이벤트, 새로고침 재연결, 창 닫기, Origin 불일치가 메모리 브라우저 테스트와 Chromium E2E로 고정된다. |
+| Boundary | 브라우저 팝업(`window.open`)만 다룬다. Host가 COOP `same-origin`이면 `window.opener`가 끊겨 동작하지 않으며(E2E로 확인) 서버 중계 방식은 범위 밖이다. 인증·허용 Host 관리, Host 새로고침 복구, Firefox/WebKit 검증은 제공한다고 주장하지 않는다. |
 
 ### WebMCP libraries hardening — 2026-09-22
 
@@ -261,7 +294,7 @@ workspace 의존자가 없는 패키지의 유지·추출·제거 판단 자료�
 | Command | Scope |
 | --- | --- |
 | `pnpm build`, `pnpm test`, `pnpm typecheck` | Core Platform 11개 package |
-| `pnpm build:downstream`, `pnpm test:downstream`, `pnpm typecheck:downstream` | Downstream Integration 15개 package |
+| `pnpm build:downstream`, `pnpm test:downstream`, `pnpm typecheck:downstream` | Downstream Integration 16개 package |
 | `pnpm build:maintenance`, `pnpm test:maintenance`, `pnpm typecheck:maintenance` | Maintenance-only compatibility proof |
 | `pnpm build:internal`, `pnpm test:internal`, `pnpm typecheck:internal` | App/reference workspace |
 | `pnpm build:all`, `pnpm test:all`, `pnpm typecheck:all` | 전체 monorepo 회귀 |

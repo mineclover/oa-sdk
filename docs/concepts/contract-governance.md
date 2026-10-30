@@ -1,6 +1,8 @@
 # Contract Governance
 
-이 문서는 OpenAPI contract와 governance gate에서 쓰는 기본 용어를 정의한다.
+이 문서는 OpenAPI contract와 governance gate에서 쓰는 기본 용어를 정의한다. TypeSpec
+authoring, OpenAPI artifact/intake, downstream runtime, 외부 owner의 전체 경계는
+[Contract Ownership Boundaries](../internal/contract-boundaries.md)를 따른다.
 
 ## OpenAPI Contract
 

@@ -1,7 +1,8 @@
 # OpenAPI Projection
 
 OpenAPI Projection은 외부 시스템이나 builder가 내보내는 OpenAPI-shaped artifact와 그
-metadata envelope다.
+metadata envelope다. 이것은 repository production API의 TypeSpec authoring SSOT와 구분되는
+intake/interchange 경계이며, 전체 소유권 규칙은 [Contract Ownership Boundaries](../internal/contract-boundaries.md)를 따른다.
 
 Projection profile은 projection의 사용 범위를 나타낸다.
 

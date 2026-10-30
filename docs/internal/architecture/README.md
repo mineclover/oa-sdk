@@ -21,7 +21,13 @@
 | [011-apitomy-compatibility-boundary.md](./011-apitomy-compatibility-boundary.md) | Apitomy Data Models 비권위적 reference 경계 | 외부 데이터 모델 수집 및 참조 경계 |
 | [012-multi-tier-schema-separation-and-ttsc-boundary.md](./012-multi-tier-schema-separation-and-ttsc-boundary.md) | 멀티 티어 스키마 분리 및 ttsc·Atlas 역할 경계 | 4계층(Storage, Logical, API, Behavior) 엄격 분리 및 DDL 비소유 원칙 |
 
-### 2. 대체 및 격리된 레거시 ADR (Superseded & Isolated Legacy ADRs)
+### 2. 제안 설계 검토 (Proposed Design Reviews)
+
+| 문서 | 검토 주제 | 현재 상태 |
+|---|---|---|
+| [013-incremental-build-partial-patch.md](./013-incremental-build-partial-patch.md) | WorkspaceIndex 영향도 재생성과 source-owned AST 부분 패치의 경계 | impact-scoped regeneration 우선, source patch는 별도 승인 대기 |
+
+### 3. 대체 및 격리된 레거시 ADR (Superseded & Isolated Legacy ADRs)
 
 > [!NOTE]
 > 아래 ADR은 초기 설계 단계의 의사결정이었으나 상위 ADR에 의해 완전 대체되었거나 롤백/히스토리 보존 목적으로만 격리 유지됩니다. 신규 아키텍처는 위 활성 정본 ADR을 따릅니다.
