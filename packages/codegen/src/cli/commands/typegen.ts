@@ -6,11 +6,13 @@ import { writeOutput } from '../lib/output.js'
 import { bool, choice, str, optStr } from '../lib/args.js'
 import {
   closeCliIncrementalRun,
+  detectCliIncrementalIndex,
   invalidateCliIncrementalIndex,
   openCliIncrementalRun,
   recordCliIncrementalIndex,
   type CliIncrementalRun,
 } from '../lib/incremental.js'
+import { planImpactScope, type GenerationUnit } from '../lib/impact-scope.js'
 import {
   beginCliGeneration,
   planCliGenerationTarget,
@@ -22,7 +24,11 @@ import {
 } from '../lib/incremental-targets.js'
 import type { InputObservation } from '../lib/input-observations.js'
 import type { GenerationTargetRecord } from '../../generation-target-store.js'
-import type { WorkspaceDiagnosticRecord, WorkspaceTypeAliasRecord } from '../../workspace-index.js'
+import type {
+  WorkspaceDiagnosticRecord,
+  WorkspaceDirtyDetectionResult,
+  WorkspaceTypeAliasRecord,
+} from '../../workspace-index.js'
 import type { ExternalSchemaTypeAlias, GeneratedTypeDeclaration } from '../../typegen/generate-types.js'
 import type { TypeSpecGraphProvenance } from '../../typegen/typespec-graph-semantic.js'
 
@@ -79,6 +85,9 @@ export const typegen: Command = {
           : undefined
         const typesPlan = planCliGenerationTarget(incremental, typesTarget)
         const graphSemanticPlan = graphSemanticTarget ? planCliGenerationTarget(incremental, graphSemanticTarget) : undefined
+        const dirtyBeforeInvalidation = detectCliIncrementalIndex(incremental)
+        const impact = planTypegenImpact(incremental, typesTarget, graphSemanticTarget, dirtyBeforeInvalidation)
+        if (process.env.OA_SDK_DEBUG_INCREMENTAL_IMPACT === '1') reportTypegenImpact(impact)
         const graphReused = !graphSemanticPlan || graphSemanticPlan.action === 'reuse'
         // The index describes the generated source, so both are generated together or reused together.
         if (typesPlan.action === 'reuse' && graphReused) {
@@ -250,6 +259,39 @@ function createGraphSemanticTarget(
       ...(isTypeSpec ? TYPESPEC_GENERATOR_PACKAGES : []),
     ]),
   }
+}
+
+function planTypegenImpact(
+  incremental: CliIncrementalRun,
+  typesTarget: CliGenerationTarget,
+  graphSemanticTarget: CliGenerationTarget | undefined,
+  dirty: WorkspaceDirtyDetectionResult | undefined,
+) {
+  const indexedSourceFiles = incremental.index.listFiles().map(file => file.filePath)
+  const typegenUnit: GenerationUnit = {
+    unitId: 'typegen',
+    sourceFiles: [...new Set([typesTarget.entryPath, ...indexedSourceFiles])],
+    outputFiles: typesTarget.output.kind === 'file' ? [typesTarget.output.filePath] : [],
+  }
+  const units: GenerationUnit[] = [typegenUnit]
+  if (graphSemanticTarget) {
+    const provenance = graphSemanticTarget.options['typeSpecProvenance']
+    units.push({
+      unitId: 'graph-semantic',
+      sourceFiles: typeof provenance === 'string' ? [provenance] : [],
+      outputFiles: graphSemanticTarget.output.kind === 'file' ? [graphSemanticTarget.output.filePath] : [],
+      dependencyUnitIds: ['typegen'],
+    })
+  }
+  return planImpactScope(units, dirty?.dirtyFilePaths ?? [], {
+    reason: dirty && dirty.dependentFilePaths.length > 0 ? 'ref-change' : 'source-change',
+  })
+}
+
+function reportTypegenImpact(impact: ReturnType<typeof planTypegenImpact>): void {
+  const dirty = impact.dirtyUnitIds.length > 0 ? impact.dirtyUnitIds.join(', ') : 'none'
+  const preserved = impact.preservedUnitIds.length > 0 ? impact.preservedUnitIds.join(', ') : 'none'
+  console.warn(`incremental: impact units dirty=[${dirty}] preserved=[${preserved}] reason=${impact.reason}`)
 }
 
 /** Reproduce the observable result of the recorded generation without regenerating. */

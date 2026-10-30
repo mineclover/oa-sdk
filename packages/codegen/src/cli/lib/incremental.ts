@@ -84,7 +84,18 @@ export function openCliIncrementalRun(options: CliIncrementalRunOptions): CliInc
  */
 export function invalidateCliIncrementalIndex(run: CliIncrementalRun): WorkspaceDirtyDetectionResult | undefined {
   if (!run.enabled) return undefined
+  const dirty = detectCliIncrementalIndex(run)
+  if (dirty) invalidateWorkspaceDirtyFiles(run.index, dirty)
+  return dirty
+}
 
+/**
+ * Detect dirty files without invalidating the index. Commands can use this
+ * read-only phase to plan impact-scoped work; the following invalidation call
+ * reuses the same per-run file stamps.
+ */
+export function detectCliIncrementalIndex(run: CliIncrementalRun): WorkspaceDirtyDetectionResult | undefined {
+  if (!run.enabled) return undefined
   const scannedFiles = scanWorkspaceFiles({
     entrySpecs: [run.resolvedSpecPath],
     externalRefFiles: listWorkspaceExternalRefFiles(run.index),
@@ -92,9 +103,7 @@ export function invalidateCliIncrementalIndex(run: CliIncrementalRun): Workspace
     runId: run.runId,
     stamps: run.stamps,
   })
-  const dirty = detectWorkspaceDirtyFiles(run.index, scannedFiles)
-  invalidateWorkspaceDirtyFiles(run.index, dirty)
-  return dirty
+  return detectWorkspaceDirtyFiles(run.index, scannedFiles)
 }
 
 /** Open the incremental state and invalidate dirty index rows (commands that always rebuild). */
