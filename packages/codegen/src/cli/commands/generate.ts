@@ -1,6 +1,6 @@
 import { resolve, relative, dirname } from 'node:path'
 import { existsSync } from 'node:fs'
-import { parseDocument, type OasDocument, type ParsedDocument } from '@oa-sdk/parser'
+import { parseDocument, resolveRefGraph, type OasDocument, type ParsedDocument } from '@oa-sdk/parser'
 import type { Command, CommandArgValue } from '../lib/types.js'
 import type { CodegenConfig, OaConfig } from '../../config.js'
 import { resolveConfigWithDefaults } from '../../config.js'
@@ -45,6 +45,19 @@ import {
 
 import { runStandaloneGuards } from './generate-guards.js'
 import { runDrizzle } from './generate-drizzle.js'
+import {
+  beginGenerateIncrementalTarget,
+  createGenerateIncrementalTarget,
+  deserializeGenerateArtifacts,
+  planGenerateIncrementalTarget,
+  readGenerateTargetRecordContent,
+  recordGenerateIncrementalTarget,
+} from '../lib/generate-incremental.js'
+import {
+  closeCliIncrementalRun,
+  openCliIncrementalRun,
+  type CliIncrementalRun,
+} from '../lib/incremental.js'
 
 export const generate: Command = {
   name: 'generate',
@@ -67,6 +80,8 @@ export const generate: Command = {
     framework:        { type: 'string', description: '대상 UI 프레임워크 (react, vue, svelte)' },
     'types-import':   { type: 'string', description: '타입 import 지정자' },
     'client-import':  { type: 'string', description: '클라이언트 SDK import 지정자' },
+    incremental:      { type: 'boolean', description: 'spec target 산출물 bundle을 입력/옵션/출력 fingerprint로 재사용' },
+    'cache-dir':      { type: 'string', description: '증분 workspace index 디렉토리 (기본: ./.oa-cache)' },
   },
   async run(args, context) {
     const isTanstack = bool(args, 'tanstack')
@@ -86,6 +101,10 @@ export const generate: Command = {
     const configPath = optStr(args, 'config')
     const inputPath = optStr(args, 'input')
     const specPath = optStr(args, 'spec')
+    const incrementalOptions = {
+      enabled: bool(args, 'incremental'),
+      ...(optStr(args, 'cache-dir') ? { cacheDir: optStr(args, 'cache-dir') } : {}),
+    }
 
     // 1. Explicit single-target flags
     if (target === 'standalone-guards' || (inputPath && !drizzlePath && !configPath && !specPath && !inputPath.endsWith('.tsp'))) {
@@ -114,7 +133,7 @@ export const generate: Command = {
       const rootDir = context?.projectRoot ?? (context as any)?.rootDir ?? context?.cwd ?? process.cwd()
       // Resolved the way projectTargetSpec resolves `schemaEntry`.
       const specFile = toPosixPath(relative(rootDir, resolve(rootDir, directSpecPath)))
-      await runConfigDrivenPipeline(syntheticConfig, rootDir, companionImporterFrom(context), { specFile })
+      await runConfigDrivenPipeline(syntheticConfig, rootDir, companionImporterFrom(context), { specFile }, incrementalOptions)
       return
     }
 
@@ -129,7 +148,7 @@ export const generate: Command = {
       // Check if loaded config is extended OaConfig with specs, guards, core, or product
       if (loaded.config.specs || loaded.config.guards || loaded.config.core || loaded.config.product) {
         const configFile = toPosixPath(relative(loaded.rootDir, loaded.configPath))
-        await runConfigDrivenPipeline(loaded.config, loaded.rootDir, companionImporterFrom(context), { configFile })
+        await runConfigDrivenPipeline(loaded.config, loaded.rootDir, companionImporterFrom(context), { configFile }, incrementalOptions)
         return
       }
       // Legacy config with schemas
@@ -300,6 +319,38 @@ interface GenerateRunScope {
   generatesGuards: boolean
 }
 
+type GenerateIncrementalOptions = {
+  readonly enabled: boolean
+  readonly cacheDir?: string | undefined
+}
+
+async function runConfigDrivenPipeline(
+  config: OaConfig,
+  rootDir: string,
+  importCompanion: CompanionImporter,
+  source: GenerateRunSource,
+  options: GenerateIncrementalOptions = { enabled: false },
+): Promise<void> {
+  if (!options.enabled) {
+    await runConfigDrivenPipelineInternal(config, rootDir, importCompanion, source, undefined)
+    return
+  }
+
+  const entryPath = source.configFile
+    ? resolve(rootDir, source.configFile)
+    : resolve(rootDir, source.specFile!)
+  const incremental = openCliIncrementalRun({
+    enabled: true,
+    specPath: entryPath,
+    ...(options.cacheDir ? { cacheDir: options.cacheDir } : {}),
+  })
+  try {
+    await runConfigDrivenPipelineInternal(config, rootDir, importCompanion, source, incremental)
+  } finally {
+    closeCliIncrementalRun(incremental)
+  }
+}
+
 /**
  * Manifest records an `oa-gen generate` run owns, and so may prune.
  *
@@ -338,6 +389,26 @@ function openApiLabel(doc: Record<string, unknown>): string {
   return typeof doc['openapi'] === 'string' ? `OpenAPI ${doc['openapi']}` : 'OpenAPI (no version declared)'
 }
 
+function collectGenerateInputFiles(
+  result: TargetSpecProjectionResult,
+  rootDir: string,
+  source: GenerateRunSource,
+): string[] {
+  const resolvedSchemaEntry = resolveProfileTarget(result.target, rootDir).resolvedSchemaEntry
+  const files = new Set<string>([resolvedSchemaEntry])
+  if (source.configFile) files.add(resolve(rootDir, source.configFile))
+  const graph = resolveRefGraph(result.openApiDoc as OasDocument, { basePath: resolvedSchemaEntry })
+  for (const node of graph.nodes) {
+    if (node.sourceFilePath) files.add(node.sourceFilePath)
+    if (node.filePath) files.add(node.filePath)
+  }
+  for (const diagnostic of graph.diagnostics) {
+    if (diagnostic.sourceFilePath) files.add(diagnostic.sourceFilePath)
+    if (diagnostic.filePath) files.add(diagnostic.filePath)
+  }
+  return [...files].sort((a, b) => a.localeCompare(b))
+}
+
 /**
  * Executes declarative multi-target generation driven by oa.config.ts.
  *
@@ -350,11 +421,12 @@ function openApiLabel(doc: Record<string, unknown>): string {
  * @param source The configuration file the run reads, or for
  *   `oa-gen generate --spec`, which reads none, the spec file.
  */
-async function runConfigDrivenPipeline(
+async function runConfigDrivenPipelineInternal(
   config: OaConfig,
   rootDir: string,
   importCompanion: CompanionImporter,
   source: GenerateRunSource,
+  incremental: CliIncrementalRun | undefined,
 ): Promise<void> {
   const resolvedConfig = resolveConfigWithDefaults(config)
   const specs = resolvedConfig.specs ?? []
@@ -388,6 +460,8 @@ async function runConfigDrivenPipeline(
   ]
   const manifestManager = new OaManifestManager(rootDir, undefined, bannerMarkers)
   const artifactsToWrite: WriteArtifactInput[] = []
+  const reusedTargets = new Set<string>()
+  const incrementalGenerations = new Map<string, { generation: ReturnType<typeof beginGenerateIncrementalTarget>; entryPath: string }>()
 
   /** Queues an artifact of this run, recorded as written by `oa-gen generate` from `source` for `target`. */
   const queue = (artifact: WriteArtifactInput, target?: string): void => {
@@ -475,20 +549,55 @@ async function runConfigDrivenPipeline(
   // Step 1: Schema Projection (OpenAPI 3.1/3.2 and JSON Schema 2020-12)
   for (const target of specs) {
     const result = await projectTargetSpec(target, rootDir)
-    queue({
-      path: result.openApiPath,
-      kind: 'schemas',
-      tag: target.id,
-      content: JSON.stringify(result.openApiDoc, null, 2) + '\n',
-      sourceSpec: target.schemaEntry,
-    }, target.id)
-    queue({
-      path: result.jsonSchemaPath,
-      kind: 'schemas',
-      tag: target.id,
-      content: JSON.stringify(result.jsonSchemaDoc, null, 2) + '\n',
-      sourceSpec: target.schemaEntry,
-    }, target.id)
+    const targetResolved = resolveProfileTarget(result.target, rootDir)
+    const canReuse = incremental !== undefined && resolvedConfig.guards === undefined
+    let reused = false
+    if (canReuse) {
+      const incrementalTarget = createGenerateIncrementalTarget({
+        run: incremental,
+        targetId: target.id,
+        entryPath: targetResolved.resolvedSchemaEntry,
+        preloadInputPaths: source.configFile ? [resolve(rootDir, source.configFile)] : [],
+        outputRouting,
+        guardsEnabled: false,
+        source,
+      })
+      const planned = planGenerateIncrementalTarget(incremental, incrementalTarget)
+      if (planned.plan.action === 'reuse') {
+        try {
+          for (const artifact of readGenerateTargetRecordContent(planned.plan.record)) queue(artifact, target.id)
+          reusedTargets.add(target.id)
+          reused = true
+          console.warn(`incremental: generate target "${target.id}" reused`)
+        } catch (error) {
+          console.warn(`incremental: generate target "${target.id}" regenerating (bundle invalid: ${error instanceof Error ? error.message : String(error)})`)
+        }
+      } else {
+        console.warn(`incremental: generate target "${target.id}" regenerating (${planned.plan.reason})`)
+      }
+      if (!reused) {
+        incrementalGenerations.set(target.id, {
+          generation: beginGenerateIncrementalTarget(incremental, incrementalTarget),
+          entryPath: targetResolved.resolvedSchemaEntry,
+        })
+      }
+    }
+    if (!reused) {
+      queue({
+        path: result.openApiPath,
+        kind: 'schemas',
+        tag: target.id,
+        content: JSON.stringify(result.openApiDoc, null, 2) + '\n',
+        sourceSpec: target.schemaEntry,
+      }, target.id)
+      queue({
+        path: result.jsonSchemaPath,
+        kind: 'schemas',
+        tag: target.id,
+        content: JSON.stringify(result.jsonSchemaDoc, null, 2) + '\n',
+        sourceSpec: target.schemaEntry,
+      }, target.id)
+    }
     specResults.push(result)
   }
 
@@ -503,6 +612,7 @@ async function runConfigDrivenPipeline(
     for (const res of specResults) {
       if (res.target.purpose === 'data') continue
       const id = res.target.id
+      if (reusedTargets.has(id)) continue
       const rawRouterTarget = routerConfig?.target ?? res.target.target ?? resolvedConfig.product?.framework
       const shouldEmitContract = contractsConfig?.pureHandlers !== false
       const shouldEmitRouter = Boolean(rawRouterTarget && supportedRouterTargets.has(rawRouterTarget))
@@ -586,6 +696,7 @@ async function runConfigDrivenPipeline(
     for (const res of specResults) {
       if (res.target.purpose === 'data') continue
       const id = res.target.id
+      if (reusedTargets.has(id)) continue
       const generated = await generateCompanionOutput(output, ['@oa-sdk/client'], id, async () => {
         const client = await loadCompanionFor(output, '@oa-sdk/client', id)
         if (!client) return undefined
@@ -618,6 +729,7 @@ async function runConfigDrivenPipeline(
     for (const res of specResults) {
       if (res.target.purpose === 'data') continue
       const id = res.target.id
+      if (reusedTargets.has(id)) continue
       const generated = await generateCompanionOutput(output, ['@oa-sdk/client'], id, async () => {
         const client = await loadCompanionFor(output, '@oa-sdk/client', id)
         if (!client) return undefined
@@ -678,6 +790,7 @@ async function runConfigDrivenPipeline(
       if (!declaresCrdtEntity(res)) continue
 
       const id = res.target.id
+      if (reusedTargets.has(id)) continue
       const generated = await generateCompanionOutput(output, ['@oa-sdk/router', '@oa-sdk/client'], id, async () => {
         // The four CRDT modules reference each other, so they are produced together or not at all.
         const router = await loadCompanionFor(output, '@oa-sdk/router', id)
@@ -776,6 +889,20 @@ async function runConfigDrivenPipeline(
         generatesGuards: resolvedConfig.guards !== undefined,
       }),
     })
+  }
+
+  if (incremental && incrementalGenerations.size > 0 && outcomes.skipped.length === 0 && outcomes.failed.length === 0) {
+    for (const [targetId, generation] of incrementalGenerations) {
+      const result = specResults.find(candidate => candidate.target.id === targetId)
+      if (!result) continue
+      const artifacts = artifactsToWrite.filter(artifact => artifact.target === targetId)
+      recordGenerateIncrementalTarget(
+        incremental,
+        generation.generation,
+        artifacts,
+        collectGenerateInputFiles(result, rootDir, source),
+      )
+    }
   }
 
   // Step 8: Formatted Summary

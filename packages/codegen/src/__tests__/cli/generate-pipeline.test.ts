@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import * as fs from 'node:fs'
@@ -260,6 +260,53 @@ export function buildProjection() {
     expect(fs.existsSync(path.join(tmpDir, 'out/items/items.contract.ts'))).toBe(true)
     expect(fs.existsSync(path.join(tmpDir, 'out/items/items.client.ts'))).toBe(true)
     expect(fs.existsSync(path.join(tmpDir, 'out/items/items.queries.ts'))).toBe(true)
+  })
+
+  it('reuses a complete spec target bundle on a second incremental generate run', async () => {
+    const specPath = path.join(tmpDir, 'simple.json')
+    fs.writeFileSync(specPath, JSON.stringify({
+      openapi: '3.2.0',
+      info: { title: 'Incremental Generate API', version: '1.0.0' },
+      paths: {},
+      components: { schemas: {} },
+    }, null, 2), 'utf8')
+    const warnings: string[] = []
+    const warningSpy = vi.spyOn(console, 'warn').mockImplementation((...parts: unknown[]) => {
+      warnings.push(parts.map(String).join(' '))
+    })
+    try {
+      const args = {
+        spec: specPath,
+        output: path.join(tmpDir, 'generated'),
+        incremental: true,
+        'cache-dir': path.join(tmpDir, '.oa-cache'),
+      }
+      const context = { cwd: tmpDir, projectRoot: tmpDir }
+      await generate.run(args, context)
+      const openApiPath = path.join(tmpDir, 'generated', 'simple.openapi.json')
+      const schemaPath = path.join(tmpDir, 'generated', 'simple.schema.json')
+      const firstOpenApi = fs.readFileSync(openApiPath, 'utf8')
+      const firstSchema = fs.readFileSync(schemaPath, 'utf8')
+
+      await generate.run(args, context)
+
+      expect(fs.readFileSync(openApiPath, 'utf8')).toBe(firstOpenApi)
+      expect(fs.readFileSync(schemaPath, 'utf8')).toBe(firstSchema)
+      expect(warnings.some(message => message.includes('generate target "simple" reused'))).toBe(true)
+
+      fs.writeFileSync(specPath, JSON.stringify({
+        openapi: '3.2.0',
+        info: { title: 'Incremental Generate API', version: '2.0.0' },
+        paths: {},
+        components: { schemas: {} },
+      }, null, 2), 'utf8')
+      warnings.length = 0
+      await generate.run(args, context)
+      expect(warnings.some(message => message.includes('generate target "simple" regenerating'))).toBe(true)
+      expect(JSON.parse(fs.readFileSync(openApiPath, 'utf8')).info.version).toBe('2.0.0')
+    } finally {
+      warningSpy.mockRestore()
+    }
   })
 
   it('prunes orphaned artifacts safely when targets change', async () => {

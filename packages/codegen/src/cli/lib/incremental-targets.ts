@@ -64,6 +64,8 @@ export type CliGenerationTarget = {
   command: string
   /** Absolute entry spec path. */
   entryPath: string
+  /** Additional files to stamp before generation begins. */
+  preloadInputPaths?: readonly string[] | undefined
   /** File outputs carry an absolute path. */
   output: CliGenerationOutput
   /** Options that can change the generated content (JSON-serializable). */
@@ -124,6 +126,8 @@ export function planCliGenerationTarget(run: CliIncrementalRun, target: CliGener
  * (planning, index invalidation) and before generation reads any input.
  */
 export function beginCliGeneration(run: CliIncrementalRun, target: CliGenerationTarget): CliTargetGeneration {
+  readWorkspaceFileStamp(target.entryPath, run.stamps)
+  for (const inputPath of target.preloadInputPaths ?? []) readWorkspaceFileStamp(inputPath, run.stamps)
   return { target, startedAtMs: Date.now(), stampedBefore: new Set(run.stamps.keys()) }
 }
 
