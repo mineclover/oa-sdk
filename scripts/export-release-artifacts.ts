@@ -526,8 +526,17 @@ function validateArchive(
   assert(!containsWorkspaceProtocol(manifest), `${name}: workspace: protocol leaked into artifact`)
   const fileSet = new Set(files)
   for (const target of collectManifestTargets(manifest)) {
-    assert(fileSet.has(`package/${target}`), `${name}: packed manifest target does not exist: ${target}`)
+    assert(manifestTargetExists(fileSet, target), `${name}: packed manifest target does not exist: ${target}`)
   }
+}
+
+function manifestTargetExists(fileSet: ReadonlySet<string>, target: string): boolean {
+  const archiveTarget = `package/${target}`
+  if (!target.includes('*')) return fileSet.has(archiveTarget)
+
+  const [prefix, ...suffixParts] = target.split('*')
+  const suffix = suffixParts.join('*')
+  return [...fileSet].some(file => file.startsWith(`package/${prefix}`) && file.endsWith(suffix))
 }
 
 export function collectManifestTargets(manifest: Record<string, unknown>): string[] {
