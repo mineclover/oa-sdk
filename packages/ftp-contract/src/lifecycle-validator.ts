@@ -1,5 +1,5 @@
 import { Ajv2020 } from 'ajv/dist/2020.js'
-import { readFileSync } from 'node:fs'
+import { readPublicAsset } from './public-assets.js'
 import {
   EVALUATION_V1_SCHEMA_PATH,
   LOCKED_PLAN_V1_SCHEMA_PATH,
@@ -12,7 +12,7 @@ export type LifecycleValidationResult<T> = { readonly success: true; readonly da
 
 type Compiled = { (value: unknown): boolean; errors?: readonly { instancePath: string; keyword: string; message?: string }[] | null }
 function compile(path: string): Compiled {
-  const schema = JSON.parse(readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'))
+  const schema = JSON.parse(readPublicAsset(path))
   return new Ajv2020({ allErrors: true, strict: true, strictTypes: false }).compile(schema) as Compiled
 }
 function issues(validator: Compiled, input: unknown): LifecycleArtifactIssue[] {

@@ -1,5 +1,5 @@
 import { Ajv2020 } from 'ajv/dist/2020.js'
-import { readFileSync } from 'node:fs'
+import { readPublicAsset } from './public-assets.js'
 import { RUN_EVIDENCE_V1_SCHEMA_PATH } from './refs.js'
 import type { RunEvidenceV1 } from './types.js'
 
@@ -24,7 +24,7 @@ type CompiledSchema = {
 }
 
 function readDeclaration(): Record<string, unknown> {
-  const value: unknown = JSON.parse(readFileSync(new URL(`../${RUN_EVIDENCE_V1_SCHEMA_PATH}`, import.meta.url), 'utf8'))
+  const value: unknown = JSON.parse(readPublicAsset(RUN_EVIDENCE_V1_SCHEMA_PATH))
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new TypeError('Bundled RunEvidence declaration must be a JSON object')
   }
