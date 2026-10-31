@@ -37,6 +37,14 @@ oa-sdk는 비즈니스 로직을 대신 쓰거나 API를 호스팅하지 않습�
                  └──▶ 프레임워크 라우터 코드 (@oa-sdk/router generateRouter(), 빌드 스크립트에서 호출)
 ```
 
+교차 플랫폼 시맨틱 추상화·스키마 선언 책임 경계는 아래와 같으며, 상세 참조 차원·소비자 매핑은 [시맨틱 추상화 계약과 스키마 선언 책임 경계](./docs/internal/architecture/semantic-abstraction-contract-boundary.md) 및 [Contract Ownership Boundaries](./docs/internal/contract-boundaries.md)를 따릅니다(문서 경계 선언은 신규 공통 스키마/API 채택이나 codegen 배포를 뜻하지 않습니다).
+
+| 소유 주체 (Owner) | 정본 (Source of Truth) | 파생 산출물 (Generated / Projected Artifact) | 경계 원칙 |
+|---|---|---|---|
+| **Semantic Platform** | 의미·추상화(`Term`·`Expression`·`SemanticFrame`·`ReusablePattern`·`DomainConcept`·`Assertion`·`Projection`) 및 `revision`·`catalog`·`pin` | 판본 고정 의미 참조 식별자·스냅샷 | 의미 채택·동치 판정의 유일한 권위; `oa-sdk`에서 재정의 금지 |
+| **`oa-sdk`** | 승인된 계약의 TypeSpec(`.tsp`)·불변 JSON Schema 선언 및 호환성 규칙 | `approved.openapi.yaml`, `.merged*.yaml`, TS 타입·가드·Zod·client/router, `.oa-trace.json`/`.oa-manifest.json` | 구조·와이어 적합성과 `sourceRevision`/digest 추적만 담당; 이름·임베딩으로 의미 동치 추론 금지 |
+| **도메인 플랫폼 & 타깃 어댑터** | 원천 표현 수집, 도메인 바인딩 매니페스트, 타깃별 투영 규약 | Snowflake Semantic View, RDF/OWL, Neo4j/Cypher, Prompt/QA/UI 투영과 관측 증적 | 각 타깃 프로젝션은 별도 어댑터 계약이며 `oa-sdk` 코어 정본이 아님 |
+
 ## 패키지
 
 패키지 릴리스 대상과 제외 workspace의 machine-readable 기준은
@@ -281,6 +289,8 @@ console.log(describeApi(parseDocument(spec)))
 |------|-|
 | [Vision](./docs/vision.md) | 핵심 철학과 주 목표 |
 | [Platform Scope](./docs/internal/platform-scope.md) | Core Platform, maintenance, 분리 경계와 신규 작업 승인 기준 |
+| [Contract Ownership Boundaries](./docs/internal/contract-boundaries.md) | TypeSpec·OpenAPI·runtime·외부 소유자 계약 경계 |
+| [시맨틱 추상화·스키마 선언 책임 경계](./docs/internal/architecture/semantic-abstraction-contract-boundary.md) | Semantic Platform 의미 정본과 `oa-sdk` 스키마 선언·codegen·타깃 어댑터 책임 분리 |
 | [Concepts](./docs/concepts.md) | 공통 용어와 계약 경계 |
 | [Quick Start](./docs/guides/quick-start.md) | 다른 프로젝트에서 설치부터 검증·생성·mock 서버까지 |
 | [가이드 색인](./docs/guides/README.md) | 핵심 가치, 시작하기, 역할별 읽기 경로 |

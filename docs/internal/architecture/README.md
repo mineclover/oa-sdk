@@ -21,11 +21,12 @@
 | [011-apitomy-compatibility-boundary.md](./011-apitomy-compatibility-boundary.md) | Apitomy Data Models 비권위적 reference 경계 | 외부 데이터 모델 수집 및 참조 경계 |
 | [012-multi-tier-schema-separation-and-ttsc-boundary.md](./012-multi-tier-schema-separation-and-ttsc-boundary.md) | 멀티 티어 스키마 분리 및 ttsc·Atlas 역할 경계 | 4계층(Storage, Logical, API, Behavior) 엄격 분리 및 DDL 비소유 원칙 |
 
-### 2. 제안 설계 검토 (Proposed Design Reviews)
+### 2. 제안 설계 검토 및 교차 플랫폼 경계 (Proposed Design Reviews & Cross-Platform Boundaries)
 
 | 문서 | 검토 주제 | 현재 상태 |
 |---|---|---|
 | [013-incremental-build-partial-patch.md](./013-incremental-build-partial-patch.md) | WorkspaceIndex 영향도 재생성과 source-owned AST 부분 패치의 경계 | impact-scoped regeneration 우선, source patch는 별도 승인 대기 |
+| [semantic-abstraction-contract-boundary.md](./semantic-abstraction-contract-boundary.md) | Semantic Platform 의미 정본과 `oa-sdk` 스키마 선언·codegen·타깃 어댑터 책임 분리 | 소유 경계 `active`, 의미 참조·불완전 상태 표현 후보는 `proposed` (신규 스키마/배포 비채택) |
 
 ### 3. 대체 및 격리된 레거시 ADR (Superseded & Isolated Legacy ADRs)
 

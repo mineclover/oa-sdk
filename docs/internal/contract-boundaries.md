@@ -24,6 +24,7 @@ lifecycle 관계는 oa-sdk의 ownership이 아니다.
 | Runtime consumers | OAS/ParsedDocument/Surface IR/JSON Schema | router/client/mock-server와 RPC runtime의 compatibility contract | HTTP handler/router, fetch SDK, mock response, procedure runtime | business logic, service hosting, auth policy, DB persistence |
 | Tool bridge | caller-owned JSON Schema 또는 OpenAPI hydrator input | `@oa-sdk/tools`의 MCP/CLI/HTTP adapter, session/preview/handoff 경계 | tool descriptor, CLI/MCP surface, bridge runtime | API contract의 SSOT 또는 자동 API-to-tool 의미 결정 |
 | Non-HTTP data/behavior | Behavior/FSM, logical ERD, DB catalog, DPM manifest | 각 package의 bounded contract와 validation | behavior IR, logical-erd artifact, DPM snapshot/plan | HTTP OpenAPI contract에 무리하게 합치기, physical migration/FK mutation |
+| Semantic abstraction reference | Semantic Platform(`Term`·`Expression`·`SemanticFrame`·`ReusablePattern`·`DomainConcept`·`Assertion`·`Projection`, `revision`/`catalog`/`pin`) | 승인된 공유 계약의 TypeSpec/OpenAPI/JSON Schema 선언, 참조 DTO·가드 codegen, 호환성 diff/drift 규칙 | 판본 고정 참조 엔벨로프 검증, `.oa-trace.json`/`.oa-manifest.json` 다이제스트 추적 | 의미 정의 채택·재해석, 이름/임베딩 동치 추론, Snowflake/RDF/Neo4j/Prompt/QA 소비 정본 소유 ([상세 경계](./architecture/semantic-abstraction-contract-boundary.md)) |
 | External architecture | `archi-adr`/`data-governance` owned artifacts | interchange/provenance artifacts와 CI handoff | SourceArtifactDefinition/implementation 소비, DPM mirror compatibility | API/BFF/UI/DB/ADR lifecycle graph, 신규 DPM feature/release |
 
 ## TypeSpec production boundary
