@@ -44,6 +44,7 @@ oa-sdk는 하나의 runtime SDK가 아니라 OpenAPI 계약을 작성·검증·�
 | `@oa-sdk/chunk-stream-timeseries` | npm | 다채널 시계열 텔레메트리 어댑터, LTTB 다운샘플링, 데시메이션 | package root | [API index](../internal/api-index.md) |
 | `@oa-sdk/chunk-stream-react` | npm | React 18/19 타임라인 재생 및 스크러빙 훅, 피어 상주 인식, 원격 측정 오버레이 | package root | [API index](../internal/api-index.md) |
 | `@oa-sdk/telemetry` | 배포 후보 | 추적 심볼 레지스트리, XState v5 비침습 인스펙터, HMAC sanitizer 및 다중 프로바이더(GTM/Sentry/OTel) 디스패처. `@oa-sdk/dpm`에 의존하지 않음 | package root | [telemetry README](../../packages/telemetry/README.md), [Design-Driven Telemetry](../concepts/design-driven-telemetry.md) |
+| `@oa-sdk/ftp-contract` | 배포 후보 | Functional Test Platform이 소비하는 정본 교환 선언(`RunEvidence` v1, `TestDefinition` v1/v2, `LockedPlan` v1, `Evaluation` v1의 JSON Schema·`ExactRef`·동기 검증기·의미 매핑·분리 투영·RFC 6902 fixture) | package root, `./schema/*`, `./fixtures/*` | [ftp-contract README](../../packages/ftp-contract/README.md), [API index](../internal/api-index.md) |
 
 ## 도구·피어 통신
 
@@ -73,7 +74,6 @@ Core Platform의 저장소 전용 패키지이고, `@oa-sdk/rpc`, `@oa-sdk/popup
 | `@oa-sdk/typespec-tooling` | 비공개 | TypeSpec IDE 설정 템플릿, 생산성 스니펫, 커스텀 linter 규칙 모음 | package root, `./snippets`, `./linter` | [TypeSpec IDE 설정](./typespec-ide-setup.md) |
 | `@oa-sdk/typespec-erd` | 비공개 | logical ERD TypeSpec prototype와 artifact CLI(bin `oa-erd`) | package root | [논리 ERD authoring](./typespec-logical-erd-authoring.md) |
 | `@oa-sdk/logical-erd-contract` | 비공개 | logical ERD artifact·validation·semantic diff contract | package root | [논리 ERD authoring](./typespec-logical-erd-authoring.md) |
-| `@oa-sdk/ftp-contract` | 비공개 | Functional Test Platform이 소비하는 정본 교환 선언(RunEvidence v1 JSON Schema·ExactRef·validator·semantic mapping·fixture) | package root, `./schema/*`, `./fixtures/*` | [ftp-contract README](../../packages/ftp-contract/README.md) |
 | `@oa-sdk/typia-mock` | 비공개 | typia LLM application 기반 mock validation | package root | [API index](../internal/api-index.md) |
 | `@oa-sdk/dpm` | 비공개 | relationship-first DPM manifest, catalog, logical-data binding(bin `oa-dpm`)의 maintenance/source compatibility mirror. npm의 같은 이름 패키지는 외부 owner가 배포하며 mirror와 버전·기능을 동일시하지 않음 | package root, `./package`, `./catalog`, `./data`, `./profile`, `./relationship`, `./gateway`, `./storage`, `./publishing`, `./execution` | [mirror README](../../packages/dpm/README.md), [canonical data-governance](https://github.com/mineclover/data-governance) |
 | `@oa-sdk/personas` | 비공개 | persona registry와 domain matrix validation | package root, `./registry.yaml`, `./traits/*`, `./domains/*` | [API index](../internal/api-index.md) |

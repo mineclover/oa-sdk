@@ -1,8 +1,0 @@
-{
-  "status": "requirements-only",
-  "title": "FTP TestDefinition v1 provider declaration requirements",
-  "source": "functional-test-platform/docs/portable-contract-v0.1.md",
-  "requiredResponsibilities": ["identity", "Target reference", "Claim reference", "Criterion reference", "Method reference", "Dataset reference", "explicit criterion combination rule"],
-  "unresolvedProviderDecisions": ["exact property names and nesting", "reference kinds and whether aliases are allowed", "criterion combination rule vocabulary", "extension and null policy", "canonical ExactRef namespace, id and revision", "validator and semantic mapping ownership"],
-  "constraint": "Do not publish a canonical TestDefinition declaration until the provider owner approves these decisions."
-}

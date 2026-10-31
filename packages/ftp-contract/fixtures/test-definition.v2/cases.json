@@ -1,0 +1,18 @@
+{
+  "declaration": { "kind": "schema-declaration", "namespace": "oa-sdk.ftp", "id": "test-definition", "revision": "2" },
+  "base": "valid.json",
+  "notice": "Each case applies RFC 6902 operations to the base artifact. Expected outcomes come from the declaration, not from any implementation's output.",
+  "cases": [
+    { "id": "TD2-ACCEPT-BASE", "clauses": ["REF-01", "REF-02", "REF-03"], "patch": [], "expected": "accept" },
+    { "id": "TD2-ACCEPT-DESCRIPTION", "clauses": ["REF-01"], "patch": [{ "op": "add", "path": "/description", "value": "Authoring definition with ExactRef and AliasRef bindings" }], "expected": "accept" },
+    { "id": "TD2-ACCEPT-COMBINATION-ANY", "clauses": ["REF-03"], "patch": [{ "op": "replace", "path": "/criterionCombination", "value": "any" }], "expected": "accept" },
+    { "id": "TD2-REJECT-MISSING-CRITERIA", "clauses": ["REF-02"], "patch": [{ "op": "remove", "path": "/criteria" }], "expected": "reject", "at": "", "keyword": "required" },
+    { "id": "TD2-REJECT-MISSING-COMBINATION", "clauses": ["REF-03"], "patch": [{ "op": "remove", "path": "/criterionCombination" }], "expected": "reject", "at": "", "keyword": "required" },
+    { "id": "TD2-REJECT-EMPTY-CRITERIA", "clauses": ["REF-02"], "patch": [{ "op": "replace", "path": "/criteria", "value": [] }], "expected": "reject", "at": "/criteria", "keyword": "minItems" },
+    { "id": "TD2-REJECT-NULL-DESCRIPTION", "clauses": ["WIRE-01"], "patch": [{ "op": "add", "path": "/description", "value": null }], "expected": "reject", "at": "/description", "keyword": "type" },
+    { "id": "TD2-REJECT-EMPTY-DESCRIPTION", "clauses": ["REF-01"], "patch": [{ "op": "add", "path": "/description", "value": "" }], "expected": "reject", "at": "/description", "keyword": "minLength" },
+    { "id": "TD2-REJECT-HYBRID-REF", "clauses": ["REF-02"], "patch": [{ "op": "replace", "path": "/target", "value": { "kind": "target", "namespace": "example", "scope": "suite", "alias": "service" } }], "expected": "reject", "at": "/target", "keyword": "oneOf" },
+    { "id": "TD2-REJECT-UNKNOWN-COMBINATION", "clauses": ["REF-03"], "patch": [{ "op": "replace", "path": "/criterionCombination", "value": "first" }], "expected": "reject", "at": "/criterionCombination", "keyword": "enum" },
+    { "id": "TD2-REJECT-SINGULAR-CRITERION-FIELD", "clauses": ["WIRE-01"], "patch": [{ "op": "add", "path": "/criterion", "value": { "kind": "criterion", "namespace": "example", "id": "lifecycle", "revision": "1" } }], "expected": "reject", "at": "", "keyword": "additionalProperties" }
+  ]
+}

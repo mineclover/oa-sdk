@@ -1,0 +1,31 @@
+{
+  "declaration": { "kind": "schema-declaration", "namespace": "oa-sdk.ftp", "id": "evaluation", "revision": "1" },
+  "base": "valid.json",
+  "notice": "Each case applies RFC 6902 operations to the base artifact. Expected outcomes come from the declaration, not from any implementation's output.",
+  "cases": [
+    { "id": "EV1-ACCEPT-BASE", "clauses": ["EVD-06", "EVAL-03", "LIFE-05"], "patch": [], "expected": "accept" },
+    { "id": "EV1-ACCEPT-ISSUE-WITH-OPTIONALS", "clauses": ["EVD-01", "EVD-02", "EVAL-04"], "patch": [
+      { "op": "replace", "path": "/issues", "value": [{ "code": "DUPLICATE_CONFLICT", "component": "collector", "message": "conflicting terminal payload", "requestIds": ["request-1"], "occurrences": [{ "sourceId": "gateway", "occurrenceId": "occ-2" }] }] },
+      { "op": "replace", "path": "/verdict", "value": "INCONCLUSIVE" }
+    ], "expected": "accept" },
+    { "id": "EV1-ACCEPT-ISSUE-WITHOUT-OPTIONALS", "clauses": ["EVAL-03", "EVAL-04"], "patch": [
+      { "op": "replace", "path": "/issues", "value": [{ "code": "COLLECTOR_LOSS", "component": "collector", "message": "buffer dropped" }] }
+    ], "expected": "accept" },
+    { "id": "EV1-REJECT-MISSING-EVIDENCE-ID", "clauses": ["EVD-06"], "patch": [{ "op": "remove", "path": "/evidenceId" }], "expected": "reject", "at": "", "keyword": "required" },
+    { "id": "EV1-REJECT-NULL-ISSUE-REQUEST-IDS", "clauses": ["WIRE-01"], "patch": [
+      { "op": "replace", "path": "/issues", "value": [{ "code": "COLLECTOR_LOSS", "component": "collector", "message": "buffer dropped", "requestIds": null }] }
+    ], "expected": "reject", "at": "/issues/0/requestIds", "keyword": "type" },
+    { "id": "EV1-REJECT-NULL-ISSUE-OCCURRENCES", "clauses": ["WIRE-01"], "patch": [
+      { "op": "replace", "path": "/issues", "value": [{ "code": "COLLECTOR_LOSS", "component": "collector", "message": "buffer dropped", "occurrences": null }] }
+    ], "expected": "reject", "at": "/issues/0/occurrences", "keyword": "type" },
+    { "id": "EV1-REJECT-EMPTY-ISSUE-MESSAGE", "clauses": ["EVAL-03"], "patch": [
+      { "op": "replace", "path": "/issues", "value": [{ "code": "COLLECTOR_LOSS", "component": "collector", "message": "" }] }
+    ], "expected": "reject", "at": "/issues/0/message", "keyword": "minLength" },
+    { "id": "EV1-REJECT-NEGATIVE-COVERAGE-MINIMUM", "clauses": ["LIFE-04"], "patch": [{ "op": "replace", "path": "/coverage/minimum", "value": -1 }], "expected": "reject", "at": "/coverage/minimum", "keyword": "minimum" },
+    { "id": "EV1-REJECT-NONINTEGER-COVERAGE-APPLICABLE", "clauses": ["LIFE-04"], "patch": [{ "op": "replace", "path": "/coverage/applicable", "value": 1.5 }], "expected": "reject", "at": "/coverage/applicable", "keyword": "type" },
+    { "id": "EV1-REJECT-UNKNOWN-VERDICT", "clauses": ["EVAL-02"], "patch": [{ "op": "replace", "path": "/verdict", "value": "SKIPPED" }], "expected": "reject", "at": "/verdict", "keyword": "enum" },
+    { "id": "EV1-REJECT-UNKNOWN-SUBVERDICT", "clauses": ["EVAL-02"], "patch": [{ "op": "replace", "path": "/requests/0/terminal/verdict", "value": "UNKNOWN" }], "expected": "reject", "at": "/requests/0/terminal/verdict", "keyword": "enum" },
+    { "id": "EV1-REJECT-ALIAS-IN-CRITERION", "clauses": ["REF-02"], "patch": [{ "op": "replace", "path": "/criterion", "value": { "kind": "criterion", "scope": "suite", "alias": "lifecycle" } }], "expected": "reject", "at": "/criterion", "keyword": "required" },
+    { "id": "EV1-REJECT-UNKNOWN-FIELD", "clauses": ["WIRE-01"], "patch": [{ "op": "add", "path": "/extra", "value": true }], "expected": "reject", "at": "", "keyword": "additionalProperties" }
+  ]
+}

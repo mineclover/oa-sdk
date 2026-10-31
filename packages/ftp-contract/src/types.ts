@@ -1,13 +1,26 @@
 /**
- * Wire types for `oa-sdk.ftp/run-evidence` revision 1. They mirror the bundled
- * JSON Schema and are not FTP engine types: FTP consumes them through the
- * versioned semantic mapping.
+ * Wire types for `@oa-sdk/ftp-contract` exchange declarations (`oa-sdk.ftp/*`).
+ * They mirror the bundled JSON Schemas and are not FTP engine types: FTP
+ * consumes them through the versioned semantic mappings.
  */
 export type JsonValue = null | boolean | number | string | readonly JsonValue[] | { readonly [key: string]: JsonValue }
 
 export interface ExactRefV1 {
   readonly kind: string
   readonly namespace: string
+  readonly id: string
+  readonly revision: string
+}
+
+export interface AliasRefV1 {
+  readonly kind: string
+  readonly scope: string
+  readonly alias: string
+}
+
+export type DefinitionRefV1 = ExactRefV1 | AliasRefV1
+
+export interface ProfileRefV1 {
   readonly id: string
   readonly revision: string
 }
@@ -75,28 +88,85 @@ export interface TestDefinitionV1 {
   readonly criterionCombination: 'all' | 'any'
 }
 
+export interface TestDefinitionV2 {
+  readonly definitionId: string
+  readonly target: DefinitionRefV1
+  readonly claim: DefinitionRefV1
+  readonly criteria: readonly DefinitionRefV1[]
+  readonly method: DefinitionRefV1
+  readonly dataset: DefinitionRefV1
+  readonly criterionCombination: 'all' | 'any'
+  readonly description?: string
+}
+
 export interface DefinitionV1 {
   readonly ref: ExactRefV1
-  readonly dependencies: readonly ExactRefV1[]
+  readonly dependencies: readonly DefinitionRefV1[]
   readonly body: JsonValue
+}
+
+export interface LockedPlanBindingV1 {
+  readonly requested: DefinitionRefV1
+  readonly resolved: ExactRefV1
+}
+
+export interface CloseBranchV1 {
+  readonly inFlight: 'drain' | 'cancel'
+  readonly budgetMs: number
+}
+
+export interface ClosePolicyV1 {
+  readonly normal: CloseBranchV1
+  readonly cancel: CloseBranchV1
+  readonly error: CloseBranchV1
+}
+
+export interface CriterionApplicationV1 {
+  readonly criterion: ExactRefV1
+  readonly scope: string
+  readonly purpose: string
+  readonly status: 'accepted' | 'candidate'
+  readonly basis: string
 }
 
 export interface LockedPlanV1 {
   readonly planId: string
   readonly definitions: readonly DefinitionV1[]
-  readonly bindings: readonly { readonly requested: ExactRefV1; readonly resolved: ExactRefV1 }[]
+  readonly bindings: readonly LockedPlanBindingV1[]
   readonly resolver: ExactRefV1
-  readonly profiles: readonly { readonly id: string; readonly revision: string }[]
+  readonly profiles: readonly ProfileRefV1[]
   readonly requiredCapabilities: readonly string[]
   readonly requireInitializationObservation: boolean
   readonly concurrency: 'serial' | 'concurrent'
-  readonly closePolicy: {
-    readonly normal: { readonly inFlight: 'drain' | 'cancel'; readonly budgetMs: number }
-    readonly cancel: { readonly inFlight: 'drain' | 'cancel'; readonly budgetMs: number }
-    readonly error: { readonly inFlight: 'drain' | 'cancel'; readonly budgetMs: number }
-  }
+  readonly closePolicy: ClosePolicyV1
   readonly selection: JsonValue
-  readonly applications: readonly { readonly criterion: ExactRefV1; readonly scope: string; readonly purpose: string; readonly status: 'accepted' | 'candidate'; readonly basis: string }[]
+  readonly applications: readonly CriterionApplicationV1[]
+}
+
+export type VerdictV1 = 'PASS' | 'FAIL' | 'INCONCLUSIVE' | 'NOT_APPLICABLE' | 'ERROR'
+
+export interface CriterionResultV1 {
+  readonly verdict: VerdictV1
+  readonly reasonCodes: readonly string[]
+  readonly witnesses: readonly OccurrenceRefV1[]
+  readonly evidenceSufficient: boolean
+}
+
+export interface LifecycleRequestResultV1 {
+  readonly requestId: string
+  readonly started: CriterionResultV1
+  readonly terminal: CriterionResultV1
+  readonly order: CriterionResultV1
+}
+
+export interface CoverageSummaryV1 {
+  readonly minimum: number
+  readonly applicable: number
+  readonly met: boolean
+}
+
+export interface EvidenceIssueV1 extends DiagnosticV1 {
+  readonly occurrences?: readonly OccurrenceRefV1[]
 }
 
 export interface EvaluationV1 {
@@ -105,25 +175,9 @@ export interface EvaluationV1 {
   readonly runId: string
   readonly criterion: ExactRefV1
   readonly evaluator: ExactRefV1
-  readonly profile: { readonly id: string; readonly revision: string }
-  readonly requests: readonly {
-    readonly requestId: string
-    readonly started: CriterionResultV1
-    readonly terminal: CriterionResultV1
-    readonly order: CriterionResultV1
-  }[]
+  readonly profile: ProfileRefV1
+  readonly requests: readonly LifecycleRequestResultV1[]
   readonly verdict: VerdictV1
-  readonly coverage: { readonly minimum: number; readonly applicable: number; readonly met: boolean }
+  readonly coverage: CoverageSummaryV1
   readonly issues: readonly EvidenceIssueV1[]
-}
-
-export type VerdictV1 = 'PASS' | 'FAIL' | 'INCONCLUSIVE' | 'NOT_APPLICABLE' | 'ERROR'
-export interface CriterionResultV1 {
-  readonly verdict: VerdictV1
-  readonly reasonCodes: readonly string[]
-  readonly witnesses: readonly OccurrenceRefV1[]
-  readonly evidenceSufficient: boolean
-}
-export interface EvidenceIssueV1 extends DiagnosticV1 {
-  readonly occurrences?: readonly OccurrenceRefV1[]
 }

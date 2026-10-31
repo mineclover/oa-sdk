@@ -84,7 +84,7 @@ schema/spec 관리 제품을 소유하고, Downstream Integration 열일곱 패�
 | Downstream Integration | `@oa-sdk/telemetry` | `0.2.0` | Design-driven telemetry, tracking symbol registry, XState v5 inspector, and DPM pseudonymization bridge |
 | Downstream Integration | `@oa-sdk/rpc` | `0.2.0` | Private RPC runtime over the Surface IR RPC contract: typed client/server, JSON-RPC 2.0 and REST binding |
 | Downstream Integration | `@oa-sdk/popup-bridge` | `0.1.0` | Private popup bridge: origin-verified handshake, symmetric JSON-RPC over `MessageChannel`, contract-first type declarations and RPC generation utilities |
-| Downstream Integration | `@oa-sdk/ftp-contract` | `0.2.1` | Publicly distributable Functional Test Platform exchange declarations (RunEvidence v1); no FTP runtime, target or runner dependency |
+| Downstream Integration | `@oa-sdk/ftp-contract` | `0.3.0` | Publicly distributable Functional Test Platform exchange declarations (`RunEvidence` v1, `TestDefinition` v1/v2, `LockedPlan` v1, `Evaluation` v1); no FTP runtime, target or runner dependency |
 
 ## Ignored Workspaces
 

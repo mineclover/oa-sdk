@@ -1,0 +1,16 @@
+{
+  "declaration": { "kind": "schema-declaration", "namespace": "oa-sdk.ftp", "id": "test-definition", "revision": "1" },
+  "base": "valid.json",
+  "notice": "Each case applies RFC 6902 operations to the base artifact. Expected outcomes come from the declaration, not from any implementation's output.",
+  "cases": [
+    { "id": "TD1-ACCEPT-BASE", "clauses": ["REF-01", "REF-02", "REF-03"], "patch": [], "expected": "accept" },
+    { "id": "TD1-ACCEPT-COMBINATION-ANY", "clauses": ["REF-03"], "patch": [{ "op": "replace", "path": "/criterionCombination", "value": "any" }], "expected": "accept" },
+    { "id": "TD1-REJECT-MISSING-DEFINITION-ID", "clauses": ["REF-01"], "patch": [{ "op": "remove", "path": "/definitionId" }], "expected": "reject", "at": "", "keyword": "required" },
+    { "id": "TD1-REJECT-MISSING-COMBINATION", "clauses": ["REF-03"], "patch": [{ "op": "remove", "path": "/criterionCombination" }], "expected": "reject", "at": "", "keyword": "required" },
+    { "id": "TD1-REJECT-EMPTY-DEFINITION-ID", "clauses": ["REF-01"], "patch": [{ "op": "replace", "path": "/definitionId", "value": "" }], "expected": "reject", "at": "/definitionId", "keyword": "minLength" },
+    { "id": "TD1-REJECT-NULL-DEFINITION-ID", "clauses": ["WIRE-01"], "patch": [{ "op": "replace", "path": "/definitionId", "value": null }], "expected": "reject", "at": "/definitionId", "keyword": "type" },
+    { "id": "TD1-REJECT-ALIAS-IN-V1", "clauses": ["REF-02"], "patch": [{ "op": "replace", "path": "/criterion", "value": { "kind": "criterion", "scope": "suite", "alias": "lifecycle" } }], "expected": "reject", "at": "/criterion", "keyword": "required" },
+    { "id": "TD1-REJECT-UNKNOWN-COMBINATION", "clauses": ["REF-03"], "patch": [{ "op": "replace", "path": "/criterionCombination", "value": "majority" }], "expected": "reject", "at": "/criterionCombination", "keyword": "enum" },
+    { "id": "TD1-REJECT-UNKNOWN-FIELD", "clauses": ["WIRE-01"], "patch": [{ "op": "add", "path": "/description", "value": "v1 does not declare description" }], "expected": "reject", "at": "", "keyword": "additionalProperties" }
+  ]
+}

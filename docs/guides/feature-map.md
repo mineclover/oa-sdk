@@ -108,7 +108,7 @@ private·배포 후보·배포 기록은 [진입점 지도](./library-entrypoint
 | 1. 계약 입력·해석 기반 | `core`, `openapi-projection-contract`, `typespec-decorators`, `schemas`, `parser`, `typespec-tooling`† | — |
 | 2. 코드 생성·투영 | `codegen`, `ast-sync`, `surface-ir`, `router`, `client` | — |
 | 3. 실행·도구 연결 | `rpc`, `tools`, `peer-transport`, `peer-server`, `webmcp-peer`, `mcp-mesh`, `popup-bridge` | — |
-| 4. 검증·검토·개발 도구 | `mock-server`, `spec-lens`, `spec-lens-contract`, `typia-mock`†, `ttsc-compile-fixture`† | `@oa-sdk/nestjs-ref`, `@oa-sdk/playground`, `@oa-sdk/preview`, `@oa-sdk/spec-lens-ui` |
+| 4. 검증·검토·개발 도구 | `mock-server`, `ftp-contract`, `spec-lens`, `spec-lens-contract`, `typia-mock`†, `ttsc-compile-fixture`† | `@oa-sdk/nestjs-ref`, `@oa-sdk/playground`, `@oa-sdk/preview`, `@oa-sdk/spec-lens-ui` |
 | 5. 런타임 데이터·공유·관측 | `chunk-stream`, `chunk-stream-crdt`, `chunk-stream-ui`, `chunk-stream-timeseries`, `chunk-stream-react`, `collab-workspace`, `telemetry` | — |
 | 별도 유지 범위 | `dpm`†, `personas`†, `logical-erd-contract`†, `typespec-erd`† | — |
 
@@ -143,9 +143,9 @@ private·배포 후보·배포 기록은 [진입점 지도](./library-entrypoint
 - **외부 제품 / TODO**: 다른 저장소가 소유하거나 아직 활성화하지 않은 범위다.
 
 분류의 정본은 [Platform Scope](../internal/platform-scope.md)와
-[release policy](../internal/release-policy.json)다. 현재 workspace는 Core 11 / Downstream 16 /
-Maintenance 8 / Apps 4개다. 구현 여부, 공개 import, 배포 후보, 실제 npm 배포, 운영 준비는 서로 다르다.
-이 지도는 2026-10-30의 현재 작업트리 기준이다. 미커밋 확장은 위에 따로 표시하며, npm registry의 현재 버전을 조회한 결과가 아니다.
+[release policy](../internal/release-policy.json)다. 현재 workspace는 Core 11 / Downstream 17 /
+Maintenance 7 / Apps 4개다. 구현 여부, 공개 import, 배포 후보, 실제 npm 배포, 운영 준비는 서로 다르다.
+이 지도는 2026-10-31의 현재 작업트리 기준이다. 미커밋 확장은 위에 따로 표시하며, npm registry의 현재 버전을 조회한 결과가 아니다.
 
 API·데이터 구조·소비자 인터페이스를 독립적으로 구성하는 방법은
 [용도별 파이프라인 구성](./pipeline-configuration.md)을 따른다.
@@ -157,7 +157,7 @@ API·데이터 구조·소비자 인터페이스를 독립적으로 구성하는
 | `@oa-sdk/schemas`, Spec-Lens, Apps | 이 저장소의 계약·관측·reference/demo workspace다. `pnpm schema:*`와 내부 UI 실행을 일반 npm 사용자에게 요구하지 않는다. |
 | oa-sdk의 `@oa-sdk/dpm` | 비공개 maintenance/source compatibility mirror다. 신규 DPM 계약·기능·배포의 canonical owner는 [mineclover/data-governance](https://github.com/mineclover/data-governance)이며 같은 이름의 npm 패키지와 이 mirror의 버전·기능을 동일시하지 않는다. |
 | DPM 상시·공유 검색 | 외부 owner의 [TODO-SHARED-SEARCH](https://github.com/mineclover/data-governance/blob/main/docs/internal/goals/shared-search-todo.md)로 보류했다. 현재 외부 DPM 파일 기반 read-only CLI에는 DB·Docker·persistent index가 필요 없다. 이 기능 문서 정리가 DB/adapter/서비스 작업을 재개하지 않는다. |
-| 나머지 Maintenance | `personas`, `typia-mock`, `logical-erd-contract`, `ftp-contract`, `typespec-erd`, `typespec-tooling`, `ttsc-compile-fixture`는 기존 계약·prototype·호환성 검증 범위다. 신규 기능은 별도 scope 결정이 필요하다. |
+| 나머지 Maintenance | `personas`, `typia-mock`, `logical-erd-contract`, `typespec-erd`, `typespec-tooling`, `ttsc-compile-fixture`는 기존 계약·prototype·호환성 검증 범위다. 신규 기능은 별도 scope 결정이 필요하다. |
 | 추출된 제품 | Markdown editor는 `markdown-editor`, GitLab 운영 도구는 `gitlab-agent-ops`가 소유한다. oa-sdk의 workspace·release·CI 범위가 아니다. |
 
 ### DB가 필요한가?

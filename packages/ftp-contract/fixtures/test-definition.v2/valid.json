@@ -1,0 +1,12 @@
+{
+  "definitionId": "definition-2",
+  "target": { "kind": "target", "namespace": "example", "id": "service", "revision": "1" },
+  "claim": { "kind": "claim", "scope": "suite", "alias": "accepted" },
+  "criteria": [
+    { "kind": "criterion", "namespace": "example", "id": "lifecycle", "revision": "1" },
+    { "kind": "criterion", "scope": "suite", "alias": "latency" }
+  ],
+  "method": { "kind": "method", "namespace": "example", "id": "submit", "revision": "1" },
+  "dataset": { "kind": "dataset", "scope": "suite", "alias": "base" },
+  "criterionCombination": "all"
+}

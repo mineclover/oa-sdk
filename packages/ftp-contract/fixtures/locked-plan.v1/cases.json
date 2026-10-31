@@ -1,0 +1,29 @@
+{
+  "declaration": { "kind": "schema-declaration", "namespace": "oa-sdk.ftp", "id": "locked-plan", "revision": "1" },
+  "base": "valid.json",
+  "notice": "Each case applies RFC 6902 operations to the base artifact. Expected outcomes come from the declaration, not from any implementation's output.",
+  "cases": [
+    { "id": "LP1-ACCEPT-BASE", "clauses": ["REF-03", "EXEC-03"], "patch": [], "expected": "accept" },
+    { "id": "LP1-ACCEPT-ALIAS-REQUESTED-AND-DEPENDENCY", "clauses": ["REF-02", "REF-03"], "patch": [
+      { "op": "replace", "path": "/bindings/0/requested", "value": { "kind": "criterion", "scope": "suite", "alias": "lifecycle" } },
+      { "op": "replace", "path": "/definitions/0/dependencies", "value": [{ "kind": "dataset", "scope": "suite", "alias": "base" }] }
+    ], "expected": "accept" },
+    { "id": "LP1-ACCEPT-NULL-JSON-PAYLOADS", "clauses": ["WIRE-03"], "patch": [
+      { "op": "replace", "path": "/selection", "value": null },
+      { "op": "replace", "path": "/definitions/0/body", "value": null }
+    ], "expected": "accept" },
+    { "id": "LP1-ACCEPT-CANDIDATE-CONCURRENT", "clauses": ["REF-04", "EXEC-04"], "patch": [
+      { "op": "replace", "path": "/applications/0/status", "value": "candidate" },
+      { "op": "replace", "path": "/concurrency", "value": "concurrent" }
+    ], "expected": "accept" },
+    { "id": "LP1-REJECT-ALIAS-IN-RESOLVED", "clauses": ["REF-02", "REF-03"], "patch": [{ "op": "replace", "path": "/bindings/0/resolved", "value": { "kind": "criterion", "scope": "suite", "alias": "lifecycle" } }], "expected": "reject", "at": "/bindings/0/resolved", "keyword": "required" },
+    { "id": "LP1-REJECT-ALIAS-IN-DEFINITION-REF", "clauses": ["REF-02", "REF-03"], "patch": [{ "op": "replace", "path": "/definitions/0/ref", "value": { "kind": "criterion", "scope": "suite", "alias": "lifecycle" } }], "expected": "reject", "at": "/definitions/0/ref", "keyword": "required" },
+    { "id": "LP1-REJECT-NULL-PLAN-ID", "clauses": ["WIRE-01"], "patch": [{ "op": "replace", "path": "/planId", "value": null }], "expected": "reject", "at": "/planId", "keyword": "type" },
+    { "id": "LP1-REJECT-NULL-CLOSE-POLICY", "clauses": ["WIRE-01", "EXEC-03"], "patch": [{ "op": "replace", "path": "/closePolicy", "value": null }], "expected": "reject", "at": "/closePolicy", "keyword": "type" },
+    { "id": "LP1-REJECT-NEGATIVE-BUDGET", "clauses": ["EXEC-03"], "patch": [{ "op": "replace", "path": "/closePolicy/normal/budgetMs", "value": -1 }], "expected": "reject", "at": "/closePolicy/normal/budgetMs", "keyword": "minimum" },
+    { "id": "LP1-REJECT-INVALID-INFLIGHT", "clauses": ["EXEC-03"], "patch": [{ "op": "replace", "path": "/closePolicy/cancel/inFlight", "value": "abort" }], "expected": "reject", "at": "/closePolicy/cancel/inFlight", "keyword": "enum" },
+    { "id": "LP1-REJECT-INVALID-CONCURRENCY", "clauses": ["EXEC-04"], "patch": [{ "op": "replace", "path": "/concurrency", "value": "parallel" }], "expected": "reject", "at": "/concurrency", "keyword": "enum" },
+    { "id": "LP1-REJECT-INVALID-APPLICATION-STATUS", "clauses": ["REF-04"], "patch": [{ "op": "replace", "path": "/applications/0/status", "value": "rejected" }], "expected": "reject", "at": "/applications/0/status", "keyword": "enum" },
+    { "id": "LP1-REJECT-UNKNOWN-FIELD", "clauses": ["WIRE-01"], "patch": [{ "op": "add", "path": "/extensions", "value": {} }], "expected": "reject", "at": "", "keyword": "additionalProperties" }
+  ]
+}
