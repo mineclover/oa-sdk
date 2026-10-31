@@ -7,14 +7,14 @@
 import type { BinaryCodecAdapter } from './codec/index.js'
 
 export type ClientMethodOptions = {
-  signal?: AbortSignal | null
-  headers?: Record<string, string>
+  signal?: AbortSignal | null | undefined
+  headers?: Record<string, string> | undefined
 }
 
 export type ClientMiddleware = {
-  onRequest?: (url: string, init: RequestInit) => RequestInit | Promise<RequestInit>
-  onResponse?: (response: Response) => Response | Promise<Response>
-  onError?: (error: Error) => void
+  onRequest?: ((url: string, init: RequestInit) => RequestInit | Promise<RequestInit>) | undefined
+  onResponse?: ((response: Response) => Response | Promise<Response>) | undefined
+  onError?: ((error: Error) => void) | undefined
 }
 
 export type ClientResponse<TBody = unknown, THeaders extends object = Record<string, never>> = {
@@ -24,16 +24,16 @@ export type ClientResponse<TBody = unknown, THeaders extends object = Record<str
 }
 
 export type ClientConfig = {
-  baseUrl?: string
-  headers?: Record<string, string>
-  middleware?: ClientMiddleware[]
-  timeout?: number
+  baseUrl?: string | undefined
+  headers?: Record<string, string> | undefined
+  middleware?: ClientMiddleware[] | undefined
+  timeout?: number | undefined
   retry?: {
-    maxRetries?: number
-    baseDelay?: number
-  }
-  validate?: boolean
-  codecs?: Record<string, BinaryCodecAdapter> | readonly BinaryCodecAdapter[]
+    maxRetries?: number | undefined
+    baseDelay?: number | undefined
+  } | undefined
+  validate?: boolean | undefined
+  codecs?: Record<string, BinaryCodecAdapter> | readonly BinaryCodecAdapter[] | undefined
 }
 
 /** Auth middleware — HTTP Bearer token */

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { homedir, tmpdir } from 'node:os'
+import { join, resolve, sep } from 'node:path'
 import {
   runTspPluginPipeline,
   defineTspConfig,
@@ -366,8 +366,14 @@ describe('TypeSpec SSOT Plugin Pipeline Runner (runTspPluginPipeline)', () => {
     }
 
     it('never removes a directory outside cwd and the temp dir, whatever its name contains', async () => {
-      // A tree outside os.tmpdir() (git-ignored node_modules cache) whose path contains "tmp", "dist" and "generated".
-      const cacheDir = join(monorepoRoot, 'node_modules', '.cache')
+      // A tree outside os.tmpdir() (git-ignored node_modules cache, or ~/.cache when the worktree itself resides inside os.tmpdir())
+      // whose path contains "tmp", "dist" and "generated".
+      const resolvedTmpDir = realpathSync(tmpdir())
+      const resolvedRepoRoot = realpathSync(monorepoRoot)
+      const repoInsideTmpDir = resolvedRepoRoot === resolvedTmpDir || resolvedRepoRoot.startsWith(resolvedTmpDir + sep)
+      const cacheDir = repoInsideTmpDir
+        ? join(homedir(), '.cache', 'oa-sdk-clean-safety-tests')
+        : join(monorepoRoot, 'node_modules', '.cache')
       mkdirSync(cacheDir, { recursive: true })
       const scratch = mkdtempSync(join(cacheDir, 'oa-clean-safety-tmp-'))
       try {
