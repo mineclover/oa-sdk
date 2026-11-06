@@ -22,6 +22,7 @@ import {
   type SketchUnionOrEnumIr,
 } from '@oa-sdk/surface-ir'
 import { parseSketchTypeExpression, type SketchTypeExpression } from './type-expression.js'
+import { pythonIdentifier } from '../python-identifier.js'
 
 export type SketchEmittedArtifacts = {
   ir: InterfaceSketchIr
@@ -738,12 +739,6 @@ const PY_SCALARS: Readonly<Record<string, string>> = {
   never: 'Any',
 }
 
-const PYTHON_KEYWORDS = new Set([
-  'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del',
-  'elif', 'else', 'except', 'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is', 'lambda', 'nonlocal',
-  'not', 'or', 'pass', 'raise', 'return', 'try', 'while', 'with', 'yield',
-])
-
 /** A Python annotation (evaluated lazily under `from __future__ import annotations`). */
 function pyAnnotation(typeName: string): string {
   return renderPy(parseSketchTypeExpression(typeName))
@@ -841,11 +836,6 @@ function pythonParameters(params: readonly SketchParam[]): string[] {
     )
   })
   return rendered
-}
-
-function pythonIdentifier(name: string): string {
-  const cleaned = name.replace(/[^\p{ID_Continue}]/gu, '_').replace(/^(?=\d)/, '_') || '_'
-  return PYTHON_KEYWORDS.has(cleaned) ? `${cleaned}_` : cleaned
 }
 
 /** Models whose sketch-declared base precedes them, otherwise in source order. */

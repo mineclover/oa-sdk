@@ -1,0 +1,198 @@
+// Auto-generated from OpenAPI 3.2 spec by @oa-sdk/codegen
+// Do not edit directly.
+
+import { z } from 'zod'
+
+export const CallCueSchema = z.lazy(() => UiCueSchema).and(z.object({
+    action: z.enum(["call"]),
+    args: z.unknown().optional(),
+    at: z.lazy(() => TimeSchema),
+    id: z.lazy(() => IdentifierSchema),
+    name: z.lazy(() => IdentifierSchema),
+}))
+export type CallCue = z.infer<typeof CallCueSchema>
+
+export const ChunkHeaderSchema = z.object({
+  format: z.lazy(() => PayloadFormatSchema).optional(),
+  from: z.lazy(() => TimeSchema),
+  id: z.lazy(() => IdentifierSchema),
+  next: z.lazy(() => NextPointerSchema),
+  payloadFormat: z.lazy(() => PayloadFormatSchema).optional(),
+  previous: z.union([z.lazy(() => IdentifierSchema), z.null()]),
+  resources: z.array(z.lazy(() => ResourceRefSchema)).max(128),
+  sequence: z.int().gte(0).lte(4095),
+  source: z.lazy(() => ChunkSourceSchema),
+  to: z.lazy(() => TimeSchema),
+}).describe("단일 청크 헤더 (Wire Transport Plane)")
+export type ChunkHeader = z.infer<typeof ChunkHeaderSchema>
+
+export const ChunkSourceSchema = z.object({
+  bytes: z.int().gte(0).lte(9007199254740991),
+  sha256: z.string().regex(new RegExp("^[a-f0-9]{64}$")),
+  src: z.string().min(1).max(2048),
+}).describe("L3 원격 또는 번들 소스 디스크립터")
+export type ChunkSource = z.infer<typeof ChunkSourceSchema>
+
+export const ChunkStreamItemSchema = z.object({
+  payloadFormat: z.string(),
+}).describe("다형성 단일 와이어 청크 바디 기본 모델")
+export type ChunkStreamItem = z.infer<typeof ChunkStreamItemSchema>
+
+export const ClickCueSchema = z.lazy(() => UiCueSchema).and(z.object({
+    action: z.enum(["click"]),
+    at: z.lazy(() => TimeSchema),
+    id: z.lazy(() => IdentifierSchema),
+    target: z.lazy(() => IdentifierSchema),
+}))
+export type ClickCue = z.infer<typeof ClickCueSchema>
+
+export const CrdtCueSchema = z.object({
+  fromFrame: z.int().gte(0),
+  id: z.lazy(() => IdentifierSchema),
+  payload: z.object({
+    crdt: z.lazy(() => CrdtMetadataSchema),
+  }),
+  toFrame: z.int().gte(0),
+  trackId: z.lazy(() => IdentifierSchema),
+})
+export type CrdtCue = z.infer<typeof CrdtCueSchema>
+
+export const CrdtDeltaBodySchema = z.lazy(() => ChunkStreamItemSchema).and(z.object({
+    cues: z.array(z.lazy(() => CrdtCueSchema)).max(4096),
+    horizon: z.int().optional(),
+    id: z.lazy(() => IdentifierSchema),
+    payloadFormat: z.enum(["crdt-delta@v1"]),
+    revision: z.lazy(() => IdentifierSchema),
+    schemaVersion: z.union([z.literal(1)]),
+    streamId: z.lazy(() => IdentifierSchema),
+    type: z.enum(["crdt-delta"]).optional(),
+})).describe("CRDT Delta 복제 청크 바디")
+export type CrdtDeltaBody = z.infer<typeof CrdtDeltaBodySchema>
+
+export const CrdtMetadataSchema = z.object({
+  clientId: z.string(),
+  seq: z.int().optional(),
+  tombstone: z.boolean().optional(),
+  updatedAt: z.int().gte(0),
+  vectorClock: z.object({}).catchall(z.int()).optional(),
+})
+export type CrdtMetadata = z.infer<typeof CrdtMetadataSchema>
+
+export const FallbackChunkStateSchema = z.object({
+  attempts: z.int().gte(1),
+  empty: z.union([z.literal(true)]),
+  failedAt: z.int().gte(0),
+  fallback: z.union([z.literal(true)]),
+  lastError: z.string().optional(),
+  synthetic: z.union([z.literal(true)]),
+}).describe("빈 청크 또는 실패 대체(Fallback) 상태 메타데이터")
+export type FallbackChunkState = z.infer<typeof FallbackChunkStateSchema>
+
+export const FocusCueSchema = z.lazy(() => UiCueSchema).and(z.object({
+    action: z.enum(["focus"]),
+    at: z.lazy(() => TimeSchema),
+    id: z.lazy(() => IdentifierSchema),
+    target: z.lazy(() => IdentifierSchema),
+}))
+export type FocusCue = z.infer<typeof FocusCueSchema>
+
+export const IdentifierSchema = z.string().min(1).max(128).regex(new RegExp("^[A-Za-z_][A-Za-z0-9_.-]*$")).describe("보안 식별자 (프로토타입 오염 방지)")
+export type Identifier = z.infer<typeof IdentifierSchema>
+
+export const InputCueSchema = z.lazy(() => UiCueSchema).and(z.object({
+    action: z.enum(["input"]),
+    at: z.lazy(() => TimeSchema),
+    commit: z.boolean().optional(),
+    id: z.lazy(() => IdentifierSchema),
+    target: z.lazy(() => IdentifierSchema),
+    value: z.string(),
+}))
+export type InputCue = z.infer<typeof InputCueSchema>
+
+export const NextAvailableSchema = z.lazy(() => NextPointerSchema).and(z.object({
+    id: z.lazy(() => IdentifierSchema),
+    state: z.enum(["available"]),
+}))
+export type NextAvailable = z.infer<typeof NextAvailableSchema>
+
+export const NextEndSchema = z.lazy(() => NextPointerSchema).and(z.object({
+    state: z.enum(["end"]),
+}))
+export type NextEnd = z.infer<typeof NextEndSchema>
+
+export const NextPendingSchema = z.lazy(() => NextPointerSchema).and(z.object({
+    id: z.lazy(() => IdentifierSchema),
+    state: z.enum(["pending"]),
+}))
+export type NextPending = z.infer<typeof NextPendingSchema>
+
+export const NextPointerSchema = z.object({
+  state: z.string(),
+}).describe("청크 체인 다음 포인터 기본 모델")
+export type NextPointer = z.infer<typeof NextPointerSchema>
+
+export const NextUnresolvedSchema = z.lazy(() => NextPointerSchema).and(z.object({
+    state: z.enum(["unresolved"]),
+}))
+export type NextUnresolved = z.infer<typeof NextUnresolvedSchema>
+
+export const PayloadFormatSchema = z.string().min(1).max(128).regex(new RegExp("^[A-Za-z0-9_.-]+(@[A-Za-z0-9_.-]+)?$")).describe("페이로드 포맷 식별자 (예: ui-action@v1, time-series@v1, crdt-delta@v1)")
+export type PayloadFormat = z.infer<typeof PayloadFormatSchema>
+
+export const ResourceRefSchema = z.object({
+  asset: z.lazy(() => IdentifierSchema),
+  id: z.lazy(() => IdentifierSchema),
+  prepare: z.lazy(() => IdentifierSchema),
+}).describe("사전 준비 리소스 참조")
+export type ResourceRef = z.infer<typeof ResourceRefSchema>
+
+export const RuntimeChunkEnvelopeSchema = z.object({
+  data: z.unknown().optional(),
+  fromFrame: z.int(),
+  id: z.string(),
+  payloadFormat: z.string(),
+  residentBytes: z.int(),
+  resources: z.array(z.lazy(() => ResourceRefSchema)),
+  sequence: z.int(),
+  state: z.union([z.lazy(() => FallbackChunkStateSchema), z.object({}).catchall(z.unknown())]).optional(),
+  streamId: z.string(),
+  toFrame: z.int(),
+}).describe("런타임 청크 엔벨로프 (RuntimeChunkEnvelope)")
+export type RuntimeChunkEnvelope = z.infer<typeof RuntimeChunkEnvelopeSchema>
+
+export const TimeSchema = z.string().regex(new RegExp("^(?:(?:0|[1-9][0-9]*)f|(?:0|[1-9][0-9]*)(?:\\.[0-9]{1,9})?(?:s|ms))$")).describe("시간 표현 규격: 정수 프레임(예: 30f), 초(예: 1.5s), 밀리초(예: 500ms)")
+export type Time = z.infer<typeof TimeSchema>
+
+export const TimeSeriesBodySchema = z.lazy(() => ChunkStreamItemSchema).and(z.object({
+    channels: z.array(z.lazy(() => IdentifierSchema)).min(1).max(64),
+    id: z.lazy(() => IdentifierSchema),
+    payloadFormat: z.enum(["time-series@v1"]),
+    revision: z.lazy(() => IdentifierSchema),
+    samples: z.array(z.lazy(() => TimeSeriesSampleSchema)).max(4096),
+    schemaVersion: z.union([z.literal(1)]),
+    streamId: z.lazy(() => IdentifierSchema),
+    type: z.enum(["time-series"]),
+})).describe("다채널 시계열 청크 바디")
+export type TimeSeriesBody = z.infer<typeof TimeSeriesBodySchema>
+
+export const TimeSeriesSampleSchema = z.object({
+  at: z.lazy(() => TimeSchema),
+  values: z.array(z.union([z.number(), z.string(), z.boolean(), z.null()])),
+})
+export type TimeSeriesSample = z.infer<typeof TimeSeriesSampleSchema>
+
+export const UiActionBodySchema = z.lazy(() => ChunkStreamItemSchema).and(z.object({
+    cues: z.array(z.lazy(() => UiCueSchema)).max(4096),
+    id: z.lazy(() => IdentifierSchema),
+    payloadFormat: z.enum(["ui-action@v1"]),
+    revision: z.lazy(() => IdentifierSchema),
+    schemaVersion: z.union([z.literal(1)]),
+    streamId: z.lazy(() => IdentifierSchema),
+    targets: z.object({}).catchall(z.string()),
+})).describe("UI Action 청크 바디")
+export type UiActionBody = z.infer<typeof UiActionBodySchema>
+
+export const UiCueSchema = z.object({
+  action: z.string(),
+})
+export type UiCue = z.infer<typeof UiCueSchema>

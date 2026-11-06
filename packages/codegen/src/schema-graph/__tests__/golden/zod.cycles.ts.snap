@@ -1,0 +1,20 @@
+// Auto-generated from OpenAPI 3.2 spec by @oa-sdk/codegen
+// Do not edit directly.
+
+import { z } from 'zod'
+
+export const CommentSchema: z.ZodTypeAny = z.object({
+  author: z.string(),
+  content: z.string(),
+  id: z.string(),
+  replies: z.array(z.lazy(() => CommentSchema)).optional(),
+})
+export type Comment = z.infer<typeof CommentSchema>
+
+export const TreeNodeSchema: z.ZodTypeAny = z.object({
+  children: z.array(z.lazy(() => TreeNodeSchema)).optional(),
+  id: z.string(),
+  label: z.string(),
+  parent: z.lazy(() => TreeNodeSchema).optional(),
+})
+export type TreeNode = z.infer<typeof TreeNodeSchema>
