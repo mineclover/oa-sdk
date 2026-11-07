@@ -1,7 +1,7 @@
 # TypeSpec(.tsp) → Pydantic v2 스키마 변환 지원 영역 검토
 
 검토일: 2026-11-06 (Asia/Seoul)
-상태: 설계 결정 완료, Phase 1 구현 완료 (설계: `docs/internal/architecture/pydantic-codegen-pipeline.md`). 이 문서는 새 codegen 산출물·패키지 API를 채택하거나 배포하지 않는다.
+상태: 설계 결정 완료, Phase 1 구현 완료 (설계: `docs/internal/architecture/pydantic-codegen-pipeline.md`, 사용자 가이드: [`docs/guides/pydantic-codegen.md`](../guides/pydantic-codegen.md)). 이 문서는 새 codegen 산출물·패키지 API를 채택하거나 배포하지 않는다. 이 검토는 구현 전 분석이며, 실제 구현과 다른 항목은 해당 행에 **Phase 1 구현:** 으로 표시하고 [§8](#8-구현-대조-2026-11-07)에 모았다.
 
 ## 1. 결론 요약
 
@@ -19,7 +19,7 @@
 | Discriminator 처리 | `zodgen/schema-to-zod.ts` (`collectDiscriminatorProperties`, `buildMappingBranches`) | 다형성 ref를 tagged union으로 치환할 때 동일 매핑 로직 사용 |
 | Python 식별자/예약어 처리 | `codegen/src/sketch-emitter/index.ts` (`PYTHON_KEYWORDS`, `pythonIdentifier`) | 공용 유틸로 승격. 단, sketch emitter의 `@dataclass` stub는 sketch IR(TypeSpec 텍스트) 기반이라 스키마 충실도가 낮아 생성기 자체는 재사용하지 않는다 |
 | Plugin VFS | `codegen/src/plugin/types.ts` (`TspGeneratedFile`) | `models.py`를 plugin 산출물로 추가. 기본 banner가 `//` 주석 문법 파일에만 붙으므로 `.py`는 `# @generated ...` banner를 명시해야 한다 |
-| 산출물 추적 | `.oa-manifest.json`, typegen graph semantic sidecar | `models.py`의 SHA-256·입력 spec·TypeSpec 출처 결속 |
+| 산출물 추적 | `.oa-manifest.json`, typegen graph semantic sidecar | `models.py`의 SHA-256·입력 spec·TypeSpec 출처 결속. **Phase 1 구현:** manifest·출처 sidecar 결속은 없다. build report(`oa-sdk.pydantic-build-report.v1`)의 `contentSha256`만 제공 |
 
 ## 3. 실제 사용 중인 TypeSpec/OAS 기능 프로파일
 
@@ -53,11 +53,11 @@
 | `format: uuid` | `uuid.UUID` | A | 직렬화 시 소문자 하이픈 형식으로 정규화됨 |
 | `format: date-time` | `datetime` 또는 `AwareDatetime` | B | TypeSpec `utcDateTime`은 오프셋 필수 의미 → `AwareDatetime` 권장. `datetime`은 naive 값을 허용함 |
 | `format: date` / `time` | `date` / `time` | A | `plainDate` / `plainTime` |
-| `format: duration` | `timedelta` | B | ISO 8601 파싱은 되지만 연·월 단위(`P1Y`)는 timedelta로 표현 불가 → 진단 |
+| `format: duration` | `timedelta` | B | ISO 8601 파싱은 되지만 연·월 단위(`P1Y`)는 timedelta로 표현 불가 → 진단. **Phase 1 구현:** `timedelta`로 생성하고 진단은 없다 |
 | `format: email` | `EmailStr` | B | `pydantic[email]` 추가 의존성. 두 Python 패키지 모두 이미 사용 중 |
-| `format: uri` / `url` | `AnyUrl` 또는 `str` | B | `AnyUrl`은 정규화(끝 `/` 추가 등)로 **왕복 시 값이 바뀜**. 기본값은 `str` + `Field(json_schema_extra={"format": "uri"})` 권장 |
+| `format: uri` / `url` | `AnyUrl` 또는 `str` | B | `AnyUrl`은 정규화(끝 `/` 추가 등)로 **왕복 시 값이 바뀜**. 기본값은 `str` + `Field(json_schema_extra={"format": "uri"})` 권장. **Phase 1 구현:** 기본 `uri: str`은 `str`만 생성하고 `format`을 `json_schema_extra`로 보존하지 않는다 |
 | `format: byte` / `contentEncoding: base64` | `Base64Bytes` | B | `bytes` 스칼라 |
-| `@encode(unixTimestamp)` 등 인코딩 | `int` / `datetime` + serializer | C→B | Phase 1은 원시 wire 타입(`int`)으로 생성하고 진단 |
+| `@encode(unixTimestamp)` 등 인코딩 | `int` / `datetime` + serializer | C→B | Phase 1은 원시 wire 타입(`int`)으로 생성하고 진단. **Phase 1 구현:** wire 타입으로 생성하지만 진단은 없다(`pydantic/encoding-degraded`는 다른 조건에서 발생, 설계 문서 §5) |
 | `unknown` / `{}` | `Any` (또는 `JsonValue`) | A | `JsonValue`가 JSON 가능 값만 허용하므로 더 정확 |
 
 ### 4.2 제약
@@ -74,7 +74,7 @@
 | `enum` (문자열, 이름 있는 component) | `class X(StrEnum)` | A | |
 | `enum` (인라인·혼합 타입) | `Literal[...]` | A | |
 | `default` | `Field(default=...)` | A | `foldSchema`가 `default`를 만나면 타입 해석 전에 `default_`로 단락되므로, Zod와 같이 default를 떼어 두는 처리(`defaultValues` WeakMap 패턴)를 그대로 따라야 함 |
-| `description` / `title` / `examples` / `deprecated` | `Field(description=, title=, examples=, deprecated=)` | A | `deprecated`는 Pydantic 2.7+ |
+| `description` / `title` / `examples` / `deprecated` | `Field(description=, title=, examples=, deprecated=)` | A | `deprecated`는 Pydantic 2.7+. **Phase 1 구현:** `title`은 생성하지 않는다 |
 
 ### 4.3 객체·조합
 
@@ -90,7 +90,7 @@
 | `prefixItems` (TypeSpec 튜플) | `tuple[A, B]` | A | |
 | `anyOf` / `oneOf` (판별자 없음) | `A \| B` | B | Pydantic smart union은 "가장 잘 맞는 하나"를 고르고, `oneOf`의 "정확히 하나" 의미를 검증하지 않음. 닫힌 모델(`forbid`)끼리면 실질적으로 구분됨 |
 | `@discriminator` + `extends` (base에 discriminator mapping, 자식은 `allOf: [$ref Base]`) | 자식 `class Child(Base)` + `state: Literal["available"]`, 참조 지점은 `Annotated[A \| B \| ..., Field(discriminator="state")]` | **B (필수 처리)** | `$ref: NextPointer`는 OAS에서 "모든 하위 타입"을 뜻하지만, 그대로 `NextPointer`로 생성하면 base로만 검증되어 하위 필드가 버려짐. **다형성 ref를 tagged union alias로 치환**해야 함 |
-| `@discriminated` envelope union | wrapper 모델 + tagged union | B | `envelope: "none"`은 위 방식, `"object"`는 `{kind, value}` wrapper 모델 |
+| `@discriminated` envelope union | wrapper 모델 + tagged union | B | `envelope: "none"`은 위 방식, `"object"`는 `{kind, value}` wrapper 모델. **Phase 1 구현:** envelope 전용 처리는 없다. 출력된 OAS의 `oneOf`/`anyOf`를 일반 union 규칙으로 생성 |
 | `allOf` (상속 아닌 합성) | 다중 상속 또는 평탄화 | B | 충돌 필드는 평탄화 후 진단 |
 | `model is` / spread `...` | 평탄화되어 OAS에 반영 | A | OAS 단계에서 이미 해소 |
 | `if/then/else`, `not`(빈 `{}` 외), `dependentSchemas`, `patternProperties`, `propertyNames` | — | C | `model_validator` 수작업 영역. 진단 후 구조만 생성 |
@@ -109,15 +109,15 @@
 
 ### 4.5 oa-sdk 커스텀 decorator
 
-`@oa-sdk/typespec-decorators`의 `@crdt`, `@protobuf`, `@storageRef`, `@pseudonymize`, `@personaCapability`, `@traceId` 등은 Pydantic 모델의 구조 의미가 아니다. Phase 1은 출력된 `x-oa-sdk-*` 확장을 `Field(json_schema_extra=...)`/`model_config["json_schema_extra"]`로 보존만 하고 해석하지 않는다(`semantic-abstraction-contract-boundary.md`의 비재해석 원칙과 일치). `@pseudonymize` → `SecretStr` 같은 의미 매핑은 별도 결정 대상이며 이번 범위에서 제외한다.
+`@oa-sdk/typespec-decorators`의 `@crdt`, `@protobuf`, `@storageRef`, `@pseudonymize`, `@personaCapability`, `@traceId` 등은 Pydantic 모델의 구조 의미가 아니다. Phase 1은 출력된 `x-oa-sdk-*` 확장을 `Field(json_schema_extra=...)`/`model_config["json_schema_extra"]`로 보존만 하고 해석하지 않는다(`semantic-abstraction-contract-boundary.md`의 비재해석 원칙과 일치). `@pseudonymize` → `SecretStr` 같은 의미 매핑은 별도 결정 대상이며 이번 범위에서 제외한다. **Phase 1 구현:** 필드의 `x-*`만 `Field(json_schema_extra=...)`로 렌더링한다. 모델 수준 확장은 IR에는 보존되지만 `model_config`로 출력하지 않는다.
 
 ## 5. 범위 제안
 
 | 단계 | 범위 | 산출물 |
 |---|---|---|
 | Phase 0 | zodgen의 언어 중립 부분(순서·cycle·preflight·discriminator 수집)을 공용 모듈로 추출. 동작 변경 없음 | 기존 Zod 테스트 그대로 통과 |
-| Phase 1 | `components.schemas` → `models.py` (A·B 등급 전부, C는 진단). `oa-gen generate:pydantic` CLI 명령 + plugin | `models.py`, 진단 JSON, manifest 항목 |
-| Phase 1 검증 | (1) 생성 코드 golden test (TS 단위 테스트), (2) `uv run python -c "import models"` + `model_rebuild()` 성공, (3) **왕복 parity**: `model_json_schema(by_alias=True)`와 원본 OAS 스키마를 정규화 비교, (4) approved spec의 example 값을 `model_validate`로 통과 확인 | Python 검증은 `fastapi-ref`처럼 uv가 있는 lane에서만 실행 (TS 패키지 테스트는 Python 실행에 의존하지 않음) |
+| Phase 1 | `components.schemas` → `models.py` (A·B 등급 전부, C는 진단). `oa-gen generate:pydantic` CLI 명령 + plugin | `models.py`, 진단 JSON, manifest 항목. **Phase 1 구현:** `models.py`, build report JSON(`--report`), 선택적 `models.py.ir.json`. manifest 항목은 없다 |
+| Phase 1 검증 | (1) 생성 코드 golden test (TS 단위 테스트), (2) `uv run python -c "import models"` + `model_rebuild()` 성공, (3) **왕복 parity**: `model_json_schema(by_alias=True)`와 원본 OAS 스키마를 정규화 비교, (4) approved spec의 example 값을 `model_validate`로 통과 확인 | Python 검증은 `fastapi-ref`처럼 uv가 있는 lane에서만 실행 (TS 패키지 테스트는 Python 실행에 의존하지 않음). **Phase 1 구현:** (1)(2)(4)는 구현됨(lane은 `OA_SDK_PYDANTIC_PY_LANE=1`). (3) 왕복 parity 비교는 구현되지 않았다 |
 | Phase 2 | operation별 Path/Query/Header 파라미터 모델, request/response body alias, 에러 union | `operations.py` |
 | Phase 3 | FastAPI 라우터 스텁 또는 `python-interface-monorepo`의 `ContractRegistry` 등록 코드 | 템플릿 연동 |
 
@@ -142,7 +142,7 @@
 4. **정규식 → ECMA 의미 보존 치환 + Rust 엔진**
    - 문자 클래스 바깥의 `\d` → `[0-9]`, `\D` → `[^0-9]`, `\w` → `[A-Za-z0-9_]`, `\W` → `[^A-Za-z0-9_]`; 문자 클래스 안에서는 `0-9` / `A-Za-z0-9_`로 전개(부정 클래스 내부 `\D`·`\W`는 치환 불가로 진단). 치환은 이스케이프·문자 클래스를 인식하는 토크나이저로 수행한다.
    - 기본 Rust 엔진. lookaround(`(?=`, `(?!`, `(?<=`, `(?<!`)나 backreference가 있으면 해당 모델만 `regex_engine="python-re"`로 전환하고 `pydantic/regex-engine-fallback` 진단.
-   - 치환 결과가 원본과 다르면 원본 pattern을 `json_schema_extra`에 보존해 왕복 parity 비교에 사용한다.
+   - 치환 결과가 원본과 다르면 원본 pattern을 `json_schema_extra`에 보존해 왕복 parity 비교에 사용한다. **Phase 1 구현:** 원본 pattern은 보존하지 않는다(왕복 parity 비교도 미구현).
 
 ## 7. 근거 위치
 
@@ -153,3 +153,21 @@
 - 다형성 사례: `packages/schemas/typespec/chunk-stream.tsp` (`NextPointer`, `UiCue`, `ChunkStreamItem`)
 - 재귀 사례: `test/e2e/typespec-plugin/fixtures/cycles/main.tsp`
 - 경계 원칙: `docs/internal/architecture/semantic-abstraction-contract-boundary.md`, `docs/internal/architecture/codegen-boundaries.md`
+
+## 8. 구현 대조 (2026-11-07)
+
+Phase 1 구현(mineclover/oa-sdk#25·#26)을 이 검토와 대조한 결과다. 구현된 동작의 정본은 코드와 [사용자 가이드](../guides/pydantic-codegen.md)이며, 아래 항목은 이 검토가 제안했지만 Phase 1에 들어가지 않은 것이다.
+
+| 검토 위치 | 제안 | Phase 1 구현 |
+|---|---|---|
+| §2 산출물 추적, §5 Phase 1 | `.oa-manifest.json`·TypeSpec 출처 sidecar 결속 | 없음. build report의 `contentSha256`만 |
+| §4 `format: duration` | 연·월 단위 진단 | `timedelta`만, 진단 없음 |
+| §4 `format: uri` | `str` + `json_schema_extra={"format": "uri"}` | `str`만 |
+| §4 `@encode` 인코딩 | wire 타입 + 진단 | wire 타입만, 진단 없음 |
+| §4 `title` | `Field(title=...)` | 생성하지 않음 |
+| §4 `@discriminated` envelope | `{kind, value}` wrapper 모델 | 전용 처리 없음, 일반 union 규칙 |
+| §4.5 모델 수준 `x-*` | `model_config["json_schema_extra"]` | IR에만 보존, 렌더링하지 않음 |
+| §5 Phase 1 검증 (3) | `model_json_schema(by_alias=True)` 왕복 parity | 미구현 |
+| §6 결정 4 | 치환 전 원본 pattern 보존 | 미구현 |
+
+설계 문서 쪽 정정(옵션 수, `pydantic/encoding-degraded` 발생 조건)은 `docs/internal/architecture/pydantic-codegen-pipeline.md` §3·§5에 반영했다.
