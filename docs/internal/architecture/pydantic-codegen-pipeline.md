@@ -1,8 +1,9 @@
 # OAS 3.2 → Pydantic v2 Codegen 데이터 파이프라인 설계
 
-상태: accepted · Phase 1 구현 완료 (`feat/pydantic-codegen`, P1a–P1c)
-최종 검토: 2026-11-06
+상태: accepted · Phase 1 구현 완료 (P1a–P1c, mineclover/oa-sdk#25·#26 병합)
+최종 검토: 2026-11-07 (구현 코드와 대조해 §3·§5·§6 정정)
 선행 검토: [TypeSpec → Pydantic 변환 지원 영역 검토](../../reports/typespec-pydantic-codegen-review.md) (매핑 표·결정 4개)
+사용자 가이드: [OAS 3.2 → Pydantic v2 코드 생성 가이드](../../guides/pydantic-codegen.md) (구현된 동작 기준)
 
 ## 1. 원칙
 
@@ -53,7 +54,9 @@
 
 S3는 이 형태를 `bases: [Base]` + 일반 필드로 낮추고, S4 `polymorphicRefs`가 태그를 `Literal`로 좁힌다.
 
-## 3. 빌드 옵션 (Phase 1: 9개)
+## 3. 빌드 옵션 (Phase 1: semantic 8개 + `emitIr`)
+
+`PYDANTIC_SEMANTIC_OPTION_KEYS`와 build report의 `options`에는 아래 표의 앞 8개만 들어간다. `emitIr`는 S6만 읽는 출력 옵션이다.
 
 | 옵션 | 값 (기본값 굵게) | 읽는 곳 | 근거 |
 |---|---|---|---|
@@ -107,8 +110,8 @@ S3는 이 형태를 `bases: [Base]` + 일반 필드로 낮추고, S4 `polymorphi
 | `pydantic/preflight` | lint 그대로 | S1 preflight 결과(치명 오류는 `force`일 때만 진단으로 남음) |
 | `pydantic/unsupported-keyword` | warning | `if/then/else`, `not`(빈 스키마 제외), `patternProperties`, `dependentSchemas`, `propertyNames` |
 | `pydantic/unresolved-ref` | error | `#/components/schemas/` 밖이거나 없는 대상을 가리키는 `$ref` → `Any` |
-| `pydantic/allof-flattened` | warning | 상속으로 표현할 수 없는 `allOf`를 평탄화 |
-| `pydantic/encoding-degraded` | info | 인코딩된 스칼라를 wire 타입으로 생성 |
+| `pydantic/allof-flattened` | warning | object가 아닌 `allOf`를 첫 branch로 평탄화(S3), 또는 object `allOf`의 `$ref`가 아닌 branch를 모델 필드로 합침 |
+| `pydantic/encoding-degraded` | info | **현재 구현**: S4 `scalarPolicy`가 모듈에 이름 있는 enum 선언이 하나도 없을 때 낸다(`enumStyle` 값과 무관, pointer `/`). 인코딩된 스칼라(`@encode`, base64가 아닌 `contentEncoding`)는 진단 없이 wire 타입으로 생성된다. 코드 이름과 발생 조건이 맞지 않으므로 정정 대상 |
 | `pydantic/discriminator-without-variants` | warning | 하위 타입을 찾을 수 없는 discriminator base |
 | `pydantic/default-on-required` | info | 필수 필드의 `default` 무시 |
 | `pydantic/name-collision` | info | 식별자 충돌로 숫자 접미사 부여 |
@@ -122,11 +125,11 @@ S3는 이 형태를 `bases: [Base]` + 일반 필드로 낮추고, S4 `polymorphi
 
 | 층 | 위치 | 내용 |
 |---|---|---|
-| 계약 테스트 | `pydantic/__tests__/contract.test.ts` | S0 옵션 해석, S3 IR이 JSON 데이터이고 결정 슬롯이 모두 `null`, 입력 순서 무관, pass 후 미해결 슬롯 없음, 선언한 옵션이 실제로 출력에 영향, golden, 결정성, `emitIr` |
+| 계약 테스트 | `pydantic/__tests__/contract.test.ts` | S0 옵션 해석, S3 IR이 JSON 데이터이고 결정 슬롯이 모두 `null`, 입력 순서 무관, pass 후 미해결 슬롯 없음, 선언한 옵션이 실제로 출력에 영향, golden, 결정성, `emitIr`, package root export만으로 S0–S6을 조합한 결과가 `buildPydanticModels`와 같음 |
 | 단계 단위 | `pydantic/__tests__/*.test.ts` | 매핑 표 행마다 입력 스키마 → IR 비교 |
 | Zod 동일성 | `schema-graph/__tests__/zod-parity.test.ts` | 추출 전 코드로 만든 golden과 Zod 출력 바이트 비교 |
 | fixture | approved spec, `chunk-stream`·`cycles` TypeSpec 컴파일 결과 | 재생성 명령은 각 `main.tsp` 머리 주석 |
-| Python lane | `uv`가 있을 때만 실행 | 생성 모듈 import, `model_rebuild()`, spec example `model_validate`, 비-nullable optional의 `null` 거부 |
+| Python lane | `pydantic/__tests__/python-lane.test.ts` + `python-lane/check_models.py`, `OA_SDK_PYDANTIC_PY_LANE=1`이고 `uv`가 있을 때만 실행 | fixture × preset: 생성 모듈 import, `model_rebuild()`, spec example `model_validate`, alias 입력·`model_dump(by_alias=True)`, chunk-stream tagged union variant별 검증, `ruff check --select E,F`. 테스트 파일 안의 의미 검증 문서 × 옵션 조합: optional `null` 거부·허용(`plain`), `extra` 세 값과 닫힌 모델, `naming` 두 값, `uniqueItems`. 카운터는 정확한 값으로 비교 |
 
 ## 7. 구현 단계
 
