@@ -96,8 +96,8 @@ S3는 이 형태를 `bases: [Base]` + 일반 필드로 낮추고, S4 `polymorphi
 
 | 표면 | 형태 | 단계 |
 |---|---|---|
-| 프로그래밍 API | `buildPydanticModels(doc, options)` + 단계 함수 개별 export (`pydantic/index.ts`) | 계약 완료 |
-| CLI | `oa-gen generate-pydantic --spec <file> [--out <path>] [--preset ...] [--extra ...] ... [--emit-ir] [--force] [--no-validate] [--no-normalize]` | P1c |
+| 프로그래밍 API | `buildPydanticModels(doc, options)` + S0–S6 단계 함수 개별 export (`pydantic/index.ts`, S2 `analyzeSchemaGraph`는 `schema-graph`에서 재export) | 계약 완료 |
+| CLI | `oa-gen generate:pydantic --spec <file> [--out <path>] [--preset ...] [--extra ...] ... [--emit-ir] [--force] [--no-validate] [--no-normalize]` | P1c |
 | Plugin | `pydantic(options)` `TspPlugin`, `generate` 훅에서 `emitPydanticFiles`의 파일을 `addFile` | P1c |
 
 ## 5. 진단 코드
