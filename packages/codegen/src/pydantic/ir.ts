@@ -39,6 +39,8 @@ export interface PyScalarFact {
   base: 'string' | 'integer' | 'number'
   format?: string
   contentEncoding?: string
+  /** JSON Pointer of the scalar's schema, for diagnostics about how it is mapped. */
+  pointer?: string
 }
 
 export type PyTypeExpr =

@@ -48,6 +48,22 @@ describe('Pydantic S3 lowering', () => {
     expect(decl(ir, 'Alias')).toMatchObject({ kind: 'alias', origin: 'component' })
   })
 
+  it('records format, contentEncoding, and the schema pointer on scalar facts', () => {
+    const model = decl(lower({
+      Model: {
+        type: 'object',
+        properties: { token: { type: 'string', contentEncoding: 'base64url' }, at: { type: 'integer', format: 'unixtime' } },
+      },
+    }), 'Model')
+    const types = model.kind === 'model'
+      ? Object.fromEntries(model.fields.map(field => [field.wireName, field.type]))
+      : null
+    expect(types).toEqual({
+      token: { kind: 'scalar', base: 'string', contentEncoding: 'base64url', pointer: '/components/schemas/Model/properties/token' },
+      at: { kind: 'scalar', base: 'integer', format: 'unixtime', pointer: '/components/schemas/Model/properties/at' },
+    })
+  })
+
   it('lowers fields in schema order and records required fields', () => {
     const model = decl(lower({
       Model: {

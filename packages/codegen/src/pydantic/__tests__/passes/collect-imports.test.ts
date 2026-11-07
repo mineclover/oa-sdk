@@ -38,4 +38,17 @@ describe('collectImports', () => {
     ]))
     expect(result.imports?.from.typing).toEqual(expect.arrayContaining(['Annotated']))
   })
+
+  it('imports StrEnum without TypeAlias for str-enum declarations', () => {
+    const strEnum = {
+      kind: 'enum' as const, name: 'S', pyName: 'S', values: ['a'], repr: 'str-enum' as const,
+      members: [{ name: 'A', value: 'a' }], pointer: '/S',
+    }
+    const literal = { ...strEnum, name: 'L', pyName: 'L', repr: 'literal' as const, members: [] }
+    expect(collectImportsPass.run(module(strEnum), {}, analysis).imports?.from).toMatchObject({
+      enum: ['StrEnum'],
+    })
+    expect(collectImportsPass.run(module(strEnum), {}, analysis).imports?.from.typing).toBeUndefined()
+    expect(collectImportsPass.run(module(literal), {}, analysis).imports?.from.typing).toEqual(['Literal', 'TypeAlias'])
+  })
 })

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { scalarPolicyPass } from '../../passes/scalar-policy.js'
+import type { PyScalarFact } from '../../ir.js'
 import { analysis, module } from './helpers.js'
 
 describe('scalarPolicy', () => {
@@ -125,5 +126,61 @@ describe('scalarPolicy', () => {
       enumStyle: 'str-enum', datetime: 'naive', uri: 'str', intBounds: 'none',
     }, analysis)
     expect(result.decls[0]).toMatchObject({ repr: 'literal', members: [] })
+  })
+
+  describe('pydantic/encoding-degraded', () => {
+    const options = { enumStyle: 'str-enum', datetime: 'aware', uri: 'str', intBounds: 'format' } as const
+    const alias = (name: string, type: PyScalarFact) => ({
+      kind: 'alias' as const, name, pyName: null, origin: 'component' as const, type, pointer: `/${name}`,
+    })
+
+    it('reports encoded scalars generated as their raw wire type at the scalar pointer', () => {
+      const result = scalarPolicyPass.run(module(
+        alias('Token', { kind: 'scalar', base: 'string', contentEncoding: 'base64url', pointer: '/p/token' }),
+        alias('Unix', { kind: 'scalar', base: 'integer', format: 'unixtime', pointer: '/p/unix' }),
+        alias('Http', { kind: 'scalar', base: 'string', format: 'http-date', pointer: '/p/http' }),
+      ), options, analysis)
+      expect(result.decls.map(decl => decl.kind === 'alias' ? decl.type : null)).toEqual([
+        { kind: 'builtin', name: 'str' },
+        { kind: 'builtin', name: 'int' },
+        { kind: 'builtin', name: 'str' },
+      ])
+      expect(result.diagnostics).toEqual([
+        {
+          code: 'pydantic/encoding-degraded', severity: 'info', pointer: '/p/token',
+          message: "Scalar with contentEncoding 'base64url' is generated as its wire type 'str'; values are not decoded",
+        },
+        {
+          code: 'pydantic/encoding-degraded', severity: 'info', pointer: '/p/unix',
+          message: "Scalar with format 'unixtime' (date-time encoded as a Unix timestamp) is generated as its wire type 'int'; values are not decoded",
+        },
+        {
+          code: 'pydantic/encoding-degraded', severity: 'info', pointer: '/p/http',
+          message: "Scalar with format 'http-date' (date-time encoded as an RFC 7231 HTTP-date) is generated as its wire type 'str'; values are not decoded",
+        },
+      ])
+    })
+
+    it('stays silent for decoded encodings, plain formats, and modules without enums', () => {
+      const result = scalarPolicyPass.run(module(
+        alias('Base64', { kind: 'scalar', base: 'string', contentEncoding: 'base64', pointer: '/p/b64' }),
+        alias('Byte', { kind: 'scalar', base: 'string', format: 'byte', contentEncoding: 'base64url', pointer: '/p/byte' }),
+        alias('When', { kind: 'scalar', base: 'string', format: 'date-time', pointer: '/p/when' }),
+        alias('Count', { kind: 'scalar', base: 'integer', format: 'int32', pointer: '/p/count' }),
+        alias('Other', { kind: 'scalar', base: 'string', format: 'password', pointer: '/p/other' }),
+      ), options, analysis)
+      expect(result.decls.some(decl => decl.kind === 'enum')).toBe(false)
+      expect(result.diagnostics).toEqual([])
+    })
+
+    it('points at the nested scalar, not the enclosing declaration', () => {
+      const result = scalarPolicyPass.run(module({
+        kind: 'alias', name: 'Tokens', pyName: null, origin: 'component', pointer: '/p/tokens',
+        type: { kind: 'list', item: { kind: 'scalar', base: 'string', contentEncoding: 'base64url', pointer: '/p/tokens/items' } },
+      }), options, analysis)
+      expect(result.diagnostics.map(item => [item.code, item.pointer])).toEqual([
+        ['pydantic/encoding-degraded', '/p/tokens/items'],
+      ])
+    })
   })
 })

@@ -111,7 +111,7 @@ S3는 이 형태를 `bases: [Base]` + 일반 필드로 낮추고, S4 `polymorphi
 | `pydantic/unsupported-keyword` | warning | `if/then/else`, `not`(빈 스키마 제외), `patternProperties`, `dependentSchemas`, `propertyNames` |
 | `pydantic/unresolved-ref` | error | `#/components/schemas/` 밖이거나 없는 대상을 가리키는 `$ref` → `Any` |
 | `pydantic/allof-flattened` | warning | object가 아닌 `allOf`를 첫 branch로 평탄화(S3), 또는 object `allOf`의 `$ref`가 아닌 branch를 모델 필드로 합침 |
-| `pydantic/encoding-degraded` | info | **현재 구현**: S4 `scalarPolicy`가 모듈에 이름 있는 enum 선언이 하나도 없을 때 낸다(`enumStyle` 값과 무관, pointer `/`). 인코딩된 스칼라(`@encode`, base64가 아닌 `contentEncoding`)는 진단 없이 wire 타입으로 생성된다. 코드 이름과 발생 조건이 맞지 않으므로 정정 대상 |
+| `pydantic/encoding-degraded` | info | S4 `scalarPolicy`가 인코딩된 스칼라를 디코딩하지 않는 원시 wire 타입(`str`/`int`/`float`)으로 생성: `base64`가 아닌 `contentEncoding`(예: `base64url`), `@typespec/openapi3`가 `@encode`로 쓰는 `format: unixtime`·`http-date`. pointer는 그 스칼라 스키마 위치(S3가 `PyScalarFact.pointer`로 기록), 메시지에 인코딩 이름. `@encode("seconds", int32) duration`처럼 인코딩이 OAS 출력에 남지 않는 경우(`format: int32`)는 감지할 수 없다 |
 | `pydantic/discriminator-without-variants` | warning | 하위 타입을 찾을 수 없는 discriminator base |
 | `pydantic/default-on-required` | info | 필수 필드의 `default` 무시 |
 | `pydantic/name-collision` | info | 식별자 충돌로 숫자 접미사 부여 |
@@ -128,7 +128,7 @@ S3는 이 형태를 `bases: [Base]` + 일반 필드로 낮추고, S4 `polymorphi
 | 계약 테스트 | `pydantic/__tests__/contract.test.ts` | S0 옵션 해석, S3 IR이 JSON 데이터이고 결정 슬롯이 모두 `null`, 입력 순서 무관, pass 후 미해결 슬롯 없음, 선언한 옵션이 실제로 출력에 영향, golden, 결정성, `emitIr`, package root export만으로 S0–S6을 조합한 결과가 `buildPydanticModels`와 같음 |
 | 단계 단위 | `pydantic/__tests__/*.test.ts` | 매핑 표 행마다 입력 스키마 → IR 비교 |
 | Zod 동일성 | `schema-graph/__tests__/zod-parity.test.ts` | 추출 전 코드로 만든 golden과 Zod 출력 바이트 비교 |
-| fixture | approved spec, `chunk-stream`·`cycles` TypeSpec 컴파일 결과 | 재생성 명령은 각 `main.tsp` 머리 주석 |
+| fixture | approved spec, `chunk-stream`·`cycles`·`scalars`(이름 있는 문자열 enum, `@encode` 스칼라) TypeSpec 컴파일 결과 | 재생성 명령은 각 `main.tsp` 머리 주석 |
 | Python lane | `pydantic/__tests__/python-lane.test.ts` + `python-lane/check_models.py`, `OA_SDK_PYDANTIC_PY_LANE=1`이고 `uv`가 있을 때만 실행 | fixture × preset: 생성 모듈 import, `model_rebuild()`, spec example `model_validate`, alias 입력·`model_dump(by_alias=True)`, chunk-stream tagged union variant별 검증, `ruff check --select E,F`. 테스트 파일 안의 의미 검증 문서 × 옵션 조합: optional `null` 거부·허용(`plain`), `extra` 세 값과 닫힌 모델, `naming` 두 값, `uniqueItems`. 카운터는 정확한 값으로 비교 |
 
 ## 7. 구현 단계
