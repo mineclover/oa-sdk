@@ -4,6 +4,7 @@
  * next to this file; these are the cross-cutting invariants.
  */
 import { describe, expect, it } from 'vitest'
+import * as root from '../../index.js'
 import { analyzeSchemaGraph } from '../../schema-graph/index.js'
 import {
   PY_PASSES,
@@ -154,4 +155,22 @@ describe('[P1c] S5-S6 output contract', () => {
     expect(result.files.map(file => file.path)).toEqual(['pkg/models.py', 'pkg/models.py.ir.json'])
     expect(JSON.parse(result.files[1]!.content)).toEqual(result.ir)
   })
+})
+
+describe('[public] package root exposes every stage', () => {
+  for (const name of PYDANTIC_FIXTURE_NAMES) {
+    it(`${name}: S0-S6 composed from package-root exports equals buildPydanticModels`, () => {
+      const doc = loadPydanticFixture(name)
+      const options = root.resolvePydanticBuildOptions({ emitIr: true })
+      const prepared = root.preparePydanticDocument(doc, options.preflight)
+      const analysis = root.analyzeSchemaGraph(prepared.schemas)
+      const lowered = root.lowerToPyIr(prepared, analysis, root.pydanticModuleName(options.output))
+      const { ir } = root.runPyPasses(lowered, options, analysis)
+      const { files, report } = root.emitPydanticFiles(root.renderPyModule(ir), ir, options)
+
+      const whole = root.buildPydanticModels(doc, { emitIr: true })
+      expect(files).toEqual(whole.files)
+      expect(report).toEqual(whole.report)
+    })
+  }
 })

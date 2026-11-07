@@ -116,7 +116,7 @@
 | 단계 | 범위 | 산출물 |
 |---|---|---|
 | Phase 0 | zodgen의 언어 중립 부분(순서·cycle·preflight·discriminator 수집)을 공용 모듈로 추출. 동작 변경 없음 | 기존 Zod 테스트 그대로 통과 |
-| Phase 1 | `components.schemas` → `models.py` (A·B 등급 전부, C는 진단). `oa-gen generate-pydantic` CLI 명령 + plugin | `models.py`, 진단 JSON, manifest 항목 |
+| Phase 1 | `components.schemas` → `models.py` (A·B 등급 전부, C는 진단). `oa-gen generate:pydantic` CLI 명령 + plugin | `models.py`, 진단 JSON, manifest 항목 |
 | Phase 1 검증 | (1) 생성 코드 golden test (TS 단위 테스트), (2) `uv run python -c "import models"` + `model_rebuild()` 성공, (3) **왕복 parity**: `model_json_schema(by_alias=True)`와 원본 OAS 스키마를 정규화 비교, (4) approved spec의 example 값을 `model_validate`로 통과 확인 | Python 검증은 `fastapi-ref`처럼 uv가 있는 lane에서만 실행 (TS 패키지 테스트는 Python 실행에 의존하지 않음) |
 | Phase 2 | operation별 Path/Query/Header 파라미터 모델, request/response body alias, 에러 union | `operations.py` |
 | Phase 3 | FastAPI 라우터 스텁 또는 `python-interface-monorepo`의 `ContractRegistry` 등록 코드 | 템플릿 연동 |

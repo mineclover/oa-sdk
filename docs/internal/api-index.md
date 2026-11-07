@@ -980,6 +980,7 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `runTspPluginPipeline()` | `plugin/runner.ts` | TypeSpec 플러그인 4단계 라이프사이클 실행 및 파일 방출 오케스트레이터 |
 | `pluginTypescript()` | `plugin/plugins/typescript.ts` | 순수 TypeScript 모델, 열거형 및 타입 가드 생성 플러그인 |
 | `pydantic()` | `plugin/plugins/pydantic.ts` | Pydantic v2 모델 생성 TypeSpec 플러그인 |
+| `analyzeSchemaGraph` | `schema-graph/index.ts` | 스키마 참조 그래프·순환·선언 순서·discriminator family 분석 (Pydantic S2, Zod와 공유) |
 | `emitPydanticFiles` | `pydantic/emit.ts` | Pydantic 산출물 파일과 보고서 방출 |
 | `lowerToPyIr` | `pydantic/lower.ts` | OpenAPI 스키마를 Pydantic IR로 낮춤 |
 | `preparePydanticDocument` | `pydantic/prepare.ts` | Pydantic 문서 사전 검증 및 정규화 |
@@ -1020,6 +1021,8 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `PyScalarFact` | `pydantic/ir.ts` | scalar 사실 IR |
 | `PyTypeExpr` | `pydantic/ir.ts` | Python 타입 IR |
 | `UnresolvedPySlot` | `pydantic/ir.ts` | 미해결 슬롯 타입 |
+| `SchemaGraphAnalysis` | `schema-graph/index.ts` | `analyzeSchemaGraph` 결과 (edges, recursive, order, discriminatorFamilies) |
+| `DiscriminatorFamily` | `schema-graph/index.ts` | discriminator base와 tag별 variant 목록 |
 | `PydanticBuildOptions` | `pydantic/options.ts` | 빌드 옵션 타입 |
 | `PydanticBuildReport` | `pydantic/emit.ts` | 빌드 보고서 타입 |
 | `PydanticBuildResult` | `pydantic/build.ts` | 빌드 결과 타입 |
