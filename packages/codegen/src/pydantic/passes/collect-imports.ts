@@ -62,10 +62,11 @@ export const collectImportsPass: PyPass<never> = {
       } else if (decl.kind === 'alias') {
         add('typing', 'TypeAlias')
         inspect(decl.type)
+      } else if (decl.repr === 'str-enum') {
+        add('enum', 'StrEnum')
       } else {
         add('typing', 'TypeAlias')
-        if (decl.repr === 'str-enum') add('enum', 'StrEnum')
-        else add('typing', 'Literal')
+        add('typing', 'Literal')
       }
     }
     const from: Record<string, string[]> = {}

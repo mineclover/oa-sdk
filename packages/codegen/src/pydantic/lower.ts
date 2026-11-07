@@ -187,7 +187,11 @@ function lowerInlineObject(schema: OasSchema, context: PydanticLowerContext): Py
   return { kind: 'ref', target: name }
 }
 
-function scalarType(schema: OasSchema, base: 'string' | 'integer' | 'number'): PyTypeExpr {
+function scalarType(
+  schema: OasSchema,
+  base: 'string' | 'integer' | 'number',
+  context: PydanticLowerContext,
+): PyTypeExpr {
   const values = literalValues(asRecord(schema).enum)
   if (values !== undefined) return { kind: 'literal', values }
   const source = asRecord(schema)
@@ -196,6 +200,7 @@ function scalarType(schema: OasSchema, base: 'string' | 'integer' | 'number'): P
     base,
     ...(typeof source.format === 'string' ? { format: source.format } : {}),
     ...(typeof source.contentEncoding === 'string' ? { contentEncoding: source.contentEncoding } : {}),
+    pointer: schemaPointer(schema, context),
   })
 }
 
@@ -233,9 +238,9 @@ function allOfType(
 /** `SchemaAlgebra` producing IR type expressions; object nodes become inline declarations. */
 export function createPydanticAlgebra(context: PydanticLowerContext): SchemaAlgebra<PyTypeExpr> {
   return {
-    string: schema => scalarType(schema, 'string'),
-    integer: schema => scalarType(schema, 'integer'),
-    number: schema => scalarType(schema, 'number'),
+    string: schema => scalarType(schema, 'string', context),
+    integer: schema => scalarType(schema, 'integer', context),
+    number: schema => scalarType(schema, 'number', context),
     boolean: schema => {
       const values = literalValues(asRecord(schema).enum)
       return values === undefined

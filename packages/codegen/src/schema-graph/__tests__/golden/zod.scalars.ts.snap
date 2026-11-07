@@ -1,0 +1,19 @@
+// Auto-generated from OpenAPI 3.2 spec by @oa-sdk/codegen
+// Do not edit directly.
+
+import { z } from 'zod'
+
+export const SampleSchema = z.object({
+  createdAt: z.string().datetime(),
+  createdAtUnix: z.int(),
+  modifiedAt: z.string(),
+  payload: z.string(),
+  status: z.lazy(() => StatusSchema),
+  token: z.string(),
+  ttl: z.string().duration(),
+  ttlSeconds: z.int(),
+})
+export type Sample = z.infer<typeof SampleSchema>
+
+export const StatusSchema = z.enum(["active", "pending-review"])
+export type Status = z.infer<typeof StatusSchema>

@@ -57,7 +57,7 @@
 | `format: email` | `EmailStr` | B | `pydantic[email]` 추가 의존성. 두 Python 패키지 모두 이미 사용 중 |
 | `format: uri` / `url` | `AnyUrl` 또는 `str` | B | `AnyUrl`은 정규화(끝 `/` 추가 등)로 **왕복 시 값이 바뀜**. 기본값은 `str` + `Field(json_schema_extra={"format": "uri"})` 권장. **Phase 1 구현:** 기본 `uri: str`은 `str`만 생성하고 `format`을 `json_schema_extra`로 보존하지 않는다 |
 | `format: byte` / `contentEncoding: base64` | `Base64Bytes` | B | `bytes` 스칼라 |
-| `@encode(unixTimestamp)` 등 인코딩 | `int` / `datetime` + serializer | C→B | Phase 1은 원시 wire 타입(`int`)으로 생성하고 진단. **Phase 1 구현:** wire 타입으로 생성하지만 진단은 없다(`pydantic/encoding-degraded`는 다른 조건에서 발생, 설계 문서 §5) |
+| `@encode(unixTimestamp)` 등 인코딩 | `int` / `datetime` + serializer | C→B | Phase 1은 원시 wire 타입(`int`)으로 생성하고 진단. **Phase 1 구현:** wire 타입으로 생성하고 `pydantic/encoding-degraded` info를 낸다. `@typespec/openapi3`는 `unixTimestamp`를 `format: unixtime`, `rfc7231`을 `format: http-date`, `@encode("base64url") bytes`를 `contentEncoding: base64url`로 쓰므로 감지된다. `@encode("seconds", int32) duration`은 `format: int32`만 남아 감지할 수 없고 진단 없이 `int`가 된다 |
 | `unknown` / `{}` | `Any` (또는 `JsonValue`) | A | `JsonValue`가 JSON 가능 값만 허용하므로 더 정확 |
 
 ### 4.2 제약
@@ -163,11 +163,11 @@ Phase 1 구현(mineclover/oa-sdk#25·#26)을 이 검토와 대조한 결과다. 
 | §2 산출물 추적, §5 Phase 1 | `.oa-manifest.json`·TypeSpec 출처 sidecar 결속 | 없음. build report의 `contentSha256`만 |
 | §4 `format: duration` | 연·월 단위 진단 | `timedelta`만, 진단 없음 |
 | §4 `format: uri` | `str` + `json_schema_extra={"format": "uri"}` | `str`만 |
-| §4 `@encode` 인코딩 | wire 타입 + 진단 | wire 타입만, 진단 없음 |
+| §4 `@encode` 인코딩 | wire 타입 + 진단 | wire 타입 + `pydantic/encoding-degraded`. 단 `@encode("seconds", …) duration`은 OAS 출력에 인코딩이 남지 않아 진단 없음 |
 | §4 `title` | `Field(title=...)` | 생성하지 않음 |
 | §4 `@discriminated` envelope | `{kind, value}` wrapper 모델 | 전용 처리 없음, 일반 union 규칙 |
 | §4.5 모델 수준 `x-*` | `model_config["json_schema_extra"]` | IR에만 보존, 렌더링하지 않음 |
 | §5 Phase 1 검증 (3) | `model_json_schema(by_alias=True)` 왕복 parity | 미구현 |
 | §6 결정 4 | 치환 전 원본 pattern 보존 | 미구현 |
 
-설계 문서 쪽 정정(옵션 수, `pydantic/encoding-degraded` 발생 조건)은 `docs/internal/architecture/pydantic-codegen-pipeline.md` §3·§5에 반영했다.
+설계 문서 쪽 정정(옵션 수, `pydantic/encoding-degraded` 발생 조건 — 이후 인코딩된 스칼라에서만 나도록 수정)은 `docs/internal/architecture/pydantic-codegen-pipeline.md` §3·§5에 반영했다.

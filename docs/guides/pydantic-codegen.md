@@ -193,7 +193,7 @@ const { files, report } = root.emitPydanticFiles(root.renderPyModule(ir), ir, op
 
 아래 표는 [`lower.ts`](../../packages/codegen/src/pydantic/lower.ts)의 OAS 사실 수집,
 [`passes/`](../../packages/codegen/src/pydantic/passes/)의 결정, [`render.ts`](../../packages/codegen/src/pydantic/render.ts)의
-문법 출력, 그리고 [세 fixture golden](../../packages/codegen/src/pydantic/__tests__/golden/)을
+문법 출력, 그리고 [네 fixture golden](../../packages/codegen/src/pydantic/__tests__/golden/)을
 대조한 결과다.
 
 | OAS 3.2 구성 | 실제 생성 |
@@ -218,6 +218,7 @@ const { files, report } = root.emitPydanticFiles(root.renderPyModule(ir), ir, op
 | `format: email` | `EmailStr` |
 | `format: uri`, `url` | `uri: str`이면 `str`, `any-url`이면 `AnyUrl` |
 | `format: byte` 또는 `contentEncoding: base64` | `Base64Bytes` |
+| 그 밖의 `contentEncoding`, `format: unixtime`/`http-date` | wire 타입(`str`/`int`) 그대로 + `pydantic/encoding-degraded` info |
 | `number`, `decimal`/`decimal128` | 각각 `float`, `Decimal` |
 | integer 폭 format | `intBounds: format`일 때 `ge`/`le`; `none`이면 `int`만 |
 | `pattern` | `regex: ecma`는 ECMA 일부를 ASCII class로 번역, `raw`는 원문, `python-re`는 원문 + Python engine |
@@ -320,7 +321,7 @@ Identifier: TypeAlias = Annotated[str, Field(pattern="^[A-Za-z_][A-Za-z0-9_.-]*$
 | `pydantic/unsupported-keyword` | warning | `if`, `then`, `else`, `patternProperties`, `dependentSchemas`, `propertyNames`, 비어 있지 않은 `not` |
 | `pydantic/unresolved-ref` | error | components 밖 또는 존재하지 않는 `$ref`; 결과 타입은 `Any` |
 | `pydantic/allof-flattened` | warning | 상속으로 표현할 수 없는 `allOf` branch를 flatten |
-| `pydantic/encoding-degraded` | info | 선택한 `enumStyle`로 바꿀 named enum declaration이 하나도 없을 때. 실제 encoding 손실이 없어도 발생 |
+| `pydantic/encoding-degraded` | info | 인코딩된 scalar를 디코딩 없이 wire 타입(`str`/`int`/`float`)으로 생성함: `base64`가 아닌 `contentEncoding`, `format: unixtime`/`http-date`(TypeSpec `@encode`). pointer는 해당 scalar schema |
 | `pydantic/discriminator-without-variants` | warning | discriminator base에서 해석 가능한 variant를 찾지 못함 |
 | `pydantic/default-on-required` | info | required field의 schema `default`를 무시함 |
 | `pydantic/name-collision` | info | declaration/field Python 이름에 숫자 suffix 또는 충돌 회피 suffix를 붙임 |
@@ -364,8 +365,8 @@ CLI는 preflight fatal 또는 severity가 `error`인 진단이 있으면 non-zer
 ## 검증과 테스트
 
 - golden은 `packages/codegen/src/pydantic/__tests__/golden/`에 있으며 `approved`,
-  `chunk-stream`, `cycles` 세 fixture를 `default`, `strict`, `passthrough` 세 preset으로
-  비교한다(총 9개 Python 파일).
+  `chunk-stream`, `cycles`, `scalars` 네 fixture를 `default`, `strict`, `passthrough` 세 preset으로
+  비교한다(총 12개 Python 파일).
 - `packages/codegen/src/pydantic/__tests__/contract.test.ts`는 S0 옵션 우선순위, S3 JSON
   IR과 unresolved slot, 입력 schema 순서 독립성, S4 pass 관찰성, golden 일치, 결정성,
   `emitIr`, package root의 모든 stage export를 검사한다.
@@ -390,8 +391,11 @@ OA_SDK_PYDANTIC_PY_LANE=1 corepack pnpm --filter @oa-sdk/codegen exec vitest run
   plugin을 쓰는 mypy에서는 문제가 보고되지 않는다.
 - `ruff`를 `E,F`보다 넓게 실행하면 생성 코드에서 import block 정렬 `I001`, 드물게 quoted
   annotation `UP037`가 검출될 수 있다.
-- `scalarPolicy`는 선택한 `enumStyle`로 변환할 named enum declaration이 없으면
-  `pydantic/encoding-degraded` info를 낸다. 이 경우 실제로 encoding이 degraded된 것은 아니다.
+- TypeSpec `@encode`는 디코딩하지 않는다. `@encode(DateTimeKnownEncoding.unixTimestamp, int32)`는
+  `int`, `@encode(DateTimeKnownEncoding.rfc7231)`는 `str`, `@encode("base64url") bytes`는 `str`로
+  생성하고 `pydantic/encoding-degraded` info를 낸다. `@encode("seconds", int32) duration`은
+  `@typespec/openapi3` 출력이 `type: integer, format: int32`뿐이라 인코딩을 알 수 없으므로 진단 없이
+  `int`가 된다.
 - `oneOf`/`anyOf`에 discriminator가 없으면 Pydantic의 smart union 의미를 사용하므로 JSON
   Schema의 “정확히 하나” 조건을 별도로 보장하지 않는다.
 - `format: uri`의 `any-url`은 값을 정규화할 수 있다. 왕복 보존이 필요하면 기본 `uri: str`을

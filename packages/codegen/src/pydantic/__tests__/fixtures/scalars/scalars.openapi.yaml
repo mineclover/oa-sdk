@@ -1,0 +1,48 @@
+openapi: 3.2.0
+info:
+  title: Scalars Fixture
+  version: 0.0.0
+tags: []
+paths: {}
+components:
+  schemas:
+    Sample:
+      type: object
+      required:
+        - status
+        - createdAt
+        - createdAtUnix
+        - modifiedAt
+        - ttl
+        - ttlSeconds
+        - payload
+        - token
+      properties:
+        status:
+          $ref: '#/components/schemas/Status'
+        createdAt:
+          type: string
+          format: date-time
+        createdAtUnix:
+          type: integer
+          format: unixtime
+        modifiedAt:
+          type: string
+          format: http-date
+        ttl:
+          type: string
+          format: duration
+        ttlSeconds:
+          type: integer
+          format: int32
+        payload:
+          type: string
+          contentEncoding: base64
+        token:
+          type: string
+          contentEncoding: base64url
+    Status:
+      type: string
+      enum:
+        - active
+        - pending-review

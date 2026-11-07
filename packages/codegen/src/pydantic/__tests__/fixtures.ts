@@ -5,11 +5,12 @@ import type { OasDocument } from '@oa-sdk/parser'
 
 const here = (relative: string): string => fileURLToPath(new URL(relative, import.meta.url))
 
-/** Golden inputs: the approved TypeSpec spec, and TypeSpec-compiled polymorphism and recursion fixtures. */
+/** Golden inputs: the approved TypeSpec spec, and TypeSpec-compiled polymorphism, recursion, and scalar fixtures. */
 export const PYDANTIC_FIXTURE_PATHS = {
   approved: here('../../../../schemas/typespec/approved.openapi.yaml'),
   'chunk-stream': here('./fixtures/chunk-stream/chunk-stream.openapi.yaml'),
   cycles: here('./fixtures/cycles/cycles.openapi.yaml'),
+  scalars: here('./fixtures/scalars/scalars.openapi.yaml'),
 } as const
 
 export type PydanticFixtureName = keyof typeof PYDANTIC_FIXTURE_PATHS

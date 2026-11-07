@@ -11,9 +11,14 @@
  * - number → `float`; `decimal`/`decimal128` → `Decimal`;
  * - enum declarations: `repr` = `str-enum` when `enumStyle === 'str-enum'` and every value is a
  *   string, else `literal`; `members` = unique UPPER_SNAKE identifiers for `str-enum`, `[]` otherwise.
+ *
+ * Emits `pydantic/encoding-degraded` (info) at the scalar's schema pointer when an encoded scalar is
+ * generated as its raw wire type (`str`/`int`/`float`) instead of a decoded Python type: a
+ * `contentEncoding` other than `base64`, or a format that `@typespec/openapi3` writes for an `@encode`
+ * it does not express otherwise (`unixtime`, `http-date`).
  */
 import type { PyPass } from './index.js'
-import type { PyBound, PyConstraints, PyTypeExpr } from '../ir.js'
+import type { PyBound, PyConstraints, PyScalarFact, PyTypeExpr, PydanticDiagnostic } from '../ir.js'
 import { pythonIdentifier, snakeCase } from '../../python-identifier.js'
 import { cloneIr, mapDeclTypes } from './lib/ir-utils.js'
 
@@ -89,12 +94,32 @@ function scalarType(
   return { kind: 'builtin', name: 'int' }
 }
 
+/**
+ * Formats that carry an encoding of another value rather than a plain string/number, as written by
+ * `@typespec/openapi3` for `@encode` on `utcDateTime`/`offsetDateTime`. The generator keeps them as
+ * their wire type.
+ */
+const ENCODED_FORMATS: Record<string, string> = {
+  unixtime: 'date-time encoded as a Unix timestamp',
+  'http-date': 'date-time encoded as an RFC 7231 HTTP-date',
+}
+
+/** Describes the encoding a scalar declares beyond its wire type, or `undefined` when it declares none. */
+function declaredEncoding(fact: PyScalarFact): string | undefined {
+  if (fact.contentEncoding !== undefined && fact.contentEncoding !== 'base64') {
+    return `contentEncoding '${fact.contentEncoding}'`
+  }
+  const encoded = fact.format === undefined ? undefined : ENCODED_FORMATS[fact.format]
+  return encoded === undefined ? undefined : `format '${fact.format}' (${encoded})`
+}
+
 export const scalarPolicyPass: PyPass<'enumStyle' | 'datetime' | 'uri' | 'intBounds'> = {
   name: 'scalarPolicy',
   reads: ['enumStyle', 'datetime', 'uri', 'intBounds'],
   run(ir, options, analysis) {
     void analysis
     const result = cloneIr(ir)
+    const diagnostics: PydanticDiagnostic[] = []
     const map = (type: PyTypeExpr): PyTypeExpr => {
       if (type.kind === 'constrained' && type.base.kind === 'constrained') {
         const outer = type.constraints
@@ -106,12 +131,23 @@ export const scalarPolicyPass: PyPass<'enumStyle' | 'datetime' | 'uri' | 'intBou
       }
       if (type.kind !== 'scalar') return type
       const value = scalarType(type.format, type.contentEncoding, type.base, options)
+      const encoding = declaredEncoding(type)
+      if (encoding !== undefined && value.kind === 'builtin') {
+        // Only a raw wire type loses the encoding; `Base64Bytes` and friends decode it.
+        diagnostics.push({
+          code: 'pydantic/encoding-degraded',
+          severity: 'info',
+          pointer: type.pointer ?? '/',
+          message: `Scalar with ${encoding} is generated as its wire type '${value.name}'; values are not decoded`,
+        })
+      }
       if (type.base !== 'integer' || options.intBounds !== 'format' || type.format === undefined) return value
       const bounds = boundFor(type.format)
       if (bounds === undefined) return value
       return { kind: 'constrained', base: value, constraints: { ...bounds } }
     }
     result.decls = result.decls.map(decl => mapDeclTypes(decl, map))
+    result.diagnostics.push(...diagnostics)
     for (const decl of result.decls) {
       if (decl.kind !== 'enum') continue
       const strings = decl.values.every(value => typeof value === 'string')
@@ -130,14 +166,6 @@ export const scalarPolicyPass: PyPass<'enumStyle' | 'datetime' | 'uri' | 'intBou
         while (used.has(name)) name = `${base}_${suffix++}`
         used.add(name)
         return { name, value: String(value) }
-      })
-    }
-    if (!result.decls.some(decl => decl.kind === 'enum')) {
-      result.diagnostics.push({
-        code: 'pydantic/encoding-degraded',
-        severity: 'info',
-        pointer: '/',
-        message: `Enum style '${options.enumStyle}' had no named enum declarations to transform`,
       })
     }
     return result
