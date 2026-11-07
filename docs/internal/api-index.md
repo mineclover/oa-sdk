@@ -819,6 +819,8 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | 함수 | 파일 | 용도 |
 |------|------|------|
 | `zodToSchema()` | `zod-to-schema.ts` | Zod 4 → OAS 3.2 Schema (refs 컨텍스트 지원) |
+| `buildPydanticModels()` | `pydantic/build.ts` | OpenAPI 문서에서 Pydantic v2 모델 모듈과 진단 생성 |
+| `renderPyModule()` | `pydantic/render.ts` | 해결된 Pydantic IR을 Python 소스로 렌더링 |
 | `generateComponents()` | `generator.ts` | Zod 맵 → YAML (writeSchemas 위임) |
 | `defineConfig()` | `config.ts` | 타입 안전 oa.config.ts 설정 정의 헬퍼 |
 | `validateOaConfig()` | `config.ts` | OaConfig 스키마 및 타겟 유효성 검증 |
@@ -977,6 +979,60 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `TspPluginContextImpl` | `plugin/context.ts` | 가상 파일 시스템 및 플러그인 실행 컨텍스트 구현 클래스 |
 | `runTspPluginPipeline()` | `plugin/runner.ts` | TypeSpec 플러그인 4단계 라이프사이클 실행 및 파일 방출 오케스트레이터 |
 | `pluginTypescript()` | `plugin/plugins/typescript.ts` | 순수 TypeScript 모델, 열거형 및 타입 가드 생성 플러그인 |
+| `pydantic()` | `plugin/plugins/pydantic.ts` | Pydantic v2 모델 생성 TypeSpec 플러그인 |
+| `emitPydanticFiles` | `pydantic/emit.ts` | Pydantic 산출물 파일과 보고서 방출 |
+| `lowerToPyIr` | `pydantic/lower.ts` | OpenAPI 스키마를 Pydantic IR로 낮춤 |
+| `preparePydanticDocument` | `pydantic/prepare.ts` | Pydantic 문서 사전 검증 및 정규화 |
+| `runPyPasses` | `pydantic/passes/index.ts` | Pydantic IR 결정 pass 실행 |
+| `assertResolvedPyIr` | `pydantic/ir.ts` | 렌더 전 결정 슬롯 확인 |
+| `findUnresolvedPySlots` | `pydantic/ir.ts` | 미해결 IR 슬롯 나열 |
+| `createPydanticAlgebra` | `pydantic/lower.ts` | Pydantic 스키마 algebra 생성 |
+| `schemaToPyType` | `pydantic/lower.ts` | 스키마를 Python 타입 표현식으로 변환 |
+| `resolvePydanticBuildOptions` | `pydantic/options.ts` | Pydantic 빌드 옵션 해석 |
+| `pydanticOptionValues` | `pydantic/options.ts` | Pydantic 옵션 허용값 반환 |
+| `pydanticModuleName` | `pydantic/build.ts` | 출력 경로에서 모듈명 계산 |
+| `PYDANTIC_BUILD_REPORT_SCHEMA` | `pydantic/emit.ts` | Pydantic 보고서 스키마 식별자 |
+| `PYDANTIC_DEFAULT_OPTIONS` | `pydantic/options.ts` | Pydantic 기본 옵션 |
+| `PYDANTIC_FIXED_SETTINGS` | `pydantic/options.ts` | 고정 Pydantic 설정 |
+| `PYDANTIC_GENERATED_BANNER` | `pydantic/emit.ts` | Python 산출물 배너 |
+| `PYDANTIC_PLUGIN_NAME` | `pydantic/emit.ts` | 플러그인 이름 |
+| `PYDANTIC_PRESETS` | `pydantic/options.ts` | Pydantic preset 정의 |
+| `PYDANTIC_SEMANTIC_OPTION_KEYS` | `pydantic/options.ts` | semantic option 키 목록 |
+| `PY_PASSES` | `pydantic/passes/index.ts` | Pydantic pass 목록 |
+| `pickPassOptions` | `pydantic/passes/index.ts` | pass별 옵션 선택 |
+| `AnyPyPass` | `pydantic/passes/index.ts` | Pydantic pass 타입 |
+| `PyPass` | `pydantic/passes/index.ts` | Pydantic pass 인터페이스 |
+| `PyPassName` | `pydantic/passes/index.ts` | pass 이름 타입 |
+| `PreparedPydanticDocument` | `pydantic/prepare.ts` | 준비된 Pydantic 문서 타입 |
+| `PydanticGenerationPreflightError` | `pydantic/prepare.ts` | preflight 실패 오류 |
+| `PyAliasDecl` | `pydantic/ir.ts` | alias 선언 IR |
+| `PyBound` | `pydantic/ir.ts` | 정확한 수치 bound IR |
+| `PyConstraints` | `pydantic/ir.ts` | 제약 IR |
+| `PyDecl` | `pydantic/ir.ts` | 선언 IR union |
+| `PyDefault` | `pydantic/ir.ts` | 필드 default IR |
+| `PyEnumDecl` | `pydantic/ir.ts` | enum 선언 IR |
+| `PyField` | `pydantic/ir.ts` | 필드 IR |
+| `PyImports` | `pydantic/ir.ts` | import IR |
+| `PyLiteralValue` | `pydantic/ir.ts` | literal IR 값 |
+| `PyModelDecl` | `pydantic/ir.ts` | model 선언 IR |
+| `PyModuleIR` | `pydantic/ir.ts` | module IR |
+| `PyOpenness` | `pydantic/ir.ts` | 모델 openness IR |
+| `PyScalarFact` | `pydantic/ir.ts` | scalar 사실 IR |
+| `PyTypeExpr` | `pydantic/ir.ts` | Python 타입 IR |
+| `UnresolvedPySlot` | `pydantic/ir.ts` | 미해결 슬롯 타입 |
+| `PydanticBuildOptions` | `pydantic/options.ts` | 빌드 옵션 타입 |
+| `PydanticBuildReport` | `pydantic/emit.ts` | 빌드 보고서 타입 |
+| `PydanticBuildResult` | `pydantic/build.ts` | 빌드 결과 타입 |
+| `PydanticDiagnostic` | `pydantic/ir.ts` | 진단 타입 |
+| `PydanticDiagnosticSeverity` | `pydantic/ir.ts` | 진단 심각도 타입 |
+| `PydanticEmitResult` | `pydantic/emit.ts` | 방출 결과 타입 |
+| `PydanticLowerContext` | `pydantic/lower.ts` | lower 컨텍스트 타입 |
+| `PydanticOutputOptions` | `pydantic/options.ts` | 출력 옵션 타입 |
+| `PydanticPreset` | `pydantic/options.ts` | preset 타입 |
+| `PydanticSemanticOptions` | `pydantic/options.ts` | semantic 옵션 타입 |
+| `ResolvedPydanticBuildOptions` | `pydantic/options.ts` | 해석된 옵션 타입 |
+| `RunPyPassesResult` | `pydantic/passes/index.ts` | pass 실행 결과 타입 |
+| `RunPyPassesSettings` | `pydantic/passes/index.ts` | pass 실행 설정 타입 |
 | `pluginClient()` | `plugin/plugins/client.ts` | openapi-ts 스타일 단일 객체 인자 및 판별 유니온 클라이언트 SDK 생성 플러그인 |
 | `pluginSdk()` | `plugin/plugins/client.ts` | pluginClient의 표준 명칭 별칭 |
 | `pluginTanstackQuery()` | `plugin/plugins/tanstack-query.ts` | TanStack Query v5 3-Tier(Keys, Options, Hooks) 생성 플러그인 |

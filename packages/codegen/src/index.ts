@@ -90,6 +90,8 @@ export {
   schemaToZod,
   ZodGenerationPreflightError,
 } from './zodgen/index.js'
+export * from './pydantic/index.js'
+export { pydantic } from './plugin/plugins/pydantic.js'
 export { buildTypeSpecGeneratedGraphSemanticIndex, TYPESPEC_TS_GRAPH_SEMANTIC_SCHEMA } from './typegen/typespec-graph-semantic.js'
 export { typeSpecGraphProvenanceSchema } from './cli/lib/typespec-graph-provenance.js'
 export { createMemoryWorkspaceIndex, createNoopWorkspaceIndex, createWorkspaceIndex } from './workspace-index.js'

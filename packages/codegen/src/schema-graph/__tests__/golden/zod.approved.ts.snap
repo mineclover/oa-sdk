@@ -1,0 +1,347 @@
+// Auto-generated from OpenAPI 3.2 spec by @oa-sdk/codegen
+// Do not edit directly.
+
+import { z } from 'zod'
+
+export const ActiveEntityIdSchema = z.string().guid().describe("Action role binding에 쓰는 active Entity UUID")
+export type ActiveEntityId = z.infer<typeof ActiveEntityIdSchema>
+
+export const AdminUsersExportRequestSchema = z.object({
+  format: z.enum(["json", "csv"]).default("json").optional(),
+  pseudonymize: z.boolean().default(true).optional(),
+}).strict().describe("사용자 PII bulk export 요청. data-eng ETL surface이며 non-admin\nperspective에서는 pseudonymization이 필수입니다.\n")
+export type AdminUsersExportRequest = z.infer<typeof AdminUsersExportRequestSchema>
+
+export const AdvanceByLogicalDurationSchema = z.object({
+  duration: z.string(),
+  kind: z.enum(["by-duration"]),
+}).strict().describe("현재 logical time에서 duration만큼 전진하는 요청")
+export type AdvanceByLogicalDuration = z.infer<typeof AdvanceByLogicalDurationSchema>
+
+export const AdvanceToLogicalTimeSchema = z.object({
+  kind: z.enum(["to-logical-time"]),
+  targetLogicalTime: z.string(),
+}).strict().describe("현재 logical time에서 target instant까지 전진하는 요청")
+export type AdvanceToLogicalTime = z.infer<typeof AdvanceToLogicalTimeSchema>
+
+export const AuthSessionSchema = z.object({
+  tokens: z.lazy(() => TokenPairSchema),
+  user: z.lazy(() => UserSchema),
+}).describe("사용자 + 토큰 페어 — 가입/로그인 응답 단위")
+export type AuthSession = z.infer<typeof AuthSessionSchema>
+
+export const BuildInfoSchema = z.object({
+  builtAt: z.string().datetime(),
+  gitSha: z.string().min(7).describe("커밋 해시"),
+  version: z.string().describe("semver 또는 빌드 식별 라벨"),
+}).describe("현재 실행 중인 빌드 정보")
+export type BuildInfo = z.infer<typeof BuildInfoSchema>
+
+export const ChangePasswordRequestSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8).describe("최소 8자 이상"),
+}).describe("비밀번호 변경 요청")
+export type ChangePasswordRequest = z.infer<typeof ChangePasswordRequestSchema>
+
+export const CreateUserRequestSchema = z.object({
+  email: z.string().email(),
+  name: z.string().min(1).max(100),
+  password: z.string().min(8).describe("최소 8자 이상"),
+}).describe("사용자 생성 요청")
+export type CreateUserRequest = z.infer<typeof CreateUserRequestSchema>
+
+export const CreateWorldRequestSchema = z.object({
+  bootstrapSpecRef: z.string().min(1).describe("모델이 해석하는 초기 scenario/configuration reference"),
+  executionProfile: z.lazy(() => ExecutionProfileRefSchema),
+  modelRef: z.lazy(() => ModelRefSchema),
+  runSeedMaterial: z.string().describe("선택적 replay seed material. 없으면 provider가 생성한 값을 WorldControlState에 고정합니다.").optional(),
+  worldId: z.string().guid(),
+}).describe("새 World bootstrap 요청. 생성 뒤 ModelRef와 ExecutionProfileRef는 normal Stimulus로 바꿀 수 없습니다.")
+export type CreateWorldRequest = z.infer<typeof CreateWorldRequestSchema>
+
+export const DependencyStatusSchema = z.object({
+  latencyMs: z.int().gte(0).optional(),
+  message: z.string().optional(),
+  name: z.string(),
+  status: z.enum(["ok", "degraded", "down"]),
+})
+export type DependencyStatus = z.infer<typeof DependencyStatusSchema>
+
+export const ErrorSchema = z.object({
+  _meta: z.object({
+    operationId: z.string().optional(),
+    requestId: z.string().guid().optional(),
+  }).optional(),
+  code: z.enum(["BAD_REQUEST", "UNAUTHORIZED", "FORBIDDEN", "NOT_FOUND", "CONFLICT", "SCHEMA_VALIDATION_FAILED", "RATE_LIMITED", "INTERNAL_SERVER_ERROR", "SERVICE_UNAVAILABLE"]).describe("머신 리더블 에러 코드 (페르소나 시나리오의 expected assertion 단위)"),
+  details: z.array(z.lazy(() => ValidationErrorSchema)).optional(),
+  message: z.string().describe("사람이 읽을 수 있는 에러 설명"),
+}).describe("표준 에러 응답 스키마")
+export type Error = z.infer<typeof ErrorSchema>
+
+export const ExecutionProfileRefSchema = z.object({
+  profileId: z.string().min(1),
+  semanticFingerprint: z.string().min(1),
+  version: z.string().min(1),
+}).describe("World에 고정할 실행 provider 조합의 정확한 식별자")
+export type ExecutionProfileRef = z.infer<typeof ExecutionProfileRefSchema>
+
+export const ExecutionProfileSummarySchema = z.object({
+  commitIsolation: z.enum(["single-writer", "optimistic-revision-cas", "serializable-transaction"]),
+  conformanceProfiles: z.array(z.string()),
+  decisionRandom: z.enum(["counter-derived", "seeded-stream"]),
+  numericSemantics: z.enum(["fixed-decimal", "rational", "strict-binary-float"]),
+  persistenceRecovery: z.enum(["volatile", "snapshot-journal", "durable-outbox"]),
+  profile: z.lazy(() => ExecutionProfileRefSchema),
+}).describe("선택 가능한 실행 profile의 공개 요약")
+export type ExecutionProfileSummary = z.infer<typeof ExecutionProfileSummarySchema>
+
+export const ExportJobSchema = z.object({
+  downloadUrl: z.string().url().describe("status가 ready일 때만 제공").optional(),
+  jobId: z.string().guid(),
+  requestedAt: z.string().datetime(),
+  status: z.enum(["queued", "running", "ready", "failed"]),
+}).describe("export job receipt. 이 계약의 POST 응답은 queued 상태만 반환하며, 이후 상태 전이와 downloadUrl 전달 방식은 runtime 계약이 별도로 정의합니다.")
+export type ExportJob = z.infer<typeof ExportJobSchema>
+
+export const ExportRequestSchema = z.object({
+  format: z.enum(["json", "csv"]).default("json").optional(),
+}).describe("데이터 export 요청")
+export type ExportRequest = z.infer<typeof ExportRequestSchema>
+
+export const ForgotPasswordRequestSchema = z.object({
+  email: z.string().email(),
+}).describe("비밀번호 재설정 토큰 발송 요청")
+export type ForgotPasswordRequest = z.infer<typeof ForgotPasswordRequestSchema>
+
+export const HealthEventSchema = z.object({
+  status: z.enum(["ok", "degraded", "down"]).describe("관측된 서버 상태"),
+  timestamp: z.string().datetime().describe("이벤트 발생 시각"),
+}).describe("SSE 헬스 이벤트 payload")
+export type HealthEvent = z.infer<typeof HealthEventSchema>
+
+export const HealthEventsSchema = z.lazy(() => HealthEventSchema)
+export type HealthEvents = z.infer<typeof HealthEventsSchema>
+
+export const HealthStatusSchema = z.object({
+  status: z.enum(["ok"]),
+  timestamp: z.string().datetime(),
+})
+export type HealthStatus = z.infer<typeof HealthStatusSchema>
+
+export const ListExecutionProfilesResponseBodySchema = z.object({
+  items: z.array(z.lazy(() => ExecutionProfileSummarySchema)),
+})
+export type ListExecutionProfilesResponseBody = z.infer<typeof ListExecutionProfilesResponseBodySchema>
+
+export const LoginRequestSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+}).describe("로그인 요청")
+export type LoginRequest = z.infer<typeof LoginRequestSchema>
+
+export const ModelRefSchema = z.object({
+  modelId: z.string().min(1),
+  semanticFingerprint: z.string().min(1),
+  version: z.string().min(1),
+}).describe("게시된 World Model artifact의 정확한 식별자")
+export type ModelRef = z.infer<typeof ModelRefSchema>
+
+export const OnboardingChecklistSchema = z.object({
+  items: z.array(z.lazy(() => OnboardingItemSchema)),
+}).describe("온보딩 가이드 체크리스트")
+export type OnboardingChecklist = z.infer<typeof OnboardingChecklistSchema>
+
+export const OnboardingItemSchema = z.object({
+  completed: z.boolean(),
+  hint: z.string().optional(),
+  id: z.string(),
+  title: z.string(),
+})
+export type OnboardingItem = z.infer<typeof OnboardingItemSchema>
+
+export const ProjectionBundleEnvelopeSchema = z.object({
+  bundleId: z.string().min(1),
+  modelRef: z.lazy(() => ModelRefSchema),
+  projections: z.array(z.lazy(() => ProjectionBundleItemSchema)),
+  sourceRevision: z.int().gte(0),
+  status: z.enum(["complete", "incomplete", "stale"]),
+  worldId: z.string().guid(),
+}).describe("같은 revision에서 함께 읽어야 하는 semantic projection bundle")
+export type ProjectionBundleEnvelope = z.infer<typeof ProjectionBundleEnvelopeSchema>
+
+export const ProjectionBundleItemSchema = z.object({
+  projectionId: z.string().min(1),
+  value: z.unknown(),
+}).strict().describe("Projection bundle의 outer world/model/revision context를 상속하는 item")
+export type ProjectionBundleItem = z.infer<typeof ProjectionBundleItemSchema>
+
+export const ProjectionEnvelopeSchema = z.object({
+  modelRef: z.lazy(() => ModelRefSchema),
+  projectionId: z.string().min(1),
+  sourceRevision: z.int().gte(0),
+  value: z.unknown(),
+  worldId: z.string().guid(),
+}).describe("특정 source revision에서 materialize한 semantic projection")
+export type ProjectionEnvelope = z.infer<typeof ProjectionEnvelopeSchema>
+
+export const PublicUserProfileSchema = z.object({
+  id: z.string().guid(),
+  name: z.string().min(1).max(100),
+  role: z.enum(["admin", "user", "guest"]),
+}).describe("공개 프로필 — PII 비포함 (email/createdAt 제외)")
+export type PublicUserProfile = z.infer<typeof PublicUserProfileSchema>
+
+export const PurgeUserRequestSchema = z.object({
+  legalHoldOverride: z.boolean().default(false).describe("legal hold 예외 승인 여부").optional(),
+  reason: z.string().min(1).max(1000).describe("영구 삭제 감사 사유"),
+}).strict().describe("site-admin 사용자 hard purge 요청. deleteUser와 별도의 권한 및 감사 절차를 적용합니다.")
+export type PurgeUserRequest = z.infer<typeof PurgeUserRequestSchema>
+
+export const ReadinessReportSchema = z.object({
+  dependencies: z.array(z.lazy(() => DependencyStatusSchema)),
+  status: z.enum(["ready", "not-ready"]),
+  timestamp: z.string().datetime(),
+}).describe("readiness probe 결과 — 의존 시스템 검증 포함")
+export type ReadinessReport = z.infer<typeof ReadinessReportSchema>
+
+export const RefreshRequestSchema = z.object({
+  refreshToken: z.string().min(1),
+}).describe("토큰 갱신 요청")
+export type RefreshRequest = z.infer<typeof RefreshRequestSchema>
+
+export const RegisterRequestSchema = z.object({
+  email: z.string().email(),
+  name: z.string().min(1).max(100),
+  password: z.string().min(8).describe("최소 8자 이상"),
+}).describe("회원가입 요청")
+export type RegisterRequest = z.infer<typeof RegisterRequestSchema>
+
+export const ReportSchema = z.object({
+  createdAt: z.string().datetime(),
+  details: z.string().optional(),
+  id: z.string().guid(),
+  reason: z.enum(["spam", "harassment", "hate-speech", "fraud", "impersonation", "other"]),
+  reporterUserId: z.string().guid(),
+  resolvedAt: z.string().datetime().optional(),
+  status: z.enum(["open", "under-review", "resolved", "dismissed"]),
+  targetUserId: z.string().guid(),
+}).describe("신고 단건")
+export type Report = z.infer<typeof ReportSchema>
+
+export const ReportRequestSchema = z.object({
+  details: z.string().max(1000).optional(),
+  reason: z.enum(["spam", "harassment", "hate-speech", "fraud", "impersonation", "other"]),
+}).describe("신고 요청 본문")
+export type ReportRequest = z.infer<typeof ReportRequestSchema>
+
+export const ResetPasswordRequestSchema = z.object({
+  newPassword: z.string().min(8).describe("최소 8자 이상"),
+  token: z.string().min(1),
+}).describe("비밀번호 재설정 요청")
+export type ResetPasswordRequest = z.infer<typeof ResetPasswordRequestSchema>
+
+export const RoleChangeEventSchema = z.object({
+  changedAt: z.string().datetime(),
+  changedBy: z.string().guid().describe("변경을 수행한 admin의 UUID"),
+  id: z.string().guid(),
+  newRole: z.enum(["admin", "user", "guest"]),
+  previousRole: z.enum(["admin", "user", "guest"]),
+  reason: z.string().optional(),
+}).describe("역할 변경 이력 단건")
+export type RoleChangeEvent = z.infer<typeof RoleChangeEventSchema>
+
+export const StimulusAcceptedSchema = z.object({
+  acceptedAtRevision: z.int().gte(0),
+  acceptedLogicalTime: z.string(),
+  status: z.enum(["accepted", "duplicate"]),
+  stimulusId: z.string().guid(),
+  worldId: z.string().guid(),
+}).describe("Agenda가 받아들인 Stimulus. 이 응답은 Transaction commit 성공을 뜻하지 않습니다.")
+export type StimulusAccepted = z.infer<typeof StimulusAcceptedSchema>
+
+export const SubmitActionRequestSchema = z.object({
+  actionTypeId: z.string().min(1),
+  causationId: z.string().optional(),
+  correlationId: z.string().optional(),
+  parameters: z.object({}).catchall(z.unknown()).describe("ActionParameterDefinition stable ID에서 typed JSON value로의 binding").optional(),
+  roles: z.object({}).catchall(z.lazy(() => ActiveEntityIdSchema)).describe("ActionRoleDefinition stable ID에서 active Entity UUID로의 binding"),
+  stimulusId: z.string().guid(),
+}).describe("외부 Action 의도를 SimulationAgenda에 넣기 위한 typed envelope. role/parameter의 상세 contract는 World의 PublishedModel이 검증합니다.")
+export type SubmitActionRequest = z.infer<typeof SubmitActionRequestSchema>
+
+export const SubmitTimeAdvanceRequestSchema = z.object({
+  causationId: z.string().optional(),
+  correlationId: z.string().optional(),
+  request: z.union([z.lazy(() => AdvanceToLogicalTimeSchema), z.lazy(() => AdvanceByLogicalDurationSchema)]),
+  stimulusId: z.string().guid(),
+}).describe("TimeAdvanceRequest envelope. 한 요청은 target instant 또는 duration 중 하나만 가집니다.")
+export type SubmitTimeAdvanceRequest = z.infer<typeof SubmitTimeAdvanceRequestSchema>
+
+export const TokenPairSchema = z.object({
+  accessToken: z.string().describe("bearerAuth 헤더에 사용할 JWT"),
+  expiresIn: z.int().gte(1).describe("accessToken 만료까지 남은 초"),
+  refreshToken: z.string().describe("/auth/refresh 호출에 사용할 장기 토큰"),
+  tokenType: z.enum(["Bearer"]),
+}).describe("access/refresh 토큰 페어")
+export type TokenPair = z.infer<typeof TokenPairSchema>
+
+export const UpdateMeRequestSchema = z.object({
+  name: z.string().min(1).max(100),
+}).strict().describe("셀프 프로필 수정 — name만 허용하며 role과 알 수 없는 필드는 포함할 수 없음")
+export type UpdateMeRequest = z.infer<typeof UpdateMeRequestSchema>
+
+export const UpdateUserRequestSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  role: z.enum(["admin", "user", "guest"]).optional(),
+}).describe("사용자 수정 요청 (부분 업데이트 — 모든 필드 optional)")
+export type UpdateUserRequest = z.infer<typeof UpdateUserRequestSchema>
+
+export const UserSchema = z.object({
+  createdAt: z.string().datetime(),
+  email: z.string().email(),
+  id: z.string().guid(),
+  name: z.string().min(1).max(100),
+  role: z.enum(["admin", "user", "guest"]),
+}).describe("사용자 정보")
+export type User = z.infer<typeof UserSchema>
+
+export const ValidationErrorSchema = z.object({
+  expected: z.string().optional(),
+  message: z.string(),
+  path: z.string(),
+  received: z.union([z.lazy(() => ValidationReceivedStringSummarySchema), z.lazy(() => ValidationReceivedArraySummarySchema), z.lazy(() => ValidationReceivedObjectSummarySchema), z.lazy(() => ValidationReceivedScalarSummarySchema)]).describe("수신값의 안전한 진단 요약. 원문 문자열·객체·배열·토큰·비밀번호는 반환하지 않습니다.").optional(),
+}).describe("필드 수준 유효성 검사 에러")
+export type ValidationError = z.infer<typeof ValidationErrorSchema>
+
+export const ValidationReceivedArraySummarySchema = z.object({
+  count: z.int().gte(0).lte(9007199254740991),
+  type: z.enum(["array"]),
+}).strict().describe("배열 수신값의 content-free 진단 요약")
+export type ValidationReceivedArraySummary = z.infer<typeof ValidationReceivedArraySummarySchema>
+
+export const ValidationReceivedObjectSummarySchema = z.object({
+  count: z.int().gte(0).lte(9007199254740991),
+  type: z.enum(["object"]),
+}).strict().describe("객체 수신값의 content-free 진단 요약")
+export type ValidationReceivedObjectSummary = z.infer<typeof ValidationReceivedObjectSummarySchema>
+
+export const ValidationReceivedScalarSummarySchema = z.object({
+  type: z.enum(["number", "boolean", "bigint", "symbol", "function", "null", "undefined"]),
+}).strict().describe("내용을 포함하지 않는 scalar 수신값의 진단 요약")
+export type ValidationReceivedScalarSummary = z.infer<typeof ValidationReceivedScalarSummarySchema>
+
+export const ValidationReceivedStringSummarySchema = z.object({
+  length: z.int().gte(0).lte(9007199254740991),
+  type: z.enum(["string"]),
+}).strict().describe("문자열 수신값의 content-free 진단 요약")
+export type ValidationReceivedStringSummary = z.infer<typeof ValidationReceivedStringSummarySchema>
+
+export const WorldHeadSchema = z.object({
+  executionProfile: z.lazy(() => ExecutionProfileRefSchema),
+  lifecycle: z.enum(["created", "active", "inactive", "ended"]),
+  logicalTime: z.string().describe("모델이 선언한 형식으로 직렬화한 현재 logical time"),
+  modelRef: z.lazy(() => ModelRefSchema),
+  revision: z.int().gte(0),
+  worldId: z.string().guid(),
+}).describe("World의 public control head. Domain Property와 raw StateObject graph는 포함하지 않습니다.")
+export type WorldHead = z.infer<typeof WorldHeadSchema>

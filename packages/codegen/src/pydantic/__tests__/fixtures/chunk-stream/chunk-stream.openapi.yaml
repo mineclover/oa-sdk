@@ -1,0 +1,538 @@
+openapi: 3.2.0
+info:
+  title: Chunk Stream Fixture
+  version: 0.0.0
+tags: []
+paths: {}
+components:
+  schemas:
+    CallCue:
+      type: object
+      required:
+        - id
+        - at
+        - action
+        - name
+      properties:
+        id:
+          $ref: '#/components/schemas/Identifier'
+        at:
+          $ref: '#/components/schemas/Time'
+        action:
+          type: string
+          enum:
+            - call
+        name:
+          $ref: '#/components/schemas/Identifier'
+        args: {}
+      allOf:
+        - $ref: '#/components/schemas/UiCue'
+    ChunkHeader:
+      type: object
+      required:
+        - id
+        - sequence
+        - from
+        - to
+        - previous
+        - source
+        - next
+        - resources
+      properties:
+        id:
+          $ref: '#/components/schemas/Identifier'
+        sequence:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 4095
+        from:
+          $ref: '#/components/schemas/Time'
+        to:
+          $ref: '#/components/schemas/Time'
+        previous:
+          anyOf:
+            - $ref: '#/components/schemas/Identifier'
+            - type: 'null'
+        source:
+          $ref: '#/components/schemas/ChunkSource'
+        next:
+          $ref: '#/components/schemas/NextPointer'
+        resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceRef'
+          maxItems: 128
+        payloadFormat:
+          $ref: '#/components/schemas/PayloadFormat'
+        format:
+          $ref: '#/components/schemas/PayloadFormat'
+      description: 단일 청크 헤더 (Wire Transport Plane)
+    ChunkSource:
+      type: object
+      required:
+        - src
+        - bytes
+        - sha256
+      properties:
+        src:
+          type: string
+          minLength: 1
+          maxLength: 2048
+        bytes:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 9007199254740991
+        sha256:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+      description: L3 원격 또는 번들 소스 디스크립터
+    ChunkStreamItem:
+      type: object
+      required:
+        - payloadFormat
+      properties:
+        payloadFormat:
+          type: string
+      discriminator:
+        propertyName: payloadFormat
+        mapping:
+          ui-action@v1: '#/components/schemas/UiActionBody'
+          time-series@v1: '#/components/schemas/TimeSeriesBody'
+          crdt-delta@v1: '#/components/schemas/CrdtDeltaBody'
+      description: 다형성 단일 와이어 청크 바디 기본 모델
+    ClickCue:
+      type: object
+      required:
+        - id
+        - at
+        - action
+        - target
+      properties:
+        id:
+          $ref: '#/components/schemas/Identifier'
+        at:
+          $ref: '#/components/schemas/Time'
+        action:
+          type: string
+          enum:
+            - click
+        target:
+          $ref: '#/components/schemas/Identifier'
+      allOf:
+        - $ref: '#/components/schemas/UiCue'
+    CrdtCue:
+      type: object
+      required:
+        - id
+        - trackId
+        - fromFrame
+        - toFrame
+        - payload
+      properties:
+        id:
+          $ref: '#/components/schemas/Identifier'
+        trackId:
+          $ref: '#/components/schemas/Identifier'
+        fromFrame:
+          type: integer
+          format: int32
+          minimum: 0
+        toFrame:
+          type: integer
+          format: int32
+          minimum: 0
+        payload:
+          type: object
+          properties:
+            crdt:
+              $ref: '#/components/schemas/CrdtMetadata'
+          required:
+            - crdt
+    CrdtDeltaBody:
+      type: object
+      required:
+        - schemaVersion
+        - streamId
+        - revision
+        - id
+        - payloadFormat
+        - cues
+      properties:
+        schemaVersion:
+          type: number
+          enum:
+            - 1
+        streamId:
+          $ref: '#/components/schemas/Identifier'
+        revision:
+          $ref: '#/components/schemas/Identifier'
+        id:
+          $ref: '#/components/schemas/Identifier'
+        type:
+          type: string
+          enum:
+            - crdt-delta
+        payloadFormat:
+          type: string
+          enum:
+            - crdt-delta@v1
+        cues:
+          type: array
+          items:
+            $ref: '#/components/schemas/CrdtCue'
+          maxItems: 4096
+        horizon:
+          type: integer
+          format: int64
+      allOf:
+        - $ref: '#/components/schemas/ChunkStreamItem'
+      description: CRDT Delta 복제 청크 바디
+    CrdtMetadata:
+      type: object
+      required:
+        - updatedAt
+        - clientId
+      properties:
+        updatedAt:
+          type: integer
+          format: int64
+          minimum: 0
+        clientId:
+          type: string
+        tombstone:
+          type: boolean
+        seq:
+          type: integer
+          format: int32
+        vectorClock:
+          type: object
+          unevaluatedProperties:
+            type: integer
+            format: int32
+    FallbackChunkState:
+      type: object
+      required:
+        - empty
+        - synthetic
+        - fallback
+        - attempts
+        - failedAt
+      properties:
+        empty:
+          type: boolean
+          enum:
+            - true
+        synthetic:
+          type: boolean
+          enum:
+            - true
+        fallback:
+          type: boolean
+          enum:
+            - true
+        attempts:
+          type: integer
+          format: int32
+          minimum: 1
+        lastError:
+          type: string
+        failedAt:
+          type: integer
+          format: int64
+          minimum: 0
+      description: 빈 청크 또는 실패 대체(Fallback) 상태 메타데이터
+    FocusCue:
+      type: object
+      required:
+        - id
+        - at
+        - action
+        - target
+      properties:
+        id:
+          $ref: '#/components/schemas/Identifier'
+        at:
+          $ref: '#/components/schemas/Time'
+        action:
+          type: string
+          enum:
+            - focus
+        target:
+          $ref: '#/components/schemas/Identifier'
+      allOf:
+        - $ref: '#/components/schemas/UiCue'
+    Identifier:
+      type: string
+      minLength: 1
+      maxLength: 128
+      pattern: ^[A-Za-z_][A-Za-z0-9_.-]*$
+      description: 보안 식별자 (프로토타입 오염 방지)
+    InputCue:
+      type: object
+      required:
+        - id
+        - at
+        - action
+        - target
+        - value
+      properties:
+        id:
+          $ref: '#/components/schemas/Identifier'
+        at:
+          $ref: '#/components/schemas/Time'
+        action:
+          type: string
+          enum:
+            - input
+        target:
+          $ref: '#/components/schemas/Identifier'
+        value:
+          type: string
+        commit:
+          type: boolean
+      allOf:
+        - $ref: '#/components/schemas/UiCue'
+    NextAvailable:
+      type: object
+      required:
+        - state
+        - id
+      properties:
+        state:
+          type: string
+          enum:
+            - available
+        id:
+          $ref: '#/components/schemas/Identifier'
+      allOf:
+        - $ref: '#/components/schemas/NextPointer'
+    NextEnd:
+      type: object
+      required:
+        - state
+      properties:
+        state:
+          type: string
+          enum:
+            - end
+      allOf:
+        - $ref: '#/components/schemas/NextPointer'
+    NextPending:
+      type: object
+      required:
+        - state
+        - id
+      properties:
+        state:
+          type: string
+          enum:
+            - pending
+        id:
+          $ref: '#/components/schemas/Identifier'
+      allOf:
+        - $ref: '#/components/schemas/NextPointer'
+    NextPointer:
+      type: object
+      required:
+        - state
+      properties:
+        state:
+          type: string
+      discriminator:
+        propertyName: state
+        mapping:
+          available: '#/components/schemas/NextAvailable'
+          pending: '#/components/schemas/NextPending'
+          unresolved: '#/components/schemas/NextUnresolved'
+          end: '#/components/schemas/NextEnd'
+      description: 청크 체인 다음 포인터 기본 모델
+    NextUnresolved:
+      type: object
+      required:
+        - state
+      properties:
+        state:
+          type: string
+          enum:
+            - unresolved
+      allOf:
+        - $ref: '#/components/schemas/NextPointer'
+    PayloadFormat:
+      type: string
+      minLength: 1
+      maxLength: 128
+      pattern: ^[A-Za-z0-9_.-]+(@[A-Za-z0-9_.-]+)?$
+      description: '페이로드 포맷 식별자 (예: ui-action@v1, time-series@v1, crdt-delta@v1)'
+    ResourceRef:
+      type: object
+      required:
+        - id
+        - asset
+        - prepare
+      properties:
+        id:
+          $ref: '#/components/schemas/Identifier'
+        asset:
+          $ref: '#/components/schemas/Identifier'
+        prepare:
+          $ref: '#/components/schemas/Identifier'
+      description: 사전 준비 리소스 참조
+    RuntimeChunkEnvelope:
+      type: object
+      required:
+        - id
+        - sequence
+        - streamId
+        - fromFrame
+        - toFrame
+        - payloadFormat
+        - resources
+        - residentBytes
+      properties:
+        id:
+          type: string
+        sequence:
+          type: integer
+          format: int32
+        streamId:
+          type: string
+        fromFrame:
+          type: integer
+          format: int32
+        toFrame:
+          type: integer
+          format: int32
+        payloadFormat:
+          type: string
+        data: {}
+        state:
+          anyOf:
+            - $ref: '#/components/schemas/FallbackChunkState'
+            - type: object
+              unevaluatedProperties: {}
+        resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceRef'
+        residentBytes:
+          type: integer
+          format: int32
+      description: 런타임 청크 엔벨로프 (RuntimeChunkEnvelope)
+    Time:
+      type: string
+      pattern: ^(?:(?:0|[1-9][0-9]*)f|(?:0|[1-9][0-9]*)(?:\.[0-9]{1,9})?(?:s|ms))$
+      description: '시간 표현 규격: 정수 프레임(예: 30f), 초(예: 1.5s), 밀리초(예: 500ms)'
+    TimeSeriesBody:
+      type: object
+      required:
+        - schemaVersion
+        - streamId
+        - revision
+        - id
+        - type
+        - payloadFormat
+        - channels
+        - samples
+      properties:
+        schemaVersion:
+          type: number
+          enum:
+            - 1
+        streamId:
+          $ref: '#/components/schemas/Identifier'
+        revision:
+          $ref: '#/components/schemas/Identifier'
+        id:
+          $ref: '#/components/schemas/Identifier'
+        type:
+          type: string
+          enum:
+            - time-series
+        payloadFormat:
+          type: string
+          enum:
+            - time-series@v1
+        channels:
+          type: array
+          items:
+            $ref: '#/components/schemas/Identifier'
+          minItems: 1
+          maxItems: 64
+        samples:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeSeriesSample'
+          maxItems: 4096
+      allOf:
+        - $ref: '#/components/schemas/ChunkStreamItem'
+      description: 다채널 시계열 청크 바디
+    TimeSeriesSample:
+      type: object
+      required:
+        - at
+        - values
+      properties:
+        at:
+          $ref: '#/components/schemas/Time'
+        values:
+          type: array
+          items:
+            anyOf:
+              - type: number
+                format: double
+              - type: string
+              - type: boolean
+              - type: 'null'
+    UiActionBody:
+      type: object
+      required:
+        - schemaVersion
+        - streamId
+        - revision
+        - id
+        - payloadFormat
+        - targets
+        - cues
+      properties:
+        schemaVersion:
+          type: number
+          enum:
+            - 1
+        streamId:
+          $ref: '#/components/schemas/Identifier'
+        revision:
+          $ref: '#/components/schemas/Identifier'
+        id:
+          $ref: '#/components/schemas/Identifier'
+        payloadFormat:
+          type: string
+          enum:
+            - ui-action@v1
+        targets:
+          type: object
+          unevaluatedProperties:
+            type: string
+        cues:
+          type: array
+          items:
+            $ref: '#/components/schemas/UiCue'
+          maxItems: 4096
+      allOf:
+        - $ref: '#/components/schemas/ChunkStreamItem'
+      description: UI Action 청크 바디
+    UiCue:
+      type: object
+      required:
+        - action
+      properties:
+        action:
+          type: string
+      discriminator:
+        propertyName: action
+        mapping:
+          focus: '#/components/schemas/FocusCue'
+          click: '#/components/schemas/ClickCue'
+          input: '#/components/schemas/InputCue'
+          call: '#/components/schemas/CallCue'

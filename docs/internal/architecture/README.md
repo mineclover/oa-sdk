@@ -27,6 +27,7 @@
 |---|---|---|
 | [013-incremental-build-partial-patch.md](./013-incremental-build-partial-patch.md) | WorkspaceIndex 영향도 재생성과 source-owned AST 부분 패치의 경계 | impact-scoped regeneration 우선, source patch는 별도 승인 대기 |
 | [semantic-abstraction-contract-boundary.md](./semantic-abstraction-contract-boundary.md) | Semantic Platform 의미 정본과 `oa-sdk` 스키마 선언·codegen·타깃 어댑터 책임 분리 | 소유 경계 `active`, 의미 참조·불완전 상태 표현 후보는 `proposed` (신규 스키마/배포 비채택) |
+| [pydantic-codegen-pipeline.md](./pydantic-codegen-pipeline.md) | OAS 3.2 → Pydantic v2 codegen 단계형 데이터 파이프라인과 빌드 옵션·preset | 설계 `accepted`, Phase 1 구현 완료 |
 
 ### 3. 대체 및 격리된 레거시 ADR (Superseded & Isolated Legacy ADRs)
 

@@ -26,6 +26,7 @@ import { referenceCheck } from './commands/reference-check.js'
 import { parallelEvidence } from './commands/parallel-evidence.js'
 import { auditCsp } from './commands/audit-csp.js'
 import { generateZod } from './commands/generate-zod.js'
+import { generatePydantic } from './commands/generate-pydantic.js'
 import { tspDiff } from './commands/tsp-diff.js'
 import { mock } from './commands/mock.js'
 import { auditShapeCommand } from './commands/audit-shape.js'
@@ -43,6 +44,7 @@ export const commands: Command[] = [
   generateClientCommand,
   generateTanstackCommand,
   generateZod,
+  generatePydantic,
   generateGuardsCommand,
   generateDrizzleCommand,
   surface,
@@ -83,6 +85,7 @@ export const commands: Command[] = [
 
 export {
   generateZod,
+  generatePydantic,
   tspDiff,
   mock,
   auditShapeCommand,
@@ -99,5 +102,4 @@ export {
   trace,
   traceCommand,
 }
-
 

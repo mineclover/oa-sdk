@@ -1,0 +1,213 @@
+"""Validate one generated Pydantic module and print lane counters."""
+import importlib.util
+import json
+import sys
+from pathlib import Path
+from typing import Any
+
+from pydantic import BaseModel, TypeAdapter, ValidationError
+
+
+COUNTER_NAMES = (
+    "examples", "aliasByWire", "aliasByAttribute", "dumpByAlias", "omitOptional",
+    "rejectNull", "taggedUnion", "uniqueItems",
+)
+
+
+def load_module(path: str):
+    """Import the generated module from a temporary path."""
+    module_path = Path(path)
+    spec = importlib.util.spec_from_file_location("generated_models", module_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    for value in vars(module).values():
+        if isinstance(value, type) and issubclass(value, BaseModel):
+            if value.__module__ == module.__name__:
+                value.model_rebuild()
+    return module
+
+
+def validate_examples(module: Any, payload: dict[str, Any], counters: dict[str, int]) -> None:
+    """Validate every fixture example against its generated declaration."""
+    for item in payload["examples"]:
+        cls = getattr(module, item["pyName"])
+        if item["alias"]:
+            cls.model_validate(item["value"])
+        else:
+            TypeAdapter(cls).validate_python(item["value"])
+        counters["examples"] += 1
+
+
+def validate_aliases(module: Any, payload: dict[str, Any], counters: dict[str, int]) -> None:
+    """Validate model examples by wire and attribute names and inspect aliases."""
+    for item in payload["modelCases"]:
+        cls = getattr(module, item["pyName"])
+        wire_data = item["value"]
+        attribute_data = {
+            field["attribute"]: wire_data[field["wire"]]
+            for field in item["fields"]
+            if field["wire"] in wire_data
+        }
+        cls.model_validate(wire_data)
+        counters["aliasByWire"] += 1
+        cls.model_validate(attribute_data)
+        counters["aliasByAttribute"] += 1
+        dumped = cls.model_validate(wire_data).model_dump(by_alias=True)
+        if all(field["wire"] in dumped for field in item["fields"] if field["wire"] in wire_data):
+            counters["dumpByAlias"] += 1
+
+
+def validate_extra(module: Any, payload: dict[str, Any]) -> None:
+    """Check the configured extra policy on an open model example."""
+    options = payload["options"]
+    open_cases = [item for item in payload["modelCases"] if item.get("open")]
+    if not open_cases:
+        return
+    item = open_cases[0]
+    cls = getattr(module, item["pyName"])
+    value = dict(item["value"])
+    value["__lane_unknown__"] = True
+    if options["extra"] == "ignore":
+        assert "__lane_unknown__" not in (cls.model_validate(value).model_extra or {})
+    elif options["extra"] == "allow":
+        assert cls.model_validate(value).model_extra["__lane_unknown__"] is True
+    else:
+        try:
+            cls.model_validate(value)
+        except ValidationError:
+            return
+        raise AssertionError("extra field was accepted")
+
+
+def validate_tagged_union(module: Any, payload: dict[str, Any], counters: dict[str, int]) -> None:
+    """Validate each NextPointer discriminator variant."""
+    if payload["fixture"] != "chunk-stream":
+        return
+    adapter = TypeAdapter(module.NextPointerUnion)
+    variants = {
+        "available": "NextAvailable", "pending": "NextPending",
+        "unresolved": "NextUnresolved", "end": "NextEnd",
+    }
+    for state, expected in variants.items():
+        value = {"state": state}
+        if state in {"available", "pending"}:
+            value["id"] = "lane"
+        result = adapter.validate_python(value)
+        assert result.__class__.__name__ == expected
+        counters["taggedUnion"] += 1
+
+
+def validate_unique(module: Any, payload: dict[str, Any], counters: dict[str, int]) -> None:
+    """Reject duplicate list items and accept a unique list."""
+    case = payload.get("uniqueCase")
+    if case is None:
+        return
+    cls = getattr(module, case["class"])
+    try:
+        cls.model_validate({case["field"]: ["x", "x"]})
+    except ValidationError:
+        counters["uniqueItems"] += 1
+    else:
+        raise AssertionError("duplicate items were accepted")
+    cls.model_validate({case["field"]: ["x", "y"]})
+    counters["uniqueItems"] += 1
+
+
+def validate_semantic(module: Any, payload: dict[str, Any]) -> dict[str, int]:
+    """Run deterministic semantic checks against the inline test document."""
+    options = payload["options"]
+    person = module.Person
+    locked = module.Locked
+    tags = module.Tags
+    counters: dict[str, int] = {}
+    person.model_validate({"personId": "p"})
+    counters["omitNickName"] = 1
+    try:
+        person.model_validate({"personId": "p", "nickName": None})
+    except ValidationError:
+        counters["rejectNickNameNull"] = 1
+    else:
+        counters["acceptNickNameNull"] = 1
+    person.model_validate({"personId": "p", "note": None})
+    counters["acceptNoteNull"] = 1
+    if options["optionalStyle"] == "plain":
+        assert "acceptNickNameNull" in counters
+        counters.pop("omitNickName", None)
+        counters.pop("rejectNickNameNull", None)
+    elif options["naming"] != "preserve":
+        counters["wireInput"] = 1
+        person.model_validate({"person_id": "p", "nick_name": "n", "note": "x"})
+        counters["attributeInput"] = 1
+        dumped = person.model_validate({"personId": "p", "nickName": "n"}).model_dump(by_alias=True)
+        assert set(dumped) == {"personId", "nickName", "note", "_meta", "from", "json"}
+        counters["dumpByAlias"] = 1
+    if options["extra"] == "ignore":
+        assert "zzz" not in (person.model_validate({"personId": "p", "zzz": 1}).model_extra or {})
+        counters["ignoreExtra"] = 1
+    elif options["extra"] == "allow":
+        assert person.model_validate({"personId": "p", "zzz": 1}).model_extra == {"zzz": 1}
+        counters["allowExtra"] = 1
+    else:
+        try:
+            person.model_validate({"personId": "p", "zzz": 1})
+        except ValidationError:
+            counters["forbidExtra"] = 1
+        else:
+            raise AssertionError("Person accepted an extra field")
+    try:
+        locked.model_validate({"id": "x", "zzz": 1})
+    except ValidationError:
+        counters["lockedReject"] = 1
+    else:
+        raise AssertionError("Locked accepted an extra field")
+    try:
+        tags.model_validate({"values": ["x", "x"]})
+    except ValidationError:
+        counters["duplicateReject"] = 1
+    else:
+        raise AssertionError("duplicate tags accepted")
+    tags.model_validate({"values": ["x", "y"]})
+    counters["uniqueAccept"] = 1
+    if options["naming"] == "preserve":
+        for wire, attribute in (("personId", "personId"), ("nickName", "nickName"), ("note", "note")):
+            assert wire == attribute and wire in person.model_fields
+        counters["preserveNames"] = 3
+        for wire, attribute in (("_meta", "meta"), ("from", "from_"), ("json", "json_")):
+            field = person.model_fields[attribute]
+            assert wire != attribute and field.alias == wire
+            person.model_validate({"personId": "p", wire: "x"})
+        counters["preserveAliases"] = 3
+    if options["naming"] == "preserve":
+        return {key: counters[key] for key in ("preserveNames", "preserveAliases")}
+    if options["optionalStyle"] == "plain":
+        return {key: counters[key] for key in ("acceptNickNameNull", "acceptNoteNull")}
+    if options["extra"] == "allow":
+        return {key: counters[key] for key in ("allowExtra", "lockedReject")}
+    if options["extra"] == "forbid":
+        return {"forbidExtra": counters["forbidExtra"]}
+    return {key: counters[key] for key in (
+        "omitNickName", "rejectNickNameNull", "acceptNoteNull", "wireInput", "attributeInput",
+        "dumpByAlias", "ignoreExtra", "lockedReject", "duplicateReject", "uniqueAccept",
+    )}
+
+
+def main() -> None:
+    """Run all checks and emit one machine-readable counter line."""
+    payload = json.loads(Path(sys.argv[1]).read_text())
+    if payload.get("semantic"):
+        print(json.dumps(validate_semantic(load_module(payload["module"]), payload), separators=(",", ":")))
+        return
+    counters = {name: 0 for name in COUNTER_NAMES}
+    module = load_module(payload["module"])
+    validate_examples(module, payload, counters)
+    validate_aliases(module, payload, counters)
+    validate_tagged_union(module, payload, counters)
+    validate_unique(module, payload, counters)
+    print(json.dumps(counters, separators=(",", ":")))
+
+
+if __name__ == "__main__":
+    main()

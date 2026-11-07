@@ -1,0 +1,68 @@
+openapi: 3.2.0
+info:
+  title: Recursive Graph Service
+  version: 1.0.0
+tags: []
+paths:
+  /tree:
+    get:
+      operationId: Trees_getRoot
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TreeNode'
+  /tree/comments/{id}:
+    get:
+      operationId: Trees_getCommentTree
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+components:
+  schemas:
+    Comment:
+      type: object
+      required:
+        - id
+        - author
+        - content
+      properties:
+        id:
+          type: string
+        author:
+          type: string
+        content:
+          type: string
+        replies:
+          type: array
+          items:
+            $ref: '#/components/schemas/Comment'
+    TreeNode:
+      type: object
+      required:
+        - id
+        - label
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/TreeNode'
+        parent:
+          $ref: '#/components/schemas/TreeNode'

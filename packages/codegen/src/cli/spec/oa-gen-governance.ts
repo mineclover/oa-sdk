@@ -5,6 +5,37 @@ export const oaGenGovernanceManifest = {
   namespace: 'oa-gen',
   commands: [
     {
+      id: 'generate-pydantic',
+      kind: 'command',
+      name: 'generate:pydantic',
+      summary: 'Generate Pydantic v2 models from an OpenAPI 3.2 specification',
+      components: {
+        options: [
+          { name: 'spec', type: 'string', short: 's', required: true, description: 'Path to OpenAPI 3.2 spec file' },
+          { name: 'out', type: 'string', short: 'o', description: 'Output directory or Python file path' },
+          { name: 'preset', type: 'string', description: 'Preset: default | strict | passthrough' },
+          { name: 'extra', type: 'string', description: 'Extra policy: ignore | allow | forbid' },
+          { name: 'optional-style', type: 'string', description: 'Optional policy: reject-null | plain' },
+          { name: 'naming', type: 'string', description: 'Naming: snake-alias | preserve' },
+          { name: 'regex', type: 'string', description: 'Regex mode: ecma | raw | python-re' },
+          { name: 'enum-style', type: 'string', description: 'Enum style: str-enum | literal' },
+          { name: 'datetime', type: 'string', description: 'Date-time mode: aware | naive' },
+          { name: 'uri', type: 'string', description: 'URI mode: str | normalized URL' },
+          { name: 'int-bounds', type: 'string', description: 'Integer bounds: format | none' },
+          { name: 'emit-ir', type: 'boolean', description: 'Emit the resolved IR beside the module' },
+          { name: 'report', type: 'string', description: 'Write the build report JSON to this file' },
+          { name: 'force', type: 'boolean', description: 'Proceed despite preflight errors or error diagnostics' },
+          { name: 'no-validate', type: 'boolean', description: 'Skip preflight validation' },
+          { name: 'no-normalize', type: 'boolean', description: 'Skip OpenAPI normalization' },
+          { name: 'categories', type: 'string', description: 'Preflight lint categories, comma-separated' },
+        ],
+        inputs: [{ name: 'spec', kind: 'openapi-document', required: true, option: 'spec' }],
+        checks: [],
+        reports: [{ formats: ['json'], schema: 'oa-sdk.pydantic-build-report.v1' }],
+        exitPolicy: { success: ['APPROVE', 'COMMENT'], failure: ['REQUEST_CHANGES'] },
+      },
+    },
+    {
       id: 'init',
       kind: 'command',
       name: 'init',
@@ -1584,4 +1615,3 @@ export const oaGenGovernanceManifest = {
     },
   ],
 } satisfies CliCommandManifest
-

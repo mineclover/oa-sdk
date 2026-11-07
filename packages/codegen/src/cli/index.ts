@@ -16,6 +16,7 @@ import {
   generateClientCommand,
   packClientCommand,
   generateZod,
+  generatePydantic,
 } from './commands.js'
 import { driftCheck } from './commands/check-artifact.js'
 import { tspDiff } from './commands/tsp-diff.js'
@@ -73,6 +74,8 @@ commandMap.set('pack-client', packClientCommand)
 
 commandMap.set('generate:zod', generateZod)
 commandMap.set('generate-zod', generateZod)
+commandMap.set('generate:pydantic', generatePydantic)
+commandMap.set('generate-pydantic', generatePydantic)
 
 commandMap.set('drift:live', driftLive)
 commandMap.set('drift-live', driftLive)
