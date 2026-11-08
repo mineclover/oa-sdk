@@ -26,6 +26,7 @@ export const oaGenGovernanceManifest = {
           { name: 'extensions', type: 'string', description: 'OpenAPI x-* extensions: preserve | drop' },
           { name: 'no-docstrings', type: 'boolean', description: 'Do not emit model docstrings' },
           { name: 'frozen', type: 'boolean', description: 'Make generated models immutable' },
+          { name: 'oneof-mode', type: 'string', description: 'Discriminator-less oneOf validation: smart | exact' },
           { name: 'emit-ir', type: 'boolean', description: 'Emit the resolved IR beside the module' },
           { name: 'layout', type: 'string', description: 'Output layout: split | single' },
           { name: 'no-operations', type: 'boolean', description: 'Do not include operation declarations' },

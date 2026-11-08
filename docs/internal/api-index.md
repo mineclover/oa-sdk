@@ -821,6 +821,17 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `zodToSchema()` | `zod-to-schema.ts` | Zod 4 → OAS 3.2 Schema (refs 컨텍스트 지원) |
 | `buildPydanticModels()` | `pydantic/build.ts` | OpenAPI 문서에서 Pydantic v2 모델 모듈과 진단 생성 |
 | `renderPyModule()` | `pydantic/render.ts` | 해결된 Pydantic IR을 Python 소스로 렌더링 |
+| `renderPyOperationsModule()` | `pydantic/render-operations.ts` | split/single operation 모델과 `OPERATIONS` metadata 렌더링 |
+| `renderPyPackageInit()` | `pydantic/render-operations.ts` | split generated package의 `__init__.py` 렌더링 |
+| `renderJson()` | `pydantic/render.ts` | IR 값의 deterministic Python literal 렌더링 |
+| `renderType()` | `pydantic/render.ts` | IR 타입 표현 렌더링 |
+| `renderField()` | `pydantic/render.ts` | resolved field 렌더링 |
+| `renderModel()` | `pydantic/render.ts` | resolved model 렌더링 |
+| `declarationNames()` | `pydantic/render.ts` | IR declaration name/index map 생성 |
+| `appendExactOneOfHelper()` | `pydantic/render.ts` | exact oneOf validator helper source 추가 |
+| `DeclName` | `pydantic/render.ts` | declaration Python name/index 타입 |
+| `DeclNames` | `pydantic/render.ts` | declaration name map 타입 |
+| `PydanticRenderedSources` | `pydantic/emit.ts` | S5가 S6에 전달하는 rendered source 묶음 |
 | `generateComponents()` | `generator.ts` | Zod 맵 → YAML (writeSchemas 위임) |
 | `defineConfig()` | `config.ts` | 타입 안전 oa.config.ts 설정 정의 헬퍼 |
 | `validateOaConfig()` | `config.ts` | OaConfig 스키마 및 타겟 유효성 검증 |

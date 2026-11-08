@@ -47,6 +47,7 @@ export const collectImportsPass: PyPass<never> = {
     }
     for (const decl of result.decls) {
       if (decl.kind === 'model') {
+        if (decl.operationOwner !== undefined) continue
         add('pydantic', 'BaseModel')
         add('pydantic', 'ConfigDict')
         if (decl.openness.kind === 'typed-map') add('pydantic', 'Field')

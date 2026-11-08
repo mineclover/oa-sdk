@@ -33,6 +33,7 @@ export interface PydanticBuildReport {
   /** SHA-256 of the module content without the banner. */
   contentSha256: string
   declarations: { models: number; enums: number; aliases: number; operations: number }
+  files: string[]
   diagnostics: Record<PydanticDiagnosticSeverity, number>
 }
 
@@ -41,16 +42,43 @@ export interface PydanticEmitResult {
   report: PydanticBuildReport
 }
 
+export interface PydanticRenderedSources {
+  operations?: string
+  packageInit?: string
+}
+
 export function emitPydanticFiles(
   source: string,
   ir: PyModuleIR,
   options: ResolvedPydanticBuildOptions,
+  rendered: PydanticRenderedSources = {},
 ): PydanticEmitResult {
   const semanticEntries = PYDANTIC_SEMANTIC_OPTION_KEYS.map(key => [key, options[key]])
   const semantic = Object.fromEntries(semanticEntries) as unknown as PydanticSemanticOptions
   const diagnostics: Record<PydanticDiagnosticSeverity, number> = { info: 0, warning: 0, error: 0 }
   for (const d of ir.diagnostics) diagnostics[d.severity] += 1
 
+  const operationDecls = ir.decls.filter(d => d.kind === 'operation')
+  const operationPath = `${options.output.split('/').slice(0, -1).join('/')}${options.output.includes('/') ? '/' : ''}operations.py`
+  const initPath = `${options.output.split('/').slice(0, -1).join('/')}${options.output.includes('/') ? '/' : ''}__init__.py`
+  const extraFiles = options.layout === 'split' && options.emitOperations && operationDecls.length > 0 && rendered.operations !== undefined
+    ? [{
+      path: operationPath,
+      content: rendered.operations,
+      sourcePlugin: PYDANTIC_PLUGIN_NAME,
+      banner: PYDANTIC_GENERATED_BANNER,
+      kind: 'operations',
+      exports: ['OperationSpec', 'OPERATIONS',
+        ...ir.decls.filter(d => d.kind === 'model' && d.operationOwner !== undefined && d.pyName !== null).map(d => d.pyName as string),
+        ...operationDecls.flatMap(d => d.kind === 'operation' ? Object.values(d.modelNames).filter((name): name is string => name !== null && name !== '') : [])],
+    }, {
+      path: initPath,
+      content: rendered.packageInit ?? '"""Generated package marker for Pydantic models and operations."""\n',
+      sourcePlugin: PYDANTIC_PLUGIN_NAME,
+      banner: PYDANTIC_GENERATED_BANNER,
+      kind: 'package',
+    }] satisfies TspGeneratedFile[]
+    : []
   const report: PydanticBuildReport = {
     schema: PYDANTIC_BUILD_REPORT_SCHEMA,
     preset: options.preset,
@@ -66,6 +94,7 @@ export function emitPydanticFiles(
       aliases: ir.decls.filter(d => d.kind === 'alias').length,
       operations: ir.decls.filter(d => d.kind === 'operation').length,
     },
+    files: [options.output, ...extraFiles.map(file => file.path), ...(options.emitIr ? [`${options.output}.ir.json`] : [])],
     diagnostics,
   }
 
@@ -78,6 +107,7 @@ export function emitPydanticFiles(
     exports: ir.decls.map(d => d.pyName).filter((name): name is string => typeof name === 'string'),
     metadata: { report },
   }]
+  files.push(...extraFiles)
   if (options.emitIr) {
     files.push({
       path: `${options.output}.ir.json`,

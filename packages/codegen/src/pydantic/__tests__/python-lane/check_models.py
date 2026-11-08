@@ -1,5 +1,6 @@
 """Validate one generated Pydantic module and print lane counters."""
 import importlib.util
+import importlib
 import json
 import sys
 from pathlib import Path
@@ -17,6 +18,9 @@ COUNTER_NAMES = (
 def load_module(path: str):
     """Import the generated module from a temporary path."""
     module_path = Path(path)
+    if module_path.name != "models.py" and (module_path.parent / "__init__.py").exists():
+        sys.path.insert(0, str(module_path.parent.parent))
+        return importlib.import_module(f"{module_path.parent.name}.{module_path.stem}")
     spec = importlib.util.spec_from_file_location("generated_models", module_path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"cannot load {module_path}")
@@ -260,6 +264,60 @@ def validate_recursive_alias(module: Any, counters: dict[str, int]) -> None:
     counters["recursiveAlias"] = 1
 
 
+def validate_operations(module: Any, payload: dict[str, Any]) -> dict[str, int]:
+    """Validate operation request/response/error models and metadata."""
+    counters: dict[str, int] = {}
+    path = module.ReadItemPathParams.model_validate({"id": 1})
+    assert path.model_dump(by_alias=True) == {"id": 1}
+    query = module.ReadItemQueryParams.model_validate({})
+    assert query.model_dump(by_alias=True) == {"q": None}
+    header = module.ReadItemHeaderParams.model_validate({"X-Request-Id": "lane"})
+    assert header.model_dump(by_alias=True) == {"X-Request-Id": "lane"}
+    counters["requestModels"] = 1
+    body = TypeAdapter(module.ReadItemBody).validate_python({"name": "thing"})
+    assert body.name == "thing"
+    counters["bodyAlias"] = 1
+    response = TypeAdapter(module.ReadItemResponse).validate_python({"accepted": True})
+    assert response.accepted is True
+    counters["responseUnion"] = 1
+    error = TypeAdapter(module.ReadItemError).validate_python({"code": "NOT_FOUND"})
+    assert isinstance(error, module.NotFound)
+    assert error.code == "NOT_FOUND"
+    counters["error404"] = 1
+    default_error = TypeAdapter(module.ReadItemError).validate_python({"message": "unexpected"})
+    assert isinstance(default_error, module.Error)
+    assert default_error.message == "unexpected"
+    assert module.OPERATIONS["ReadItem"].responses["404"] is module.NotFound
+    counters["metadata404"] = 1
+    return counters
+
+
+def validate_exact(module: Any) -> dict[str, int]:
+    """Exact discriminator-less oneOf rejects ambiguous and unmatched payloads."""
+    counters: dict[str, int] = {}
+    adapter = TypeAdapter(module.Choice)
+    for value, key in [({"x": "x", "y": "y"}, "exactAmbiguous"), ({"z": 1}, "exactNone")]:
+        try:
+            adapter.validate_python(value)
+        except ValidationError:
+            counters[key] = 1
+        else:
+            raise AssertionError(f"exact oneOf accepted {value}")
+    assert adapter.validate_python({"x": "x"}).x == "x"
+    counters["exactOne"] = 1
+    envelope = module.Envelope.model_validate({"choice": {"x": "x"}, "either": 1})
+    assert envelope.either == 1
+    counters["anyOfOverlap"] = 1
+    return counters
+
+
+def validate_smart(module: Any) -> dict[str, int]:
+    """Smart mode accepts a payload matching both oneOf branches."""
+    value = TypeAdapter(module.Choice).validate_python({"x": "x", "y": "y"})
+    assert value is not None
+    return {"smartAmbiguous": 1}
+
+
 def validate_frozen(module: Any, counters: dict[str, int]) -> None:
     """Check ConfigDict(frozen=True) assignment behavior."""
     value = module.Person(personId="p")
@@ -298,6 +356,15 @@ def main() -> None:
         counters = {}
         validate_recursive_alias(load_module(payload["module"]), counters)
         print(json.dumps(counters, separators=(",", ":")))
+        return
+    if payload.get("operations"):
+        print(json.dumps(validate_operations(load_module(payload["module"]), payload), separators=(",", ":")))
+        return
+    if payload.get("exact"):
+        print(json.dumps(validate_exact(load_module(payload["module"])), separators=(",", ":")))
+        return
+    if payload.get("smart"):
+        print(json.dumps(validate_smart(load_module(payload["module"])), separators=(",", ":")))
         return
     if payload.get("semantic"):
         print(json.dumps(validate_semantic(load_module(payload["module"]), payload), separators=(",", ":")))

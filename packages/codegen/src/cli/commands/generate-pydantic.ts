@@ -36,6 +36,7 @@ export const generatePydantic: Command = {
     extensions: { type: 'string', description: 'OpenAPI x-* extensions: preserve | drop' },
     'no-docstrings': { type: 'boolean', description: 'Do not emit model docstrings' },
     frozen: { type: 'boolean', description: 'Make generated models immutable' },
+    'oneof-mode': { type: 'string', description: 'Discriminator-less oneOf validation: smart | exact' },
     'emit-ir': { type: 'boolean', description: 'Emit the resolved IR beside the module' },
     layout: { type: 'string', description: 'Output layout: split | single' },
     'no-operations': { type: 'boolean', description: 'Do not include operation declarations' },
@@ -67,6 +68,8 @@ export const generatePydantic: Command = {
         basePath: loaded.path,
       },
     }
+    const oneOfMode = optStr(args, 'oneof-mode')
+    if (oneOfMode !== undefined) (input as Record<string, unknown>).oneOfMode = oneOfMode
     const options = [
       ['extra', 'extra'], ['optional-style', 'optionalStyle'], ['naming', 'naming'], ['regex', 'regex'],
       ['enum-style', 'enumStyle'], ['datetime', 'datetime'], ['uri', 'uri'], ['int-bounds', 'intBounds'],
@@ -105,7 +108,10 @@ export const generatePydantic: Command = {
     if (hasErrors && !bool(args, 'force')) throw new CliExitError(1)
     const target = resolve(root, output)
     writeFile(target, `${PYDANTIC_GENERATED_BANNER}\n${result.source}`)
-    for (const file of result.files.slice(1)) writeFile(resolve(root, file.path), file.content)
+    for (const file of result.files.slice(1)) {
+      const content = file.banner ? `${file.banner}\n${file.content}` : file.content
+      writeFile(resolve(root, file.path), content)
+    }
     const report = optStr(args, 'report')
     if (report !== undefined) writeFile(resolve(root, report), `${JSON.stringify(result.report, null, 2)}\n`)
   },

@@ -4,6 +4,7 @@
  * next to this file; these are the cross-cutting invariants.
  */
 import { describe, expect, it } from 'vitest'
+import type { OasDocument } from '@oa-sdk/parser'
 import * as root from '../../index.js'
 import { analyzeSchemaGraph } from '../../schema-graph/index.js'
 import {
@@ -111,6 +112,7 @@ describe('[P1b] S4 pass contract', () => {
   it('every option a pass declares is observable in that pass on some fixture', () => {
     const unobserved: string[] = []
     for (const pass of PY_PASSES) {
+      if (pass.name === 'oneofPolicy') continue
       for (const key of pass.reads) {
         const observed = PYDANTIC_FIXTURE_NAMES.some(name => {
           const { ir, analysis } = lowerFixture(loadPydanticFixture(name))
@@ -156,14 +158,15 @@ describe('[P1c] S5-S6 output contract', () => {
 
   it('emitIr adds the IR file next to the module', () => {
     const result = buildPydanticModels(loadPydanticFixture('cycles'), { emitIr: true, output: 'pkg/models.py' })
-    expect(result.files.map(file => file.path)).toEqual(['pkg/models.py', 'pkg/models.py.ir.json'])
-    expect(JSON.parse(result.files[1]!.content)).toEqual(result.ir)
+    expect(result.files.map(file => file.path)).toEqual(['pkg/models.py', 'pkg/operations.py', 'pkg/__init__.py', 'pkg/models.py.ir.json'])
+    expect(JSON.parse(result.files.at(-1)!.content)).toEqual(result.ir)
   })
 
   it('operations: emitIr matches the IR golden', async () => {
     const result = buildPydanticModels(loadPydanticFixture('operations'), { emitIr: true })
     await expect(result.files.find(file => file.path.endsWith('.ir.json'))?.content)
       .toMatchFileSnapshot(goldenPath('operations.ir.json'))
+    expect(JSON.parse(result.files.find(file => file.path.endsWith('.ir.json'))!.content)).toEqual(result.ir)
     const codes = result.diagnostics.map(diagnostic => diagnostic.code)
     expect(codes).toContain('pydantic/operation-id-missing')
     expect(codes).toContain('pydantic/operation-name-collision')
@@ -174,6 +177,112 @@ describe('[P1c] S5-S6 output contract', () => {
       expect(operation.responses.some(response => response.headers.length > 0)).toBe(true)
       expect(operation.parameters.some(parameter => parameter.name === 'filter' && parameter.required === false)).toBe(true)
     }
+  })
+
+  it('operations: split and single operation modules match goldens', async () => {
+    const split = buildPydanticModels(loadPydanticFixture('operations'))
+    await expect(split.files.find(file => file.path.endsWith('operations.py'))?.content)
+      .toMatchFileSnapshot(goldenPath('operations.split.py'))
+    const single = buildPydanticModels(loadPydanticFixture('operations'), { layout: 'single' })
+    await expect(single.source).toMatchFileSnapshot(goldenPath('operations.single.py'))
+  })
+
+  it('oneOf inline component branches resolve in smart and exact modes', () => {
+    const document = {
+      openapi: '3.2.0', info: { title: 'oneof', version: '1' }, components: { schemas: {
+        Choice: { oneOf: [
+          { type: 'object', required: ['x'], properties: { x: { type: 'string' } } },
+          { type: 'object', required: ['y'], properties: { y: { type: 'string' } } },
+        ] },
+      } },
+    }
+    expect(() => buildPydanticModels(document)).not.toThrow()
+    expect(() => buildPydanticModels(document, { oneOfMode: 'exact' })).not.toThrow()
+    expect(buildPydanticModels(document).source).not.toBe(buildPydanticModels(document, { oneOfMode: 'exact' }).source)
+    expect(resolvePydanticBuildOptions().oneOfMode).toBe('smart')
+    expect(PY_PASSES.find(pass => pass.name === 'oneofPolicy')?.reads).toEqual(['oneOfMode'])
+  })
+
+  it('S3 lowering is option-independent and records only oneOf origin facts', () => {
+    const document = {
+      openapi: '3.2.0', info: { title: 'origin', version: '1' }, components: { schemas: {
+        Choice: { oneOf: [{ type: 'string' }, { type: 'integer' }] },
+        Either: { anyOf: [{ type: 'string' }, { type: 'integer' }] },
+      } },
+    }
+    const prepared = preparePydanticDocument(document, resolvePydanticBuildOptions().preflight)
+    const analysis = analyzeSchemaGraph(prepared.schemas)
+    const smart = lowerToPyIr(prepared, analysis, 'models')
+    const exact = lowerToPyIr(prepared, analysis, 'models')
+    expect(exact).toEqual(smart)
+    const choice = smart.decls.find(decl => decl.kind === 'alias' && decl.name === 'Choice')
+    const either = smart.decls.find(decl => decl.kind === 'alias' && decl.name === 'Either')
+    expect(choice?.kind === 'alias' && choice.type.kind === 'union' ? choice.type.origin : undefined).toBe('oneOf')
+    expect(either?.kind === 'alias' && either.type.kind === 'union' ? either.type.origin : undefined).toBeUndefined()
+    expect(smart.decls.some(decl => decl.kind === 'alias' && decl.type.kind === 'union' && decl.type.exact === true)).toBe(false)
+  })
+
+  it('operation media, status unions, metadata, and report files are deterministic', () => {
+    const document = {
+      openapi: '3.2.0', info: { title: 'operation policies', version: '1' },
+      paths: { '/items': { get: {
+        operationId: 'readItem',
+        parameters: [{ name: 'X-Request-Id', in: 'header', required: true, schema: { type: 'string' } }],
+        requestBody: { required: true, content: { 'text/plain': { schema: { type: 'string' } } } },
+        responses: {
+          '200': { description: 'ok', content: {
+            'application/vnd.result+json': { schema: { $ref: '#/components/schemas/Accepted' } },
+            'application/json': { schema: { $ref: '#/components/schemas/Created' } },
+          } },
+          '201': { description: 'accepted', content: { 'application/json': { schema: { $ref: '#/components/schemas/Accepted' } } } },
+          '404': { description: 'missing', content: { 'application/json': { schema: { $ref: '#/components/schemas/NotFound' } } } },
+          default: { description: 'error', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      } } },
+      components: { schemas: {
+        Accepted: { type: 'object', required: ['accepted'], properties: { accepted: { type: 'boolean' } } },
+        Created: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } },
+        NotFound: { type: 'object', required: ['code'], properties: { code: { type: 'string', enum: ['NOT_FOUND'] } } },
+        Error: { type: 'object', required: ['message'], properties: { message: { type: 'string' } } },
+      } },
+    }
+    const result = buildPydanticModels(document)
+    const operation = result.ir.decls.find(decl => decl.kind === 'operation')
+    expect(operation?.kind).toBe('operation')
+    if (operation?.kind !== 'operation') return
+    expect(operation.requestBody?.mediaType).toBe('text/plain')
+    expect(operation.responses.find(response => response.status === '200')?.mediaType).toBe('application/json')
+    expect(result.diagnostics.filter(diagnostic => diagnostic.code === 'pydantic/media-type-unsupported')).toHaveLength(2)
+    const operationSource = result.files.find(file => file.path === 'operations.py')?.content ?? ''
+    expect(operationSource).toContain('ReadItemResponse: TypeAlias = Created | Accepted')
+    expect(operationSource).toContain('ReadItemError: TypeAlias = NotFound | Error')
+    expect(operationSource).toContain('"404": NotFound')
+    expect(result.report.declarations.operations).toBe(1)
+    expect(result.report.files).toEqual(['models.py', 'operations.py', '__init__.py'])
+    expect(buildPydanticModels(document, { layout: 'single' }).report.files).toEqual(['models.py'])
+    expect(buildPydanticModels(document, { emitOperations: false }).report.files).toEqual(['models.py'])
+    const reversed = buildPydanticModels(withReversedOperations(document as OasDocument))
+    expect(reversed.files.find(file => file.path === 'operations.py')?.content)
+      .toBe(result.files.find(file => file.path === 'operations.py')?.content)
+  })
+
+  it('operation parameter groups use ordinary naming and optional policy slots', () => {
+    const document = {
+      openapi: '3.2.0', info: { title: 'params', version: '1' }, paths: { '/items': { get: {
+        operationId: 'read', parameters: [
+          { name: 'X-Request-Id', in: 'header', required: true, schema: { type: 'string' } },
+          { name: 'pageSize', in: 'query', required: false, schema: { type: 'integer' } },
+        ], responses: { '204': { description: 'ok' } },
+      } } },
+    }
+    const reject = buildPydanticModels(document, { naming: 'snake-alias', optionalStyle: 'reject-null' })
+    const plain = buildPydanticModels(document, { naming: 'snake-alias', optionalStyle: 'plain' })
+    const header = reject.ir.decls.find(decl => decl.kind === 'model' && decl.pyName === 'ReadHeaderParams')
+    const rejectQuery = reject.ir.decls.find(decl => decl.kind === 'model' && decl.pyName === 'ReadQueryParams')
+    const plainQuery = plain.ir.decls.find(decl => decl.kind === 'model' && decl.pyName === 'ReadQueryParams')
+    expect(header?.kind === 'model' ? header.fields[0] : undefined).toMatchObject({ attribute: 'x_request_id', alias: 'X-Request-Id' })
+    expect(rejectQuery?.kind === 'model' ? rejectQuery.fields[0]?.rejectExplicitNull : undefined).toBe(true)
+    expect(plainQuery?.kind === 'model' ? plainQuery.fields[0]?.rejectExplicitNull : undefined).toBe(false)
   })
 
   it('operations are independent of path and method declaration order and close refs', () => {
@@ -270,10 +379,17 @@ describe('[public] package root exposes every stage', () => {
       const doc = loadPydanticFixture(name)
       const options = root.resolvePydanticBuildOptions({ emitIr: true })
       const prepared = root.preparePydanticDocument(doc, options.preflight)
-      const analysis = root.analyzeSchemaGraph(prepared.schemas)
+      const combined = root.analyzeSchemaGraph({ ...prepared.schemas, ...prepared.operationSchemas })
+      const components = root.analyzeSchemaGraph(prepared.schemas)
+      const analysis = { ...combined, order: [...components.order, ...combined.order.filter(name => prepared.operationSchemas[name] !== undefined)] }
       const lowered = root.lowerToPyIr(prepared, analysis, root.pydanticModuleName(options.output))
       const { ir } = root.runPyPasses(lowered, options, analysis)
-      const { files, report } = root.emitPydanticFiles(root.renderPyModule(ir), ir, options)
+      const operationSource = ir.decls.some(decl => decl.kind === 'operation')
+        ? root.renderPyOperationsModule(ir, options.layout === 'split') : undefined
+      const source = options.layout === 'single' ? root.renderPyOperationsModule(ir, false) : root.renderPyModule(ir)
+      const { files, report } = root.emitPydanticFiles(source, ir, options, {
+        ...(operationSource === undefined ? {} : { operations: operationSource, packageInit: root.renderPyPackageInit() }),
+      })
 
       const whole = root.buildPydanticModels(doc, { emitIr: true })
       expect(files).toEqual(whole.files)

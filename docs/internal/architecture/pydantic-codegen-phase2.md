@@ -212,6 +212,12 @@ def get_user(user_id: str) -> User:
 - exact `oneOf`가 0개 또는 2개 branch 성공을 거부한다.
 - 다중 media type·streaming은 명시 진단과 deterministic fallback을 낸다.
 
+구현 완료 (2026-11-09): split/single operation 모델과 `OPERATIONS` metadata, JSON media 선택 및
+`pydantic/media-type-unsupported`, discriminator-less `oneOf`에만 적용되는 `oneOfMode: exact` validator/
+`pydantic/oneof-ambiguous`를 추가했다.
+split 출력은 `operations.py`와 package용 `__init__.py`를 함께 생성하며 `unionMode`는 Pydantic 2.11
+호환성 검증 전까지 `smart` 고정으로 유지한다.
+
 ### P2c — FastAPI router stub
 
 **범위와 의존성.** P2b의 operation model과 `layout`을 사용해 FastAPI-only stub을 만든다. `create_router(handlers)` 제안을 기본으로 하고 business logic은 생성하지 않는다.

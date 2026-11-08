@@ -35,6 +35,8 @@ export interface PydanticSemanticOptions {
   docstrings: boolean
   /** Set Pydantic models as immutable. */
   frozen: boolean
+  /** Validation policy for discriminator-less oneOf unions. */
+  oneOfMode: 'smart' | 'exact'
 }
 
 export interface PydanticOutputOptions {
@@ -74,6 +76,7 @@ export const PYDANTIC_DEFAULT_OPTIONS: Readonly<PydanticSemanticOptions & Pydant
   extensions: 'preserve',
   docstrings: true,
   frozen: false,
+  oneOfMode: 'smart',
   output: 'models.py',
   emitIr: false,
   emitOperations: true,
@@ -108,6 +111,7 @@ const ALLOWED_VALUES: { readonly [K in keyof PydanticSemanticOptions]: readonly 
   extensions: ['preserve', 'drop'],
   docstrings: [true, false],
   frozen: [true, false],
+  oneOfMode: ['smart', 'exact'],
 }
 
 export const PYDANTIC_SEMANTIC_OPTION_KEYS = Object.freeze(
