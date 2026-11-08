@@ -229,7 +229,7 @@ class ExecutionProfileSummary(BaseModel):
 class ExportJob(BaseModel):
     """export job receipt. 이 계약의 POST 응답은 queued 상태만 반환하며, 이후 상태 전이와 downloadUrl 전달 방식은 runtime 계약이 별도로 정의합니다."""
     model_config = ConfigDict(extra="forbid", validate_by_name=True, validate_by_alias=True, serialize_by_alias=True)
-    download_url: str | None = Field(None, alias="downloadUrl", description="status가 ready일 때만 제공")
+    download_url: str | None = Field(None, alias="downloadUrl", description="status가 ready일 때만 제공", json_schema_extra={"format": "uri"})
     job_id: UUID = Field(..., alias="jobId")
     requested_at: AwareDatetime = Field(..., alias="requestedAt")
     status: Literal["queued", "running", "ready", "failed"]

@@ -27,7 +27,7 @@
 | S5 | `renderPyModule`, `renderPyOperationsModule`, `renderPyPackageInit` | 해석 완료 IR → Python source들 | layout은 build가 고른 plain boolean | `pydantic/render.ts`, `pydantic/render-operations.ts` |
 | S6 | `emitPydanticFiles` | 미리 렌더한 source들 + IR → VFS 파일 + report | `output`, `emitIr`, `layout`, `emitOperations` | `pydantic/emit.ts` (wrapper/report만 수행) |
 | 합성 | `buildPydanticModels` | 문서 → 전체 결과 | 전부 | `pydantic/build.ts` (구현 완료) |
-| S7 | Python 검증 lane | 생성 모듈 | — | 별도 프로세스, `uv` |
+| S7 | Python 검증 lane | 생성 모듈 + source schema | — | 별도 프로세스, `uv`; `model_json_schema(by_alias=True, mode="validation")` 정규화 parity와 JSON pointer allow-list |
 
 ### 2.1 S4 pass 순서와 읽는 옵션
 
@@ -61,6 +61,11 @@
 S3는 이 형태를 `bases: [Base]` + 일반 필드로 낮추고, S4 `polymorphicRefs`가 태그를 `Literal`로 좁힌다.
 
 operation body/response IR은 `mediaTypes[]`를 사실로 기록한다. 각 항목의 `schema`, `itemType`, `stream`은 S3 사실이고 `pyName: null`은 `operationNaming`이 채우는 결정 슬롯이다. `bodyMedia`와 `responseMedia`는 media별 결정 이름을 보관한다. SSE·JSON Lines request/response stream은 `itemSchema` 또는 배열 `items`를 `itemType`으로 기록하며 S5가 `streams` metadata를 렌더링한다. 명시 discriminator와 `$ref` envelope branch의 tag/value 속성은 `union.envelope` facts로 기록하고 `envelopes` pass가 decision slot을 채운다. discriminator 없는 hand-written `oneOf`에는 이 추론을 적용하지 않는다.
+
+S3는 schema `title`, URI/URL wire format, examples/defaults의 ISO 8601 달력 단위 사실도 보존한다. S5는
+title을 모델 `ConfigDict` 또는 필드 `Field`에 넣고, URI와 ECMA pattern 원문을
+`json_schema_extra`로 노출한다. `pydantic/duration-calendar-unit`은 `timedelta`로 정확히 표현되지
+않는 년·월 duration 값에 대한 info 진단이다.
 
 ## 3. 빌드 옵션
 

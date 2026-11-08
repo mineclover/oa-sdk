@@ -229,6 +229,57 @@ describe('Pydantic S3 lowering', () => {
     })
   })
 
+  it('carries schema titles and URI metadata and reports calendar durations', () => {
+    const ir = lower({
+      Model: {
+        type: 'object', title: 'Model title', properties: {
+          link: { type: 'string', format: 'uri', title: 'Link title' },
+          ttl: { type: 'string', format: 'duration', default: 'P1Y2M' },
+        },
+      },
+    })
+    const model = decl(ir, 'Model')
+    expect(model).toMatchObject({ title: 'Model title' })
+    if (model.kind !== 'model') throw new Error('expected model')
+    expect(model.fields[0]).toMatchObject({
+      title: 'Link title', jsonSchemaExtra: { format: 'uri' },
+    })
+    expect(ir.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'pydantic/duration-calendar-unit', severity: 'info',
+    }))
+  })
+
+  it('keeps URI metadata when a field references a URI alias', () => {
+    const ir = lower({
+      Uri: { type: 'string', format: 'uri' },
+      Model: { type: 'object', properties: { homepage: { $ref: '#/components/schemas/Uri' } } },
+    })
+    const model = decl(ir, 'Model')
+    if (model.kind !== 'model') throw new Error('expected model')
+    expect(model.fields[0]).toMatchObject({ jsonSchemaExtra: { format: 'uri' } })
+  })
+
+  it('reports only calendar years and months in duration examples/defaults once per schema', () => {
+    const shared = { type: 'string', format: 'duration', default: 'P1Y' }
+    const ir = lower({
+      Years: { type: 'string', format: 'duration', default: 'P1Y' },
+      Months: { type: 'string', format: 'duration', examples: ['P2M'] },
+      YearMonth: { type: 'string', format: 'duration', examples: ['P1Y2M3DT4H'] },
+      ClockMinutes: { type: 'string', format: 'duration', examples: ['PT30M'] },
+      DayMinutes: { type: 'string', format: 'duration', examples: ['P1DT5M'] },
+      Days: { type: 'string', format: 'duration', examples: ['P3D'] },
+      Model: { type: 'object', properties: {
+        first: shared, second: shared,
+      } },
+    })
+    const calendar = ir.diagnostics.filter(item => item.code === 'pydantic/duration-calendar-unit')
+    expect(calendar).toHaveLength(4)
+    expect(calendar.map(item => item.pointer)).toEqual(expect.arrayContaining([
+      '/components/schemas/Years', '/components/schemas/Months', '/components/schemas/YearMonth',
+    ]))
+    expect(calendar.filter(item => item.pointer.includes('/properties/second'))).toHaveLength(1)
+  })
+
   it('strips default and example before folding so their type remains available', () => {
     const model = decl(lower({
       Model: { type: 'object', properties: { value: { type: 'integer', default: 2, example: 3 } } },

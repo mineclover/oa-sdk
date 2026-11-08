@@ -142,7 +142,7 @@
 4. **정규식 → ECMA 의미 보존 치환 + Rust 엔진**
    - 문자 클래스 바깥의 `\d` → `[0-9]`, `\D` → `[^0-9]`, `\w` → `[A-Za-z0-9_]`, `\W` → `[^A-Za-z0-9_]`; 문자 클래스 안에서는 `0-9` / `A-Za-z0-9_`로 전개(부정 클래스 내부 `\D`·`\W`는 치환 불가로 진단). 치환은 이스케이프·문자 클래스를 인식하는 토크나이저로 수행한다.
    - 기본 Rust 엔진. lookaround(`(?=`, `(?!`, `(?<=`, `(?<!`)나 backreference가 있으면 해당 모델만 `regex_engine="python-re"`로 전환하고 `pydantic/regex-engine-fallback` 진단.
-   - 치환 결과가 원본과 다르면 원본 pattern을 `json_schema_extra`에 보존해 왕복 parity 비교에 사용한다. **Phase 1 구현:** 원본 pattern은 보존하지 않는다(왕복 parity 비교도 미구현).
+   - 치환 결과가 원본과 다르면 원본 pattern을 `json_schema_extra`에 보존해 왕복 parity 비교에 사용한다. **P2e 구현 완료 (2026-11-09):** `x-oa-sdk-original-pattern`과 정규화 parity를 제공한다.
 
 ## 7. 근거 위치
 
@@ -160,14 +160,60 @@ Phase 1 구현(mineclover/oa-sdk#25·#26)을 이 검토와 대조한 결과다. 
 
 | 검토 위치 | 제안 | Phase 1 구현 |
 |---|---|---|
-| §2 산출물 추적, §5 Phase 1 | `.oa-manifest.json`·TypeSpec 출처 sidecar 결속 | 없음. build report의 `contentSha256`만 |
-| §4 `format: duration` | 연·월 단위 진단 | `timedelta`만, 진단 없음 |
-| §4 `format: uri` | `str` + `json_schema_extra={"format": "uri"}` | `str`만 |
+| §2 산출물 추적, §5 Phase 1 | `.oa-manifest.json`·TypeSpec 출처 sidecar 결속 | **범위 제외 (types-only 결정, 2026-11-09)**. build report의 `contentSha256`만 |
+| §4 `format: duration` | 연·월 단위 진단 | **구현 완료 (2026-11-09)**: `pydantic/duration-calendar-unit` info |
+| §4 `format: uri` | `str` + `json_schema_extra={"format": "uri"}` | **구현 완료 (2026-11-09)**: `uri: str` 필드에 wire format 보존 |
 | §4 `@encode` 인코딩 | wire 타입 + 진단 | wire 타입 + `pydantic/encoding-degraded`. 단 `@encode("seconds", …) duration`은 OAS 출력에 인코딩이 남지 않아 진단 없음 |
-| §4 `title` | `Field(title=...)` | 생성하지 않음 |
+| §4 `title` | `Field(title=...)` | **구현 완료 (2026-11-09)**: 필드 `Field(title=...)`, 모델 `ConfigDict(title=...)` |
 | §4 `@discriminated` envelope | `{kind, value}` wrapper 모델 | 전용 처리 없음, 일반 union 규칙 |
 | §4.5 모델 수준 `x-*` | `model_config["json_schema_extra"]` | IR에만 보존, 렌더링하지 않음 |
-| §5 Phase 1 검증 (3) | `model_json_schema(by_alias=True)` 왕복 parity | 미구현 |
-| §6 결정 4 | 치환 전 원본 pattern 보존 | 미구현 |
+| §5 Phase 1 검증 (3) | `model_json_schema(by_alias=True)` 왕복 parity | **구현 완료 (2026-11-09)**: 정규화·JSON pointer allow-list Python lane 및 TS contract |
+| §6 결정 4 | 치환 전 원본 pattern 보존 | **구현 완료 (2026-11-09)**: `x-oa-sdk-original-pattern` in `json_schema_extra` |
+
+이번 milestone에서 변경한 golden은 `approved.default.py`, `approved.strict.py`,
+`approved.passthrough.py`이며 `downloadUrl` URI 필드의 `json_schema_extra={"format": "uri"}`
+한 줄 범주만 추가했다. 의미 있는 wire 타입·validator·모델 순서는 바꾸지 않았다.
+Python lane parity 기대 counter는 `approved=70/2/0`, `chunk-stream=26/0/0`,
+`discriminated-envelope=6/0/0`, `cycles=3/0/0`, `scalars=1/0/0`,
+`operations=9/0/0`, `type-fidelity=3/1/0`이다(`comparedModels/allowListedDifferences/newDifferences`).
+type-fidelity metadata counter는 `modelTitle=1`, `fieldTitle=1`, `originalPattern=1`,
+`uriFormat=1`이다. allow-list에는 fixture `type-fidelity`의 pointer
+`/Profile/properties/code/pattern`, 사유 “ECMA `\\d` is translated to ASCII `[0-9]` because Rust
+regex `\\d` is Unicode”이다. approved의 추가 exact entries는
+`/StreamHealthEventsResponse/properties/data/contentMediaType`와
+`/StreamHealthEventsResponse/properties/data/contentSchema`이며, P2e stream rendering이 SSE
+`data`를 `Any`로 두고 stream metadata에서 decoding하도록 결정해 해당 키를 emit하지 않는다는 사유다.
+비교기는 source와 generated `$ref`를 해소하고 OAS annotation keyword
+(`example` 단수 포함)를 제거하며, source title이 없을 때만 generated 자동 title을 제거한다. non-nullable optional의
+Pydantic null branch/default null과 source optional, unordered required 배열도 정규화한다. source
+default는 유지한다.
+정수 폭, wire-only encoding, base64 byte/decimal annotation은 Pydantic JSON Schema에 직접 대응하지 않아 제거하며,
+URI와 직접 대응하는 날짜·시간·duration·uuid·email·binary format은 보존한다.
+`x-oa-sdk-original-pattern`는 source pattern을 별도 allow-list 비교한 뒤 canonical schema에서만 제거한다.
+정규화는 optional anyOf sibling 보존, format-implied bounds, base64 binary form, flattened `allOf`, component-name discriminator
+mapping, sorted union branches, enum/const equivalence, empty required omission, and cycle `$ref`
+markers를 양쪽에 대칭 적용한다. `unevaluatedProperties: {}`/`additionalProperties: true`, 빈 properties,
+`inspect.cleandoc` model description, enum implied type, properties implied object, `float`/`double` format도
+정규화한다. union 없는 base discriminator는 generator polymorphic-ref decision으로
+소비되어 제거하고, union discriminator mapping은 보존한다. parameter source는 component ref 해소와 path-item/operation
+override를 포함해 generator의 closed group 규칙으로 파생한다.
+scalar alias component의 description/title/examples는 field 사용처에 복원되지 않는 알려진 fidelity gap이며,
+현재 generator를 바꾸지 않고 정규화한다(Open).
+
+Parity 정규화 규칙 전체는 다음과 같다. (1) source와 generated `$ref`를 각각 한 번 해소하고
+cycle back-edge는 component-name `$ref`로 남긴다. (2) optional `anyOf`는 null branch를 먼저 접은 뒤
+outer sibling을 보존하고, source가 nullable이 아니며 required가 아니면 generated null/default-null을 제거한다.
+(3) `required`와 union 순서를 정렬하고 빈 `required`/`properties`를 생략한다. (4) source title이 없을 때만
+Pydantic 자동 title을 제거한다. (5) `additionalProperties: true`/`unevaluatedProperties: {}`를 생략하고
+typed `unevaluatedProperties`를 `additionalProperties`로 비교한다. (6) OAS annotation인 `example(s)`,
+`deprecated`, `readOnly`, `writeOnly`, `contentEncoding`, provenance pattern을 제거하고 base64 encoding-only
+`contentMediaType`를 제거한다. (7) integer width/wire encoding 및 `float`/`double` format을 제거하고
+format-implied integer bounds를 materialize한다. (8) `allOf`에서는 properties/required/type/additional-properties만
+병합하며 base union/discriminator/description/title/examples/`$id`는 복사하지 않는다. (9) union 없는 base
+discriminator는 generator polymorphic-ref 결정으로 제거하고 union mapping은 component name으로 정규화한다.
+(10) enum/const 단일값과 enum implied type, properties implied object를 canonicalize하고 model description은
+`inspect.cleandoc`한다. (11) scalar alias ref 사용 시 alias description/title/examples는 제거하되 referencing
+property keyword는 유지한다. (12) parameter source는 component ref, path-item/operation override, description,
+default 및 closed parameter group 규칙을 generator와 동일하게 파생한다.
 
 설계 문서 쪽 정정(옵션 수, `pydantic/encoding-degraded` 발생 조건 — 이후 인코딩된 스칼라에서만 나도록 수정)은 `docs/internal/architecture/pydantic-codegen-pipeline.md` §3·§5에 반영했다.
