@@ -28,6 +28,7 @@
 | [013-incremental-build-partial-patch.md](./013-incremental-build-partial-patch.md) | WorkspaceIndex 영향도 재생성과 source-owned AST 부분 패치의 경계 | impact-scoped regeneration 우선, source patch는 별도 승인 대기 |
 | [semantic-abstraction-contract-boundary.md](./semantic-abstraction-contract-boundary.md) | Semantic Platform 의미 정본과 `oa-sdk` 스키마 선언·codegen·타깃 어댑터 책임 분리 | 소유 경계 `active`, 의미 참조·불완전 상태 표현 후보는 `proposed` (신규 스키마/배포 비채택) |
 | [pydantic-codegen-pipeline.md](./pydantic-codegen-pipeline.md) | OAS 3.2 → Pydantic v2 codegen 단계형 데이터 파이프라인과 빌드 옵션·preset | 설계 `accepted`, Phase 1 구현 완료 |
+| [pydantic-codegen-phase2.md](./pydantic-codegen-phase2.md) | OAS 3.2 → Pydantic v2 codegen Phase 2 범위·단계·통합 제안 | 제안(proposed) |
 
 ### 3. 대체 및 격리된 레거시 ADR (Superseded & Isolated Legacy ADRs)
 
@@ -38,4 +39,3 @@
 |---|---|---|
 | [003-domain-split.md](./003-domain-split.md) | 레거시 도메인 단위 spec 분리 (`merge.ts`) | **대체됨**: ADR-009(TypeSpec-first) 및 ADR-012에 의해 완전 대체. `merge.ts`는 제거되었으며 YAML fragments는 롤백/참조 전용으로 격리됨 |
 | [004-oas32-first.md](./004-oas32-first.md) | OAS 3.2 단독 — 3.1 하위 호환 없음 | **보완 대체됨**: OAS 3.2 정본 유지를 원칙으로 하되, 에코시스템 호환을 위한 3.1 다운그레이드 사이드카(`.merged.3.1.yaml`) 및 메타데이터 복원 계약으로 고도화됨 |
-
