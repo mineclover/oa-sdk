@@ -16,7 +16,7 @@
 7. S4 pass는 선언한 `reads` 옵션만 받고 입력 IR을 변경하지 않는다(`docs/internal/architecture/pydantic-codegen-pipeline.md:32`).
 8. `extra`, `optionalStyle`, `naming`, `regex`, `enumStyle`, `datetime`, `uri`, `intBounds`, `encodingPolicy`, `extensions`, `docstrings`, `frozen`이 공개 semantic 옵션이다(`packages/codegen/src/pydantic/options.ts:10`).
 9. 기본 출력은 `models.py`, 선택적으로 `<output>.ir.json`을 낸다(`packages/codegen/src/pydantic/options.ts:32`).
-10. 고정 설정은 `unionMode: smart`, `layout: single` 등이다(`packages/codegen/src/pydantic/options.ts:73`).
+10. 고정 설정은 `unionMode: smart` 등이다. `layout`은 P2a에서 `split|single` output option으로 공개했다.
 11. 검증은 TypeScript contract/golden과 선택적 Python lane으로 나뉘며 Python lane은 `ruff --select E,F,I001,UP037`와 pyright까지 확인한다(`docs/guides/pydantic-codegen.md:367`).
 12. Phase 1의 정본 동작과 설계의 차이는 review report §8에 정리되어 있다(`docs/reports/typespec-pydantic-codegen-review.md:157`).
 
@@ -169,7 +169,7 @@ def get_user(user_id: str) -> User:
 | ruff `I001`/`UP037` | standalone fix. import collector 정렬과 quoted annotation 규칙을 renderer에 반영한다. `ruff check --select E,F,I001,UP037` golden gate를 추가한다. S. |
 | discriminator-less `oneOf` exactness | Phase 2 operation error union과 함께 정책 결정. 기본 smart union은 유지하되 `oneOfMode: smart|exact` 제안 옵션을 둔다. exact는 `model_validator`로 branch 성공 수를 세고, ambiguous fixture와 JSON Schema parity를 검증한다. L. |
 | fixed settings `frozen` | P2a에서 `frozen` pass(`reads: ['frozen']`)가 model config를 결정하고 Python lane이 assignment를 검사한다. |
-| fixed settings `layout` | A 직전에 처리. `layout: single|split`은 S6가 읽고 `models.py`/`operations.py` 파일 집합을 결정한다. import cycle·manifest golden이 필요하다. M. |
+| fixed settings `layout` | P2a에서 S6 report에 기록하는 `single|split` output option으로 공개했다. Python `operations.py` 렌더링은 후속 milestone이다. |
 | fixed settings `docstrings` | P2a에서 `docstrings` pass가 모델 docstring을 켜고 끈다. |
 | fixed settings `extensions` | P2a에서 `preserve|drop`을 `extensions` pass가 읽고 model-level `json_schema_extra`를 출력한다. |
 | fixed settings `unionMode` | A의 status/error union과 함께 처리. Pydantic `ConfigDict(union_mode=...)`가 실제 지원되는 범위를 확인한 뒤 `smart|left-to-right`만 공개한다. M. |
@@ -181,6 +181,7 @@ def get_user(user_id: str) -> User:
 ### P2a — 품질 부채와 operation 입력 골격
 
 구현 완료 (2026-11-08): `encodingPolicy`, 모델 `x-*` 보존/삭제, `docstrings`, `frozen`, ruff/pyright 품질 게이트를 추가했다. operations는 다음 milestone로 남긴다.
+구현 완료 (2026-11-08): `paths` operation 입력, `PyOperationDecl` IR, 결정성 있는 operation naming/scope 진단, `layout`/`emitOperations` output 옵션과 TypeSpec-backed operations fixture를 추가했다. Python operation 렌더링은 다음 milestone이다.
 
 **범위와 의존성.** Phase 1 S0–S6 계약을 유지하면서 S1 prepared 문서에 `operations`를 추가하고, `PyOperationDecl`·parameter/body/response 사실 IR을 도입한다. `@encode`, model-level `x-*`, ruff import를 먼저 고친다. `analyzeSchemaGraph`와 `foldSchema`는 공유한다(`docs/internal/architecture/pydantic-codegen-pipeline.md:14`).
 

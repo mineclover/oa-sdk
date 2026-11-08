@@ -133,6 +133,17 @@ export interface PyModelDecl {
   deprecated?: boolean
   extensions?: Record<string, unknown>
   pointer: string
+  /** Set for inline declarations owned by an operation. */
+  operationOwner?: string
+  operationRole?: PyOperationRole
+}
+
+export interface PyOperationRole {
+  kind: 'body' | 'response' | 'parameter' | 'responseHeader'
+  status?: string
+  location?: 'path' | 'query' | 'header' | 'cookie'
+  name?: string
+  path?: string
 }
 
 export interface PyEnumDecl {
@@ -159,7 +170,74 @@ export interface PyAliasDecl {
   pointer: string
 }
 
-export type PyDecl = PyModelDecl | PyEnumDecl | PyAliasDecl
+export interface PyOperationParameterDecl {
+  location: 'path' | 'query' | 'header' | 'cookie'
+  name: string
+  required: boolean
+  style: string | null
+  explode: boolean | null
+  schema: PyTypeExpr
+  description?: string
+  pointer: string
+}
+
+export interface PyOperationHeaderDecl {
+  name: string
+  required: boolean
+  schema: PyTypeExpr
+  description?: string
+  pointer: string
+}
+
+export interface PyBodyDecl {
+  required: boolean
+  mediaType: string | null
+  otherMediaTypes: string[]
+  schema: PyTypeExpr | null
+  description?: string
+  pointer: string
+}
+
+export interface PyResponseDecl {
+  status: string
+  mediaType: string | null
+  otherMediaTypes: string[]
+  schema: PyTypeExpr | null
+  headers: PyOperationHeaderDecl[]
+  description?: string
+  pointer: string
+}
+
+export interface PyOperationDecl {
+  kind: 'operation'
+  /** Internal stable key, independent of the operationId. */
+  name: string
+  /** Operation model stem (`operationNaming` pass). */
+  pyName: string | null
+  operationId: string | null
+  method: string
+  path: string
+  tags: string[]
+  summary?: string
+  description?: string
+  deprecated: boolean
+  parameters: PyOperationParameterDecl[]
+  requestBody: PyBodyDecl | null
+  responses: PyResponseDecl[]
+  /** `<Op>PathParams`, ... `<Op>Error`; empty string means no model is needed. */
+  modelNames: {
+    pathParams: string | null
+    queryParams: string | null
+    headerParams: string | null
+    cookieParams: string | null
+    body: string | null
+    response: string | null
+    error: string | null
+  }
+  pointer: string
+}
+
+export type PyDecl = PyModelDecl | PyEnumDecl | PyAliasDecl | PyOperationDecl
 
 export interface PyImports {
   /** Module → imported names, both sorted. Always includes `__future__: ['annotations']`. */
@@ -251,8 +329,22 @@ export function findUnresolvedPySlots(ir: PyModuleIR): UnresolvedPySlot[] {
     } else if (decl.kind === 'enum') {
       if (decl.repr === null) found.push({ pointer: decl.pointer, slot: `${decl.name}.repr` })
       if (decl.members === null) found.push({ pointer: decl.pointer, slot: `${decl.name}.members` })
-    } else {
+    } else if (decl.kind === 'alias') {
       visitType(decl.type, decl.pointer, `${decl.name}.type`)
+    } else {
+      for (const [role, value] of Object.entries(decl.modelNames)) {
+        if (value === null) found.push({ pointer: decl.pointer, slot: `${decl.name}.modelNames.${role}` })
+      }
+      for (const parameter of decl.parameters) {
+        visitType(parameter.schema, parameter.pointer, `${decl.name}.${parameter.location}.${parameter.name}`)
+      }
+      if (decl.requestBody?.schema !== null && decl.requestBody?.schema !== undefined) {
+        visitType(decl.requestBody.schema, decl.requestBody.pointer, `${decl.name}.requestBody.schema`)
+      }
+      for (const response of decl.responses) {
+        if (response.schema !== null) visitType(response.schema, response.pointer, `${decl.name}.responses.${response.status}.schema`)
+        for (const header of response.headers) visitType(header.schema, header.pointer, `${decl.name}.responses.${response.status}.headers.${header.name}`)
+      }
     }
   }
   return found

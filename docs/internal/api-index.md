@@ -988,6 +988,13 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `assertResolvedPyIr` | `pydantic/ir.ts` | 렌더 전 결정 슬롯 확인 |
 | `findUnresolvedPySlots` | `pydantic/ir.ts` | 미해결 IR 슬롯 나열 |
 | `createPydanticAlgebra` | `pydantic/lower.ts` | Pydantic 스키마 algebra 생성 |
+| `PyOperationDecl` | `pydantic/ir.ts` | paths operation의 사실과 결정 슬롯 |
+| `PyOperationParameterDecl` | `pydantic/ir.ts` | path/query/header/cookie parameter 사실 |
+| `PyOperationHeaderDecl` | `pydantic/ir.ts` | response header 사실 |
+| `PyOperationRole` | `pydantic/ir.ts` | operation inline declaration의 구조화된 role |
+| `PyBodyDecl` | `pydantic/ir.ts` | request body 사실 |
+| `PyResponseDecl` | `pydantic/ir.ts` | status/media/schema response 사실 |
+| `PYDANTIC_S6_READS` | `pydantic/emit.ts` | S6 output option read 선언 |
 | `schemaToPyType` | `pydantic/lower.ts` | 스키마를 Python 타입 표현식으로 변환 |
 | `resolvePydanticBuildOptions` | `pydantic/options.ts` | Pydantic 빌드 옵션 해석 |
 | `pydanticOptionValues` | `pydantic/options.ts` | Pydantic 옵션 허용값 반환 |

@@ -31,9 +31,25 @@ export function pydanticModuleName(output: string): string {
 export function buildPydanticModels(doc: unknown, input: PydanticBuildOptions = {}): PydanticBuildResult {
   const options = resolvePydanticBuildOptions(input)
   const prepared = preparePydanticDocument(doc, options.preflight)
-  const analysis = analyzeSchemaGraph(prepared.schemas)
+  const combinedAnalysis = analyzeSchemaGraph({ ...prepared.schemas, ...prepared.operationSchemas })
+  const componentAnalysis = analyzeSchemaGraph(prepared.schemas)
+  // Analyze the combined graph for recursion/edges, while retaining the established component
+  // declaration order so adding paths cannot change schema-only Python goldens.
+  const inlineNames = combinedAnalysis.order.filter(name => prepared.operationSchemas[name] !== undefined)
+  const analysis: SchemaGraphAnalysis = {
+    ...combinedAnalysis,
+    order: [...componentAnalysis.order, ...inlineNames],
+  }
   const lowered = lowerToPyIr(prepared, analysis, pydanticModuleName(options.output))
-  const { ir } = runPyPasses(lowered, options, analysis)
+  let { ir } = runPyPasses(lowered, options, analysis)
+  if (!options.emitOperations) {
+    const filtered = {
+      ...ir,
+      decls: ir.decls.filter(decl => decl.kind !== 'operation'
+        && !(decl.kind === 'model' && decl.operationOwner !== undefined)),
+    }
+    ir = runPyPasses(filtered, options, analysis, { only: ['collectImports'] }).ir
+  }
   const source = renderPyModule(ir)
   const { files, report } = emitPydanticFiles(source, ir, options)
   return { options, analysis, ir, source, files, report, diagnostics: ir.diagnostics }

@@ -1,13 +1,15 @@
 /** S3 — lower prepared schemas to fact-only Pydantic IR. */
-import { foldSchema, type OasSchema, type SchemaAlgebra } from '@oa-sdk/parser'
+import { foldSchema, type OasSchema, type OperationEntry, type SchemaAlgebra } from '@oa-sdk/parser'
 import { parseRefTarget, type SchemaGraphAnalysis } from '../schema-graph/index.js'
 import type {
+  PyBodyDecl,
   PyConstraints,
   PyDecl,
   PyField,
   PyModelDecl,
   PyModuleIR,
   PyOpenness,
+  PyOperationRole,
   PyTypeExpr,
   PydanticDiagnostic,
 } from './ir.js'
@@ -29,7 +31,12 @@ export interface PydanticLowerContext {
   componentNames?: Set<string>
   modelNames?: Set<string>
   declaredInline?: WeakMap<object, string>
+  declaredInlineByPointer?: Map<string, string>
   currentSchema?: unknown
+  operationOwner?: string | undefined
+  operationRole?: PyOperationRole | undefined
+  operationPath?: string | undefined
+  operationParameterPointers?: Record<string, string>
 }
 
 function asRecord(value: unknown): SchemaRecord {
@@ -178,13 +185,49 @@ function unresolvedRef(ref: string, schema: unknown, context: PydanticLowerConte
   return anyType()
 }
 
+function operationRoleKey(role: PyOperationRole | undefined): string {
+  if (role === undefined) return 'Inline'
+  if (role.kind === 'body') return 'Body'
+  if (role.kind === 'response') return `Response/${role.status ?? 'default'}`
+  if (role.kind === 'responseHeader') return `ResponseHeader/${role.status ?? 'default'}/${role.name ?? 'header'}`
+  return `Parameter/${role.location ?? 'query'}/${role.name ?? 'parameter'}`
+}
+
 function lowerInlineObject(schema: OasSchema, context: PydanticLowerContext): PyTypeExpr {
   const existing = context.declaredInline?.get(schema as object)
   if (existing !== undefined) return { kind: 'ref', target: existing }
-  const name = `${context.ownerName ?? 'Inline'}/${context.propertyPath ?? 'object'}`
+  const pointer = schemaPointer(schema, context)
+  const pointerExisting = context.declaredInlineByPointer?.get(pointer)
+  if (pointerExisting !== undefined) {
+    context.declaredInline?.set(schema as object, pointerExisting)
+    return { kind: 'ref', target: pointerExisting }
+  }
+  const operationPath = context.operationPath ?? operationInlinePath(schema, context)
+  const name = context.operationOwner !== undefined
+    ? `${context.operationOwner}/${operationRoleKey(context.operationRole)}${operationPath === undefined ? '' : `/${operationPath}`}`
+    : `${context.ownerName ?? 'Inline'}/${context.propertyPath ?? 'object'}`
   context.declaredInline?.set(schema as object, name)
-  context.inlineDecls.push(buildModelDecl(name, schema, context, 'inline'))
+  context.declaredInlineByPointer?.set(pointer, name)
+  context.modelNames?.add(name)
+  const declaration = buildModelDecl(name, schema, context, 'inline')
+  if (context.operationOwner !== undefined) {
+    declaration.operationOwner = context.operationOwner
+    if (context.operationRole !== undefined) declaration.operationRole = {
+      ...context.operationRole,
+      ...(operationPath === undefined ? {} : { path: operationPath }),
+    }
+  }
+  context.inlineDecls.push(declaration)
   return { kind: 'ref', target: name }
+}
+
+function operationInlinePath(schema: OasSchema, context: PydanticLowerContext): string | undefined {
+  if (context.operationOwner === undefined) return undefined
+  const pointer = schemaPointer(schema, context)
+  const marker = '/schema/properties/'
+  const index = pointer.indexOf(marker)
+  if (index < 0) return undefined
+  return pointer.slice(index + marker.length).split('/').map(value => value.replace(/~1/g, '/').replace(/~0/g, '~')).join('/')
 }
 
 function scalarType(
@@ -317,9 +360,13 @@ export function schemaToPyType(schema: OasSchema, context: PydanticLowerContext)
   if (source.default !== undefined) context.defaultValues?.set(schema as object, source.default)
   if (Array.isArray(source.examples)) context.examples?.set(schema as object, source.examples)
   const nullable = nullableParts(schema)
-  const clean = { ...asRecord(nullable.schema) }
-  delete clean.default
-  delete clean.example
+  const clean = nullable.schema === schema && source.default === undefined && source.example === undefined
+    ? schema
+    : { ...asRecord(nullable.schema) }
+  if (clean !== schema) {
+    delete (clean as Record<string, unknown>).default
+    delete (clean as Record<string, unknown>).example
+  }
   const previous = context.currentSchema
   context.currentSchema = schema
   let result = foldSchema(clean as OasSchema, createPydanticAlgebra(context))
@@ -354,12 +401,17 @@ function buildField(
 ): PyField {
   const previousOwner = context.ownerName
   const previousPath = context.propertyPath
+  const previousOperationPath = context.operationPath
   context.ownerName = owner
   context.propertyPath = wireName
+  if (context.operationOwner !== undefined) {
+    context.operationPath = previousOperationPath === undefined ? wireName : `${previousOperationPath}/${wireName}`
+  }
   const nullable = nullableParts(schema)
   const rawType = schemaToPyType(nullable.schema, context)
   context.ownerName = previousOwner
   context.propertyPath = previousPath
+  context.operationPath = previousOperationPath
   let type: PyTypeExpr = rawType
   if (rawType.kind === 'union' && rawType.members.some(member => member.kind === 'builtin' && member.name === 'None')) {
     const members = rawType.members.filter(member => !(member.kind === 'builtin' && member.name === 'None'))
@@ -471,6 +523,152 @@ function buildModelDecl(
   }
 }
 
+function isSchemaLike(value: unknown): value is OasSchema {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function operationPointer(operation: OperationEntry): string {
+  const token = escapePointer
+  return `/paths/${token(operation.openApiPath)}/${token(operation.method)}`
+}
+
+function escapePointer(value: string): string {
+  return value.replace(/~/g, '~0').replace(/\//g, '~1')
+}
+
+function operationMedia(content: Record<string, unknown> | undefined): {
+  mediaType: string | null
+  otherMediaTypes: string[]
+  schema: OasSchema | null
+} {
+  const types = Object.keys(content ?? {}).sort((left, right) => left.localeCompare(right))
+  const chosen = types.find(type => type === 'application/json') ?? types[0]
+  const media = chosen === undefined ? undefined : content?.[chosen]
+  return {
+    mediaType: chosen ?? null,
+    otherMediaTypes: chosen === undefined ? [] : types.filter(type => type !== chosen),
+    schema: isSchemaLike(asRecord(media).schema) ? asRecord(media).schema as OasSchema : null,
+  }
+}
+
+function lowerOperation(operation: OperationEntry, context: PydanticLowerContext): PyDecl {
+  const name = `operation/${operation.method.toLowerCase()}:${operation.openApiPath}`
+  const pointer = operationPointer(operation)
+  const previousOwner = context.operationOwner
+  const previousRole = context.operationRole
+  const previousOperationPath = context.operationPath
+  const lowerSchema = (schema: OasSchema | undefined, role: string): PyTypeExpr => {
+    if (schema === undefined) return anyType()
+    context.operationOwner = name
+    context.operationRole = roleObject(operation, role)
+    context.operationPath = undefined
+    const type = schemaToPyType(schema, context)
+    context.operationOwner = previousOwner
+    context.operationRole = previousRole
+    context.operationPath = previousOperationPath
+    return type
+  }
+  const parameterPointer = (parameter: OperationEntry['parameters'][number], index: number): string => context.operationParameterPointers?.[
+    `${operation.method}:${operation.openApiPath}:${parameter.in}:${parameter.name}`
+  ] ?? `${pointer}/parameters/${index}`
+  const parameters = operation.parameters
+    .filter((parameter, index) => {
+      if (parameter.in !== 'querystring') return true
+      context.diagnostics.push({
+        code: 'pydantic/operation-unsupported', severity: 'warning', pointer: parameterPointer(parameter, index),
+        message: 'OAS querystring parameters are not supported; parameter skipped',
+      })
+      return false
+    })
+    .map((parameter, index) => ({
+      location: parameter.in === 'path' || parameter.in === 'query' || parameter.in === 'header' || parameter.in === 'cookie'
+        ? parameter.in : 'query',
+      name: parameter.name,
+      required: parameter.required === true || parameter.in === 'path',
+      style: parameter.style ?? (parameter.in === 'path' || parameter.in === 'header' ? 'simple' : 'form'),
+      explode: parameter.explode ?? (parameter.style === 'form' || (parameter.style === undefined && parameter.in !== 'path' && parameter.in !== 'header')),
+      schema: lowerSchema(
+        isSchemaLike(parameter.schema) ? parameter.schema
+          : (Object.values(parameter.content ?? {})[0] !== undefined
+            && isSchemaLike(asRecord(Object.values(parameter.content ?? {})[0]).schema)
+            ? asRecord(Object.values(parameter.content ?? {})[0]).schema as OasSchema : undefined),
+        `Parameter/${parameter.in}/${parameter.name}`,
+      ),
+      ...(typeof parameter.description === 'string' ? { description: parameter.description } : {}),
+      pointer: parameterPointer(parameter, index),
+    }))
+  let requestBody: PyBodyDecl | null = null
+  if (operation.requestBody !== undefined) {
+    const selected = operationMedia(operation.requestBody.content as Record<string, unknown> | undefined)
+    requestBody = {
+      required: operation.requestBody.required === true,
+      mediaType: selected.mediaType,
+      otherMediaTypes: selected.otherMediaTypes,
+      schema: selected.schema === null ? null : lowerSchema(selected.schema, 'Body'),
+      ...(typeof operation.requestBody.description === 'string' ? { description: operation.requestBody.description } : {}),
+      pointer: `${pointer}/requestBody`,
+    }
+  }
+  const responses = Object.entries(operation.responses)
+    .sort(([left], [right]) => left === 'default' ? 1 : right === 'default' ? -1 : left.localeCompare(right, undefined, { numeric: true }))
+    .map(([status, response]) => {
+      const selected = operationMedia(response.content as Record<string, unknown> | undefined)
+      const headers = Object.entries(response.headers ?? {}).sort(([left], [right]) => left.localeCompare(right)).map(([headerName, header]) => {
+        const record = asRecord(header)
+        return {
+          name: headerName,
+          required: record.required === true,
+          schema: lowerSchema(isSchemaLike(record.schema) ? record.schema : undefined, `ResponseHeader/${status}/${headerName}`),
+          ...(typeof record.description === 'string' ? { description: record.description } : {}),
+          pointer: `${pointer}/responses/${escapePointer(status)}/headers/${escapePointer(headerName)}`,
+        }
+      })
+      return {
+        status,
+        mediaType: selected.mediaType,
+        otherMediaTypes: selected.otherMediaTypes,
+        schema: selected.schema === null ? null : lowerSchema(selected.schema, `Response/${status}`),
+        headers,
+        ...(typeof response.description === 'string' ? { description: response.description } : {}),
+        pointer: `${pointer}/responses/${status}`,
+      }
+    })
+  context.operationOwner = previousOwner
+  context.operationRole = previousRole
+  context.operationPath = previousOperationPath
+  return {
+    kind: 'operation',
+    name,
+    pyName: null,
+    operationId: operation.operationId ?? null,
+    method: operation.method,
+    path: operation.openApiPath,
+    tags: [...operation.tags].sort((left, right) => left.localeCompare(right)),
+    ...(typeof operation.summary === 'string' ? { summary: operation.summary } : {}),
+    ...(typeof operation.description === 'string' ? { description: operation.description } : {}),
+    deprecated: operation.deprecated,
+    parameters,
+    requestBody,
+    responses,
+    modelNames: { pathParams: null, queryParams: null, headerParams: null, cookieParams: null, body: null, response: null, error: null },
+    pointer,
+  }
+}
+
+function roleObject(operation: OperationEntry, role: string): PyOperationRole {
+  if (role === 'Body') return { kind: 'body' }
+  if (role.startsWith('Parameter/')) {
+    const [, location, name] = role.split('/')
+    return { kind: 'parameter', location: (location as PyOperationRole['location']) ?? 'query', ...(name === undefined ? {} : { name }) }
+  }
+  if (role.startsWith('ResponseHeader/')) {
+    const [, status, name] = role.split('/')
+    return { kind: 'responseHeader', status: status ?? 'default', name: name ?? 'header' }
+  }
+  const [, status] = role.split('/')
+  return { kind: 'response', status: status ?? 'default' }
+}
+
 function recordPointers(value: unknown, context: PydanticLowerContext, pointer = ''): void {
   if (value === null || typeof value !== 'object') return
   context.pointerOf.set(value, pointer || '/')
@@ -506,7 +704,9 @@ export function lowerToPyIr(
     examples: new WeakMap(),
     componentNames: new Set(names),
     modelNames,
+    operationParameterPointers: prepared.operationParameterPointers,
     declaredInline: new WeakMap(),
+    declaredInlineByPointer: new Map(),
   }
   recordPointers(prepared.document, context)
   const declarations: PyDecl[] = []
@@ -543,6 +743,22 @@ export function lowerToPyIr(
       }
     }
     declarations.push(...context.inlineDecls.splice(0), declaration)
+  }
+  for (const operation of prepared.operations) {
+    const declaration = lowerOperation(operation, context)
+    declarations.push(...context.inlineDecls.splice(0), declaration)
+    if (Object.keys(operation.callbacks).length > 0) {
+      context.diagnostics.push({
+        code: 'pydantic/operation-unsupported', severity: 'warning', pointer: declaration.pointer,
+        message: 'Callbacks are not supported in the operation skeleton',
+      })
+    }
+  }
+  for (const webhook of prepared.webhooks) {
+    context.diagnostics.push({
+      code: 'pydantic/operation-unsupported', severity: 'warning', pointer: operationPointer(webhook),
+      message: 'Webhooks are not emitted as API operations',
+    })
   }
   return {
     irVersion: 1,

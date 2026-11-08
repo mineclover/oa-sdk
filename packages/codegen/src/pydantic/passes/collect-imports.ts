@@ -71,6 +71,9 @@ export const collectImportsPass: PyPass<never> = {
       } else if (decl.kind === 'alias') {
         add('typing', 'TypeAlias')
         inspect(decl.type)
+      } else if (decl.kind === 'operation') {
+        // Operation declarations are facts for the next rendering milestone.
+        // Their imports must not change the schema-only module output.
       } else if (decl.repr === 'str-enum') {
         add('enum', 'StrEnum')
       } else {

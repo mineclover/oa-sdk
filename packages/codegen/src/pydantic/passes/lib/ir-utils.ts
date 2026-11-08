@@ -47,6 +47,18 @@ export function mapDeclTypes(decl: PyDecl, map: (type: PyTypeExpr) => PyTypeExpr
     }
   }
   if (decl.kind === 'alias') return { ...decl, type: mapType(decl.type, map) }
+  if (decl.kind === 'operation') return {
+    ...decl,
+    parameters: decl.parameters.map(parameter => ({ ...parameter, schema: mapType(parameter.schema, map) })),
+    requestBody: decl.requestBody === null || decl.requestBody.schema === null
+      ? decl.requestBody
+      : { ...decl.requestBody, schema: mapType(decl.requestBody.schema, map) },
+    responses: decl.responses.map(response => ({
+      ...response,
+      schema: response.schema === null ? null : mapType(response.schema, map),
+      headers: response.headers.map(header => ({ ...header, schema: mapType(header.schema, map) })),
+    })),
+  }
   return { ...decl }
 }
 

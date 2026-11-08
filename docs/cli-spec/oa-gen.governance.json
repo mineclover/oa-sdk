@@ -93,6 +93,16 @@
             "description": "Emit the resolved IR beside the module"
           },
           {
+            "name": "layout",
+            "type": "string",
+            "description": "Output layout: split | single"
+          },
+          {
+            "name": "no-operations",
+            "type": "boolean",
+            "description": "Do not include operation declarations"
+          },
+          {
             "name": "report",
             "type": "string",
             "description": "Write the build report JSON to this file"

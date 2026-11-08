@@ -27,6 +27,7 @@ export const namingPass: PyPass<'naming'> = {
     const byName = new Map(result.decls.map(decl => [decl.name, decl]))
     const usedDeclarationNames = new Set<string>()
     for (const decl of [...result.decls].sort((left, right) => left.name.localeCompare(right.name))) {
+      if (decl.kind === 'operation' || (decl.kind === 'model' && decl.operationOwner !== undefined)) continue
       const segments = decl.name.split('/').filter(Boolean)
       const candidate = pascalCase(segments.join('_'))
       let pyName = candidate

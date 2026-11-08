@@ -27,6 +27,8 @@ export const oaGenGovernanceManifest = {
           { name: 'no-docstrings', type: 'boolean', description: 'Do not emit model docstrings' },
           { name: 'frozen', type: 'boolean', description: 'Make generated models immutable' },
           { name: 'emit-ir', type: 'boolean', description: 'Emit the resolved IR beside the module' },
+          { name: 'layout', type: 'string', description: 'Output layout: split | single' },
+          { name: 'no-operations', type: 'boolean', description: 'Do not include operation declarations' },
           { name: 'report', type: 'string', description: 'Write the build report JSON to this file' },
           { name: 'force', type: 'boolean', description: 'Proceed despite preflight errors or error diagnostics' },
           { name: 'no-validate', type: 'boolean', description: 'Skip preflight validation' },
