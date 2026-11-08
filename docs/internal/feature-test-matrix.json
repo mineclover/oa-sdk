@@ -1154,6 +1154,45 @@
       ]
     },
     {
+      "id": "pydantic-codegen",
+      "name": "OAS 3.2 to Pydantic v2 generation",
+      "category": "codegen",
+      "package": "@oa-sdk/codegen",
+      "description": "Phase 1 Pydantic v2 DTO generation from OAS 3.2 components.schemas through the CLI, API, staged pipeline, and TypeSpec plugin.",
+      "capabilities": [
+        "generate:pydantic",
+        "buildPydanticModels",
+        "resolvePydanticBuildOptions",
+        "preparePydanticDocument",
+        "analyzeSchemaGraph",
+        "lowerToPyIr",
+        "runPyPasses",
+        "renderPyModule",
+        "emitPydanticFiles",
+        "pydantic plugin"
+      ],
+      "testPaths": [
+        "packages/codegen/src/pydantic/__tests__/contract.test.ts",
+        "packages/codegen/src/pydantic/__tests__/render.test.ts",
+        "packages/codegen/src/pydantic/__tests__/python-lane.test.ts",
+        "packages/codegen/src/pydantic/__tests__/lower.test.ts",
+        "packages/codegen/src/pydantic/__tests__/passes/regex.test.ts",
+        "packages/codegen/src/pydantic/__tests__/passes/extensions.test.ts",
+        "packages/codegen/src/pydantic/__tests__/passes/polymorphic-refs.test.ts",
+        "packages/codegen/src/pydantic/__tests__/passes/scalar-policy.test.ts",
+        "packages/codegen/src/pydantic/__tests__/passes/collect-imports.test.ts",
+        "packages/codegen/src/pydantic/__tests__/passes/naming.test.ts",
+        "packages/codegen/src/pydantic/__tests__/passes/optional-policy.test.ts",
+        "packages/codegen/src/pydantic/__tests__/passes/extra-policy.test.ts",
+        "packages/codegen/src/__tests__/cli/generate-pydantic.test.ts",
+        "packages/codegen/src/__tests__/plugin-pydantic.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/codegen test",
+        "pnpm --filter @oa-sdk/codegen typecheck"
+      ]
+    },
+    {
       "id": "source-adapter-boundaries",
       "name": "OpenAPI source adapter boundaries",
       "category": "codegen",

@@ -2,6 +2,16 @@
 
 릴리스 단위가 아닌, 굵직한 surface 변경이 떨어졌을 때 한 항목으로 기록한다. 자세한 구현 상태는 [spec.md](./internal/spec.md), API 단일 소스는 [api-index.md](./internal/api-index.md), 기능↔테스트는 [feature-test-matrix.md](./internal/feature-test-matrix.md) 참조.
 
+## 2026-11-07 — OAS 3.2 → Pydantic v2 코드 생성 (`@oa-sdk/codegen`, checkout 구현, 미배포)
+
+- OAS 3.2 문서의 `components.schemas`에서 Pydantic v2 Python DTO `models.py`를 생성한다(Phase 1).
+- 진입점은 `oa-gen generate:pydantic` CLI, `buildPydanticModels` 프로그래밍 API와 단계별 export, `@oa-sdk/codegen/plugin`의 `pydantic` 플러그인이다.
+- `resolvePydanticBuildOptions` → `preparePydanticDocument` → `analyzeSchemaGraph` → `lowerToPyIr` → `runPyPasses` → `renderPyModule` → `emitPydanticFiles`의 staged pipeline으로 처리한다.
+- semantic 옵션은 `default`/`strict`/`passthrough` preset과 명시 옵션을 해석해 출력 정책을 결정한다.
+- 검증은 golden 4 fixtures × 3 presets, contract tests, opt-in Python lane으로 구성되며 build report와 진단을 함께 확인한다.
+- 알려진 제한은 operation 모델·router·`ContractRegistry` 연동을 포함하지 않는 Phase 1 범위이며 [Pydantic 코드 생성 가이드의 알려진 제한](./guides/pydantic-codegen.md#알려진-제한)을 따른다.
+- 자세한 사용법은 [Pydantic 코드 생성 가이드](./guides/pydantic-codegen.md), 설계는 [staged pipeline](./internal/architecture/pydantic-codegen-pipeline.md)을 참조한다.
+
 ## 2026-10-28 — 팝업 브리지 (새 private `@oa-sdk/popup-bridge`, checkout 구현, 미배포)
 
 - 별도 Origin에 배포된 팝업을 `window.open`으로 열고 HELLO → CONNECT → READY 핸드셰이크(`origin`·`source`·`sessionId`·`instanceId` 검증, 프로토콜 버전 협상)를 거쳐 `MessageChannel` 위에서 양방향 JSON-RPC 2.0 호출과 구독 이벤트(revision, 누락 감지)를 주고받는다. 취소(`bridge.cancel`), 타임아웃, 멱등성 키, 팝업 새로고침 재연결을 포함한다.

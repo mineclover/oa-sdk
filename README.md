@@ -236,6 +236,7 @@ node packages/codegen/dist/cli/index.js review-bundle --base old.yaml --head pac
 
 # 코드 생성
 node packages/codegen/dist/cli/index.js typegen --spec packages/schemas/src/.merged.yaml -o types.ts
+node packages/codegen/dist/cli/index.js generate:pydantic --spec packages/schemas/src/.merged.yaml --out generated/pydantic # OAS 3.2 components.schemas → Pydantic v2 DTO
 node packages/codegen/dist/cli/index.js generate --drizzle-schema ./db/schema.ts --output ./domains/users/
 
 # 동반 패키지 API(@oa-sdk/router generateRouter, @oa-sdk/client generateClient) 통합은 apps/playground/tests에서 검증
@@ -263,6 +264,8 @@ pnpm demo:dpm
 # DPM storage 데모 (catalog profiler + registry/job/report persistence)
 pnpm demo:dpm:storage
 ```
+
+Pydantic DTO 생성 옵션과 Phase 1 범위는 [Pydantic 코드 생성 가이드](./docs/guides/pydantic-codegen.md)를 따른다.
 
 ## 테스트에서 사용
 
