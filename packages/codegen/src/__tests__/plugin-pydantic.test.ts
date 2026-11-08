@@ -15,4 +15,15 @@ describe('pydantic plugin', () => {
     expect(context.getFile('models.py.ir.json')).toBeDefined()
     expect(context.diagnostics.every(diagnostic => diagnostic.plugin === 'pydantic')).toBe(true)
   })
+
+  it.each(['api', 'data', 'interface'] as const)('purpose %s controls operation emission', async purpose => {
+    const context = createPluginContext({
+      entrypoint: '/tmp/main.tsp', outputDir: '/tmp/out',
+      document: parse('openapi: 3.2.0\ninfo: {title: test, version: "1"}\npaths: {/x: {get: {operationId: getX, responses: {"200": {description: ok}}}}}\n'),
+      config: { input: '/tmp/main.tsp', purpose },
+    })
+    await pydantic({ emitIr: true, emitOperations: true }).generate!(context, undefined)
+    const ir = JSON.parse(context.getFile('models.py.ir.json')?.content ?? '{}') as { decls: Array<{ kind: string }> }
+    expect(ir.decls.some(decl => decl.kind === 'operation')).toBe(purpose === 'api')
+  })
 })

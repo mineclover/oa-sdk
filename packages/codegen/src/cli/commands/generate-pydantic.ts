@@ -37,6 +37,8 @@ export const generatePydantic: Command = {
     'no-docstrings': { type: 'boolean', description: 'Do not emit model docstrings' },
     frozen: { type: 'boolean', description: 'Make generated models immutable' },
     'emit-ir': { type: 'boolean', description: 'Emit the resolved IR beside the module' },
+    layout: { type: 'string', description: 'Output layout: split | single' },
+    'no-operations': { type: 'boolean', description: 'Do not include operation declarations' },
     report: { type: 'string', description: 'Write the build report JSON to this file' },
     force: { type: 'boolean', description: 'Proceed despite preflight errors or error diagnostics' },
     'no-validate': { type: 'boolean', description: 'Skip preflight validation' },
@@ -55,6 +57,7 @@ export const generatePydantic: Command = {
       output,
       preset: choice(args, 'preset', ['default', 'strict', 'passthrough'] as const, 'default'),
       emitIr: bool(args, 'emit-ir'),
+      emitOperations: !bool(args, 'no-operations'),
       docstrings: !bool(args, 'no-docstrings'),
       frozen: bool(args, 'frozen'),
       preflight: {
@@ -69,6 +72,8 @@ export const generatePydantic: Command = {
       ['enum-style', 'enumStyle'], ['datetime', 'datetime'], ['uri', 'uri'], ['int-bounds', 'intBounds'],
       ['encoding-policy', 'encodingPolicy'], ['extensions', 'extensions'],
     ] as const
+    const layout = optStr(args, 'layout')
+    if (layout !== undefined) (input as Record<string, unknown>).layout = layout
     for (const [argument, property] of options) {
       const value = optStr(args, argument)
       if (value !== undefined) {

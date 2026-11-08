@@ -167,10 +167,17 @@ const { files, report } = root.emitPydanticFiles(root.renderPyModule(ir), ir, op
 | `docstrings` | **`true`**, `false` |
 | `frozen` | **`false`**, `true` |
 | `emitIr` (출력 제어) | **`false`**, `true` |
+| `layout` (출력 제어) | **`split`**, `single` |
+| `emitOperations` (출력 제어) | **`true`**, `false` |
 
 `output`은 semantic 옵션이 아닌 출력 파일 상대 경로이며 기본값은 `models.py`다. 반드시
 `.py`로 끝나야 한다. `preflight`는 `validate`, `normalize`, `lintCategories`,
 `failOnSeverity`, `rules`, `basePath`와 `force`를 받는다.
+
+`layout`은 `split`(기본값) 또는 `single`이며 S6 report에 기록된다. `emitOperations`는 기본값이
+`true`이고 operation IR을 수집한다. CLI의 `--no-operations`와 plugin의 `purpose`가 `api`가
+아닌 경우에는 operation 산출을 끈다. 현재 milestone에서는 operation Python 렌더링을 다음
+단계로 남기고 `models.py`에는 schema 모델만 쓴다.
 
 실제 `PydanticSemanticOptions`와 report의 `options`에는 semantic 키가 들어가고, `emitIr`는 별도의 출력 옵션이다.
 
@@ -189,7 +196,6 @@ const { files, report } = root.emitPydanticFiles(root.renderPyModule(ir), ir, op
 |---|---|
 | `pydanticFloor` / `pythonFloor` | `2.11` / `3.11` |
 | `unionMode` | `smart` |
-| `layout` | `single` |
 
 ## OAS → Python 매핑
 
@@ -237,6 +243,8 @@ const { files, report } = root.emitPydanticFiles(root.renderPyModule(ir), ir, op
 | 재귀 `$ref` | `from __future__ import annotations`와 모듈 끝의 `X.model_rebuild()` |
 | `x-*` extension | field의 `x-*`는 `Field(json_schema_extra=...)`로 렌더링. model-level extension은 extensions pass가 IR에 보존하지만 `render.ts`가 Python 설정으로 출력하지 않는다. JSON 불가 값은 제거 |
 | `description`, `examples`, `deprecated` | `Field(description=..., examples=..., deprecated=...)`; 모델 description은 docstring |
+| `paths` operation | path/query/header/cookie parameter, JSON body, response와 header를 `PyOperationDecl` facts로 IR에 기록. path item parameter는 operation parameter가 덮어쓴다 |
+| operation model naming | `<Op>PathParams`, `<Op>QueryParams`, `<Op>HeaderParams`, `<Op>CookieParams`, `<Op>Body`, selected JSON success의 `<Op>Response`, `<Op>Error`; inline parameter는 `<Op><Location>Param<Name>`, response 오류는 `<Op>Error<Status>` |
 
 대표적인 generated line은 다음과 같다.
 
@@ -334,6 +342,9 @@ Identifier: TypeAlias = Annotated[str, Field(pattern="^[A-Za-z_][A-Za-z0-9_.-]*$
 | `pydantic/regex-engine-fallback` | warning | lookaround/backreference로 모델을 Python `re`로 전환 |
 | `pydantic/regex-class-untranslatable` | warning | ECMA character class 안의 `\D` 또는 `\W` |
 | `pydantic/extension-dropped` | warning | `x-*` 값이 JSON 직렬화 불가능하여 제거됨 |
+| `pydantic/operation-id-missing` | warning | operationId가 없어 method와 path로 이름을 결정함 |
+| `pydantic/operation-name-collision` | warning | operation model stem 충돌에 숫자 suffix를 붙임 |
+| `pydantic/operation-unsupported` | warning | callback, webhook 또는 JSON 이외 body처럼 후속 milestone construct를 만남 |
 
 CLI는 preflight fatal 또는 severity가 `error`인 진단이 있으면 non-zero로 끝난다. `--force`는
 두 경우 모두 생성과 파일 쓰기를 계속한다. `--no-validate`는 preflight validation/lint를
@@ -362,7 +373,8 @@ CLI는 preflight fatal 또는 severity가 `error`인 진단이 있으면 non-zer
 | `fixed` | `PYDANTIC_FIXED_SETTINGS` 전체 |
 | `output` | resolved output 경로 |
 | `contentSha256` | banner 전 `source`의 SHA-256 |
-| `declarations` | `models`, `enums`, `aliases` 개수 |
+| `declarations` | `models`, `enums`, `aliases`, `operations` 개수 |
+| `layout`, `emitOperations` | 출력 layout과 operation 수집 설정 |
 | `diagnostics` | `info`, `warning`, `error`별 개수 |
 
 `emitIr: true`이면 Python 파일 옆에 `<output>.ir.json`을 추가한다. 이 파일에는 pass가 끝난
@@ -372,8 +384,8 @@ CLI는 preflight fatal 또는 severity가 `error`인 진단이 있으면 non-zer
 ## 검증과 테스트
 
 - golden은 `packages/codegen/src/pydantic/__tests__/golden/`에 있으며 `approved`,
-  `chunk-stream`, `cycles`, `scalars` 네 fixture를 `default`, `strict`, `passthrough` 세 preset으로
-  비교한다(총 12개 Python 파일).
+  `chunk-stream`, `cycles`, `scalars`, `operations` 다섯 fixture를 `default`, `strict`, `passthrough` 세 preset으로
+  비교한다. `operations.ir.json`은 resolved operation IR golden이다.
 - `packages/codegen/src/pydantic/__tests__/contract.test.ts`는 S0 옵션 우선순위, S3 JSON
   IR과 unresolved slot, 입력 schema 순서 독립성, S4 pass 관찰성, golden 일치, 결정성,
   `emitIr`, package root의 모든 stage export를 검사한다.
@@ -389,9 +401,9 @@ OA_SDK_PYDANTIC_PY_LANE=1 corepack pnpm --filter @oa-sdk/codegen exec vitest run
 
 ## 알려진 제한
 
-- Phase 1은 `components.schemas`만 처리한다. operation parameter 모델, router, client,
-  `ContractRegistry`, decorator 의미 해석은 이후 범위다.
-- `PYDANTIC_FIXED_SETTINGS`에는 `pydanticFloor`, `pythonFloor`, `unionMode`, `layout`만 남아 있다.
+- operation facts는 IR에 포함되며 operation parameter/body/response Python 모델 렌더링은 다음 milestone에서 제공한다. router, client, `ContractRegistry`, decorator 의미 해석은 이후 범위다.
+- OAS `in: querystring` parameter는 `pydantic/operation-unsupported` warning과 함께 건너뛴다.
+- `PYDANTIC_FIXED_SETTINGS`에는 `pydanticFloor`, `pythonFloor`, `unionMode`만 남아 있다.
 - typed `__pydantic_extra__`와 discriminator subtype의 좁혀진 `Literal` tag에는 pyright가
   `reportIncompatibleVariableOverride`를 내므로 해당 선언 줄에만 targeted ignore 주석을 낸다.
   Pydantic의 지원 패턴과 generated module의 pyright 검사를 함께 유지한다.

@@ -1158,7 +1158,7 @@
       "name": "OAS 3.2 to Pydantic v2 generation",
       "category": "codegen",
       "package": "@oa-sdk/codegen",
-      "description": "Pydantic v2 DTO generation with encoded scalar decoding, model extensions, frozen/docstring settings, and ruff/pyright quality gates through the CLI, API, staged pipeline, and TypeSpec plugin.",
+      "description": "Pydantic v2 DTO and operation IR generation with encoded scalar decoding, model extensions, frozen/docstring settings, and ruff/pyright quality gates through the CLI, API, staged pipeline, and TypeSpec plugin.",
       "capabilities": [
         "generate:pydantic",
         "buildPydanticModels",
@@ -1173,6 +1173,7 @@
       ],
       "testPaths": [
         "packages/codegen/src/pydantic/__tests__/contract.test.ts",
+        "packages/codegen/src/pydantic/__tests__/fixtures/operations/operations.openapi.yaml",
         "packages/codegen/src/pydantic/__tests__/render.test.ts",
         "packages/codegen/src/pydantic/__tests__/python-lane.test.ts",
         "packages/codegen/src/pydantic/__tests__/lower.test.ts",

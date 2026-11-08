@@ -13,7 +13,10 @@ export function pydantic(options: PluginPydanticOptions = {}): TspPlugin<PluginP
     dependencies: [],
     generate: (context: TspPluginContext, hookOptions?: PluginPydanticOptions) => {
       const merged = { ...options, ...hookOptions }
-      const result = buildPydanticModels(context.document, merged)
+      const result = buildPydanticModels(context.document, {
+        ...merged,
+        emitOperations: context.config.purpose === 'api' && (merged.emitOperations ?? true),
+      })
       for (const file of result.files) context.addFile(file)
       for (const diagnostic of result.diagnostics) {
         context.reportDiagnostic({

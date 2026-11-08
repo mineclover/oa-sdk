@@ -42,6 +42,10 @@ export interface PydanticOutputOptions {
   output: string
   /** Also emit the final IR as `<output>.ir.json`. */
   emitIr: boolean
+  /** Keep operation declarations in the IR/output manifest. */
+  emitOperations: boolean
+  /** Put schemas and operations in one module, or use the split layout. */
+  layout: 'single' | 'split'
 }
 
 export type PydanticPreset = 'default' | 'strict' | 'passthrough'
@@ -72,6 +76,8 @@ export const PYDANTIC_DEFAULT_OPTIONS: Readonly<PydanticSemanticOptions & Pydant
   frozen: false,
   output: 'models.py',
   emitIr: false,
+  emitOperations: true,
+  layout: 'split',
 })
 
 type PresetTable = Readonly<Record<PydanticPreset, Readonly<Partial<PydanticSemanticOptions>>>>
@@ -87,7 +93,6 @@ export const PYDANTIC_FIXED_SETTINGS = Object.freeze({
   pydanticFloor: '2.11',
   pythonFloor: '3.11',
   unionMode: 'smart',
-  layout: 'single',
 } as const)
 
 const ALLOWED_VALUES: { readonly [K in keyof PydanticSemanticOptions]: readonly PydanticSemanticOptions[K][] } = {
@@ -138,12 +143,17 @@ export function resolvePydanticBuildOptions(input: PydanticBuildOptions = {}): R
   if (typeof output !== 'string' || output.length === 0 || !output.endsWith('.py')) {
     throw new Error(`Invalid Pydantic option output="${String(output)}" (expected a relative path ending in .py)`)
   }
+  if (input.layout !== undefined && input.layout !== 'single' && input.layout !== 'split') {
+    throw new Error(`Invalid Pydantic option layout="${String(input.layout)}" (expected single, split)`)
+  }
 
   const { force, ...preflight } = input.preflight ?? {}
   return Object.freeze({
     ...(semantic as unknown as PydanticSemanticOptions),
     output,
     emitIr: input.emitIr ?? PYDANTIC_DEFAULT_OPTIONS.emitIr,
+    emitOperations: input.emitOperations ?? PYDANTIC_DEFAULT_OPTIONS.emitOperations,
+    layout: input.layout ?? PYDANTIC_DEFAULT_OPTIONS.layout,
     preset,
     preflight: Object.freeze({ ...preflight, force: force ?? false }),
   })

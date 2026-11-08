@@ -12,6 +12,8 @@ import { frozenPass } from './frozen.js'
 import { docstringsPass } from './docstrings.js'
 import { extraPolicyPass } from './extra-policy.js'
 import { namingPass } from './naming.js'
+import { operationNamingPass } from './operation-naming.js'
+import { operationScopePass } from './operation-scope.js'
 import { optionalPolicyPass } from './optional-policy.js'
 import { polymorphicRefsPass } from './polymorphic-refs.js'
 import { regexPass } from './regex.js'
@@ -28,6 +30,8 @@ export type PyPassName =
   | 'docstrings'
   | 'frozen'
   | 'collectImports'
+  | 'operationNaming'
+  | 'operationScope'
 
 export interface PyPass<K extends keyof PydanticSemanticOptions> {
   readonly name: PyPassName
@@ -43,6 +47,8 @@ export const PY_PASSES: readonly AnyPyPass[] = Object.freeze([
   extraPolicyPass,
   optionalPolicyPass,
   namingPass,
+  operationNamingPass,
+  operationScopePass,
   regexPass,
   scalarPolicyPass,
   extensionsPass,

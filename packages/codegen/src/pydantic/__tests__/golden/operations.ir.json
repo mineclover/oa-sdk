@@ -1,0 +1,521 @@
+{
+  "irVersion": 1,
+  "module": "models",
+  "decls": [
+    {
+      "kind": "model",
+      "name": "Error",
+      "pyName": "Error",
+      "origin": "component",
+      "bases": [],
+      "fields": [
+        {
+          "wireName": "message",
+          "attribute": "message",
+          "alias": "",
+          "type": {
+            "kind": "builtin",
+            "name": "str"
+          },
+          "required": true,
+          "nullable": false,
+          "default": {
+            "kind": "required"
+          },
+          "rejectExplicitNull": false,
+          "pointer": "/components/schemas/Error/properties/message"
+        }
+      ],
+      "openness": {
+        "kind": "open"
+      },
+      "extra": "ignore",
+      "regexEngine": "rust-regex",
+      "frozen": false,
+      "pointer": "/components/schemas/Error"
+    },
+    {
+      "kind": "model",
+      "name": "Thing",
+      "pyName": "Thing",
+      "origin": "component",
+      "bases": [],
+      "fields": [
+        {
+          "wireName": "id",
+          "attribute": "id",
+          "alias": "",
+          "type": {
+            "kind": "constrained",
+            "base": {
+              "kind": "builtin",
+              "name": "int"
+            },
+            "constraints": {
+              "ge": {
+                "integer": "-9223372036854775808"
+              },
+              "le": {
+                "integer": "9223372036854775807"
+              }
+            }
+          },
+          "required": true,
+          "nullable": false,
+          "default": {
+            "kind": "required"
+          },
+          "rejectExplicitNull": false,
+          "pointer": "/components/schemas/Thing/properties/id"
+        },
+        {
+          "wireName": "name",
+          "attribute": "name",
+          "alias": "",
+          "type": {
+            "kind": "builtin",
+            "name": "str"
+          },
+          "required": true,
+          "nullable": false,
+          "default": {
+            "kind": "required"
+          },
+          "rejectExplicitNull": false,
+          "pointer": "/components/schemas/Thing/properties/name"
+        }
+      ],
+      "openness": {
+        "kind": "open"
+      },
+      "extra": "ignore",
+      "regexEngine": "rust-regex",
+      "frozen": false,
+      "pointer": "/components/schemas/Thing"
+    },
+    {
+      "kind": "operation",
+      "name": "operation/get:/things",
+      "pyName": "GetThing",
+      "operationId": "getThing",
+      "method": "get",
+      "path": "/things",
+      "tags": [],
+      "deprecated": false,
+      "parameters": [],
+      "requestBody": null,
+      "responses": [
+        {
+          "status": "200",
+          "mediaType": "application/json",
+          "otherMediaTypes": [],
+          "schema": {
+            "kind": "ref",
+            "target": "Thing"
+          },
+          "headers": [],
+          "description": "The request has succeeded.",
+          "pointer": "/paths/~1things/get/responses/200"
+        },
+        {
+          "status": "400",
+          "mediaType": "application/json",
+          "otherMediaTypes": [],
+          "schema": {
+            "kind": "ref",
+            "target": "Error"
+          },
+          "headers": [],
+          "description": "The server could not understand the request due to invalid syntax.",
+          "pointer": "/paths/~1things/get/responses/400"
+        },
+        {
+          "status": "default",
+          "mediaType": "application/json",
+          "otherMediaTypes": [],
+          "schema": {
+            "kind": "ref",
+            "target": "Error"
+          },
+          "headers": [],
+          "description": "An unexpected error response.",
+          "pointer": "/paths/~1things/get/responses/default"
+        }
+      ],
+      "modelNames": {
+        "pathParams": "",
+        "queryParams": "",
+        "headerParams": "",
+        "cookieParams": "",
+        "body": "",
+        "response": "GetThingResponse",
+        "error": "GetThingError"
+      },
+      "pointer": "/paths/~1things/get"
+    },
+    {
+      "kind": "operation",
+      "name": "operation/get:/things/{id}",
+      "pyName": "GetThing2",
+      "operationId": "get_thing",
+      "method": "get",
+      "path": "/things/{id}",
+      "tags": [],
+      "deprecated": false,
+      "parameters": [
+        {
+          "location": "path",
+          "name": "id",
+          "required": true,
+          "style": "simple",
+          "explode": false,
+          "schema": {
+            "kind": "constrained",
+            "base": {
+              "kind": "builtin",
+              "name": "int"
+            },
+            "constraints": {
+              "ge": {
+                "integer": "-9223372036854775808"
+              },
+              "le": {
+                "integer": "9223372036854775807"
+              }
+            }
+          },
+          "pointer": "/paths/~1things~1{id}/get/parameters/0"
+        },
+        {
+          "location": "query",
+          "name": "filter",
+          "required": false,
+          "style": "form",
+          "explode": false,
+          "schema": {
+            "kind": "union",
+            "members": [
+              {
+                "kind": "union",
+                "members": [
+                  {
+                    "kind": "builtin",
+                    "name": "str"
+                  }
+                ],
+                "discriminator": null
+              },
+              {
+                "kind": "builtin",
+                "name": "None"
+              }
+            ],
+            "discriminator": null
+          },
+          "pointer": "/paths/~1things~1{id}/get/parameters/1"
+        },
+        {
+          "location": "header",
+          "name": "trace",
+          "required": false,
+          "style": "simple",
+          "explode": false,
+          "schema": {
+            "kind": "builtin",
+            "name": "str"
+          },
+          "pointer": "/paths/~1things~1{id}/get/parameters/2"
+        },
+        {
+          "location": "cookie",
+          "name": "session",
+          "required": false,
+          "style": "form",
+          "explode": false,
+          "schema": {
+            "kind": "builtin",
+            "name": "str"
+          },
+          "pointer": "/paths/~1things~1{id}/get/parameters/3"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "mediaType": "application/json",
+        "otherMediaTypes": [],
+        "schema": {
+          "kind": "ref",
+          "target": "Thing"
+        },
+        "pointer": "/paths/~1things~1{id}/get/requestBody"
+      },
+      "responses": [
+        {
+          "status": "200",
+          "mediaType": "application/json",
+          "otherMediaTypes": [],
+          "schema": {
+            "kind": "ref",
+            "target": "Thing"
+          },
+          "headers": [
+            {
+              "name": "request-id",
+              "required": true,
+              "schema": {
+                "kind": "builtin",
+                "name": "str"
+              },
+              "pointer": "/paths/~1things~1{id}/get/responses/200/headers/request-id"
+            }
+          ],
+          "description": "The request has succeeded.",
+          "pointer": "/paths/~1things~1{id}/get/responses/200"
+        },
+        {
+          "status": "400",
+          "mediaType": "application/json",
+          "otherMediaTypes": [],
+          "schema": {
+            "kind": "ref",
+            "target": "Error"
+          },
+          "headers": [],
+          "description": "The server could not understand the request due to invalid syntax.",
+          "pointer": "/paths/~1things~1{id}/get/responses/400"
+        },
+        {
+          "status": "default",
+          "mediaType": "application/json",
+          "otherMediaTypes": [],
+          "schema": {
+            "kind": "ref",
+            "target": "Error"
+          },
+          "headers": [],
+          "description": "An unexpected error response.",
+          "pointer": "/paths/~1things~1{id}/get/responses/default"
+        }
+      ],
+      "modelNames": {
+        "pathParams": "GetThing2PathParams",
+        "queryParams": "GetThing2QueryParams",
+        "headerParams": "GetThing2HeaderParams",
+        "cookieParams": "GetThing2CookieParams",
+        "body": "GetThing2Body",
+        "response": "GetThing2Response",
+        "error": "GetThing2Error"
+      },
+      "pointer": "/paths/~1things~1{id}/get"
+    },
+    {
+      "kind": "model",
+      "name": "operation/post:/things/{id}/Body/inner",
+      "pyName": "PostThingsIdBodyInner",
+      "origin": "inline",
+      "bases": [],
+      "fields": [
+        {
+          "wireName": "y",
+          "attribute": "y",
+          "alias": "",
+          "type": {
+            "kind": "builtin",
+            "name": "str"
+          },
+          "required": true,
+          "nullable": false,
+          "default": {
+            "kind": "required"
+          },
+          "rejectExplicitNull": false,
+          "pointer": "/paths/~1things~1{id}/post/requestBody/content/application~1json/schema/properties/inner/properties/y"
+        }
+      ],
+      "openness": {
+        "kind": "open"
+      },
+      "extra": "ignore",
+      "regexEngine": "rust-regex",
+      "frozen": false,
+      "pointer": "/paths/~1things~1{id}/post/requestBody/content/application~1json/schema/properties/inner",
+      "operationOwner": "operation/post:/things/{id}",
+      "operationRole": {
+        "kind": "body",
+        "path": "inner"
+      }
+    },
+    {
+      "kind": "model",
+      "name": "operation/post:/things/{id}/Body",
+      "pyName": "PostThingsIdBody",
+      "origin": "inline",
+      "bases": [],
+      "fields": [
+        {
+          "wireName": "inner",
+          "attribute": "inner",
+          "alias": "",
+          "type": {
+            "kind": "ref",
+            "target": "operation/post:/things/{id}/Body/inner"
+          },
+          "required": true,
+          "nullable": false,
+          "default": {
+            "kind": "required"
+          },
+          "rejectExplicitNull": false,
+          "pointer": "/paths/~1things~1{id}/post/requestBody/content/application~1json/schema/properties/inner"
+        },
+        {
+          "wireName": "name",
+          "attribute": "name",
+          "alias": "",
+          "type": {
+            "kind": "builtin",
+            "name": "str"
+          },
+          "required": true,
+          "nullable": false,
+          "default": {
+            "kind": "required"
+          },
+          "rejectExplicitNull": false,
+          "pointer": "/paths/~1things~1{id}/post/requestBody/content/application~1json/schema/properties/name"
+        }
+      ],
+      "openness": {
+        "kind": "open"
+      },
+      "extra": "ignore",
+      "regexEngine": "rust-regex",
+      "frozen": false,
+      "pointer": "/paths/~1things~1{id}/post/requestBody/content/application~1json/schema",
+      "operationOwner": "operation/post:/things/{id}",
+      "operationRole": {
+        "kind": "body"
+      }
+    },
+    {
+      "kind": "operation",
+      "name": "operation/post:/things/{id}",
+      "pyName": "PostThingsId",
+      "operationId": null,
+      "method": "post",
+      "path": "/things/{id}",
+      "tags": [],
+      "deprecated": false,
+      "parameters": [
+        {
+          "location": "path",
+          "name": "id",
+          "required": true,
+          "style": "simple",
+          "explode": false,
+          "schema": {
+            "kind": "constrained",
+            "base": {
+              "kind": "builtin",
+              "name": "int"
+            },
+            "constraints": {
+              "ge": {
+                "integer": "-9223372036854775808"
+              },
+              "le": {
+                "integer": "9223372036854775807"
+              }
+            }
+          },
+          "pointer": "/paths/~1things~1{id}/post/parameters/0"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "mediaType": "application/json",
+        "otherMediaTypes": [],
+        "schema": {
+          "kind": "ref",
+          "target": "operation/post:/things/{id}/Body"
+        },
+        "pointer": "/paths/~1things~1{id}/post/requestBody"
+      },
+      "responses": [
+        {
+          "status": "200",
+          "mediaType": "application/json",
+          "otherMediaTypes": [],
+          "schema": {
+            "kind": "ref",
+            "target": "Thing"
+          },
+          "headers": [],
+          "description": "The request has succeeded.",
+          "pointer": "/paths/~1things~1{id}/post/responses/200"
+        },
+        {
+          "status": "400",
+          "mediaType": "application/json",
+          "otherMediaTypes": [],
+          "schema": {
+            "kind": "ref",
+            "target": "Error"
+          },
+          "headers": [],
+          "description": "The server could not understand the request due to invalid syntax.",
+          "pointer": "/paths/~1things~1{id}/post/responses/400"
+        },
+        {
+          "status": "default",
+          "mediaType": "application/json",
+          "otherMediaTypes": [],
+          "schema": {
+            "kind": "ref",
+            "target": "Error"
+          },
+          "headers": [],
+          "description": "An unexpected error response.",
+          "pointer": "/paths/~1things~1{id}/post/responses/default"
+        }
+      ],
+      "modelNames": {
+        "pathParams": "PostThingsIdPathParams",
+        "queryParams": "",
+        "headerParams": "",
+        "cookieParams": "",
+        "body": "PostThingsIdBody",
+        "response": "PostThingsIdResponse",
+        "error": "PostThingsIdError"
+      },
+      "pointer": "/paths/~1things~1{id}/post"
+    }
+  ],
+  "rebuild": [],
+  "imports": {
+    "from": {
+      "__future__": [
+        "annotations"
+      ],
+      "pydantic": [
+        "BaseModel",
+        "ConfigDict",
+        "Field"
+      ]
+    }
+  },
+  "diagnostics": [
+    {
+      "code": "pydantic/operation-name-collision",
+      "severity": "warning",
+      "pointer": "/paths/~1things~1{id}/get",
+      "message": "Operation name 'GetThing' was renamed to 'GetThing2' after a collision"
+    },
+    {
+      "code": "pydantic/operation-id-missing",
+      "severity": "warning",
+      "pointer": "/paths/~1things~1{id}/post",
+      "message": "Operation POST /things/{id} has no operationId; generated name 'PostThingsId'"
+    }
+  ]
+}

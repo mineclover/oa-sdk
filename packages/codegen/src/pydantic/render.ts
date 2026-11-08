@@ -265,7 +265,9 @@ export function renderPyModule(ir: PyModuleIR): string {
     lines.push('        raise ValueError("list items must be unique")', '    return value', '', '')
   }
   if (encodingKeys.size > 0) lines.push(...encodingHelperSource(encodingKeys))
-  ir.decls.forEach((decl, index) => {
+  const renderedDecls = ir.decls.filter(decl => decl.kind !== 'operation'
+    && !(decl.kind === 'model' && decl.operationOwner !== undefined))
+  renderedDecls.forEach((decl, index) => {
     if (index > 0) lines.push('', '')
     if (decl.kind === 'enum') {
       if (decl.repr === 'str-enum') {
@@ -276,8 +278,8 @@ export function renderPyModule(ir: PyModuleIR): string {
       }
     } else if (decl.kind === 'alias') {
       lines.push(`${decl.pyName}: TypeAlias = ${renderType(decl.type, names, ir, index, true)}`)
-    } else {
-      lines.push(...renderModel(decl, names, ir, index))
+    } else if (decl.kind === 'model') {
+      if (decl.operationOwner === undefined) lines.push(...renderModel(decl, names, ir, index))
     }
   })
   if (ir.rebuild.length > 0) {
