@@ -22,7 +22,7 @@ oa-sdk의 기본 기능은 OpenAPI/JSON Schema 호환 입력을 수집해 하나
 - OpenAPI fragments become parser-visible source documents.
 - Definition Builder fragments become canonical definition nodes.
 - Python Pydantic DTOs become `ContractSpec.schemas`.
-- `oa-gen generate:pydantic` can generate Pydantic v2 DTOs from an OAS document (Phase 1: `components.schemas` only); see the [Pydantic code generation guide](../guides/pydantic-codegen.md).
+- `oa-gen generate:pydantic` can generate Pydantic v2 types for an OAS document's schemas and operations (types only, no router or `ContractRegistry` code); see the [Pydantic code generation guide](../guides/pydantic-codegen.md).
 - Projection producers can provide component bundles or operation contracts.
 - Pseudonymization workflows can consume DB catalog snapshots or OpenAPI projection envelopes as DPM catalog input, then bind approved relationships from a Relationship Registry.
 

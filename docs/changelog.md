@@ -2,6 +2,14 @@
 
 릴리스 단위가 아닌, 굵직한 surface 변경이 떨어졌을 때 한 항목으로 기록한다. 자세한 구현 상태는 [spec.md](./internal/spec.md), API 단일 소스는 [api-index.md](./internal/api-index.md), 기능↔테스트는 [feature-test-matrix.md](./internal/feature-test-matrix.md) 참조.
 
+## 2026-11-09 — Pydantic v2 코드 생성 Phase 2: operation 타입과 타입 충실도 (`@oa-sdk/codegen`, checkout 구현, 미배포)
+
+- 범위: Phase 2는 **타입 생성**까지 보장한다. FastAPI router stub, `ContractRegistry` adapter, manifest/provenance는 범위 제외로 확정했다([Phase 2 문서](./internal/architecture/pydantic-codegen-phase2.md)).
+- operation 타입: `paths`를 IR로 읽어 `operations.py`(또는 `layout: single`의 한 모듈)에 `<Op>PathParams`·`QueryParams`·`HeaderParams`·`CookieParams`·`Body`·`Response`·`Error`와 `OPERATIONS` metadata 표를 만든다. multipart/form·text·binary 본문, SSE·JSON Lines item 타입, TypeSpec `@discriminated` envelope union을 지원한다. plugin은 `purpose: api`에서만 operation을 생성한다.
+- 새 옵션: `encodingPolicy`(`@encode` 디코딩), `extensions`, `docstrings`, `frozen`, `layout`, `emitOperations`, `oneOfMode`(discriminator 없는 `oneOf`의 exact 검사).
+- 품질: 생성 코드가 `ruff --select E,F,I001,UP037`와 `pyright`를 통과한다. `title`·원본 ECMA pattern·URI format을 JSON Schema에 보존하고, 생성 모델의 `model_json_schema()`와 원본 스키마의 왕복 parity를 fixture마다 검사한다(허용 차이 3건은 사유와 함께 고정).
+- 검증: Python lane 40개(ruff·pyright·parity 포함), golden fixture 6종, contract test. 상세는 [가이드](./guides/pydantic-codegen.md)를 따른다.
+
 ## 2026-11-07 — OAS 3.2 → Pydantic v2 코드 생성 (`@oa-sdk/codegen`, checkout 구현, 미배포)
 
 - OAS 3.2 문서의 `components.schemas`에서 Pydantic v2 Python DTO `models.py`를 생성한다(Phase 1).
