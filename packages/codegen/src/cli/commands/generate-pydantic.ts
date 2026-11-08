@@ -32,6 +32,10 @@ export const generatePydantic: Command = {
     datetime: { type: 'string', description: 'Date-time mode: aware | naive' },
     uri: { type: 'string', description: 'URI mode: str | normalized URL' },
     'int-bounds': { type: 'string', description: 'Integer bounds: format | none' },
+    'encoding-policy': { type: 'string', description: 'Encoded scalars: wire | decode' },
+    extensions: { type: 'string', description: 'OpenAPI x-* extensions: preserve | drop' },
+    'no-docstrings': { type: 'boolean', description: 'Do not emit model docstrings' },
+    frozen: { type: 'boolean', description: 'Make generated models immutable' },
     'emit-ir': { type: 'boolean', description: 'Emit the resolved IR beside the module' },
     report: { type: 'string', description: 'Write the build report JSON to this file' },
     force: { type: 'boolean', description: 'Proceed despite preflight errors or error diagnostics' },
@@ -51,6 +55,8 @@ export const generatePydantic: Command = {
       output,
       preset: choice(args, 'preset', ['default', 'strict', 'passthrough'] as const, 'default'),
       emitIr: bool(args, 'emit-ir'),
+      docstrings: !bool(args, 'no-docstrings'),
+      frozen: bool(args, 'frozen'),
       preflight: {
         force: bool(args, 'force'),
         validate: !bool(args, 'no-validate'),
@@ -61,6 +67,7 @@ export const generatePydantic: Command = {
     const options = [
       ['extra', 'extra'], ['optional-style', 'optionalStyle'], ['naming', 'naming'], ['regex', 'regex'],
       ['enum-style', 'enumStyle'], ['datetime', 'datetime'], ['uri', 'uri'], ['int-bounds', 'intBounds'],
+      ['encoding-policy', 'encodingPolicy'], ['extensions', 'extensions'],
     ] as const
     for (const [argument, property] of options) {
       const value = optStr(args, argument)

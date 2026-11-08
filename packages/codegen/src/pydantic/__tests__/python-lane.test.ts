@@ -29,6 +29,25 @@ const semanticDocument = {
   } },
 }
 
+const encodingDocument = {
+  openapi: '3.2.0', info: { title: 'encoding', version: '1' }, components: { schemas: {
+    Encoded: { type: 'object', 'x-lane-model': 'encoded', required: ['unix', 'httpDate', 'token'], properties: {
+      unix: { type: 'integer', format: 'unixtime' },
+      httpDate: { type: 'string', format: 'http-date' },
+      token: { type: 'string', contentEncoding: 'base64url' },
+    } },
+  } },
+}
+
+const recursiveDocument = {
+  openapi: '3.2.0', info: { title: 'recursive', version: '1' }, components: { schemas: {
+    NodeList: { type: 'array', items: { $ref: '#/components/schemas/Node' } },
+    Node: { type: 'object', required: ['value', 'children'], properties: {
+      value: { type: 'string' }, children: { $ref: '#/components/schemas/NodeList' },
+    } },
+  } },
+}
+
 function runDriver(modulePath: string, payload: unknown): Record<string, number> {
   const payloadPath = join(modulePath, 'payload.json')
   writeFileSync(payloadPath, `${JSON.stringify(payload)}\n`)
@@ -73,6 +92,17 @@ function writeModule(result: ReturnType<typeof buildPydanticModels>): string {
   return dir
 }
 
+function runStaticChecks(dir: string): void {
+  expect(spawnSync('uv', [
+    'run', '--no-project', '--with', 'ruff', 'ruff', 'check', '--no-cache',
+    '--select', 'E,F,I001,UP037', join(dir, 'models.py'),
+  ], { encoding: 'utf8' }).status).toBe(0)
+  expect(spawnSync('uv', [
+    'run', '--no-project', '--with', 'pyright', 'pyright', '--pythonversion', '3.11',
+    join(dir, 'models.py'),
+  ], { encoding: 'utf8' }).status).toBe(0)
+}
+
 lane('Pydantic Python lane (set OA_SDK_PYDANTIC_PY_LANE=1 to run)', () => {
   for (const fixtureName of PYDANTIC_FIXTURE_NAMES) {
     for (const preset of presets) {
@@ -88,11 +118,7 @@ lane('Pydantic Python lane (set OA_SDK_PYDANTIC_PY_LANE=1 to run)', () => {
           })
           if (fixtureName === 'approved') expect(counters.examples).toBeGreaterThan(0)
           if (fixtureName === 'chunk-stream') expect(counters.taggedUnion).toBe(4)
-          expect(spawnSync('uv', [
-            'run', '--no-project', '--with', 'ruff', 'ruff', 'check', '--no-cache',
-            '--select', 'E,F', '--ignore', 'E501',
-            join(dir, 'models.py'),
-          ], { encoding: 'utf8' }).status).toBe(0)
+          runStaticChecks(dir)
         } finally { rmSync(dir, { recursive: true, force: true }) }
       })
     }
@@ -122,4 +148,69 @@ lane('Pydantic Python lane (set OA_SDK_PYDANTIC_PY_LANE=1 to run)', () => {
       } finally { rmSync(dir, { recursive: true, force: true }) }
     })
   }
+
+  it('encoding/decode round-trips wire values and preserves model extensions', () => {
+    const result = buildPydanticModels(encodingDocument, { encodingPolicy: 'decode' })
+    const dir = writeModule(result)
+    try {
+      const actual = runDriver(dir, {
+        module: join(dir, 'models.py'), fixture: 'encoding', options: result.options,
+        examples: [], modelCases: [], encoding: true,
+      })
+      expect(actual).toEqual({ decodeUnix: 1, decodeHttpDate: 1, decodeBase64Url: 1, dumpWire: 1, modelExtension: 1 })
+      runStaticChecks(dir)
+    } finally { rmSync(dir, { recursive: true, force: true }) }
+  })
+
+  it('encoding/decode supports naive datetimes', () => {
+    const result = buildPydanticModels(encodingDocument, { encodingPolicy: 'decode', datetime: 'naive' })
+    const dir = writeModule(result)
+    try {
+      const actual = runDriver(dir, {
+        module: join(dir, 'models.py'), fixture: 'encoding-naive', options: result.options,
+        examples: [], modelCases: [], encodingNaive: true,
+      })
+      expect(actual).toEqual({ decodeUnixNaive: 1, decodeHttpDateNaive: 1, dumpWireNaive: 1 })
+      runStaticChecks(dir)
+    } finally { rmSync(dir, { recursive: true, force: true }) }
+  })
+
+  it('encoding/decode accepts Python semantic values', () => {
+    const result = buildPydanticModels(encodingDocument, { encodingPolicy: 'decode' })
+    const dir = writeModule(result)
+    try {
+      const actual = runDriver(dir, {
+        module: join(dir, 'models.py'), fixture: 'encoding-python', options: result.options,
+        examples: [], modelCases: [], encodingPython: true,
+      })
+      expect(actual).toEqual({ pythonValues: 1 })
+      runStaticChecks(dir)
+    } finally { rmSync(dir, { recursive: true, force: true }) }
+  })
+
+  it('frozen models reject assignment', () => {
+    const result = buildPydanticModels(semanticDocument, { frozen: true })
+    const dir = writeModule(result)
+    try {
+      const actual = runDriver(dir, {
+        module: join(dir, 'models.py'), fixture: 'frozen', options: result.options,
+        examples: [], modelCases: [], frozen: true,
+      })
+      expect(actual).toEqual({ frozenReject: 1 })
+      runStaticChecks(dir)
+    } finally { rmSync(dir, { recursive: true, force: true }) }
+  })
+
+  it('recursive aliases import and validate nested payloads', () => {
+    const result = buildPydanticModels(recursiveDocument)
+    const dir = writeModule(result)
+    try {
+      const actual = runDriver(dir, {
+        module: join(dir, 'models.py'), fixture: 'recursive-alias', options: result.options,
+        examples: [], modelCases: [], recursiveAlias: true,
+      })
+      expect(actual).toEqual({ recursiveAlias: 1 })
+      runStaticChecks(dir)
+    } finally { rmSync(dir, { recursive: true, force: true }) }
+  })
 })

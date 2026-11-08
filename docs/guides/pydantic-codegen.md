@@ -52,7 +52,8 @@ oa-gen generate:pydantic --spec openapi.yaml --out src/models.py --extra allow
 ```
 
 사용 가능한 CLI 플래그는 `--preset`, `--extra`, `--optional-style`, `--naming`, `--regex`,
-`--enum-style`, `--datetime`, `--uri`, `--int-bounds`, `--emit-ir`, `--report`, `--force`,
+`--enum-style`, `--datetime`, `--uri`, `--int-bounds`, `--encoding-policy`, `--extensions`,
+`--no-docstrings`, `--frozen`, `--emit-ir`, `--report`, `--force`,
 `--no-validate`, `--no-normalize`, `--categories`이다. 저장소 안에서는 위의 모든 `oa-gen`
 예시를 `node packages/codegen/dist/cli/index.js` 뒤에 같은 인자로 붙여 실행한다. 이 경로와
 명령 해석 규칙은 [CLI 레퍼런스 상단 주의](./cli-command-reference.md)에 있다.
@@ -123,9 +124,11 @@ JSON IR을 주고받으며 S4 실행기는 pass 입력을 복제하고 deep-free
 | 3 | `optionalPolicy` | `optionalStyle` | 기본값과 explicit-null validator 결정 |
 | 4 | `naming` | `naming` | `pyName`, field attribute, 명시 alias 결정 |
 | 5 | `regex` | `regex` | pattern 번역 및 모델별 regex engine 결정 |
-| 6 | `scalarPolicy` | `enumStyle`, `datetime`, `uri`, `intBounds` | scalar 사실을 Python 타입으로 바꾸고 enum 표현 결정 |
-| 7 | `extensions` | 없음 | JSON 직렬화 가능한 `x-*`만 보존하고 키 정렬 |
-| 8 | `collectImports` | 없음 | renderer가 실제 쓰는 import 수집 |
+| 6 | `scalarPolicy` | `enumStyle`, `datetime`, `uri`, `intBounds`, `encodingPolicy` | scalar 사실을 wire/semantic Python 타입으로 바꾸고 enum 표현 결정 |
+| 7 | `extensions` | `extensions` | JSON 직렬화 가능한 `x-*`만 보존·정렬하거나 제거 |
+| 8 | `docstrings` | `docstrings` | 모델 설명 docstring 유지/삭제 |
+| 9 | `frozen` | `frozen` | 모델 불변성 결정 |
+| 10 | `collectImports` | 없음 | renderer가 실제 쓰는 import 수집 |
 
 각 pass는 자기 `reads`에 선언한 옵션만 받는다. 예를 들어 `scalarPolicy`는 `enumStyle`,
 `datetime`, `uri`, `intBounds`만 읽고 `extra`는 읽지 않는다.
@@ -147,7 +150,7 @@ const { files, report } = root.emitPydanticFiles(root.renderPyModule(ir), ir, op
 
 ## 빌드 옵션과 preset
 
-### Phase 1 공개 build 옵션 (코드 주석의 9개: semantic 8개 + `emitIr`)
+### 공개 build 옵션
 
 | 옵션 | 허용 값 (기본값 **굵게**) |
 |---|---|
@@ -159,15 +162,17 @@ const { files, report } = root.emitPydanticFiles(root.renderPyModule(ir), ir, op
 | `datetime` | **`aware`**, `naive` |
 | `uri` | **`str`**, `any-url` |
 | `intBounds` | **`format`**, `none` |
+| `encodingPolicy` | **`wire`**, `decode` |
+| `extensions` | **`preserve`**, `drop` |
+| `docstrings` | **`true`**, `false` |
+| `frozen` | **`false`**, `true` |
 | `emitIr` (출력 제어) | **`false`**, `true` |
 
 `output`은 semantic 옵션이 아닌 출력 파일 상대 경로이며 기본값은 `models.py`다. 반드시
 `.py`로 끝나야 한다. `preflight`는 `validate`, `normalize`, `lintCategories`,
 `failOnSeverity`, `rules`, `basePath`와 `force`를 받는다.
 
-실제 `PydanticSemanticOptions`와 report의 `options`에는 앞 표의 첫 8개 semantic 키가
-들어가고, `emitIr`는 별도의 출력 옵션이다. 사용자 표면에서는 이 8개와 `emitIr`를 합쳐
-9개 build control로 다룬다.
+실제 `PydanticSemanticOptions`와 report의 `options`에는 semantic 키가 들어가고, `emitIr`는 별도의 출력 옵션이다.
 
 ### preset과 고정 설정
 
@@ -184,10 +189,7 @@ const { files, report } = root.emitPydanticFiles(root.renderPyModule(ir), ir, op
 |---|---|
 | `pydanticFloor` / `pythonFloor` | `2.11` / `3.11` |
 | `unionMode` | `smart` |
-| `frozen` | `false` |
 | `layout` | `single` |
-| `docstrings` | `true` |
-| `extensions` | `preserve` |
 
 ## OAS → Python 매핑
 
@@ -218,7 +220,11 @@ const { files, report } = root.emitPydanticFiles(root.renderPyModule(ir), ir, op
 | `format: email` | `EmailStr` |
 | `format: uri`, `url` | `uri: str`이면 `str`, `any-url`이면 `AnyUrl` |
 | `format: byte` 또는 `contentEncoding: base64` | `Base64Bytes` |
-| 그 밖의 `contentEncoding`, `format: unixtime`/`http-date` | wire 타입(`str`/`int`) 그대로 + `pydantic/encoding-degraded` info |
+| model/field `x-*` | `extensions: preserve`이면 정렬된 JSON 값을 `model_config.json_schema_extra`/`Field(json_schema_extra=...)`로 보존하고, `drop`이면 제거 |
+| `encodingPolicy: decode` + `format: unixtime` | `Annotated` datetime validator/serializer로 epoch seconds 왕복 |
+| `encodingPolicy: decode` + `format: http-date` | RFC 7231 HTTP-date validator/serializer로 왕복 |
+| `encodingPolicy: decode` + `contentEncoding: base64url` | `Base64UrlBytes` |
+| 그 밖의 encoded scalar 또는 `encodingPolicy: wire` | wire 타입 그대로 + `pydantic/encoding-degraded` info |
 | `number`, `decimal`/`decimal128` | 각각 `float`, `Decimal` |
 | integer 폭 format | `intBounds: format`일 때 `ge`/`le`; `none`이면 `int`만 |
 | `pattern` | `regex: ecma`는 ECMA 일부를 ASCII class로 번역, `raw`는 원문, `python-re`는 원문 + Python engine |
@@ -321,7 +327,7 @@ Identifier: TypeAlias = Annotated[str, Field(pattern="^[A-Za-z_][A-Za-z0-9_.-]*$
 | `pydantic/unsupported-keyword` | warning | `if`, `then`, `else`, `patternProperties`, `dependentSchemas`, `propertyNames`, 비어 있지 않은 `not` |
 | `pydantic/unresolved-ref` | error | components 밖 또는 존재하지 않는 `$ref`; 결과 타입은 `Any` |
 | `pydantic/allof-flattened` | warning | 상속으로 표현할 수 없는 `allOf` branch를 flatten |
-| `pydantic/encoding-degraded` | info | 인코딩된 scalar를 디코딩 없이 wire 타입(`str`/`int`/`float`)으로 생성함: `base64`가 아닌 `contentEncoding`, `format: unixtime`/`http-date`(TypeSpec `@encode`). pointer는 해당 scalar schema |
+| `pydantic/encoding-degraded` | info | `encodingPolicy: wire`이거나 아직 디코드하지 않는 encoded scalar를 wire 타입으로 생성함 |
 | `pydantic/discriminator-without-variants` | warning | discriminator base에서 해석 가능한 variant를 찾지 못함 |
 | `pydantic/default-on-required` | info | required field의 schema `default`를 무시함 |
 | `pydantic/name-collision` | info | declaration/field Python 이름에 숫자 suffix 또는 충돌 회피 suffix를 붙임 |
@@ -339,6 +345,7 @@ CLI는 preflight fatal 또는 severity가 `error`인 진단이 있으면 non-zer
 `emitPydanticFiles`가 `PYDANTIC_GENERATED_BANNER`를 Python module 파일에 붙이므로 CLI,
 `buildPydanticModels`의 `files`, plugin 등 모든 진입점의 module 파일에 다음 banner가 있다.
 `result.source`와 `contentSha256`는 banner를 제외한 본문을 기준으로 한다.
+생성 모듈 본문 첫 줄에는 `# ruff: noqa: E501`가 있어 line length는 생성 계약에서 강제하지 않는다.
 
 ```text
 # @generated by @oa-sdk/codegen. DO NOT EDIT.
@@ -351,7 +358,7 @@ CLI는 preflight fatal 또는 severity가 `error`인 진단이 있으면 non-zer
 |---|---|
 | `schema` | 고정 schema identifier |
 | `preset` | 사용한 `default`/`strict`/`passthrough` |
-| `options` | 8개 semantic 옵션 값 (`emitIr`는 별도 output 옵션) |
+| `options` | 모든 semantic 옵션 값 (`emitIr`는 별도 output 옵션) |
 | `fixed` | `PYDANTIC_FIXED_SETTINGS` 전체 |
 | `output` | resolved output 경로 |
 | `contentSha256` | banner 전 `source`의 SHA-256 |
@@ -378,24 +385,20 @@ OA_SDK_PYDANTIC_PY_LANE=1 corepack pnpm --filter @oa-sdk/codegen exec vitest run
 ```
 
 이 lane은 생성 모듈 import, example `model_validate`, alias/extra/optional/union/uniqueItems,
-`model_rebuild()`와 `ruff --select E,F`를 확인한다.
+`model_rebuild()`, `ruff --select E,F,I001,UP037`, `pyright`를 확인한다. `encodingPolicy: decode`의 epoch/HTTP-date/base64url round-trip과 `frozen` assignment 거부도 검사하며, 기대 counter는 각각 `decodeUnix=1`, `decodeHttpDate=1`, `decodeBase64Url=1`, `dumpWire=1`, `modelExtension=1`, `frozenReject=1`이다.
 
 ## 알려진 제한
 
 - Phase 1은 `components.schemas`만 처리한다. operation parameter 모델, router, client,
   `ContractRegistry`, decorator 의미 해석은 이후 범위다.
-- `PYDANTIC_FIXED_SETTINGS`의 `pydanticFloor`, `pythonFloor`, `unionMode`, `frozen`,
-  `layout`, `docstrings`, `extensions`는 고정이며 사용자 옵션이 아니다.
-- typed `__pydantic_extra__`와 discriminator subtype의 좁혀진 `Literal` tag는 표준 Pydantic
-  패턴이지만 pyright가 각각 `reportIncompatibleVariableOverride`를 보고할 수 있다. `pydantic.mypy`
-  plugin을 쓰는 mypy에서는 문제가 보고되지 않는다.
-- `ruff`를 `E,F`보다 넓게 실행하면 생성 코드에서 import block 정렬 `I001`, 드물게 quoted
-  annotation `UP037`가 검출될 수 있다.
-- TypeSpec `@encode`는 디코딩하지 않는다. `@encode(DateTimeKnownEncoding.unixTimestamp, int32)`는
-  `int`, `@encode(DateTimeKnownEncoding.rfc7231)`는 `str`, `@encode("base64url") bytes`는 `str`로
-  생성하고 `pydantic/encoding-degraded` info를 낸다. `@encode("seconds", int32) duration`은
-  `@typespec/openapi3` 출력이 `type: integer, format: int32`뿐이라 인코딩을 알 수 없으므로 진단 없이
-  `int`가 된다.
+- `PYDANTIC_FIXED_SETTINGS`에는 `pydanticFloor`, `pythonFloor`, `unionMode`, `layout`만 남아 있다.
+- typed `__pydantic_extra__`와 discriminator subtype의 좁혀진 `Literal` tag에는 pyright가
+  `reportIncompatibleVariableOverride`를 내므로 해당 선언 줄에만 targeted ignore 주석을 낸다.
+  Pydantic의 지원 패턴과 generated module의 pyright 검사를 함께 유지한다.
+- `encodingPolicy: wire`는 기존 wire 타입과 `pydantic/encoding-degraded`를 유지하고, `decode`는
+  `unixtime`, `http-date`, `base64url`을 semantic Python 값으로 변환한다. `@encode("seconds", int32)
+  duration`처럼 OAS 출력에 인코딩이 남지 않는 경우는 감지할 수 없다.
+- `encodingPolicy: decode`의 `base64url` 필드는 Python 값으로 모델을 만들 때도 encoded form(예: `"AQID"`)을 받는다. 검증 후 Python 값은 `bytes`다.
 - `oneOf`/`anyOf`에 discriminator가 없으면 Pydantic의 smart union 의미를 사용하므로 JSON
   Schema의 “정확히 하나” 조건을 별도로 보장하지 않는다.
 - `format: uri`의 `any-url`은 값을 정규화할 수 있다. 왕복 보존이 필요하면 기본 `uri: str`을

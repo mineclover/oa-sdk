@@ -68,4 +68,28 @@ describe('renderPyModule', () => {
     }]))
     expect(result).toContain('    """first line\n    second line"""')
   })
+
+  it('does not inject lint comments into long multiline docstrings', () => {
+    const description = 'first line with more than seventy characters '.repeat(2) + '\n'
+      + 'second line with more than seventy characters '.repeat(2)
+    const result = renderPyModule(module([{
+      kind: 'model', name: 'M', pyName: 'M', origin: 'component', bases: [], fields: [],
+      openness: { kind: 'open' }, extra: 'ignore', regexEngine: 'rust-regex', description, pointer: '/M',
+    }]))
+    expect(result).toContain(`    """${description.replaceAll('\n', '\n    ')}"""`)
+    expect(result).not.toContain('characters  # noqa: E501')
+  })
+
+  it('renders decoded scalar validators and serializers from IR', () => {
+    const result = renderPyModule(module([{
+      kind: 'alias', name: 'When', pyName: 'When', origin: 'component', pointer: '/When',
+      type: {
+        kind: 'decoded', wireType: 'int', encoding: 'unixtime',
+        pythonType: { kind: 'named', module: 'pydantic', name: 'AwareDatetime' },
+      },
+    }]))
+    expect(result).toContain('Annotated[AwareDatetime, BeforeValidator(_decode_unixtime), PlainSerializer(_encode_unixtime, return_type=int)]')
+    expect(result).toContain('def _decode_unixtime')
+    expect(result).not.toContain('def _decode_http_date')
+  })
 })

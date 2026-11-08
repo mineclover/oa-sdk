@@ -1,8 +1,17 @@
+# ruff: noqa: E501
 from __future__ import annotations
-from pydantic import AwareDatetime, BaseModel, ConfigDict, EmailStr, Field, field_validator
+
 from typing import Any, Literal, TypeAlias
 from uuid import UUID
 
+from pydantic import (
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    field_validator,
+)
 
 ActiveEntityId: TypeAlias = UUID
 
@@ -445,13 +454,13 @@ class StimulusAccepted(BaseModel):
 class SubmitActionRequestParameters(BaseModel):
     """ActionParameterDefinition stable ID에서 typed JSON value로의 binding"""
     model_config = ConfigDict(extra="allow")
-    __pydantic_extra__: dict[str, Any] = Field(init=False)
+    __pydantic_extra__: dict[str, Any] = Field(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
 
 
 class SubmitActionRequestRoles(BaseModel):
     """ActionRoleDefinition stable ID에서 active Entity UUID로의 binding"""
     model_config = ConfigDict(extra="allow")
-    __pydantic_extra__: dict[str, ActiveEntityId] = Field(init=False)
+    __pydantic_extra__: dict[str, ActiveEntityId] = Field(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
 
 
 class SubmitActionRequest(BaseModel):

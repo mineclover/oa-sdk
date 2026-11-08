@@ -8,6 +8,7 @@ components:
   schemas:
     Sample:
       type: object
+      x-model-note: scalars
       required:
         - status
         - createdAt

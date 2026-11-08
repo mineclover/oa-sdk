@@ -5,6 +5,7 @@ import { lowerToPyIr, schemaToPyType, type PydanticLowerContext } from '../lower
 import { preparePydanticDocument } from '../prepare.js'
 import { resolvePydanticBuildOptions } from '../options.js'
 import { loadPydanticFixture } from './fixtures.js'
+import { buildPydanticModels } from '../build.js'
 
 function lower(schemas: Record<string, OasSchema>, force = false) {
   const document = {
@@ -258,6 +259,19 @@ describe('Pydantic S3 lowering', () => {
     })
     expect(ir.rebuild).toEqual(['Node'])
     expect(ir.decls.map(item => item.name)).toEqual(['Node', 'Value'])
+  })
+
+  it('rebuilds only models when a recursive cycle passes through an alias', () => {
+    const document = {
+      openapi: '3.2.0', info: { title: 'recursive-alias', version: '1' }, paths: {}, components: { schemas: {
+        NodeList: { type: 'array', items: { $ref: '#/components/schemas/Node' } },
+        Node: { type: 'object', properties: { children: { $ref: '#/components/schemas/NodeList' } } },
+      } },
+    }
+    const result = buildPydanticModels(document)
+    expect(result.ir.rebuild).toEqual(['Node'])
+    expect(result.source).not.toContain('NodeList.model_rebuild()')
+    expect(result.source).toContain('Node.model_rebuild()')
   })
 
   it('lowers the chunk-stream discriminator and inheritance facts', () => {

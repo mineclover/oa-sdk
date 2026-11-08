@@ -38,9 +38,11 @@
 | 3 | `optionalPolicy` | `optionalStyle` | `PyField.default`, `PyField.rejectExplicitNull` |
 | 4 | `naming` | `naming` | 모든 `pyName`, `PyField.attribute`, `PyField.alias` |
 | 5 | `regex` | `regex` | `PyConstraints.pattern.python`, `PyModelDecl.regexEngine` |
-| 6 | `scalarPolicy` | `enumStyle`, `datetime`, `uri`, `intBounds` | 모든 `scalar` 사실 → 구체 타입, `PyEnumDecl.repr`·`members` |
-| 7 | `extensions` | — | `x-*` 보존·정렬 |
-| 8 | `collectImports` | — | `PyModuleIR.imports` |
+| 6 | `scalarPolicy` | `enumStyle`, `datetime`, `uri`, `intBounds`, `encodingPolicy` | 모든 `scalar` 사실 → wire/semantic 타입, `PyEnumDecl.repr`·`members` |
+| 7 | `extensions` | `extensions` | `x-*` 보존·정렬 또는 제거 |
+| 8 | `docstrings` | `docstrings` | 모델 설명을 docstring으로 유지/삭제 |
+| 9 | `frozen` | `frozen` | `ConfigDict(frozen=True)` 결정 |
+| 10 | `collectImports` | — | `PyModuleIR.imports` |
 
 각 pass의 세부 규칙은 해당 파일 머리 주석에 있다. 실행기는 pass마다 입력 IR을 복제해 deep-freeze하므로 pass가 입력을 변경하면 즉시 예외가 난다.
 
@@ -54,9 +56,9 @@
 
 S3는 이 형태를 `bases: [Base]` + 일반 필드로 낮추고, S4 `polymorphicRefs`가 태그를 `Literal`로 좁힌다.
 
-## 3. 빌드 옵션 (Phase 1: semantic 8개 + `emitIr`)
+## 3. 빌드 옵션
 
-`PYDANTIC_SEMANTIC_OPTION_KEYS`와 build report의 `options`에는 아래 표의 앞 8개만 들어간다. `emitIr`는 S6만 읽는 출력 옵션이다.
+`PYDANTIC_SEMANTIC_OPTION_KEYS`와 build report의 `options`에는 semantic 옵션이 들어간다. `emitIr`는 S6만 읽는 출력 옵션이다.
 
 | 옵션 | 값 (기본값 굵게) | 읽는 곳 | 근거 |
 |---|---|---|---|
@@ -68,6 +70,10 @@ S3는 이 형태를 `bases: [Base]` + 일반 필드로 낮추고, S4 `polymorphi
 | `datetime` | **`aware`** · `naive` | scalarPolicy | `AwareDatetime` vs `datetime` |
 | `uri` | **`str`** · `any-url` | scalarPolicy | `AnyUrl`은 값을 정규화해 왕복 불일치 |
 | `intBounds` | **`format`** · `none` | scalarPolicy | 정수 폭 format → `ge`/`le` |
+| `encodingPolicy` | **`wire`** · `decode` | scalarPolicy | encoded scalar의 wire/semantic 매핑 |
+| `extensions` | **`preserve`** · `drop` | extensions | `x-*` 처리 |
+| `docstrings` | **`true`** · `false` | docstrings | 모델 docstring 출력 |
+| `frozen` | **`false`** · `true` | frozen | 모델 불변성 |
 | `emitIr` | `true` · **`false`** | emit | 최종 IR을 `<output>.ir.json`으로 함께 출력 |
 
 옵션이 아닌 설정: `output`(기본 `models.py`, 생성 위치), `preflight`(`generate-zod`와 같은 의미의 validate/normalize/force 등).
@@ -80,10 +86,7 @@ S3는 이 형태를 `bases: [Base]` + 일반 필드로 낮추고, S4 `polymorphi
 |---|---|
 | Pydantic 하한 / Python 하한 | 2.11 / 3.11 |
 | `unionMode` | `smart` |
-| `frozen` | `false` |
 | `layout` | `single` (모듈 하나) |
-| `docstrings` | 켬 |
-| `extensions` | 보존 |
 
 ### 3.2 Preset
 
@@ -129,7 +132,7 @@ S3는 이 형태를 `bases: [Base]` + 일반 필드로 낮추고, S4 `polymorphi
 | 단계 단위 | `pydantic/__tests__/*.test.ts` | 매핑 표 행마다 입력 스키마 → IR 비교 |
 | Zod 동일성 | `schema-graph/__tests__/zod-parity.test.ts` | 추출 전 코드로 만든 golden과 Zod 출력 바이트 비교 |
 | fixture | approved spec, `chunk-stream`·`cycles`·`scalars`(이름 있는 문자열 enum, `@encode` 스칼라) TypeSpec 컴파일 결과 | 재생성 명령은 각 `main.tsp` 머리 주석 |
-| Python lane | `pydantic/__tests__/python-lane.test.ts` + `python-lane/check_models.py`, `OA_SDK_PYDANTIC_PY_LANE=1`이고 `uv`가 있을 때만 실행 | fixture × preset: 생성 모듈 import, `model_rebuild()`, spec example `model_validate`, alias 입력·`model_dump(by_alias=True)`, chunk-stream tagged union variant별 검증, `ruff check --select E,F`. 테스트 파일 안의 의미 검증 문서 × 옵션 조합: optional `null` 거부·허용(`plain`), `extra` 세 값과 닫힌 모델, `naming` 두 값, `uniqueItems`. 카운터는 정확한 값으로 비교 |
+| Python lane | `pydantic/__tests__/python-lane.test.ts` + `python-lane/check_models.py`, `OA_SDK_PYDANTIC_PY_LANE=1`이고 `uv`가 있을 때만 실행 | fixture × preset: 생성 모듈 import, `model_rebuild()`, spec example `model_validate`, alias 입력·`model_dump(by_alias=True)`, chunk-stream tagged union variant별 검증, `ruff check --select E,F,I001,UP037`, pyright. 테스트 파일 안의 의미 검증 문서 × 옵션 조합: optional `null` 거부·허용(`plain`), `extra` 세 값과 닫힌 모델, `naming` 두 값, `uniqueItems`. 카운터는 정확한 값으로 비교 |
 
 ## 7. 구현 단계
 
@@ -138,9 +141,9 @@ S3는 이 형태를 `bases: [Base]` + 일반 필드로 낮추고, S4 `polymorphi
 | 단계 | 범위 | 초록이어야 할 계약 테스트 |
 |---|---|---|
 | P1a | `schema-graph/` 이동·추출(zodgen이 사용), `analyzeSchemaGraph`, S3 lower | `[S0]`, `[P1a]`, Zod 동일성 |
-| P1b | S4 pass 8개, `python-identifier.ts` 승격 | + `[P1b]` |
+| P1b | S4 pass 10개, `python-identifier.ts` 승격 | + `[P1b]` |
 | P1c | S5 render, CLI·plugin·거버넌스 등록, Python lane 테스트 | + `[P1c]` |
 
 ## 8. 범위 밖
 
-operation 파라미터 모델, FastAPI 라우터 스텁, `ContractRegistry` 연동(Phase 2·3), `@pseudonymize` 등 커스텀 decorator의 의미 해석, §3.1 고정 설정의 옵션화.
+operation 파라미터 모델, FastAPI 라우터 스텁, `ContractRegistry` 연동(Phase 2·3), `@pseudonymize` 등 커스텀 decorator의 의미 해석, §3.1에 남은 고정 설정의 옵션화.

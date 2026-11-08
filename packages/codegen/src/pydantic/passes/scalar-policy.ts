@@ -1,5 +1,5 @@
 /**
- * S4 pass `scalarPolicy` — reads: enumStyle, datetime, uri, intBounds.
+ * S4 pass `scalarPolicy` — reads: enumStyle, datetime, uri, intBounds, encodingPolicy.
  *
  * Replaces every `scalar` fact with a concrete type and decides enum representation
  * (mapping table: docs/reports/typespec-pydantic-codegen-review.md §4.1):
@@ -61,6 +61,7 @@ type ScalarOptions = {
   datetime: 'aware' | 'naive'
   uri: string
   intBounds: 'format' | 'none'
+  encodingPolicy: 'wire' | 'decode'
 }
 
 function scalarType(
@@ -69,6 +70,27 @@ function scalarType(
   base: 'string' | 'integer' | 'number',
   options: ScalarOptions,
 ): PyTypeExpr {
+  if (options.encodingPolicy === 'decode' && base === 'integer' && format === 'unixtime') {
+    return {
+      kind: 'decoded', wireType: 'int', encoding: 'unixtime',
+      ...(options.datetime === 'naive' ? { datetimeMode: 'naive' as const } : {}),
+      pythonType: options.datetime === 'aware'
+        ? { kind: 'named', module: 'pydantic', name: 'AwareDatetime' }
+        : { kind: 'named', module: 'datetime', name: 'datetime' },
+    }
+  }
+  if (options.encodingPolicy === 'decode' && base === 'string' && format === 'http-date') {
+    return {
+      kind: 'decoded', wireType: 'str', encoding: 'http-date',
+      ...(options.datetime === 'naive' ? { datetimeMode: 'naive' as const } : {}),
+      pythonType: options.datetime === 'aware'
+        ? { kind: 'named', module: 'pydantic', name: 'AwareDatetime' }
+        : { kind: 'named', module: 'datetime', name: 'datetime' },
+    }
+  }
+  if (options.encodingPolicy === 'decode' && base === 'string' && encoding === 'base64url') {
+    return { kind: 'named', module: 'pydantic', name: 'Base64UrlBytes' }
+  }
   if (base === 'string') {
     if (format === 'date-time') return options.datetime === 'aware'
       ? { kind: 'named', module: 'pydantic', name: 'AwareDatetime' }
@@ -113,9 +135,9 @@ function declaredEncoding(fact: PyScalarFact): string | undefined {
   return encoded === undefined ? undefined : `format '${fact.format}' (${encoded})`
 }
 
-export const scalarPolicyPass: PyPass<'enumStyle' | 'datetime' | 'uri' | 'intBounds'> = {
+export const scalarPolicyPass: PyPass<'enumStyle' | 'datetime' | 'uri' | 'intBounds' | 'encodingPolicy'> = {
   name: 'scalarPolicy',
-  reads: ['enumStyle', 'datetime', 'uri', 'intBounds'],
+  reads: ['enumStyle', 'datetime', 'uri', 'intBounds', 'encodingPolicy'],
   run(ir, options, analysis) {
     void analysis
     const result = cloneIr(ir)
@@ -132,7 +154,12 @@ export const scalarPolicyPass: PyPass<'enumStyle' | 'datetime' | 'uri' | 'intBou
       if (type.kind !== 'scalar') return type
       const value = scalarType(type.format, type.contentEncoding, type.base, options)
       const encoding = declaredEncoding(type)
-      if (encoding !== undefined && value.kind === 'builtin') {
+      const decoded = options.encodingPolicy === 'decode' && (
+        (type.base === 'integer' && type.format === 'unixtime')
+        || (type.base === 'string' && type.format === 'http-date')
+        || (type.base === 'string' && type.contentEncoding === 'base64url')
+      )
+      if (encoding !== undefined && !decoded && value.kind === 'builtin') {
         // Only a raw wire type loses the encoding; `Base64Bytes` and friends decode it.
         diagnostics.push({
           code: 'pydantic/encoding-degraded',

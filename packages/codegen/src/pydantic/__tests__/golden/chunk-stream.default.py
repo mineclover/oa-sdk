@@ -1,7 +1,9 @@
+# ruff: noqa: E501
 from __future__ import annotations
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+
 from typing import Annotated, Any, Literal, TypeAlias
 
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 Identifier: TypeAlias = Annotated[str, Field(min_length=1, max_length=128, pattern="^[A-Za-z_][A-Za-z0-9_.-]*$")]
 
@@ -16,7 +18,7 @@ class UiCue(BaseModel):
 
 class CallCue(UiCue):
     model_config = ConfigDict(extra="ignore")
-    action: Literal["call"]
+    action: Literal["call"]  # pyright: ignore[reportIncompatibleVariableOverride]
     args: Any | None = None
     at: Time
     id: Identifier
@@ -61,7 +63,7 @@ class ChunkHeader(BaseModel):
     format: PayloadFormat | None = None
     from_: Time = Field(..., alias="from")
     id: Identifier
-    next: "NextPointerUnion"
+    next: NextPointerUnion
     payload_format: PayloadFormat | None = Field(None, alias="payloadFormat")
     previous: Identifier | None
     resources: list[ResourceRef] = Field(..., max_length=128)
@@ -85,7 +87,7 @@ class ChunkStreamItem(BaseModel):
 
 class ClickCue(UiCue):
     model_config = ConfigDict(extra="ignore")
-    action: Literal["click"]
+    action: Literal["click"]  # pyright: ignore[reportIncompatibleVariableOverride]
     at: Time
     id: Identifier
     target: Identifier
@@ -93,7 +95,7 @@ class ClickCue(UiCue):
 
 class CrdtMetadataVectorClock(BaseModel):
     model_config = ConfigDict(extra="allow")
-    __pydantic_extra__: dict[str, Annotated[int, Field(ge=-2147483648, le=2147483647)]] = Field(init=False)
+    __pydantic_extra__: dict[str, Annotated[int, Field(ge=-2147483648, le=2147483647)]] = Field(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
 
 
 class CrdtMetadata(BaseModel):
@@ -132,7 +134,7 @@ class CrdtDeltaBody(ChunkStreamItem):
     cues: list[CrdtCue] = Field(..., max_length=4096)
     horizon: int | None = Field(None, ge=-9223372036854775808, le=9223372036854775807)
     id: Identifier
-    payload_format: Literal["crdt-delta@v1"] = Field(..., alias="payloadFormat")
+    payload_format: Literal["crdt-delta@v1"] = Field(..., alias="payloadFormat")  # pyright: ignore[reportIncompatibleVariableOverride]
     revision: Identifier
     schema_version: Literal[1] = Field(..., alias="schemaVersion")
     stream_id: Identifier = Field(..., alias="streamId")
@@ -166,7 +168,7 @@ class FallbackChunkState(BaseModel):
 
 class FocusCue(UiCue):
     model_config = ConfigDict(extra="ignore")
-    action: Literal["focus"]
+    action: Literal["focus"]  # pyright: ignore[reportIncompatibleVariableOverride]
     at: Time
     id: Identifier
     target: Identifier
@@ -174,7 +176,7 @@ class FocusCue(UiCue):
 
 class InputCue(UiCue):
     model_config = ConfigDict(extra="ignore")
-    action: Literal["input"]
+    action: Literal["input"]  # pyright: ignore[reportIncompatibleVariableOverride]
     at: Time
     commit: bool | None = None
     id: Identifier
@@ -195,23 +197,23 @@ UiCueUnion: TypeAlias = Annotated[CallCue | ClickCue | FocusCue | InputCue, Fiel
 class NextAvailable(NextPointer):
     model_config = ConfigDict(extra="ignore")
     id: Identifier
-    state: Literal["available"]
+    state: Literal["available"]  # pyright: ignore[reportIncompatibleVariableOverride]
 
 
 class NextEnd(NextPointer):
     model_config = ConfigDict(extra="ignore")
-    state: Literal["end"]
+    state: Literal["end"]  # pyright: ignore[reportIncompatibleVariableOverride]
 
 
 class NextPending(NextPointer):
     model_config = ConfigDict(extra="ignore")
     id: Identifier
-    state: Literal["pending"]
+    state: Literal["pending"]  # pyright: ignore[reportIncompatibleVariableOverride]
 
 
 class NextUnresolved(NextPointer):
     model_config = ConfigDict(extra="ignore")
-    state: Literal["unresolved"]
+    state: Literal["unresolved"]  # pyright: ignore[reportIncompatibleVariableOverride]
 
 
 NextPointerUnion: TypeAlias = Annotated[NextAvailable | NextEnd | NextPending | NextUnresolved, Field(discriminator="state")]
@@ -219,7 +221,7 @@ NextPointerUnion: TypeAlias = Annotated[NextAvailable | NextEnd | NextPending | 
 
 class RuntimeChunkEnvelopeState(BaseModel):
     model_config = ConfigDict(extra="allow")
-    __pydantic_extra__: dict[str, Any] = Field(init=False)
+    __pydantic_extra__: dict[str, Any] = Field(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
 
 
 class RuntimeChunkEnvelope(BaseModel):
@@ -255,7 +257,7 @@ class TimeSeriesBody(ChunkStreamItem):
     model_config = ConfigDict(extra="ignore", validate_by_name=True, validate_by_alias=True, serialize_by_alias=True)
     channels: list[Identifier] = Field(..., min_length=1, max_length=64)
     id: Identifier
-    payload_format: Literal["time-series@v1"] = Field(..., alias="payloadFormat")
+    payload_format: Literal["time-series@v1"] = Field(..., alias="payloadFormat")  # pyright: ignore[reportIncompatibleVariableOverride]
     revision: Identifier
     samples: list[TimeSeriesSample] = Field(..., max_length=4096)
     schema_version: Literal[1] = Field(..., alias="schemaVersion")
@@ -265,7 +267,7 @@ class TimeSeriesBody(ChunkStreamItem):
 
 class UiActionBodyTargets(BaseModel):
     model_config = ConfigDict(extra="allow")
-    __pydantic_extra__: dict[str, str] = Field(init=False)
+    __pydantic_extra__: dict[str, str] = Field(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
 
 
 class UiActionBody(ChunkStreamItem):
@@ -273,7 +275,7 @@ class UiActionBody(ChunkStreamItem):
     model_config = ConfigDict(extra="ignore", validate_by_name=True, validate_by_alias=True, serialize_by_alias=True)
     cues: list[UiCueUnion] = Field(..., max_length=4096)
     id: Identifier
-    payload_format: Literal["ui-action@v1"] = Field(..., alias="payloadFormat")
+    payload_format: Literal["ui-action@v1"] = Field(..., alias="payloadFormat")  # pyright: ignore[reportIncompatibleVariableOverride]
     revision: Identifier
     schema_version: Literal[1] = Field(..., alias="schemaVersion")
     stream_id: Identifier = Field(..., alias="streamId")

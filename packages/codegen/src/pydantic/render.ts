@@ -8,9 +8,11 @@ import {
   type PyModuleIR,
   type PyTypeExpr,
 } from './ir.js'
+import { encodingHelperKeys, encodingHelperSource } from './render-encoding.js'
 
 type DeclName = { pyName: string; index: number }
 type DeclNames = Map<string, DeclName>
+const THIRD_PARTY_MODULES = new Set(['pydantic'])
 
 function escapeString(value: string): string {
   let output = '"'
@@ -101,32 +103,41 @@ function discriminatorAttribute(type: Extract<PyTypeExpr, { kind: 'union' }>, ir
   return type.discriminator!
 }
 
-function renderType(type: PyTypeExpr, names: DeclNames, ir: PyModuleIR, currentIndex: number): string {
+function renderType(
+  type: PyTypeExpr, names: DeclNames, ir: PyModuleIR, currentIndex: number, runtimeEvaluated = false,
+): string {
   switch (type.kind) {
     case 'scalar': return type.base === 'string' ? 'str' : type.base === 'integer' ? 'int' : 'float'
+    case 'decoded': {
+      const semantic = renderType(type.pythonType, names, ir, currentIndex)
+      const suffix = type.datetimeMode === 'naive' ? '_naive' : ''
+      const decode = type.encoding === 'unixtime' ? `_decode_unixtime${suffix}` : `_decode_http_date${suffix}`
+      const encode = type.encoding === 'unixtime' ? `_encode_unixtime${suffix}` : `_encode_http_date${suffix}`
+      return `Annotated[${semantic}, BeforeValidator(${decode}), PlainSerializer(${encode}, return_type=${type.wireType})]`
+    }
     case 'builtin': return type.name
     case 'named': return type.name
     case 'ref': {
       const target = names.get(type.target)
       if (target === undefined) return 'Any'
-      return target.index > currentIndex ? escapeString(target.pyName) : target.pyName
+      return runtimeEvaluated && target.index > currentIndex ? escapeString(target.pyName) : target.pyName
     }
-    case 'list': return `list[${renderType(type.item, names, ir, currentIndex)}]`
+    case 'list': return `list[${renderType(type.item, names, ir, currentIndex, runtimeEvaluated)}]`
     case 'tuple': {
-      const items = type.items.map(item => renderType(item, names, ir, currentIndex))
-      if (type.rest !== null) items.push(`*tuple[${renderType(type.rest, names, ir, currentIndex)}, ...]`)
+      const items = type.items.map(item => renderType(item, names, ir, currentIndex, runtimeEvaluated))
+      if (type.rest !== null) items.push(`*tuple[${renderType(type.rest, names, ir, currentIndex, runtimeEvaluated)}, ...]`)
       return `tuple[${items.join(', ')}]`
     }
-    case 'dict': return `dict[str, ${renderType(type.value, names, ir, currentIndex)}]`
+    case 'dict': return `dict[str, ${renderType(type.value, names, ir, currentIndex, runtimeEvaluated)}]`
     case 'literal': return `Literal[${type.values.map(renderJson).join(', ')}]`
     case 'union': {
-      const union = type.members.map(member => renderType(member, names, ir, currentIndex)).join(' | ')
+      const union = type.members.map(member => renderType(member, names, ir, currentIndex, runtimeEvaluated)).join(' | ')
       if (type.discriminator === null) return union
       const attribute = discriminatorAttribute(type, ir)
       return `Annotated[${union}, Field(discriminator=${renderJson(attribute)})]`
     }
     case 'constrained': {
-      const base = renderType(type.base, names, ir, currentIndex)
+      const base = renderType(type.base, names, ir, currentIndex, runtimeEvaluated)
       const metadata: string[] = []
       const constraints = renderConstraints(type.constraints)
       if (constraints.length > 0) metadata.push(`Field(${constraints.join(', ')})`)
@@ -179,15 +190,21 @@ function renderModel(
   const lines = [`class ${decl.pyName}(${bases || 'BaseModel'}):`]
   if (decl.description !== undefined) lines.push(`    ${renderDocstring(decl.description)}`)
   const config = [`extra=${renderJson(decl.extra)}`]
+  if (decl.frozen === true) config.push('frozen=True')
+  if (decl.extensions !== undefined) config.push(`json_schema_extra=${renderJson(decl.extensions)}`)
   if (decl.regexEngine === 'python-re') config.push('regex_engine="python-re"')
   if (decl.fields.some(field => field.alias !== '')) {
     config.push('validate_by_name=True', 'validate_by_alias=True', 'serialize_by_alias=True')
   }
   lines.push(`    model_config = ConfigDict(${config.join(', ')})`)
-  for (const field of decl.fields) lines.push(`    ${renderField(field, names, ir, index)}`)
+  for (const field of decl.fields) {
+    const line = renderField(field, names, ir, index)
+    const narrowedTag = decl.discriminator?.role === 'variant' && field.wireName === decl.discriminator.propertyName
+    lines.push(`    ${line}${narrowedTag ? '  # pyright: ignore[reportIncompatibleVariableOverride]' : ''}`)
+  }
   if (decl.openness.kind === 'typed-map') {
     const value = renderType(decl.openness.value, names, ir, index)
-    lines.push(`    __pydantic_extra__: dict[str, ${value}] = Field(init=False)`)
+    lines.push(`    __pydantic_extra__: dict[str, ${value}] = Field(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]`)
   }
   const rejecting = decl.fields.filter(field => field.rejectExplicitNull)
   if (rejecting.length > 0) {
@@ -215,20 +232,39 @@ function usesUniqueItems(ir: PyModuleIR): boolean {
 export function renderPyModule(ir: PyModuleIR): string {
   assertResolvedPyIr(ir)
   const names = declarationNames(ir)
-  const lines: string[] = []
+  const lines: string[] = ['# ruff: noqa: E501']
   const imports = ir.imports!.from
-  for (const module of Object.keys(imports).sort((left, right) => left < right ? -1 : left > right ? 1 : 0)) {
+  const group = (module: string): number => module === '__future__' ? 0
+    : (THIRD_PARTY_MODULES.has(module) ? 2 : 1)
+  const importModules = Object.keys(imports).sort((left, right) => {
+    const byGroup = group(left) - group(right)
+    return byGroup !== 0 ? byGroup : left < right ? -1 : left > right ? 1 : 0
+  })
+  let previousGroup = -1
+  for (const module of importModules) {
+    const currentGroup = group(module)
+    if (previousGroup !== -1 && currentGroup !== previousGroup) lines.push('')
     const imported = imports[module] ?? []
-    lines.push(module === '__future__'
-      ? `from __future__ import ${imported.join(', ')}`
-      : `from ${module} import ${imported.join(', ')}`)
+    const prefix = module === '__future__' ? 'from __future__ import ' : `from ${module} import `
+    const statement = `${prefix}${imported.join(', ')}`
+    if (statement.length <= 88) lines.push(statement)
+    else {
+      lines.push(`${prefix}(`)
+      for (const name of imported) lines.push(`    ${name},`)
+      lines.push(')')
+    }
+    previousGroup = currentGroup
   }
-  if (lines.length > 0) lines.push('', '')
+  const encodingKeys = encodingHelperKeys(ir)
+  const hasHelpers = usesUniqueItems(ir) || encodingKeys.size > 0
+  lines.push('')
+  if (hasHelpers || ir.decls[0]?.kind !== 'alias') lines.push('')
   if (usesUniqueItems(ir)) {
     lines.push('def _unique_items(value: list[object]) -> list[object]:')
     lines.push('    if len(value) != len({repr(item) for item in value}):')
     lines.push('        raise ValueError("list items must be unique")', '    return value', '', '')
   }
+  if (encodingKeys.size > 0) lines.push(...encodingHelperSource(encodingKeys))
   ir.decls.forEach((decl, index) => {
     if (index > 0) lines.push('', '')
     if (decl.kind === 'enum') {
@@ -239,7 +275,7 @@ export function renderPyModule(ir: PyModuleIR): string {
         lines.push(`${decl.pyName}: TypeAlias = Literal[${decl.values.map(renderJson).join(', ')}]`)
       }
     } else if (decl.kind === 'alias') {
-      lines.push(`${decl.pyName}: TypeAlias = ${renderType(decl.type, names, ir, index)}`)
+      lines.push(`${decl.pyName}: TypeAlias = ${renderType(decl.type, names, ir, index, true)}`)
     } else {
       lines.push(...renderModel(decl, names, ir, index))
     }
@@ -248,5 +284,6 @@ export function renderPyModule(ir: PyModuleIR): string {
     lines.push('', '')
     for (const name of ir.rebuild) lines.push(`${names.get(name)?.pyName ?? name}.model_rebuild()`)
   }
-  return `${lines.join('\n').trimEnd()}\n`
+  const source = lines.join('\n').trimEnd()
+  return `${source}\n`
 }

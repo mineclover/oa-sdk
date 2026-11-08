@@ -999,7 +999,7 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `PYDANTIC_PLUGIN_NAME` | `pydantic/emit.ts` | 플러그인 이름 |
 | `PYDANTIC_PRESETS` | `pydantic/options.ts` | Pydantic preset 정의 |
 | `PYDANTIC_SEMANTIC_OPTION_KEYS` | `pydantic/options.ts` | semantic option 키 목록 |
-| `PY_PASSES` | `pydantic/passes/index.ts` | Pydantic pass 목록 |
+| `PY_PASSES` | `pydantic/passes/index.ts` | Pydantic pass 목록 (`extensions`, `docstrings`, `frozen` 포함) |
 | `pickPassOptions` | `pydantic/passes/index.ts` | pass별 옵션 선택 |
 | `AnyPyPass` | `pydantic/passes/index.ts` | Pydantic pass 타입 |
 | `PyPass` | `pydantic/passes/index.ts` | Pydantic pass 인터페이스 |
@@ -1032,7 +1032,7 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `PydanticLowerContext` | `pydantic/lower.ts` | lower 컨텍스트 타입 |
 | `PydanticOutputOptions` | `pydantic/options.ts` | 출력 옵션 타입 |
 | `PydanticPreset` | `pydantic/options.ts` | preset 타입 |
-| `PydanticSemanticOptions` | `pydantic/options.ts` | semantic 옵션 타입 |
+| `PydanticSemanticOptions` | `pydantic/options.ts` | semantic 옵션 타입 (`encodingPolicy`, `extensions`, `docstrings`, `frozen` 포함) |
 | `ResolvedPydanticBuildOptions` | `pydantic/options.ts` | 해석된 옵션 타입 |
 | `RunPyPassesResult` | `pydantic/passes/index.ts` | pass 실행 결과 타입 |
 | `RunPyPassesSettings` | `pydantic/passes/index.ts` | pass 실행 설정 타입 |

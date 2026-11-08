@@ -8,6 +8,8 @@ import type { PyModuleIR } from '../ir.js'
 import type { PydanticSemanticOptions, ResolvedPydanticBuildOptions } from '../options.js'
 import { collectImportsPass } from './collect-imports.js'
 import { extensionsPass } from './extensions.js'
+import { frozenPass } from './frozen.js'
+import { docstringsPass } from './docstrings.js'
 import { extraPolicyPass } from './extra-policy.js'
 import { namingPass } from './naming.js'
 import { optionalPolicyPass } from './optional-policy.js'
@@ -23,6 +25,8 @@ export type PyPassName =
   | 'regex'
   | 'scalarPolicy'
   | 'extensions'
+  | 'docstrings'
+  | 'frozen'
   | 'collectImports'
 
 export interface PyPass<K extends keyof PydanticSemanticOptions> {
@@ -42,6 +46,8 @@ export const PY_PASSES: readonly AnyPyPass[] = Object.freeze([
   regexPass,
   scalarPolicyPass,
   extensionsPass,
+  docstringsPass,
+  frozenPass,
   collectImportsPass,
 ])
 
