@@ -254,6 +254,8 @@ split 출력은 `operations.py`와 package용 `__init__.py`를 함께 생성하�
 
 **완료 조건.** 각 추가 OAS construct에 fixture/golden, contract invariant, Python/FastAPI lane, 명시 diagnostic과 docs row가 있다. 옵션은 모두 읽는 pass가 있고 report에 기록된다.
 
+구현 완료 (2026-11-09): 비JSON body/response 타입, SSE·JSON Lines item 타입과 stream metadata, `@discriminated` envelope union, media별 `OperationSpec` metadata를 추가했다.
+
 ### 공통 완료 게이트와 회귀 방지
 
 새 operation 경로도 Phase 1의 순수 단계 계약을 유지해야 한다.

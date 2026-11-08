@@ -202,7 +202,7 @@ export function renderModel(decl: Extract<PyDecl, { kind: 'model' }>, names: Dec
   lines.push(`    model_config = ConfigDict(${config.join(', ')})`)
   for (const field of decl.fields) {
     const line = renderField(field, names, ir, index)
-    const narrowedTag = decl.discriminator?.role === 'variant' && field.wireName === decl.discriminator.propertyName
+    const narrowedTag = decl.discriminator?.role === 'variant' && decl.envelopeVariant !== true && field.wireName === decl.discriminator.propertyName
     lines.push(`    ${line}${narrowedTag ? '  # pyright: ignore[reportIncompatibleVariableOverride]' : ''}`)
   }
   if (decl.openness.kind === 'typed-map') {

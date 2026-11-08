@@ -67,9 +67,14 @@ type ScalarOptions = {
 function scalarType(
   format: string | undefined,
   encoding: string | undefined,
+  contentMediaType: string | undefined,
   base: 'string' | 'integer' | 'number',
   options: ScalarOptions,
 ): PyTypeExpr {
+  const media = contentMediaType?.split(';', 1)[0]?.trim().toLowerCase()
+  if (base === 'string' && (format === 'binary' || (media !== undefined && !media.startsWith('text/') && encoding === undefined))) {
+    return { kind: 'builtin', name: 'bytes' }
+  }
   if (options.encodingPolicy === 'decode' && base === 'integer' && format === 'unixtime') {
     return {
       kind: 'decoded', wireType: 'int', encoding: 'unixtime',
@@ -152,7 +157,7 @@ export const scalarPolicyPass: PyPass<'enumStyle' | 'datetime' | 'uri' | 'intBou
         return { kind: 'constrained', base: type.base.base, constraints }
       }
       if (type.kind !== 'scalar') return type
-      const value = scalarType(type.format, type.contentEncoding, type.base, options)
+      const value = scalarType(type.format, type.contentEncoding, type.contentMediaType, type.base, options)
       const encoding = declaredEncoding(type)
       const decoded = options.encodingPolicy === 'decode' && (
         (type.base === 'integer' && type.format === 'unixtime')

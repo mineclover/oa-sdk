@@ -12,6 +12,7 @@ import type {
   PyOperationRole,
   PyOperationParameterDecl,
   PyTypeExpr,
+  PyMediaTypeDecl,
   PydanticDiagnostic,
 } from './ir.js'
 import type { PreparedPydanticDocument } from './prepare.js'
@@ -38,6 +39,7 @@ export interface PydanticLowerContext {
   operationRole?: PyOperationRole | undefined
   operationPath?: string | undefined
   operationParameterPointers?: Record<string, string>
+  schemas?: Record<string, OasSchema>
 }
 
 function asRecord(value: unknown): SchemaRecord {
@@ -248,6 +250,7 @@ function scalarType(
     base,
     ...(typeof source.format === 'string' ? { format: source.format } : {}),
     ...(typeof source.contentEncoding === 'string' ? { contentEncoding: source.contentEncoding } : {}),
+    ...(typeof source.contentMediaType === 'string' ? { contentMediaType: source.contentMediaType } : {}),
     pointer: schemaPointer(schema, context),
   })
 }
@@ -281,6 +284,32 @@ function allOfType(
     'Non-object allOf was flattened to its first branch',
   )
   return branches[0] ?? anyType()
+}
+
+function envelopeFacts(schema: OasSchema, context: PydanticLowerContext): { discriminator: string; variants: Array<{ target: string; tagProperty: string; tagValue: LiteralValue; valueProperty: string }>; decision: null } | undefined {
+  const source = asRecord(schema)
+  const discriminator = asRecord(source.discriminator).propertyName
+  if (typeof discriminator !== 'string' || !Array.isArray(source.oneOf)) return undefined
+  const variants: Array<{ target: string; tagProperty: string; tagValue: LiteralValue; valueProperty: string }> = []
+  for (const branch of source.oneOf) {
+    const target = parseRefTarget(asRecord(branch).$ref)
+    if (target === null) return undefined
+    const targetSchema = context.schemas?.[target]
+    const properties = asRecord(targetSchema?.properties)
+    const entries = Object.entries(properties)
+    if (targetSchema === undefined || asRecord(targetSchema).allOf !== undefined || entries.length !== 2) return undefined
+    const tag = entries.find(([, value]) => {
+      const record = asRecord(value)
+      return (Array.isArray(record.enum) && record.enum.length === 1 && literalValues(record.enum) !== undefined) || literalValues([record.const]) !== undefined
+    })
+    if (tag === undefined || tag[0] !== discriminator) return undefined
+    const value = entries.find(([name]) => name !== tag[0])
+    const tagRecord = asRecord(tag[1])
+    const tagValue = Array.isArray(tagRecord.enum) ? literalValues(tagRecord.enum)?.[0] : literalValues([tagRecord.const])?.[0]
+    if (value === undefined || tagValue === undefined) return undefined
+    variants.push({ target, tagProperty: tag[0], tagValue, valueProperty: value[0] })
+  }
+  return variants.length === 0 ? undefined : { discriminator, variants, decision: null }
 }
 
 /** `SchemaAlgebra` producing IR type expressions; object nodes become inline declarations. */
@@ -340,12 +369,16 @@ export function createPydanticAlgebra(context: PydanticLowerContext): SchemaAlge
       return withConstraints(schema, { kind: 'list', item: items ?? anyType() })
     },
     allOf: (schema, branches) => allOfType(schema, branches, context),
-    oneOf: (schema, branches) => withConstraints(schema, {
-      kind: 'union',
-      members: branches.length === 0 ? [anyType()] : branches,
-      discriminator: asRecord(asRecord(schema).discriminator).propertyName as string | null ?? null,
-      origin: 'oneOf',
-    }),
+    oneOf: (schema, branches) => {
+      const facts = envelopeFacts(schema, context)
+      return withConstraints(schema, {
+        kind: 'union',
+        members: branches.length === 0 ? [anyType()] : branches,
+        discriminator: asRecord(asRecord(schema).discriminator).propertyName as string | null ?? null,
+        origin: 'oneOf',
+        ...(facts === undefined ? {} : { envelope: facts }),
+      } as PyTypeExpr)
+    },
     anyOf: (schema, branches) => withConstraints(schema, {
       kind: 'union',
       members: branches.length === 0 ? [anyType()] : branches,
@@ -546,6 +579,7 @@ function operationMedia(content: Record<string, unknown> | undefined): {
   mediaType: string | null
   otherMediaTypes: string[]
   schema: OasSchema | null
+  media: Array<{ mediaType: string; schema: OasSchema | null; itemSchema: OasSchema | null }>
 } {
   const types = Object.keys(content ?? {}).sort((left, right) => left.localeCompare(right))
   const jsonTypes = types.filter(type => {
@@ -553,12 +587,21 @@ function operationMedia(content: Record<string, unknown> | undefined): {
     return base === 'application/json' || base.endsWith('+json')
   })
   const chosen = jsonTypes[0] ?? types[0]
-  const media = chosen === undefined ? undefined : content?.[chosen]
+  const mediaTypes = types.map(mediaType => {
+    const value = asRecord(content?.[mediaType])
+    return {
+      mediaType,
+      schema: isSchemaLike(value.schema) ? value.schema as OasSchema : null,
+      itemSchema: isSchemaLike(value.itemSchema) ? value.itemSchema as OasSchema : null,
+    }
+  })
+  const chosenMedia = chosen === undefined ? undefined : content?.[chosen]
   return {
     mediaType: chosen ?? null,
     otherMediaTypes: chosen === undefined ? [] : types.filter(type => type !== chosen),
-    schema: chosen !== undefined && jsonTypes.includes(chosen) && isSchemaLike(asRecord(media).schema)
-      ? asRecord(media).schema as OasSchema : null,
+    schema: chosen !== undefined && isSchemaLike(asRecord(chosenMedia).schema)
+      ? asRecord(chosenMedia).schema as OasSchema : null,
+    media: mediaTypes,
   }
 }
 
@@ -578,6 +621,18 @@ function lowerOperation(operation: OperationEntry, context: PydanticLowerContext
     context.operationRole = previousRole
     context.operationPath = previousOperationPath
     return type
+  }
+  const lowerMedia = (entry: { mediaType: string; schema: OasSchema | null; itemSchema: OasSchema | null }, role: string): PyMediaTypeDecl => {
+    const base = entry.mediaType.split(';', 1)[0]!.trim().toLowerCase()
+    const streaming = base === 'text/event-stream' || base === 'application/jsonl' || base === 'application/x-ndjson' || base === 'application/json-seq'
+    const itemSchema = entry.itemSchema ?? (streaming && entry.schema !== null && asRecord(entry.schema).type === 'array' && isSchemaLike(asRecord(entry.schema).items)
+      ? asRecord(entry.schema).items as OasSchema : null)
+    const effectiveSchema = streaming ? itemSchema : entry.schema
+    let type: PyTypeExpr | null = null
+    if (effectiveSchema !== null) type = lowerSchema(effectiveSchema, role)
+    else if (base.startsWith('text/')) type = { kind: 'builtin', name: 'str' }
+    else if (base === 'application/octet-stream') type = { kind: 'builtin', name: 'bytes' }
+    return { mediaType: entry.mediaType, schema: type, stream: streaming, itemType: streaming ? type : null, pyName: null }
   }
   const parameterPointer = (parameter: OperationEntry['parameters'][number], index: number): string => context.operationParameterPointers?.[
     `${operation.method}:${operation.openApiPath}:${parameter.in}:${parameter.name}`
@@ -611,11 +666,14 @@ function lowerOperation(operation: OperationEntry, context: PydanticLowerContext
   let requestBody: PyBodyDecl | null = null
   if (operation.requestBody !== undefined) {
     const selected = operationMedia(operation.requestBody.content as Record<string, unknown> | undefined)
+    const mediaTypes = selected.media.map(entry => lowerMedia(entry, 'Body'))
+    const primary = mediaTypes.find(media => media.mediaType === selected.mediaType)
     requestBody = {
       required: operation.requestBody.required === true,
       mediaType: selected.mediaType,
       otherMediaTypes: selected.otherMediaTypes,
-      schema: selected.schema === null ? null : lowerSchema(selected.schema, 'Body'),
+      schema: primary?.schema ?? null,
+      mediaTypes,
       ...(typeof operation.requestBody.description === 'string' ? { description: operation.requestBody.description } : {}),
       pointer: `${pointer}/requestBody`,
     }
@@ -624,6 +682,8 @@ function lowerOperation(operation: OperationEntry, context: PydanticLowerContext
     .sort(([left], [right]) => left === 'default' ? 1 : right === 'default' ? -1 : left.localeCompare(right, undefined, { numeric: true }))
     .map(([status, response]) => {
       const selected = operationMedia(response.content as Record<string, unknown> | undefined)
+      const mediaTypes = selected.media.map(entry => lowerMedia(entry, `Response/${status}`))
+      const primary = mediaTypes.find(media => media.mediaType === selected.mediaType)
       const headers = Object.entries(response.headers ?? {}).sort(([left], [right]) => left.localeCompare(right)).map(([headerName, header]) => {
         const record = asRecord(header)
         return {
@@ -638,7 +698,8 @@ function lowerOperation(operation: OperationEntry, context: PydanticLowerContext
         status,
         mediaType: selected.mediaType,
         otherMediaTypes: selected.otherMediaTypes,
-        schema: selected.schema === null ? null : lowerSchema(selected.schema, `Response/${status}`),
+        schema: primary?.schema ?? null,
+        mediaTypes,
         headers,
         ...(typeof response.description === 'string' ? { description: response.description } : {}),
         pointer: `${pointer}/responses/${status}`,
@@ -683,7 +744,7 @@ function lowerOperation(operation: OperationEntry, context: PydanticLowerContext
     parameters,
     requestBody,
     responses,
-    modelNames: { pathParams: null, queryParams: null, headerParams: null, cookieParams: null, body: null, response: null, error: null },
+    modelNames: { pathParams: null, queryParams: null, headerParams: null, cookieParams: null, body: null, response: null, error: null, bodyMedia: {}, responseMedia: {} },
     pointer,
   }
 }
@@ -740,6 +801,7 @@ function recordPointers(value: unknown, context: PydanticLowerContext, pointer =
 
 function isModelSchema(schema: OasSchema): boolean {
   const source = asRecord(schema)
+  if (Array.isArray(source.oneOf) && source.properties === undefined && source.allOf === undefined) return false
   return source.properties !== undefined || source.type === 'object' || Array.isArray(source.allOf)
 }
 
@@ -760,6 +822,7 @@ export function lowerToPyIr(
     examples: new WeakMap(),
     componentNames: new Set(names),
     modelNames,
+    schemas: prepared.schemas,
     operationParameterPointers: prepared.operationParameterPointers,
     declaredInline: new WeakMap(),
     declaredInlineByPointer: new Map(),
@@ -799,6 +862,11 @@ export function lowerToPyIr(
       }
     }
     declarations.push(...context.inlineDecls.splice(0), declaration)
+  }
+  const envelopeTargets = new Set(declarations.flatMap(decl => decl.kind === 'alias' && decl.type.kind === 'union' && decl.type.envelope !== undefined
+    ? decl.type.envelope.variants.map(variant => variant.target) : []))
+  for (const declaration of declarations) {
+    if (declaration.kind === 'model' && envelopeTargets.has(declaration.name)) declaration.envelopeVariant = null
   }
   for (const operation of prepared.operations) {
     const declaration = lowerOperation(operation, context)

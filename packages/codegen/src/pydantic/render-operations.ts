@@ -88,6 +88,14 @@ export function renderPyOperationsModule(ir: PyModuleIR, split = true): string {
       if (response.schema) types.push(response.schema)
       else if (response.mediaType !== null) types.push({ kind: 'builtin', name: 'Any' })
       response.headers.forEach(header => types.push(header.schema))
+      response.mediaTypes.forEach(media => {
+        if (media.schema) types.push(media.schema)
+        if (media.itemType) types.push(media.itemType)
+      })
+    })
+    operation.requestBody?.mediaTypes.forEach(media => {
+      if (media.schema) types.push(media.schema)
+      if (media.itemType) types.push(media.itemType)
     })
   }
   const helper = renderOperationHelpers(types)
@@ -144,15 +152,37 @@ export function renderPyOperationsModule(ir: PyModuleIR, split = true): string {
       const bodyType = operation.requestBody?.schema ? renderType(operation.requestBody.schema, names, ir, opIndex, true) : 'Any'
       if (!ownedPyNames.has(modelNames.body)) alias(modelNames.body, bodyType)
     }
+    for (const media of operation.requestBody?.mediaTypes ?? []) {
+      if (media.pyName === null || media.pyName === modelNames.body || media.pyName === '') continue
+      alias(media.pyName, renderType(media.itemType ?? media.schema ?? { kind: 'builtin', name: 'Any' }, names, ir, opIndex, true))
+    }
     const responseTypes = [...new Set(operationResponses(operation, true).map(status => renderType(responseType(operation, status), names, ir, opIndex, true)))]
     if (modelNames.response !== null && modelNames.response !== '' && !ownedPyNames.has(modelNames.response)) alias(modelNames.response, responseTypes.length > 0 ? responseTypes.join(' | ') : 'Any')
     const errorTypes = [...new Set(operationResponses(operation, false).map(status => renderType(responseType(operation, status), names, ir, opIndex, true)))]
     if (modelNames.error !== null && modelNames.error !== '' && !ownedPyNames.has(modelNames.error)) alias(modelNames.error, errorTypes.length > 0 ? errorTypes.join(' | ') : 'Any')
+    for (const response of operation.responses) {
+      for (const media of response.mediaTypes) {
+        if (media.pyName === null || media.pyName === modelNames.response || media.pyName === modelNames.error || media.pyName === '') continue
+        alias(media.pyName, renderType(media.itemType ?? media.schema ?? { kind: 'builtin', name: 'Any' }, names, ir, opIndex, true))
+      }
+    }
   }
-  lines.push('', '@dataclass(frozen=True)', 'class OperationSpec:', '    method: str', '    path: str', '    responses: dict[str, object]', '', 'OPERATIONS: dict[str, OperationSpec] = {')
+  lines.push('', '@dataclass(frozen=True)', 'class OperationSpec:', '    method: str', '    path: str', '    responses: dict[str, object]', '    request_media: dict[str, object]', '    response_media: dict[str, object]', '    streams: dict[str, bool]', '', 'OPERATIONS: dict[str, OperationSpec] = {')
   for (const operation of operations) {
-    const statuses = operation.responses.filter(response => response.mediaType !== null).map(response => `${renderJson(response.status)}: ${renderType(response.schema ?? { kind: 'builtin', name: 'Any' }, names, ir, ir.decls.indexOf(operation), true)}`).join(', ')
-    lines.push(`    ${renderJson(operation.pyName!)}: OperationSpec(method=${renderJson(operation.method.toUpperCase())}, path=${renderJson(operation.path)}, responses={${statuses}}),`)
+    const statuses = operation.responses.filter(response => response.mediaType !== null).map(response => {
+      const primary = response.mediaTypes.find(media => media.mediaType === response.mediaType)
+      const type = primary?.stream && primary.pyName !== null
+        ? primary.pyName
+        : renderType(response.schema ?? { kind: 'builtin', name: 'Any' }, names, ir, ir.decls.indexOf(operation), true)
+      return `${renderJson(response.status)}: ${type}`
+    }).join(', ')
+    const requestMedia = (operation.requestBody?.mediaTypes ?? []).map(media => `${renderJson(media.mediaType)}: ${media.pyName === null ? 'Any' : media.pyName}`).join(', ')
+    const responseMedia = operation.responses.flatMap(response => response.mediaTypes.map(media => `${renderJson(`${response.status}:${media.mediaType}`)}: ${media.pyName === null ? 'Any' : media.pyName}`)).join(', ')
+    const streams = [
+      ...(operation.requestBody?.mediaTypes.filter(media => media.stream).map(media => `${renderJson(`body:${media.mediaType}`)}: True`) ?? []),
+      ...operation.responses.flatMap(response => response.mediaTypes.filter(media => media.stream).map(media => `${renderJson(`${response.status}:${media.mediaType}`)}: True`)),
+    ].join(', ')
+    lines.push(`    ${renderJson(operation.pyName!)}: OperationSpec(method=${renderJson(operation.method.toUpperCase())}, path=${renderJson(operation.path)}, responses={${statuses}}, request_media={${requestMedia}}, response_media={${responseMedia}}, streams={${streams}}),`)
   }
   lines.push('}')
   return `${lines.join('\n').trimEnd()}\n`

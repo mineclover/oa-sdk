@@ -113,6 +113,18 @@
             "kind": "ref",
             "target": "Thing"
           },
+          "mediaTypes": [
+            {
+              "mediaType": "application/json",
+              "schema": {
+                "kind": "ref",
+                "target": "Thing"
+              },
+              "stream": false,
+              "itemType": null,
+              "pyName": "GetThingResponse"
+            }
+          ],
           "headers": [],
           "description": "The request has succeeded.",
           "pointer": "/paths/~1things/get/responses/200"
@@ -125,6 +137,18 @@
             "kind": "ref",
             "target": "Error"
           },
+          "mediaTypes": [
+            {
+              "mediaType": "application/json",
+              "schema": {
+                "kind": "ref",
+                "target": "Error"
+              },
+              "stream": false,
+              "itemType": null,
+              "pyName": "GetThingError"
+            }
+          ],
           "headers": [],
           "description": "The server could not understand the request due to invalid syntax.",
           "pointer": "/paths/~1things/get/responses/400"
@@ -137,6 +161,18 @@
             "kind": "ref",
             "target": "Error"
           },
+          "mediaTypes": [
+            {
+              "mediaType": "application/json",
+              "schema": {
+                "kind": "ref",
+                "target": "Error"
+              },
+              "stream": false,
+              "itemType": null,
+              "pyName": "GetThingError"
+            }
+          ],
           "headers": [],
           "description": "An unexpected error response.",
           "pointer": "/paths/~1things/get/responses/default"
@@ -149,7 +185,13 @@
         "cookieParams": "",
         "body": "",
         "response": "GetThingResponse",
-        "error": "GetThingError"
+        "error": "GetThingError",
+        "bodyMedia": {},
+        "responseMedia": {
+          "200:application/json": "GetThingResponse",
+          "400:application/json": "GetThingError",
+          "default:application/json": "GetThingError"
+        }
       },
       "pointer": "/paths/~1things/get"
     },
@@ -412,6 +454,18 @@
           "kind": "ref",
           "target": "Thing"
         },
+        "mediaTypes": [
+          {
+            "mediaType": "application/json",
+            "schema": {
+              "kind": "ref",
+              "target": "Thing"
+            },
+            "stream": false,
+            "itemType": null,
+            "pyName": "GetThing2Body"
+          }
+        ],
         "pointer": "/paths/~1things~1{id}/get/requestBody"
       },
       "responses": [
@@ -423,6 +477,18 @@
             "kind": "ref",
             "target": "Thing"
           },
+          "mediaTypes": [
+            {
+              "mediaType": "application/json",
+              "schema": {
+                "kind": "ref",
+                "target": "Thing"
+              },
+              "stream": false,
+              "itemType": null,
+              "pyName": "GetThing2Response"
+            }
+          ],
           "headers": [
             {
               "name": "request-id",
@@ -445,6 +511,18 @@
             "kind": "ref",
             "target": "Error"
           },
+          "mediaTypes": [
+            {
+              "mediaType": "application/json",
+              "schema": {
+                "kind": "ref",
+                "target": "Error"
+              },
+              "stream": false,
+              "itemType": null,
+              "pyName": "GetThing2Error"
+            }
+          ],
           "headers": [],
           "description": "The server could not understand the request due to invalid syntax.",
           "pointer": "/paths/~1things~1{id}/get/responses/400"
@@ -457,6 +535,18 @@
             "kind": "ref",
             "target": "Error"
           },
+          "mediaTypes": [
+            {
+              "mediaType": "application/json",
+              "schema": {
+                "kind": "ref",
+                "target": "Error"
+              },
+              "stream": false,
+              "itemType": null,
+              "pyName": "GetThing2Error"
+            }
+          ],
           "headers": [],
           "description": "An unexpected error response.",
           "pointer": "/paths/~1things~1{id}/get/responses/default"
@@ -469,7 +559,15 @@
         "cookieParams": "GetThing2CookieParams",
         "body": "GetThing2Body",
         "response": "GetThing2Response",
-        "error": "GetThing2Error"
+        "error": "GetThing2Error",
+        "bodyMedia": {
+          "application/json": "GetThing2Body"
+        },
+        "responseMedia": {
+          "200:application/json": "GetThing2Response",
+          "400:application/json": "GetThing2Error",
+          "default:application/json": "GetThing2Error"
+        }
       },
       "pointer": "/paths/~1things~1{id}/get"
     },
@@ -652,6 +750,18 @@
           "kind": "ref",
           "target": "operation/post:/things/{id}/Body"
         },
+        "mediaTypes": [
+          {
+            "mediaType": "application/json",
+            "schema": {
+              "kind": "ref",
+              "target": "operation/post:/things/{id}/Body"
+            },
+            "stream": false,
+            "itemType": null,
+            "pyName": "PostThingsIdBody"
+          }
+        ],
         "pointer": "/paths/~1things~1{id}/post/requestBody"
       },
       "responses": [
@@ -663,6 +773,18 @@
             "kind": "ref",
             "target": "Thing"
           },
+          "mediaTypes": [
+            {
+              "mediaType": "application/json",
+              "schema": {
+                "kind": "ref",
+                "target": "Thing"
+              },
+              "stream": false,
+              "itemType": null,
+              "pyName": "PostThingsIdResponse"
+            }
+          ],
           "headers": [],
           "description": "The request has succeeded.",
           "pointer": "/paths/~1things~1{id}/post/responses/200"
@@ -675,6 +797,18 @@
             "kind": "ref",
             "target": "Error"
           },
+          "mediaTypes": [
+            {
+              "mediaType": "application/json",
+              "schema": {
+                "kind": "ref",
+                "target": "Error"
+              },
+              "stream": false,
+              "itemType": null,
+              "pyName": "PostThingsIdError"
+            }
+          ],
           "headers": [],
           "description": "The server could not understand the request due to invalid syntax.",
           "pointer": "/paths/~1things~1{id}/post/responses/400"
@@ -687,6 +821,18 @@
             "kind": "ref",
             "target": "Error"
           },
+          "mediaTypes": [
+            {
+              "mediaType": "application/json",
+              "schema": {
+                "kind": "ref",
+                "target": "Error"
+              },
+              "stream": false,
+              "itemType": null,
+              "pyName": "PostThingsIdError"
+            }
+          ],
           "headers": [],
           "description": "An unexpected error response.",
           "pointer": "/paths/~1things~1{id}/post/responses/default"
@@ -699,7 +845,15 @@
         "cookieParams": "",
         "body": "PostThingsIdBody",
         "response": "PostThingsIdResponse",
-        "error": "PostThingsIdError"
+        "error": "PostThingsIdError",
+        "bodyMedia": {
+          "application/json": "PostThingsIdBody"
+        },
+        "responseMedia": {
+          "200:application/json": "PostThingsIdResponse",
+          "400:application/json": "PostThingsIdError",
+          "default:application/json": "PostThingsIdError"
+        }
       },
       "pointer": "/paths/~1things~1{id}/post"
     }

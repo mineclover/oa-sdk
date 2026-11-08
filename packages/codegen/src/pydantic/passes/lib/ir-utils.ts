@@ -50,12 +50,11 @@ export function mapDeclTypes(decl: PyDecl, map: (type: PyTypeExpr) => PyTypeExpr
   if (decl.kind === 'operation') return {
     ...decl,
     parameters: decl.parameters.map(parameter => ({ ...parameter, schema: mapType(parameter.schema, map) })),
-    requestBody: decl.requestBody === null || decl.requestBody.schema === null
-      ? decl.requestBody
-      : { ...decl.requestBody, schema: mapType(decl.requestBody.schema, map) },
+    requestBody: decl.requestBody === null ? null : { ...decl.requestBody, schema: decl.requestBody.schema === null ? null : mapType(decl.requestBody.schema, map), mediaTypes: decl.requestBody.mediaTypes.map(media => ({ ...media, schema: media.schema === null ? null : mapType(media.schema, map), itemType: media.itemType === null ? null : mapType(media.itemType, map) })) },
     responses: decl.responses.map(response => ({
       ...response,
       schema: response.schema === null ? null : mapType(response.schema, map),
+      mediaTypes: response.mediaTypes.map(media => ({ ...media, schema: media.schema === null ? null : mapType(media.schema, map), itemType: media.itemType === null ? null : mapType(media.itemType, map) })),
       headers: response.headers.map(header => ({ ...header, schema: mapType(header.schema, map) })),
     })),
   }

@@ -78,9 +78,12 @@ class OperationSpec:
     method: str
     path: str
     responses: dict[str, object]
+    request_media: dict[str, object]
+    response_media: dict[str, object]
+    streams: dict[str, bool]
 
 OPERATIONS: dict[str, OperationSpec] = {
-    "GetThing": OperationSpec(method="GET", path="/things", responses={"200": Thing, "400": Error, "default": Error}),
-    "GetThing2": OperationSpec(method="GET", path="/things/{id}", responses={"200": Thing, "400": Error, "default": Error}),
-    "PostThingsId": OperationSpec(method="POST", path="/things/{id}", responses={"200": Thing, "400": Error, "default": Error}),
+    "GetThing": OperationSpec(method="GET", path="/things", responses={"200": Thing, "400": Error, "default": Error}, request_media={}, response_media={"200:application/json": GetThingResponse, "400:application/json": GetThingError, "default:application/json": GetThingError}, streams={}),
+    "GetThing2": OperationSpec(method="GET", path="/things/{id}", responses={"200": Thing, "400": Error, "default": Error}, request_media={"application/json": GetThing2Body}, response_media={"200:application/json": GetThing2Response, "400:application/json": GetThing2Error, "default:application/json": GetThing2Error}, streams={}),
+    "PostThingsId": OperationSpec(method="POST", path="/things/{id}", responses={"200": Thing, "400": Error, "default": Error}, request_media={"application/json": PostThingsIdBody}, response_media={"200:application/json": PostThingsIdResponse, "400:application/json": PostThingsIdError, "default:application/json": PostThingsIdError}, streams={}),
 }

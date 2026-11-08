@@ -19,6 +19,20 @@ function roleSuffix(role: PyOperationRole): string {
   return /^\d+$/.test(role.status ?? '') ? `Response${role.status}` : `Response${pascalCase(role.status ?? 'default')}`
 }
 
+function mediaSuffix(mediaType: string): string {
+  const base = mediaType.split(';', 1)[0]!.trim().toLowerCase()
+  if (base === 'application/x-www-form-urlencoded') return 'Form'
+  if (base === 'multipart/form-data') return 'Multipart'
+  if (base === 'text/plain') return 'Text'
+  if (base === 'application/octet-stream') return 'Bytes'
+  if (base === 'text/event-stream') return 'EventStream'
+  if (base === 'application/jsonl') return 'Jsonl'
+  if (base === 'application/x-ndjson') return 'XNdjson'
+  if (base === 'application/json-seq') return 'JsonSeq'
+  const token = base.replace(/[^a-z0-9]+/g, ' ').trim()
+  return pascalCase(token) || 'Media'
+}
+
 export const operationNamingPass: PyPass<'naming'> = {
   name: 'operationNaming',
   reads: ['naming'],
@@ -57,10 +71,39 @@ export const operationNamingPass: PyPass<'naming'> = {
       operation.modelNames.headerParams = has('header') ? allocate(`${stem}HeaderParams`, operation.pointer) : ''
       operation.modelNames.cookieParams = has('cookie') ? allocate(`${stem}CookieParams`, operation.pointer) : ''
       operation.modelNames.body = operation.requestBody === null || operation.requestBody.mediaType === null ? '' : allocate(`${stem}Body`, operation.pointer)
+      if (operation.requestBody !== null) {
+        const streams = operation.requestBody.mediaTypes.filter(media => media.stream)
+        for (const media of operation.requestBody.mediaTypes) {
+          const name = media.stream
+            ? allocate(`${stem}Body${streams.length === 1 ? 'Item' : `${mediaSuffix(media.mediaType)}Item`}`, operation.pointer)
+            : media.mediaType === operation.requestBody.mediaType
+            ? operation.modelNames.body!
+            : allocate(`${stem}Body${mediaSuffix(media.mediaType)}`, operation.pointer)
+          media.pyName = name
+          operation.modelNames.bodyMedia[media.mediaType] = name
+        }
+      }
       const selected = operation.responses.filter(response => /^2\d\d$/.test(response.status) || response.status === 'default').sort((left, right) => statusNumber(left.status) - statusNumber(right.status)).find(response => response.mediaType !== null)
+      const hasSuccess = operation.responses.some(response => /^2\d\d$/.test(response.status))
       const hasError = operation.responses.some(response => !/^2\d\d$/.test(response.status) && response.mediaType !== null)
       operation.modelNames.response = selected === undefined ? '' : allocate(`${stem}Response`, operation.pointer)
       operation.modelNames.error = hasError ? allocate(`${stem}Error`, operation.pointer) : ''
+      for (const response of operation.responses) {
+        const streams = response.mediaTypes.filter(media => media.stream)
+        for (const media of response.mediaTypes) {
+          const primary = response.mediaType === media.mediaType
+          const isSuccess = /^2\d\d$/.test(response.status) || (response.status === 'default' && !hasSuccess)
+          const statusSuffix = isSuccess ? 'Response' : `Error${response.status}`
+          const baseName = media.stream
+            ? allocate(`${stem}${isSuccess ? 'Response' : `Error${response.status}`}${streams.length === 1 ? 'Item' : `${mediaSuffix(media.mediaType)}Item`}`, operation.pointer)
+            : primary
+            ? (isSuccess ? operation.modelNames.response : operation.modelNames.error)
+            : allocate(`${stem}${statusSuffix}${mediaSuffix(media.mediaType)}`, operation.pointer)
+          const name = baseName ?? ''
+          media.pyName = name
+          operation.modelNames.responseMedia[`${response.status}:${media.mediaType}`] = name
+        }
+      }
     }
     const byOwner = new Map(operations.map(operation => [operation.name, operation]))
     const operationModels = result.decls.filter((decl): decl is Extract<typeof decl, { kind: 'model' }> => decl.kind === 'model' && decl.operationOwner !== undefined).sort((left, right) => (left.operationRole?.path?.split('/').length ?? 0) - (right.operationRole?.path?.split('/').length ?? 0) || left.name.localeCompare(right.name))

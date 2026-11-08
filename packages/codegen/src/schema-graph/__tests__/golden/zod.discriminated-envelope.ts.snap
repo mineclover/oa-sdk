@@ -1,0 +1,46 @@
+// Auto-generated from OpenAPI 3.2 spec by @oa-sdk/codegen
+// Do not edit directly.
+
+import { z } from 'zod'
+
+export const CatSchema = z.object({
+  meow: z.int(),
+  name: z.string(),
+})
+export type Cat = z.infer<typeof CatSchema>
+
+export const DogSchema = z.object({
+  bark: z.string(),
+  name: z.string(),
+})
+export type Dog = z.infer<typeof DogSchema>
+
+export const PetSchema = z.discriminatedUnion("kind", [z.lazy(() => 'extend' in PetCatSchema ? PetCatSchema.extend({ kind: z.literal("cat") }) : PetCatSchema), z.lazy(() => 'extend' in PetDogSchema ? PetDogSchema.extend({ kind: z.literal("dog") }) : PetDogSchema)], { unionFallback: true })
+export type Pet = z.infer<typeof PetSchema>
+
+export const Pet2Schema = z.discriminatedUnion("type", [z.lazy(() => 'extend' in Pet2CatSchema ? Pet2CatSchema.extend({ type: z.literal("cat") }) : Pet2CatSchema), z.lazy(() => 'extend' in Pet2DogSchema ? Pet2DogSchema.extend({ type: z.literal("dog") }) : Pet2DogSchema)], { unionFallback: true })
+export type Pet2 = z.infer<typeof Pet2Schema>
+
+export const Pet2CatSchema = z.object({
+      data: z.lazy(() => CatSchema),
+      type: z.enum(["cat"]),
+    })
+export type Pet2Cat = z.infer<typeof Pet2CatSchema>
+
+export const Pet2DogSchema = z.object({
+      data: z.lazy(() => DogSchema),
+      type: z.enum(["dog"]),
+    })
+export type Pet2Dog = z.infer<typeof Pet2DogSchema>
+
+export const PetCatSchema = z.object({
+      kind: z.enum(["cat"]),
+      value: z.lazy(() => CatSchema),
+    })
+export type PetCat = z.infer<typeof PetCatSchema>
+
+export const PetDogSchema = z.object({
+      kind: z.enum(["dog"]),
+      value: z.lazy(() => DogSchema),
+    })
+export type PetDog = z.infer<typeof PetDogSchema>

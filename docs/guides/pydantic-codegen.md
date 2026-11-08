@@ -179,7 +179,8 @@ const { files, report } = root.emitPydanticFiles(root.renderPyModule(ir), ir, op
 `true`이고 operation IR을 수집한다. CLI의 `--no-operations`와 plugin의 `purpose`가 `api`가
 아닌 경우에는 operation 산출을 끈다. `split`은 schema를 `models.py`, operation 모델과 `OPERATIONS` metadata를 `operations.py`에 쓴다. 두 파일과
 `__init__.py`를 함께 내보내므로 출력 디렉터리를 Python package로 import할 수 있다. `single`은 한 모듈에
-모두 쓴다. `oneOfMode: exact`는 discriminator 없는 `oneOf`에서만 정확히 한 branch가 검증되는지 검사한다.
+모두 쓴다. `multipart/form-data`와 `application/x-www-form-urlencoded`는 스키마 기반 모델로, 바이너리 필드는 `bytes`로 생성한다. `text/*`는 `str`, `application/octet-stream`은 `bytes`로 매핑한다. `text/event-stream`과 JSON Lines media type은 `*ResponseItem` 타입과 `OPERATIONS`의 stream metadata를 생성한다. 여러 media type은 JSON을 기본 alias로 유지하고 각 추가 media type에 결정적인 alias를 만든다. `oneOfMode: exact`는 discriminator 없는 `oneOf`에서만 정확히 한 branch가 검증되는지 검사한다.
+추가 media alias는 `BodyForm`, `BodyMultipart`, `BodyText`, `BodyBytes`와 같은 media suffix를 사용한다. stream이 하나면 `BodyItem`/`ResponseItem`, 여러 개면 `BodyJsonlItem`, `ResponseEventStreamItem`, `ResponseXNdjsonItem`, `ResponseJsonSeqItem`처럼 media suffix를 포함한다. `OPERATIONS.streams` 키는 request에서 `body:<media-type>`, response에서 `<status>:<media-type>` 형식이다.
 `anyOf`, nullable/type-array union, operation status response/error union에는 적용하지 않는다. 정밀화할 수
 없는 `oneOf` 구조에는 `pydantic/oneof-ambiguous` info를 낸다. `unionMode`는 Pydantic 2.11의
 `Field(union_mode=...)` 출력 호환성이 확정될 때까지 고정값 `smart`로 둔다.
@@ -235,6 +236,8 @@ Pydantic 구현 import가 package namespace로 새어 나오는 것을 막는다
 | `format: email` | `EmailStr` |
 | `format: uri`, `url` | `uri: str`이면 `str`, `any-url`이면 `AnyUrl` |
 | `format: byte` 또는 `contentEncoding: base64` | `Base64Bytes` |
+| `format: binary` 또는 `contentMediaType`이 `text/*`가 아닌 문자열 스키마 | `bytes` (multipart/form, JSON schema 내부 필드에도 동일) |
+| `contentMediaType: text/*` 문자열 스키마 | `str` |
 | model/field `x-*` | `extensions: preserve`이면 정렬된 JSON 값을 `model_config.json_schema_extra`/`Field(json_schema_extra=...)`로 보존하고, `drop`이면 제거 |
 | `encodingPolicy: decode` + `format: unixtime` | `Annotated` datetime validator/serializer로 epoch seconds 왕복 |
 | `encodingPolicy: decode` + `format: http-date` | RFC 7231 HTTP-date validator/serializer로 왕복 |
@@ -246,6 +249,10 @@ Pydantic 구현 import가 package namespace로 새어 나오는 것을 막는다
 | named string enum | `enumStyle: str-enum`이면 `StrEnum`, 아니면 `TypeAlias = Literal[...]` |
 | inline/mixed enum, `const` | `Literal[...]` |
 | `oneOf` | 기본은 smart `A | B`; discriminator 없는 `oneOfMode: exact`만 정확히 한 branch validator를 추가 |
+| 명시 discriminator envelope (`@discriminated`) | variant 모델의 `Literal` tag + `Annotated[..., Field(discriminator=...)]`; 빈 base 모델은 생성하지 않음 |
+| `multipart/form-data`, `application/x-www-form-urlencoded` | schema 기반 `<Op>Body` 및 media별 alias |
+| `text/*`, `application/octet-stream` | 각각 `str`, `bytes`; schema-less primary도 같은 타입 |
+| SSE/JSON Lines (`text/event-stream`, `application/jsonl`, `application/x-ndjson`, `application/json-seq`) | `*ResponseItem`/`*BodyItem` alias; `streams` 키는 request `body:<media>` 또는 response `<status>:<media>` |
 | `anyOf`, nullable/type-array union | 항상 smart `A | B`; overlap을 허용하며 exact 대상이 아님 |
 | object형 `allOf`의 `$ref` branch | `class Child(Base)` 상속. inline properties branch는 child에 필드를 합치고 `pydantic/allof-flattened` warning |
 | object가 아닌 `allOf` | 첫 branch로 평탄화하고 `pydantic/allof-flattened` warning |
@@ -356,7 +363,7 @@ Identifier: TypeAlias = Annotated[str, Field(pattern="^[A-Za-z_][A-Za-z0-9_.-]*$
 | `pydantic/operation-id-missing` | warning | operationId가 없어 method와 path로 이름을 결정함 |
 | `pydantic/operation-name-collision` | warning | operation model stem 충돌에 숫자 suffix를 붙임 |
 | `pydantic/operation-unsupported` | warning | callback 또는 webhook처럼 후속 milestone construct를 만남 |
-| `pydantic/media-type-unsupported` | warning | JSON이 아닌 media type 또는 여러 media type. 정렬된 첫 JSON을 선택하고 나머지는 `Any` |
+| `pydantic/media-type-unsupported` | warning | 스키마가 없고 내장 매핑도 제공하지 않는 media type |
 | `pydantic/oneof-ambiguous` | info | exact oneOf branch를 정밀하게 판정할 수 없어 smart union으로 유지 |
 
 CLI는 preflight fatal 또는 severity가 `error`인 진단이 있으면 non-zero로 끝난다. `--force`는
@@ -415,12 +422,12 @@ OA_SDK_PYDANTIC_PY_LANE=1 corepack pnpm --filter @oa-sdk/codegen exec vitest run
 
 ## 알려진 제한
 
-- operation facts는 IR에 포함되며 operation parameter/body/response Python 모델 렌더링은 다음 milestone에서 제공한다. router, client, `ContractRegistry`, decorator 의미 해석은 이후 범위다.
+- operation parameter/body/response와 media/stream metadata를 렌더링한다. router, client, `ContractRegistry`, decorator 의미 해석은 이후 범위다.
 - OAS `in: querystring` parameter는 `pydantic/operation-unsupported` warning과 함께 건너뛴다.
 - `PYDANTIC_FIXED_SETTINGS`에는 `pydanticFloor`, `pythonFloor`, `unionMode`만 남아 있다.
 - typed `__pydantic_extra__`와 discriminator subtype의 좁혀진 `Literal` tag에는 pyright가
   `reportIncompatibleVariableOverride`를 내므로 해당 선언 줄에만 targeted ignore 주석을 낸다.
-  Pydantic의 지원 패턴과 generated module의 pyright 검사를 함께 유지한다.
+  envelope variant는 상속하지 않으므로 ignore를 내지 않는다. Pydantic의 지원 패턴과 generated module의 pyright 검사를 함께 유지한다.
 - `encodingPolicy: wire`는 기존 wire 타입과 `pydantic/encoding-degraded`를 유지하고, `decode`는
   `unixtime`, `http-date`, `base64url`을 semantic Python 값으로 변환한다. `@encode("seconds", int32)
   duration`처럼 OAS 출력에 인코딩이 남지 않는 경우는 감지할 수 없다.
