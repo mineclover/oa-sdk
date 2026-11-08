@@ -1,9 +1,11 @@
 # OAS 3.2 → Pydantic v2 코드 생성 Phase 2 제안
 
-상태: P2a 일부 구현 완료
-작성일: 2026-11-08
+상태: 구현 완료 (types-only 범위, 2026-11-09)
+작성일: 2026-11-08, 범위 확정: 2026-11-09
 
-이 문서는 [사용자 가이드](../../guides/pydantic-codegen.md)와 [Phase 1 파이프라인 설계](./pydantic-codegen-pipeline.md)를 기준으로 다음 단계를 제안한다. P2a 품질 부채 항목은 구현 상태를 함께 기록하고, operations 이후 항목은 `제안`으로 표시한다.
+이 문서는 [사용자 가이드](../../guides/pydantic-codegen.md)와 [Phase 1 파이프라인 설계](./pydantic-codegen-pipeline.md)를 기준으로 다음 단계를 제안한다. 각 milestone 아래에 구현 상태를 기록한다.
+
+> **범위 결정 (2026-11-09).** Phase 2가 보장하는 범위는 **타입 생성**이다: schema와 operation의 Pydantic 모델·type alias, media·stream metadata를 담은 `OPERATIONS` 표, 그리고 그 타입이 원본 스키마와 일치함을 보이는 왕복 parity 검사. FastAPI router stub(P2c), `ContractRegistry` adapter(P2d), manifest/provenance 산출물은 프레임워크·운영 정책을 끌어들이므로 **범위 제외**로 확정했다. 아래 P2c·P2d 분석은 향후 재검토를 위한 기록으로 남긴다.
 
 ## Phase 1 기준선
 
@@ -220,6 +222,8 @@ split 출력은 `operations.py`와 package용 `__init__.py`를 함께 생성하�
 
 ### P2c — FastAPI router stub
 
+범위 제외 (2026-11-09, types-only 결정). 구현하지 않는다.
+
 **범위와 의존성.** P2b의 operation model과 `layout`을 사용해 FastAPI-only stub을 만든다. `create_router(handlers)` 제안을 기본으로 하고 business logic은 생성하지 않는다.
 
 **파일 제안.** `render-fastapi.ts`, `passes/router-signature.ts`, FastAPI fixture/golden을 추가하고 `plugin/plugins/pydantic.ts`, CLI `generate-pydantic.ts`의 target option을 변경한다.
@@ -234,6 +238,8 @@ split 출력은 `operations.py`와 package용 `__init__.py`를 함께 생성하�
 - sync/async fixture와 tag 분할 golden이 통과한다.
 
 ### P2d — `ContractRegistry` adapter와 drift
+
+범위 제외 (2026-11-09, types-only 결정). 구현하지 않는다.
 
 **범위와 의존성.** P2b 모델과 P2c operation metadata를 Python template adapter로 연결한다. registry 등록 코드와 deterministic `ContractSpec` snapshot을 산출하되 OAS/TypeSpec source of truth는 유지한다(`docs/concepts/contract-governance.md:19`).
 
@@ -315,6 +321,8 @@ Phase 2에서 다음 입력은 진단 후 fallback으로 남긴다.
 이 제외선은 구현 착수를 위한 초기 계약이며, P2e에서 각 항목을 승격할 때만 옵션과 fixture를 추가한다.
 
 ## 결정이 필요한 질문
+
+2026-11-08에 아래 권장안 10개를 모두 채택했다. 2026-11-09 types-only 결정으로 4·5번(FastAPI stub), 6·10번(`ContractRegistry`)은 적용 대상이 없다.
 
 1. operation 모델을 `models.py`에 합칠까, `operations.py`를 기본으로 할까? **권장: `operations.py`** — 현재 Phase 1 `layout: single`과 충돌을 피하고 operation 변경을 별도 diff로 보기 쉽다.
 2. operation 이름을 `<Op>PathParams`로 고정할까, tag/경로 prefix를 넣을까? **권장: 기존 client 규칙 고정** — `packages/client/src/tanstack/generate-tanstack.ts:157`와의 import parity가 가장 작다.

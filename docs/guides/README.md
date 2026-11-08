@@ -164,7 +164,7 @@ oa-sdk 저장소 자체에 기여하는 경우는 아래 4절(기여자·메인�
 HTTP 전송 계층 없이 브라우저 확장프로그램(MV3), Worker IPC, WebSocket, Database DTO용 순수 타입을 선언하는 가이드입니다.
 - **[멀티 티어 스키마 아키텍처 및 ttsc·Atlas 역할 분리 가이드](./schema-architecture-and-ttsc-guide.md) (★ 권장)**: Storage(Atlas), Logical ERD(DPM), API(TypeSpec), Behavior(XState v5/v6) 4계층 분리, ttsc AOT Standard Schema v1 변환, Atlas 물리 스키마 연계.
 - **[순수 타입 선언 및 제로-런타임 가드 가이드](./pure-types-and-guards.md) (★ 권장)**: HTTP 엔드포인트가 없는 순수 모델 정의 방법(TypeSpec models without ops / Zod Master Schemas), `oa-gen typegen`을 통한 순수 인터페이스 방출, `oa-gen generate:guards`를 통한 제로-eval 타입 가드(`isUser`) 생성.
-- **[OAS 3.2 → Pydantic v2 코드 생성 가이드](./pydantic-codegen.md)**: `components.schemas`의 모델·enum·union·alias를 Pydantic v2 모델로 생성하는 CLI·API·플러그인과 옵션·진단·테스트.
+- **[OAS 3.2 → Pydantic v2 코드 생성 가이드](./pydantic-codegen.md)**: schema와 operation의 모델·enum·union·alias를 Pydantic v2 타입으로 생성하는 CLI·API·플러그인과 옵션·진단·테스트.
 - **[TypeSpec Behavior / 런타임 데이터 스키마 작성 연구 및 지침](../spec-governance/typespec-behavior-schema-authoring-research.md)**: TypeSpec을 Behavior/FSM의 Data Schema SSOT로 사용하고 Topology/바인딩은 독립 소유하는 Partial adopt 표준 ([TypeSpec 저작 규칙 부록 9](./typespec-authoring-conventions.md#9-부록-behavior-및-런타임-데이터-스키마-작성-지침-partial-adopt) 연계).
 - **[스키마 아키텍처 및 작성 규칙](./schema-architecture-and-conventions.md)**: TypeSpec $\rightarrow$ JSON Schema 2020-12 $\rightarrow$ OAS 3.1/3.2 $\rightarrow$ Standalone AJV Type Guards 파이프라인, 비디오 트랜지션 파라미터 표준.
 - **[스키마 대수 (Schema Algebra)](./schema-algebra.md)**: 재사용 가능한 복합 모델 합성 및 fold 패턴.

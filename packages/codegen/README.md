@@ -44,7 +44,7 @@ Common commands:
 | `oa-gen typegen` | TypeScript types (`--incremental` skips regeneration when inputs are unchanged) |
 | `oa-gen generate:zod` | Zod 4 schemas and inferred types |
 | `oa-gen generate:guards` | Standalone, dependency-free type guards |
-| `oa-gen generate:pydantic` | Pydantic v2 `models.py` DTOs from OAS 3.2 `components.schemas` (Phase 1) |
+| `oa-gen generate:pydantic` | Pydantic v2 types from OAS 3.2 schemas and operations (`models.py`, `operations.py`) |
 | `oa-gen generate:client`, `oa-gen generate:tanstack` | fetch client and TanStack Query v5 keys, options and hooks |
 | `oa-gen generate` | Everything `oa.config.ts` declares, including handler contracts (`*.contract.ts`) |
 | `oa-gen mock` | Mock server that validates requests against the contract |
@@ -69,7 +69,7 @@ pnpm exec oa-gen generate:pydantic --spec ./openapi.yaml --out ./generated
 ```
 
 See the [Pydantic code generation guide](../../docs/guides/pydantic-codegen.md) for the API,
-plugin, staged pipeline, options, and Phase 1 limits.
+plugin, staged pipeline, options, and known limits.
 
 ### Scripts `oa-gen init` adds
 

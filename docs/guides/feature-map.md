@@ -34,7 +34,7 @@ oa-sdk에서 **무엇을 할 수 있는지**, **어디서 시작할지**, **무�
 
 | 작업 | 기능·시작점·범위 | 문서 |
 | --- | --- | --- |
-| 타입·검증 코드 생성 | `typegen`, `generate:zod`, `generate:guards`; `generate:pydantic`은 OAS 3.2 `components.schemas`에서 Python Pydantic v2 DTO `models.py` 생성(Phase 1) | [순수 타입과 가드](./pure-types-and-guards.md), [Pydantic 코드 생성](./pydantic-codegen.md), [CLI 레퍼런스](./cli-command-reference.md) |
+| 타입·검증 코드 생성 | `typegen`, `generate:zod`, `generate:guards`; `generate:pydantic`은 OAS 3.2 `components.schemas`와 operation에서 Python Pydantic v2 타입(`models.py`, `operations.py`) 생성; router·registry는 범위 밖 | [순수 타입과 가드](./pure-types-and-guards.md), [Pydantic 코드 생성](./pydantic-codegen.md), [CLI 레퍼런스](./cli-command-reference.md) |
 | 백엔드 핸들러 구현 | `@oa-sdk/router`의 순수 `*.contract.ts`와 Hono/Express/Fastify/Elysia 라우터 코드 생성. 비즈니스 구현·서버 실행은 사용자 책임 | [핸들러 계약](./backend-handler-contracts.md), [router](../../packages/router/README.md) |
 | 프론트엔드·서비스 클라이언트 | `@oa-sdk/client`의 fetch SDK, 취소·스트리밍, TanStack Query v5 키·옵션·React 훅 생성 | [클라이언트·쿼리 소비](./client-and-query-consumption.md) |
 | 다른 호출 표면으로 투영 | `@oa-sdk/surface-ir`, `oa-gen surface`의 Forge projection·Overlay와 RPC contract 투영. RPC 실행 runtime은 3단계의 `@oa-sdk/rpc`가 담당 | [Forge 지원](./forge-support.md), [계약 RPC](./typespec-rpc.md) |
@@ -125,7 +125,7 @@ private·배포 후보·배포 기록은 [진입점 지도](./library-entrypoint
 | 목적 | 추가·보강 내용 | 소스 위치 |
 | --- | --- | --- |
 | 1. 도구 계약 작성 | `@toolGroup`, `@oaTool`, inspect/plan/apply/verify/handoff 및 CLI/MCP/table metadata | `packages/typespec-decorators/lib/tool-pipeline.tsp`, `packages/typespec-decorators/src/tool-pipeline.ts` |
-| 2. 타입·검증기 생성 | AST guard 렌더링 및 플러그인의 공통 guard 생성 경로 보강, OAS 3.2 `components.schemas` 기반 Pydantic v2 DTO 생성(Phase 1) | `packages/ast-sync/src/guards/generator.ts`, `packages/codegen/src/plugin/plugins/typescript.ts`, `packages/codegen/src/pydantic/`, `packages/codegen/src/cli/commands/generate-pydantic.ts` |
+| 2. 타입·검증기 생성 | AST guard 렌더링 및 플러그인의 공통 guard 생성 경로 보강, OAS 3.2 schema·operation 기반 Pydantic v2 타입 생성 | `packages/ast-sync/src/guards/generator.ts`, `packages/codegen/src/plugin/plugins/typescript.ts`, `packages/codegen/src/pydantic/`, `packages/codegen/src/cli/commands/generate-pydantic.ts` |
 | 2. 도구 구성 생성 | `hydrateToolsFromOpenApi`, skill·harness 문서 생성, Standard Schema bridge | `packages/tools/src/openapi-hydrator.ts`, `standard-schema.ts` |
 | 3. 도구 실행·인계 | CLI-Anything·mcp-use adapter, session·preview·handoff 저장 계약 | `packages/tools/src/cli-anything.ts`, `mcp-use.ts`, `reserved-interfaces.ts` |
 | 5. 표 데이터 지원 | 여섯 adapter 계열의 공통 Table IR, patch 계획과 로컬 파일 I/O 소스 | `packages/tools/src/table-ir.ts`, `table-file-io.ts` |
