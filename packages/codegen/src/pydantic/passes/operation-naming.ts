@@ -13,8 +13,9 @@ function statusNumber(status: string): number { return status === 'default' ? 99
 
 function roleSuffix(role: PyOperationRole): string {
   if (role.kind === 'body') return 'Body'
-  if (role.kind === 'parameter') return `${pascalCase(role.location ?? 'query')}Param${pascalCase(role.name ?? 'Parameter')}`
+  if (role.kind === 'parameter') return `${pascalCase(role.location)}Param${pascalCase(role.name)}`
   if (role.kind === 'responseHeader') return `Response${pascalCase(role.status ?? 'Default')}Header${pascalCase(role.name ?? 'Header')}`
+  if (role.kind === 'parameter-group') return `ParameterGroup${pascalCase(role.location)}`
   return /^\d+$/.test(role.status ?? '') ? `Response${role.status}` : `Response${pascalCase(role.status ?? 'default')}`
 }
 
@@ -55,9 +56,9 @@ export const operationNamingPass: PyPass<'naming'> = {
       operation.modelNames.queryParams = has('query') ? allocate(`${stem}QueryParams`, operation.pointer) : ''
       operation.modelNames.headerParams = has('header') ? allocate(`${stem}HeaderParams`, operation.pointer) : ''
       operation.modelNames.cookieParams = has('cookie') ? allocate(`${stem}CookieParams`, operation.pointer) : ''
-      operation.modelNames.body = operation.requestBody?.schema === null || operation.requestBody === null ? '' : allocate(`${stem}Body`, operation.pointer)
-      const selected = operation.responses.filter(response => /^2\d\d$/.test(response.status) || response.status === 'default').sort((left, right) => statusNumber(left.status) - statusNumber(right.status)).find(response => response.mediaType === 'application/json' && response.schema !== null)
-      const hasError = operation.responses.some(response => (response.status === 'default' || /^[45]\d\d$/.test(response.status)) && response.mediaType === 'application/json' && response.schema !== null)
+      operation.modelNames.body = operation.requestBody === null || operation.requestBody.mediaType === null ? '' : allocate(`${stem}Body`, operation.pointer)
+      const selected = operation.responses.filter(response => /^2\d\d$/.test(response.status) || response.status === 'default').sort((left, right) => statusNumber(left.status) - statusNumber(right.status)).find(response => response.mediaType !== null)
+      const hasError = operation.responses.some(response => !/^2\d\d$/.test(response.status) && response.mediaType !== null)
       operation.modelNames.response = selected === undefined ? '' : allocate(`${stem}Response`, operation.pointer)
       operation.modelNames.error = hasError ? allocate(`${stem}Error`, operation.pointer) : ''
     }
@@ -67,8 +68,14 @@ export const operationNamingPass: PyPass<'naming'> = {
       const role = decl.operationRole
       const operation = byOwner.get(decl.operationOwner!)
       if (role === undefined || operation === undefined || operation.pyName === null) continue
-      const selectedStatus = operation.responses.filter(response => /^2\d\d$/.test(response.status) || response.status === 'default').sort((left, right) => statusNumber(left.status) - statusNumber(right.status)).find(response => response.mediaType === 'application/json' && response.schema !== null)?.status
+      const selectedStatus = operation.responses.filter(response => /^2\d\d$/.test(response.status)).sort((left, right) => statusNumber(left.status) - statusNumber(right.status)).find(response => response.mediaType !== null)?.status
       let className = `${operation.pyName}${roleSuffix(role)}`
+      if (role.kind === 'parameter-group') {
+        className = role.location === 'path' ? operation.modelNames.pathParams!
+          : role.location === 'query' ? operation.modelNames.queryParams!
+            : role.location === 'header' ? operation.modelNames.headerParams!
+              : operation.modelNames.cookieParams!
+      }
       const isSelectedResponse = role.kind === 'response' && role.status === selectedStatus
       if (isSelectedResponse && operation.modelNames.response !== '') className = operation.modelNames.response!
       if (!isSelectedResponse && role.kind === 'response' && (role.status === 'default' || /^[45]\d\d$/.test(role.status ?? ''))) className = `${operation.pyName}Error${role.status === 'default' ? 'Default' : role.status}`

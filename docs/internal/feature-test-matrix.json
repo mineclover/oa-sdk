@@ -1168,12 +1168,16 @@
         "lowerToPyIr",
         "runPyPasses",
         "renderPyModule",
+        "renderPyOperationsModule",
+        "oneOfMode exact and split package lane",
         "emitPydanticFiles",
         "pydantic plugin"
       ],
       "testPaths": [
         "packages/codegen/src/pydantic/__tests__/contract.test.ts",
         "packages/codegen/src/pydantic/__tests__/fixtures/operations/operations.openapi.yaml",
+        "packages/codegen/src/pydantic/__tests__/golden/operations.split.py",
+        "packages/codegen/src/pydantic/__tests__/golden/operations.single.py",
         "packages/codegen/src/pydantic/__tests__/render.test.ts",
         "packages/codegen/src/pydantic/__tests__/python-lane.test.ts",
         "packages/codegen/src/pydantic/__tests__/lower.test.ts",

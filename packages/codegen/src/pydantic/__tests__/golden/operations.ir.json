@@ -154,6 +154,171 @@
       "pointer": "/paths/~1things/get"
     },
     {
+      "kind": "model",
+      "name": "operation/get:/things/{id}/ParameterGroup/path",
+      "pyName": "GetThing2PathParams",
+      "origin": "inline",
+      "bases": [],
+      "fields": [
+        {
+          "wireName": "id",
+          "attribute": "id",
+          "alias": "",
+          "type": {
+            "kind": "constrained",
+            "base": {
+              "kind": "builtin",
+              "name": "int"
+            },
+            "constraints": {
+              "ge": {
+                "integer": "-9223372036854775808"
+              },
+              "le": {
+                "integer": "9223372036854775807"
+              }
+            }
+          },
+          "required": true,
+          "nullable": false,
+          "default": {
+            "kind": "required"
+          },
+          "rejectExplicitNull": false,
+          "pointer": "/paths/~1things~1{id}/get/parameters/0"
+        }
+      ],
+      "openness": {
+        "kind": "closed"
+      },
+      "extra": "forbid",
+      "regexEngine": "rust-regex",
+      "frozen": false,
+      "operationOwner": "operation/get:/things/{id}",
+      "operationRole": {
+        "kind": "parameter-group",
+        "location": "path"
+      },
+      "pointer": "/paths/~1things~1{id}/get/parameters/path"
+    },
+    {
+      "kind": "model",
+      "name": "operation/get:/things/{id}/ParameterGroup/query",
+      "pyName": "GetThing2QueryParams",
+      "origin": "inline",
+      "bases": [],
+      "fields": [
+        {
+          "wireName": "filter",
+          "attribute": "filter",
+          "alias": "",
+          "type": {
+            "kind": "union",
+            "members": [
+              {
+                "kind": "builtin",
+                "name": "str"
+              }
+            ],
+            "discriminator": null
+          },
+          "required": false,
+          "nullable": true,
+          "default": {
+            "kind": "none"
+          },
+          "rejectExplicitNull": false,
+          "pointer": "/paths/~1things~1{id}/get/parameters/1"
+        }
+      ],
+      "openness": {
+        "kind": "closed"
+      },
+      "extra": "forbid",
+      "regexEngine": "rust-regex",
+      "frozen": false,
+      "operationOwner": "operation/get:/things/{id}",
+      "operationRole": {
+        "kind": "parameter-group",
+        "location": "query"
+      },
+      "pointer": "/paths/~1things~1{id}/get/parameters/query"
+    },
+    {
+      "kind": "model",
+      "name": "operation/get:/things/{id}/ParameterGroup/header",
+      "pyName": "GetThing2HeaderParams",
+      "origin": "inline",
+      "bases": [],
+      "fields": [
+        {
+          "wireName": "trace",
+          "attribute": "trace",
+          "alias": "",
+          "type": {
+            "kind": "builtin",
+            "name": "str"
+          },
+          "required": false,
+          "nullable": false,
+          "default": {
+            "kind": "none"
+          },
+          "rejectExplicitNull": true,
+          "pointer": "/paths/~1things~1{id}/get/parameters/2"
+        }
+      ],
+      "openness": {
+        "kind": "closed"
+      },
+      "extra": "forbid",
+      "regexEngine": "rust-regex",
+      "frozen": false,
+      "operationOwner": "operation/get:/things/{id}",
+      "operationRole": {
+        "kind": "parameter-group",
+        "location": "header"
+      },
+      "pointer": "/paths/~1things~1{id}/get/parameters/header"
+    },
+    {
+      "kind": "model",
+      "name": "operation/get:/things/{id}/ParameterGroup/cookie",
+      "pyName": "GetThing2CookieParams",
+      "origin": "inline",
+      "bases": [],
+      "fields": [
+        {
+          "wireName": "session",
+          "attribute": "session",
+          "alias": "",
+          "type": {
+            "kind": "builtin",
+            "name": "str"
+          },
+          "required": false,
+          "nullable": false,
+          "default": {
+            "kind": "none"
+          },
+          "rejectExplicitNull": true,
+          "pointer": "/paths/~1things~1{id}/get/parameters/3"
+        }
+      ],
+      "openness": {
+        "kind": "closed"
+      },
+      "extra": "forbid",
+      "regexEngine": "rust-regex",
+      "frozen": false,
+      "operationOwner": "operation/get:/things/{id}",
+      "operationRole": {
+        "kind": "parameter-group",
+        "location": "cookie"
+      },
+      "pointer": "/paths/~1things~1{id}/get/parameters/cookie"
+    },
+    {
       "kind": "operation",
       "name": "operation/get:/things/{id}",
       "pyName": "GetThing2",
@@ -396,6 +561,54 @@
       "operationRole": {
         "kind": "body"
       }
+    },
+    {
+      "kind": "model",
+      "name": "operation/post:/things/{id}/ParameterGroup/path",
+      "pyName": "PostThingsIdPathParams",
+      "origin": "inline",
+      "bases": [],
+      "fields": [
+        {
+          "wireName": "id",
+          "attribute": "id",
+          "alias": "",
+          "type": {
+            "kind": "constrained",
+            "base": {
+              "kind": "builtin",
+              "name": "int"
+            },
+            "constraints": {
+              "ge": {
+                "integer": "-9223372036854775808"
+              },
+              "le": {
+                "integer": "9223372036854775807"
+              }
+            }
+          },
+          "required": true,
+          "nullable": false,
+          "default": {
+            "kind": "required"
+          },
+          "rejectExplicitNull": false,
+          "pointer": "/paths/~1things~1{id}/post/parameters/0"
+        }
+      ],
+      "openness": {
+        "kind": "closed"
+      },
+      "extra": "forbid",
+      "regexEngine": "rust-regex",
+      "frozen": false,
+      "operationOwner": "operation/post:/things/{id}",
+      "operationRole": {
+        "kind": "parameter-group",
+        "location": "path"
+      },
+      "pointer": "/paths/~1things~1{id}/post/parameters/path"
     },
     {
       "kind": "operation",

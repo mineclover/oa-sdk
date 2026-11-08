@@ -24,8 +24,8 @@
 | S2 | `analyzeSchemaGraph` | components + operation inline schemas → `SchemaGraphAnalysis` | 없음 | `schema-graph/index.ts` |
 | S3 | `lowerToPyIr` (+ `createPydanticAlgebra`) | prepared + analysis → `PyModuleIR`(결정 슬롯 `null`) | 없음 | `pydantic/lower.ts`, `pydantic/ir.ts` |
 | S4 | `runPyPasses` | IR → IR | pass별 `reads` | `pydantic/passes/*.ts` (실행기 구현 완료) |
-| S5 | `renderPyModule` | 해석 완료 IR → Python source | 없음 | `pydantic/render.ts` (렌더 규칙은 파일 머리 주석) |
-| S6 | `emitPydanticFiles` | source + IR → VFS 파일 + report | `output`, `emitIr`, `layout`, `emitOperations` | `pydantic/emit.ts` (구현 완료) |
+| S5 | `renderPyModule`, `renderPyOperationsModule`, `renderPyPackageInit` | 해석 완료 IR → Python source들 | layout은 build가 고른 plain boolean | `pydantic/render.ts`, `pydantic/render-operations.ts` |
+| S6 | `emitPydanticFiles` | 미리 렌더한 source들 + IR → VFS 파일 + report | `output`, `emitIr`, `layout`, `emitOperations` | `pydantic/emit.ts` (wrapper/report만 수행) |
 | 합성 | `buildPydanticModels` | 문서 → 전체 결과 | 전부 | `pydantic/build.ts` (구현 완료) |
 | S7 | Python 검증 lane | 생성 모듈 | — | 별도 프로세스, `uv` |
 
@@ -38,13 +38,14 @@
 | 3 | `optionalPolicy` | `optionalStyle` | `PyField.default`, `PyField.rejectExplicitNull` |
 | 4 | `naming` | `naming` | 모든 `pyName`, `PyField.attribute`, `PyField.alias` |
 | 5 | `operationNaming` | `naming` | operation stem과 operation-owned inline model 이름 |
-| 6 | `operationScope` | 없음 | callback/webhook/non-JSON operation 제한 진단 |
-| 7 | `regex` | `regex` | `PyConstraints.pattern.python`, `PyModelDecl.regexEngine` |
-| 8 | `scalarPolicy` | `enumStyle`, `datetime`, `uri`, `intBounds`, `encodingPolicy` | 모든 `scalar` 사실 → wire/semantic 타입, `PyEnumDecl.repr`·`members` |
-| 9 | `extensions` | `extensions` | `x-*` 보존·정렬 또는 제거 |
-| 10 | `docstrings` | `docstrings` | 모델 설명을 docstring으로 유지/삭제 |
-| 11 | `frozen` | `frozen` | `ConfigDict(frozen=True)` 결정 |
-| 12 | `collectImports` | — | `PyModuleIR.imports` |
+| 6 | `operationScope` | 없음 | callback/webhook/non-JSON operation 제한 진단, parameter group `extra=forbid` 결정 |
+| 7 | `oneofPolicy` | `oneOfMode` | `oneOf` exact decision (`union.exact`) and ambiguity diagnostics |
+| 8 | `regex` | `regex` | `PyConstraints.pattern.python`, `PyModelDecl.regexEngine` |
+| 9 | `scalarPolicy` | `enumStyle`, `datetime`, `uri`, `intBounds`, `encodingPolicy` | 모든 `scalar` 사실 → wire/semantic 타입, `PyEnumDecl.repr`·`members` |
+| 10 | `extensions` | `extensions` | `x-*` 보존·정렬 또는 제거 |
+| 11 | `docstrings` | `docstrings` | 모델 설명을 docstring으로 유지/삭제 |
+| 12 | `frozen` | `frozen` | `ConfigDict(frozen=True)` 결정 |
+| 13 | `collectImports` | — | `PyModuleIR.imports` |
 
 각 pass의 세부 규칙은 해당 파일 머리 주석에 있다. 실행기는 pass마다 입력 IR을 복제해 deep-freeze하므로 pass가 입력을 변경하면 즉시 예외가 난다.
 
@@ -76,6 +77,7 @@ S3는 이 형태를 `bases: [Base]` + 일반 필드로 낮추고, S4 `polymorphi
 | `extensions` | **`preserve`** · `drop` | extensions | `x-*` 처리 |
 | `docstrings` | **`true`** · `false` | docstrings | 모델 docstring 출력 |
 | `frozen` | **`false`** · `true` | frozen | 모델 불변성 |
+| `oneOfMode` | **`smart`** · `exact` | oneofPolicy/S5 | discriminator 없는 union 검증 정책 |
 | `emitIr` | `true` · **`false`** | emit | 최종 IR을 `<output>.ir.json`으로 함께 출력 |
 
 옵션이 아닌 설정: `output`(기본 `models.py`, 생성 위치), `preflight`(`generate-zod`와 같은 의미의 validate/normalize/force 등).

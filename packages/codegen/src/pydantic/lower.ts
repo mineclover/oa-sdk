@@ -10,6 +10,7 @@ import type {
   PyModuleIR,
   PyOpenness,
   PyOperationRole,
+  PyOperationParameterDecl,
   PyTypeExpr,
   PydanticDiagnostic,
 } from './ir.js'
@@ -190,7 +191,8 @@ function operationRoleKey(role: PyOperationRole | undefined): string {
   if (role.kind === 'body') return 'Body'
   if (role.kind === 'response') return `Response/${role.status ?? 'default'}`
   if (role.kind === 'responseHeader') return `ResponseHeader/${role.status ?? 'default'}/${role.name ?? 'header'}`
-  return `Parameter/${role.location ?? 'query'}/${role.name ?? 'parameter'}`
+  if (role.kind === 'parameter-group') return `ParameterGroup/${role.location}`
+  return `Parameter/${role.location}/${role.name}`
 }
 
 function lowerInlineObject(schema: OasSchema, context: PydanticLowerContext): PyTypeExpr {
@@ -203,9 +205,12 @@ function lowerInlineObject(schema: OasSchema, context: PydanticLowerContext): Py
     return { kind: 'ref', target: pointerExisting }
   }
   const operationPath = context.operationPath ?? operationInlinePath(schema, context)
-  const name = context.operationOwner !== undefined
+  const baseName = context.operationOwner !== undefined
     ? `${context.operationOwner}/${operationRoleKey(context.operationRole)}${operationPath === undefined ? '' : `/${operationPath}`}`
     : `${context.ownerName ?? 'Inline'}/${context.propertyPath ?? 'object'}`
+  let name = baseName
+  let suffix = 2
+  while (context.inlineDecls.some(decl => decl.name === name)) name = `${baseName}${suffix++}`
   context.declaredInline?.set(schema as object, name)
   context.declaredInlineByPointer?.set(pointer, name)
   context.modelNames?.add(name)
@@ -339,6 +344,7 @@ export function createPydanticAlgebra(context: PydanticLowerContext): SchemaAlge
       kind: 'union',
       members: branches.length === 0 ? [anyType()] : branches,
       discriminator: asRecord(asRecord(schema).discriminator).propertyName as string | null ?? null,
+      origin: 'oneOf',
     }),
     anyOf: (schema, branches) => withConstraints(schema, {
       kind: 'union',
@@ -542,12 +548,17 @@ function operationMedia(content: Record<string, unknown> | undefined): {
   schema: OasSchema | null
 } {
   const types = Object.keys(content ?? {}).sort((left, right) => left.localeCompare(right))
-  const chosen = types.find(type => type === 'application/json') ?? types[0]
+  const jsonTypes = types.filter(type => {
+    const base = type.split(';', 1)[0]!.trim().toLowerCase()
+    return base === 'application/json' || base.endsWith('+json')
+  })
+  const chosen = jsonTypes[0] ?? types[0]
   const media = chosen === undefined ? undefined : content?.[chosen]
   return {
     mediaType: chosen ?? null,
     otherMediaTypes: chosen === undefined ? [] : types.filter(type => type !== chosen),
-    schema: isSchemaLike(asRecord(media).schema) ? asRecord(media).schema as OasSchema : null,
+    schema: chosen !== undefined && jsonTypes.includes(chosen) && isSchemaLike(asRecord(media).schema)
+      ? asRecord(media).schema as OasSchema : null,
   }
 }
 
@@ -633,6 +644,28 @@ function lowerOperation(operation: OperationEntry, context: PydanticLowerContext
         pointer: `${pointer}/responses/${status}`,
       }
     })
+  const parameterGroups = (['path', 'query', 'header', 'cookie'] as const).flatMap(location => {
+    const members = parameters.filter(parameter => parameter.location === location)
+    if (members.length === 0) return []
+    const fields = members.map(parameterField)
+    const group: PyModelDecl = {
+      kind: 'model',
+      name: `${name}/ParameterGroup/${location}`,
+      pyName: null,
+      origin: 'inline',
+      bases: [],
+      fields,
+      openness: { kind: 'closed' },
+      extra: null,
+      regexEngine: null,
+      frozen: null,
+      operationOwner: name,
+      operationRole: { kind: 'parameter-group', location },
+      pointer: `${pointer}/parameters/${location}`,
+    }
+    return [group]
+  })
+  context.inlineDecls.push(...parameterGroups)
   context.operationOwner = previousOwner
   context.operationRole = previousRole
   context.operationPath = previousOperationPath
@@ -655,11 +688,34 @@ function lowerOperation(operation: OperationEntry, context: PydanticLowerContext
   }
 }
 
+function parameterField(parameter: PyOperationParameterDecl): PyField {
+  const nullable = parameter.schema.kind === 'union'
+    && parameter.schema.members.some(member => member.kind === 'builtin' && member.name === 'None')
+  const type = nullable && parameter.schema.kind === 'union'
+    ? (() => {
+      const members = parameter.schema.members.filter(member => !(member.kind === 'builtin' && member.name === 'None'))
+      return members.length === 1 ? members[0]! : { ...parameter.schema, members }
+    })()
+    : parameter.schema
+  return {
+    wireName: parameter.name,
+    attribute: null,
+    alias: null,
+    type,
+    required: parameter.required,
+    nullable,
+    default: null,
+    rejectExplicitNull: null,
+    ...(parameter.description === undefined ? {} : { description: parameter.description }),
+    pointer: parameter.pointer,
+  }
+}
+
 function roleObject(operation: OperationEntry, role: string): PyOperationRole {
   if (role === 'Body') return { kind: 'body' }
   if (role.startsWith('Parameter/')) {
     const [, location, name] = role.split('/')
-    return { kind: 'parameter', location: (location as PyOperationRole['location']) ?? 'query', ...(name === undefined ? {} : { name }) }
+    return { kind: 'parameter', location: (location as 'path' | 'query' | 'header' | 'cookie') ?? 'query', name: name ?? 'parameter' }
   }
   if (role.startsWith('ResponseHeader/')) {
     const [, status, name] = role.split('/')

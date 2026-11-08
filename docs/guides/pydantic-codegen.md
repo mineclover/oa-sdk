@@ -166,6 +166,7 @@ const { files, report } = root.emitPydanticFiles(root.renderPyModule(ir), ir, op
 | `extensions` | **`preserve`**, `drop` |
 | `docstrings` | **`true`**, `false` |
 | `frozen` | **`false`**, `true` |
+| `oneOfMode` | **`smart`**, `exact` |
 | `emitIr` (출력 제어) | **`false`**, `true` |
 | `layout` (출력 제어) | **`split`**, `single` |
 | `emitOperations` (출력 제어) | **`true`**, `false` |
@@ -176,8 +177,16 @@ const { files, report } = root.emitPydanticFiles(root.renderPyModule(ir), ir, op
 
 `layout`은 `split`(기본값) 또는 `single`이며 S6 report에 기록된다. `emitOperations`는 기본값이
 `true`이고 operation IR을 수집한다. CLI의 `--no-operations`와 plugin의 `purpose`가 `api`가
-아닌 경우에는 operation 산출을 끈다. 현재 milestone에서는 operation Python 렌더링을 다음
-단계로 남기고 `models.py`에는 schema 모델만 쓴다.
+아닌 경우에는 operation 산출을 끈다. `split`은 schema를 `models.py`, operation 모델과 `OPERATIONS` metadata를 `operations.py`에 쓴다. 두 파일과
+`__init__.py`를 함께 내보내므로 출력 디렉터리를 Python package로 import할 수 있다. `single`은 한 모듈에
+모두 쓴다. `oneOfMode: exact`는 discriminator 없는 `oneOf`에서만 정확히 한 branch가 검증되는지 검사한다.
+`anyOf`, nullable/type-array union, operation status response/error union에는 적용하지 않는다. 정밀화할 수
+없는 `oneOf` 구조에는 `pydantic/oneof-ambiguous` info를 낸다. `unionMode`는 Pydantic 2.11의
+`Field(union_mode=...)` 출력 호환성이 확정될 때까지 고정값 `smart`로 둔다.
+
+split의 `__init__.py`는 star import로 생성 심볼을 재수출하지 않는 빈 package marker(docstring만 포함)다.
+호출자는 `models`와 `operations` 모듈을 명시적으로 import해야 하며, 이 방식은 `F401/F403`을 피하고
+Pydantic 구현 import가 package namespace로 새어 나오는 것을 막는다.
 
 실제 `PydanticSemanticOptions`와 report의 `options`에는 semantic 키가 들어가고, `emitIr`는 별도의 출력 옵션이다.
 
@@ -236,7 +245,8 @@ const { files, report } = root.emitPydanticFiles(root.renderPyModule(ir), ir, op
 | `pattern` | `regex: ecma`는 ECMA 일부를 ASCII class로 번역, `raw`는 원문, `python-re`는 원문 + Python engine |
 | named string enum | `enumStyle: str-enum`이면 `StrEnum`, 아니면 `TypeAlias = Literal[...]` |
 | inline/mixed enum, `const` | `Literal[...]` |
-| `oneOf`, `anyOf` | discriminator가 없으면 `A | B`; 있으면 `Annotated[A | B, Field(discriminator="...")]` |
+| `oneOf` | 기본은 smart `A | B`; discriminator 없는 `oneOfMode: exact`만 정확히 한 branch validator를 추가 |
+| `anyOf`, nullable/type-array union | 항상 smart `A | B`; overlap을 허용하며 exact 대상이 아님 |
 | object형 `allOf`의 `$ref` branch | `class Child(Base)` 상속. inline properties branch는 child에 필드를 합치고 `pydantic/allof-flattened` warning |
 | object가 아닌 `allOf` | 첫 branch로 평탄화하고 `pydantic/allof-flattened` warning |
 | TypeSpec polymorphism | base `discriminator.mapping` + subtype `allOf: [$ref Base]` + 단일값 `enum` tag를 찾아 subclass, tag `Literal`, union alias로 변환 |
@@ -245,6 +255,7 @@ const { files, report } = root.emitPydanticFiles(root.renderPyModule(ir), ir, op
 | `description`, `examples`, `deprecated` | `Field(description=..., examples=..., deprecated=...)`; 모델 description은 docstring |
 | `paths` operation | path/query/header/cookie parameter, JSON body, response와 header를 `PyOperationDecl` facts로 IR에 기록. path item parameter는 operation parameter가 덮어쓴다 |
 | operation model naming | `<Op>PathParams`, `<Op>QueryParams`, `<Op>HeaderParams`, `<Op>CookieParams`, `<Op>Body`, selected JSON success의 `<Op>Response`, `<Op>Error`; inline parameter는 `<Op><Location>Param<Name>`, response 오류는 `<Op>Error<Status>` |
+| operation parameter models | parameter group fields use the same `naming`, alias, `optionalStyle`, and `extra="forbid"` decisions as component models |
 
 대표적인 generated line은 다음과 같다.
 
@@ -344,7 +355,9 @@ Identifier: TypeAlias = Annotated[str, Field(pattern="^[A-Za-z_][A-Za-z0-9_.-]*$
 | `pydantic/extension-dropped` | warning | `x-*` 값이 JSON 직렬화 불가능하여 제거됨 |
 | `pydantic/operation-id-missing` | warning | operationId가 없어 method와 path로 이름을 결정함 |
 | `pydantic/operation-name-collision` | warning | operation model stem 충돌에 숫자 suffix를 붙임 |
-| `pydantic/operation-unsupported` | warning | callback, webhook 또는 JSON 이외 body처럼 후속 milestone construct를 만남 |
+| `pydantic/operation-unsupported` | warning | callback 또는 webhook처럼 후속 milestone construct를 만남 |
+| `pydantic/media-type-unsupported` | warning | JSON이 아닌 media type 또는 여러 media type. 정렬된 첫 JSON을 선택하고 나머지는 `Any` |
+| `pydantic/oneof-ambiguous` | info | exact oneOf branch를 정밀하게 판정할 수 없어 smart union으로 유지 |
 
 CLI는 preflight fatal 또는 severity가 `error`인 진단이 있으면 non-zero로 끝난다. `--force`는
 두 경우 모두 생성과 파일 쓰기를 계속한다. `--no-validate`는 preflight validation/lint를
@@ -374,6 +387,7 @@ CLI는 preflight fatal 또는 severity가 `error`인 진단이 있으면 non-zer
 | `output` | resolved output 경로 |
 | `contentSha256` | banner 전 `source`의 SHA-256 |
 | `declarations` | `models`, `enums`, `aliases`, `operations` 개수 |
+| `files` | 생성한 상대 경로 목록(`models.py`, split 시 `operations.py`와 `__init__.py`, 선택적 IR) |
 | `layout`, `emitOperations` | 출력 layout과 operation 수집 설정 |
 | `diagnostics` | `info`, `warning`, `error`별 개수 |
 

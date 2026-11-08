@@ -66,7 +66,7 @@ export type PyTypeExpr =
   | { kind: 'dict'; value: PyTypeExpr }
   | { kind: 'literal'; values: PyLiteralValue[] }
   /** `discriminator` is set only for tagged unions (property name on every member). */
-  | { kind: 'union'; members: PyTypeExpr[]; discriminator: string | null }
+  | { kind: 'union'; members: PyTypeExpr[]; discriminator: string | null; origin?: 'oneOf'; exact?: boolean }
   /**
    * Constraints in a nested position render as `Annotated[base, Field(...)]`;
    * on a field they render inside the field's `Field(...)`.
@@ -138,13 +138,12 @@ export interface PyModelDecl {
   operationRole?: PyOperationRole
 }
 
-export interface PyOperationRole {
-  kind: 'body' | 'response' | 'parameter' | 'responseHeader'
-  status?: string
-  location?: 'path' | 'query' | 'header' | 'cookie'
-  name?: string
-  path?: string
-}
+export type PyOperationRole =
+  | { kind: 'body'; path?: string }
+  | { kind: 'response'; status?: string; path?: string }
+  | { kind: 'parameter'; location: 'path' | 'query' | 'header' | 'cookie'; name: string; path?: string }
+  | { kind: 'parameter-group'; location: 'path' | 'query' | 'header' | 'cookie'; path?: string }
+  | { kind: 'responseHeader'; status?: string; name?: string; path?: string }
 
 export interface PyEnumDecl {
   kind: 'enum'

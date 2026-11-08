@@ -10,8 +10,8 @@ import {
 } from './ir.js'
 import { encodingHelperKeys, encodingHelperSource } from './render-encoding.js'
 
-type DeclName = { pyName: string; index: number }
-type DeclNames = Map<string, DeclName>
+export type DeclName = { pyName: string; index: number }
+export type DeclNames = Map<string, DeclName>
 const THIRD_PARTY_MODULES = new Set(['pydantic'])
 
 function escapeString(value: string): string {
@@ -29,7 +29,7 @@ function escapeString(value: string): string {
   return `${output}"`
 }
 
-function renderJson(value: unknown): string {
+export function renderJson(value: unknown): string {
   if (value === null) return 'None'
   if (typeof value === 'boolean') return value ? 'True' : 'False'
   if (typeof value === 'number') return Number.isFinite(value) ? JSON.stringify(value) : 'None'
@@ -71,7 +71,7 @@ function renderConstraints(constraints: PyConstraints): string[] {
   return entries
 }
 
-function declarationNames(ir: PyModuleIR): DeclNames {
+export function declarationNames(ir: PyModuleIR): DeclNames {
   return new Map(ir.decls.map((decl, index) => [decl.name, { pyName: decl.pyName!, index }]))
 }
 
@@ -103,13 +103,11 @@ function discriminatorAttribute(type: Extract<PyTypeExpr, { kind: 'union' }>, ir
   return type.discriminator!
 }
 
-function renderType(
-  type: PyTypeExpr, names: DeclNames, ir: PyModuleIR, currentIndex: number, runtimeEvaluated = false,
-): string {
+export function renderType(type: PyTypeExpr, names: DeclNames, ir: PyModuleIR, currentIndex: number, runtimeEvaluated = false): string {
   switch (type.kind) {
     case 'scalar': return type.base === 'string' ? 'str' : type.base === 'integer' ? 'int' : 'float'
     case 'decoded': {
-      const semantic = renderType(type.pythonType, names, ir, currentIndex)
+      const semantic = renderType(type.pythonType, names, ir, currentIndex, false)
       const suffix = type.datetimeMode === 'naive' ? '_naive' : ''
       const decode = type.encoding === 'unixtime' ? `_decode_unixtime${suffix}` : `_decode_http_date${suffix}`
       const encode = type.encoding === 'unixtime' ? `_encode_unixtime${suffix}` : `_encode_http_date${suffix}`
@@ -131,8 +129,15 @@ function renderType(
     case 'dict': return `dict[str, ${renderType(type.value, names, ir, currentIndex, runtimeEvaluated)}]`
     case 'literal': return `Literal[${type.values.map(renderJson).join(', ')}]`
     case 'union': {
-      const union = type.members.map(member => renderType(member, names, ir, currentIndex, runtimeEvaluated)).join(' | ')
-      if (type.discriminator === null) return union
+      const exactRuntime = type.exact === true ? false : runtimeEvaluated
+      const renderedMembers = type.members.map(member => renderType(member, names, ir, currentIndex, exactRuntime))
+      const union = renderedMembers.join(' | ')
+      if (type.discriminator === null) {
+        if (type.exact === true) {
+          return `Annotated[${union}, BeforeValidator(_exact_oneof((${renderedMembers.join(', ')},)))]`
+        }
+        return union
+      }
       const attribute = discriminatorAttribute(type, ir)
       return `Annotated[${union}, Field(discriminator=${renderJson(attribute)})]`
     }
@@ -163,10 +168,10 @@ function fieldMetadata(field: PyField): string[] {
   return values
 }
 
-function renderField(field: PyField, names: DeclNames, ir: PyModuleIR, index: number): string {
+export function renderField(field: PyField, names: DeclNames, ir: PyModuleIR, index: number): string {
   const nullable = field.nullable || field.default?.kind === 'none'
   const constrained = field.type.kind === 'constrained' ? field.type : undefined
-  let annotation = renderType(constrained?.base ?? field.type, names, ir, index)
+  let annotation = renderType(constrained?.base ?? field.type, names, ir, index, false)
   if (constrained?.constraints.uniqueItems === true) {
     annotation = `Annotated[${annotation}, AfterValidator(_unique_items)]`
   }
@@ -183,9 +188,7 @@ function renderField(field: PyField, names: DeclNames, ir: PyModuleIR, index: nu
   return `${field.attribute}: ${type}`
 }
 
-function renderModel(
-  decl: Extract<PyDecl, { kind: 'model' }>, names: DeclNames, ir: PyModuleIR, index: number,
-): string[] {
+export function renderModel(decl: Extract<PyDecl, { kind: 'model' }>, names: DeclNames, ir: PyModuleIR, index: number): string[] {
   const bases = decl.bases.map(base => renderType({ kind: 'ref', target: base }, names, ir, index)).join(', ')
   const lines = [`class ${decl.pyName}(${bases || 'BaseModel'}):`]
   if (decl.description !== undefined) lines.push(`    ${renderDocstring(decl.description)}`)
@@ -203,7 +206,7 @@ function renderModel(
     lines.push(`    ${line}${narrowedTag ? '  # pyright: ignore[reportIncompatibleVariableOverride]' : ''}`)
   }
   if (decl.openness.kind === 'typed-map') {
-    const value = renderType(decl.openness.value, names, ir, index)
+    const value = renderType(decl.openness.value, names, ir, index, false)
     lines.push(`    __pydantic_extra__: dict[str, ${value}] = Field(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]`)
   }
   const rejecting = decl.fields.filter(field => field.rejectExplicitNull)
@@ -222,6 +225,7 @@ function renderModel(
 
 function usesUniqueItems(ir: PyModuleIR): boolean {
   return ir.decls.some(decl => {
+    if (decl.kind === 'model' && decl.operationOwner !== undefined) return false
     const types = decl.kind === 'model'
       ? [...decl.fields.map(field => field.type), ...(decl.openness.kind === 'typed-map' ? [decl.openness.value] : [])]
       : decl.kind === 'alias' ? [decl.type] : []
@@ -229,11 +233,33 @@ function usesUniqueItems(ir: PyModuleIR): boolean {
   })
 }
 
+function typeHasExact(type: PyTypeExpr): boolean {
+  if (type.kind === 'union') return type.exact === true || type.members.some(typeHasExact)
+  if (type.kind === 'decoded') return typeHasExact(type.pythonType)
+  if (type.kind === 'list') return typeHasExact(type.item)
+  if (type.kind === 'tuple') return type.items.some(typeHasExact) || (type.rest !== null && typeHasExact(type.rest))
+  if (type.kind === 'dict') return typeHasExact(type.value)
+  if (type.kind === 'constrained') return typeHasExact(type.base)
+  return false
+}
+
+export function appendExactOneOfHelper(lines: string[]): void {
+  lines.push('def _exact_oneof(branches: tuple[Any, ...]):', '    adapters = tuple(TypeAdapter(branch) for branch in branches)', '    def validate(value: object) -> object:', '        matches = 0', '        for adapter in adapters:', '            try:', '                adapter.validate_python(value)', '                matches += 1', '            except (ValidationError, ValueError, TypeError):', '                pass', '        if matches != 1:', '            raise ValueError("oneOf requires exactly one matching branch")', '        return value', '    return validate', '', '')
+}
+
 export function renderPyModule(ir: PyModuleIR): string {
   assertResolvedPyIr(ir)
   const names = declarationNames(ir)
   const lines: string[] = ['# ruff: noqa: E501']
-  const imports = ir.imports!.from
+  const hasExact = ir.decls.some(decl => decl.kind === 'model' && decl.operationOwner === undefined
+    ? decl.fields.some(field => typeHasExact(field.type))
+    : decl.kind === 'alias' && typeHasExact(decl.type))
+  const imports: Record<string, string[]> = Object.fromEntries(Object.entries(ir.imports!.from).map(([module, values]) => [module, [...values]]))
+  if (hasExact) {
+    imports.typing = [...new Set([...(imports.typing ?? []), 'Any'])].sort()
+    imports.typing = [...new Set([...(imports.typing ?? []), 'Annotated'])].sort()
+    imports.pydantic = [...new Set([...(imports.pydantic ?? []), 'BeforeValidator', 'TypeAdapter', 'ValidationError'])].sort()
+  }
   const group = (module: string): number => module === '__future__' ? 0
     : (THIRD_PARTY_MODULES.has(module) ? 2 : 1)
   const importModules = Object.keys(imports).sort((left, right) => {
@@ -256,7 +282,7 @@ export function renderPyModule(ir: PyModuleIR): string {
     previousGroup = currentGroup
   }
   const encodingKeys = encodingHelperKeys(ir)
-  const hasHelpers = usesUniqueItems(ir) || encodingKeys.size > 0
+  const hasHelpers = usesUniqueItems(ir) || encodingKeys.size > 0 || hasExact
   lines.push('')
   if (hasHelpers || ir.decls[0]?.kind !== 'alias') lines.push('')
   if (usesUniqueItems(ir)) {
@@ -264,12 +290,15 @@ export function renderPyModule(ir: PyModuleIR): string {
     lines.push('    if len(value) != len({repr(item) for item in value}):')
     lines.push('        raise ValueError("list items must be unique")', '    return value', '', '')
   }
+  if (hasExact) {
+    appendExactOneOfHelper(lines)
+  }
   if (encodingKeys.size > 0) lines.push(...encodingHelperSource(encodingKeys))
   const renderedDecls = ir.decls.filter(decl => decl.kind !== 'operation'
     && !(decl.kind === 'model' && decl.operationOwner !== undefined))
   renderedDecls.forEach((decl, index) => {
     if (index > 0) lines.push('', '')
-    if (decl.kind === 'enum') {
+      if (decl.kind === 'enum') {
       if (decl.repr === 'str-enum') {
         lines.push(`class ${decl.pyName}(StrEnum):`)
         for (const member of decl.members ?? []) lines.push(`    ${member.name} = ${renderJson(member.value)}`)
@@ -278,7 +307,7 @@ export function renderPyModule(ir: PyModuleIR): string {
       }
     } else if (decl.kind === 'alias') {
       lines.push(`${decl.pyName}: TypeAlias = ${renderType(decl.type, names, ir, index, true)}`)
-    } else if (decl.kind === 'model') {
+      } else if (decl.kind === 'model') {
       if (decl.operationOwner === undefined) lines.push(...renderModel(decl, names, ir, index))
     }
   })

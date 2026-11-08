@@ -88,6 +88,11 @@
             "description": "Make generated models immutable"
           },
           {
+            "name": "oneof-mode",
+            "type": "string",
+            "description": "Discriminator-less oneOf validation: smart | exact"
+          },
+          {
             "name": "emit-ir",
             "type": "boolean",
             "description": "Emit the resolved IR beside the module"

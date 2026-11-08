@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -48,6 +48,41 @@ const recursiveDocument = {
   } },
 }
 
+const exactDocument = {
+  openapi: '3.2.0', info: { title: 'exact', version: '1' }, components: { schemas: {
+    Choice: { oneOf: [
+      { type: 'object', required: ['x'], properties: { x: { type: 'string' } } },
+      { type: 'object', required: ['y'], properties: { y: { type: 'string' } } },
+    ] },
+    Envelope: { type: 'object', required: ['choice', 'either'], properties: {
+      choice: { $ref: '#/components/schemas/Choice' },
+      either: { anyOf: [{ type: 'integer' }, { type: 'number' }] },
+    } },
+  } },
+}
+
+const operationLaneDocument = {
+  openapi: '3.2.0', info: { title: 'operation lane', version: '1' }, components: { schemas: {
+    Request: { type: 'object', required: ['name'], properties: { name: { type: 'string' } } },
+    Created: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } },
+    Accepted: { type: 'object', required: ['accepted'], properties: { accepted: { type: 'boolean' } } },
+    NotFound: { type: 'object', required: ['code'], properties: { code: { type: 'string', enum: ['NOT_FOUND'] } } },
+    Error: { type: 'object', required: ['message'], properties: { message: { type: 'string' } } },
+  } }, paths: { '/items/{id}': { get: {
+    operationId: 'readItem', parameters: [
+      { name: 'id', in: 'path', required: true, schema: { type: 'integer' } },
+      { name: 'q', in: 'query', required: false, schema: { type: 'string' } },
+      { name: 'X-Request-Id', in: 'header', required: true, schema: { type: 'string' } },
+    ], requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/Request' } } } },
+    responses: {
+      '200': { description: 'created', content: { 'application/json': { schema: { $ref: '#/components/schemas/Created' } } } },
+      '201': { description: 'accepted', content: { 'application/json': { schema: { $ref: '#/components/schemas/Accepted' } } } },
+      '404': { description: 'missing', content: { 'application/json': { schema: { $ref: '#/components/schemas/NotFound' } } } },
+      default: { description: 'error', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+    },
+  } } },
+}
+
 function runDriver(modulePath: string, payload: unknown): Record<string, number> {
   const payloadPath = join(modulePath, 'payload.json')
   writeFileSync(payloadPath, `${JSON.stringify(payload)}\n`)
@@ -92,14 +127,25 @@ function writeModule(result: ReturnType<typeof buildPydanticModels>): string {
   return dir
 }
 
-function runStaticChecks(dir: string): void {
+function writeSplitPackage(result: ReturnType<typeof buildPydanticModels>): string {
+  const root = mkdtempSync(join(tmpdir(), 'oa-sdk-pydantic-pkg-'))
+  const dir = join(root, 'generated_pkg')
+  mkdirSync(dir)
+  for (const file of result.files) {
+    if (file.path.endsWith('.py')) writeFileSync(join(dir, file.path), file.content)
+  }
+  return dir
+}
+
+function runStaticChecks(dir: string, files: string[] = ['models.py']): void {
+  const paths = files.filter(file => existsSync(join(dir, file))).map(file => join(dir, file))
   expect(spawnSync('uv', [
     'run', '--no-project', '--with', 'ruff', 'ruff', 'check', '--no-cache',
-    '--select', 'E,F,I001,UP037', join(dir, 'models.py'),
+    '--select', 'E,F,I001,UP037', ...paths,
   ], { encoding: 'utf8' }).status).toBe(0)
   expect(spawnSync('uv', [
     'run', '--no-project', '--with', 'pyright', 'pyright', '--pythonversion', '3.11',
-    join(dir, 'models.py'),
+    ...paths,
   ], { encoding: 'utf8' }).status).toBe(0)
 }
 
@@ -212,5 +258,40 @@ lane('Pydantic Python lane (set OA_SDK_PYDANTIC_PY_LANE=1 to run)', () => {
       expect(actual).toEqual({ recursiveAlias: 1 })
       runStaticChecks(dir)
     } finally { rmSync(dir, { recursive: true, force: true }) }
+  })
+
+  for (const layout of ['split', 'single'] as const) {
+    it(`operations ${layout} validates request, response union, aliases, metadata, and 404 error payloads`, () => {
+      const result = buildPydanticModels(operationLaneDocument, { layout })
+      const dir = layout === 'split' ? writeSplitPackage(result) : writeModule(result)
+      try {
+        const actual = runDriver(dir, {
+          module: join(dir, layout === 'split' ? 'operations.py' : 'models.py'), fixture: 'operations-inline', options: result.options, operations: true,
+        })
+        expect(actual).toEqual({ requestModels: 1, bodyAlias: 1, responseUnion: 1, error404: 1, metadata404: 1 })
+        runStaticChecks(dir, layout === 'split' ? ['models.py', 'operations.py', '__init__.py'] : ['models.py'])
+      } finally { rmSync(dir, { recursive: true, force: true }) }
+    })
+  }
+
+  it('exact oneOf rejects ambiguous and unmatched payloads', () => {
+    const result = buildPydanticModels(exactDocument, { oneOfMode: 'exact' })
+    const exactDir = writeModule(result)
+    const smartResult = buildPydanticModels(exactDocument)
+    const smartDir = writeModule(smartResult)
+    try {
+      const actual = runDriver(exactDir, {
+        module: join(exactDir, 'models.py'), fixture: 'exact', options: result.options, exact: true,
+      })
+      expect(actual).toEqual({ exactAmbiguous: 1, exactNone: 1, exactOne: 1, anyOfOverlap: 1 })
+      const smart = runDriver(smartDir, {
+        module: join(smartDir, 'models.py'), fixture: 'exact', options: smartResult.options, smart: true,
+      })
+      expect(smart).toEqual({ smartAmbiguous: 1 })
+      runStaticChecks(exactDir)
+    } finally {
+      rmSync(exactDir, { recursive: true, force: true })
+      rmSync(smartDir, { recursive: true, force: true })
+    }
   })
 })

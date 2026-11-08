@@ -10,6 +10,7 @@ import { resolvePydanticBuildOptions, type PydanticBuildOptions, type ResolvedPy
 import { runPyPasses } from './passes/index.js'
 import { preparePydanticDocument } from './prepare.js'
 import { renderPyModule } from './render.js'
+import { renderPyOperationsModule, renderPyPackageInit } from './render-operations.js'
 
 export interface PydanticBuildResult {
   options: ResolvedPydanticBuildOptions
@@ -40,8 +41,7 @@ export function buildPydanticModels(doc: unknown, input: PydanticBuildOptions = 
     ...combinedAnalysis,
     order: [...componentAnalysis.order, ...inlineNames],
   }
-  const lowered = lowerToPyIr(prepared, analysis, pydanticModuleName(options.output))
-  let { ir } = runPyPasses(lowered, options, analysis)
+  let { ir } = runPyPasses(lowerToPyIr(prepared, analysis, pydanticModuleName(options.output)), options, analysis)
   if (!options.emitOperations) {
     const filtered = {
       ...ir,
@@ -50,7 +50,13 @@ export function buildPydanticModels(doc: unknown, input: PydanticBuildOptions = 
     }
     ir = runPyPasses(filtered, options, analysis, { only: ['collectImports'] }).ir
   }
-  const source = renderPyModule(ir)
-  const { files, report } = emitPydanticFiles(source, ir, options)
+  const modelSource = renderPyModule(ir)
+  const operationSource = options.emitOperations && ir.decls.some(decl => decl.kind === 'operation')
+    ? renderPyOperationsModule(ir, options.layout === 'split') : undefined
+  const source = options.layout === 'single' ? renderPyOperationsModule(ir, false) : modelSource
+  const { files, report } = emitPydanticFiles(source, ir, options, {
+    ...(operationSource === undefined ? {} : { operations: operationSource }),
+    ...(operationSource === undefined ? {} : { packageInit: renderPyPackageInit() }),
+  })
   return { options, analysis, ir, source, files, report, diagnostics: ir.diagnostics }
 }
