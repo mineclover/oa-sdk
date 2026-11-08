@@ -145,6 +145,8 @@ export function renderType(type: PyTypeExpr, names: DeclNames, ir: PyModuleIR, c
       const base = renderType(type.base, names, ir, currentIndex, runtimeEvaluated)
       const metadata: string[] = []
       const constraints = renderConstraints(type.constraints)
+      const extra = originalPatternExtra(type)
+      if (Object.keys(extra).length > 0) constraints.push(`json_schema_extra=${renderJson(extra)}`)
       if (constraints.length > 0) metadata.push(`Field(${constraints.join(', ')})`)
       if (type.constraints.uniqueItems === true) metadata.push('AfterValidator(_unique_items)')
       return metadata.length === 0 ? base : `Annotated[${base}, ${metadata.join(', ')}]`
@@ -155,10 +157,15 @@ export function renderType(type: PyTypeExpr, names: DeclNames, ir: PyModuleIR, c
 function fieldMetadata(field: PyField): string[] {
   const values: string[] = []
   if (field.alias !== '') values.push(`alias=${renderJson(field.alias)}`)
+  if (field.title !== undefined) values.push(`title=${renderJson(field.title)}`)
   if (field.description !== undefined) values.push(`description=${renderJson(field.description)}`)
   if (field.examples !== undefined) values.push(`examples=${renderJson(field.examples)}`)
   if (field.deprecated !== undefined) values.push(`deprecated=${renderJson(field.deprecated)}`)
-  if (field.extensions !== undefined) values.push(`json_schema_extra=${renderJson(field.extensions)}`)
+  const jsonSchemaExtra: Record<string, unknown> = {
+    ...(field.extensions ?? {}),
+    ...(field.jsonSchemaExtra ?? {}),
+  }
+  if (Object.keys(jsonSchemaExtra).length > 0) values.push(`json_schema_extra=${renderJson(jsonSchemaExtra)}`)
   if (field.type.kind === 'constrained') {
     values.push(...renderConstraints(field.type.constraints).filter(value => !value.startsWith('pattern=')))
     if (field.type.constraints.pattern?.python !== undefined && field.type.constraints.pattern.python !== null) {
@@ -166,6 +173,33 @@ function fieldMetadata(field: PyField): string[] {
     }
   }
   return values
+}
+
+function isStringType(type: PyTypeExpr, names: DeclNames, ir: PyModuleIR, visiting = new Set<string>()): boolean {
+  if (type.kind === 'builtin') return type.name === 'str'
+  if (type.kind === 'constrained') return isStringType(type.base, names, ir, visiting)
+  if (type.kind !== 'ref' || visiting.has(type.target)) return false
+  visiting.add(type.target)
+  const decl = ir.decls.find(item => item.name === type.target)
+  return decl?.kind === 'alias' ? isStringType(decl.type, names, ir, visiting) : false
+}
+
+function originalPatternExtra(type: PyTypeExpr): Record<string, unknown> {
+  if (type.kind === 'constrained' && type.constraints.pattern?.python !== undefined
+    && type.constraints.pattern.python !== null
+    && type.constraints.pattern.source !== type.constraints.pattern.python) {
+    return { 'x-oa-sdk-original-pattern': type.constraints.pattern.source }
+  }
+  if (type.kind === 'constrained') return originalPatternExtra(type.base)
+  if (type.kind === 'list') return originalPatternExtra(type.item)
+  if (type.kind === 'tuple') {
+    for (const item of type.items) {
+      const found = originalPatternExtra(item)
+      if (Object.keys(found).length > 0) return found
+    }
+    return type.rest === null ? {} : originalPatternExtra(type.rest)
+  }
+  return {}
 }
 
 export function renderField(field: PyField, names: DeclNames, ir: PyModuleIR, index: number): string {
@@ -176,7 +210,14 @@ export function renderField(field: PyField, names: DeclNames, ir: PyModuleIR, in
     annotation = `Annotated[${annotation}, AfterValidator(_unique_items)]`
   }
   const type = nullable ? `${annotation} | None` : annotation
-  const metadata = fieldMetadata(field)
+  const fieldExtras = isStringType(field.type, names, ir) ? originalPatternExtra(field.type) : {}
+  if (isStringType(field.type, names, ir)) Object.assign(fieldExtras, field.jsonSchemaExtra ?? {})
+  const metadata = Object.keys(fieldExtras).length > 0
+    ? fieldMetadata({ ...field, jsonSchemaExtra: fieldExtras })
+    : (() => {
+      const { jsonSchemaExtra: _ignored, ...withoutJsonSchemaExtra } = field
+      return fieldMetadata(withoutJsonSchemaExtra)
+    })()
   const defaultKind = field.default?.kind
   if (metadata.length > 0) {
     const defaultValue = field.default?.kind === 'required' ? '...'
@@ -193,8 +234,13 @@ export function renderModel(decl: Extract<PyDecl, { kind: 'model' }>, names: Dec
   const lines = [`class ${decl.pyName}(${bases || 'BaseModel'}):`]
   if (decl.description !== undefined) lines.push(`    ${renderDocstring(decl.description)}`)
   const config = [`extra=${renderJson(decl.extra)}`]
+  if (decl.title !== undefined) config.push(`title=${renderJson(decl.title)}`)
   if (decl.frozen === true) config.push('frozen=True')
-  if (decl.extensions !== undefined) config.push(`json_schema_extra=${renderJson(decl.extensions)}`)
+  const modelJsonSchemaExtra = {
+    ...(decl.extensions ?? {}),
+    ...(decl.jsonSchemaExtra ?? {}),
+  }
+  if (Object.keys(modelJsonSchemaExtra).length > 0) config.push(`json_schema_extra=${renderJson(modelJsonSchemaExtra)}`)
   if (decl.regexEngine === 'python-re') config.push('regex_engine="python-re"')
   if (decl.fields.some(field => field.alias !== '')) {
     config.push('validate_by_name=True', 'validate_by_alias=True', 'serialize_by_alias=True')

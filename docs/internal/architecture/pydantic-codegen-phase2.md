@@ -250,6 +250,10 @@ split 출력은 `operations.py`와 package용 `__init__.py`를 함께 생성하�
 
 ### P2e — 확장과 안정화
 
+구현 완료 (2026-11-09): 타입 범위의 `title`, ECMA 원문 pattern, URI format metadata,
+달력 단위 duration 진단, source와 generated `model_json_schema()` 정규화 parity 및 JSON pointer
+allow-list를 추가했다. manifest/provenance는 types-only 결정으로 범위에서 제외한다.
+
 **범위.** multipart/text/streaming, `@discriminated` envelope, manifest provenance, duration/URI metadata, title·pattern 보존을 별도 milestone로 처리한다. P2a–d가 안정화된 뒤에만 범위를 넓힌다.
 
 **완료 조건.** 각 추가 OAS construct에 fixture/golden, contract invariant, Python/FastAPI lane, 명시 diagnostic과 docs row가 있다. 옵션은 모두 읽는 pass가 있고 report에 기록된다.

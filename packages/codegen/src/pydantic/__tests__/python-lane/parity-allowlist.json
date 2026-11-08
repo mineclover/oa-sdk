@@ -1,0 +1,17 @@
+[
+  {
+    "fixture": "approved",
+    "pointer": "/StreamHealthEventsResponse/properties/data/contentMediaType",
+    "reason": "P2e stream rendering types SSE data as Any, because contentSchema decoding is left to stream metadata and contentMediaType is not emitted"
+  },
+  {
+    "fixture": "approved",
+    "pointer": "/StreamHealthEventsResponse/properties/data/contentSchema",
+    "reason": "P2e stream rendering types SSE data as Any, because contentSchema decoding is left to stream metadata and contentSchema is not emitted"
+  },
+  {
+    "fixture": "type-fidelity",
+    "pointer": "/Profile/properties/code/pattern",
+    "reason": "ECMA `\\d` is translated to ASCII `[0-9]` because Rust regex `\\d` is Unicode"
+  }
+]

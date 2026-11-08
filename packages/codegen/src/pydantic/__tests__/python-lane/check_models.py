@@ -1,12 +1,18 @@
 """Validate one generated Pydantic module and print lane counters."""
 import importlib.util
 import importlib
+import inspect
 import json
 import sys
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, TypeAdapter, ValidationError
+try:
+    from pydantic import BaseModel, TypeAdapter, ValidationError
+except ModuleNotFoundError:  # The stdlib-only normalizer unit branch remains runnable in this sandbox.
+    BaseModel = object  # type: ignore[assignment,misc]
+    TypeAdapter = None  # type: ignore[assignment]
+    ValidationError = Exception  # type: ignore[assignment,misc]
 
 
 COUNTER_NAMES = (
@@ -347,6 +353,375 @@ def validate_body_types(module: Any) -> dict[str, int]:
     return counters
 
 
+def _resolve_refs(
+    value: Any,
+    defs: dict[str, Any],
+    components: dict[str, Any] | None = None,
+    stack: tuple[str, ...] = (),
+    aliases: dict[str, str] | None = None,
+    expand_polymorphic: bool = True,
+) -> Any:
+    components = components or {}
+    aliases = aliases or {}
+    if isinstance(value, dict) and isinstance(value.get("$ref"), str):
+        ref = value["$ref"]
+        target = ref.rsplit("/", 1)[-1]
+        source = defs.get(target) if ref.startswith("#/$defs/") else components.get(target)
+        canonical = aliases.get(target, target) if ref.startswith("#/$defs/") else target
+        siblings = {name: item for name, item in value.items() if name != "$ref"}
+        if source is None or canonical in stack:
+            return {"$ref": canonical, **siblings}
+        if not ref.startswith("#/$defs/") and isinstance(source, dict) \
+            and source.get("type") not in {"object", "array", "boolean", "integer", "number", "null"} \
+            and not any(name in source for name in ("properties", "allOf", "oneOf", "anyOf")):
+            source = {name: item for name, item in source.items() if name not in {"description", "title", "example", "examples"}}
+        if expand_polymorphic and isinstance(source, dict) and isinstance(source.get("discriminator"), dict) \
+            and isinstance(source["discriminator"].get("mapping"), dict) \
+            and "oneOf" not in source:
+            mapping = source["discriminator"]["mapping"]
+            source = {
+                "oneOf": [{"$ref": target_ref} for target_ref in mapping.values()],
+                "discriminator": source["discriminator"],
+            }
+        resolved = _resolve_refs(source, defs, components, (*stack, canonical), aliases, expand_polymorphic)
+        if siblings and isinstance(resolved, dict):
+            resolved = {**resolved, **_resolve_refs(siblings, defs, components, stack, aliases, expand_polymorphic)}
+        return resolved
+    if isinstance(value, dict):
+        return {key: _resolve_refs(item, defs, components, stack, aliases, expand_polymorphic) for key, item in value.items() if key not in {"$defs", "definitions"}}
+    if isinstance(value, list):
+        return [_resolve_refs(item, defs, components, stack, aliases, expand_polymorphic) for item in value]
+    return value
+
+
+def _source_nullable(source: Any) -> bool:
+    if not isinstance(source, dict):
+        return False
+    if source.get("nullable") is True:
+        return True
+    if isinstance(source.get("type"), list) and "null" in source["type"]:
+        return True
+    return any(isinstance(branch, dict) and branch.get("type") == "null" for key in ("anyOf", "oneOf") for branch in source.get(key, []))
+
+
+def _flatten_allof(value: Any, defs: dict[str, Any], components: dict[str, Any], aliases: dict[str, str] | None = None) -> Any:
+    if not isinstance(value, dict) or not isinstance(value.get("allOf"), list):
+        return value
+    flattened: dict[str, Any] = {}
+    properties: dict[str, Any] = {}
+    required: list[str] = []
+    for branch in value["allOf"]:
+        branch_value = _flatten_allof(branch, defs, components, aliases)
+        if isinstance(branch_value, dict):
+            properties.update(branch_value.get("properties", {}))
+            required.extend(branch_value.get("required", []))
+            # A polymorphic base may carry its own union/discriminator.  Those
+            # keywords describe the base, not each concrete allOf variant.
+            for name in ("type", "additionalProperties", "unevaluatedProperties"):
+                if name in branch_value:
+                    flattened.setdefault(name, branch_value[name])
+    current = {name: item for name, item in value.items() if name != "allOf"}
+    properties.update(current.pop("properties", {}))
+    required.extend(current.pop("required", []))
+    flattened.update(current)
+    if properties:
+        flattened["properties"] = properties
+    if required:
+        flattened["required"] = sorted(set(required))
+    return flattened
+
+
+def _normalize_schema(
+    value: Any,
+    source: Any,
+    defs: dict[str, Any],
+    components: dict[str, Any],
+    optional_non_nullable: bool = False,
+    aliases: dict[str, str] | None = None,
+) -> Any:
+    aliases = aliases or {}
+    # References are resolved once by validate_parity. Re-resolving children would restart the
+    # cycle stack and expand a back-edge forever.
+    if isinstance(value, list):
+        source_list = source if isinstance(source, list) else []
+        return [_normalize_schema(item, source_list[index] if index < len(source_list) else {}, defs, components, aliases=aliases) for index, item in enumerate(value)]
+    if not isinstance(value, dict):
+        return value
+    source_record = _flatten_allof(source if isinstance(source, dict) else {}, {}, components)
+    value_record = _flatten_allof(value, defs, components, aliases)
+    if optional_non_nullable and isinstance(value_record.get("anyOf"), list) and not _source_nullable(source_record):
+        non_null = [branch for branch in value_record["anyOf"] if not (isinstance(branch, dict) and branch.get("type") == "null")]
+        if len(non_null) == 1 and isinstance(non_null[0], dict):
+            outer = {name: item for name, item in value_record.items() if name != "anyOf"}
+            value_record = {**non_null[0], **outer}
+    value = value_record
+    result: dict[str, Any] = {}
+    source_required = set(source_record.get("required", [])) if isinstance(source_record.get("required"), list) else set()
+    for key, item in value.items():
+        if key in {"$defs", "definitions", "example", "examples", "deprecated", "readOnly", "writeOnly", "x-oa-sdk-original-pattern"}:
+            continue
+        if key == "contentEncoding":
+            continue
+        if key == "contentMediaType" and (
+            value_record.get("contentEncoding") in {"base64", "base64url"}
+            or value_record.get("format") in {"byte", "base64", "base64url"}
+        ):
+            continue
+        if key == "format" and item in {
+            "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64", "safeint",
+            "unixtime", "http-date", "base64url", "base64", "byte", "decimal", "decimal128",
+            "float", "double",
+        }:
+            continue
+        if key == "title" and not isinstance(source_record.get("title"), str):
+            continue
+        if key == "default" and "default" not in source_record and item is None:
+            continue
+        if key == "additionalProperties" and item is True:
+            continue
+        if key == "unevaluatedProperties":
+            continue
+        if key == "nullable":
+            continue
+        if key == "description" and isinstance(item, str):
+            result[key] = inspect.cleandoc(item)
+            continue
+        if key == "required":
+            if item:
+                result[key] = sorted(item)
+            continue
+        if key == "properties" and isinstance(item, dict):
+            source_properties = source_record.get("properties", {}) if isinstance(source_record.get("properties"), dict) else {}
+            result[key] = {
+                name: _normalize_schema(
+                    child,
+                    source_properties.get(name, {}),
+                    defs,
+                    components,
+                    name not in source_required and not _source_nullable(source_properties.get(name, {})),
+                    aliases=aliases,
+                )
+                for name, child in sorted(item.items())
+            }
+            continue
+        if key == "discriminator" and isinstance(item, dict):
+            if "oneOf" not in value_record and "anyOf" not in value_record:
+                continue
+            discriminator = {name: child for name, child in item.items() if name != "mapping"}
+            mapping = item.get("mapping")
+            if isinstance(mapping, dict):
+                discriminator["mapping"] = {
+                    name: target.rsplit("/", 1)[-1] if isinstance(target, str) else target
+                    for name, target in sorted(mapping.items())
+                }
+            result[key] = discriminator
+            continue
+        if key == "anyOf" and optional_non_nullable and isinstance(item, list) and not _source_nullable(source_record):
+            item = [branch for branch in item if not (isinstance(branch, dict) and branch.get("type") == "null")]
+            if len(item) == 1:
+                branch = _normalize_schema(item[0], source_record, defs, components, aliases=aliases)
+                siblings = {name: child for name, child in result.items() if name != "anyOf"}
+                if isinstance(branch, dict):
+                    return {**branch, **siblings}
+                return branch
+        result[key] = _normalize_schema(item, source_record.get(key, {}), defs, components, aliases=aliases)
+    value_type = value_record.get("type")
+    if isinstance(value_type, list) and "null" in value_type:
+        non_null = [item for item in value_type if item != "null"]
+        result.pop("type", None)
+        result["anyOf"] = [{"type": item} for item in non_null] + [{"type": "null"}]
+    value_additional = value_record.get("additionalProperties", value_record.get("unevaluatedProperties"))
+    if value_additional is False or (isinstance(value_additional, dict) and value_additional.get("not") == {}):
+        result["additionalProperties"] = False
+    elif isinstance(value_additional, dict) and value_additional != {}:
+        result["additionalProperties"] = _normalize_schema(value_additional, {}, defs, components, aliases=aliases)
+    if "const" in result:
+        result["enum"] = [result.pop("const")]
+    elif isinstance(result.get("enum"), list) and len(result["enum"]) == 1:
+        result["enum"] = [result["enum"][0]]
+    enum_values = result.get("enum")
+    if isinstance(enum_values, list) and enum_values:
+        # An enum fixes the JSON type of its values; integer values satisfy both `integer` and `number`.
+        json_types = [_enum_json_types(item) for item in enum_values]
+        shared = set.intersection(*json_types)
+        if result.get("type") in shared:
+            result.pop("type", None)
+    # Drop empty `properties` before deciding on `type: object`, so an empty generated model and an
+    # open source object normalize the same way.
+    if result.get("properties") == {}:
+        result.pop("properties", None)
+    if "properties" in result and result.get("type") == "object":
+        result.pop("type", None)
+    bounds = {
+        "int8": (-128, 127), "int16": (-32768, 32767), "int32": (-2147483648, 2147483647),
+        "int64": (-9223372036854775808, 9223372036854775807), "uint8": (0, 255),
+        "uint16": (0, 65535), "uint32": (0, 4294967295), "uint64": (0, 18446744073709551615),
+        "safeint": (-(2**53 - 1), 2**53 - 1),
+    }
+    if value_record.get("format") in bounds:
+        lower, upper = bounds[value_record["format"]]
+        result.setdefault("minimum", lower)
+        result.setdefault("maximum", upper)
+    for union_key in ("anyOf", "oneOf"):
+        if union_key in result:
+            result[union_key] = sorted(result[union_key], key=lambda item: json.dumps(item, sort_keys=True))
+    return result
+
+
+def _enum_json_types(value: Any) -> set[str]:
+    if isinstance(value, bool):
+        return {"boolean"}
+    if isinstance(value, int):
+        return {"integer", "number"}
+    if isinstance(value, float):
+        return {"number"}
+    if isinstance(value, str):
+        return {"string"}
+    return {"null"} if value is None else set()
+
+
+def _root_stack(root: str | None) -> tuple[str, ...]:
+    return (root,) if root else ()
+
+
+def _diff_schema(expected: Any, actual: Any, pointer: str = "") -> list[tuple[str, Any, Any]]:
+    if isinstance(expected, dict) and isinstance(actual, dict):
+        diffs: list[tuple[str, Any, Any]] = []
+        for key in sorted(set(expected) | set(actual)):
+            child = f"{pointer}/{key.replace('~', '~0').replace('/', '~1')}"
+            if key not in expected or key not in actual:
+                diffs.append((child, expected.get(key), actual.get(key)))
+            else:
+                diffs.extend(_diff_schema(expected[key], actual[key], child))
+        return diffs
+    if isinstance(expected, list) and isinstance(actual, list):
+        diffs: list[tuple[str, Any, Any]] = []
+        for index in range(max(len(expected), len(actual))):
+            child = f"{pointer}/{index}"
+            if index >= len(expected) or index >= len(actual):
+                diffs.append((child, expected[index] if index < len(expected) else None, actual[index] if index < len(actual) else None))
+            else:
+                diffs.extend(_diff_schema(expected[index], actual[index], child))
+        return diffs
+    return [] if expected == actual else [(pointer, expected, actual)]
+
+
+def validate_parity(module: Any, payload: dict[str, Any]) -> dict[str, int]:
+    """Compare generated validation schemas with source schemas after documented normalization."""
+    compared = 0
+    allowed = 0
+    new: list[tuple[str, Any, Any]] = []
+    used: set[str] = set()
+    allow_entries = payload.get("allowList", [])
+    allow_by_pointer = {entry["pointer"]: entry for entry in allow_entries}
+    assert len(allow_by_pointer) == len(allow_entries), "parity allow-list has duplicate pointers"
+    components = payload.get("components", {})
+    ref_map = payload.get("refMap", {})
+    for py_name, source in payload["modelMap"].items():
+        generated = getattr(module, source).model_json_schema(by_alias=True, mode="validation")
+        # Both sides must expand a recursive back-edge to the root model the same number of times.
+        # The source schema is the component body itself, so the root is already "entered"; the
+        # generated schema of a recursive model is a `$ref` to its own `$defs` entry, which enters
+        # the root on resolution.
+        root = ref_map.get(py_name)
+        source_schema = _resolve_refs(payload["sourceSchemas"][py_name], {}, components, _root_stack(root))
+        generated_stack = () if isinstance(generated.get("$ref"), str) else _root_stack(root)
+        generated_schema = _resolve_refs(generated, generated.get("$defs", {}), components, generated_stack, aliases=ref_map)
+        expected = _normalize_schema(source_schema, source_schema, {}, components)
+        actual = _normalize_schema(generated_schema, source_schema, generated.get("$defs", {}), components, aliases=ref_map)
+        differences = _diff_schema(expected, actual, f"/{py_name}")
+        for pointer, source_value, generated_value in differences:
+            if pointer in allow_by_pointer:
+                allowed += 1
+                used.add(pointer)
+            else:
+                new.append((pointer, source_value, generated_value))
+        compared += 1
+    assert not new, "schema parity differences (pointer, source, generated):\n" + "\n".join(
+        f"  {pointer}: {json.dumps(source_value, sort_keys=True)} != {json.dumps(generated_value, sort_keys=True)}"
+        for pointer, source_value, generated_value in new
+    )
+    unused = sorted(set(allow_by_pointer) - used)
+    assert not unused, f"unused parity allow-list entries: {unused}"
+    return {"comparedModels": compared, "allowListedDifferences": allowed, "newDifferences": len(new)}
+
+
+def validate_normalizer_cases() -> dict[str, int]:
+    """Exercise parity normalization with stdlib-only JSON-shaped values."""
+    optional_generated = {
+        "anyOf": [{"type": "string"}, {"type": "null"}], "default": None,
+        "description": "D", "format": "uri", "title": "Downloadurl",
+    }
+    optional_source = {"type": "string", "format": "uri", "description": "D"}
+    assert _diff_schema(
+        _normalize_schema(optional_source, optional_source, {}, {}),
+        _normalize_schema(optional_generated, optional_source, {}, {}, True),
+    ) == []
+
+    cycle = {"type": "object", "properties": {"next": {"$ref": "#/components/schemas/Node"}}}
+    resolved_cycle = _resolve_refs({"$ref": "#/components/schemas/Node"}, {}, {"Node": cycle})
+    assert _diff_schema(_normalize_schema(resolved_cycle, resolved_cycle, {}, {}), _normalize_schema(resolved_cycle, resolved_cycle, {}, {})) == []
+
+    polymorphic = {
+        "allOf": [{"type": "object", "properties": {"base": {"type": "string"}},
+                   "oneOf": [{"type": "object"}], "discriminator": {"propertyName": "kind"}}],
+        "type": "object", "properties": {"child": {"type": "string"}},
+    }
+    flattened_variant = {"type": "object", "properties": {"base": {"type": "string"}, "child": {"type": "string"}}}
+    assert _diff_schema(_normalize_schema(polymorphic, polymorphic, {}, {}), _normalize_schema(flattened_variant, polymorphic, {}, {})) == []
+
+    alias_components = {"Time": {"type": "string", "description": "alias docs", "title": "Time", "examples": ["x"]}}
+    alias_source = _resolve_refs({"$ref": "#/components/schemas/Time"}, {}, alias_components)
+    alias_generated = {"type": "string", "pattern": "^T"}
+    assert _diff_schema(_normalize_schema(alias_source, alias_source, {}, alias_components), _normalize_schema(alias_generated, alias_source, {}, alias_components)) == [("/pattern", None, "^T")]
+
+    source_map = {"type": "object", "properties": {}, "unevaluatedProperties": {"type": "string"}}
+    generated_map = {"type": "object", "properties": {}, "additionalProperties": {"type": "string"}}
+    assert _diff_schema(_normalize_schema(source_map, source_map, {}, {}), _normalize_schema(generated_map, source_map, {}, {})) == []
+
+    described = {"type": "object", "description": "  line one\n    line two\n"}
+    assert _diff_schema(_normalize_schema(described, described, {}, {}), _normalize_schema({"type": "object", "description": "line one\n  line two"}, described, {}, {})) == []
+
+    literal_source = {"enum": ["cat"]}
+    literal_generated = {"type": "string", "const": "cat", "enum": ["cat"]}
+    assert _diff_schema(_normalize_schema(literal_source, literal_source, {}, {}), _normalize_schema(literal_generated, literal_source, {}, {})) == []
+
+    integer_const_source = {"const": 1}
+    integer_const_generated = {"type": "integer", "const": 1}
+    assert _diff_schema(
+        _normalize_schema(integer_const_source, integer_const_source, {}, {}),
+        _normalize_schema(integer_const_generated, integer_const_source, {}, {}),
+    ) == []
+
+    open_source = {"type": "object"}
+    empty_model = {"type": "object", "properties": {}, "additionalProperties": True}
+    assert _diff_schema(_normalize_schema(open_source, open_source, {}, {}), _normalize_schema(empty_model, open_source, {}, {})) == []
+
+    node = {"type": "object", "properties": {"next": {"$ref": "#/components/schemas/Node"}}}
+    source_node = _resolve_refs(node, {}, {"Node": node}, _root_stack("Node"))
+    generated_node = _resolve_refs(
+        {"$ref": "#/$defs/Node"}, {"Node": {"type": "object", "properties": {"next": {"$ref": "#/$defs/Node"}}}},
+        {"Node": node}, (), aliases={"Node": "Node"},
+    )
+    assert _diff_schema(_normalize_schema(source_node, source_node, {}, {}), _normalize_schema(generated_node, source_node, {}, {})) == []
+    return {"normalizerUnit": 1}
+
+
+def validate_metadata(module: Any, counters: dict[str, int]) -> None:
+    """Assert title, translated/source pattern, and URI metadata are visible in JSON Schema."""
+    schema = module.Profile.model_json_schema(by_alias=True, mode="validation")
+    assert schema["title"] == "Profile title"
+    counters["modelTitle"] = 1
+    assert schema["properties"]["displayName"]["title"] == "Display name"
+    counters["fieldTitle"] = 1
+    code = schema["properties"]["code"]
+    assert code["pattern"] == "[0-9]+"
+    assert code["x-oa-sdk-original-pattern"] == r"\d+"
+    counters["originalPattern"] = 1
+    assert schema["properties"]["homepage"]["format"] == "uri"
+    counters["uriFormat"] = 1
+
+
 def validate_frozen(module: Any, counters: dict[str, int]) -> None:
     """Check ConfigDict(frozen=True) assignment behavior."""
     value = module.Person(personId="p")
@@ -361,6 +736,9 @@ def validate_frozen(module: Any, counters: dict[str, int]) -> None:
 def main() -> None:
     """Run all checks and emit one machine-readable counter line."""
     payload = json.loads(Path(sys.argv[1]).read_text())
+    if payload.get("normalizerUnit"):
+        print(json.dumps(validate_normalizer_cases(), separators=(",", ":")))
+        return
     if payload.get("encoding"):
         counters: dict[str, int] = {}
         validate_encoding(load_module(payload["module"]), counters)
@@ -394,6 +772,13 @@ def main() -> None:
         return
     if payload.get("bodyTypes"):
         print(json.dumps(validate_body_types(load_module(payload["module"])), separators=(",", ":")))
+        return
+    if payload.get("parity"):
+        module = load_module(payload["module"])
+        counters = validate_parity(module, payload)
+        if payload.get("metadata"):
+            validate_metadata(module, counters)
+        print(json.dumps(counters, separators=(",", ":")))
         return
     if payload.get("smart"):
         print(json.dumps(validate_smart(load_module(payload["module"])), separators=(",", ":")))

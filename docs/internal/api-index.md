@@ -1031,10 +1031,10 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `PyDecl` | `pydantic/ir.ts` | 선언 IR union |
 | `PyDefault` | `pydantic/ir.ts` | 필드 default IR |
 | `PyEnumDecl` | `pydantic/ir.ts` | enum 선언 IR |
-| `PyField` | `pydantic/ir.ts` | 필드 IR |
+| `PyField` | `pydantic/ir.ts` | 필드 IR (title, JSON Schema metadata, alias, constraints) |
 | `PyImports` | `pydantic/ir.ts` | import IR |
 | `PyLiteralValue` | `pydantic/ir.ts` | literal IR 값 |
-| `PyModelDecl` | `pydantic/ir.ts` | model 선언 IR |
+| `PyModelDecl` | `pydantic/ir.ts` | model 선언 IR (title 및 JSON Schema metadata 포함) |
 | `PyModuleIR` | `pydantic/ir.ts` | module IR |
 | `PyOpenness` | `pydantic/ir.ts` | 모델 openness IR |
 | `PyScalarFact` | `pydantic/ir.ts` | scalar 사실 IR |

@@ -1158,7 +1158,7 @@
       "name": "OAS 3.2 to Pydantic v2 generation",
       "category": "codegen",
       "package": "@oa-sdk/codegen",
-      "description": "Pydantic v2 DTO and operation IR generation with encoded scalar decoding, model extensions, frozen/docstring settings, and ruff/pyright quality gates through the CLI, API, staged pipeline, and TypeSpec plugin.; non-JSON body/response types, stream item aliases, discriminated envelopes",
+      "description": "Pydantic v2 DTO and operation IR generation with title, ECMA pattern provenance, URI and duration metadata, normalized model_json_schema parity, encoded scalar decoding, model extensions, frozen/docstring settings, and ruff/pyright quality gates through the CLI, API, staged pipeline, and TypeSpec plugin.",
       "capabilities": [
         "generate:pydantic",
         "buildPydanticModels",
@@ -1170,6 +1170,8 @@
         "renderPyModule",
         "renderPyOperationsModule",
         "oneOfMode exact and split package lane",
+        "title/pattern/URI/duration metadata",
+        "normalized JSON Schema parity with JSON pointer allow-list",
         "emitPydanticFiles",
         "pydantic plugin"
       ],
@@ -1181,6 +1183,9 @@
         "packages/codegen/src/pydantic/__tests__/render.test.ts",
         "packages/codegen/src/pydantic/__tests__/python-lane.test.ts",
         "packages/codegen/src/pydantic/__tests__/lower.test.ts",
+        "packages/codegen/src/pydantic/__tests__/round-trip.test.ts",
+        "packages/codegen/src/pydantic/__tests__/parity-source.ts",
+        "packages/codegen/src/pydantic/__tests__/python-lane/parity-allowlist.json",
         "packages/codegen/src/pydantic/__tests__/passes/regex.test.ts",
         "packages/codegen/src/pydantic/__tests__/passes/extensions.test.ts",
         "packages/codegen/src/pydantic/__tests__/passes/polymorphic-refs.test.ts",

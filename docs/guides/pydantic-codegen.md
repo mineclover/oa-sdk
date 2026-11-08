@@ -11,10 +11,9 @@
 .tsp → @typespec/openapi3 → OAS 3.2 → @oa-sdk/codegen Pydantic generator
 ```
 
-Phase 1 입력은 OAS 문서의 `components.schemas`뿐이다. 여기서 object 모델, named enum,
-union/조합, scalar alias를 `models.py` 한 모듈로 만든다. operation의 path/query/header
-parameter 모델, request/response operation 모델, FastAPI router stub, `ContractRegistry`
-연동은 범위 밖이다.
+Phase 2 타입 범위는 OAS 문서의 `components.schemas`와 operation의 타입 선언을 다룬다. object
+모델, named enum, union/조합, scalar alias를 `models.py` 또는 `operations.py`로 만든다.
+FastAPI router stub과 `ContractRegistry` 연동은 범위 밖이다.
 
 생성 코드는 `pydantic>=2.11`, `Python>=3.11`을 요구한다. TypeSpec의 HTTP operation이
 있는 문서는 `api`, 모델만 있는 문서는 `data` 또는 `interface` 목적의 plugin pipeline에서
@@ -235,6 +234,10 @@ Pydantic 구현 import가 package namespace로 새어 나오는 것을 막는다
 | `format: date`, `time`, `duration` | `date`, `time`, `timedelta` |
 | `format: email` | `EmailStr` |
 | `format: uri`, `url` | `uri: str`이면 `str`, `any-url`이면 `AnyUrl` |
+| schema `title` | 모델은 `ConfigDict(title=...)`, 필드는 `Field(title=...)` |
+| `regex: ecma` 변환 | 변환된 `pattern`과 함께 `json_schema_extra["x-oa-sdk-original-pattern"]`에 ECMA 원문 보존 |
+| `uri: str` | `Field(json_schema_extra={"format": 원본 format})`로 wire format 보존 |
+| `duration` + `P…Y`/`P…M` example/default | `timedelta`를 생성하고 `pydantic/duration-calendar-unit` info 진단 |
 | `format: byte` 또는 `contentEncoding: base64` | `Base64Bytes` |
 | `format: binary` 또는 `contentMediaType`이 `text/*`가 아닌 문자열 스키마 | `bytes` (multipart/form, JSON schema 내부 필드에도 동일) |
 | `contentMediaType: text/*` 문자열 스키마 | `str` |
@@ -365,6 +368,7 @@ Identifier: TypeAlias = Annotated[str, Field(pattern="^[A-Za-z_][A-Za-z0-9_.-]*$
 | `pydantic/operation-unsupported` | warning | callback 또는 webhook처럼 후속 milestone construct를 만남 |
 | `pydantic/media-type-unsupported` | warning | 스키마가 없고 내장 매핑도 제공하지 않는 media type |
 | `pydantic/oneof-ambiguous` | info | exact oneOf branch를 정밀하게 판정할 수 없어 smart union으로 유지 |
+| `pydantic/duration-calendar-unit` | info | ISO 8601 duration example/default가 년·월 단위를 사용해 `timedelta`로 정확히 표현되지 않음 |
 
 CLI는 preflight fatal 또는 severity가 `error`인 진단이 있으면 non-zero로 끝난다. `--force`는
 두 경우 모두 생성과 파일 쓰기를 계속한다. `--no-validate`는 preflight validation/lint를
@@ -419,6 +423,56 @@ OA_SDK_PYDANTIC_PY_LANE=1 corepack pnpm --filter @oa-sdk/codegen exec vitest run
 
 이 lane은 생성 모듈 import, example `model_validate`, alias/extra/optional/union/uniqueItems,
 `model_rebuild()`, `ruff --select E,F,I001,UP037`, `pyright`를 확인한다. `encodingPolicy: decode`의 epoch/HTTP-date/base64url round-trip과 `frozen` assignment 거부도 검사하며, 기대 counter는 각각 `decodeUnix=1`, `decodeHttpDate=1`, `decodeBase64Url=1`, `dumpWire=1`, `modelExtension=1`, `frozenReject=1`이다.
+추가 parity lane은 모든 checked-in parity fixture의 각 generated model에 대해
+`model_json_schema(by_alias=True, mode="validation")`를 source schema와 비교하고, `$ref` 해소와
+JSON pointer별 차이를 보고한다. 정규화 규칙은 다음과 같다.
+
+1. generated `$defs`/`$ref`와 source component `$ref`를 해소한다.
+2. OAS 전용 `example`/`examples`, `deprecated`, `readOnly`, `writeOnly`, encoding
+   `contentEncoding`와 generator provenance key
+   `x-oa-sdk-original-pattern`은 비교에서 제거한다. 각각 runtime 타입이 아닌 문서 annotation 또는
+   source pattern 보조 정보이며, pattern 값 자체는 별도 비교한다.
+3. source `title`이 없으면 Pydantic이 자동 생성한 model/property `title`을 제거하고, source에
+   `title`이 있으면 값이 정확히 일치해야 한다.
+4. optional `anyOf`는 key loop 전에 null branch를 접고 outer `description`, `title`, `format`,
+   `default`, `json_schema_extra` sibling을 보존한다. required가 아닌 source property가 nullable이
+   아니면 generated `T | None`의 null branch와 `default: null`을 제거해 OAS optional과 Pydantic
+   optional을 비교한다. source가 default를 선언한 경우에는 default를 유지해 비교한다.
+5. `required` 배열과 union branch 순서는 정렬한다. `type: [T, null]`과 nullable union은 같은
+   canonical form으로 만든다. 열린 object의 generated `additionalProperties: true`는 source가
+   해당 키를 생략한 경우에만 제거한다. `unevaluatedProperties: {}`와
+   `additionalProperties: true`는 생략과 같고, typed `unevaluatedProperties`는
+   `additionalProperties`로 비교한다. 빈 `properties`와 빈 `required`도 생략과 같다.
+6. `int8`/`int16`/`int32`/`int64`/`uint*`/`safeint`, wire-only `unixtime`, `http-date`,
+   `base64url`, `byte`, `decimal`, `decimal128`, `float`, `double` format은 Pydantic schema에 직접 대응하지 않는
+   OAS wire annotation으로 제거한다. `uri`/`url`과 Pydantic이 직접 표현하는 `date`, `time`,
+   `duration`, `uuid`, `email`, `binary` format은 유지한다.
+7. format-implied integer bounds are materialized as `minimum`/`maximum` (explicit source bounds
+   remain stricter when present). Base64 `contentEncoding`/`byte`/`base64url` forms are canonicalized
+   by dropping encoding-only format annotations; the decoded/wire Python type remains the compared type.
+8. `allOf` branches are dereferenced and flattened by merging only `properties`, the union of
+   `required` names, `type`, and additional-properties policy. Base `oneOf`/`anyOf`, discriminator,
+   description, title, examples, and `$id` are not copied into a concrete variant. A discriminator on
+   a base object without a union is consumed by the generator's polymorphic-ref rule and is omitted;
+   union discriminator mappings are reduced to component names and `oneOf`/`anyOf` branches are sorted.
+9. A one-value `enum` and `const` are canonicalized as the same one-value `enum`; an implied `type`
+   on enum/const values and `type: object` implied by `properties` are omitted. Model descriptions are
+   compared after `inspect.cleandoc`. Cyclic references remain named `$ref` markers instead of being expanded.
+10. A source `$ref` to a non-object scalar alias drops that component's description, title, and examples
+    when comparing a field use; keywords on the referencing property remain. This reflects the current
+    scalar alias inlining behaviour.
+11. Parameter models are derived after resolving component parameter refs, applying path-item then
+    operation-level `(in, name)` override, retaining parameter descriptions/defaults for optional
+    parameters (required defaults are ignored like the generator), and using closed parameter groups
+    with path parameters required.
+
+허용 목록은 [`parity-allowlist.json`](../../packages/codegen/src/pydantic/__tests__/python-lane/parity-allowlist.json)의
+`{fixture, pointer, reason}` 항목이며 exact pointer만 허용하고 사용되지 않은 항목도 실패한다.
+기대 counter는 `approved=70/2/0`, `chunk-stream=26/0/0`,
+`discriminated-envelope=6/0/0`, `cycles=3/0/0`, `scalars=1/0/0`,
+`operations=9/0/0` (`comparedModels/allowListedDifferences/newDifferences`)와
+`type-fidelity=3/1/0`이다. type-fidelity는 추가로 `modelTitle=1`, `fieldTitle=1`,
+`originalPattern=1`, `uriFormat=1`을 검사한다.
 
 ## 알려진 제한
 
@@ -434,5 +488,12 @@ OA_SDK_PYDANTIC_PY_LANE=1 corepack pnpm --filter @oa-sdk/codegen exec vitest run
 - `encodingPolicy: decode`의 `base64url` 필드는 Python 값으로 모델을 만들 때도 encoded form(예: `"AQID"`)을 받는다. 검증 후 Python 값은 `bytes`다.
 - `oneOf`/`anyOf`에 discriminator가 없으면 Pydantic의 smart union 의미를 사용하므로 JSON
   Schema의 “정확히 하나” 조건을 별도로 보장하지 않는다.
-- `format: uri`의 `any-url`은 값을 정규화할 수 있다. 왕복 보존이 필요하면 기본 `uri: str`을
-  사용한다.
+- `format: uri`의 `any-url`은 Pydantic `AnyUrl`의 any-url 정규화(예: 끝 `/` 추가)로 값을
+  바꿀 수 있다. 값과 schema의 왕복 보존이 필요하면 `uri: str`을 사용한다. `uri: str`은
+  `json_schema_extra`에 원래 `format`을 남긴다.
+- parity는 위 규칙으로 OAS 전용 keyword, `$ref`, nullable/optional 표현을 정규화한 뒤 비교한다.
+  approved fixture의 SSE `data`는 P2e stream 결정에 따라 `Any`로 렌더링되어
+  `contentMediaType`/`contentSchema`를 내보내지 않는 두 exact pointer만 허용한다. type-fidelity의
+  ECMA `\\d` 번역 차이까지 포함해 allow-list는 세 항목이며, 새 차이와 사용되지 않은 항목은 실패한다.
+- scalar alias를 각 field 사용처에서 설명/title/examples까지 복원하지 않는 것은 현재 알려진 fidelity gap이다.
+- manifest/provenance 산출물은 types-only 결정에 따라 이 milestone 범위에서 생성하지 않는다.

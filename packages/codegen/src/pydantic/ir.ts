@@ -109,8 +109,11 @@ export interface PyField {
   description?: string
   deprecated?: boolean
   examples?: unknown[]
+  title?: string
   /** `x-*` keys of the property schema, preserved verbatim (`json_schema_extra`). */
   extensions?: Record<string, unknown>
+  /** JSON Schema metadata that is not an OAS extension (source format/pattern, etc.); title is separate. */
+  jsonSchemaExtra?: Record<string, unknown>
   /** JSON Pointer of the property schema in the prepared document. */
   pointer: string
 }
@@ -140,8 +143,11 @@ export interface PyModelDecl {
   discriminator?: { propertyName: string; role: 'base' | 'variant'; tag?: string }
   envelopeVariant?: boolean | null
   description?: string
+  title?: string
   deprecated?: boolean
   extensions?: Record<string, unknown>
+  /** JSON Schema metadata that is not an OAS extension (title, etc.). */
+  jsonSchemaExtra?: Record<string, unknown>
   pointer: string
   /** Set for inline declarations owned by an operation. */
   operationOwner?: string
@@ -186,7 +192,10 @@ export interface PyOperationParameterDecl {
   style: string | null
   explode: boolean | null
   schema: PyTypeExpr
+  schemaDefault?: { json: unknown }
   description?: string
+  title?: string
+  jsonSchemaExtra?: Record<string, unknown>
   pointer: string
 }
 

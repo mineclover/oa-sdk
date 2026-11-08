@@ -1,17 +1,26 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import type { OasDocument } from '@oa-sdk/parser'
 import { buildPydanticModels } from '../build.js'
 import { PYDANTIC_FIXTURE_NAMES, loadPydanticFixture } from './fixtures.js'
 import { PYDANTIC_PRESETS, type PydanticBuildOptions, type PydanticPreset } from '../options.js'
+import { deriveParitySourceSchemas } from './parity-source.js'
 
 type Example = { pyName: string; value: unknown; alias: boolean }
 const enabled = process.env.OA_SDK_PYDANTIC_PY_LANE === '1'
 const lane = enabled ? describe : describe.skip
 const driverPath = join(import.meta.dirname, 'python-lane/check_models.py')
 const presets = Object.keys(PYDANTIC_PRESETS) as PydanticPreset[]
+const parityAllowList = JSON.parse(readFileSync(join(import.meta.dirname, 'python-lane/parity-allowlist.json'), 'utf8')) as Array<{ fixture: string; pointer: string; reason: string }>
+const parityExpectedModels: Record<string, number> = {
+  approved: 70, 'chunk-stream': 26, 'discriminated-envelope': 6, cycles: 3, scalars: 1, operations: 9,
+}
+const parityExpectedAllowListedDifferences: Record<string, number> = {
+  approved: 2, 'chunk-stream': 0, 'discriminated-envelope': 0, cycles: 0, scalars: 0, operations: 0,
+}
 
 const semanticDocument = {
   openapi: '3.2.0', info: { title: 'semantic', version: '1' }, components: { schemas: {
@@ -105,6 +114,26 @@ const bodyTypesLaneDocument = {
     operationId: 'raw', requestBody: { content: { 'text/plain': {} } },
     responses: { '200': { description: 'bytes', content: { 'application/octet-stream': {} } } },
   } } }
+}
+
+const fidelityDocument = {
+  openapi: '3.2.0', info: { title: 'type fidelity', version: '1' }, components: { schemas: {
+    Profile: { type: 'object', title: 'Profile title', required: ['displayName', 'code'], properties: {
+      displayName: { type: 'string', title: 'Display name' },
+      code: { type: 'string', title: 'Code', pattern: '\\d+' },
+      homepage: { type: 'string', format: 'uri' },
+      ttl: { type: 'string', format: 'duration', default: 'P1Y' },
+    } },
+  } }, paths: { '/profiles/{profileId}': { post: {
+    operationId: 'createProfile', parameters: [{ name: 'profileId', in: 'path', required: true,
+      schema: { type: 'string', title: 'Profile id' } }], requestBody: { required: true, content: {
+      'application/json': { schema: { type: 'object', title: 'Create body', required: ['displayName'], properties: {
+        displayName: { type: 'string', title: 'Display name' },
+      } } },
+    } }, responses: { '200': { description: 'ok', content: {
+      'application/json': { schema: { $ref: '#/components/schemas/Profile' } },
+    } } },
+  } } },
 }
 
 function runDriver(modulePath: string, payload: unknown): Record<string, number> {
@@ -219,6 +248,25 @@ lane('Pydantic Python lane (set OA_SDK_PYDANTIC_PY_LANE=1 to run)', () => {
     })
   }
 
+  for (const fixtureName of PYDANTIC_FIXTURE_NAMES) {
+    it(`parity/${fixtureName}`, () => {
+      const document = loadPydanticFixture(fixtureName)
+      const result = buildPydanticModels(document, { layout: 'single', regex: 'ecma' })
+      const source = deriveParitySourceSchemas(document, result.ir)
+      const dir = writeModule(result)
+      try {
+        const actual = runDriver(dir, {
+          module: join(dir, 'models.py'), fixture: fixtureName, parity: true,
+          sourceSchemas: source.models, components: source.components,
+          refMap: source.refMap,
+          modelMap: Object.fromEntries(Object.keys(source.models).map(name => [name, name])),
+          allowList: parityAllowList.filter(entry => entry.fixture === fixtureName),
+        })
+        expect(actual).toEqual({ comparedModels: parityExpectedModels[fixtureName], allowListedDifferences: parityExpectedAllowListedDifferences[fixtureName], newDifferences: 0 })
+      } finally { rmSync(dir, { recursive: true, force: true }) }
+    })
+  }
+
   it('encoding/decode round-trips wire values and preserves model extensions', () => {
     const result = buildPydanticModels(encodingDocument, { encodingPolicy: 'decode' })
     const dir = writeModule(result)
@@ -326,6 +374,31 @@ lane('Pydantic Python lane (set OA_SDK_PYDANTIC_PY_LANE=1 to run)', () => {
       const actual = runDriver(dir, { module: join(dir, 'models.py'), fixture: 'body-types', options: result.options, bodyTypes: true })
       expect(actual).toEqual({ multipartBytes: 1, textAlias: 1, streamItems: 2, envelopeVariants: 1, envelopeUnknownReject: 1, schemaLessText: 1, schemaLessBytes: 1 })
       runStaticChecks(dir)
+    } finally { rmSync(dir, { recursive: true, force: true }) }
+  })
+
+  it('type metadata and normalized schema parity report exact counters', () => {
+    const result = buildPydanticModels(fidelityDocument, { regex: 'ecma', layout: 'single' })
+    const dir = writeModule(result)
+    try {
+      const source = deriveParitySourceSchemas(fidelityDocument as OasDocument, result.ir)
+      const actual = runDriver(dir, {
+        module: join(dir, 'models.py'), fixture: 'type-fidelity', parity: true,
+        sourceSchemas: source.models,
+        components: source.components,
+        refMap: source.refMap,
+        modelMap: Object.fromEntries(Object.keys(source.models).map(name => [name, name])),
+        allowList: parityAllowList.filter(entry => entry.fixture === 'type-fidelity'), metadata: true,
+      })
+      expect(actual).toEqual({ comparedModels: 3, allowListedDifferences: 1, newDifferences: 0, modelTitle: 1, fieldTitle: 1, originalPattern: 1, uriFormat: 1 })
+    } finally { rmSync(dir, { recursive: true, force: true }) }
+  })
+
+  it('normalizer unit cases cover optional, cyclic, allOf, alias, map, docs and literal forms', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'oa-sdk-pydantic-normalizer-'))
+    try {
+      const actual = runDriver(dir, { fixture: 'normalizer', normalizerUnit: true })
+      expect(actual).toEqual({ normalizerUnit: 1 })
     } finally { rmSync(dir, { recursive: true, force: true }) }
   })
 })

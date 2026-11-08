@@ -40,6 +40,7 @@ export interface PydanticLowerContext {
   operationPath?: string | undefined
   operationParameterPointers?: Record<string, string>
   schemas?: Record<string, OasSchema>
+  durationDiagnosticPointers?: Set<string>
 }
 
 function asRecord(value: unknown): SchemaRecord {
@@ -77,13 +78,14 @@ function addDiagnostic(
 function metadata(schema: OasSchema, context: PydanticLowerContext): SchemaRecord {
   const source = asRecord(schema)
   const result: SchemaRecord = {}
+  if (typeof source.title === 'string') result.title = source.title
   if (typeof source.description === 'string') result.description = source.description
   if (typeof source.deprecated === 'boolean') result.deprecated = source.deprecated
-  const examples = context.examples?.get(schema as object)
+  const schemaExamples = context.examples?.get(schema as object)
     ?? (Array.isArray(source.examples)
       ? source.examples
       : source.example === undefined ? undefined : [source.example])
-  if (examples !== undefined) result.examples = [...examples]
+  if (schemaExamples !== undefined) result.examples = [...schemaExamples]
   const extensions = Object.fromEntries(
     Object.entries(source).filter(([key]) => key.startsWith('x-')),
   )
@@ -91,6 +93,29 @@ function metadata(schema: OasSchema, context: PydanticLowerContext): SchemaRecor
   const defaultValue = context.defaultValues?.get(schema as object)
     ?? source.default
   if (defaultValue !== undefined) result.schemaDefault = { json: defaultValue }
+  const jsonSchemaExtra: Record<string, unknown> = {}
+  if (source.format === 'uri' || source.format === 'url') jsonSchemaExtra.format = source.format
+  const durationExamples = result.examples as unknown[] | undefined
+  const durationValues = [defaultValue, ...(durationExamples ?? [])]
+  const calendarDuration = durationValues.some(value => {
+    if (typeof value !== 'string') return false
+    const datePart = value.split('T', 1)[0] ?? value
+    return /^P(?:\d+(?:\.\d+)?Y)?(?:\d+(?:\.\d+)?M)?(?:\d+(?:\.\d+)?D)?$/i.test(datePart)
+      && /\d+(?:\.\d+)?[YM]/i.test(datePart)
+  })
+  const durationPointer = schemaPointer(schema, context)
+  if (source.format === 'duration' && calendarDuration
+    && (context.durationDiagnosticPointers === undefined || !context.durationDiagnosticPointers.has(durationPointer))) {
+    context.durationDiagnosticPointers?.add(durationPointer)
+    addDiagnostic(
+      context,
+      'pydantic/duration-calendar-unit',
+      'info',
+      schema,
+      'ISO 8601 duration uses years or months, which datetime.timedelta cannot represent exactly',
+    )
+  }
+  if (Object.keys(jsonSchemaExtra).length > 0) result.jsonSchemaExtra = jsonSchemaExtra
   return result
 }
 
@@ -459,6 +484,13 @@ function buildField(
       : { kind: 'union', members, discriminator: rawType.discriminator }
   }
   const facts = metadata(schema, context)
+  const referencedTarget = parseRefTarget(asRecord(schema).$ref)
+  const referencedSchema = referencedTarget === null ? undefined : context.schemas?.[referencedTarget]
+  const referencedFormat = asRecord(referencedSchema).format
+  const fieldJsonSchemaExtra = {
+    ...(asRecord(facts.jsonSchemaExtra) as Record<string, unknown>),
+    ...(referencedFormat === 'uri' || referencedFormat === 'url' ? { format: referencedFormat } : {}),
+  }
   if (required && facts.schemaDefault !== undefined) {
     addDiagnostic(
       context,
@@ -479,10 +511,14 @@ function buildField(
     default: null,
     rejectExplicitNull: null,
     ...(typeof facts.description === 'string' ? { description: facts.description } : {}),
+    ...(typeof facts.title === 'string' ? { title: facts.title } : {}),
     ...(typeof facts.deprecated === 'boolean' ? { deprecated: facts.deprecated } : {}),
     ...(Array.isArray(facts.examples) ? { examples: facts.examples } : {}),
     ...(asRecord(facts.extensions).constructor === Object && Object.keys(asRecord(facts.extensions)).length > 0
       ? { extensions: facts.extensions as Record<string, unknown> }
+      : {}),
+    ...(Object.keys(fieldJsonSchemaExtra).length > 0
+      ? { jsonSchemaExtra: fieldJsonSchemaExtra }
       : {}),
     pointer: schemaPointer(schema, context),
   }
@@ -554,9 +590,13 @@ function buildModelDecl(
       },
     }),
     ...(typeof facts.description === 'string' ? { description: facts.description } : {}),
+    ...(typeof facts.title === 'string' ? { title: facts.title } : {}),
     ...(typeof facts.deprecated === 'boolean' ? { deprecated: facts.deprecated } : {}),
     ...(asRecord(facts.extensions).constructor === Object && Object.keys(asRecord(facts.extensions)).length > 0
       ? { extensions: facts.extensions as Record<string, unknown> }
+      : {}),
+    ...(asRecord(facts.jsonSchemaExtra).constructor === Object && Object.keys(asRecord(facts.jsonSchemaExtra)).length > 0
+      ? { jsonSchemaExtra: facts.jsonSchemaExtra as Record<string, unknown> }
       : {}),
     pointer: schemaPointer(schema, context),
   }
@@ -646,7 +686,14 @@ function lowerOperation(operation: OperationEntry, context: PydanticLowerContext
       })
       return false
     })
-    .map((parameter, index) => ({
+    .map((parameter, index) => {
+      const parameterSchema = isSchemaLike(parameter.schema)
+        ? parameter.schema
+        : (Object.values(parameter.content ?? {})[0] !== undefined
+          && isSchemaLike(asRecord(Object.values(parameter.content ?? {})[0]).schema)
+          ? asRecord(Object.values(parameter.content ?? {})[0]).schema as OasSchema : undefined)
+      const parameterFacts = parameterSchema === undefined ? {} : metadata(parameterSchema, context)
+      return {
       location: parameter.in === 'path' || parameter.in === 'query' || parameter.in === 'header' || parameter.in === 'cookie'
         ? parameter.in : 'query',
       name: parameter.name,
@@ -654,15 +701,17 @@ function lowerOperation(operation: OperationEntry, context: PydanticLowerContext
       style: parameter.style ?? (parameter.in === 'path' || parameter.in === 'header' ? 'simple' : 'form'),
       explode: parameter.explode ?? (parameter.style === 'form' || (parameter.style === undefined && parameter.in !== 'path' && parameter.in !== 'header')),
       schema: lowerSchema(
-        isSchemaLike(parameter.schema) ? parameter.schema
-          : (Object.values(parameter.content ?? {})[0] !== undefined
-            && isSchemaLike(asRecord(Object.values(parameter.content ?? {})[0]).schema)
-            ? asRecord(Object.values(parameter.content ?? {})[0]).schema as OasSchema : undefined),
+        parameterSchema,
         `Parameter/${parameter.in}/${parameter.name}`,
       ),
+      ...(parameterFacts.schemaDefault === undefined ? {} : { schemaDefault: parameterFacts.schemaDefault as { json: unknown } }),
       ...(typeof parameter.description === 'string' ? { description: parameter.description } : {}),
+      ...(typeof parameterFacts.title === 'string' ? { title: parameterFacts.title } : {}),
+      ...(asRecord(parameterFacts.jsonSchemaExtra).constructor === Object && Object.keys(asRecord(parameterFacts.jsonSchemaExtra)).length > 0
+        ? { jsonSchemaExtra: parameterFacts.jsonSchemaExtra as Record<string, unknown> } : {}),
       pointer: parameterPointer(parameter, index),
-    }))
+      }
+    })
   let requestBody: PyBodyDecl | null = null
   if (operation.requestBody !== undefined) {
     const selected = operationMedia(operation.requestBody.content as Record<string, unknown> | undefined)
@@ -767,7 +816,10 @@ function parameterField(parameter: PyOperationParameterDecl): PyField {
     nullable,
     default: null,
     rejectExplicitNull: null,
+    ...(parameter.schemaDefault === undefined ? {} : { schemaDefault: parameter.schemaDefault }),
     ...(parameter.description === undefined ? {} : { description: parameter.description }),
+    ...(parameter.title === undefined ? {} : { title: parameter.title }),
+    ...(parameter.jsonSchemaExtra === undefined ? {} : { jsonSchemaExtra: parameter.jsonSchemaExtra }),
     pointer: parameter.pointer,
   }
 }
@@ -826,6 +878,7 @@ export function lowerToPyIr(
     operationParameterPointers: prepared.operationParameterPointers,
     declaredInline: new WeakMap(),
     declaredInlineByPointer: new Map(),
+    durationDiagnosticPointers: new Set(),
   }
   recordPointers(prepared.document, context)
   const declarations: PyDecl[] = []
