@@ -44,6 +44,7 @@ Common commands:
 | `oa-gen typegen` | TypeScript types (`--incremental` skips regeneration when inputs are unchanged) |
 | `oa-gen generate:zod` | Zod 4 schemas and inferred types |
 | `oa-gen generate:guards` | Standalone, dependency-free type guards |
+| `oa-gen generate:pydantic` | Pydantic v2 `models.py` DTOs from OAS 3.2 `components.schemas` (Phase 1) |
 | `oa-gen generate:client`, `oa-gen generate:tanstack` | fetch client and TanStack Query v5 keys, options and hooks |
 | `oa-gen generate` | Everything `oa.config.ts` declares, including handler contracts (`*.contract.ts`) |
 | `oa-gen mock` | Mock server that validates requests against the contract |
@@ -60,6 +61,15 @@ No `oa-gen` command writes a Fastify, Express, Hono, or Elysia router file. When
 code, call `generateRouter()` from `@oa-sdk/router` in a build script. In the oa-sdk source
 repository, the step-by-step guide is `docs/guides/quick-start.md` and the full option reference is
 `docs/guides/cli-command-reference.md`.
+
+For Pydantic v2 DTO generation from an OAS document, run:
+
+```bash
+pnpm exec oa-gen generate:pydantic --spec ./openapi.yaml --out ./generated
+```
+
+See the [Pydantic code generation guide](../../docs/guides/pydantic-codegen.md) for the API,
+plugin, staged pipeline, options, and Phase 1 limits.
 
 ### Scripts `oa-gen init` adds
 

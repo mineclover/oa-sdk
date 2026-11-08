@@ -15,7 +15,7 @@ oa-sdk에서 **무엇을 할 수 있는지**, **어디서 시작할지**, **무�
 | 순서 | 목적 | 대표 작업·결과 |
 | --- | --- | --- |
 | [1. 계약 입력](#1-계약-입력) | 시작할 원본과 입력 경계 정하기 | init, TypeSpec 작성, OpenAPI 수집·정규화, Zod/Drizzle 연결 |
-| [2. 코드 생성](#2-코드-생성) | 필요한 산출물 만들기 | 데이터 타입·guard → 서버 핸들러·라우터 → 소비자 SDK·Query·RPC 계약 |
+| [2. 코드 생성](#2-코드-생성) | 필요한 산출물 만들기 | 데이터 타입·guard·Python DTO → 서버 핸들러·라우터 → 소비자 SDK·Query·RPC 계약 |
 | [3. 실행·도구 연결](#3-실행과-도구-연결) | 계약과 handler를 호출 표면에 연결하기 | RPC runtime, MCP·CLI·HTTP 도구, WebMCP provider/client |
 | [4. 검증·리뷰](#4-검증과-리뷰) | 결과와 변경을 확인하기 | lint·validate·mock, diff·drift·동기화, 출처·이력·영향도 |
 | [5. 런타임 지원](#5-런타임-지원) | 실행 중 데이터와 상태를 다루기 | chunk 재생·CRDT·협업 상태·telemetry |
@@ -34,7 +34,7 @@ oa-sdk에서 **무엇을 할 수 있는지**, **어디서 시작할지**, **무�
 
 | 작업 | 기능·시작점·범위 | 문서 |
 | --- | --- | --- |
-| 타입·검증 코드 생성 | `typegen`, `generate:zod`, `generate:guards`; HTTP 없는 모델과 CSP용 standalone guard 지원 | [순수 타입과 가드](./pure-types-and-guards.md), [CLI 레퍼런스](./cli-command-reference.md) |
+| 타입·검증 코드 생성 | `typegen`, `generate:zod`, `generate:guards`; `generate:pydantic`은 OAS 3.2 `components.schemas`에서 Python Pydantic v2 DTO `models.py` 생성(Phase 1) | [순수 타입과 가드](./pure-types-and-guards.md), [Pydantic 코드 생성](./pydantic-codegen.md), [CLI 레퍼런스](./cli-command-reference.md) |
 | 백엔드 핸들러 구현 | `@oa-sdk/router`의 순수 `*.contract.ts`와 Hono/Express/Fastify/Elysia 라우터 코드 생성. 비즈니스 구현·서버 실행은 사용자 책임 | [핸들러 계약](./backend-handler-contracts.md), [router](../../packages/router/README.md) |
 | 프론트엔드·서비스 클라이언트 | `@oa-sdk/client`의 fetch SDK, 취소·스트리밍, TanStack Query v5 키·옵션·React 훅 생성 | [클라이언트·쿼리 소비](./client-and-query-consumption.md) |
 | 다른 호출 표면으로 투영 | `@oa-sdk/surface-ir`, `oa-gen surface`의 Forge projection·Overlay와 RPC contract 투영. RPC 실행 runtime은 3단계의 `@oa-sdk/rpc`가 담당 | [Forge 지원](./forge-support.md), [계약 RPC](./typespec-rpc.md) |
@@ -79,7 +79,7 @@ oa-sdk에서 **무엇을 할 수 있는지**, **어디서 시작할지**, **무�
 
 | 설정 | 입력 조건 | 선택할 출력 | 대표 사용 목적 |
 | --- | --- | --- | --- |
-| `data` | 모델이 있고 HTTP operation이 없음 | 타입·가드·데이터 변환 구성; client/router/query/RPC 플러그인은 거부 | 이벤트 payload, 설정·공유 모델 등 데이터 구조 |
+| `data` | 모델이 있고 HTTP operation이 없음 | 타입·가드·Pydantic DTO·데이터 변환 구성; client/router/query/RPC 플러그인은 거부 | 이벤트 payload, 설정·공유 모델 등 데이터 구조 |
 | `api` | HTTP operation이 최소 1개 | 타입·핸들러·라우터·SDK 등 필요한 플러그인 명시 | API 서버 계약과 구현 준비 |
 | `interface` | 모델 또는 operation이 있음 | 소비자 타입·핸들러·SDK·RPC 등 필요한 출력 명시 | 다른 서비스·앱이 사용할 인터페이스 |
 
@@ -125,7 +125,7 @@ private·배포 후보·배포 기록은 [진입점 지도](./library-entrypoint
 | 목적 | 추가·보강 내용 | 소스 위치 |
 | --- | --- | --- |
 | 1. 도구 계약 작성 | `@toolGroup`, `@oaTool`, inspect/plan/apply/verify/handoff 및 CLI/MCP/table metadata | `packages/typespec-decorators/lib/tool-pipeline.tsp`, `packages/typespec-decorators/src/tool-pipeline.ts` |
-| 2. 타입·검증기 생성 | AST guard 렌더링 및 플러그인의 공통 guard 생성 경로 보강 | `packages/ast-sync/src/guards/generator.ts`, `packages/codegen/src/plugin/plugins/typescript.ts` |
+| 2. 타입·검증기 생성 | AST guard 렌더링 및 플러그인의 공통 guard 생성 경로 보강, OAS 3.2 `components.schemas` 기반 Pydantic v2 DTO 생성(Phase 1) | `packages/ast-sync/src/guards/generator.ts`, `packages/codegen/src/plugin/plugins/typescript.ts`, `packages/codegen/src/pydantic/`, `packages/codegen/src/cli/commands/generate-pydantic.ts` |
 | 2. 도구 구성 생성 | `hydrateToolsFromOpenApi`, skill·harness 문서 생성, Standard Schema bridge | `packages/tools/src/openapi-hydrator.ts`, `standard-schema.ts` |
 | 3. 도구 실행·인계 | CLI-Anything·mcp-use adapter, session·preview·handoff 저장 계약 | `packages/tools/src/cli-anything.ts`, `mcp-use.ts`, `reserved-interfaces.ts` |
 | 5. 표 데이터 지원 | 여섯 adapter 계열의 공통 Table IR, patch 계획과 로컬 파일 I/O 소스 | `packages/tools/src/table-ir.ts`, `table-file-io.ts` |
