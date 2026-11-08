@@ -9,6 +9,7 @@ const here = (relative: string): string => fileURLToPath(new URL(relative, impor
 export const PYDANTIC_FIXTURE_PATHS = {
   approved: here('../../../../schemas/typespec/approved.openapi.yaml'),
   'chunk-stream': here('./fixtures/chunk-stream/chunk-stream.openapi.yaml'),
+  'discriminated-envelope': here('./fixtures/discriminated-envelope/discriminated-envelope.openapi.yaml'),
   cycles: here('./fixtures/cycles/cycles.openapi.yaml'),
   scalars: here('./fixtures/scalars/scalars.openapi.yaml'),
   operations: here('./fixtures/operations/operations.openapi.yaml'),

@@ -1,5 +1,6 @@
 /** S4 operation scope checks for constructs deferred to later milestones. */
 import type { PyPass } from './index.js'
+import type { PyTypeExpr } from '../ir.js'
 import { cloneIr } from './lib/ir-utils.js'
 
 export const operationScopePass: PyPass<never> = {
@@ -15,39 +16,21 @@ export const operationScopePass: PyPass<never> = {
         continue
       }
       if (operation.kind !== 'operation') continue
-      if (operation.requestBody !== null && operation.requestBody.mediaType !== null
-        && !isJsonMediaType(operation.requestBody.mediaType)) {
-        result.diagnostics.push({
-          code: 'pydantic/media-type-unsupported', severity: 'warning', pointer: operation.requestBody.pointer,
-          message: `Only JSON request bodies are rendered (found ${operation.requestBody.mediaType})`,
-        })
-      }
-      if (operation.requestBody !== null && operation.requestBody.otherMediaTypes.length > 0) {
-        result.diagnostics.push({
-          code: 'pydantic/media-type-unsupported', severity: 'warning', pointer: operation.requestBody.pointer,
-          message: `Multiple or additional request body media types are present; ignored: ${operation.requestBody.otherMediaTypes.join(', ')}`,
-        })
-      }
+      for (const media of operation.requestBody?.mediaTypes ?? []) if (media.schema === null || isAny(media.schema)) result.diagnostics.push({
+        code: 'pydantic/media-type-unsupported', severity: 'warning', pointer: operation.requestBody?.pointer ?? operation.pointer,
+        message: `No typed schema is available for request media type ${media.mediaType}`,
+      })
       for (const response of operation.responses) {
-        if (response.mediaType !== null && !isJsonMediaType(response.mediaType)) {
-          result.diagnostics.push({
-            code: 'pydantic/media-type-unsupported', severity: 'warning', pointer: response.pointer,
-            message: `Only JSON responses are rendered (found ${response.mediaType})`,
-          })
-        }
-        if (response.otherMediaTypes.length > 0) {
-          result.diagnostics.push({
-            code: 'pydantic/media-type-unsupported', severity: 'warning', pointer: response.pointer,
-            message: `Multiple or additional response media types are present; ignored: ${response.otherMediaTypes.join(', ')}`,
-          })
-        }
+        for (const media of response.mediaTypes) if (media.schema === null || isAny(media.schema)) result.diagnostics.push({
+          code: 'pydantic/media-type-unsupported', severity: 'warning', pointer: response.pointer,
+          message: `No typed schema is available for response media type ${media.mediaType}`,
+        })
       }
     }
     return result
   },
 }
 
-function isJsonMediaType(value: string): boolean {
-  const base = value.split(';', 1)[0]!.trim().toLowerCase()
-  return base === 'application/json' || base.endsWith('+json')
+function isAny(type: PyTypeExpr | null): boolean {
+  return type?.kind === 'builtin' && type.name === 'Any'
 }

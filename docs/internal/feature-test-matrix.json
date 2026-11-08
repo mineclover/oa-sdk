@@ -1158,7 +1158,7 @@
       "name": "OAS 3.2 to Pydantic v2 generation",
       "category": "codegen",
       "package": "@oa-sdk/codegen",
-      "description": "Pydantic v2 DTO and operation IR generation with encoded scalar decoding, model extensions, frozen/docstring settings, and ruff/pyright quality gates through the CLI, API, staged pipeline, and TypeSpec plugin.",
+      "description": "Pydantic v2 DTO and operation IR generation with encoded scalar decoding, model extensions, frozen/docstring settings, and ruff/pyright quality gates through the CLI, API, staged pipeline, and TypeSpec plugin.; non-JSON body/response types, stream item aliases, discriminated envelopes",
       "capabilities": [
         "generate:pydantic",
         "buildPydanticModels",
@@ -1195,6 +1195,10 @@
       "commands": [
         "pnpm --filter @oa-sdk/codegen test",
         "pnpm --filter @oa-sdk/codegen typecheck"
+      ],
+      "tests": [
+        "packages/codegen/src/pydantic/__tests__/body-types.test.ts",
+        "packages/codegen/src/pydantic/__tests__/fixtures/discriminated-envelope/discriminated-envelope.openapi.yaml"
       ]
     },
     {

@@ -822,6 +822,7 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `buildPydanticModels()` | `pydantic/build.ts` | OpenAPI 문서에서 Pydantic v2 모델 모듈과 진단 생성 |
 | `renderPyModule()` | `pydantic/render.ts` | 해결된 Pydantic IR을 Python 소스로 렌더링 |
 | `renderPyOperationsModule()` | `pydantic/render-operations.ts` | split/single operation 모델과 `OPERATIONS` metadata 렌더링 |
+| `PyMediaTypeDecl` | `pydantic/ir.ts` | media type별 body/response 타입과 stream item metadata |
 | `renderPyPackageInit()` | `pydantic/render-operations.ts` | split generated package의 `__init__.py` 렌더링 |
 | `renderJson()` | `pydantic/render.ts` | IR 값의 deterministic Python literal 렌더링 |
 | `renderType()` | `pydantic/render.ts` | IR 타입 표현 렌더링 |

@@ -84,6 +84,9 @@ describe('[P1a] S1-S3 data contract', () => {
           }
         } else if (decl.kind === 'enum') {
           expect([decl.repr, decl.members], decl.name).toEqual([null, null])
+        } else if (decl.kind === 'operation') {
+          for (const media of decl.requestBody?.mediaTypes ?? []) expect(media.pyName).toBeNull()
+          for (const response of decl.responses) for (const media of response.mediaTypes) expect(media.pyName).toBeNull()
         }
       }
     })
@@ -108,6 +111,14 @@ describe('[P1b] S4 pass contract', () => {
       })
     }
   }
+
+  it('S4 resolves every media alias and envelope decision slot', () => {
+    const { ir, analysis } = lowerFixture(loadPydanticFixture('discriminated-envelope'))
+    expect(runPyPasses(ir, resolvePydanticBuildOptions(), analysis).ir.decls.flatMap(decl => decl.kind === 'operation'
+      ? [...(decl.requestBody?.mediaTypes ?? []), ...decl.responses.flatMap(response => response.mediaTypes)].map(media => media.pyName)
+      : []).every(value => value !== null)).toBe(true)
+    expect(findUnresolvedPySlots(runPyPasses(ir, resolvePydanticBuildOptions(), analysis).ir)).toEqual([])
+  })
 
   it('every option a pass declares is observable in that pass on some fixture', () => {
     const unobserved: string[] = []
@@ -222,6 +233,20 @@ describe('[P1c] S5-S6 output contract', () => {
     expect(smart.decls.some(decl => decl.kind === 'alias' && decl.type.kind === 'union' && decl.type.exact === true)).toBe(false)
   })
 
+  it('S3 records envelope facts with an unresolved decision slot', () => {
+    const { ir, analysis } = lowerFixture(loadPydanticFixture('discriminated-envelope'))
+    for (const name of ['Pet', 'Pet2']) {
+      const decl = ir.decls.find(item => item.kind === 'alias' && item.name === name)
+      expect(decl?.kind === 'alias' && decl.type.kind === 'union' ? decl.type.envelope?.decision : undefined).toBeNull()
+    }
+    expect(ir.decls.filter(decl => decl.kind === 'model' && decl.envelopeVariant === null).map(decl => decl.name).sort()).toEqual(['Pet2Cat', 'Pet2Dog', 'PetCat', 'PetDog'])
+    expect(findUnresolvedPySlots(ir).some(slot => slot.slot.includes('envelope.decision'))).toBe(true)
+    expect(findUnresolvedPySlots(ir).some(slot => slot.slot.endsWith('envelopeVariant'))).toBe(true)
+    const resolved = runPyPasses(ir, resolvePydanticBuildOptions(), analysis).ir
+    expect(findUnresolvedPySlots(resolved)).toEqual([])
+    expect(resolved.decls.filter(decl => decl.kind === 'model' && decl.envelopeVariant === true).length).toBe(4)
+  })
+
   it('operation media, status unions, metadata, and report files are deterministic', () => {
     const document = {
       openapi: '3.2.0', info: { title: 'operation policies', version: '1' },
@@ -251,10 +276,13 @@ describe('[P1c] S5-S6 output contract', () => {
     expect(operation?.kind).toBe('operation')
     if (operation?.kind !== 'operation') return
     expect(operation.requestBody?.mediaType).toBe('text/plain')
+    expect(operation.requestBody?.schema).toEqual({ kind: 'builtin', name: 'str' })
+    expect(operation.requestBody?.mediaTypes.find(media => media.mediaType === 'text/plain')?.schema).toEqual({ kind: 'builtin', name: 'str' })
     expect(operation.responses.find(response => response.status === '200')?.mediaType).toBe('application/json')
-    expect(result.diagnostics.filter(diagnostic => diagnostic.code === 'pydantic/media-type-unsupported')).toHaveLength(2)
+    expect(result.diagnostics.filter(diagnostic => diagnostic.code === 'pydantic/media-type-unsupported')).toHaveLength(0)
     const operationSource = result.files.find(file => file.path === 'operations.py')?.content ?? ''
     expect(operationSource).toContain('ReadItemResponse: TypeAlias = Created | Accepted')
+    expect(operationSource).toContain('request_media={"text/plain": ReadItemBody}')
     expect(operationSource).toContain('ReadItemError: TypeAlias = NotFound | Error')
     expect(operationSource).toContain('"404": NotFound')
     expect(result.report.declarations.operations).toBe(1)

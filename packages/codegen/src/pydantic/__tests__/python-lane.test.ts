@@ -80,7 +80,31 @@ const operationLaneDocument = {
       '404': { description: 'missing', content: { 'application/json': { schema: { $ref: '#/components/schemas/NotFound' } } } },
       default: { description: 'error', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
     },
-  } } },
+  } } }
+}
+
+const bodyTypesLaneDocument = {
+  openapi: '3.2.0', info: { title: 'body types lane', version: '1' }, components: { schemas: {
+    Cat: { type: 'object', required: ['name', 'meow'], properties: { name: { type: 'string' }, meow: { type: 'integer' } } },
+    Dog: { type: 'object', required: ['name', 'bark'], properties: { name: { type: 'string' }, bark: { type: 'string' } } },
+    Pet: { type: 'object', oneOf: [{ $ref: '#/components/schemas/PetCat' }, { $ref: '#/components/schemas/PetDog' }], discriminator: { propertyName: 'kind', mapping: { cat: '#/components/schemas/PetCat', dog: '#/components/schemas/PetDog' } } },
+    PetCat: { type: 'object', required: ['kind', 'value'], properties: { kind: { type: 'string', enum: ['cat'] }, value: { $ref: '#/components/schemas/Cat' } } },
+    PetDog: { type: 'object', required: ['kind', 'value'], properties: { kind: { type: 'string', enum: ['dog'] }, value: { $ref: '#/components/schemas/Dog' } } },
+    Pet2: { type: 'object', oneOf: [{ $ref: '#/components/schemas/Pet2Cat' }, { $ref: '#/components/schemas/Pet2Dog' }], discriminator: { propertyName: 'type', mapping: { cat: '#/components/schemas/Pet2Cat', dog: '#/components/schemas/Pet2Dog' } } },
+    Pet2Cat: { type: 'object', required: ['type', 'data'], properties: { type: { type: 'string', enum: ['cat'] }, data: { $ref: '#/components/schemas/Cat' } } },
+    Pet2Dog: { type: 'object', required: ['type', 'data'], properties: { type: { type: 'string', enum: ['dog'] }, data: { $ref: '#/components/schemas/Dog' } } },
+  } }, paths: { '/upload': { post: {
+    operationId: 'upload', requestBody: { content: {
+      'multipart/form-data': { schema: { type: 'object', required: ['file'], properties: { file: { type: 'string', format: 'binary' }, files: { type: 'array', items: { type: 'string', format: 'binary' } } } } },
+      'text/plain': { schema: { type: 'string' } },
+    } }, responses: { '200': { description: 'stream', content: {
+      'text/event-stream': { itemSchema: { type: 'string' } },
+      'application/jsonl': { schema: { type: 'array', items: { type: 'string' } } },
+    } } },
+  } }, '/raw': { post: {
+    operationId: 'raw', requestBody: { content: { 'text/plain': {} } },
+    responses: { '200': { description: 'bytes', content: { 'application/octet-stream': {} } } },
+  } } }
 }
 
 function runDriver(modulePath: string, payload: unknown): Record<string, number> {
@@ -293,5 +317,15 @@ lane('Pydantic Python lane (set OA_SDK_PYDANTIC_PY_LANE=1 to run)', () => {
       rmSync(exactDir, { recursive: true, force: true })
       rmSync(smartDir, { recursive: true, force: true })
     }
+  })
+
+  it('non-JSON bodies, stream items and discriminated envelopes', () => {
+    const result = buildPydanticModels(bodyTypesLaneDocument, { layout: 'single' })
+    const dir = writeModule(result)
+    try {
+      const actual = runDriver(dir, { module: join(dir, 'models.py'), fixture: 'body-types', options: result.options, bodyTypes: true })
+      expect(actual).toEqual({ multipartBytes: 1, textAlias: 1, streamItems: 2, envelopeVariants: 1, envelopeUnknownReject: 1, schemaLessText: 1, schemaLessBytes: 1 })
+      runStaticChecks(dir)
+    } finally { rmSync(dir, { recursive: true, force: true }) }
   })
 })

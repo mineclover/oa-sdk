@@ -33,19 +33,20 @@
 
 | 순서 | pass | `reads` | 채우는 슬롯 |
 |---|---|---|---|
-| 1 | `polymorphicRefs` | — | `<Base>Union` tagged-union alias 추가, base 참조 치환, variant 태그 `Literal` |
-| 2 | `extraPolicy` | `extra` | `PyModelDecl.extra` |
-| 3 | `optionalPolicy` | `optionalStyle` | `PyField.default`, `PyField.rejectExplicitNull` |
-| 4 | `naming` | `naming` | 모든 `pyName`, `PyField.attribute`, `PyField.alias` |
-| 5 | `operationNaming` | `naming` | operation stem과 operation-owned inline model 이름 |
-| 6 | `operationScope` | 없음 | callback/webhook/non-JSON operation 제한 진단, parameter group `extra=forbid` 결정 |
-| 7 | `oneofPolicy` | `oneOfMode` | `oneOf` exact decision (`union.exact`) and ambiguity diagnostics |
-| 8 | `regex` | `regex` | `PyConstraints.pattern.python`, `PyModelDecl.regexEngine` |
-| 9 | `scalarPolicy` | `enumStyle`, `datetime`, `uri`, `intBounds`, `encodingPolicy` | 모든 `scalar` 사실 → wire/semantic 타입, `PyEnumDecl.repr`·`members` |
-| 10 | `extensions` | `extensions` | `x-*` 보존·정렬 또는 제거 |
-| 11 | `docstrings` | `docstrings` | 모델 설명을 docstring으로 유지/삭제 |
-| 12 | `frozen` | `frozen` | `ConfigDict(frozen=True)` 결정 |
-| 13 | `collectImports` | — | `PyModuleIR.imports` |
+| 1 | `envelopes` | — | S3 envelope facts의 `union.envelope.decision`과 variant `envelopeVariant` 결정 |
+| 2 | `polymorphicRefs` | — | `<Base>Union` tagged-union alias 추가, base 참조 치환, variant 태그 `Literal` |
+| 3 | `extraPolicy` | `extra` | `PyModelDecl.extra` |
+| 4 | `optionalPolicy` | `optionalStyle` | `PyField.default`, `PyField.rejectExplicitNull` |
+| 5 | `naming` | `naming` | 모든 `pyName`, `PyField.attribute`, `PyField.alias` |
+| 6 | `operationNaming` | `naming` | operation stem과 operation-owned inline model 이름 |
+| 7 | `operationScope` | 없음 | callback/webhook/non-JSON operation 제한 진단, parameter group `extra=forbid` 결정 |
+| 8 | `oneofPolicy` | `oneOfMode` | `oneOf` exact decision (`union.exact`) and ambiguity diagnostics |
+| 9 | `regex` | `regex` | `PyConstraints.pattern.python`, `PyModelDecl.regexEngine` |
+| 10 | `scalarPolicy` | `enumStyle`, `datetime`, `uri`, `intBounds`, `encodingPolicy` | 모든 `scalar` 사실 → wire/semantic 타입, `PyEnumDecl.repr`·`members` |
+| 11 | `extensions` | `extensions` | `x-*` 보존·정렬 또는 제거 |
+| 12 | `docstrings` | `docstrings` | 모델 설명을 docstring으로 유지/삭제 |
+| 13 | `frozen` | `frozen` | `ConfigDict(frozen=True)` 결정 |
+| 14 | `collectImports` | — | `PyModuleIR.imports` |
 
 각 pass의 세부 규칙은 해당 파일 머리 주석에 있다. 실행기는 pass마다 입력 IR을 복제해 deep-freeze하므로 pass가 입력을 변경하면 즉시 예외가 난다.
 
@@ -58,6 +59,8 @@
 - base는 `discriminator.mapping`을 가진다.
 
 S3는 이 형태를 `bases: [Base]` + 일반 필드로 낮추고, S4 `polymorphicRefs`가 태그를 `Literal`로 좁힌다.
+
+operation body/response IR은 `mediaTypes[]`를 사실로 기록한다. 각 항목의 `schema`, `itemType`, `stream`은 S3 사실이고 `pyName: null`은 `operationNaming`이 채우는 결정 슬롯이다. `bodyMedia`와 `responseMedia`는 media별 결정 이름을 보관한다. SSE·JSON Lines request/response stream은 `itemSchema` 또는 배열 `items`를 `itemType`으로 기록하며 S5가 `streams` metadata를 렌더링한다. 명시 discriminator와 `$ref` envelope branch의 tag/value 속성은 `union.envelope` facts로 기록하고 `envelopes` pass가 decision slot을 채운다. discriminator 없는 hand-written `oneOf`에는 이 추론을 적용하지 않는다.
 
 ## 3. 빌드 옵션
 

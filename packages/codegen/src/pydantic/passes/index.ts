@@ -10,6 +10,7 @@ import { collectImportsPass } from './collect-imports.js'
 import { extensionsPass } from './extensions.js'
 import { frozenPass } from './frozen.js'
 import { docstringsPass } from './docstrings.js'
+import { envelopePass } from './envelopes.js'
 import { extraPolicyPass } from './extra-policy.js'
 import { namingPass } from './naming.js'
 import { operationNamingPass } from './operation-naming.js'
@@ -34,6 +35,7 @@ export type PyPassName =
   | 'operationNaming'
   | 'operationScope'
   | 'oneofPolicy'
+  | 'envelopes'
 
 export interface PyPass<K extends keyof PydanticSemanticOptions> {
   readonly name: PyPassName
@@ -45,6 +47,7 @@ export type AnyPyPass = PyPass<keyof PydanticSemanticOptions>
 
 /** Execution order. */
 export const PY_PASSES: readonly AnyPyPass[] = Object.freeze([
+  envelopePass,
   polymorphicRefsPass,
   extraPolicyPass,
   optionalPolicyPass,

@@ -39,6 +39,7 @@ export interface PyScalarFact {
   base: 'string' | 'integer' | 'number'
   format?: string
   contentEncoding?: string
+  contentMediaType?: string
   /** JSON Pointer of the scalar's schema, for diagnostics about how it is mapped. */
   pointer?: string
 }
@@ -66,7 +67,15 @@ export type PyTypeExpr =
   | { kind: 'dict'; value: PyTypeExpr }
   | { kind: 'literal'; values: PyLiteralValue[] }
   /** `discriminator` is set only for tagged unions (property name on every member). */
-  | { kind: 'union'; members: PyTypeExpr[]; discriminator: string | null; origin?: 'oneOf'; exact?: boolean }
+  | {
+    kind: 'union'
+    members: PyTypeExpr[]
+    discriminator: string | null
+    origin?: 'oneOf'
+    exact?: boolean
+    /** S3 facts for TypeSpec @discriminated envelopes; S4 resolves the decision. */
+    envelope?: { discriminator: string; variants: Array<{ target: string; tagProperty: string; tagValue: PyLiteralValue; valueProperty: string }>; decision: 'envelope' | null }
+  }
   /**
    * Constraints in a nested position render as `Annotated[base, Field(...)]`;
    * on a field they render inside the field's `Field(...)`.
@@ -129,6 +138,7 @@ export interface PyModelDecl {
   frozen?: boolean | null
   /** Set when this model belongs to a discriminator family (fact from S2). */
   discriminator?: { propertyName: string; role: 'base' | 'variant'; tag?: string }
+  envelopeVariant?: boolean | null
   description?: string
   deprecated?: boolean
   extensions?: Record<string, unknown>
@@ -193,8 +203,17 @@ export interface PyBodyDecl {
   mediaType: string | null
   otherMediaTypes: string[]
   schema: PyTypeExpr | null
+  mediaTypes: PyMediaTypeDecl[]
   description?: string
   pointer: string
+}
+
+export interface PyMediaTypeDecl {
+  mediaType: string
+  schema: PyTypeExpr | null
+  stream: boolean
+  itemType: PyTypeExpr | null
+  pyName: string | null
 }
 
 export interface PyResponseDecl {
@@ -202,6 +221,7 @@ export interface PyResponseDecl {
   mediaType: string | null
   otherMediaTypes: string[]
   schema: PyTypeExpr | null
+  mediaTypes: PyMediaTypeDecl[]
   headers: PyOperationHeaderDecl[]
   description?: string
   pointer: string
@@ -232,6 +252,8 @@ export interface PyOperationDecl {
     body: string | null
     response: string | null
     error: string | null
+    bodyMedia: Record<string, string | null>
+    responseMedia: Record<string, string | null>
   }
   pointer: string
 }
@@ -297,6 +319,7 @@ export function findUnresolvedPySlots(ir: PyModuleIR): UnresolvedPySlot[] {
         visitType(type.value, pointer, `${slot}.value`)
         return
       case 'union':
+        if (type.envelope?.decision === null) found.push({ pointer, slot: `${slot}.envelope.decision` })
         type.members.forEach((member, index) => visitType(member, pointer, `${slot}.members[${index}]`))
         return
       case 'constrained':
@@ -313,6 +336,7 @@ export function findUnresolvedPySlots(ir: PyModuleIR): UnresolvedPySlot[] {
   for (const decl of ir.decls) {
     if (decl.pyName === null) found.push({ pointer: decl.pointer, slot: `${decl.name}.pyName` })
     if (decl.kind === 'model') {
+      if (decl.envelopeVariant === null) found.push({ pointer: decl.pointer, slot: `${decl.name}.envelopeVariant` })
       if (decl.extra === null) found.push({ pointer: decl.pointer, slot: `${decl.name}.extra` })
       if (decl.regexEngine === null) found.push({ pointer: decl.pointer, slot: `${decl.name}.regexEngine` })
       if (decl.frozen === null) found.push({ pointer: decl.pointer, slot: `${decl.name}.frozen` })
@@ -333,15 +357,28 @@ export function findUnresolvedPySlots(ir: PyModuleIR): UnresolvedPySlot[] {
     } else {
       for (const [role, value] of Object.entries(decl.modelNames)) {
         if (value === null) found.push({ pointer: decl.pointer, slot: `${decl.name}.modelNames.${role}` })
+        if (typeof value === 'object' && value !== null) for (const [media, name] of Object.entries(value)) {
+          if (name === null) found.push({ pointer: decl.pointer, slot: `${decl.name}.modelNames.${role}.${media}` })
+        }
       }
+      for (const media of decl.requestBody?.mediaTypes ?? []) if (media.pyName === null) found.push({ pointer: decl.requestBody?.pointer ?? decl.pointer, slot: `${decl.name}.requestBody.media.${media.mediaType}.pyName` })
       for (const parameter of decl.parameters) {
         visitType(parameter.schema, parameter.pointer, `${decl.name}.${parameter.location}.${parameter.name}`)
       }
       if (decl.requestBody?.schema !== null && decl.requestBody?.schema !== undefined) {
         visitType(decl.requestBody.schema, decl.requestBody.pointer, `${decl.name}.requestBody.schema`)
       }
+      for (const media of decl.requestBody?.mediaTypes ?? []) {
+        if (media.schema !== null) visitType(media.schema, decl.requestBody?.pointer ?? decl.pointer, `${decl.name}.requestBody.media.${media.mediaType}`)
+        if (media.itemType !== null) visitType(media.itemType, decl.requestBody?.pointer ?? decl.pointer, `${decl.name}.requestBody.media.${media.mediaType}.item`)
+      }
       for (const response of decl.responses) {
         if (response.schema !== null) visitType(response.schema, response.pointer, `${decl.name}.responses.${response.status}.schema`)
+        for (const media of response.mediaTypes) {
+          if (media.pyName === null) found.push({ pointer: response.pointer, slot: `${decl.name}.responses.${response.status}.media.${media.mediaType}.pyName` })
+          if (media.schema !== null) visitType(media.schema, response.pointer, `${decl.name}.responses.${response.status}.media.${media.mediaType}`)
+          if (media.itemType !== null) visitType(media.itemType, response.pointer, `${decl.name}.responses.${response.status}.media.${media.mediaType}.item`)
+        }
         for (const header of response.headers) visitType(header.schema, header.pointer, `${decl.name}.responses.${response.status}.headers.${header.name}`)
       }
     }

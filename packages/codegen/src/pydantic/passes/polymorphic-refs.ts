@@ -30,6 +30,7 @@ export const polymorphicRefsPass: PyPass<never> = {
     for (const family of families) {
       const variants = family.variants.filter(variant => byName.get(variant.schema)?.kind === 'model')
       const base = byName.get(family.base)
+      if (base?.kind === 'alias' && base.type.kind === 'union' && base.type.envelope?.decision === 'envelope') continue
       if (base?.kind === 'model') {
         base.discriminator = { propertyName: family.propertyName, role: 'base' }
       }

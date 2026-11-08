@@ -318,6 +318,35 @@ def validate_smart(module: Any) -> dict[str, int]:
     return {"smartAmbiguous": 1}
 
 
+def validate_body_types(module: Any) -> dict[str, int]:
+    """Validate multipart bytes, text/binary aliases, stream items and envelopes."""
+    body = module.UploadBody.model_validate({"file": b"one", "files": [b"two", b"three"]})
+    assert body.file == b"one" and body.files == [b"two", b"three"]
+    counters = {"multipartBytes": 1}
+    assert TypeAdapter(module.UploadBodyText).validate_python("hello") == "hello"
+    counters["textAlias"] = 1
+    assert TypeAdapter(module.UploadResponseJsonlItem).validate_python("line") == "line"
+    assert TypeAdapter(module.UploadResponseEventStreamItem).validate_python("event") == "event"
+    counters["streamItems"] = 2
+    pet = TypeAdapter(module.Pet)
+    assert pet.validate_python({"kind": "cat", "value": {"name": "c", "meow": 2}}).value.name == "c"
+    assert pet.validate_python({"kind": "dog", "value": {"name": "d", "bark": "woof"}}).value.name == "d"
+    pet2 = TypeAdapter(module.Pet2)
+    assert pet2.validate_python({"type": "cat", "data": {"name": "c", "meow": 2}}).data.name == "c"
+    counters["envelopeVariants"] = 1
+    try:
+        pet.validate_python({"kind": "unknown", "value": 1})
+    except ValidationError:
+        counters["envelopeUnknownReject"] = 1
+    else:
+        raise AssertionError("unknown envelope tag accepted")
+    assert TypeAdapter(module.RawBody).validate_python("hello") == "hello"
+    assert TypeAdapter(module.RawResponse).validate_python(b"bytes") == b"bytes"
+    counters["schemaLessText"] = 1
+    counters["schemaLessBytes"] = 1
+    return counters
+
+
 def validate_frozen(module: Any, counters: dict[str, int]) -> None:
     """Check ConfigDict(frozen=True) assignment behavior."""
     value = module.Person(personId="p")
@@ -362,6 +391,9 @@ def main() -> None:
         return
     if payload.get("exact"):
         print(json.dumps(validate_exact(load_module(payload["module"])), separators=(",", ":")))
+        return
+    if payload.get("bodyTypes"):
+        print(json.dumps(validate_body_types(load_module(payload["module"])), separators=(",", ":")))
         return
     if payload.get("smart"):
         print(json.dumps(validate_smart(load_module(payload["module"])), separators=(",", ":")))
