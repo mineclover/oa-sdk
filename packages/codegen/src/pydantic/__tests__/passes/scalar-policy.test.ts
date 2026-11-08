@@ -14,7 +14,7 @@ describe('scalarPolicy', () => {
       pointer: '/Choice',
     }
     const result = scalarPolicyPass.run(module(value, choice), {
-      enumStyle: 'str-enum', datetime: 'aware', uri: 'str', intBounds: 'format',
+      enumStyle: 'str-enum', datetime: 'aware', uri: 'str', intBounds: 'format', encodingPolicy: 'wire',
     }, analysis)
     expect(result.decls[0]).toMatchObject({ type: { kind: 'constrained', constraints: { ge: -128, le: 127 } } })
     expect(result.decls[1]).toMatchObject({ repr: 'str-enum', members: [{ name: 'A_VALUE' }, { name: 'A_VALUE_2' }] })
@@ -26,7 +26,7 @@ describe('scalarPolicy', () => {
       type: { kind: 'scalar' as const, base: 'string' as const, format }, pointer: `/Value${index}`,
     }))
     const result = scalarPolicyPass.run(module(...formats), {
-      enumStyle: 'literal', datetime: 'aware', uri: 'str', intBounds: 'none',
+      enumStyle: 'literal', datetime: 'aware', uri: 'str', intBounds: 'none', encodingPolicy: 'wire',
     }, analysis)
     expect(result.decls.map(decl => decl.kind === 'alias' ? decl.type : null)).toEqual([
       { kind: 'named', module: 'pydantic', name: 'AwareDatetime' },
@@ -44,7 +44,7 @@ describe('scalarPolicy', () => {
       type: { kind: 'scalar' as const, base: 'string' as const, format }, pointer: `/Value${index}`,
     }))
     const result = scalarPolicyPass.run(module(...values), {
-      enumStyle: 'literal', datetime: 'naive', uri: 'any-url', intBounds: 'none',
+      enumStyle: 'literal', datetime: 'naive', uri: 'any-url', intBounds: 'none', encodingPolicy: 'wire',
     }, analysis)
     expect(result.decls.map(decl => decl.kind === 'alias' ? decl.type : null)).toEqual([
       { kind: 'named', module: 'pydantic', name: 'AnyUrl' },
@@ -63,7 +63,7 @@ describe('scalarPolicy', () => {
       type: { kind: 'scalar' as const, base: 'number' as const }, pointer: '/Number',
     }
     const result = scalarPolicyPass.run(module(decimal, number), {
-      enumStyle: 'literal', datetime: 'naive', uri: 'str', intBounds: 'none',
+      enumStyle: 'literal', datetime: 'naive', uri: 'str', intBounds: 'none', encodingPolicy: 'wire',
     }, analysis)
     expect(result.decls).toMatchObject([
       { type: { kind: 'named', module: 'decimal', name: 'Decimal' } },
@@ -77,7 +77,7 @@ describe('scalarPolicy', () => {
       type: { kind: 'scalar' as const, base: 'integer' as const, format: 'uint8' }, pointer: '/Value',
     }
     const result = scalarPolicyPass.run(module(value), {
-      enumStyle: 'literal', datetime: 'naive', uri: 'str', intBounds: 'none',
+      enumStyle: 'literal', datetime: 'naive', uri: 'str', intBounds: 'none', encodingPolicy: 'wire',
     }, analysis)
     expect(result.decls[0]).toMatchObject({ type: { kind: 'builtin', name: 'int' } })
   })
@@ -92,7 +92,7 @@ describe('scalarPolicy', () => {
       type: { kind: 'scalar' as const, base: 'integer' as const, format: 'uint64' }, pointer: '/Unsigned',
     }
     const result = scalarPolicyPass.run(module(signed, unsigned), {
-      enumStyle: 'literal', datetime: 'naive', uri: 'str', intBounds: 'format',
+      enumStyle: 'literal', datetime: 'naive', uri: 'str', intBounds: 'format', encodingPolicy: 'wire',
     }, analysis)
     expect(result.decls[0]).toMatchObject({ type: { constraints: {
       ge: { integer: '-9223372036854775808' }, le: { integer: '9223372036854775807' },
@@ -112,7 +112,7 @@ describe('scalarPolicy', () => {
       }, pointer: '/Value',
     }
     const result = scalarPolicyPass.run(module(value), {
-      enumStyle: 'literal', datetime: 'naive', uri: 'str', intBounds: 'format',
+      enumStyle: 'literal', datetime: 'naive', uri: 'str', intBounds: 'format', encodingPolicy: 'wire',
     }, analysis)
     expect(result.decls[0]).toMatchObject({ type: { constraints: { ge: -128, le: 10 } } })
   })
@@ -123,13 +123,13 @@ describe('scalarPolicy', () => {
       pointer: '/Choice',
     }
     const result = scalarPolicyPass.run(module(choice), {
-      enumStyle: 'str-enum', datetime: 'naive', uri: 'str', intBounds: 'none',
+      enumStyle: 'str-enum', datetime: 'naive', uri: 'str', intBounds: 'none', encodingPolicy: 'wire',
     }, analysis)
     expect(result.decls[0]).toMatchObject({ repr: 'literal', members: [] })
   })
 
   describe('pydantic/encoding-degraded', () => {
-    const options = { enumStyle: 'str-enum', datetime: 'aware', uri: 'str', intBounds: 'format' } as const
+    const options = { enumStyle: 'str-enum', datetime: 'aware', uri: 'str', intBounds: 'format', encodingPolicy: 'wire' } as const
     const alias = (name: string, type: PyScalarFact) => ({
       kind: 'alias' as const, name, pyName: null, origin: 'component' as const, type, pointer: `/${name}`,
     })
@@ -182,5 +182,19 @@ describe('scalarPolicy', () => {
         ['pydantic/encoding-degraded', '/p/tokens/items'],
       ])
     })
+  })
+
+  it('decodes unix time, HTTP dates, and base64url when requested', () => {
+    const result = scalarPolicyPass.run(module(
+      { kind: 'alias', name: 'Unix', pyName: null, origin: 'component', type: { kind: 'scalar', base: 'integer', format: 'unixtime' }, pointer: '/Unix' },
+      { kind: 'alias', name: 'Http', pyName: null, origin: 'component', type: { kind: 'scalar', base: 'string', format: 'http-date' }, pointer: '/Http' },
+      { kind: 'alias', name: 'Token', pyName: null, origin: 'component', type: { kind: 'scalar', base: 'string', contentEncoding: 'base64url' }, pointer: '/Token' },
+    ), { enumStyle: 'literal', datetime: 'aware', uri: 'str', intBounds: 'none', encodingPolicy: 'decode' }, analysis)
+    expect(result.decls.map(decl => decl.kind === 'alias' ? decl.type : null)).toEqual([
+      { kind: 'decoded', wireType: 'int', encoding: 'unixtime', pythonType: { kind: 'named', module: 'pydantic', name: 'AwareDatetime' } },
+      { kind: 'decoded', wireType: 'str', encoding: 'http-date', pythonType: { kind: 'named', module: 'pydantic', name: 'AwareDatetime' } },
+      { kind: 'named', module: 'pydantic', name: 'Base64UrlBytes' },
+    ])
+    expect(result.diagnostics).toEqual([])
   })
 })

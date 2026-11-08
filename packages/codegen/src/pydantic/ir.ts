@@ -45,6 +45,14 @@ export interface PyScalarFact {
 
 export type PyTypeExpr =
   | PyScalarFact
+  /** A decoded semantic value with an explicit wire representation and serializer policy. */
+  | {
+    kind: 'decoded'
+    wireType: 'int' | 'str'
+    pythonType: PyTypeExpr
+    encoding: 'unixtime' | 'http-date'
+    datetimeMode?: 'aware' | 'naive'
+  }
   | { kind: 'builtin'; name: 'str' | 'int' | 'float' | 'bool' | 'None' | 'Any' | 'bytes' }
   /**
    * Imported name, e.g. `{ module: 'datetime', name: 'datetime' }`,
@@ -117,6 +125,8 @@ export interface PyModelDecl {
   extra: 'ignore' | 'allow' | 'forbid' | null
   /** Decision (`regex` pass). */
   regexEngine: 'rust-regex' | 'python-re' | null
+  /** Decision (`frozen` pass). */
+  frozen?: boolean | null
   /** Set when this model belongs to a discriminator family (fact from S2). */
   discriminator?: { propertyName: string; role: 'base' | 'variant'; tag?: string }
   description?: string
@@ -196,6 +206,9 @@ export function findUnresolvedPySlots(ir: PyModuleIR): UnresolvedPySlot[] {
       case 'scalar':
         found.push({ pointer, slot: `${slot}:scalar` })
         return
+      case 'decoded':
+        visitType(type.pythonType, pointer, `${slot}.pythonType`)
+        return
       case 'list':
         visitType(type.item, pointer, `${slot}.item`)
         return
@@ -225,6 +238,7 @@ export function findUnresolvedPySlots(ir: PyModuleIR): UnresolvedPySlot[] {
     if (decl.kind === 'model') {
       if (decl.extra === null) found.push({ pointer: decl.pointer, slot: `${decl.name}.extra` })
       if (decl.regexEngine === null) found.push({ pointer: decl.pointer, slot: `${decl.name}.regexEngine` })
+      if (decl.frozen === null) found.push({ pointer: decl.pointer, slot: `${decl.name}.frozen` })
       if (decl.openness.kind === 'typed-map') visitType(decl.openness.value, decl.pointer, `${decl.name}.openness`)
       for (const field of decl.fields) {
         const at = `${decl.name}.${field.wireName}`

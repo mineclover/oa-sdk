@@ -1,7 +1,7 @@
 /**
- * S4 pass `extensions` — reads: no options.
+ * S4 pass `extensions` — reads: extensions.
  *
- * Keeps `x-*` extensions (fixed setting `extensions: 'preserve'`) and drops keys whose value is
+ * Keeps or drops `x-*` extensions and drops keys whose value is
  * not JSON-serializable, with `pydantic/extension-dropped`. Normalizes key order (sorted) so output
  * does not depend on schema key order.
  */
@@ -24,6 +24,7 @@ function jsonValue(value: unknown): JsonValue | typeof DROPPED {
     return items
   }
   if (typeof value !== 'object') return DROPPED
+  if (Object.getPrototypeOf(value) !== Object.prototype) return DROPPED
   const entries: Array<[string, JsonValue]> = []
   for (const key of Object.keys(value).sort((left, right) => left.localeCompare(right))) {
     const normalized = jsonValue((value as Record<string, unknown>)[key])
@@ -33,11 +34,10 @@ function jsonValue(value: unknown): JsonValue | typeof DROPPED {
   return Object.fromEntries(entries)
 }
 
-export const extensionsPass: PyPass<never> = {
+export const extensionsPass: PyPass<'extensions'> = {
   name: 'extensions',
-  reads: [],
+  reads: ['extensions'],
   run(ir, options, analysis) {
-    void options
     void analysis
     const result = cloneIr(ir)
     const normalize = (
@@ -58,9 +58,9 @@ export const extensionsPass: PyPass<never> = {
             pointer,
             message: `Extension '${key}' was dropped because its value is not JSON-serializable`,
           })
-        } else kept[key] = value
+        } else if (options.extensions === 'preserve') kept[key] = value
       }
-      return Object.keys(kept).length === 0 ? undefined : kept
+      return options.extensions === 'drop' || Object.keys(kept).length === 0 ? undefined : kept
     }
     for (const decl of result.decls) {
       if (decl.kind === 'model') {

@@ -1,6 +1,9 @@
+# ruff: noqa: E501
 from __future__ import annotations
+
 from datetime import timedelta
 from enum import StrEnum
+
 from pydantic import AwareDatetime, Base64Bytes, BaseModel, ConfigDict, Field
 
 
@@ -10,7 +13,7 @@ class Status(StrEnum):
 
 
 class Sample(BaseModel):
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="allow", json_schema_extra={"x-model-note": "scalars"})
     createdAt: AwareDatetime
     createdAtUnix: int
     modifiedAt: str

@@ -7,6 +7,9 @@ export function cloneIr(ir: PyModuleIR): PyModuleIR {
 export function mapType(type: PyTypeExpr, map: (value: PyTypeExpr) => PyTypeExpr): PyTypeExpr {
   let mapped: PyTypeExpr
   switch (type.kind) {
+    case 'decoded':
+      mapped = { ...type, pythonType: mapType(type.pythonType, map) }
+      break
     case 'list':
       mapped = { ...type, item: mapType(type.item, map) }
       break
@@ -50,6 +53,7 @@ export function mapDeclTypes(decl: PyDecl, map: (type: PyTypeExpr) => PyTypeExpr
 export function visitType(type: PyTypeExpr, visit: (type: PyTypeExpr) => void): void {
   visit(type)
   switch (type.kind) {
+    case 'decoded': visitType(type.pythonType, visit); break
     case 'list': visitType(type.item, visit); break
     case 'tuple':
       type.items.forEach(item => visitType(item, visit))
@@ -65,4 +69,3 @@ export function visitType(type: PyTypeExpr, visit: (type: PyTypeExpr) => void): 
 export function constraintsWithPattern(constraints: PyConstraints, pattern: string): PyConstraints {
   return { ...constraints, pattern: { source: pattern, python: null } }
 }
-

@@ -454,6 +454,7 @@ function buildModelDecl(
     openness: openness(schema, context),
     extra: null,
     regexEngine: null,
+    frozen: null,
     ...(family === undefined ? {} : {
       discriminator: {
         propertyName: family.propertyName,
@@ -547,7 +548,9 @@ export function lowerToPyIr(
     irVersion: 1,
     module,
     decls: declarations,
-    rebuild: [...analysis.recursive].sort((left, right) => left.localeCompare(right)),
+    rebuild: [...analysis.recursive]
+      .filter(name => modelNames.has(name))
+      .sort((left, right) => left.localeCompare(right)),
     imports: null,
     diagnostics: context.diagnostics,
   }

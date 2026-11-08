@@ -96,7 +96,7 @@ def validate_tagged_union(module: Any, payload: dict[str, Any], counters: dict[s
         if state in {"available", "pending"}:
             value["id"] = "lane"
         result = adapter.validate_python(value)
-        assert result.__class__.__name__ == expected
+        assert result.__class__.__name__ == expected, (result.__class__.__name__, expected)
         counters["taggedUnion"] += 1
 
 
@@ -142,13 +142,14 @@ def validate_semantic(module: Any, payload: dict[str, Any]) -> dict[str, int]:
         person.model_validate({"person_id": "p", "nick_name": "n", "note": "x"})
         counters["attributeInput"] = 1
         dumped = person.model_validate({"personId": "p", "nickName": "n"}).model_dump(by_alias=True)
-        assert set(dumped) == {"personId", "nickName", "note", "_meta", "from", "json"}
+        assert set(dumped) == {"personId", "nickName", "note", "_meta", "from", "json"}, dumped
         counters["dumpByAlias"] = 1
     if options["extra"] == "ignore":
         assert "zzz" not in (person.model_validate({"personId": "p", "zzz": 1}).model_extra or {})
         counters["ignoreExtra"] = 1
     elif options["extra"] == "allow":
-        assert person.model_validate({"personId": "p", "zzz": 1}).model_extra == {"zzz": 1}
+        actual = person.model_validate({"personId": "p", "zzz": 1}).model_extra
+        assert actual == {"zzz": 1}, actual
         counters["allowExtra"] = 1
     else:
         try:
@@ -173,11 +174,11 @@ def validate_semantic(module: Any, payload: dict[str, Any]) -> dict[str, int]:
     counters["uniqueAccept"] = 1
     if options["naming"] == "preserve":
         for wire, attribute in (("personId", "personId"), ("nickName", "nickName"), ("note", "note")):
-            assert wire == attribute and wire in person.model_fields
+            assert wire == attribute and wire in person.model_fields, (wire, attribute, person.model_fields)
         counters["preserveNames"] = 3
         for wire, attribute in (("_meta", "meta"), ("from", "from_"), ("json", "json_")):
             field = person.model_fields[attribute]
-            assert wire != attribute and field.alias == wire
+            assert wire != attribute and field.alias == wire, (wire, attribute, field.alias)
             person.model_validate({"personId": "p", wire: "x"})
         counters["preserveAliases"] = 3
     if options["naming"] == "preserve":
@@ -194,9 +195,110 @@ def validate_semantic(module: Any, payload: dict[str, Any]) -> dict[str, int]:
     )}
 
 
+def validate_encoding(module: Any, counters: dict[str, int]) -> None:
+    """Check decoded @encode values and their original JSON wire forms."""
+    from datetime import datetime, timezone
+
+    value = module.Encoded.model_validate({
+        "unix": 784111777,
+        "httpDate": "Sun, 06 Nov 1994 08:49:37 GMT",
+        "token": "AQID",
+    })
+    assert value.unix == datetime(1994, 11, 6, 8, 49, 37, tzinfo=timezone.utc), value.unix
+    counters["decodeUnix"] = 1
+    assert value.http_date == datetime(1994, 11, 6, 8, 49, 37, tzinfo=timezone.utc), value.http_date
+    counters["decodeHttpDate"] = 1
+    assert value.token == b"\x01\x02\x03", value.token
+    counters["decodeBase64Url"] = 1
+    actual = value.model_dump(mode="json", by_alias=True)
+    assert actual == {
+        "unix": 784111777, "httpDate": "Sun, 06 Nov 1994 08:49:37 GMT", "token": "AQID",
+    }, actual
+    counters["dumpWire"] = 1
+    actual = module.Encoded.model_json_schema()["x-lane-model"]
+    assert actual == "encoded", actual
+    counters["modelExtension"] = 1
+
+
+def validate_encoding_naive(module: Any, counters: dict[str, int]) -> None:
+    from datetime import datetime
+
+    value = module.Encoded.model_validate({
+        "unix": 784111777,
+        "httpDate": "Sun, 06 Nov 1994 08:49:37 GMT",
+        "token": "AQID",
+    })
+    assert value.unix == datetime(1994, 11, 6, 8, 49, 37), value.unix
+    counters["decodeUnixNaive"] = 1
+    assert value.http_date == datetime(1994, 11, 6, 8, 49, 37), value.http_date
+    counters["decodeHttpDateNaive"] = 1
+    actual = value.model_dump(mode="json", by_alias=True)
+    assert actual == {
+        "unix": 784111777, "httpDate": "Sun, 06 Nov 1994 08:49:37 GMT", "token": "AQID",
+    }, actual
+    counters["dumpWireNaive"] = 1
+
+
+def validate_encoding_python(module: Any, counters: dict[str, int]) -> None:
+    from datetime import datetime, timezone
+
+    value = module.Encoded(
+        unix=datetime(1994, 11, 6, 8, 49, 37, tzinfo=timezone.utc),
+        httpDate=datetime(1994, 11, 6, 8, 49, 37, tzinfo=timezone.utc),
+        token="AQID",
+    )
+    actual = value.model_dump(mode="json", by_alias=True)
+    assert actual == {
+        "unix": 784111777, "httpDate": "Sun, 06 Nov 1994 08:49:37 GMT", "token": "AQID",
+    }, actual
+    counters["pythonValues"] = 1
+
+
+def validate_recursive_alias(module: Any, counters: dict[str, int]) -> None:
+    value = module.Node.model_validate({"value": "root", "children": [{"value": "leaf", "children": []}]})
+    assert value.children[0].value == "leaf", value.children[0].value
+    counters["recursiveAlias"] = 1
+
+
+def validate_frozen(module: Any, counters: dict[str, int]) -> None:
+    """Check ConfigDict(frozen=True) assignment behavior."""
+    value = module.Person(personId="p")
+    try:
+        value.person_id = "q"
+    except ValidationError:
+        counters["frozenReject"] = 1
+    else:
+        raise AssertionError("frozen model accepted assignment")
+
+
 def main() -> None:
     """Run all checks and emit one machine-readable counter line."""
     payload = json.loads(Path(sys.argv[1]).read_text())
+    if payload.get("encoding"):
+        counters: dict[str, int] = {}
+        validate_encoding(load_module(payload["module"]), counters)
+        print(json.dumps(counters, separators=(",", ":")))
+        return
+    if payload.get("encodingNaive"):
+        counters = {}
+        validate_encoding_naive(load_module(payload["module"]), counters)
+        print(json.dumps(counters, separators=(",", ":")))
+        return
+    if payload.get("encodingPython"):
+        counters = {}
+        validate_encoding_python(load_module(payload["module"]), counters)
+        print(json.dumps(counters, separators=(",", ":")))
+        return
+    if payload.get("frozen"):
+        counters = {}
+        validate_frozen(load_module(payload["module"]), counters)
+        print(json.dumps(counters, separators=(",", ":")))
+        return
+    if payload.get("recursiveAlias"):
+        counters = {}
+        validate_recursive_alias(load_module(payload["module"]), counters)
+        print(json.dumps(counters, separators=(",", ":")))
+        return
     if payload.get("semantic"):
         print(json.dumps(validate_semantic(load_module(payload["module"]), payload), separators=(",", ":")))
         return

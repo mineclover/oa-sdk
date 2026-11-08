@@ -2,8 +2,8 @@
  * S0 — build options. Resolved exactly once; every later stage reads only the resolved object
  * (passes read only the keys they declare, see `passes/index.ts`).
  *
- * Phase 1 exposes nine build options. Settings deferred to a later phase are fixed and listed in
- * `PYDANTIC_FIXED_SETTINGS`; they are not options and nothing reads them from user input.
+ * Semantic build options are resolved once. Settings deferred to a later phase are fixed and listed
+ * in `PYDANTIC_FIXED_SETTINGS`; they are not options and nothing reads them from user input.
  */
 import type { CodegenPreflightOptions } from '../schema-graph/index.js'
 
@@ -27,6 +27,14 @@ export interface PydanticSemanticOptions {
   uri: 'str' | 'any-url'
   /** Integer width formats (`int8`…`uint64`, `int32`, `int64`) become `ge`/`le` bounds, or are ignored. */
   intBounds: 'format' | 'none'
+  /** Decode encoded wire values into semantic Python values, or keep the wire representation. */
+  encodingPolicy: 'wire' | 'decode'
+  /** Preserve or drop OpenAPI `x-*` extensions. */
+  extensions: 'preserve' | 'drop'
+  /** Emit schema descriptions as Python docstrings. */
+  docstrings: boolean
+  /** Set Pydantic models as immutable. */
+  frozen: boolean
 }
 
 export interface PydanticOutputOptions {
@@ -58,6 +66,10 @@ export const PYDANTIC_DEFAULT_OPTIONS: Readonly<PydanticSemanticOptions & Pydant
   datetime: 'aware',
   uri: 'str',
   intBounds: 'format',
+  encodingPolicy: 'wire',
+  extensions: 'preserve',
+  docstrings: true,
+  frozen: false,
   output: 'models.py',
   emitIr: false,
 })
@@ -75,10 +87,7 @@ export const PYDANTIC_FIXED_SETTINGS = Object.freeze({
   pydanticFloor: '2.11',
   pythonFloor: '3.11',
   unionMode: 'smart',
-  frozen: false,
   layout: 'single',
-  docstrings: true,
-  extensions: 'preserve',
 } as const)
 
 const ALLOWED_VALUES: { readonly [K in keyof PydanticSemanticOptions]: readonly PydanticSemanticOptions[K][] } = {
@@ -90,6 +99,10 @@ const ALLOWED_VALUES: { readonly [K in keyof PydanticSemanticOptions]: readonly 
   datetime: ['aware', 'naive'],
   uri: ['str', 'any-url'],
   intBounds: ['format', 'none'],
+  encodingPolicy: ['wire', 'decode'],
+  extensions: ['preserve', 'drop'],
+  docstrings: [true, false],
+  frozen: [true, false],
 }
 
 export const PYDANTIC_SEMANTIC_OPTION_KEYS = Object.freeze(

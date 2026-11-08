@@ -21,6 +21,15 @@ export const collectImportsPass: PyPass<never> = {
         if (value.kind === 'builtin' && value.name === 'Any') add('typing', 'Any')
         if (value.kind === 'literal') add('typing', 'Literal')
         if (value.kind === 'named') add(value.module, value.name)
+        if (value.kind === 'decoded') {
+          add('typing', 'Annotated')
+          add('pydantic', 'BeforeValidator')
+          add('pydantic', 'PlainSerializer')
+          add('datetime', 'datetime')
+          add('datetime', 'timezone')
+          if (value.encoding === 'http-date') add('email.utils', 'format_datetime')
+          if (value.encoding === 'http-date') add('email.utils', 'parsedate_to_datetime')
+        }
         if (value.kind === 'union' && value.discriminator !== null) {
           add('typing', 'Annotated')
           add('pydantic', 'Field')

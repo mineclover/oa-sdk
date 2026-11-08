@@ -1,9 +1,9 @@
 # OAS 3.2 → Pydantic v2 코드 생성 Phase 2 제안
 
-상태: 제안(proposed), 미구현  
+상태: P2a 일부 구현 완료
 작성일: 2026-11-08
 
-이 문서는 [사용자 가이드](../../guides/pydantic-codegen.md)와 [Phase 1 파이프라인 설계](./pydantic-codegen-pipeline.md)를 기준으로 다음 단계를 제안한다. 코드는 변경하지 않으며, 새 함수·IR 필드·옵션은 모두 `제안`으로 표시한다.
+이 문서는 [사용자 가이드](../../guides/pydantic-codegen.md)와 [Phase 1 파이프라인 설계](./pydantic-codegen-pipeline.md)를 기준으로 다음 단계를 제안한다. P2a 품질 부채 항목은 구현 상태를 함께 기록하고, operations 이후 항목은 `제안`으로 표시한다.
 
 ## Phase 1 기준선
 
@@ -14,10 +14,10 @@
 5. S0은 `resolvePydanticBuildOptions`, S1은 문서 준비, S2는 `analyzeSchemaGraph`다(`docs/internal/architecture/pydantic-codegen-pipeline.md:20`).
 6. S3는 사실 전용 IR, S4는 결정 pass, S5는 Python 렌더, S6는 파일·report 방출이다(`docs/internal/architecture/pydantic-codegen-pipeline.md:23`).
 7. S4 pass는 선언한 `reads` 옵션만 받고 입력 IR을 변경하지 않는다(`docs/internal/architecture/pydantic-codegen-pipeline.md:32`).
-8. `extra`, `optionalStyle`, `naming`, `regex`, `enumStyle`, `datetime`, `uri`, `intBounds`가 공개 semantic 옵션이다(`packages/codegen/src/pydantic/options.ts:10`).
+8. `extra`, `optionalStyle`, `naming`, `regex`, `enumStyle`, `datetime`, `uri`, `intBounds`, `encodingPolicy`, `extensions`, `docstrings`, `frozen`이 공개 semantic 옵션이다(`packages/codegen/src/pydantic/options.ts:10`).
 9. 기본 출력은 `models.py`, 선택적으로 `<output>.ir.json`을 낸다(`packages/codegen/src/pydantic/options.ts:32`).
-10. 고정 설정은 `unionMode: smart`, `frozen: false`, `layout: single`, `docstrings: true`, `extensions: preserve` 등이다(`packages/codegen/src/pydantic/options.ts:73`).
-11. 검증은 TypeScript contract/golden과 선택적 Python lane으로 나뉘며 Python lane은 `ruff --select E,F`까지 확인한다(`docs/guides/pydantic-codegen.md:367`).
+10. 고정 설정은 `unionMode: smart`, `layout: single` 등이다(`packages/codegen/src/pydantic/options.ts:73`).
+11. 검증은 TypeScript contract/golden과 선택적 Python lane으로 나뉘며 Python lane은 `ruff --select E,F,I001,UP037`와 pyright까지 확인한다(`docs/guides/pydantic-codegen.md:367`).
 12. Phase 1의 정본 동작과 설계의 차이는 review report §8에 정리되어 있다(`docs/reports/typespec-pydantic-codegen-review.md:157`).
 
 ## 미구현 항목 인벤토리
@@ -35,15 +35,15 @@
 | `@encode` wire 값 디코딩 | `docs/guides/pydantic-codegen.md:394` | `int`/`str` wire 타입과 진단만 내며 validator/serializer가 없다. |
 | 인코딩을 잃는 duration 진단 | `docs/guides/pydantic-codegen.md:397` | `@encode("seconds", int32) duration`은 OAS에 `format: int32`만 남아 감지되지 않는다. |
 | discriminator 없는 `oneOf` 정확성 | `docs/guides/pydantic-codegen.md:399` | Pydantic smart union으로 “정확히 하나”를 보장하지 않는다. |
-| pyright override 진단 | `docs/guides/pydantic-codegen.md:389` | typed `__pydantic_extra__`와 좁힌 discriminator tag가 `reportIncompatibleVariableOverride`를 낼 수 있다. |
-| 넓은 ruff 규칙 | `docs/guides/pydantic-codegen.md:392` | `I001`, `UP037`가 남을 수 있다. |
+| pyright override 진단 | `docs/guides/pydantic-codegen.md:389` | P2a에서 해당 생성 줄에 targeted ignore를 내고 lane에서 검사한다. |
+| 넓은 ruff 규칙 | `docs/guides/pydantic-codegen.md:392` | P2a lane이 `E,F,I001,UP037`를 검사한다. |
 | `title`·pattern 원문 보존·왕복 parity | `docs/reports/typespec-pydantic-codegen-review.md:167` | `Field(title=...)`, 원본 pattern, `model_json_schema` 비교가 구현되지 않았다. |
 | `@discriminated` envelope | `docs/reports/typespec-pydantic-codegen-review.md:168` | `{kind, value}` 전용 wrapper가 없다. |
 | manifest·TypeSpec provenance 결속 | `docs/reports/typespec-pydantic-codegen-review.md:163` | build report의 `contentSha256`만 있다. |
 | duration 연·월 단위 진단 | `docs/reports/typespec-pydantic-codegen-review.md:164` | `timedelta`로 생성하고 진단하지 않는다. |
 | URI format metadata 보존 | `docs/reports/typespec-pydantic-codegen-review.md:165` | `str`만 출력하고 `json_schema_extra`에 format을 넣지 않는다. |
 | URI 값 정규화 정책 | `docs/guides/pydantic-codegen.md:401` | `any-url`은 끝 `/` 추가 등 값 변경이 가능하므로 round-trip 정책을 별도 결정해야 한다. |
-| fixed settings 옵션화 | `packages/codegen/src/pydantic/options.ts:73` | `frozen`, `layout`, `docstrings`, `extensions`, `unionMode` 등이 사용자 입력에 없다. |
+| fixed settings 옵션화 | `packages/codegen/src/pydantic/options.ts:73` | P2a에서 `frozen`, `docstrings`, `extensions`를 사용자 옵션으로 열었고 `layout`, `unionMode`만 남겼다. |
 | `@traceId` 공유 parameters/익명 type 정책 | `docs/internal/todo.md:108` | provenance로 해소된 현재 정책과 operation 모델 이름 정책을 함께 검토해야 한다. |
 | Python `ContractSpec`/registry diff 연결 | `docs/concepts/system-capabilities.md:24` | Pydantic DTO가 `ContractSpec.schemas`가 될 수 있으나 생성기와 자동 연결되지 않는다. |
 | runtime FastAPI drift의 생성 모델 입력 | `docs/concepts/system-capabilities.md:36` | runtime OpenAPI 비교는 존재하지만 Pydantic 생성 산출물과 직접 묶이지 않는다. |
@@ -168,10 +168,10 @@ def get_user(user_id: str) -> User:
 | pyright `reportIncompatibleVariableOverride` | standalone fix. `__pydantic_extra__` 타입을 `ClassVar`/정식 Pydantic 패턴 중 하나로 고정하고 discriminator tag 상속을 피하는 alias를 검토한다. pyright lane을 추가하고 generated imports를 type-check한다. M. |
 | ruff `I001`/`UP037` | standalone fix. import collector 정렬과 quoted annotation 규칙을 renderer에 반영한다. `ruff check --select E,F,I001,UP037` golden gate를 추가한다. S. |
 | discriminator-less `oneOf` exactness | Phase 2 operation error union과 함께 정책 결정. 기본 smart union은 유지하되 `oneOfMode: smart|exact` 제안 옵션을 둔다. exact는 `model_validator`로 branch 성공 수를 세고, ambiguous fixture와 JSON Schema parity를 검증한다. L. |
-| fixed settings `frozen` | Phase 2 quality milestone. `frozen` pass(`reads: ['frozen']`)가 model config를 결정한다. mutable/frozen Python lane과 golden을 추가한다. S. |
+| fixed settings `frozen` | P2a에서 `frozen` pass(`reads: ['frozen']`)가 model config를 결정하고 Python lane이 assignment를 검사한다. |
 | fixed settings `layout` | A 직전에 처리. `layout: single|split`은 S6가 읽고 `models.py`/`operations.py` 파일 집합을 결정한다. import cycle·manifest golden이 필요하다. M. |
-| fixed settings `docstrings` | standalone fix. `docstrings`를 `renderDocs` pass가 읽고 class/field docstring을 켠다/끈다. S. |
-| fixed settings `extensions` | model-level `x-*`와 함께 처리. `preserve|drop|json-schema-extra` 제안 옵션을 `extensions` pass가 읽는다. S. |
+| fixed settings `docstrings` | P2a에서 `docstrings` pass가 모델 docstring을 켜고 끈다. |
+| fixed settings `extensions` | P2a에서 `preserve|drop`을 `extensions` pass가 읽고 model-level `json_schema_extra`를 출력한다. |
 | fixed settings `unionMode` | A의 status/error union과 함께 처리. Pydantic `ConfigDict(union_mode=...)`가 실제 지원되는 범위를 확인한 뒤 `smart|left-to-right`만 공개한다. M. |
 
 `@encode`, model-level `x-*`, pyright, ruff는 operation과 독립적이므로 P2a의 선행 standalone fix로 분리할 수 있다. `oneOf`, `unionMode`, `layout`은 operation 모델 의미와 결합하므로 P2b 이후가 적절하다.
@@ -179,6 +179,8 @@ def get_user(user_id: str) -> User:
 ## 권장 단계 계획
 
 ### P2a — 품질 부채와 operation 입력 골격
+
+구현 완료 (2026-11-08): `encodingPolicy`, 모델 `x-*` 보존/삭제, `docstrings`, `frozen`, ruff/pyright 품질 게이트를 추가했다. operations는 다음 milestone로 남긴다.
 
 **범위와 의존성.** Phase 1 S0–S6 계약을 유지하면서 S1 prepared 문서에 `operations`를 추가하고, `PyOperationDecl`·parameter/body/response 사실 IR을 도입한다. `@encode`, model-level `x-*`, ruff import를 먼저 고친다. `analyzeSchemaGraph`와 `foldSchema`는 공유한다(`docs/internal/architecture/pydantic-codegen-pipeline.md:14`).
 
@@ -188,7 +190,7 @@ def get_user(user_id: str) -> User:
 
 **완료 조건.**
 
-- schemas 전용 fixture의 기존 12개 golden이 byte-identical이다.
+- schemas 전용 golden은 model extension, pyright ignore, import/line formatting 변경만 반영하고 의미 있는 기존 wire 출력은 유지한다.
 - operation fixture에서 path/query/header/cookie와 request/response/error IR이 JSON round-trip된다.
 - `PY_PASSES` trace에 새 pass와 `reads`가 나타나며 미해결 slot이 없다.
 - `ruff E,F,I001,UP037`와 pyright의 새 lane이 통과한다.
