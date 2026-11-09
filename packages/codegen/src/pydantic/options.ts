@@ -6,6 +6,7 @@
  * in `PYDANTIC_FIXED_SETTINGS`; they are not options and nothing reads them from user input.
  */
 import type { CodegenPreflightOptions } from '../schema-graph/index.js'
+import { pickPydanticSemanticOptions } from './semantic-options.js'
 
 export interface PydanticSemanticOptions {
   /** Open models (no `additionalProperties`/`unevaluatedProperties`). Closed models are always `forbid`. */
@@ -126,6 +127,24 @@ export function pydanticOptionValues<K extends keyof PydanticSemanticOptions>(
 }
 
 /** Precedence: fixed defaults < preset < explicit options. Throws on an unknown preset or option value. */
+function isAllowedSemanticValue<K extends keyof PydanticSemanticOptions>(
+  key: K,
+  value: unknown,
+): value is PydanticSemanticOptions[K] {
+  return (ALLOWED_VALUES[key] as readonly unknown[]).includes(value)
+}
+
+function setSemanticOption<K extends keyof PydanticSemanticOptions>(
+  target: PydanticSemanticOptions,
+  key: K,
+  value: unknown,
+): void {
+  if (!isAllowedSemanticValue(key, value)) {
+    throw new Error(`Invalid Pydantic option ${key}="${String(value)}" (expected ${ALLOWED_VALUES[key].join(', ')})`)
+  }
+  target[key] = value
+}
+
 export function resolvePydanticBuildOptions(input: PydanticBuildOptions = {}): ResolvedPydanticBuildOptions {
   const preset = input.preset ?? 'default'
   if (!Object.hasOwn(PYDANTIC_PRESETS, preset)) {
@@ -133,14 +152,13 @@ export function resolvePydanticBuildOptions(input: PydanticBuildOptions = {}): R
     throw new Error(`Unknown Pydantic preset "${String(preset)}" (expected ${expected})`)
   }
 
-  const semantic: Record<string, unknown> = { ...PYDANTIC_DEFAULT_OPTIONS, ...PYDANTIC_PRESETS[preset] }
+  const semantic: PydanticSemanticOptions = {
+    ...pickPydanticSemanticOptions(PYDANTIC_DEFAULT_OPTIONS),
+    ...PYDANTIC_PRESETS[preset],
+  }
   for (const key of PYDANTIC_SEMANTIC_OPTION_KEYS) {
     const value = input[key]
-    if (value === undefined) continue
-    if (!(ALLOWED_VALUES[key] as readonly unknown[]).includes(value)) {
-      throw new Error(`Invalid Pydantic option ${key}="${String(value)}" (expected ${ALLOWED_VALUES[key].join(', ')})`)
-    }
-    semantic[key] = value
+    if (value !== undefined) setSemanticOption(semantic, key, value)
   }
 
   const output = input.output ?? PYDANTIC_DEFAULT_OPTIONS.output
@@ -153,7 +171,7 @@ export function resolvePydanticBuildOptions(input: PydanticBuildOptions = {}): R
 
   const { force, ...preflight } = input.preflight ?? {}
   return Object.freeze({
-    ...(semantic as unknown as PydanticSemanticOptions),
+    ...semantic,
     output,
     emitIr: input.emitIr ?? PYDANTIC_DEFAULT_OPTIONS.emitIr,
     emitOperations: input.emitOperations ?? PYDANTIC_DEFAULT_OPTIONS.emitOperations,
