@@ -75,7 +75,10 @@ jobs:
         run: pnpm check:package-versions
 
       - name: Browser runtime entrypoint boundary
-        run: node apps/preview/scripts/browser-runtime-smoke.mjs
+        # The smoke inspects the built preview bundle; build:core/build:downstream do not build apps.
+        run: |
+          pnpm --filter @oa-sdk/preview build
+          node apps/preview/scripts/browser-runtime-smoke.mjs
 
       - name: Documentation consistency
         run: |
