@@ -138,6 +138,24 @@
       "owner": "OA SDK maintainers",
       "reason": "Detector false positive: `strictUtf8.decode(...)` is a fatal TextDecoder that turns an assembled WebSocket text message into a JS string and throws on invalid UTF-8 (the relay then closes with 1007). It produces a plain string, not structured data; every frame parsed from that string goes through PeerFrameSchema.parse(JSON.parse(text)) in peer-server.ts.",
       "expiresOn": "2027-04-30"
+    },
+    {
+      "id": "ftp-contract-lifecycle-declaration-read",
+      "rule": "boundary:unvalidated-deserialize",
+      "filePath": "packages/ftp-contract/src/lifecycle-validator.ts",
+      "boundaryId": "type-boundary:a30430672ba51c5634d38e369f4c40bc",
+      "owner": "OA SDK maintainers",
+      "reason": "Detector false positive: `JSON.parse(readPublicAsset(...))` reads a JSON Schema declaration bundled in this package, checks that it is a JSON object, and passes it straight to `new Ajv2020({ strict: true }).compile(...)`, which validates it against the JSON Schema 2020-12 meta-schema and throws at load time if it is invalid. No domain type is asserted.",
+      "expiresOn": "2027-05-09"
+    },
+    {
+      "id": "ftp-contract-run-evidence-declaration-read",
+      "rule": "boundary:unvalidated-deserialize",
+      "filePath": "packages/ftp-contract/src/validator.ts",
+      "boundaryId": "type-boundary:bb5c71ba258fa6b8dc4b39c434ce23b8",
+      "owner": "OA SDK maintainers",
+      "reason": "Detector false positive: `JSON.parse(readPublicAsset(...))` reads a JSON Schema declaration bundled in this package, checks that it is a JSON object, and passes it straight to `new Ajv2020({ strict: true }).compile(...)`, which validates it against the JSON Schema 2020-12 meta-schema and throws at load time if it is invalid. No domain type is asserted.",
+      "expiresOn": "2027-05-09"
     }
   ]
 }

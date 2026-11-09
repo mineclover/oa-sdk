@@ -6,11 +6,11 @@ import type { TspGeneratedFile } from '../plugin/types.js'
 import type { PyModuleIR, PydanticDiagnosticSeverity } from './ir.js'
 import {
   PYDANTIC_FIXED_SETTINGS,
-  PYDANTIC_SEMANTIC_OPTION_KEYS,
   type PydanticPreset,
   type PydanticSemanticOptions,
   type ResolvedPydanticBuildOptions,
 } from './options.js'
+import { pickPydanticSemanticOptions } from './semantic-options.js'
 
 export const PYDANTIC_BUILD_REPORT_SCHEMA = 'oa-sdk.pydantic-build-report.v1' as const
 export const PYDANTIC_PLUGIN_NAME = 'pydantic' as const
@@ -53,8 +53,7 @@ export function emitPydanticFiles(
   options: ResolvedPydanticBuildOptions,
   rendered: PydanticRenderedSources = {},
 ): PydanticEmitResult {
-  const semanticEntries = PYDANTIC_SEMANTIC_OPTION_KEYS.map(key => [key, options[key]])
-  const semantic = Object.fromEntries(semanticEntries) as unknown as PydanticSemanticOptions
+  const semantic: PydanticSemanticOptions = pickPydanticSemanticOptions(options)
   const diagnostics: Record<PydanticDiagnosticSeverity, number> = { info: 0, warning: 0, error: 0 }
   for (const d of ir.diagnostics) diagnostics[d.severity] += 1
 

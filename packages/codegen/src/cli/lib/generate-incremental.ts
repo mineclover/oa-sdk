@@ -1,4 +1,6 @@
 import { resolve } from 'node:path'
+import { z } from 'zod'
+import { ARTIFACT_KINDS } from '../../config.js'
 import type { CliIncrementalRun } from './incremental.js'
 import {
   beginCliGeneration,
@@ -67,15 +69,27 @@ export function serializeGenerateArtifacts(artifacts: readonly WriteArtifactInpu
   return `${JSON.stringify([...artifacts].sort((a, b) => a.path.localeCompare(b.path)), null, 2)}\n`
 }
 
+/** Shape of one recorded artifact in an incremental `generate` target bundle (`WriteArtifactInput`). */
+const generateArtifactBundleSchema = z.array(z.object({
+  path: z.string(),
+  kind: z.enum(ARTIFACT_KINDS),
+  content: z.string(),
+  tag: z.string().optional(),
+  producer: z.string().optional(),
+  configFile: z.string().optional(),
+  specFile: z.string().optional(),
+  target: z.string().optional(),
+  sourceSpec: z.string().optional(),
+}))
+
 export function deserializeGenerateArtifacts(content: string): WriteArtifactInput[] {
-  const parsed: unknown = JSON.parse(content)
-  if (!Array.isArray(parsed)) throw new Error('Incremental generate target bundle is not an array')
-  return parsed.map((item, index) => {
-    if (!item || typeof item !== 'object' || typeof (item as { path?: unknown }).path !== 'string') {
-      throw new Error(`Incremental generate target bundle artifact ${index} is invalid`)
-    }
-    return item as WriteArtifactInput
-  })
+  const result = generateArtifactBundleSchema.safeParse(JSON.parse(content))
+  if (!result.success) {
+    const issue = result.error.issues[0]
+    const where = issue === undefined || issue.path.length === 0 ? '' : ` at ${issue.path.join('.')}`
+    throw new Error(`Incremental generate target bundle is invalid${where}: ${issue?.message ?? 'unknown error'}`)
+  }
+  return result.data
 }
 
 export function recordGenerateIncrementalTarget(
