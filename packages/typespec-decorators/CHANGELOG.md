@@ -1,5 +1,12 @@
 # @oa-sdk/typespec-decorators
 
+## 0.5.0
+
+### Minor Changes
+
+- Publish the `./tool-pipeline` TypeSpec entrypoint and its generated runtime
+  surface as a public package export.
+
 ## 0.4.0
 
 ### Minor Changes

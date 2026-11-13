@@ -1,6 +1,6 @@
 {
   "name": "@oa-sdk/tools",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Universal Tool Engine for Model Context Protocol (MCP), Commander CLI, and Hono REST APIs",
   "private": false,
   "type": "module",

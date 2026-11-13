@@ -1,6 +1,6 @@
 {
   "name": "@oa-sdk/popup-bridge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Transport-agnostic popup bridge: origin-verified handshake, bidirectional JSON-RPC over MessageChannel, and contract-first typed RPC generation",
   "private": true,
   "type": "module",
