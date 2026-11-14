@@ -296,7 +296,7 @@ function assertSupportsNode22(manifest, name) {
 
 function assertManifestTargetsExist(packageDirectory, manifest, name) {
   for (const target of collectManifestTargets(manifest)) {
-    assert(existsSync(join(packageDirectory, target)), `${name}: build output is missing manifest target ${target}`)
+    assert(manifestTargetExists(packageDirectory, target), `${name}: build output is missing manifest target ${target}`)
   }
 }
 
@@ -308,8 +308,22 @@ function assertPackedTargetsExist(archive, manifest, name) {
       .filter(Boolean),
   )
   for (const target of collectManifestTargets(manifest)) {
-    assert(files.has(`package/${target}`), `${name}: packed archive is missing manifest target ${target}`)
+    assert(archiveManifestTargetExists(files, target), `${name}: packed archive is missing manifest target ${target}`)
   }
+}
+
+function manifestTargetExists(packageDirectory, target) {
+  if (!target.includes('*')) return existsSync(join(packageDirectory, target))
+  const wildcard = target.indexOf('*')
+  const prefix = target.slice(0, target.lastIndexOf('/', wildcard) + 1)
+  return existsSync(join(packageDirectory, prefix))
+}
+
+function archiveManifestTargetExists(files, target) {
+  if (!target.includes('*')) return files.has(`package/${target}`)
+  const [prefix, ...suffixParts] = target.split('*')
+  const suffix = suffixParts.join('*')
+  return [...files].some(file => file.startsWith(`package/${prefix}`) && file.endsWith(suffix))
 }
 
 function publicImportSpecifiers(packageName, manifest) {
