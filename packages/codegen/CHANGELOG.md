@@ -1,5 +1,34 @@
 # @oa-sdk/codegen
 
+## 0.11.0
+
+### Minor Changes
+
+- 020ec12: Isolate API, data-only and interface pipelines with an optional shared purpose contract.
+  Preserve previous output on plugin diagnostic failures and fail Vite startup builds correctly.
+  Use standalone schema validation for plugin guards, align generated declaration names, provide
+  self-contained guard types and reject conflicting schemas across targets. Add in-memory guard
+  rendering for composition without disk writes. Existing configurations without purpose retain
+  their mixed-pipeline behavior.
+
+  Harden schema-name escaping, dollar-sign guard identifiers and split-file collision allocation
+  (including case-insensitive filesystems). Reject custom declaration names without a matching
+  external type module before replacing output.
+
+- 702034d: Add the OAS 3.2 → Pydantic v2 generation surface: the `generate:pydantic` CLI command, `buildPydanticModels` API and staged functions, the `pydantic` TypeSpec plugin, semantic options and presets, and a build report for Phase 1 `components.schemas` output. The guide is `docs/guides/pydantic-codegen.md`.
+- 3feed48: Pydantic code generation now collects deterministic OpenAPI operations into the resolved IR, including merged parameters, request and response schemas, operation naming diagnostics, and the public split or single layout and operation emission options.
+- 92482cc: Improve Pydantic generation quality with encoded scalar decoding, model extension metadata, configurable docstrings and frozen models, and clean ruff and pyright output.
+- d452aad: Add deterministic Pydantic operation models and metadata for split and single layouts, JSON media type diagnostics, and opt-in exact validation for discriminator-less `oneOf` unions.
+- b6152a8: Pydantic generation now emits precise multipart, form, text, binary, streaming item, and discriminated envelope types, with deterministic media metadata in `OPERATIONS`.
+- debb1de: Preserve Pydantic schema metadata and prove normalized OpenAPI round-trip parity for generated types, including titles, URI formats, ECMA pattern provenance, and calendar-unit duration diagnostics.
+
+### Patch Changes
+
+- Updated dependencies [020ec12]
+- Updated dependencies
+  - @oa-sdk/ast-sync@0.3.0
+  - @oa-sdk/typespec-decorators@0.5.0
+
 ## 0.10.0
 
 ### Minor Changes

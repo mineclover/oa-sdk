@@ -43,7 +43,10 @@
 - `clean` 기본값은 `true`다. 용도별 출력 디렉터리를 분리하고 수기 코드와 섞지 않는다.
 - 출력 보존은 검증·렌더링·플러그인 진단 실패에 대한 규칙이다. 커스텀 플러그인의 자체 부작용이나 모든 디스크 I/O 장애의 transaction을 보장하지 않는다.
 - 공식 full release preflight·artifact export·npm publish·원격 CI 재실행은 하지 않았다. 전체 `ci:local` 실행을 대신하지도 않는다.
-- [`purpose-isolated-pipelines` Changeset](../../.changeset/purpose-isolated-pipelines.md)은 codegen·ast-sync minor 의도다. 실제 배포는 [Release Readiness](./release-readiness.md)의 별도 절차를 따른다.
+- The consumed `purpose-isolated-pipelines` version intent is recorded in the
+  `@oa-sdk/codegen` and `@oa-sdk/ast-sync` package changelogs. Actual
+  promotion follows the separate [Release Readiness](./release-readiness.md)
+  procedure.
 - DPM canonical owner는 외부 `mineclover/data-governance`다. 공유 검색은 미래 TODO이며 DB·권한·adapter·서비스 작업을 자동 재개하지 않는다.
 
 ## 환경 정리 범위
