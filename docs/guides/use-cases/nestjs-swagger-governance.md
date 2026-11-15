@@ -333,8 +333,11 @@ scaffold는 `<root>/.github/workflows/openapi-governance.yml`도 만든다. 이 
 
 ```yaml
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
       - run: pnpm install
       - name: OpenAPI governance
         run: bash scripts/openapi-governance.sh ci

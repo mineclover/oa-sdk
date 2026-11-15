@@ -195,11 +195,14 @@ on:
 
 jobs:
   verify-drift:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ariga/setup-atlas@v0
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
 
       # 1. Atlas 스키마 린트 (마이그레이션 안전성 검사)
       - name: Lint Database Migrations

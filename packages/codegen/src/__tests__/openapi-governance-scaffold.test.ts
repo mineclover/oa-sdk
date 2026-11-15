@@ -93,7 +93,7 @@ describe('openapi governance scaffold', () => {
     expect(doc).toContain('install-manager-neutral template')
     const workflow = readFileSync(join(tmpDir, '.github/workflows/openapi-governance.yml'), 'utf8')
     expect(workflow).toContain("OA_GEN: 'oa-gen'")
-    expect(workflow).toContain('actions/upload-artifact@v4')
+    expect(workflow).toContain('actions/upload-artifact@v6')
     expect(workflow).toContain('bash scripts/openapi-governance.sh ci')
   })
 

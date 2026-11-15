@@ -439,11 +439,11 @@ permissions:
 jobs:
   governance:
     name: ${config.service} OpenAPI contract
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       OA_GEN: ${yamlSingleQuoted(config.tooling.oaGenCommand)}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
 ${setupStep}
       - name: OpenAPI governance
@@ -451,7 +451,7 @@ ${setupStep}
 
       - name: Upload governance review evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${config.service}-openapi-governance
           path: ${config.automation.artifactDirectory}

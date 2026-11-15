@@ -156,9 +156,9 @@ on:
 
 jobs:
   contracts:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
