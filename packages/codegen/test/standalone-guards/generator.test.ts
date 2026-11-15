@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import * as path from 'node:path'
 import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
@@ -10,8 +10,17 @@ import {
 import { typecheckGeneratedFiles } from '../../src/__tests__/plugin/helpers/typecheck-generated.js'
 
 describe('Standalone Guard Generator Unit Tests', () => {
+  const tempDirs: string[] = []
+  afterEach(async () => {
+    while (tempDirs.length > 0) {
+      const dir = tempDirs.pop()!
+      await fs.rm(dir, { recursive: true, force: true })
+    }
+  })
   const createTempDir = async () => {
-    return await fs.mkdtemp(path.join(os.tmpdir(), 'oa-codegen-unit-guards-'))
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'oa-codegen-unit-guards-'))
+    tempDirs.push(dir)
+    return dir
   }
 
   describe('Happy Path Schema Compilation', () => {

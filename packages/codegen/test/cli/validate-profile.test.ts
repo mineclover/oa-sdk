@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import * as path from 'node:path'
 import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
@@ -6,8 +6,17 @@ import { validate } from '../../src/cli/commands/validate.js'
 import { CliExitError } from '../../src/cli/lib/errors.js'
 
 describe('CLI validate --profile unit & integration tests', () => {
+  const tempDirs: string[] = []
+  afterEach(async () => {
+    while (tempDirs.length > 0) {
+      const dir = tempDirs.pop()!
+      await fs.rm(dir, { recursive: true, force: true })
+    }
+  })
   const createTempDir = async () => {
-    return await fs.mkdtemp(path.join(os.tmpdir(), 'oa-codegen-cli-validate-'))
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'oa-codegen-cli-validate-'))
+    tempDirs.push(dir)
+    return dir
   }
 
   describe('Profile option validation', () => {

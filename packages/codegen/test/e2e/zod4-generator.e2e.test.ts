@@ -14,7 +14,7 @@
  * - TEST_INFRA.md (Coverage Thresholds, 4-Tier Test Architecture)
  */
 
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import * as path from 'node:path'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
@@ -137,6 +137,19 @@ function evalGeneratedModule(code: string): Record<string, z.ZodTypeAny> {
 // =============================================================================
 
 describe('OpenAPI 3.2 to Zod 4 E2E Test Suite (Tiers 1-4)', () => {
+  const tempDirs: string[] = []
+  afterEach(async () => {
+    while (tempDirs.length > 0) {
+      const dir = tempDirs.pop()!
+      await fs.promises.rm(dir, { recursive: true, force: true })
+    }
+  })
+  const createTempDir = async (prefix: string) => {
+    const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), prefix))
+    tempDirs.push(dir)
+    return dir
+  }
+
   describe('Tier 1: Feature Coverage (Happy Path)', () => {
     // -------------------------------------------------------------------------
     // F3: Numeric Exclusive Bounds (exclusiveMinimum / exclusiveMaximum -> .gt() / .lt())
@@ -902,7 +915,7 @@ describe('OpenAPI 3.2 to Zod 4 E2E Test Suite (Tiers 1-4)', () => {
         const cmd = await getGenerateZodCommand()
         expect(cmd, 'generate:zod CLI command must be implemented').not.toBeNull()
 
-        const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'oa-zod-cli-test-'))
+        const tempDir = await createTempDir('oa-zod-cli-test-')
         const outFile = path.join(tempDir, 'output-schemas.ts')
         const specFile = path.resolve(import.meta.dirname, '../fixtures/zodgen/ecommerce-lifecycle.yaml')
 
@@ -920,7 +933,7 @@ describe('OpenAPI 3.2 to Zod 4 E2E Test Suite (Tiers 1-4)', () => {
         const cmd = await getGenerateZodCommand()
         expect(cmd, 'generate:zod CLI command must be implemented').not.toBeNull()
 
-        const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'oa-zod-cli-style-'))
+        const tempDir = await createTempDir('oa-zod-cli-style-')
         const outFile = path.join(tempDir, 'schemas-only.ts')
         const specFile = path.resolve(import.meta.dirname, '../fixtures/zodgen/ecommerce-lifecycle.yaml')
 
@@ -937,7 +950,7 @@ describe('OpenAPI 3.2 to Zod 4 E2E Test Suite (Tiers 1-4)', () => {
         const cmd = await getGenerateZodCommand()
         expect(cmd, 'generate:zod CLI command must be implemented').not.toBeNull()
 
-        const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'oa-zod-cli-dir-'))
+        const tempDir = await createTempDir('oa-zod-cli-dir-')
         const specFile = path.resolve(import.meta.dirname, '../fixtures/zodgen/ecommerce-lifecycle.yaml')
 
         process.exitCode = 0
@@ -1956,7 +1969,7 @@ describe('OpenAPI 3.2 to Zod 4 E2E Test Suite (Tiers 1-4)', () => {
         const cmd = await getGenerateZodCommand()
         expect(cmd, 'generate:zod CLI command must be implemented').not.toBeNull()
 
-        const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'oa-zod-cli-full-'))
+        const tempDir = await createTempDir('oa-zod-cli-full-')
         const outFile = path.join(tempDir, 'ecommerce-schemas.ts')
         const specFile = path.resolve(import.meta.dirname, '../fixtures/zodgen/ecommerce-lifecycle.yaml')
 
@@ -1974,7 +1987,7 @@ describe('OpenAPI 3.2 to Zod 4 E2E Test Suite (Tiers 1-4)', () => {
         const cmd = await getGenerateZodCommand()
         expect(cmd, 'generate:zod CLI command must be implemented').not.toBeNull()
 
-        const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'oa-zod-cli-eval-'))
+        const tempDir = await createTempDir('oa-zod-cli-eval-')
         const outFile = path.join(tempDir, 'problem-details-schemas.ts')
         const specFile = path.resolve(import.meta.dirname, '../fixtures/zodgen/problem-details.yaml')
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import * as path from 'node:path'
 import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
@@ -11,8 +11,17 @@ import {
 import { CliExitError } from '../../src/cli/lib/errors.js'
 
 describe('Manifest V3 CSP Audit Scanner & CLI Command', () => {
+  const tempDirs: string[] = []
+  afterEach(async () => {
+    while (tempDirs.length > 0) {
+      const dir = tempDirs.pop()!
+      await fs.rm(dir, { recursive: true, force: true })
+    }
+  })
   const setupTempDir = async (prefix = 'oa-csp-test-') => {
-    return await fs.mkdtemp(path.join(os.tmpdir(), prefix))
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), prefix))
+    tempDirs.push(dir)
+    return dir
   }
 
   // =========================================================================

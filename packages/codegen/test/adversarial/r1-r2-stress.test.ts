@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import * as path from 'node:path'
 import * as fs from 'node:fs/promises'
 import * as fsSync from 'node:fs'
@@ -34,8 +34,17 @@ import { CliExitError } from '../../src/cli/lib/errors.js'
 const execFileAsync = promisify(execFile)
 
 describe('Adversarial Stress Testing: R1 & R2', () => {
+  const tempDirs: string[] = []
+  afterEach(async () => {
+    while (tempDirs.length > 0) {
+      const dir = tempDirs.pop()!
+      await fs.rm(dir, { recursive: true, force: true })
+    }
+  })
   const createTempDir = async (prefix = 'oa-adv-r1-r2-') => {
-    return await fs.mkdtemp(path.join(os.tmpdir(), prefix))
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), prefix))
+    tempDirs.push(dir)
+    return dir
   }
 
   // =========================================================================

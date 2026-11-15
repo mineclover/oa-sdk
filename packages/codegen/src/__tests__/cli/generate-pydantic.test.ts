@@ -1,15 +1,23 @@
-import { mkdtempSync, readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { generatePydantic } from '../../cli/commands/generate-pydantic.js'
 
 const fixture = join(process.cwd(), 'src/pydantic/__tests__/fixtures/cycles/cycles.openapi.yaml')
 const operationsFixture = join(process.cwd(), 'src/pydantic/__tests__/fixtures/operations/operations.openapi.yaml')
 
 describe('generate-pydantic CLI', () => {
+  const tempDirs: string[] = []
+  afterEach(() => {
+    while (tempDirs.length > 0) {
+      rmSync(tempDirs.pop()!, { recursive: true, force: true })
+    }
+  })
+
   it('writes the module, IR, report, and applies options', async () => {
     const root = mkdtempSync(join(tmpdir(), 'oa-pydantic-cli-'))
+    tempDirs.push(root)
     await generatePydantic.run({
       spec: fixture, out: 'out', preset: 'strict', extra: 'allow', 'emit-ir': true,
       report: 'report.json', 'no-validate': true, 'no-normalize': true,
@@ -22,6 +30,7 @@ describe('generate-pydantic CLI', () => {
 
   it('records layout and disables operation declarations with --no-operations', async () => {
     const root = mkdtempSync(join(tmpdir(), 'oa-pydantic-cli-layout-'))
+    tempDirs.push(root)
     await generatePydantic.run({ spec: operationsFixture, out: 'out', layout: 'single', 'emit-ir': true, 'no-operations': true, report: 'report.json' }, { projectRoot: root, cwd: root })
     expect(readFileSync(join(root, 'report.json'), 'utf8')).toContain('"layout": "single"')
     const report = JSON.parse(readFileSync(join(root, 'out/models.py.ir.json'), 'utf8')) as { decls: Array<{ kind: string }> }

@@ -6,10 +6,11 @@ name: CI
 # Keep this workflow to the product-critical build/typecheck/test and governance checks.
 
 on:
-  push:
-    branches: [main]
+  # Run once before merge. A post-merge push run duplicated the same full gate.
   pull_request:
     branches: [main]
+  # Use this for direct main pushes or an on-demand full verification.
+  workflow_dispatch:
 
 permissions:
   contents: read

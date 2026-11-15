@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import * as path from 'node:path'
 import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
@@ -14,8 +14,17 @@ import type {
 describe('E2E Standalone Type Guard Generator (Tiers 1-4)', () => {
   let tempDir: string
 
+  const tempDirs: string[] = []
+  afterEach(async () => {
+    while (tempDirs.length > 0) {
+      const dir = tempDirs.pop()!
+      await fs.rm(dir, { recursive: true, force: true })
+    }
+  })
   const setupTempDir = async () => {
-    return await fs.mkdtemp(path.join(os.tmpdir(), 'oa-codegen-standalone-guards-'))
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'oa-codegen-standalone-guards-'))
+    tempDirs.push(dir)
+    return dir
   }
 
   // =========================================================================
