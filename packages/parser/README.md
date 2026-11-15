@@ -144,5 +144,5 @@ console.log(diagnostics.length)    // 0
 정확한 목록과 시그니처는 package root와 `./browser` export의 TypeScript declaration을 따릅니다.
 
 지원 symbol의 기준은 package root와 `./browser` export가 제공하는 TypeScript declaration이다.
-공개 artifact에는 private source repository의 문서·테스트·개발 이력이 포함되지 않는다.
+공개 artifact에는 source repository의 문서·테스트·개발 이력이 포함되지 않는다.
 

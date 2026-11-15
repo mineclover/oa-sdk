@@ -19,9 +19,10 @@ release candidate의 현재 판단 입력과 source/external 책임 경계는
 
 현재 정책 스냅샷: v5 · 4 tracks · Core Platform 11 · Downstream 17 · release-tracked 28 · ignored 11 · distribution candidates 23.
 
-- Root package는 private monorepo이며 Changesets가 설치되어 있다.
-- Root monorepo와 app/reference workspace는 private이다. `pnpm release`는 `pnpm release:export`에
-  위임해 검토 가능한 artifact만 생성하며, private source repository에서는 Changesets, npm, pnpm
+- Root package manifest는 `private: true`이며 Changesets가 설치되어 있다. 저장소 자체는 public이다.
+- Root repository는 public이고 app/reference workspace와 비배포 package는 npm publication 관점에서
+  private이다. `pnpm release`는 `pnpm release:export`에 위임해 검토 가능한 artifact만 생성하며,
+  source repository에서는 Changesets, npm, pnpm
   등의 direct registry publish command를 실행하거나 script로 등록하지 않는다. Version intent와
   patch note 초안은 `pnpm changeset`과 `pnpm version-packages`로 관리한다.
 - `@oa-sdk/core`, `@oa-sdk/openapi-projection-contract`, `@oa-sdk/typespec-decorators`,
@@ -151,16 +152,16 @@ registry; registry credentials belong only to the separate artifact repository w
 
 ## Public Artifact Promotion
 
-The private `oa-sdk` repository is the authoring and validation boundary. Public npm artifacts are
+The public `oa-sdk` repository is the authoring and validation boundary. Public npm artifacts are
 promoted through the separate [`mineclover/oa-sdk-releases`](https://github.com/mineclover/oa-sdk-releases)
 repository, which stores only sanitized package tarballs and their immutable SHA-512 manifest. It does
-not receive the private source tree, tests, lockfile, or development history.
+not receive the source tree, tests, lockfile, or development history.
 
 The exporter obtains both the candidate list and the exact artifact repository
 `https://github.com/mineclover/oa-sdk-releases.git` from `release-policy.json`; neither value is
 maintained as a second hard-coded list in the exporter.
 
-After a clean private-source commit has passed the release gates, create a reviewed artifact export:
+After a clean source commit has passed the release gates, create a reviewed artifact export:
 
 ```bash
 pnpm release:export -- \

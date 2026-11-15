@@ -137,8 +137,12 @@ manifest 밖에서 관리합니다.
 저장소인 `markdown-editor`를 submodule/workspace dependency로 소비하며 Markdown source를 복제해
 소유하지 않습니다. 기존 `@oa-sdk/*` package name은 배포 namespace 결정 전까지 호환용으로 유지합니다.
 
-DPM의 canonical owner는 별도 공개 저장소 [mineclover/data-governance](https://github.com/mineclover/data-governance)입니다.
-이 저장소의 비공개 `@oa-sdk/dpm` mirror를 외부의 같은 이름 npm 패키지와 버전·기능이 같다고 보지 않습니다.
+데이터 거버넌스 계약의 canonical owner이자 OA SDK의 보조 프로젝트는 별도 공개 저장소
+[mineclover/data-governance](https://github.com/mineclover/data-governance)입니다. 이 저장소는
+데이터 정의(`data_definitions`), API·DB 바인딩, catalog/provenance evidence, relationship 및
+변경 호환성 계약을 관리합니다. oa-sdk는 OpenAPI·TypeSpec 계약과 생성·검증 도구를 담당하고,
+이 저장소의 비공개 `@oa-sdk/dpm` mirror를 외부의 같은 이름 npm 패키지와 버전·기능이 같다고
+보지 않습니다.
 외부 DPM의 파일 기반 read-only CLI는 DB 없이 동작하며, 상시·공유 검색은
 [미래 TODO](https://github.com/mineclover/data-governance/blob/main/docs/internal/goals/shared-search-todo.md)입니다.
 Spec-Lens의 로컬 SQLite 캐시와 이 미래 검색 서비스는 별개입니다.
@@ -147,7 +151,7 @@ Spec-Lens의 로컬 SQLite 캐시와 이 미래 검색 서비스는 별개입니
 
 ### 공개 npm 패키지 사용
 
-비공개 monorepo를 clone하지 않아도 npm에 배포된 패키지로 `oa-gen` CLI와 라이브러리를 쓸 수 있다. 공개
+소스 저장소를 clone하지 않아도 npm에 배포된 패키지로 `oa-gen` CLI와 라이브러리를 쓸 수 있다. 공개
 배포는 [`mineclover/oa-sdk-releases`](https://github.com/mineclover/oa-sdk-releases)의 검증된
 artifact만 사용하며, source tree·테스트·lockfile은 포함하지 않는다. 공개 패키지는 Node.js 22 이상에서
 동작한다.
@@ -169,7 +173,7 @@ npx oa-gen --help
 따른다. `@oa-sdk/schemas`, `@oa-sdk/spec-lens`, `pnpm schema:*` 명령은 이 저장소 안에서만 쓴다(npm에
 배포하지 않음).
 
-### 비공개 소스 기여·검증
+### 소스 기여·검증
 
 안정화 lane은 Node.js 24 LTS와 TypeScript 5.9.3을 사용하며, 기본 CI와 `.nvmrc`도 이 lane을
 기준으로 한다. Node.js 26 Current 호환성 lane은 TypeScript 7.0.2와 `ttsc` 0.26.0으로 Core

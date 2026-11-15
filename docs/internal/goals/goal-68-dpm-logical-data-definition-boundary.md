@@ -31,7 +31,7 @@ and authoring convenience are a follow-on control-plane capability after the neu
 is stable; they are not silently included in the Goal 68 compiler scope.
 
 Owner: [`mineclover/data-governance`](https://github.com/mineclover/data-governance)
-(created 2026-07-15; the initial extraction is recorded in the canonical repository history; repository is private). The accepted
+(created 2026-07-15; the initial extraction is recorded in the canonical repository history; repository is public). The accepted
 decision is recorded in the [external owner decision record](https://github.com/mineclover/data-governance/blob/main/docs/internal/goals/owner-decision-record.md) and [Goal 68.4 owner acceptance issue](https://github.com/mineclover/data-governance/issues/1); GitHub Issues are enabled at
 `https://github.com/mineclover/data-governance/issues`, and its owner CI passed in
 workflow [29427810791](https://github.com/mineclover/data-governance/actions/runs/29427810791) for
@@ -97,7 +97,7 @@ flowchart LR
 
 `@oa-sdk/dpm` remains a private, maintenance-only workspace and is now a compatibility/source
 implementation for the canonical public `data-governance` owner. This is a compatibility/migration
-boundary goal, not an approved new Core Platform feature. The private owner decision records the
+boundary goal, not an approved new Core Platform feature. The owner decision record captures the
 release authority, artifact contract, compatibility window, canonical document location, and
 rollback rule.
 
@@ -132,16 +132,17 @@ Wire compatibility is frozen by version:
 | `data_definitions` `1.0` | Frozen compatibility contract | Existing structural field, storage, and API binding shape. |
 | `data_definitions` `1.1` | Experimental in this monorepo | Namespace-safe logical identity, catalog context, lifecycle, origin, and cardinality rules. |
 
-This decision completes 68.0 and the private 68.4 owner handoff. The private owner is canonical
+This decision completes 68.0 and the 68.4 owner handoff. The external owner repository is canonical
 for the extraction contract, `mineclover` is the release authority, and the compatibility window
 is the first accepted owner artifact release plus one subsequent compatibility release. Public
 registry publication and breaking removal remain separate gates.
 
-## 68.4 private owner repository transition record
+## 68.4 owner repository transition record
 
-On 2026-07-15, the owner created the private
+On 2026-07-15, the owner created the
 [`mineclover/data-governance`](https://github.com/mineclover/data-governance) repository and pushed
-the DPM extraction, recorded in the canonical repository history. The external workspace
+the DPM extraction, recorded in the canonical repository history. The repository is public now.
+The external workspace
 passed build, typecheck, boundary, DPM unit, package subpath, declaration, packed consumer,
 consumer workflow, rollback, and pack dry-run checks. The `oa-sdk` package remains the
 compatibility/source implementation until the first accepted owner artifact release (`T1`), then
@@ -163,8 +164,8 @@ the T1 tag release gate definition.
 | Wire-version stability | Aligned for temporary execution | `data_definitions` `1.0` is frozen as compatibility; `1.1` is experimental until extraction. |
 | Semantic enforcement | Aligned for v1.1 | `validateDpmDataBindings()` participates in validate and compile gates; compiled plan identity includes neutral binding freshness. |
 | Core dependency direction | Aligned | New surface stays under DPM; Core packages do not depend on maintenance-only DPM. |
-| Extraction readiness | Accepted for private ownership | The private owner is pushed and its external packed runtime/declaration/rollback rehearsal passes; public registry metadata is intentionally deferred. |
-| Governance policy | Accepted for private transition | The private owner is canonical, `mineclover` is the release authority, and the compatibility window/canonical document ownership are recorded in the owner decision record and Issue #1. |
+| Extraction readiness | Accepted at the transition | The external owner repository was pushed and its packed runtime/declaration/rollback rehearsal passed; public registry metadata was intentionally deferred at that time. |
+| Governance policy | Accepted at the transition | The external owner was canonical, `mineclover` was the release authority, and the compatibility window/canonical document ownership were recorded in the owner decision record and Issue #1. |
 
 ## Roadmap
 
