@@ -59,8 +59,8 @@ jobs:
         run: pnpm test:core
 
       - name: Test downstream SDKs
-        # Keep the same package coverage while avoiding the serial test:ci lane.
-        run: pnpm test:downstream
+        # Keep the deterministic serial lane; client compile-contract tests have a 5s timeout.
+        run: pnpm test:downstream:ci
 
       - name: Test integration harnesses
         run: pnpm test:integration
