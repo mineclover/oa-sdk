@@ -55,10 +55,12 @@ jobs:
         run: pnpm typecheck:downstream
 
       - name: Test core platform
-        run: pnpm test:core:ci
+        # Keep the same package coverage while using each package's parallel, cacheable test task.
+        run: pnpm test:core
 
       - name: Test downstream SDKs
-        run: pnpm test:downstream:ci
+        # Keep the same package coverage while avoiding the serial test:ci lane.
+        run: pnpm test:downstream
 
       - name: Test integration harnesses
         run: pnpm test:integration
