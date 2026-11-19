@@ -3,8 +3,8 @@
 #
 # `.github/workflows/ci.yml` keeps only the essential GitHub lanes. This script is the superset:
 # it also runs the maintenance/internal workspaces, schema validation/rollback, public runtime on
-# Node 22/24/26, TS7, and NestJS/FastAPI governance. A green run is the merge/release gate while
-# GitHub Actions billing is unresolved. It does not publish anything.
+# Node 22/24/26, TS7, and NestJS/FastAPI governance. A green run is the full merge/release gate;
+# GitHub Actions runs only the essential subset. It does not publish anything.
 #
 # Usage: pnpm ci:local
 #   LOCAL_CI_TMP=<dir>       scratch directory (default: mktemp -d)

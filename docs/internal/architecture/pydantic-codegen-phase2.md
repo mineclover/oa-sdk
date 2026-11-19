@@ -46,12 +46,12 @@
 | URI format metadata 보존 | `docs/reports/typespec-pydantic-codegen-review.md:165` | `str`만 출력하고 `json_schema_extra`에 format을 넣지 않는다. |
 | URI 값 정규화 정책 | `docs/guides/pydantic-codegen.md:401` | `any-url`은 끝 `/` 추가 등 값 변경이 가능하므로 round-trip 정책을 별도 결정해야 한다. |
 | fixed settings 옵션화 | `packages/codegen/src/pydantic/options.ts:73` | P2a에서 `frozen`, `docstrings`, `extensions`를 사용자 옵션으로 열었고 `layout`, `unionMode`만 남겼다. |
-| `@traceId` 공유 parameters/익명 type 정책 | `docs/internal/todo.md:108` | provenance로 해소된 현재 정책과 operation 모델 이름 정책을 함께 검토해야 한다. |
+| `@traceId` 공유 parameters/익명 type 정책 | `docs/internal/todo-archive.md:63` | provenance로 해소된 현재 정책과 operation 모델 이름 정책을 함께 검토해야 한다. |
 | Python `ContractSpec`/registry diff 연결 | `docs/concepts/system-capabilities.md:24` | Pydantic DTO가 `ContractSpec.schemas`가 될 수 있으나 생성기와 자동 연결되지 않는다. |
 | runtime FastAPI drift의 생성 모델 입력 | `docs/concepts/system-capabilities.md:36` | runtime OpenAPI 비교는 존재하지만 Pydantic 생성 산출물과 직접 묶이지 않는다. |
-| FastAPI governance scaffold | `docs/internal/todo.md:158` | scaffold와 `apps/fastapi-ref`는 완료된 기반 자산이며 Phase 2 미구현 항목으로 중복 집계하지 않는다. |
+| FastAPI governance scaffold | `docs/internal/todo-archive.md:113` | scaffold와 `apps/fastapi-ref`는 완료된 기반 자산이며 Phase 2 미구현 항목으로 중복 집계하지 않는다. |
 
-`@pseudonymize`를 `SecretStr`로 바꾸자는 제안은 구조 의미가 아니므로 별도 결정 대상이다(`docs/reports/typespec-pydantic-codegen-review.md:112`). 내부 TODO의 operation 묶음 타입은 이미 TypeScript에서 완료되었으므로 중복 항목으로 세지 않는다(`docs/internal/todo.md:491`).
+`@pseudonymize`를 `SecretStr`로 바꾸자는 제안은 구조 의미가 아니므로 별도 결정 대상이다(`docs/reports/typespec-pydantic-codegen-review.md:112`). 내부 TODO의 operation 묶음 타입은 이미 TypeScript에서 완료되었으므로 중복 항목으로 세지 않는다(`docs/internal/todo-archive.md:446`).
 
 ## 후보 범위 분석
 

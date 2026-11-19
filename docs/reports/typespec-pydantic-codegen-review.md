@@ -1,7 +1,7 @@
 # TypeSpec(.tsp) → Pydantic v2 스키마 변환 지원 영역 검토
 
 검토일: 2026-11-06 (Asia/Seoul)
-상태: 설계 결정 완료, Phase 1 구현 완료 (설계: `docs/internal/architecture/pydantic-codegen-pipeline.md`, 사용자 가이드: [`docs/guides/pydantic-codegen.md`](../guides/pydantic-codegen.md)). 이 문서는 새 codegen 산출물·패키지 API를 채택하거나 배포하지 않는다. 이 검토는 구현 전 분석이며, 실제 구현과 다른 항목은 해당 행에 **Phase 1 구현:** 으로 표시하고 [§8](#8-구현-대조-2026-11-07)에 모았다.
+상태: 설계 결정 완료, Phase 1 구현 완료(2026-11-07), Phase 2 types-only 범위 구현 완료(2026-11-09, [Phase 2 문서](../internal/architecture/pydantic-codegen-phase2.md)). 남은 피드백의 추적은 [todo.md](../internal/todo.md)에서 한다. (설계: `docs/internal/architecture/pydantic-codegen-pipeline.md`, 사용자 가이드: [`docs/guides/pydantic-codegen.md`](../guides/pydantic-codegen.md)). 이 문서는 새 codegen 산출물·패키지 API를 채택하거나 배포하지 않는다. 이 검토는 구현 전 분석이며, 실제 구현과 다른 항목은 해당 행에 **Phase 1 구현:** 으로 표시하고 [§8](#8-구현-대조-2026-11-07)에 모았다.
 
 ## 1. 결론 요약
 
@@ -90,7 +90,7 @@
 | `prefixItems` (TypeSpec 튜플) | `tuple[A, B]` | A | |
 | `anyOf` / `oneOf` (판별자 없음) | `A \| B` | B | Pydantic smart union은 "가장 잘 맞는 하나"를 고르고, `oneOf`의 "정확히 하나" 의미를 검증하지 않음. 닫힌 모델(`forbid`)끼리면 실질적으로 구분됨 |
 | `@discriminator` + `extends` (base에 discriminator mapping, 자식은 `allOf: [$ref Base]`) | 자식 `class Child(Base)` + `state: Literal["available"]`, 참조 지점은 `Annotated[A \| B \| ..., Field(discriminator="state")]` | **B (필수 처리)** | `$ref: NextPointer`는 OAS에서 "모든 하위 타입"을 뜻하지만, 그대로 `NextPointer`로 생성하면 base로만 검증되어 하위 필드가 버려짐. **다형성 ref를 tagged union alias로 치환**해야 함 |
-| `@discriminated` envelope union | wrapper 모델 + tagged union | B | `envelope: "none"`은 위 방식, `"object"`는 `{kind, value}` wrapper 모델. **Phase 1 구현:** envelope 전용 처리는 없다. 출력된 OAS의 `oneOf`/`anyOf`를 일반 union 규칙으로 생성 |
+| `@discriminated` envelope union | wrapper 모델 + tagged union | B | `envelope: "none"`은 위 방식, `"object"`는 `{kind, value}` wrapper 모델. **Phase 1 구현:** envelope 전용 처리는 없다. 출력된 OAS의 `oneOf`/`anyOf`를 일반 union 규칙으로 생성. Phase 2(2026-11-09)에서 wrapper 모델을 구현했다([§8](#8-구현-대조-2026-11-07)) |
 | `allOf` (상속 아닌 합성) | 다중 상속 또는 평탄화 | B | 충돌 필드는 평탄화 후 진단 |
 | `model is` / spread `...` | 평탄화되어 OAS에 반영 | A | OAS 단계에서 이미 해소 |
 | `if/then/else`, `not`(빈 `{}` 외), `dependentSchemas`, `patternProperties`, `propertyNames` | — | C | `model_validator` 수작업 영역. 진단 후 구조만 생성 |
@@ -165,8 +165,8 @@ Phase 1 구현(mineclover/oa-sdk#25·#26)을 이 검토와 대조한 결과다. 
 | §4 `format: uri` | `str` + `json_schema_extra={"format": "uri"}` | **구현 완료 (2026-11-09)**: `uri: str` 필드에 wire format 보존 |
 | §4 `@encode` 인코딩 | wire 타입 + 진단 | wire 타입 + `pydantic/encoding-degraded`. 단 `@encode("seconds", …) duration`은 OAS 출력에 인코딩이 남지 않아 진단 없음 |
 | §4 `title` | `Field(title=...)` | **구현 완료 (2026-11-09)**: 필드 `Field(title=...)`, 모델 `ConfigDict(title=...)` |
-| §4 `@discriminated` envelope | `{kind, value}` wrapper 모델 | 전용 처리 없음, 일반 union 규칙 |
-| §4.5 모델 수준 `x-*` | `model_config["json_schema_extra"]` | IR에만 보존, 렌더링하지 않음 |
+| §4 `@discriminated` envelope | `{kind, value}` wrapper 모델 | **구현 완료 (2026-11-09)**: variant별 wrapper 모델(`Literal` tag + value 필드)과 `Field(discriminator=...)` union. golden `discriminated-envelope.*.py` |
+| §4.5 모델 수준 `x-*` | `model_config["json_schema_extra"]` | **구현 완료 (2026-11-09)**: `extensions: preserve`(기본)이면 `ConfigDict(json_schema_extra=...)`로 렌더링, `drop`이면 제거. golden `scalars.*.py` |
 | §5 Phase 1 검증 (3) | `model_json_schema(by_alias=True)` 왕복 parity | **구현 완료 (2026-11-09)**: 정규화·JSON pointer allow-list Python lane 및 TS contract |
 | §6 결정 4 | 치환 전 원본 pattern 보존 | **구현 완료 (2026-11-09)**: `x-oa-sdk-original-pattern` in `json_schema_extra` |
 

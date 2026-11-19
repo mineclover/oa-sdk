@@ -36,3 +36,5 @@ TanStack Query 파일이다. 3회차에는 OpenAPI 산출물만 다시 쓰였고
 입력은 compiler/module-graph observation을 target record에 완전히 연결하기 전까지 안전한
 전체 재생성 fallback을 사용한다. guards가 활성화된 target과 실패·누락 companion output이
 있는 run도 재사용 bundle을 기록하지 않는다.
+
+이 제한의 추적 상태는 [todo.md](../internal/todo.md)의 리포트 피드백 backlog에서 관리한다.

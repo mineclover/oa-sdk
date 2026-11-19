@@ -2,7 +2,7 @@ name: CI
 
 # Essential GitHub gate only. The full lane set (maintenance/internal workspaces, schema
 # validation, rollback, public runtime on Node 22/24/26, TS7, NestJS/FastAPI governance) runs
-# locally with `pnpm ci:local`; GitHub Actions billing currently cannot start those jobs anyway.
+# locally with `pnpm ci:local`.
 # Keep this workflow to the product-critical build/typecheck/test and governance checks.
 
 on:

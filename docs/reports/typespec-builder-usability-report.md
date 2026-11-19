@@ -270,6 +270,8 @@ TypeSpec 빌더 플랫폼은 대규모 분산 팀 환경에서 발생할 수 있
 
 실전 시나리오 평가와 성능 벤치마크를 기반으로, 향후 TypeSpec 빌더 플랫폼의 생태계 확장을 위한 권고사항을 다음과 같이 도출합니다.
 
+> 아래 권고는 리포트 작성 시점의 제안이다. 각 항목의 채택 여부와 추적 상태는 [todo.md](../internal/todo.md)의 리포트 피드백 backlog에서 관리한다.
+
 ### 5.1 단기 개선 과제 (Short-term Enhancements, 1–2 스프린트)
 1. **Vite 플러그인 세분화 HMR 지원 (Fine-grained Fast Refresh)**:
    - 현재의 브라우저 전체 새로고침(`{ type: 'full-reload' }`) 방식에서 한 단계 나아가, 엔드포인트 변경 시 React State를 보존하면서 클라이언트 쿼리 캐시만 무효화하는 미세 핫 리로드(Micro HMR) 도입 권장.

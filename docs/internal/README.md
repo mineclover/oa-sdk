@@ -32,7 +32,7 @@ plan.md (로드맵 — 어디를 향하는가)
 
 architecture/ (설계 결정)
   ├─ packages.md (패키지 구조 + 파일별 역할)
-  └─ ADR 001~011
+  └─ ADR 001~013
 ```
 
 ## 문서별 역할
@@ -57,6 +57,9 @@ architecture/ (설계 결정)
 | [package-hygiene-decisions.md](./package-hygiene-decisions.md) | workspace 의존자가 없는 패키지의 유지·추출·제거 판단 자료 (사용자 결정 대기) | 패키지 소비자·tier·release 상태가 바뀌거나 결정이 내려질 때 |
 | [traceability.md](./traceability.md) | 공식 스펙 § → 타입 → 코드 매핑 | 파일 추가/이동 시 |
 | [plan.md](./plan.md) | 로드맵 + 아키텍처 | Phase 완료/추가 시 |
+| [todo.md](./todo.md) | 열린 작업, 리포트 피드백 backlog(결정 대기), owner-gated backlog | 작업을 승인·완료하거나 리포트 피드백이 생길 때 |
+| [todo-archive.md](./todo-archive.md) | 완료 항목의 구현·결정 이력과 종료된 backlog 기록 | `todo.md`의 항목을 완료해 옮길 때 |
+| [verification/](./verification/) | 보장 항목·결함의 검증 원장(`registry.json`)과 자동 생성 현황(`status.md`) | 근거를 등록하거나 결함 상태가 바뀔 때 (`pnpm verification:report`) |
 | [architecture/packages.md](./architecture/packages.md) | 패키지 구조 + 파일 역할 | 패키지/파일 변경 시 |
 | [goals/](./goals/) | 목표별 상세 스펙 | 목표 상태 변경 시 |
 

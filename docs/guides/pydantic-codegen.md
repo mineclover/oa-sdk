@@ -261,7 +261,7 @@ Pydantic 구현 import가 package namespace로 새어 나오는 것을 막는다
 | object가 아닌 `allOf` | 첫 branch로 평탄화하고 `pydantic/allof-flattened` warning |
 | TypeSpec polymorphism | base `discriminator.mapping` + subtype `allOf: [$ref Base]` + 단일값 `enum` tag를 찾아 subclass, tag `Literal`, union alias로 변환 |
 | 재귀 `$ref` | `from __future__ import annotations`와 모듈 끝의 `X.model_rebuild()` |
-| `x-*` extension | field의 `x-*`는 `Field(json_schema_extra=...)`로 렌더링. model-level extension은 extensions pass가 IR에 보존하지만 `render.ts`가 Python 설정으로 출력하지 않는다. JSON 불가 값은 제거 |
+| `x-*` extension | `extensions: preserve`(기본)이면 field의 `x-*`는 `Field(json_schema_extra=...)`, model-level `x-*`는 `ConfigDict(json_schema_extra=...)`로 렌더링. `drop`이면 둘 다 제거. JSON 불가 값은 `pydantic/extension-dropped`와 함께 제거 |
 | `description`, `examples`, `deprecated` | `Field(description=..., examples=..., deprecated=...)`; 모델 description은 docstring |
 | `paths` operation | path/query/header/cookie parameter, JSON body, response와 header를 `PyOperationDecl` facts로 IR에 기록. path item parameter는 operation parameter가 덮어쓴다 |
 | operation model naming | `<Op>PathParams`, `<Op>QueryParams`, `<Op>HeaderParams`, `<Op>CookieParams`, `<Op>Body`, selected JSON success의 `<Op>Response`, `<Op>Error`; inline parameter는 `<Op><Location>Param<Name>`, response 오류는 `<Op>Error<Status>` |
