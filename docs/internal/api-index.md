@@ -983,8 +983,12 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `validateTspConfig()` | `plugin/config.ts` | TypeSpec 설정 객체 유효성 검증 및 기본값 정규화 |
 | `sortPlugins()` | `plugin/sorter.ts` | Kahn 알고리즘 기반 플러그인 위상 정렬 편의 함수 |
 | `sortPluginEntries()` | `plugin/sorter.ts` | 플러그인 의존성 DAG 위상 정렬 및 순환 참조/누락 검증 |
-| `compileTypeSpecInMemory()` | `plugin/compiler.ts` | 디스크 파일 생성 없는 TypeSpec 인메모리 컴파일 및 OAS 3.2 추출 |
-| `resolveTypeSpecEntrypoint()` | `plugin/compiler.ts` | TypeSpec 파일 또는 프로젝트 디렉터리 엔트리포인트 절대 경로 해결 |
+| `compileTypeSpecInMemory()` | `plugin/compiler.ts` | 디스크 파일 생성 없는 TypeSpec 인메모리 컴파일 및 OAS 3.2 추출 (`@oa-sdk/codegen/typespec` subentry에서도 export) |
+| `resolveTypeSpecEntrypoint()` | `plugin/compiler.ts` | TypeSpec 파일 또는 프로젝트 디렉터리 엔트리포인트 절대 경로 해결 (`@oa-sdk/codegen/typespec` subentry에서도 export) |
+| `compileTypeSpecToJsonSchemas()` | `typespec/json-schema.ts` | `@service`/`@route` 없는 순수 데이터 모델 TypeSpec → Draft 2020-12 JSON Schema(closed object, single-enum `const`, pruned `$defs`), d.ts 및 제로-eval standalone guards 직접 컴파일 (`@oa-sdk/codegen/typespec`에서도 export) |
+| `createTypeSpecFallbackHost()` | `typespec/host.ts` | 엄격한 pnpm/격리된 `.tsp` 소비자 환경에서도 bundled `@typespec/*`/`@oa-sdk/*` 라이브러리를 해석하는 TypeSpec CompilerHost 래퍼 (`@oa-sdk/codegen/typespec`에서도 export) |
+| `extractTypeSpecNamedAliases()` | `typespec/aliases.ts` | TypeSpec AST에서 명명된 union/scalar/model `alias` 선언을 추출하여 d.ts 보존 지원 (`@oa-sdk/codegen/typespec`에서도 export) |
+| `renderNamedAliasDeclarations()` | `typespec/aliases.ts` | 추출된 TypeSpec named `alias` 목록을 TypeScript `export type` 선언 문자열로 렌더링 (`@oa-sdk/codegen/typespec`에서도 export) |
 | `createPluginContext()` | `plugin/context.ts` | TspPluginContext 인스턴스 팩토리 함수 |
 | `normalizeVirtualPath()` | `plugin/context.ts` | 가상 파일 상대 POSIX 경로 정규화 |
 | `formatEsmImportExtension()` | `plugin/context.ts` | ESM 임포트용 .js 확장자 치환 |
@@ -1132,9 +1136,13 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `SyncResult` | `ast-sync/index.ts` | 소스 코드 AST 동기화 결과 (modifiedCode, textEdits) |
 | `TextEdit` | `ast-sync/text-edit.ts` | 역오프셋 기반 텍스트 편집 단위 (start, end, newText) |
 | `TypeAdapter` | `ast-sync/adapters/type-adapter.ts` | AST 구문 분석 및 코드 생성 TypeAdapter 인터페이스 |
-| `GeneratedGuardArtifact` | `standalone-guards/index.ts` | 생성된 독립형 타입 가드 아티팩트 (targetName, source, outputPath) |
-| `StandaloneGuardGeneratorOptions` | `standalone-guards/index.ts` | 독립형 타입 가드 생성 옵션 |
-| `StandaloneGuardTarget` | `standalone-guards/index.ts` | 독립형 타입 가드 대상 스펙 및 출력 경로 설정 |
+| `GeneratedGuardArtifact` | `standalone-guards/index.ts` | 생성된 독립형 타입 가드 아티팩트 (targetName, source, outputPath) (`@oa-sdk/codegen/guards`에서도 export) |
+| `StandaloneGuardError` | `standalone-guards/index.ts` | 독립형 가드 `.errors` / `validate*()` 구조적 오류 계약 (`@oa-sdk/codegen/guards`에서도 export) |
+| `StandaloneGuardGeneratorOptions` | `standalone-guards/index.ts` | 독립형 타입 가드 생성 옵션 (`includeAssertions`, `writePackageJson` 포함, `@oa-sdk/codegen/guards`에서도 export) |
+| `StandaloneGuardTarget` | `standalone-guards/index.ts` | 독립형 타입 가드 대상 스펙 및 출력 경로 설정 (`@oa-sdk/codegen/guards`에서도 export) |
+| `TypeSpecNamedAlias` | `typespec/aliases.ts` | TypeSpec AST에서 추출된 named `alias` 선언 메타데이터 (`@oa-sdk/codegen/typespec`에서도 export) |
+| `TypeSpecJsonSchemaOptions` | `typespec/json-schema.ts` | 순수 데이터 모델 TypeSpec → JSON Schema 2020-12 직접 컴파일 옵션 (`@oa-sdk/codegen/typespec`에서도 export) |
+| `TypeSpecJsonSchemaResult` | `typespec/json-schema.ts` | 직접 컴파일된 Draft 2020-12 `jsonSchemas`, `typesDts`, `guardArtifacts`, `namedAliases` 결과 (`@oa-sdk/codegen/typespec`에서도 export) |
 | `SchemaPipelineRunOptions` | `schema-pipeline/types.ts` | 4-Stage Transparent Schema Lifecycle Pipeline 실행 옵션 |
 | `SchemaPipelineTransparencyManifest` | `schema-pipeline/types.ts` | 4-Stage Transparent Schema Lifecycle Pipeline 실행 결과 매니페스트 |
 | `SchemaStage1ZodInfo` | `schema-pipeline/types.ts` | 4-Stage Pipeline Stage 1 (Zod Master Schema) 정보 |
@@ -1771,7 +1779,7 @@ EntitySpec IR과 소스 코드의 동기화, 타입 어댑터, shape 분류 및 
 | `TsAstTypeAdapter` | `ast-sync/src/adapters/ts-ast.ts` | TypeScript AST 타입 어댑터 |
 | `TypiaAdapterOptions`, `TYPIA_TAG_NAMES`, `TYPIA_TYPE_TAG_NAMES`, `TypiaTypeAdapter` | `ast-sync/src/adapters/typia.ts` | Typia 태그와 타입 어댑터 |
 | `JsonSchemaObject`, `JsonSchemaTypeAdapter` | `ast-sync/src/adapters/json-schema.ts` | JSON Schema 타입 어댑터와 스키마 계약 |
-| `generateStandaloneGuards`, `StandaloneGuardTarget`, `StandaloneGuardGeneratorOptions`, `GeneratedGuardArtifact` | `ast-sync/src/guards/index.ts` | 독립 검증기 생성과 산출물 계약 |
+| `generateStandaloneGuards`, `hasAncestorModulePackage`, `StandaloneGuardError`, `StandaloneGuardTarget`, `StandaloneGuardGeneratorOptions`, `GeneratedGuardArtifact` | `ast-sync/src/guards/index.ts` | 독립 검증기 생성과 산출물 계약 |
 | `ContractShapeFeature`, `TypeSpecProjection`, `ContractTypeShape`, `ShapeDiagnostic`, `ShapeAuditResult` | `ast-sync/src/taxonomy/features.ts` | TypeSpec 투영 가능성 및 shape 진단 계약 |
 | `DIRECT_SHAPE_FEATURES`, `POLICY_REQUIRED_SHAPE_FEATURES`, `UNSUPPORTED_SHAPE_FEATURES`, `DIRECT_FEATURES`, `POLICY_REQUIRED_FEATURES`, `UNSUPPORTED_FEATURES`, `ALL_SHAPE_FEATURES`, `UTILITY_TYPE_NAMES` | `ast-sync/src/taxonomy/features.ts` | 직접 지원·정책 필요·미지원 feature 집합 |
 | `AnalyzeShapeOptions`, `classifyTypeShape`, `collectShapeFeatures`, `analyzeNodeShape`, `auditTypeShapesInSource`, `getDeclarationShapesInSource`, `extractDeclarationShape` | `ast-sync/src/taxonomy/analyzer.ts` | 타입 shape 추출·분류·소스 감사 |

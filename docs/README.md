@@ -8,7 +8,8 @@ Core/Downstream, 저장소 전용, maintenance, 외부 제품·미래 TODO는 �
 
 세 목표(API 엔드포인트·데이터 구조·소비자 인터페이스)의 격리와 공통 구성 API는
 [용도별 파이프라인 구성](./guides/pipeline-configuration.md)을 따른다.
-최신 구현의 검증 범위와 한계는 [2026-10-25 완료 기록](./internal/pipeline-isolation-checkpoint-2026-10-25.md)에 정리했다.
+현재 보장 범위와 결함 상태는 [검증·리뷰 현황](./internal/verification/status.md), 최근 구현 변경은 [Changelog](./changelog.md)에서 확인한다.
+파이프라인 격리 작업의 검증 범위와 한계는 [2026-10-25 완료 기록](./internal/pipeline-isolation-checkpoint-2026-10-25.md)에 남아 있다.
 
 ---
 
@@ -20,7 +21,7 @@ Core/Downstream, 저장소 전용, maintenance, 외부 제품·미래 TODO는 �
 ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │ 1. 스키마 및 타입 선언자 (Spec & Type Author)                                                          │
 │    • HTTP API: TypeSpec 실무 ➔ 데코레이터 레퍼런스 ➔ OAS 3.2 계약 관리 ➔ pnpm schema:validate          │
-│    • 순수 모델 (Non-HTTP): 순수 데이터 모델 선언 ➔ Zod SSOT ➔ 무런타임 가드 (standalone-guards)        │
+│    • 순수 모델 (Non-HTTP): 순수 데이터 모델 선언 (.tsp/Zod) ➔ JSON Schema 2020-12 ➔ 무런타임 가드      │
 ├─────────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │ 2. 다운스트림 소비자 (Downstream Consumer)                                                              │
 │    • 순수 타입/가드: oa-gen typegen ➔ standalone-guards (MV3 CSP 안전, 초고속 검증)                    │
@@ -148,6 +149,9 @@ Core/Downstream, 저장소 전용, maintenance, 외부 제품·미래 TODO는 �
 | [Mock 테스팅](./guides/use-cases/mock-testing.md) | 프론트엔드 및 CI 통합 테스트에서 Mock 서버 활용 |
 | [Mock 서버](./guides/mock-server-usage.md) | MSW / Node HTTP 기반 모의 서버 구동 및 상태 유지 플러그인 (`--stateful`) |
 | [테스트 피드백](./guides/use-cases/test-feedback.md) | 커버리지 + 검증 피드백 루프 |
+| [개별 기능 리뷰 2026-10-26](./reports/feature-review-2026-10-26.md) | 기능 18개의 진입점·회귀 테스트 대조와 FR-01~09 발견·수정 기록 (날짜별 관측, 상태 정본은 검증 원장) |
+| [`generate --incremental` 실측 2026-10-30](./reports/generate-incremental-20261030.md) | target bundle 재사용과 입력 변경 감지의 실 실행 기록 및 제한 |
+| [TypeSpec → Pydantic v2 변환 검토](./reports/typespec-pydantic-codegen-review.md) | Pydantic 생성기의 구현 전 분석, 매핑 표, 구현 대조 |
 
 ### 5. 연동 유스케이스 및 개발 도구
 | 문서 | 대상 및 요약 |
@@ -256,6 +260,8 @@ oa-sdk 모노레포는 스키마의 수명주기와 단일 진실 공급원(SSOT
 |---|---|
 | [spec.md](./internal/spec.md) | 구현 현황 |
 | [plan.md](./internal/plan.md) | 로드맵 |
+| [todo.md](./internal/todo.md) | 열린 작업과 결정 대기 backlog (완료 이력은 [todo-archive.md](./internal/todo-archive.md)) |
+| [verification/status.md](./internal/verification/status.md) | 보장 항목·결함 상태의 읽기용 현황 (정본은 `registry.json`, 자동 생성) |
 | [release-readiness.md](./internal/release-readiness.md) | artifact release 판단 입력과 source/external 책임 경계 |
 | [api-index.md](./internal/api-index.md) | API 단일 소스 |
 | [behavior-ecs.spec.md](./internal/behavior-ecs.spec.md) | 행동 데이터 SSOT, representative use case, baseline/local verification |

@@ -4,6 +4,8 @@
 
 ### Minor Changes
 
+- Add pure data-model TypeSpec-to-JSON-Schema 2020-12 direct compilation (`compileTypeSpecToJsonSchemas()` with `omitUnreachableTypes: false`, `$id`, `closedObjects`, single-literal `enum` -> `const`, pruned `$defs`, types, and standalone guards requiring no `@service`/`@route`), extract and preserve named TypeSpec `alias` declarations (`extractTypeSpecNamedAliases()`, `renderNamedAliasDeclarations()`, `TypegenOptions.extraAliases`), add `createTypeSpecFallbackHost()` for bundled `@typespec/*` / `@oa-sdk/*` fallback resolution in isolated/strict pnpm consumers, expose Zod-free `@oa-sdk/codegen/typespec` and `@oa-sdk/codegen/guards` subpaths, remove `zod` from `peerDependencies` (keeping `"zod": "^4.6.5"` in `dependencies` for Zod 3 consumer compatibility), tighten `@typespec/*` version ranges (`~1.16.0` / `~0.86.0`), and default standalone guard emission to `writePackageJson: 'auto'` with `.errors` and optional `validate*`/`assert*` assertions.
+
 - 020ec12: Isolate API, data-only and interface pipelines with an optional shared purpose contract.
   Preserve previous output on plugin diagnostic failures and fail Vite startup builds correctly.
   Use standalone schema validation for plugin guards, align generated declaration names, provide

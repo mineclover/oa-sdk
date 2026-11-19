@@ -4,7 +4,7 @@ oa-sdk는 하나의 runtime SDK가 아니라 OpenAPI 계약을 작성·검증·�
 아래 표는 신규 사용자가 import 또는 변경을 시작할 때의 첫 경계이며, 각 패키지를 npm에서 설치할 수
 있는지 판단할 배포 기록도 함께 보여 준다. 전체 export symbol은 [API index](../internal/api-index.md)가 정본이다.
 목적별 기능 선택은 [기능 선택 지도](./feature-map.md), 구체적인 import 선택은 이 문서를 따른다.
-구현 설명은 저장소의 `@oa-sdk/codegen` 0.10.0 기준이며 npm 현재 버전을 뜻하지 않는다.
+구현 설명은 저장소의 `@oa-sdk/codegen` 0.11.0 기준이며 npm 현재 버전을 뜻하지 않는다.
 
 `배포` 열은 저장소의 배포 기록·계획이며 실시간 registry 조회 결과가 아니다.
 변경 내용은 [변경 이력](../changelog.md), 실제 설치 가능 버전은 `npm view <package> version`으로 확인한다.
@@ -23,9 +23,9 @@ oa-sdk는 하나의 runtime SDK가 아니라 OpenAPI 계약을 작성·검증·�
 | `@oa-sdk/typespec-decorators` | npm | OA SDK TypeSpec 데코레이터와 표준 계약(`Ok`, `ErrorResponse`, `StandardHttpErrors` 등, `OaSdkTypeSpec` namespace). 표준 계약은 0.3.0부터 | package root, `./api`, `./governance`, `./crdt`, `./behavior`, `./storage`, `./chunk-stream` | [TypeSpec 작성 의존성](./cli-setup.md#typespec-작성-의존성) |
 | `@oa-sdk/parser` | npm | OpenAPI 3.2 → ParsedDocument IR, `$ref` 해석, lint/validate, RFC 6901 JSON Pointer helper(`parseJsonPointer`, `formatJsonPointer` 등) | package root, `./browser` | [parser README](../../packages/parser/README.md) |
 | `@oa-sdk/surface-ir` | 0.9.0부터 | target-neutral API surface IR와 Forge SDK/CLI projection·Overlay 생성, operation을 RPC procedure로 투영하는 RPC contract(`buildRpcContract`). `@oa-sdk/codegen`의 런타임 의존성으로 함께 설치되며 `oa-gen surface`가 사용 | package root | [Cloudflare Forge 지원](./forge-support.md), [rpc README](../../packages/rpc/README.md) |
-| `@oa-sdk/codegen` | npm | typegen, Zod 4·Pydantic v2 코드 생성, Drizzle/Zod 변환, `oa-gen` CLI(bin `oa-gen`), TypeSpec 플러그인 빌드 파이프라인(`./plugin`: `createTspBuilder`, `defineTspConfig`, `pluginTypescript`/`pluginClient`/`pluginTanstackQuery`/`pluginRouter`/`pluginWire`/`pluginRpc`/`pydantic`). package root에는 `buildPydanticModels`, `resolvePydanticBuildOptions`, `preparePydanticDocument`, `analyzeSchemaGraph`, `lowerToPyIr`, `runPyPasses`, `renderPyModule`, `emitPydanticFiles`가 export된다. | package root, `./drizzle`, `./typegen`, `./typegen/browser`, `./zodgen`, `./spec-lens`, `./apitomy`, `./plugin` | [Pydantic 코드 생성](./pydantic-codegen.md), [CLI 명령 레퍼런스](./cli-command-reference.md) |
+| `@oa-sdk/codegen` | npm | typegen, Zod 4·Pydantic v2 코드 생성, Drizzle/Zod 변환, `oa-gen` CLI(bin `oa-gen`), 순수 데이터 모델 TypeSpec → Draft 2020-12 JSON Schema(`@service`/`@route` 불필요) 및 alias 보존(`./typespec`: `compileTypeSpecToJsonSchemas`, `extractTypeSpecNamedAliases`, `createTypeSpecFallbackHost`), Zod-free standalone guard 진입점(`./guards`: `generateStandaloneGuards`, `StandaloneGuardError`), TypeSpec 플러그인 빌드 파이프라인(`./plugin`: `createTspBuilder`, `defineTspConfig`, `pluginTypescript`/`pluginClient`/`pluginTanstackQuery`/`pluginRouter`/`pluginWire`/`pluginRpc`/`pydantic`). `zod` v4는 내부 `dependencies`로 격리되어 `peerDependencies`에서 제거되었으므로 Zod 3 소비자도 `./typespec`·`./guards`·`./typegen`을 안전하게 import할 수 있다. package root에는 `buildPydanticModels`, `resolvePydanticBuildOptions`, `preparePydanticDocument`, `analyzeSchemaGraph`, `lowerToPyIr`, `runPyPasses`, `renderPyModule`, `emitPydanticFiles` 등도 export된다. | package root, `./drizzle`, `./typegen`, `./typegen/browser`, `./zodgen`, `./spec-lens`, `./apitomy`, `./plugin`, `./guards`, `./typespec` | [Pydantic 코드 생성](./pydantic-codegen.md), [순수 타입과 가드](./pure-types-and-guards.md), [CLI 명령 레퍼런스](./cli-command-reference.md) |
 | `@oa-sdk/core` | npm | package 공통 utility | package root, `./browser` | [API index](../internal/api-index.md) |
-| `@oa-sdk/ast-sync` | npm | V3 AST 무손실 양방향 동기화 엔진 및 Standalone Guard generator | package root, `./guards` | [API index](../internal/api-index.md) |
+| `@oa-sdk/ast-sync` | npm | V3 AST 무손실 양방향 동기화 엔진 및 Standalone Guard generator(`.errors` 노출, `includeAssertions`의 `validate*`/`assert*` 생성, `writePackageJson: 'auto'` 및 `hasAncestorModulePackage()` ESM 상위 감지) | package root, `./guards` | [API index](../internal/api-index.md) |
 | `@oa-sdk/openapi-projection-contract` | npm | source adapter가 공유하는 projection envelope wire contract | package root | [API index](../internal/api-index.md) |
 
 ## 계약 소비와 테스트

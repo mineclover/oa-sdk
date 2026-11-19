@@ -398,6 +398,7 @@ export type {
 } from './ast-sync/index.js'
 export type {
   GeneratedGuardArtifact,
+  StandaloneGuardError,
   StandaloneGuardGeneratorOptions,
   StandaloneGuardTarget,
 } from './standalone-guards/index.js'
@@ -505,6 +506,18 @@ export type {
   VitePluginTspOptions,
   VitePluginTspResult,
 } from './plugin/index.js'
+
+export {
+  compileTypeSpecToJsonSchemas,
+  createTypeSpecFallbackHost,
+  extractTypeSpecNamedAliases,
+  renderNamedAliasDeclarations,
+} from './typespec/index.js'
+export type {
+  TypeSpecJsonSchemaOptions,
+  TypeSpecJsonSchemaResult,
+  TypeSpecNamedAlias,
+} from './typespec/index.js'
 
 export {
   buildJsonSchemaFromSketchIr,

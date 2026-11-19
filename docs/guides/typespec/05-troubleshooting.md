@@ -132,9 +132,9 @@ TypeSpec(`.tsp`)을 작성하고 검증할 때 만나는 컴파일 오류, decor
   ```
   `@oa-sdk/client`는 `@oa-sdk/codegen` 0.9.0 릴리스부터 npm에서 제공됩니다.
 
-### Q12. `Couldn't resolve import "@typespec/http"` (`import-not-found`) 에러가 발생합니다.
-- **원인**: TypeSpec은 `.tsp`의 `import "@typespec/http"`를 그 파일 위치에서 Node 방식으로 찾습니다. pnpm처럼 엄격한 레이아웃에서는 `@oa-sdk/codegen`이 의존하는 사본이 보이지 않으므로, 프로젝트에 직접 설치하지 않았으면 실패합니다. 프로젝트 밖(예: `/tmp`)에 둔 `.tsp`도 같은 이유로 실패합니다.
-- **해결책**: `.tsp`가 import하는 라이브러리(`@typespec/http`, `@typespec/openapi`, `@oa-sdk/typespec-decorators`)를 프로젝트의 직접 devDependency로 설치합니다. 설치 명령은 [`@oa-sdk/typespec-decorators` README](../../../packages/typespec-decorators/README.md#install)에 있습니다.
+### Q12. `Couldn't resolve import "<lib>"` (`import-not-found`) 에러가 발생합니다.
+- **원인**: `@typespec/*` 및 `@oa-sdk/*` 표준 라이브러리는 `@oa-sdk/codegen`의 인메모리 컴파일러(`createTypeSpecFallbackHost`)가 `ENOENT` 시 번들 사본으로 자동 폴백해 해석합니다. 반면 번들에 포함되지 않은 서드파티 TypeSpec 라이브러리나 구버전 `@oa-sdk/codegen`, 혹은 `oa-gen`이 아닌 단독 `tsp` CLI / IDE LSP에서는 `.tsp` 파일 위치 기준으로 `node_modules`를 탐색해 찾지 못하면 실패합니다.
+- **해결책**: 최신 `@oa-sdk/codegen`을 사용하거나, 서드파티 `.tsp` 라이브러리 및 IDE/CLI 연동용 라이브러리(`@typespec/http`, `@typespec/openapi`, `@oa-sdk/typespec-decorators`)를 프로젝트의 직접 devDependency로 설치합니다. 설치 명령은 [`@oa-sdk/typespec-decorators` README](../../../packages/typespec-decorators/README.md#install)에 있습니다.
 
 ### Q13. `oa-gen mock`, `generate:client`, `generate:tanstack`이 설치 명령을 출력하고 종료 코드 1로 끝납니다.
 - **원인**: 이 명령은 `@oa-sdk/codegen`에 포함되지 않은 동반 패키지(companion package)를 불러옵니다. `oa-gen mock`은 `@oa-sdk/mock-server`, `generate:client`와 `generate:tanstack`은 `@oa-sdk/client`가 필요합니다.

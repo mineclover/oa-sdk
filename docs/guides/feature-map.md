@@ -83,8 +83,8 @@ oa-sdk에서 **무엇을 할 수 있는지**, **어디서 시작할지**, **무�
 | `api` | HTTP operation이 최소 1개 | 타입·핸들러·라우터·SDK 등 필요한 플러그인 명시 | API 서버 계약과 구현 준비 |
 | `interface` | 모델 또는 operation이 있음 | 소비자 타입·핸들러·SDK·RPC 등 필요한 출력 명시 | 다른 서비스·앱이 사용할 인터페이스 |
 
-미지정은 기존 혼합 동작과 호환된다. 모델 전용 `.tsp`도 현재 OpenAPI emitter 경로에서는
-`@service` namespace가 필요하다. 이 구성은 [파이프라인 가이드](./pipeline-configuration.md)와
+미지정은 기존 혼합 동작과 호환된다. `TspConfig` OpenAPI emitter 경로의 모델 전용 `.tsp`는
+`@service` namespace가 필요하며, `@service` 없는 순수 데이터 모델 `.tsp` 컴파일(JSON Schema 2020-12, named `alias` `.d.ts`, 가드)은 `@oa-sdk/codegen/typespec`의 `compileTypeSpecToJsonSchemas()`를 사용한다. 이 구성은 [파이프라인 가이드](./pipeline-configuration.md), [순수 타입 가이드](./pure-types-and-guards.md)와
 실제 [입력 검사](../../packages/codegen/src/pipeline-purpose.ts)를 따른다.
 
 ### 자주 쓰는 조합

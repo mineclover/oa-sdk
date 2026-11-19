@@ -6,10 +6,13 @@ import { dirname, resolve } from 'node:path'
 import type { InputObservation } from './input-observations.js'
 import { observeModuleGraph, observeModuleLoading } from './module-graph-observer.js'
 import { recordCompilerHostInputs } from './typespec-input-recorder.js'
+import { extractTypeSpecNamedAliases, type TypeSpecNamedAlias } from '../../typespec/aliases.js'
+import { createTypeSpecFallbackHost } from '../../typespec/host.js'
 
 export interface TypeSpecCompilationOptions {
   oldProgram?: Program
   openApiVersion?: '3.0.0' | '3.1.0' | '3.2.0'
+  omitUnreachableTypes?: boolean
   /**
    * Record the compilation's inputs (`inputs` in the result). Starts observing
    * JavaScript module loading for the rest of the process.
@@ -23,6 +26,8 @@ export interface TypeSpecCompilationResult {
   routesCount: number
   /** Authored TypeSpec sources (outside node_modules), for watching. */
   sourceFiles: string[]
+  /** Named TypeSpec `alias` declarations preserved from the authored AST */
+  namedAliases: TypeSpecNamedAlias[]
   /**
    * With `recordInputs`: everything the compilation observed of the file system
    * (each file the compiler host read, path it probed or resolved, and the
@@ -45,10 +50,11 @@ export async function compileTypeSpecInMemory(
 ): Promise<TypeSpecCompilationResult> {
   const version = options?.openApiVersion ?? '3.2.0'
   const resolvedPath = resolve(tspPath)
+  const fallbackHost = createTypeSpecFallbackHost(NodeHost)
 
-  const recording = options?.recordInputs ? recordCompilerHostInputs(NodeHost) : undefined
+  const recording = options?.recordInputs ? recordCompilerHostInputs(fallbackHost) : undefined
   if (recording) observeModuleLoading()
-  const program = await compile(recording?.host ?? NodeHost, resolvedPath, { noEmit: true }, options?.oldProgram)
+  const program = await compile(recording?.host ?? fallbackHost, resolvedPath, { noEmit: true }, options?.oldProgram)
 
   if (program.hasError()) {
     const errorDetails = program.diagnostics.map(d => formatDiagnostic(d)).join('\n')
@@ -59,6 +65,7 @@ export async function compileTypeSpecInMemory(
 
   const records = await getOpenAPI3(program, {
     'openapi-versions': [version],
+    ...(options?.omitUnreachableTypes !== undefined ? { 'omit-unreachable-types': options.omitUnreachableTypes } : {}),
   })
 
   if (!records || records.length === 0) {
@@ -97,6 +104,7 @@ export async function compileTypeSpecInMemory(
     document,
     routesCount,
     sourceFiles: sourceFiles.length > 0 ? sourceFiles : [resolvedPath],
+    namedAliases: extractTypeSpecNamedAliases(program),
     ...(recording
       ? { inputs: [...recording.observations, ...observeModuleGraph(recording.jsImports)] }
       : {}),

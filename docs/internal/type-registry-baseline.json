@@ -231,6 +231,25 @@
     },
     {
       "condition": "types",
+      "declaredTarget": "./dist/standalone-guards/index.d.ts",
+      "exportKey": "./guards",
+      "packageDirectory": "packages/codegen",
+      "packageName": "@oa-sdk/codegen",
+      "runtime": "neutral",
+      "targetRole": "declaration-observation"
+    },
+    {
+      "authorityFilePath": "packages/codegen/src/standalone-guards/index.ts",
+      "condition": "import",
+      "declaredTarget": "./dist/standalone-guards/index.js",
+      "exportKey": "./guards",
+      "packageDirectory": "packages/codegen",
+      "packageName": "@oa-sdk/codegen",
+      "runtime": "neutral",
+      "targetRole": "runtime"
+    },
+    {
+      "condition": "types",
       "declaredTarget": "./dist/plugin/index.d.ts",
       "exportKey": "./plugin",
       "packageDirectory": "packages/codegen",
@@ -300,6 +319,25 @@
       "condition": "import",
       "declaredTarget": "./dist/typegen/index.js",
       "exportKey": "./typegen",
+      "packageDirectory": "packages/codegen",
+      "packageName": "@oa-sdk/codegen",
+      "runtime": "neutral",
+      "targetRole": "runtime"
+    },
+    {
+      "condition": "types",
+      "declaredTarget": "./dist/typespec/index.d.ts",
+      "exportKey": "./typespec",
+      "packageDirectory": "packages/codegen",
+      "packageName": "@oa-sdk/codegen",
+      "runtime": "neutral",
+      "targetRole": "declaration-observation"
+    },
+    {
+      "authorityFilePath": "packages/codegen/src/typespec/index.ts",
+      "condition": "import",
+      "declaredTarget": "./dist/typespec/index.js",
+      "exportKey": "./typespec",
       "packageDirectory": "packages/codegen",
       "packageName": "@oa-sdk/codegen",
       "runtime": "neutral",
@@ -2639,7 +2677,7 @@
         "column": 16,
         "filePath": "packages/codegen/src/cli/lib/typespec-mock-compiler.ts",
         "kind": "any",
-        "line": 56
+        "line": 62
       },
       {
         "boundaryId": "type-boundary:68e4f1e0cbdcdcfab20fd8a7da7496b3",
@@ -2932,7 +2970,7 @@
         "column": 20,
         "filePath": "packages/codegen/src/cli/lib/typespec-mock-compiler.ts",
         "kind": "double-assertion",
-        "line": 81,
+        "line": 88,
         "sourceType": "159:\"unknown\"",
         "targetType": "80:\"OasDocument\""
       },
@@ -6615,7 +6653,17 @@
         "runtime": "neutral",
         "semanticHash": "8788988a14dc71873de58aa5bf8e8736759b31e8639cecf99f3f90b0b56d166a",
         "shapeHash": "9e94f93f91c0c1585e22f8468294bf0696b02e05b86d16bd561e9cac5b5deb44",
-        "syntaxHash": "f579a5da493d3e28b1d230fedf1caf0cdf185ccefe3c08470f0749d71fea0365"
+        "syntaxHash": "1fd5f620e1b5e2a727071f9905d5501fb282bab0af79ed8499d38e39b26bdd16"
+      },
+      {
+        "filePath": "packages/ast-sync/src/guards/generator.ts",
+        "identity": "packages/ast-sync/src/guards/generator.ts#src/guards/generator.ts#neutral#@oa-sdk/ast-sync:src/guards/generator.ts#hasAncestorModulePackage#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/ast-sync:src/guards/generator.ts#hasAncestorModulePackage",
+        "runtime": "neutral",
+        "semanticHash": "154c429967c9203b420ca52e0512c8a7116419a0c4ce76e9613bad7f54eca529",
+        "shapeHash": "02169437a9ea38945b33198c68fdbf8e0b48eaf9790b282a5b5c700dde3e1eea",
+        "syntaxHash": "a085db7a82ac535a82071aa91a068008c97252e12a2395e8c47a7bf8d0186dea"
       },
       {
         "filePath": "packages/ast-sync/src/guards/generator.ts",
@@ -6623,9 +6671,39 @@
         "kind": "function",
         "qualifiedName": "@oa-sdk/ast-sync:src/guards/generator.ts#postProcessGeneratedJs",
         "runtime": "neutral",
-        "semanticHash": "69d793ea1c2f081dc822bcd68f692858fd0e29c3117319445dae865762dd82e4",
-        "shapeHash": "d473416ab0b1d4b07b39cdf46f24e928c3dcb4cd170708058f854b21b527b5c3",
-        "syntaxHash": "f232cc93174761f415e256bae12f0135032c2832e470235c331ea600f320d7a3"
+        "semanticHash": "ca40d5a7b60da0c35f7fdfadc4a45f1b7a24b4d06d86279fd7b17bdb55fa57da",
+        "shapeHash": "2f1fa1a0eb3c832e8d18169d4245baa867102b96c8d4ecc0ce055d6ab90958b9",
+        "syntaxHash": "9af13bcd409e91257f4f6ddadd22a19f1e004090ee32b84af6b17022e63cc4ab"
+      },
+      {
+        "filePath": "packages/ast-sync/src/guards/generator.ts",
+        "identity": "packages/ast-sync/src/guards/generator.ts#src/guards/generator.ts#neutral#@oa-sdk/ast-sync:src/guards/generator.ts#renderAssertionJsForGuard#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/ast-sync:src/guards/generator.ts#renderAssertionJsForGuard",
+        "runtime": "neutral",
+        "semanticHash": "ddd0196ced2c1dd7be0a1b88f6d9d70565bc96a1860d85a3f2a454fc33680b57",
+        "shapeHash": "c5af65aeef2001b698a700fbe8b065db13a92c9ac03d94e27f7e491b390bb48f",
+        "syntaxHash": "17480c84b7ee30576ce279992ecc1942240a8f3c4e9d18ad6c920d44bd0ed47e"
+      },
+      {
+        "filePath": "packages/ast-sync/src/guards/generator.ts",
+        "identity": "packages/ast-sync/src/guards/generator.ts#src/guards/generator.ts#neutral#@oa-sdk/ast-sync:src/guards/generator.ts#renderGuardDtsEntries#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/ast-sync:src/guards/generator.ts#renderGuardDtsEntries",
+        "runtime": "neutral",
+        "semanticHash": "bd2b19fb8f86173a7ecffcfb1cb9b39d0a2dea509f790c86646d7d125755d238",
+        "shapeHash": "e3dbba232a77ae38cdfec9dc6ceaee55d4af16022c79337a255ea00a59bd32c4",
+        "syntaxHash": "ed5dd97ec6ea79fba6eab189ebbd257d7a5cd789d6c650dd0046a4a9d5ad7bee"
+      },
+      {
+        "filePath": "packages/ast-sync/src/guards/generator.ts",
+        "identity": "packages/ast-sync/src/guards/generator.ts#src/guards/generator.ts#neutral#@oa-sdk/ast-sync:src/guards/generator.ts#resolveGuardStem#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/ast-sync:src/guards/generator.ts#resolveGuardStem",
+        "runtime": "neutral",
+        "semanticHash": "f528475375c4219bbdbb5c69c4d74eac7dc9b0033b13d59f3a0d05183283b777",
+        "shapeHash": "5159f79092a0c2e729e743884d19d0914c67f773c0a905f630336893aa3ec84a",
+        "syntaxHash": "265a04cfe8bd580ad22d818d2f75481adcfb79b5203a7c3a0e5579084138d278"
       },
       {
         "filePath": "packages/ast-sync/src/guards/generator.ts",
@@ -6679,13 +6757,23 @@
       },
       {
         "filePath": "packages/ast-sync/src/guards/types.ts",
+        "identity": "packages/ast-sync/src/guards/types.ts#src/guards/types.ts#neutral#@oa-sdk/ast-sync:src/guards/types.ts#StandaloneGuardError#interface",
+        "kind": "interface",
+        "qualifiedName": "@oa-sdk/ast-sync:src/guards/types.ts#StandaloneGuardError",
+        "runtime": "neutral",
+        "semanticHash": "98f42acd2c400557f634b2da9956c7b520431c6a049c0c0fc5ea4d85514a5ee3",
+        "shapeHash": "49e773dc956a9b143491c7f73c3a4c9cc6d9b192cdab0fb97a269aaa6721b4b9",
+        "syntaxHash": "9d4c6f23ae9c5f376eec702aa1b1c645eb77442384a7533106a016fbbcda05c3"
+      },
+      {
+        "filePath": "packages/ast-sync/src/guards/types.ts",
         "identity": "packages/ast-sync/src/guards/types.ts#src/guards/types.ts#neutral#@oa-sdk/ast-sync:src/guards/types.ts#StandaloneGuardGeneratorOptions#interface",
         "kind": "interface",
         "qualifiedName": "@oa-sdk/ast-sync:src/guards/types.ts#StandaloneGuardGeneratorOptions",
         "runtime": "neutral",
-        "semanticHash": "063cce41888a4e85bbcd5655bae801090e27ff6b46ac3473b5d74156fda52473",
-        "shapeHash": "dacaaa4bd52d383d140b70ec7cd9174c71188d3497d8cfdcf4e2ea180b23c4a8",
-        "syntaxHash": "9258e4531b42c758139e2cb1e3757dd71999faece799bfe4d6a290933806c549"
+        "semanticHash": "c255b0fe6fff55d0d8fa17be1fc709e9c23b03e6e3a92189d7ae1ed8f13cd666",
+        "shapeHash": "ca0bcd0611ed58ec336e5e42cb385919f1c487a5560ae1a125dd26b263e839e7",
+        "syntaxHash": "feca1666769181462f609fc0b0b498b050f649dc82abec81a5874a611c4b609b"
       },
       {
         "filePath": "packages/ast-sync/src/guards/types.ts",
@@ -18615,7 +18703,7 @@
         "runtime": "neutral",
         "semanticHash": "39a1fec1d0aee04d6ec75cd2bac40bbc872ca3aa2b4c98b7195b06cd4c0350f1",
         "shapeHash": "691db0c4d7ec8b9e77d490968f1adcb0ecc20f06587e538ca792fed4aea21834",
-        "syntaxHash": "70a4454f363323fd3fd25e2b1ebee5bd24f9f6d20c4acbe935cf95cc49bfa041"
+        "syntaxHash": "8b64bb55ea2de0436f7ee142b0aaf32d866a6a7eab7b6440d0633ad4977a1d79"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/openapi-governance-scaffold.ts",
@@ -23355,7 +23443,7 @@
         "runtime": "neutral",
         "semanticHash": "cce141b918f21f3b01e150d5988cb019af936be10fd4f031766c70372537956a",
         "shapeHash": "e1aa98a2d0b89aa0c849a4b4d494afb647b9c402492401d9892b87d6110c35ee",
-        "syntaxHash": "a50114d0f88eb740de6f6df916df1abec19648e7b89c2cc63d50254b84f04113"
+        "syntaxHash": "19a336a74373a62821319c8310e04e02a864f32287fd16d0ac23d407298e239d"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/typespec-mock-compiler.ts",
@@ -23363,9 +23451,9 @@
         "kind": "interface",
         "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-mock-compiler.ts#TypeSpecCompilationOptions",
         "runtime": "neutral",
-        "semanticHash": "441754a3c304cc47185108bdd0f990328fdfb780f958a8f8547d25bf742c1df4",
-        "shapeHash": "d5e55a7ce76243211886a6d7f31fc849f771cc57c032318b4f0c241f06178c64",
-        "syntaxHash": "d524b7aea300781fd02f01525e4a9ffaacb7f0493ecbdcb1a4dc8a528e589d14"
+        "semanticHash": "2351cc9b132bdba88705d306ce6cc020f60e9ee20bd8cda592eb57c2645c2454",
+        "shapeHash": "f5a6a882a647a0520764c9b86ebf4a3919df1e793c09c04ba5fa077474c2c230",
+        "syntaxHash": "7cd8c68ef914470c25a28f233c87ec686b3071af6fc608b3ed1c76e7cc86ec70"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/typespec-mock-compiler.ts",
@@ -23373,9 +23461,9 @@
         "kind": "interface",
         "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-mock-compiler.ts#TypeSpecCompilationResult",
         "runtime": "neutral",
-        "semanticHash": "03821f906bd1bc6430cf3f5510d429003497c6d18280b0a85c09a9b7ec65250c",
-        "shapeHash": "70bf6571fe94b312ebf02d37cada87f5afa73bfa1610090a832ed3586e70cb3b",
-        "syntaxHash": "623b6c58d2ea5c33605bd154c955115518096c068c3a83aca6de4d52fe3fd011"
+        "semanticHash": "1c1bc329e004966bc061d2c2232a285866bff2eaaeb6154d3c0b8308bc9b6c09",
+        "shapeHash": "e3db1863195dd3bb33e77159c2133b9effb0d441842897f5ccdab62be720ae11",
+        "syntaxHash": "d2086ccfa4bf2bb7b8ac09c3a8c4de70c9a637f407c1068d0cfaed69d883b4fa"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/typespec-mock-compiler.ts",
@@ -27185,7 +27273,7 @@
         "runtime": "neutral",
         "semanticHash": "54d793fbe5d55fd79fea1ca3abd02ff5df48804137c05b6e1c5118bb1b09ccb0",
         "shapeHash": "f289897a490b72714abd87deb03fd3b5a437c939f0e4e3b6c1800601c500733e",
-        "syntaxHash": "eff4478edb08c367580422358d00a2c4b12e224911f485c3f97373af3a18657a"
+        "syntaxHash": "38d2a48e8d0578936fc75e19de1e3167b6bb09093af7d5356328740ff9b14c8d"
       },
       {
         "filePath": "packages/codegen/src/plugin/compiler.ts",
@@ -27233,9 +27321,9 @@
         "kind": "interface",
         "qualifiedName": "@oa-sdk/codegen:src/plugin/compiler.ts#TypeSpecCompilerOptions",
         "runtime": "neutral",
-        "semanticHash": "8e8c380e980c2d7cb7690d39dc4cbbcc8f11faee176583afaa50e6d2c00afaf6",
-        "shapeHash": "b7cf2a4048e9de345e8878c176130896450b46c6a01cf6a9c15cff3032002680",
-        "syntaxHash": "1b28888027d350361af60f7f651144159b067e8e16a896610f39ff685ab3ad5f"
+        "semanticHash": "819b64a8462478ffb9775390a6daeb01c4c2efef0bd525ce24a749479f248a88",
+        "shapeHash": "fb3b0289087f3a0252d04f861b98bdfdf654c12e4e85ce31927cba790871bcdf",
+        "syntaxHash": "24499739fc1861f8e025c8d647502d8a2f0f510337fbac4eeb3f9fe84f89fe6d"
       },
       {
         "filePath": "packages/codegen/src/plugin/compiler.ts",
@@ -27243,9 +27331,9 @@
         "kind": "interface",
         "qualifiedName": "@oa-sdk/codegen:src/plugin/compiler.ts#TypeSpecCompilerResult",
         "runtime": "neutral",
-        "semanticHash": "b3aaf5a835981b29cdbcfc4352f852381785117f46d52563c88ccc81912316d8",
-        "shapeHash": "47f787d030bb716feda2aff593964514c5f53a199be9f9fd141d0a69e47edb3d",
-        "syntaxHash": "c9f8e6f10319414fa843e80ee43496a2deab47b53a0f44f1151077655396e3df"
+        "semanticHash": "c2b7fc7ff60f7401fe7bdbee12d37cc1e9e66b4c578f924aea94d08079382911",
+        "shapeHash": "b25ab92ebb37d9cabb983c9bdfa7fb710ec2f74396101cc403595f5663d79d8d",
+        "syntaxHash": "e9ce6cbfa073319842f7bdf1b044a8d0804fc6b0b811e0a04f4436625f4132b9"
       },
       {
         "filePath": "packages/codegen/src/plugin/config.ts",
@@ -31605,7 +31693,7 @@
         "runtime": "neutral",
         "semanticHash": "cbf65036a5645237c1b86bd3f0bfea719733d54fa99a3b9bf3db5acd4feb5c63",
         "shapeHash": "9e94f93f91c0c1585e22f8468294bf0696b02e05b86d16bd561e9cac5b5deb44",
-        "syntaxHash": "a9b2521c33641efb49fad9e585300979bfcdabd9f29a79d812148b08eaa0724d"
+        "syntaxHash": "d41c0baf37b4af3adcccb5af4eb9892280ff6bb5c7147bfb9c487aabbffb6f60"
       },
       {
         "filePath": "packages/codegen/src/standalone-guards/generator.ts",
@@ -33655,7 +33743,7 @@
         "runtime": "neutral",
         "semanticHash": "cdf65f265349192f1400dd84e986fb2f005a33ae442e376a61cf42e2c6ca9832",
         "shapeHash": "c8bddcb798e8f73388b51c3da708af2e85b7525f5fd1d6540bbd1020dbf01cab",
-        "syntaxHash": "6eb1cba0095853f97306a6610fea36474955690508d4079758c8f3a36afdc67d"
+        "syntaxHash": "91d80dc75a17da6d4ffd9d21f36e9c78af552eee1e39fd96a7ab7b77cc862507"
       },
       {
         "filePath": "packages/codegen/src/typegen/generate-types.ts",
@@ -34113,9 +34201,9 @@
         "kind": "type-alias",
         "qualifiedName": "@oa-sdk/codegen:src/typegen/generate-types.ts#TypegenOptions",
         "runtime": "neutral",
-        "semanticHash": "2cac1bf52152604645ff3073ac17dc1bf345266fb692c1178d9b4f7c688e7c3d",
-        "shapeHash": "bb38d700edd1344966d0fcd59081313f101e4d14c1aba4f7b95c1f5a071ba3a8",
-        "syntaxHash": "174ed4e047ad41ad248380bb5b61b4e2a23b2b646b0b1015eb819dc79067c64a"
+        "semanticHash": "d0d7947227e251e0553752d503150e438b4377356f424da1793ffeb08e2c19ca",
+        "shapeHash": "72e123ea5c7c25b55f4501204619c78b699ba6eb864eac163771c0b985a985b2",
+        "syntaxHash": "e5b3e7c92181125e39eafc7ef4cb8b45d6b70f33897c15a9cb93ba826c7c91b5"
       },
       {
         "filePath": "packages/codegen/src/typegen/generate-types.ts",
@@ -34816,6 +34904,156 @@
         "semanticHash": "a31ecdb4061bb3f0e53852479ef6080721ce9ddff207a376745f93e868a7b0f6",
         "shapeHash": "af5678f1534b1ddf4160a9a264fbd7eae037bf36d2a90bc91a63f575cad3b5b9",
         "syntaxHash": "00a2f8ae34d1788b80a3e4f5eccd0cfb362b71c03d632ed4d4c5574247a7a00a"
+      },
+      {
+        "filePath": "packages/codegen/src/typespec/aliases.ts",
+        "identity": "packages/codegen/src/typespec/aliases.ts#src/typespec/aliases.ts#neutral#@oa-sdk/codegen:src/typespec/aliases.ts#extractAstDoc#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/typespec/aliases.ts#extractAstDoc",
+        "runtime": "neutral",
+        "semanticHash": "33e3f0669d744816afd479546b6a59a464737f7c0287c8515a39257877aa91c9",
+        "shapeHash": "038cde7e57d872c76f5769543baeb2a3c430566f48e1ebc3522d1bdcba83671c",
+        "syntaxHash": "20a832865a8953cf6176beaaa5d8fa437712e1ec1ce6487ef2cdbca7c90144ee"
+      },
+      {
+        "filePath": "packages/codegen/src/typespec/aliases.ts",
+        "identity": "packages/codegen/src/typespec/aliases.ts#src/typespec/aliases.ts#neutral#@oa-sdk/codegen:src/typespec/aliases.ts#extractTypeSpecNamedAliases#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/typespec/aliases.ts#extractTypeSpecNamedAliases",
+        "runtime": "neutral",
+        "semanticHash": "6616f82c2091d340f6070773f2096861a7968c5b020fb080cd7d1ff9f3d510fb",
+        "shapeHash": "0db5c9c40826bbcbbc6849fd9bcedf5824db4de78c71ebdba2a656b5fb0a280e",
+        "syntaxHash": "ab2f9262fdcd3375b08b454434988fa48a13a75f07db1d261aa5906cb1ecdfb1"
+      },
+      {
+        "filePath": "packages/codegen/src/typespec/aliases.ts",
+        "identity": "packages/codegen/src/typespec/aliases.ts#src/typespec/aliases.ts#neutral#@oa-sdk/codegen:src/typespec/aliases.ts#formatLiteral#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/typespec/aliases.ts#formatLiteral",
+        "runtime": "neutral",
+        "semanticHash": "cb2e7c0efb96f90c63585878f585d7ba7ebae3b730d75a02cf7a259d68c8e04e",
+        "shapeHash": "652a73ec9210d343ab4fd13e2073e2f8c991375f663e708f0e4802f3ff69ad84",
+        "syntaxHash": "f07838d4b0caf177e3e179b5f262e654230dfaf9f11f62a346c99dd6e2bda5e1"
+      },
+      {
+        "filePath": "packages/codegen/src/typespec/aliases.ts",
+        "identity": "packages/codegen/src/typespec/aliases.ts#src/typespec/aliases.ts#neutral#@oa-sdk/codegen:src/typespec/aliases.ts#renderNamedAliasDeclarations#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/typespec/aliases.ts#renderNamedAliasDeclarations",
+        "runtime": "neutral",
+        "semanticHash": "e742a3453f4b27a1f208e4ca9641e6baeb04dc6fdf0d898dc13b894f3d7e17cf",
+        "shapeHash": "57fa28db5f153829b756ec85f45fd9fae8c646cdb00bf34b869f36094c47f76c",
+        "syntaxHash": "d170051dca84b19d03fe7a75cb4b27e47f9106c19f128333669157b9c88de9bb"
+      },
+      {
+        "filePath": "packages/codegen/src/typespec/aliases.ts",
+        "identity": "packages/codegen/src/typespec/aliases.ts#src/typespec/aliases.ts#neutral#@oa-sdk/codegen:src/typespec/aliases.ts#resolveSemanticType#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/typespec/aliases.ts#resolveSemanticType",
+        "runtime": "neutral",
+        "semanticHash": "3c8a8dce5710219c697fa1827a5d46b74cf34d7f9c1db102694c1ef666733a6e",
+        "shapeHash": "67256d9f7b25e4f41f5cb20de5b90a475074caf21d343d2cd03ea7983a6908ee",
+        "syntaxHash": "83e289938c4eef79926b41f319a157faa149ad29358acf38ae7ecf13b7814645"
+      },
+      {
+        "filePath": "packages/codegen/src/typespec/aliases.ts",
+        "identity": "packages/codegen/src/typespec/aliases.ts#src/typespec/aliases.ts#neutral#@oa-sdk/codegen:src/typespec/aliases.ts#TypeSpecNamedAlias#interface",
+        "kind": "interface",
+        "qualifiedName": "@oa-sdk/codegen:src/typespec/aliases.ts#TypeSpecNamedAlias",
+        "runtime": "neutral",
+        "semanticHash": "e86bd522ee9df736a58ca54fb1f0bd07e3ef3a87d30edb12833a9a74a7bf0029",
+        "shapeHash": "e1a4e2e8ff958127cf121b6f183818ae63a90dbaa885b2c24b471659040cf5f5",
+        "syntaxHash": "ed0954e9b75f5e36cc1f66ca445ea9cfdc621f231bb104ef38a4f6f924202218"
+      },
+      {
+        "filePath": "packages/codegen/src/typespec/host.ts",
+        "identity": "packages/codegen/src/typespec/host.ts#src/typespec/host.ts#neutral#@oa-sdk/codegen:src/typespec/host.ts#createTypeSpecFallbackHost#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/typespec/host.ts#createTypeSpecFallbackHost",
+        "runtime": "neutral",
+        "semanticHash": "db1617525e6222efff57482d59df6ede3ab9f7c01a2e931e1385b91782df30cf",
+        "shapeHash": "d7c06831a0ab8ba2b015ef35e8c685cdbff2889afd820cb195c02ec6c1ddf3ef",
+        "syntaxHash": "8f6d263f90c72f1076aae87f3f89f43522a3df34a6f7aa02ffd841b8a141cc10"
+      },
+      {
+        "filePath": "packages/codegen/src/typespec/host.ts",
+        "identity": "packages/codegen/src/typespec/host.ts#src/typespec/host.ts#neutral#@oa-sdk/codegen:src/typespec/host.ts#findBundledPackageDir#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/typespec/host.ts#findBundledPackageDir",
+        "runtime": "neutral",
+        "semanticHash": "3c5ff6e0466fbb06d3e4ac56f62108d3904f7603fab7764c2d15ee132b927293",
+        "shapeHash": "355522edd40bbba8ce8e45619ffce13371fee0d8fc86ef019af9df597539c58b",
+        "syntaxHash": "d46f7e66171cf9fa7c13b7b95a2137587d497a0b9b9f2a77210f50b81686d93e"
+      },
+      {
+        "filePath": "packages/codegen/src/typespec/host.ts",
+        "identity": "packages/codegen/src/typespec/host.ts#src/typespec/host.ts#neutral#@oa-sdk/codegen:src/typespec/host.ts#isMissingFsError#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/typespec/host.ts#isMissingFsError",
+        "runtime": "neutral",
+        "semanticHash": "5b3ac0dcc76752cd95d00186f434c138662e616b09b3bd5963327919c272cfca",
+        "shapeHash": "5798a75726bee020c0170a618817e15b6b9abdd47644acaa6a540564550b13c1",
+        "syntaxHash": "a2015702c3f487a7b969894e70daa670fed7913641fe30bf01b87a09ea02b7c2"
+      },
+      {
+        "filePath": "packages/codegen/src/typespec/json-schema.ts",
+        "identity": "packages/codegen/src/typespec/json-schema.ts#src/typespec/json-schema.ts#neutral#@oa-sdk/codegen:src/typespec/json-schema.ts#collectReachableSchemaNames#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/typespec/json-schema.ts#collectReachableSchemaNames",
+        "runtime": "neutral",
+        "semanticHash": "f828730fb854d46c8d0ab3589a278a01803e130f7f53361307adc06e4b9cbc5f",
+        "shapeHash": "34f205a5474ac010a42079e57cb210441da5f320ae4241099042076e54186dc9",
+        "syntaxHash": "2ea580608bf439bff7cedd0994894944778217a89516ed6ed65771375cbe3494"
+      },
+      {
+        "filePath": "packages/codegen/src/typespec/json-schema.ts",
+        "identity": "packages/codegen/src/typespec/json-schema.ts#src/typespec/json-schema.ts#neutral#@oa-sdk/codegen:src/typespec/json-schema.ts#compileTypeSpecToJsonSchemas#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/typespec/json-schema.ts#compileTypeSpecToJsonSchemas",
+        "runtime": "neutral",
+        "semanticHash": "3bd5e7d5188b476c8724b265438b01ec99f13e0846494c28f74493adb621d506",
+        "shapeHash": "9c0328d9398c9d3a64e67cffe6cf3624f42c7d49252c71634de919ba5a47df1e",
+        "syntaxHash": "a3ad42ef5e9575528dd9fa37e579057a01f79977ef382b2e139573e53ac29c23"
+      },
+      {
+        "filePath": "packages/codegen/src/typespec/json-schema.ts",
+        "identity": "packages/codegen/src/typespec/json-schema.ts#src/typespec/json-schema.ts#neutral#@oa-sdk/codegen:src/typespec/json-schema.ts#normalizeSchemaNode#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/typespec/json-schema.ts#normalizeSchemaNode",
+        "runtime": "neutral",
+        "semanticHash": "75535c8120fb39e02bae3a9d98452a3f7c96a4eb479b25d215eee572959a8e6d",
+        "shapeHash": "241e8c48ad94e4b1cc2f2dff602725edacdf9814bc5acb481add4edf30dd383a",
+        "syntaxHash": "940eadac6f7cbc476593cb9f7a41e0a0e3efeae7a66949a0c37597639b9f59f6"
+      },
+      {
+        "filePath": "packages/codegen/src/typespec/json-schema.ts",
+        "identity": "packages/codegen/src/typespec/json-schema.ts#src/typespec/json-schema.ts#neutral#@oa-sdk/codegen:src/typespec/json-schema.ts#orderSchemaKeys#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/typespec/json-schema.ts#orderSchemaKeys",
+        "runtime": "neutral",
+        "semanticHash": "cd61f96e5948b9752a6570cfab1cdb9ad080c4277223a0034135c5e933fd8f77",
+        "shapeHash": "4d00e1382d75246a2a63691841ab9c46a45662079c20f273c0ac3cc98a6ae873",
+        "syntaxHash": "f0b047123383423398e738252a58eb1e6fea1130eec182b6e0f98ac5a2b8b149"
+      },
+      {
+        "filePath": "packages/codegen/src/typespec/json-schema.ts",
+        "identity": "packages/codegen/src/typespec/json-schema.ts#src/typespec/json-schema.ts#neutral#@oa-sdk/codegen:src/typespec/json-schema.ts#TypeSpecJsonSchemaOptions#interface",
+        "kind": "interface",
+        "qualifiedName": "@oa-sdk/codegen:src/typespec/json-schema.ts#TypeSpecJsonSchemaOptions",
+        "runtime": "neutral",
+        "semanticHash": "3bb5da191bdfd51f04a5edc6312c3fd5ea05c98031c46d2d0d534bca5670a240",
+        "shapeHash": "15d58767b68fcd8d2c1285da08980ebeb01064429e835d296c866e6f7da0704f",
+        "syntaxHash": "e8659b059a081ea15511d1c0d2ae1a4fd216feb69281fc8e63f3a5e692b60502"
+      },
+      {
+        "filePath": "packages/codegen/src/typespec/json-schema.ts",
+        "identity": "packages/codegen/src/typespec/json-schema.ts#src/typespec/json-schema.ts#neutral#@oa-sdk/codegen:src/typespec/json-schema.ts#TypeSpecJsonSchemaResult#interface",
+        "kind": "interface",
+        "qualifiedName": "@oa-sdk/codegen:src/typespec/json-schema.ts#TypeSpecJsonSchemaResult",
+        "runtime": "neutral",
+        "semanticHash": "df56c51419339ce4bd31cd2be426ebc43090332e6f90640384a1a8c8db20ed73",
+        "shapeHash": "9020e728a03550a3ea699eb7b8c54558e8bfaa0011af89bd741043fee0f0e0e9",
+        "syntaxHash": "6f0d32787aae6a0c0262a0eb3b79badb0275426333e337fe01012cb818ebeff3"
       },
       {
         "filePath": "packages/codegen/src/wire-adapter/adapters/messagepack-target-adapter.ts",
@@ -80148,18 +80386,20 @@
         "syntaxHash": "e468fae258fff35898aef05fe6a6da6ccde78e05e58af5c1bba938bd1f37adc3"
       }
     ],
-    "digest": "08b3576b287534de73fd61cbc918221072f97c597e7362625aa5ab4c177dcfc4",
+    "digest": "fbe0757f328c9e9df2a53178f9430991b9fad6ed414b7d93b77758a1df8a52e5",
     "publicSurfaces": [
       {
         "exportKey": "./guards",
         "exports": [
           "GeneratedGuardArtifact:type",
+          "StandaloneGuardError:type",
           "StandaloneGuardGeneratorOptions:type",
           "StandaloneGuardTarget:type",
-          "generateStandaloneGuards:mixed"
+          "generateStandaloneGuards:mixed",
+          "hasAncestorModulePackage:mixed"
         ],
         "filePath": "packages/ast-sync/src/guards/index.ts",
-        "hash": "892f764deba7d8fac4472f4a38820b851ab69fbf57933c6786a78d6e10013bf4",
+        "hash": "8f8f0cc0b7f75ac553e3ce0e661564625e8f4184a58c65b0fc66fa916c4ceec4",
         "packageName": "@oa-sdk/ast-sync",
         "runtime": "neutral"
       },
@@ -80186,6 +80426,7 @@
           "PropertyConstraint:type",
           "ShapeAuditResult:type",
           "ShapeDiagnostic:type",
+          "StandaloneGuardError:type",
           "StandaloneGuardGeneratorOptions:type",
           "StandaloneGuardTarget:type",
           "SymbolCycleResult:type",
@@ -80220,6 +80461,7 @@
           "getNormalizedDeclarationId:value",
           "getProgramTempDir:value",
           "getTypeChecker:value",
+          "hasAncestorModulePackage:mixed",
           "referencedSymbols:value",
           "resolveAlias:value",
           "syncEntitySpecWithCode:value",
@@ -80227,7 +80469,7 @@
           "withRecursiveReference:value"
         ],
         "filePath": "packages/ast-sync/src/index.ts",
-        "hash": "672deb6c9bad1bba30538e0820c965e28f2c02a932667ddca83eb327929db731",
+        "hash": "bd621135a8917fda05132691b8d2a4a83d6acf0c3757956022f2bec2f616013c",
         "packageName": "@oa-sdk/ast-sync",
         "runtime": "neutral"
       },
@@ -80597,6 +80839,20 @@
         "runtime": "neutral"
       },
       {
+        "exportKey": "./guards",
+        "exports": [
+          "GeneratedGuardArtifact:type",
+          "StandaloneGuardError:type",
+          "StandaloneGuardGeneratorOptions:type",
+          "StandaloneGuardTarget:type",
+          "generateStandaloneGuards:mixed"
+        ],
+        "filePath": "packages/codegen/src/standalone-guards/index.ts",
+        "hash": "b180ba933068052fb7c9fb3eae72df081daf6f61e0bcce8b01b5e341d711b771",
+        "packageName": "@oa-sdk/codegen",
+        "runtime": "neutral"
+      },
+      {
         "exportKey": "./plugin",
         "exports": [
           "ClientModule:type",
@@ -80795,6 +81051,28 @@
         ],
         "filePath": "packages/codegen/src/typegen/index.ts",
         "hash": "2d2d0cfd7f67ffd9f520fa859713c1c11178b1427aed837b0f5577859d4c0edd",
+        "packageName": "@oa-sdk/codegen",
+        "runtime": "neutral"
+      },
+      {
+        "exportKey": "./typespec",
+        "exports": [
+          "TypeSpecCompilationError:type",
+          "TypeSpecCompilerOptions:type",
+          "TypeSpecCompilerResult:type",
+          "TypeSpecJsonSchemaOptions:type",
+          "TypeSpecJsonSchemaResult:type",
+          "TypeSpecNamedAlias:type",
+          "absolutizeTspInput:mixed",
+          "compileTypeSpecInMemory:mixed",
+          "compileTypeSpecToJsonSchemas:mixed",
+          "createTypeSpecFallbackHost:mixed",
+          "extractTypeSpecNamedAliases:mixed",
+          "renderNamedAliasDeclarations:mixed",
+          "resolveTypeSpecEntrypoint:mixed"
+        ],
+        "filePath": "packages/codegen/src/typespec/index.ts",
+        "hash": "6ea8e231568101f21769decd89009ce2b127bd3502d436aeea1bd200716788c5",
         "packageName": "@oa-sdk/codegen",
         "runtime": "neutral"
       },
@@ -81035,6 +81313,7 @@
           "SpecTraceabilityNode:type",
           "SpecTraceabilitySummary:type",
           "SqliteDriverName:type",
+          "StandaloneGuardError:type",
           "StandaloneGuardGeneratorOptions:type",
           "StandaloneGuardTarget:type",
           "SyncOptions:type",
@@ -81095,6 +81374,9 @@
           "TypeSpecGeneratedGraphSemanticIndex:type",
           "TypeSpecGeneratedGraphSemanticIndexInput:type",
           "TypeSpecGraphProvenance:type",
+          "TypeSpecJsonSchemaOptions:type",
+          "TypeSpecJsonSchemaResult:type",
+          "TypeSpecNamedAlias:type",
           "TypeSpecWirePipeline:mixed",
           "TypeSpecWireTargetAdapter:type",
           "TypegenFidelity:type",
@@ -81175,6 +81457,7 @@
           "byKindRoutingConfigSchema:mixed",
           "casingTransformers:mixed",
           "compileTypeSpecInMemory:mixed",
+          "compileTypeSpecToJsonSchemas:mixed",
           "computeEntitySpecDiff:mixed",
           "computeSha256:mixed",
           "computeVersionHash:mixed",
@@ -81201,6 +81484,7 @@
           "createRuntimeZodValidators:mixed",
           "createSQLiteWorkspaceIndex:mixed",
           "createTspBuilder:mixed",
+          "createTypeSpecFallbackHost:mixed",
           "createTypescriptAlgebra:mixed",
           "createWorkspaceIndex:mixed",
           "createZod4Algebra:mixed",
@@ -81215,6 +81499,7 @@
           "executeSchemaPipeline:mixed",
           "exportOpenApiToTypeSpec:mixed",
           "extractGroupFromPath:mixed",
+          "extractTypeSpecNamedAliases:mixed",
           "extractWireSchemaFromOas:mixed",
           "findArtifactCompatibility:mixed",
           "findProjectRoot:mixed",
@@ -81272,6 +81557,7 @@
           "renderField:value",
           "renderJson:value",
           "renderModel:value",
+          "renderNamedAliasDeclarations:mixed",
           "renderPyModule:value",
           "renderPyOperationsModule:value",
           "renderPyPackageInit:value",
@@ -81320,7 +81606,7 @@
           "zodToSchema:mixed"
         ],
         "filePath": "packages/codegen/src/index.ts",
-        "hash": "f95bbe30ba1b3b3edadc6984ce0a6c633a85c3eb6ddcb45041fd22e4d643c643",
+        "hash": "500fc8d5e4bd27673ef48910b3b792fd9918a0306ee602ae2d91121ed4309469",
         "packageName": "@oa-sdk/codegen",
         "runtime": "neutral"
       },
@@ -85367,21 +85653,21 @@
       "role": "authority"
     },
     {
-      "contentHash": "daf33d97226deab8b794a8a4dedf30eb511e45870f104f28b2d306158e4efc88",
+      "contentHash": "3cf585e924634e35dacdfb5705f5015d1675c547978e89fb23a494e1e6b54b6b",
       "filePath": "packages/ast-sync/src/guards/generator.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/ast-sync",
       "role": "authority"
     },
     {
-      "contentHash": "75fd5976b190a4808a4336b2acf3114fceee713c7bdfbfe181b810937c48db05",
+      "contentHash": "7c4f36d01f3851695eff699cf7d6ef6c085a84366d4be8c16c376e879a7f28cc",
       "filePath": "packages/ast-sync/src/guards/index.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/ast-sync",
       "role": "authority"
     },
     {
-      "contentHash": "d004ea295354f456a123cb7a9617437b8e6f0ab87871d1c22cc08b7dc9c547e9",
+      "contentHash": "42eca373c119cbbc0441881c56c9cd49c83200800a62120fb305f38734d866a7",
       "filePath": "packages/ast-sync/src/guards/types.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/ast-sync",
@@ -86634,7 +86920,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "7916d61840e913c1a38cf1c6ee26fc61264ccb495e862164a581cc214c56c8f4",
+      "contentHash": "e62ae8ba0dac7c0b7f15f474a0515f81c800e086e0701664079104b2bc476cb1",
       "filePath": "packages/codegen/src/cli/lib/openapi-governance-scaffold.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -86858,7 +87144,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "7f7433039c2701addd2c73440c659f88311f2807665ad970ffe564e0148d1c06",
+      "contentHash": "49d2636ac8fbd0e5948f6f128d628aaacae316ea97eacdb3e57231586f79d39a",
       "filePath": "packages/codegen/src/cli/lib/typespec-mock-compiler.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -86984,7 +87270,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "e9cac5cf44837973f33f101cf84bfb972947f6e8703d147fca05b7be45ec4e61",
+      "contentHash": "03f7472bb3292f70a98c12319e29e2260f4c51801230bc98e04ad9401de3ab98",
       "filePath": "packages/codegen/src/index.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -87012,7 +87298,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "22ee03fa9bac4dffcbc000dc0e5d35f8f3661de89a831fd5ff30524b9dbc360b",
+      "contentHash": "325298c3cc1492eb50d1903fcbe95588491c54f0f9f606fe34769b5d7baf83ad",
       "filePath": "packages/codegen/src/plugin/compiler.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -87460,14 +87746,14 @@
       "role": "authority"
     },
     {
-      "contentHash": "4c596b2be950daaab8404e7423a204272b59cd98a9b5f171a8c3a3fb4d459a75",
+      "contentHash": "2bdfa37e1fc36d6927d635cf91c97404930b1004ce33dcbffcd8c95781a71aa0",
       "filePath": "packages/codegen/src/standalone-guards/generator.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
     },
     {
-      "contentHash": "3fba646a6d8e88e1e083f9bbc4882e4bfe1cd295b67e214a8b8ab16d6ef418b8",
+      "contentHash": "03302b1a10b039ee008888ccd4e6e8e8e657aa35d0ddcf349615e953a1d2ebe0",
       "filePath": "packages/codegen/src/standalone-guards/index.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -87530,7 +87816,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "5567459b809164411bc975005c0752576f7cb2c780ab9c34936cf0c396b6fab0",
+      "contentHash": "1339927274343aeab9f0802b00358bc553fdf38719c6584cecaffb6c5a9e0e62",
       "filePath": "packages/codegen/src/typegen/generate-types.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -87595,6 +87881,34 @@
     {
       "contentHash": "a8d29e74b2d62e7301ec6d82fa4f1b61538b75c8780e93882941f0280b894dab",
       "filePath": "packages/codegen/src/typespec-restored-openapi-digest.ts",
+      "origin": "handwritten",
+      "packageName": "@oa-sdk/codegen",
+      "role": "authority"
+    },
+    {
+      "contentHash": "09c3bd521ca7e078e7278eaea78aa2dea92e47b4c95090d3243d2c5051270a6e",
+      "filePath": "packages/codegen/src/typespec/aliases.ts",
+      "origin": "handwritten",
+      "packageName": "@oa-sdk/codegen",
+      "role": "authority"
+    },
+    {
+      "contentHash": "23bd9634532bf3e568cfdcb759608d0c878f61de0482a228eceafdc5926fe68b",
+      "filePath": "packages/codegen/src/typespec/host.ts",
+      "origin": "handwritten",
+      "packageName": "@oa-sdk/codegen",
+      "role": "authority"
+    },
+    {
+      "contentHash": "21635f2386c5ad07226194ec68663e9a57b72c7e02aef787f499200941691ba9",
+      "filePath": "packages/codegen/src/typespec/index.ts",
+      "origin": "handwritten",
+      "packageName": "@oa-sdk/codegen",
+      "role": "authority"
+    },
+    {
+      "contentHash": "158fc48404d648578974dd805d97948bbf9957cb06811a3ad0e878f83d914471",
+      "filePath": "packages/codegen/src/typespec/json-schema.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
@@ -93907,7 +94221,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "ee8b2942f0082738c2ede8dc8225917a583feded5226a56d2b6f3e9dc64c44b7",
+      "contentHash": "cd977e7aa4b75c4e83c59ae5a42a0f6d3cc4ebf2a2e230c42c25d01966eb4763",
       "filePath": "packages/tools/src/version.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/tools",

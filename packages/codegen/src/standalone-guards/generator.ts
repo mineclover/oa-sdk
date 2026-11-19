@@ -2,6 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import {
   generateStandaloneGuards as renderGuards,
+  hasAncestorModulePackage,
   type GeneratedGuardArtifact,
   type StandaloneGuardGeneratorOptions,
 } from '@oa-sdk/ast-sync/guards'
@@ -11,6 +12,7 @@ import { createComponentTypeNameMap } from '../typegen/type-names.js'
 
 export type {
   GeneratedGuardArtifact,
+  StandaloneGuardError,
   StandaloneGuardGeneratorOptions,
   StandaloneGuardTarget,
 } from '@oa-sdk/ast-sync/guards'
@@ -55,14 +57,17 @@ export async function generateStandaloneGuards(
   // 4. Publish only after the complete artifact set has rendered successfully.
   if (!options.dryRun && artifacts.length > 0) {
     await mkdir(resolve(options.outDir), { recursive: true })
-    try {
-      await writeFile(
-        join(resolve(options.outDir), 'package.json'),
-        JSON.stringify({ type: 'module' }) + '\n',
-        { flag: 'wx' },
-      )
-    } catch (error) {
-      if (!(error instanceof Error && 'code' in error && error.code === 'EEXIST')) throw error
+    const writePkg = options.writePackageJson ?? 'auto'
+    if (writePkg === true || (writePkg === 'auto' && !hasAncestorModulePackage(options.outDir))) {
+      try {
+        await writeFile(
+          join(resolve(options.outDir), 'package.json'),
+          JSON.stringify({ type: 'module' }) + '\n',
+          { flag: 'wx' },
+        )
+      } catch (error) {
+        if (!(error instanceof Error && 'code' in error && error.code === 'EEXIST')) throw error
+      }
     }
     for (const artifact of artifacts) {
       await mkdir(resolve(artifact.filePath, '..'), { recursive: true })

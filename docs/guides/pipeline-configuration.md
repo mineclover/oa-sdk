@@ -77,10 +77,7 @@ export const dataPipeline = defineTspConfig({
 })
 ```
 
-HTTP operation 없이 타입·가드를 만든다. 모델 전용 TypeSpec 원본의 예시는 다음과 같다.
-
-현재 `.tsp` 로더는 OpenAPI emitter를 사용하므로 모델 전용 파일에도 `@service`가 필요하다.
-이는 HTTP operation을 선언하라는 뜻이 아니다.
+HTTP operation 없이 타입·가드를 만든다. CLI/`TspConfig` 플러그인의 `.tsp` 로더는 OpenAPI emitter 기본 동작을 사용하므로 모델 전용 파일에도 `@service`가 필요하다(이는 HTTP operation을 선언하라는 뜻이 아니다). 반면 프로그래밍 방식의 `@oa-sdk/codegen/typespec` `compileTypeSpecToJsonSchemas()`는 `omitUnreachableTypes: false`로 동작하므로 `@service`·`@route` 없는 순수 데이터 모델 `.tsp`에서도 Draft 2020-12 JSON Schema, named `alias` 보존 `.d.ts`, 독립형 가드를 직접 생성할 수 있다([순수 타입과 가드](./pure-types-and-guards.md#33-프로그래밍-api-oa-sdkcodegentypespec-oa-sdkcodegenguards--zod-free)).
 
 ```typespec
 @service
@@ -92,9 +89,8 @@ model Event {
 }
 ```
 
-`data`/`interface` 모드에서 모델·operation이 모두 비면 오류로 처리한다. `@service` 누락으로
-모델이 방출되지 않았는데 빈 타입 파일을 정상 결과로 취급하지 않는다. 임의의 TypeSpec 모델을
-OpenAPI와 무관하게 방출하는 native JSON Schema 파이프라인을 추가한 것은 아니다.
+`data`/`interface` 모드(`TspConfig`)에서 모델·operation이 모두 비면 오류로 처리한다. `@service` 누락으로
+모델이 방출되지 않았는데 빈 타입 파일을 정상 결과로 취급하지 않는다. (`@service` 없는 순수 데이터 모델 컴파일에는 `compileTypeSpecToJsonSchemas()`를 사용한다.)
 
 ### 3.3 소비자 인터페이스
 
@@ -162,6 +158,8 @@ handler/client/query/CRDT HTTP 출력이나 그 companion 패키지는 불러오
 ## 5. 생성물과 타입 연결
 
 - CLI·설정 기반 가드와 `pluginTypescript({ typeGuards: true })`는 같은 Ajv standalone 엔진을 사용한다.
+- 생성된 `is<Name>` 가드는 검증 실패 시 `is<Name>.errors`(`StandaloneGuardError[] | null`)를 채우고 성공 시 `null`로 초기화한다. `includeAssertions: true`를 지정하면 `validate<Name>`(`{ valid, data, errors }`)과 `assert<Name>`(`TypeError` throw) 헬퍼·`.d.ts` 선언도 함께 생성된다.
+- 프로그래밍 방식의 `writePackageJson` 옵션(기본 `'auto'`)은 상위 디렉터리 체인에 이미 `"type": "module"` `package.json`이 있는 경우(`hasAncestorModulePackage`) 가드 디렉터리 내 중복 `{ "type": "module" }` `package.json` 생성을 건너뛴다.
 - `Domain.User` 같은 component 이름의 선언은 typegen과 같은 이름 매핑(`DomainUser`)을 사용한다.
 - `generate:guards`에서 `--type-import`를 생략하면 `types.d.ts`를 함께 생성한다. 지정하면 외부 타입
   모듈을 사용하며 그 모듈은 typegen과 같은 선언 이름을 export해야 한다.

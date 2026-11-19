@@ -102,7 +102,7 @@ npx oa-gen audit:csp --bundle ./src/generated/guards
 
 | 원본 | `<id>.openapi.json`의 OpenAPI 버전 | 주의 |
 |---|---|---|
-| `.tsp` | 3.2.0 | codegen에 들어 있는 TypeSpec 컴파일러(1.16)로 메모리 컴파일합니다. 네임스페이스에 `@service`가 없으면 model만 선언한 파일은 component를 하나도 내보내지 않습니다. `@oaUseResponseComponent` 같은 OA SDK extension은 이 경로에서 응답으로 바뀌지 않습니다([스키마 작성 가이드 1절](./schema-authoring.md#1-새-api-작성-경로-저장소)). |
+| `.tsp` | 3.2.0 / 3.1.0 | codegen에 들어 있는 TypeSpec 컴파일러(1.16)로 메모리 컴파일합니다(`createTypeSpecFallbackHost` 폴백 지원). `oa-gen` CLI / `TspConfig` 경로에서는 `@service`가 없으면 model만 선언한 파일이 component를 내보내지 않으며, `@service` 없는 순수 데이터 모델은 `@oa-sdk/codegen/typespec`의 `compileTypeSpecToJsonSchemas()`를 사용합니다. `@oaUseResponseComponent` 같은 OA SDK extension은 이 경로에서 응답으로 바뀌지 않습니다([스키마 작성 가이드 1절](./schema-authoring.md#1-새-api-작성-경로-저장소)). |
 | OpenAPI YAML·JSON | 원본에 적힌 버전 | 3.2를 강제하려면 `oa-gen validate --spec <파일> --require-32`를 씁니다. |
 | TypeScript 모듈(Zod) | 3.1.0 | export한 Zod 스키마가 component가 됩니다(`OrderSchema` → `Order`). |
 

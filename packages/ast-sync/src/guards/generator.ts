@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from 'node:fs'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import Ajv2020 from 'ajv/dist/2020.js'
@@ -287,6 +288,93 @@ function buildPolymorphicDispatch(
  * 2. Inlining of any runtime helper dependencies (ucs2length, fast-deep-equal).
  * 3. 0 external require() calls and 0 CSP violations.
  */
+const STANDALONE_ERROR_TYPE_TS =
+  'ReadonlyArray<{ readonly instancePath: string; readonly schemaPath: string; readonly keyword: string; readonly params?: Record<string, unknown>; readonly message?: string }>'
+
+const packageJsonModuleValidator = {
+  safeParse(value: unknown): { type?: string } | null {
+    if (value === null || typeof value !== 'object') return null
+    return 'type' in value && typeof value.type === 'string'
+      ? { type: value.type }
+      : {}
+  },
+}
+
+/**
+ * Walks parent directories from `startDir` looking for the nearest `package.json`
+ * and returns `true` iff it declares `"type": "module"`.
+ */
+export function hasAncestorModulePackage(startDir: string): boolean {
+  let cur = path.resolve(startDir)
+  while (true) {
+    const candidate = path.join(cur, 'package.json')
+    if (existsSync(candidate)) {
+      try {
+        const parsed = packageJsonModuleValidator.safeParse(JSON.parse(readFileSync(candidate, 'utf8')))
+        return parsed?.type === 'module'
+      } catch {
+        return false
+      }
+    }
+    const parent = path.dirname(cur)
+    if (parent === cur) return false
+    cur = parent
+  }
+}
+
+function resolveGuardStem(guardName: string): string {
+  const match = /^is([A-Z_$].*)$/.exec(guardName)
+  return match ? match[1]! : guardName
+}
+
+function renderAssertionJsForGuard(guardName: string, stem: string): string {
+  return [
+    `export function validate${stem}(data) {`,
+    `  if (${guardName}(data)) {`,
+    '    return { valid: true, data, errors: null };',
+    '  }',
+    `  return { valid: false, errors: ${guardName}.errors ?? [] };`,
+    '}',
+    '',
+    `export function assert${stem}(data) {`,
+    `  if (!${guardName}(data)) {`,
+    `    const errs = ${guardName}.errors ?? [];`,
+    "    const details = errs.map((e, i) => `  ${i + 1}. Path: \"${e.instancePath || '/'}\" | Keyword: \"${e.keyword}\" | Issue: ${e.message || 'validation failed'}`).join('\\n');",
+    `    throw new TypeError(\`[StandaloneGuard] Data failed validation against ${stem}\${details ? ':\\n' + details : ''}\`);`,
+    '  }',
+    '}',
+  ].join('\n')
+}
+
+function renderGuardDtsEntries(
+  guardName: string,
+  targetType: string | undefined,
+  options: { isTiered: boolean; includeAssertions: boolean; usedStems: Set<string> },
+): string[] {
+  const typeRef = targetType || 'unknown'
+  const lines: string[] = []
+  if (options.isTiered) {
+    lines.push(`export declare function ${guardName}Fast(data: unknown): boolean;`)
+  }
+  lines.push(`export declare function ${guardName}(data: unknown): data is ${typeRef};`)
+  lines.push(
+    `export declare namespace ${guardName} {`,
+    `  let errors: ${STANDALONE_ERROR_TYPE_TS} | null | undefined;`,
+    '}',
+  )
+  if (options.includeAssertions) {
+    const stem = resolveGuardStem(guardName)
+    if (!options.usedStems.has(stem)) {
+      options.usedStems.add(stem)
+      lines.push(
+        `export declare function validate${stem}(data: unknown): { readonly valid: true; readonly data: ${typeRef}; readonly errors: null } | { readonly valid: false; readonly errors: ${STANDALONE_ERROR_TYPE_TS} };`,
+      )
+      lines.push(`export declare function assert${stem}(data: unknown): asserts data is ${typeRef};`)
+    }
+  }
+  return lines
+}
+
 function postProcessGeneratedJs(
   rawJs: string,
   extra: {
@@ -295,23 +383,63 @@ function postProcessGeneratedJs(
     tieredGuards?: Set<string>
     guardToFileBase?: Map<string, string>
     currentGuardName?: string
+    includeAssertions?: boolean
+    exportedGuardNames?: readonly string[]
   } = {},
 ): string {
   let js = rawJs
+  const exportedInFile: string[] = []
 
-  // 1. Transform export syntax to standard function
+  // 1. Transform export syntax to standard function and preserve AJV `.errors`
   js = js.replace(
     /export const ([A-Za-z_$][\w$]*) = ([A-Za-z_$][\w$]*);/g,
     (_match, name, fn) => {
+      exportedInFile.push(name)
       if (extra.dispatches?.has(name)) {
         const disp = extra.dispatches.get(name)!
-        return `export function ${name}(data, ...args) {\n  if (typeof data !== 'object' || data === null) return false;\n  const branch = ${disp.tableName}[data[${JSON.stringify(disp.keyProp)}]];\n  if (branch) return branch(data, ...args);\n  return ${fn}(data, ...args);\n}`
+        return [
+          `export function ${name}(data, ...args) {`,
+          `  if (typeof data !== 'object' || data === null) {`,
+          `    ${name}.errors = [{ instancePath: '', schemaPath: '#/type', keyword: 'type', message: 'must be object' }];`,
+          '    return false;',
+          '  }',
+          `  const branch = ${disp.tableName}[data[${JSON.stringify(disp.keyProp)}]];`,
+          '  if (branch) {',
+          '    const ok = branch(data, ...args);',
+          `    ${name}.errors = ok ? null : (branch.errors ?? null);`,
+          '    return ok;',
+          '  }',
+          `  const ok = ${fn}(data, ...args);`,
+          `  ${name}.errors = ok ? null : (${fn}.errors ?? null);`,
+          '  return ok;',
+          '}',
+        ].join('\n')
       }
       if (extra.tieredGuards?.has(name) && extra.fastPaths?.has(name)) {
         const fp = extra.fastPaths.get(name)!
-        return `export function ${name}Fast(data) {\n  return ${fp.fnName}(data);\n}\n\nexport function ${name}(data, ...args) {\n  if (!${fp.fnName}(data)) return false;\n  return ${fn}(data, ...args);\n}`
+        return [
+          `export function ${name}Fast(data) {`,
+          `  return ${fp.fnName}(data);`,
+          '}',
+          '',
+          `export function ${name}(data, ...args) {`,
+          `  if (!${fp.fnName}(data)) {`,
+          `    ${name}.errors = [{ instancePath: '', schemaPath: '#/fastPath', keyword: 'fastPath', message: 'failed fast-path structural check' }];`,
+          '    return false;',
+          '  }',
+          `  const ok = ${fn}(data, ...args);`,
+          `  ${name}.errors = ok ? null : (${fn}.errors ?? null);`,
+          '  return ok;',
+          '}',
+        ].join('\n')
       }
-      return `export function ${name}(data, ...args) {\n  return ${fn}(data, ...args);\n}`
+      return [
+        `export function ${name}(data, ...args) {`,
+        `  const ok = ${fn}(data, ...args);`,
+        `  ${name}.errors = ok ? null : (${fn}.errors ?? null);`,
+        '  return ok;',
+        '}',
+      ].join('\n')
     },
   )
 
@@ -393,6 +521,21 @@ function postProcessGeneratedJs(
       js = js.replace(/^"use strict";(\n)?/, `"use strict";\n\n${prefixParts.join('\n\n')}\n\n`)
     } else {
       js = `${prefixParts.join('\n\n')}\n\n${js}`
+    }
+  }
+
+  if (extra.includeAssertions) {
+    const targets = extra.exportedGuardNames ?? exportedInFile
+    const usedStems = new Set<string>()
+    const assertionBlocks: string[] = []
+    for (const guardName of targets) {
+      const stem = resolveGuardStem(guardName)
+      if (usedStems.has(stem)) continue
+      usedStems.add(stem)
+      assertionBlocks.push(renderAssertionJsForGuard(guardName, stem))
+    }
+    if (assertionBlocks.length > 0) {
+      js = `${js.trimEnd()}\n\n${assertionBlocks.join('\n\n')}\n`
     }
   }
 
@@ -485,6 +628,8 @@ export async function generateStandaloneGuards(
     outDir: rawOutDir,
     typeImportSpecifier,
     generateDeclarations = true,
+    includeAssertions = false,
+    writePackageJson = 'auto',
     split = false,
     schemas,
   } = options
@@ -496,7 +641,8 @@ export async function generateStandaloneGuards(
     await fs.writeFile(filePath, content, 'utf8')
   }
   const ensurePackage = async (): Promise<void> => {
-    if (options.dryRun) return
+    if (options.dryRun || writePackageJson === false) return
+    if (writePackageJson !== true && hasAncestorModulePackage(outDir)) return
     await fs.mkdir(outDir, { recursive: true })
     const pkgPath = path.join(outDir, 'package.json')
     try {
@@ -651,6 +797,8 @@ export async function generateStandaloneGuards(
         tieredGuards,
         guardToFileBase,
         currentGuardName: guard.name,
+        includeAssertions,
+        exportedGuardNames: [guard.name],
       })
 
       const jsFilePath = path.join(guardsDir, `${fileBase}.js`)
@@ -668,14 +816,13 @@ export async function generateStandaloneGuards(
           dtsLines.push(`import type { ${typeImportRoot(tName)} } from '${typeImportSpecifier}';`)
           dtsLines.push('')
         }
-        if (tieredGuards.has(guard.name)) {
-          dtsLines.push(`export declare function ${guard.name}Fast(data: unknown): boolean;`)
-        }
-        if (tName) {
-          dtsLines.push(`export declare function ${guard.name}(data: unknown): data is ${tName};`)
-        } else {
-          dtsLines.push(`export declare function ${guard.name}(data: unknown): data is unknown;`)
-        }
+        dtsLines.push(
+          ...renderGuardDtsEntries(guard.name, tName, {
+            isTiered: tieredGuards.has(guard.name),
+            includeAssertions,
+            usedStems: new Set<string>(),
+          }),
+        )
         const dtsContent = dtsLines.join('\n') + '\n'
         const dtsFilePath = path.join(guardsDir, `${fileBase}.d.ts`)
         await writeFile(dtsFilePath, dtsContent)
@@ -719,23 +866,31 @@ export async function generateStandaloneGuards(
 
   // Monolithic mode: compile standalone ESM code
   const rawJs: string = standaloneCode(ajv, mapping)
-  const jsContent = postProcessGeneratedJs(rawJs, { fastPaths, dispatches, tieredGuards })
+  const jsContent = postProcessGeneratedJs(rawJs, {
+    fastPaths,
+    dispatches,
+    tieredGuards,
+    includeAssertions,
+    exportedGuardNames: resolvedGuards.map(g => g.name),
+  })
 
   // Generate TypeScript .d.ts declarations
   const typeImports = new Set<string>()
   const dtsDeclarations: string[] = []
+  const usedAssertionStems = new Set<string>()
 
   for (const guard of resolvedGuards) {
     const tName = declarationType(guard)
-    if (tieredGuards.has(guard.name)) {
-      dtsDeclarations.push(`export declare function ${guard.name}Fast(data: unknown): boolean;`)
-    }
     if (tName) {
       typeImports.add(typeImportRoot(tName))
-      dtsDeclarations.push(`export declare function ${guard.name}(data: unknown): data is ${tName};`)
-    } else {
-      dtsDeclarations.push(`export declare function ${guard.name}(data: unknown): data is unknown;`)
     }
+    dtsDeclarations.push(
+      ...renderGuardDtsEntries(guard.name, tName, {
+        isTiered: tieredGuards.has(guard.name),
+        includeAssertions,
+        usedStems: usedAssertionStems,
+      }),
+    )
   }
 
   const dtsLines: string[] = []

@@ -49,7 +49,7 @@ describe('Tiered Validation & Polymorphic Dispatch in Standalone Guards', () => 
     // Expect fast-path function and Fast export
     expect(js).toContain('function __fastValidate_isChunkHeader(data)')
     expect(js).toContain('export function isChunkHeaderFast(data)')
-    expect(js).toContain('if (!__fastValidate_isChunkHeader(data)) return false')
+    expect(js).toContain('if (!__fastValidate_isChunkHeader(data))')
     expect(dts).toContain('export declare function isChunkHeaderFast(data: unknown): boolean;')
     expect(dts).toContain('export declare function isChunkHeader(data: unknown): data is ChunkHeader;')
 
@@ -61,11 +61,14 @@ describe('Tiered Validation & Polymorphic Dispatch in Standalone Guards', () => 
     const valid = { seq: 0, chunkSize: 1024, format: 'ui-action@v1' }
     expect(mod.isChunkHeaderFast(valid)).toBe(true)
     expect(mod.isChunkHeader(valid)).toBe(true)
+    expect(mod.isChunkHeader.errors).toBeNull()
 
     // Missing required field
     const missingSeq = { chunkSize: 1024, format: 'ui-action@v1' }
     expect(mod.isChunkHeaderFast(missingSeq)).toBe(false)
     expect(mod.isChunkHeader(missingSeq)).toBe(false)
+    expect(Array.isArray(mod.isChunkHeader.errors)).toBe(true)
+    expect(mod.isChunkHeader.errors.length).toBeGreaterThan(0)
 
     // Non-integer seq
     const invalidSeq = { seq: -5, chunkSize: 1024, format: 'ui-action@v1' }

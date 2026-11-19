@@ -11,7 +11,7 @@ V3 Unified Architecture: Zero-loss bidirectional TypeScript AST synchronization,
   - `policy-required`: Requires an explicit authoring policy (e.g. record, utility types).
   - `unsupported`: Complex dynamic constructs (conditional types, mapped types, indexed access).
 - **Checker-Resolved Symbol Cycle Detection**: Graph DFS cycle detector using canonical TypeScript TypeChecker symbol IDs (`symbol.id`), resolving through aliased imports and multi-file re-export chains.
-- **Standalone Pre-compiled Type Guards**: Generates self-contained, zero-dependency validation functions using AJV standalone code generation, fully conforming to strict CSP (zero `eval`, zero `new Function`).
+- **Standalone Pre-compiled Type Guards**: Generates self-contained, zero-dependency validation functions using AJV standalone code generation, fully conforming to strict CSP (zero `eval`, zero `new Function`), with `.errors` (`StandaloneGuardError[] | null`), optional `validate<Name>` / `assert<Name>` helpers (`includeAssertions: true`), and ancestor ESM detection (`writePackageJson: 'auto'` + `hasAncestorModulePackage()`).
 - **Tiered AOT Fast-Path Guards**: Inlines zero-overhead \(O(1)\) structural checks (`is<Name>Fast`) for high-frequency loops (e.g. 60fps/120fps UI streams or network packet loops), short-circuiting before deep Ajv validation.
 - **Polymorphic `oneOf` O(1) Dispatcher**: Resolves `discriminator.propertyName` into compile-time hash tables (`__dispatch_is<Name>`) for \(O(1)\) branch lookup instead of sequential array scans.
 
@@ -40,7 +40,7 @@ if (cycleResult.hasCycles) {
 }
 ```
 
-## Standalone Guard Generation with Tiered Fast-Path & Polymorphic Dispatch
+## Standalone Guard Generation with Tiered Fast-Path, Errors & Assertions
 
 ```typescript
 import { generateStandaloneGuards } from '@oa-sdk/ast-sync/guards'
@@ -50,6 +50,8 @@ const artifacts = await generateStandaloneGuards({
   outDir: './src/guards',
   tiered: true,               // Generates is<Name>Fast(data) and tiered wrappers
   polymorphicDispatch: true,  // Generates O(1) discriminator dispatch tables
+  includeAssertions: true,    // Emits validate<Name>(data) and assert<Name>(data)
+  writePackageJson: 'auto',   // Skips { "type": "module" } when an ESM ancestor exists
   guards: [
     { name: 'isActionPayload', schema: '#/$defs/ActionPayload', typeName: 'ActionPayload' },
     { name: 'isTimeSeriesPayload', schema: '#/$defs/TimeSeriesPayload', typeName: 'TimeSeriesPayload' },
@@ -60,8 +62,9 @@ const artifacts = await generateStandaloneGuards({
 
 Generated code exports:
 1. `isActionPayloadFast(data: unknown): boolean` — High-speed inline \(O(1)\) check.
-2. `isActionPayload(data: unknown): data is ActionPayload` — Tiered composite guard with full Draft 2020-12 accuracy.
-3. `const __dispatch_isStreamItem = { "ui-action@v1": isActionPayload, "time-series@v1": isTimeSeriesPayload }` — Instant \(O(1)\) discriminator routing.
+2. `isActionPayload(data: unknown): data is ActionPayload` — Tiered composite guard with full Draft 2020-12 accuracy (`isActionPayload.errors` holds `StandaloneGuardError[] | null` after each call, exposed in `.d.ts` via declaration-merged `export declare namespace`).
+3. `validateActionPayload(data: unknown)` and `assertActionPayload(data: unknown)` *(when `includeAssertions: true`)* — Returns `{ valid, data, errors }` or narrows/throws `TypeError` on invalid input.
+4. `const __dispatch_isStreamItem = { "ui-action@v1": isActionPayload, "time-series@v1": isTimeSeriesPayload }` — Instant \(O(1)\) discriminator routing.
 
 ## CLI Audit
 

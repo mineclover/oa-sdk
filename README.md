@@ -62,11 +62,11 @@ oa-sdk는 비즈니스 로직을 대신 쓰거나 API를 호스팅하지 않습�
 | `@oa-sdk/openapi-projection-contract` | Zod/Drizzle/외부 schema 조각을 OpenAPI로 투영할 때 공유하는 projection contract 타입층 |
 | `@oa-sdk/parser` | OpenAPI 3.2 parse/IR/transform/fold/lint/validate/query pipeline |
 | `@oa-sdk/surface-ir` | ParsedDocument 위의 target-neutral API surface IR, Forge SDK/CLI projection, command별 OpenAPI Overlay. `@oa-sdk/codegen`의 런타임 의존성으로 함께 설치되며 `oa-gen surface`가 사용 |
-| `@oa-sdk/codegen` | `oa-gen` CLI, Definition Builder target artifact, OpenAPI 수집/정규화/업그레이드/diff/review, typegen 생성, Zod/Drizzle projection bridge. 핸들러 계약·클라이언트·mock 서버는 `oa-gen`이 실행 중 불러오는 동반 패키지(`@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`, 별도 설치)가 만든다 |
+| `@oa-sdk/codegen` | `oa-gen` CLI, Definition Builder target artifact, OpenAPI 수집/정규화/업그레이드/diff/review, typegen·순수 데이터 모델 TypeSpec → JSON Schema 2020-12(`./typespec`), Zod-free standalone guard(`./guards`), Zod/Drizzle projection bridge (`zod` v4는 내부 `dependencies`로 격리). 핸들러 계약·클라이언트·mock 서버는 `oa-gen`이 실행 중 불러오는 동반 패키지(`@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`, 별도 설치)가 만든다 |
 | `@oa-sdk/spec-lens` | (비공개, 저장소 전용) OpenAPI spec change history observation과 review surface 관리 |
 | `@oa-sdk/spec-lens-contract` | (비공개, 저장소 전용) spec-lens HTTP wire contract와 browser-safe response types |
 | `@oa-sdk/typespec-decorators` | production TypeSpec source에서 검증된 OA SDK extension decorator와 플랫폼 공통 표준 계약(`contracts.tsp`, 데코레이터와 같은 namespace `OaSdkTypeSpec`)을 제공 |
-| `@oa-sdk/ast-sync` | TypeScript AST 양방향 동기화, type adapter, 독립형 guard 생성 |
+| `@oa-sdk/ast-sync` | TypeScript AST 양방향 동기화, type adapter, 독립형 guard 생성(`.errors`, `validate*`/`assert*` assertion, `writePackageJson: 'auto'`) |
 | `@oa-sdk/tools` | JSON Schema 기반 MCP·HTTP·CLI 도구 계약과 실행 adapter |
 
 ### Downstream Integration Libraries

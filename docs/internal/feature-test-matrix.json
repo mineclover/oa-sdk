@@ -1963,11 +1963,17 @@
       "name": "Purpose-isolated contract pipelines",
       "category": "codegen",
       "package": "@oa-sdk/codegen",
-      "description": "Shared purpose admission for API, data-only and consumer interface pipelines; data targets exclude HTTP companions; standalone guard parity, generated declaration naming, target collision rejection and no-write diagnostic failures.",
+      "description": "Shared purpose admission for API, data-only and consumer interface pipelines; data targets exclude HTTP companions; pure data-model TypeSpec to JSON Schema 2020-12 compilation with named alias preservation and fallback host resolution; standalone guard .errors/assertions/ancestor ESM detection, Zod-free subpaths, generated declaration naming, target collision rejection and no-write diagnostic failures.",
       "capabilities": [
         "TspConfig.purpose and ProfileTargetConfig.purpose",
         "data-only models without endpoint companions",
+        "pure data-model TypeSpec to Draft 2020-12 JSON Schema without @service/@route (compileTypeSpecToJsonSchemas)",
+        "named TypeSpec alias union preservation in typesDts (extractTypeSpecNamedAliases)",
+        "createTypeSpecFallbackHost bundled TypeSpec library fallback",
+        "Zod-free @oa-sdk/codegen/typespec and @oa-sdk/codegen/guards subpaths",
         "plugin and CLI standalone guard semantic parity",
+        "standalone guard .errors exposure and validate*/assert* assertions (includeAssertions)",
+        "ancestor ESM detection for standalone guard package.json omission (writePackageJson: 'auto')",
         "strict generated types and guards consumer compilation",
         "conflicting target schema rejection",
         "in-memory guard artifact rendering",
@@ -1978,9 +1984,11 @@
       ],
       "testPaths": [
         "packages/codegen/src/__tests__/pipeline-isolation.test.ts",
+        "packages/codegen/src/__tests__/typespec-json-schema.test.ts",
         "packages/codegen/src/__tests__/plugin/runner.test.ts",
         "packages/codegen/src/__tests__/plugin/vite-plugin.test.ts",
-        "packages/ast-sync/test/guards-rendering.test.ts"
+        "packages/ast-sync/test/guards-rendering.test.ts",
+        "packages/codegen/test/e2e/standalone-guards.e2e.test.ts"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/codegen test",

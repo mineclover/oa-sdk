@@ -20,9 +20,13 @@ npx oa-gen --help
 
 The published package installs its runtime dependencies: `@oa-sdk/core`, `@oa-sdk/parser`,
 `@oa-sdk/ast-sync`, `@oa-sdk/surface-ir`, `@oa-sdk/openapi-projection-contract`,
-`@oa-sdk/typespec-decorators`, and the TypeSpec compiler (`@typespec/compiler` 1.16 and its HTTP
-and OpenAPI libraries). `@oa-sdk/surface-ir` is first published to npm with `@oa-sdk/codegen`
-0.9.0.
+`@oa-sdk/typespec-decorators`, internal `zod` v4 (for `@oa-sdk/codegen/zodgen` and root Zod helpers),
+and the TypeSpec compiler (`@typespec/compiler`, `@typespec/http`, `@typespec/openapi`,
+`@typespec/openapi3` on `~1.16.0`, paired with `@typespec/events`, `@typespec/sse`,
+`@typespec/streams` on `~0.86.0`). `zod` is not declared in `peerDependencies`, so projects
+using Zod 3 can still safely consume the Zod-free `@oa-sdk/codegen/typespec`,
+`@oa-sdk/codegen/guards`, and `@oa-sdk/codegen/typegen` subpaths. `@oa-sdk/surface-ir` is first
+published to npm with `@oa-sdk/codegen` 0.9.0.
 
 ## Quick start
 
@@ -237,22 +241,48 @@ pnpm exec oa-gen audit:shape --source src/models/types.ts
 
 ## Standalone Type Guard Generation (AOT Fast-Path & Polymorphic Dispatch)
 
-Generate self-contained, zero-dependency validation functions with CSP compliance (zero `eval`, zero `new Function`), \(O(1)\) tiered fast-path short-circuiting, and polymorphic `oneOf` hash table dispatch:
+Generate self-contained, zero-dependency validation functions with CSP compliance (zero `eval`, zero `new Function`), \(O(1)\) tiered fast-path short-circuiting, polymorphic `oneOf` hash table dispatch, `.errors` diagnostics, and optional `validate*` / `assert*` helpers via the Zod-free `@oa-sdk/codegen/guards` subpath (or root `@oa-sdk/codegen`):
 
 ```typescript
-import { generateStandaloneGuards } from '@oa-sdk/codegen';
+import { generateStandaloneGuards } from '@oa-sdk/codegen/guards';
 
 const artifacts = await generateStandaloneGuards({
   schemaDocument: openApiDoc,
   outDir: './src/guards',
   tiered: true,               // Inlines O(1) is<Name>Fast() checks
   polymorphicDispatch: true,  // Emits O(1) hash map dispatch for discriminated unions
+  includeAssertions: true,    // Emits validate<Name>(data) and assert<Name>(data)
+  writePackageJson: 'auto',   // Skips { "type": "module" } when an ESM ancestor package.json exists
   guards: [
     { name: 'isActionPayload', schema: '#/$defs/ActionPayload', typeName: 'ActionPayload' },
     { name: 'isTimeSeriesPayload', schema: '#/$defs/TimeSeriesPayload', typeName: 'TimeSeriesPayload' },
     { name: 'isStreamItem', schema: '#/$defs/StreamItem', typeName: 'StreamItem' },
   ],
 });
+```
+
+Each generated `is<Name>` guard sets `is<Name>.errors` (`StandaloneGuardError[] | null`) after execution and merges the namespace type into `.d.ts` declarations.
+
+## Pure Data-Model TypeSpec to JSON Schema 2020-12 (@oa-sdk/codegen/typespec)
+
+Compile pure data-model `.tsp` files directly—with **no `@service` or `@route` required**—into JSON Schema Draft 2020-12 documents (`$id`, `closedObjects` `additionalProperties: false`, single-literal `enum` -> `const`, pruned `$defs`), TypeScript declarations (`typesDts` preserving named `alias` unions via `extractTypeSpecNamedAliases`), and standalone guards through the Zod-free `@oa-sdk/codegen/typespec` subpath. Bundled `@typespec/*` and `@oa-sdk/*` libraries are resolved automatically via `createTypeSpecFallbackHost` when local `node_modules` copies are absent:
+
+```typescript
+import { compileTypeSpecToJsonSchemas } from '@oa-sdk/codegen/typespec';
+
+const compiled = await compileTypeSpecToJsonSchemas('./tsp/recipe.tsp', {
+  models: ['RecipeDoc'],
+  schemaIds: { RecipeDoc: 'https://example.org/schemas/recipe.v1.json' },
+  closedObjects: true,
+  normalizeSingleEnumToConst: true,
+  includeTypes: true,
+  includeGuards: true,
+  includeAssertions: true,
+});
+
+// compiled.jsonSchemas.RecipeDoc  -> Draft 2020-12 schema with $id & pruned $defs
+// compiled.typesDts               -> .d.ts with named alias unions preserved
+// compiled.guardArtifacts         -> standalone is*/validate*/assert* ESM guards
 ```
 
 ## TypeSpec Builder Platform (openapi-ts Style Pipeline)
@@ -380,7 +410,7 @@ For full documentation, architecture diagrams, and migration details, see the [T
 
 ## TypeSpec Direct Codegen & Scaffolding
 
-`oa-gen` compiles TypeSpec (`.tsp`) files directly in-memory to generate TypeScript types, Zod schemas, TanStack Query hooks, and run validations without intermediate OpenAPI YAML build artifacts. The libraries a `.tsp` file imports are resolved from the file's location, so add them as direct development dependencies; strict layouts such as pnpm otherwise fail with `import-not-found`:
+`oa-gen` compiles TypeSpec (`.tsp`) files directly in-memory to generate TypeScript types, Zod schemas, TanStack Query hooks, and run validations without intermediate OpenAPI YAML build artifacts. Starting with `@oa-sdk/codegen`, `compileTypeSpecInMemory` and `compileTypeSpecToJsonSchemas` wrap the compiler host with `createTypeSpecFallbackHost`: local project packages still take precedence, and when `@typespec/*` or `@oa-sdk/*` libraries are absent locally (for example under strict pnpm layouts or isolated scripts), imports fall back automatically to the versions bundled with `@oa-sdk/codegen`. Adding them as direct dev dependencies remains recommended for the standalone `tsp` CLI, IDE LSP support, and third-party TypeSpec libraries:
 
 ```bash
 npm install --save-dev @oa-sdk/typespec-decorators@^0.3.0 \

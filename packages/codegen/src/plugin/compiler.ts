@@ -3,6 +3,8 @@ import { isAbsolute, join, resolve } from 'node:path'
 import { compile, NodeHost, formatDiagnostic, type Diagnostic, type Program } from '@typespec/compiler'
 import { getOpenAPI3 } from '@typespec/openapi3'
 import type { OasDocument } from '@oa-sdk/parser'
+import { extractTypeSpecNamedAliases, type TypeSpecNamedAlias } from '../typespec/aliases.js'
+import { createTypeSpecFallbackHost } from '../typespec/host.js'
 import type { TspConfigInput } from './types.js'
 
 export interface TypeSpecCompilerOptions {
@@ -10,6 +12,8 @@ export interface TypeSpecCompilerOptions {
   oldProgram?: Program | undefined
   /** Target OpenAPI specification version (default: '3.2.0') */
   openApiVersion?: '3.0.0' | '3.1.0' | '3.2.0' | undefined
+  /** Set `false` to retain models even when no HTTP routes reference them (data-model-only `.tsp`). */
+  omitUnreachableTypes?: boolean | undefined
 }
 
 export interface TypeSpecCompilerResult {
@@ -23,6 +27,8 @@ export interface TypeSpecCompilerResult {
   sourceFiles: string[]
   /** Absolute path to the resolved entrypoint (.tsp) */
   entrypoint: string
+  /** Named TypeSpec `alias` declarations preserved from the authored AST */
+  namedAliases: TypeSpecNamedAlias[]
 }
 
 /**
@@ -117,8 +123,9 @@ export async function compileTypeSpecInMemory(
 ): Promise<TypeSpecCompilerResult> {
   const entrypoint = resolveTypeSpecEntrypoint(input)
   const version = options?.openApiVersion ?? '3.2.0'
+  const host = createTypeSpecFallbackHost(NodeHost)
 
-  const program = await compile(NodeHost, entrypoint, { noEmit: true }, options?.oldProgram)
+  const program = await compile(host, entrypoint, { noEmit: true }, options?.oldProgram)
 
   if (program.hasError()) {
     const errorDetails = program.diagnostics.map(d => formatDiagnostic(d)).join('\n')
@@ -131,6 +138,7 @@ export async function compileTypeSpecInMemory(
 
   const records = await getOpenAPI3(program, {
     'openapi-versions': [version],
+    ...(options?.omitUnreachableTypes !== undefined ? { 'omit-unreachable-types': options.omitUnreachableTypes } : {}),
   })
 
   if (!records || records.length === 0) {
@@ -174,5 +182,6 @@ export async function compileTypeSpecInMemory(
     routesCount,
     sourceFiles: sourceFiles.length > 0 ? sourceFiles : [entrypoint],
     entrypoint,
+    namedAliases: extractTypeSpecNamedAliases(program),
   }
 }

@@ -2,11 +2,13 @@
 
 > **핵심**: REST 엔드포인트(`paths`) 없이 데이터 모델만 선언해도 `oa-sdk`로 TypeScript 타입과 런타임 타입 가드를 같은 원본에서 만들 수 있습니다.
 
-HTTP 전송 계층이 없는 곳(브라우저 확장 프로그램 MV3 메시징, Node Worker IPC, WebSocket 이벤트, DB DTO, 도메인 엔터티)에서 모델을 선언하고, `oa-gen typegen`으로 타입을, `oa-gen generate:guards`로 외부 의존성 없는 타입 가드를 만드는 방법을 다룹니다. 이 문서는 `@oa-sdk/codegen` 0.10.0 기준입니다. 두 명령은 `@oa-sdk/codegen`만 있으면 동작하고 동반 패키지가 필요 없습니다.
+HTTP 전송 계층이 없는 곳(브라우저 확장 프로그램 MV3 메시징, Node Worker IPC, WebSocket 이벤트, DB DTO, 도메인 엔터티)에서 모델을 선언하고, `oa-gen typegen` 또는 `@oa-sdk/codegen/typespec`으로 타입·Draft 2020-12 JSON Schema를, `oa-gen generate:guards` / `@oa-sdk/codegen/guards`로 외부 의존성 없는 타입 가드를 만드는 방법을 다룹니다. 이 문서는 저장소 checkout `@oa-sdk/codegen` 0.11.0 · `@oa-sdk/ast-sync` 0.3.0 기준이며 실제 npm 배포 버전은 `npm view`로 확인합니다. CLI 두 명령은 `@oa-sdk/codegen`만 있으면 동작하고 동반 패키지가 필요 없습니다.
 
 ```bash
 npm install --save-dev @oa-sdk/codegen
 ```
+
+`zod` v4는 `@oa-sdk/codegen` 내부 `dependencies`로 격리되어 있으며 `peerDependencies`에서는 제거되었습니다. 따라서 Zod 3을 사용하는 소비자도 Zod-free subpath(`@oa-sdk/codegen/typespec`, `@oa-sdk/codegen/guards`, `@oa-sdk/codegen/typegen`)를 충돌 없이 import할 수 있습니다.
 
 ---
 
@@ -28,7 +30,10 @@ HTTP operation(`@route`, `op`, `paths`) 없이 모델만 선언하는 세 가지
 
 ### 방식 A: TypeSpec (`.tsp`)
 
-`typegen`과 `generate:guards`는 `.tsp` 파일을 직접 받아 `@oa-sdk/codegen`에 들어 있는 TypeSpec 컴파일러로 메모리에서 컴파일합니다. namespace에 `@service`가 없으면 모델이 방출되지 않을 수 있으므로 모델만 담은 파일에도 `@service`를 붙입니다. 기존 단독 명령과 달리, 신규 [용도별 파이프라인](./pipeline-configuration.md)의 `purpose: 'data'`는 모델·operation이 모두 비면 실패합니다.
+`.tsp` 파일을 컴파일하는 방법은 목적에 따라 두 가지입니다.
+
+1. **프로그래밍 방식 순수 데이터 모델 API (`@oa-sdk/codegen/typespec`)**: `compileTypeSpecToJsonSchemas()`는 `omitUnreachableTypes: false`로 OpenAPI/Schema를 추출하므로 **`@service`나 `@route` 없이** 순수 `model`과 named `alias`만 선언한 `.tsp` 파일에서도 Draft 2020-12 JSON Schema(`$id`, `additionalProperties: false`, 단일 리터럴 `const`, 도달 가능한 `$defs` 프루닝), `typesDts`(`alias` 유니온 보존), standalone guard(`is*`·`validate*`·`assert*`)를 한 번에 생성할 수 있습니다. 또한 `createTypeSpecFallbackHost`가 로컬 `node_modules`에 없는 `@typespec/*`·`@oa-sdk/*` 라이브러리를 내장 패키지에서 자동으로 폴백 해석합니다.
+2. **CLI / `purpose: 'data'` 파이프라인**: `oa-gen typegen`, `oa-gen generate:guards` CLI 또는 [용도별 파이프라인](./pipeline-configuration.md)의 `purpose: 'data'` 경로는 기본적으로 도달 가능한 컴포넌트만 방출하는 OpenAPI emitter 기본 규칙을 따르므로, 모델만 담은 파일에도 `@service`를 붙입니다(모델·operation이 모두 비면 실패).
 
 ```typespec
 // models/events.tsp
@@ -189,15 +194,63 @@ npx oa-gen generate:guards --input models/events.tsp -o src/guards --type-import
 
 | 파일 | 내용 |
 |---|---|
-| `guards.js` | 컴포넌트마다 `is<TypeName>(data)` 함수. Ajv standalone으로 미리 컴파일한 검증 코드(import 없음, `eval` 없음) |
-| `guards.d.ts` | `export declare function isEditorActivityEvent(data: unknown): data is EditorActivityEvent;` 같은 타입 술어 선언 |
+| `guards.js` | 컴포넌트마다 `is<TypeName>(data)` 함수(실패 시 `is<TypeName>.errors`에 `StandaloneGuardError[]` 기록, 성공 시 `null`). `includeAssertions: true`이면 `validate<TypeName>(data)`와 `assert<TypeName>(data)`도 함께 방출. Ajv standalone 미리 컴파일 코드(import 없음, `eval` 없음) |
+| `guards.d.ts` | `export declare function isEditorActivityEvent(data: unknown): data is EditorActivityEvent;` 및 `.errors`용 `export declare namespace isEditorActivityEvent` 선언 병합(`includeAssertions: true` 시 `validate*`·`assert*` 포함) |
 | `index.js`, `index.d.ts` | `guards.js`를 다시 export |
-| `package.json` | `{ "type": "module" }` (ESM) |
+| `package.json` | `{ "type": "module" }` (ESM). 프로그래밍 API의 `writePackageJson` 기본값 `'auto'`는 상위 디렉터리 체인에 이미 `"type": "module"` `package.json`이 있으면 생성을 생략함(`hasAncestorModulePackage`) |
 
 - `--type-import`는 `.d.ts`가 타입을 가져올 경로입니다. 생성된 `.d.ts` 파일 위치 기준으로 쓰므로, 위 예처럼 `src/guards/`에서 `src/types/events.ts`를 가리키면 `../types/events.js`입니다. 신규 checkout에서는 생략 시 같은 원본으로 `types.d.ts`를 함께 생성해 미정의 타입 참조를 방지합니다. 이미 생성한 타입 모듈을 공유하려면 명시합니다.
 - `--split`이면 `guards/<TypeName>.js`·`.d.ts`로 나눠 쓰고 `index.js`가 모두 다시 export합니다. 파일이 한 단계 깊어지므로 `--type-import` 경로도 한 단계 더 올라가야 합니다(`../../types/events.js`).
 - `--schemas EditorActivityEvent,TextRange`로 대상 컴포넌트를 고를 수 있습니다. 점이 들어간 컴포넌트 이름(TypeSpec의 `OaSdkTypeSpec.StandardError` 등)도 원래 이름으로 고를 수 있고, 함수 이름은 JavaScript 식별자로 정규화됩니다(`isOaSdkTypeSpec_StandardError`). 신규 codegen 경로의 타입 술어는 typegen과 같은 선언 이름(`OaSdkTypeSpecStandardError`)을 import합니다.
 - `oa-gen generate --target standalone-guards --input <파일> --out-dir <디렉터리>`도 같은 가드를 만듭니다. `oa.config.ts`의 `guards` 설정으로 `oa-gen generate`에 포함할 수도 있습니다([선언적 스펙 설정](./declarative-spec-configuration.md#63-독립형-정적-타입-가드-guards)).
+
+### 3.3 프로그래밍 API (`@oa-sdk/codegen/typespec`, `@oa-sdk/codegen/guards` — Zod-free)
+
+`@service`와 `@route` 없이 순수 데이터 모델과 named `alias`만 선언한 `.tsp`에서 Draft 2020-12 JSON Schema, TypeScript `.d.ts`, 독립형 가드(`is*`·`.errors`·`validate*`·`assert*`)를 한 번에 생성할 수 있습니다. `@oa-sdk/codegen/typespec`과 `@oa-sdk/codegen/guards`는 `zod`를 전혀 import하지 않으므로 Zod 3 소비자 패키지에서도 충돌 없이 사용할 수 있습니다.
+
+```typescript
+import { compileTypeSpecToJsonSchemas } from '@oa-sdk/codegen/typespec'
+import { generateStandaloneGuards } from '@oa-sdk/codegen/guards'
+
+// 1. 순수 데이터 모델 .tsp -> Draft 2020-12 JSON Schema + named alias 보존 .d.ts + 인메모리 가드
+const compiled = await compileTypeSpecToJsonSchemas('./tsp/events.tsp', {
+  models: ['EditorActivityEvent'],
+  schemaIds: { EditorActivityEvent: 'https://example.org/schemas/editor-activity.v1.json' },
+  closedObjects: true,
+  normalizeSingleEnumToConst: true,
+  includeTypes: true,
+  includeGuards: true,
+  includeAssertions: true,
+})
+
+// 2. 또는 기존 OpenAPI/JSON Schema에서 직접 디스크 방출 (상위 ESM package.json 있으면 중복 생성 생략)
+const artifacts = await generateStandaloneGuards({
+  schemaDocument: compiled.openApiDocument,
+  outDir: './src/guards',
+  schemas: ['EditorActivityEvent'],
+  includeAssertions: true,
+  writePackageJson: 'auto',
+})
+```
+
+생성된 가드를 런타임에서 호출할 때는 `is*`의 `.errors`, `validate*` 결과 객체, `assert*` 예외 단언 중 용도에 맞게 선택할 수 있습니다:
+
+```typescript
+import {
+  isEditorActivityEvent,
+  validateEditorActivityEvent,
+  assertEditorActivityEvent,
+} from './guards/index.js'
+
+if (!isEditorActivityEvent(payload)) {
+  console.error(isEditorActivityEvent.errors) // StandaloneGuardError[] | null
+}
+
+const checked = validateEditorActivityEvent(payload)
+// checked.valid ? checked.data : checked.errors
+
+assertEditorActivityEvent(payload) // 유효하지 않으면 TypeError throw, 통과 시 EditorActivityEvent로 좁혀짐
+```
 
 ---
 

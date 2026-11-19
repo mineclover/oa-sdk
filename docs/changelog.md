@@ -2,6 +2,15 @@
 
 릴리스 단위가 아닌, 굵직한 surface 변경이 떨어졌을 때 한 항목으로 기록한다. 자세한 구현 상태는 [spec.md](./internal/spec.md), API 단일 소스는 [api-index.md](./internal/api-index.md), 기능↔테스트는 [feature-test-matrix.md](./internal/feature-test-matrix.md) 참조.
 
+## 2026-11-20 — 순수 데이터 모델 TypeSpec → JSON Schema 2020-12, Zod-free subpath, Standalone Guard `.errors`·assertion 및 Fallback Host (`@oa-sdk/ast-sync`, `@oa-sdk/codegen`, checkout 구현, 미배포)
+
+- **순수 데이터 모델 TypeSpec → Draft 2020-12 JSON Schema (`@oa-sdk/codegen/typespec`)**: `@service`나 `@route` 없는 데이터 모델 전용 `.tsp`를 `omitUnreachableTypes: false`로 직접 컴파일해 모델별 JSON Schema Draft 2020-12(`$id`, `closedObjects` `additionalProperties: false`, 단일 리터럴 `enum` → `const`, 도달 가능한 `$defs` 프루닝), TypeScript `.d.ts`, 인메모리 standalone guard를 생성하는 `compileTypeSpecToJsonSchemas()`를 추가했다.
+- **Named `alias` 보존**: `extractTypeSpecNamedAliases()`, `renderNamedAliasDeclarations()`, `TypegenOptions.extraAliases`를 추가해 `alias Status = "a" | "b"` 같은 명명된 유니온·스칼라 alias가 OpenAPI 3.1 추출 후에도 `typesDts`에 `export type`으로 보존되도록 했다.
+- **Standalone Guard `.errors` 및 assertion 헬퍼 (`@oa-sdk/ast-sync/guards`, `@oa-sdk/codegen/guards`)**: 생성된 `is*` 가드(일반·tiered fast-path·dispatch 래퍼)가 실패 시 `.errors`(`StandaloneGuardError[]`)를 채우고 성공 시 `null`로 초기화하며, `.d.ts`에 `export declare namespace <name>` 선언 병합을 제공한다. `includeAssertions: true` 옵션으로 `validate<Name>`·`assert<Name>` 헬퍼와 선언을 함께 생성하고, `writePackageJson?: boolean | 'auto'`(기본 `'auto'`, `hasAncestorModulePackage()` 활용)로 ESM 상위 프로젝트에서 중복 `package.json` 생성을 생략한다.
+- **Zod-free subpath 분리 및 의존성 정합성 (`@oa-sdk/codegen`)**: `--no-splitting`으로 빌드되는 `./typespec`·`./guards` 공개 subpath를 추가하고 `peerDependencies`에서 `"zod": ">=4.0.0"`을 제거해(`dependencies`에는 `"zod": "^4.6.5"` 유지) Zod 3 소비자 패키지도 충돌 없이 순수 TypeSpec/Guard subentry를 사용할 수 있게 했다. `@typespec/compiler`·`http`·`openapi`·`openapi3` 범위는 `~1.16.0`, `events`·`sse`·`streams`는 `~0.86.0`으로 정렬했다.
+- **TypeSpec fallback compiler host**: `createTypeSpecFallbackHost()`를 `compileTypeSpecInMemory()`와 `compileTypeSpecToJsonSchemas()`에 적용해 엄격한 pnpm 레이아웃이나 격리된 스크립트 경로의 `.tsp` 파일도 로컬 사본이 없을 때 번들된 `@typespec/*`·`@oa-sdk/*` 라이브러리로 자동 폴백한다(로컬 사본 우선).
+- **문서·검증**: 패키지별 릴리스 변경 내역은 [ast-sync CHANGELOG](../packages/ast-sync/CHANGELOG.md) (`0.3.0`)와 [codegen CHANGELOG](../packages/codegen/CHANGELOG.md) (`0.11.0`)에, 사용법은 [순수 타입과 가드](./guides/pure-types-and-guards.md)와 [라이브러리 진입점 지도](./guides/library-entrypoints.md)에 반영했다.
+
 ## 2026-11-09 — Pydantic v2 코드 생성 Phase 2: operation 타입과 타입 충실도 (`@oa-sdk/codegen`, checkout 구현, 미배포)
 
 - 범위: Phase 2는 **타입 생성**까지 보장한다. FastAPI router stub, `ContractRegistry` adapter, manifest/provenance는 범위 제외로 확정했다([Phase 2 문서](./internal/architecture/pydantic-codegen-phase2.md)).
@@ -78,7 +87,7 @@ relay·provider·agent client의 wire 규칙을 [WebMCP relay protocol spec](./i
 
 ## 2026-10-20 — WebMCP relay 남은 강화: `register` 평가 상한, offer `requestId` 상한, 이미 끝난 socket의 upgrade, client 요청 queue (`@oa-sdk/webmcp-peer`)
 
-2026-10-19 relay 메시지 상한 작업 뒤에 남긴 [강화 항목](./internal/todo.md#x-webmcp-relay-남은-강화-항목) 다섯 가지를 마쳤다. relay의 wire 동작 두 가지가 바뀌었다: offer의 `requestId` 상한을 넘으면 `offer.refused`(`REQUEST_ID_TOO_LARGE`)로 답하고, `register` 거절이 오는 시점을 평가 상한(반복 frame은 다시 평가하지 않고, 평가는 room마다 제한한다)이 정한다. provider SDK는 그대로다.
+2026-10-19 relay 메시지 상한 작업 뒤에 남긴 [강화 항목](./internal/todo-archive.md#x-webmcp-relay-남은-강화-항목) 다섯 가지를 마쳤다. relay의 wire 동작 두 가지가 바뀌었다: offer의 `requestId` 상한을 넘으면 `offer.refused`(`REQUEST_ID_TOO_LARGE`)로 답하고, `register` 거절이 오는 시점을 평가 상한(반복 frame은 다시 평가하지 않고, 평가는 room마다 제한한다)이 정한다. provider SDK는 그대로다.
 
 - **동작 변경: `register` 평가 상한**: relay는 room마다 마지막으로 평가한 `register` frame(`registerSeq`를 뺀 frame의 SHA-256)과 그 frame이 남긴 room catalog(version·hash)를 기억한다. 같은 frame이 다시 오면 room catalog가 그대로인 동안 정규화·hash·크기 측정을 하지 않고 같은 답(거부면 새 frame의 `registerSeq`를 담은 같은 거부, 아니면 답 없음)을 돌려준다. catalog를 바꾸지 않는 frame(`CATALOG_INVALID`·`CATALOG_TOO_LARGE`로 거부되거나 room이 이미 가진 catalog)은 room마다 한 번에 8개, 그 뒤로 초당 1개까지만 평가한다. 그 사이에 온 frame은 기다리고 provider의 다음 `register`가 그것을 대신하므로, 마지막 frame은 늦게라도 항상 평가되고 속도 때문에 거부되지 않는다. budget은 room에 속해 provider socket을 바꿔도 초기화되지 않는다. 이전에는 provider token을 가진 쪽이 거부되거나 아무것도 바꾸지 않는 `register`를 반복해 보낸 만큼 relay CPU를 쓸 수 있었다.
 - **동작 변경: offer `requestId` 상한**: relay는 `requestId`가 JSON 1 KiB(JSON-RPC id와 같은 상한)를 넘는 승인된 agent의 offer를 provider에 전달하지 않고 `{ type: "offer.refused", error: REQUEST_ID_TOO_LARGE }`로 답한다(id는 되돌려 주지 않는다). provider의 `answer`·`release` frame이 그 id를 되풀이하므로, 이전에는 그런 offer가 전달되고도 provider가 상한을 넘는 답을 보내지 않아 응답을 받지 못했다.
@@ -386,7 +395,7 @@ OpenAPI/Definition Builder path는 제거하지 않고 explicit rollback/referen
 
 `loadSqliteDriver()`가 `better-sqlite3` → `node:sqlite` 순서로 시도하던 정책을 뒤집어, 사용 가능한 런타임에서는 `node:sqlite`(Node 22.5+ 추가, Node 22.13+에서는 플래그 없이 사용 가능)를 우선 시도하고 `better-sqlite3`는 fallback으로만 사용한다.
 
-근거 — 두 신호로 정책 변경 정당화 (자세한 내역은 `docs/internal/todo.md` "운영 관찰: SQLite optional native dependency 설치성"):
+근거 — 두 신호로 정책 변경 정당화 (자세한 내역은 `docs/internal/todo-archive.md` "운영 관찰: SQLite optional native dependency 설치성"):
 
 1. **Forced fallback functional**: `packages/codegen/src/__tests__/workspace-index-fallback.test.ts`가 `Module._load`를 monkey-patch해 두 driver 각각 / 양쪽 모두 require 실패시키며 `loadSqliteDriver` + `createSQLiteWorkspaceIndex` lifecycle을 검증. 5 cases pass — fallback 경로에 hardening 필요한 결함 없음.
 2. **Driver benchmark**: `packages/codegen/scripts/bench-sqlite-driver.ts`가 75 file × 5 components × 5 refs 워크로드를 cold/warm 단계로 측정 (Node 24.15 / darwin arm64 / median of 3):

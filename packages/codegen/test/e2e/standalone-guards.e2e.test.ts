@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import * as path from 'node:path'
 import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
+import ts from 'typescript'
 import {
   generateStandaloneGuards,
 } from '../../src/index.js'
@@ -494,7 +495,13 @@ describe('E2E Standalone Type Guard Generator (Tiers 1-4)', () => {
         })
 
         const dts = artifacts.find(a => a.kind === 'dts')?.content ?? ''
-        expect(dts.trim().endsWith(';')).toBe(true)
+        const sf = ts.createSourceFile('guards.d.ts', dts, ts.ScriptTarget.ESNext, true)
+        const parseDiagnostics = (sf as unknown as { parseDiagnostics?: unknown[] }).parseDiagnostics ?? []
+        expect(parseDiagnostics).toEqual([])
+        expect(sf.statements.length).toBeGreaterThanOrEqual(2)
+        expect(dts).toContain('export declare function isValid(data: unknown): data is Valid;')
+        expect(dts).toContain('export declare namespace isValid')
+        expect(dts.trim()).toMatch(/[;}]$/)
       })
 
       it('F15-5: emits fallback data is unknown when typeName is omitted', async () => {

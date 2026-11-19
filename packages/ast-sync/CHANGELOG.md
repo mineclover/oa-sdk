@@ -4,6 +4,8 @@
 
 ### Minor Changes
 
+- Add runtime `.errors` (`StandaloneGuardError[] | null`) tracking and declaration-merged `export declare namespace <name>` typings on generated `is*` guards across normal, tiered fast-path, and polymorphic dispatch wrappers. Add `includeAssertions?: boolean` to emit companion `validate<Name>(data)` (`{ valid, data, errors }`) and `assert<Name>(data)` (`TypeError` on invalid input) helpers and `.d.ts` declarations, and add `writePackageJson?: boolean | 'auto'` (default `'auto'`) with `hasAncestorModulePackage()` to skip duplicate `{ "type": "module" }` `package.json` emission under ESM ancestors.
+
 - 020ec12: Isolate API, data-only and interface pipelines with an optional shared purpose contract.
   Preserve previous output on plugin diagnostic failures and fail Vite startup builds correctly.
   Use standalone schema validation for plugin guards, align generated declaration names, provide

@@ -92,7 +92,7 @@ pnpm add -D @oa-sdk/router @oa-sdk/client @oa-sdk/mock-server
 
 ### TypeSpec 작성 의존성
 
-`oa-gen`의 `validate`, `typegen`, `generate`, `generate:zod`, `generate:client`, `generate:tanstack`, `mock --tsp`, `tsp diff`에 `.tsp` 파일을 넘기면 `@oa-sdk/codegen`에 들어 있는 TypeSpec 컴파일러(`@typespec/compiler` 1.16)로 메모리에서 컴파일하므로 별도의 `tsp compile` 단계가 필요 없습니다. 다만 `.tsp`의 `import "@typespec/http"` 같은 라이브러리 import는 `.tsp` 파일 위치에서 찾습니다. pnpm처럼 의존성을 끌어올리지(hoist) 않는 패키지 매니저에서는 `@oa-sdk/codegen`만 설치하면 `import-not-found`로 실패하므로, `.tsp`가 import하는 라이브러리를 프로젝트의 직접 개발 의존성으로 둡니다.
+`oa-gen`의 `validate`, `typegen`, `generate`, `generate:zod`, `generate:client`, `generate:tanstack`, `mock --tsp`, `tsp diff` 및 `@oa-sdk/codegen/typespec` API에 `.tsp` 파일을 넘기면 `@oa-sdk/codegen`에 들어 있는 TypeSpec 컴파일러(`@typespec/compiler` 1.16)로 메모리에서 컴파일하므로 별도의 `tsp compile` 단계가 필요 없습니다. 인메모리 컴파일러는 `createTypeSpecFallbackHost`를 통해 로컬 `node_modules`를 먼저 탐색하되 `@typespec/*` 또는 `@oa-sdk/*` 라이브러리가 로컬에 없을 때는 `@oa-sdk/codegen`에 번들된 사본으로 자동 폴백합니다. 다만 단독 `tsp` CLI, IDE LSP 지원, 번들되지 않은 서드파티 `.tsp` 라이브러리를 쓰려면 해당 라이브러리를 프로젝트의 직접 개발 의존성으로 둡니다.
 
 ```bash
 npm install --save-dev @oa-sdk/codegen @oa-sdk/typespec-decorators@^0.3.0 \

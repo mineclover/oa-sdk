@@ -69,6 +69,8 @@ export type TypegenOptions = {
   externalAnalysis?: ExternalSchemaRefAnalysis
   /** 생성한 export 선언마다 이름, 생성 소스의 줄, OpenAPI 출처를 수집할 배열 */
   declarations?: GeneratedTypeDeclaration[]
+  /** TypeSpec 등에서 추출한 추가 named type alias 선언 목록 */
+  extraAliases?: ReadonlyArray<{ name: string; tsType: string; doc?: string | undefined }> | undefined
 }
 
 /**
@@ -504,6 +506,28 @@ export function generateTypes(doc: TypegenDocument, options: TypegenOptions = {}
     lines.push(...formatJSDoc(opJsDocLines.join('\n')).split('\n'))
     pushDeclaration(`${baseName}Op`, operationOrigin, `export type ${baseName}Op = {\n${bundleFields.join('\n')}\n}`)
     lines.push('')
+  }
+
+  if (options.extraAliases && options.extraAliases.length > 0) {
+    const existingNames = new Set(declared.map(entry => entry.name))
+    const pendingAliases = [...options.extraAliases]
+      .filter(alias => alias.name && alias.tsType && !existingNames.has(alias.name))
+      .sort((a, b) => a.name.localeCompare(b.name))
+    for (const alias of pendingAliases) {
+      if (existingNames.has(alias.name)) continue
+      existingNames.add(alias.name)
+      const start = lines.length
+      if (alias.doc) {
+        lines.push(...formatJSDoc(alias.doc).split('\n'))
+      }
+      lines.push(`export type ${alias.name} = ${alias.tsType}`)
+      lines.push('')
+      declared.push({
+        name: alias.name,
+        index: start,
+        origin: { kind: 'pointer', pointer: `#/$defs/${escapeJsonPointerToken(alias.name)}` },
+      })
+    }
   }
 
   if (options.declarations) {

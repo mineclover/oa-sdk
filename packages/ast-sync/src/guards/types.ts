@@ -3,6 +3,17 @@
  */
 
 /**
+ * Normalized validation diagnostic entry exposed via `guard.errors` and `validate*().errors`.
+ */
+export interface StandaloneGuardError {
+  instancePath: string
+  schemaPath: string
+  keyword: string
+  params?: Record<string, unknown> | undefined
+  message?: string | undefined
+}
+
+/**
  * Target schema definition for a standalone type guard.
  */
 export interface StandaloneGuardTarget {
@@ -40,6 +51,10 @@ export interface StandaloneGuardGeneratorOptions {
   dryRun?: boolean | undefined
   /** Whether to generate TypeScript declaration (.d.ts) files. Defaults to true. */
   generateDeclarations?: boolean | undefined
+  /** Also emit zero-dependency `validate<Name>()` and `assert<Name>()` helpers alongside `is<Name>()`. */
+  includeAssertions?: boolean | undefined
+  /** Controls `{ "type": "module" }` `package.json` emission in `outDir`. Defaults to `'auto'` (skip when an ancestor `package.json` already declares `"type": "module"`). */
+  writePackageJson?: boolean | 'auto' | undefined
   /** Target module format. Defaults to 'esm'. */
   moduleFormat?: 'esm' | undefined
   /** Whether to generate Tier 1 O(1) fast-path validation predicates (*Fast) */
