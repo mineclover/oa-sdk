@@ -248,10 +248,12 @@ browserGenerateTypesFromSpec({
       '.',
       './apitomy',
       './drizzle',
+      './guards',
       './plugin',
       './spec-lens',
       './typegen',
       './typegen/browser',
+      './typespec',
       './zodgen',
     ])
     expect(packageJson.exports).not.toHaveProperty('./typegen/generate-types')

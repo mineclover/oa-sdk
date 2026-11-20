@@ -47,6 +47,9 @@ export function createTypeSpecFallbackHost(baseHost: CompilerHost): CompilerHost
     const abs = resolve(targetPath)
     const match = NODE_MODULES_SEG_RE.exec(abs)
     if (!match) return null
+    const nodeModulesDir = match[1]!
+    const parentOfNodeModules = dirname(nodeModulesDir)
+    if (dirname(parentOfNodeModules) !== parentOfNodeModules) return null
     const rawPkg = match[2]!.replace(/\\/g, '/')
     const subPath = match[3] ? match[3].replace(/\\/g, '/') : ''
 

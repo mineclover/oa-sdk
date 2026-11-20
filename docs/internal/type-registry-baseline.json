@@ -34973,7 +34973,7 @@
         "runtime": "neutral",
         "semanticHash": "db1617525e6222efff57482d59df6ede3ab9f7c01a2e931e1385b91782df30cf",
         "shapeHash": "d7c06831a0ab8ba2b015ef35e8c685cdbff2889afd820cb195c02ec6c1ddf3ef",
-        "syntaxHash": "8f6d263f90c72f1076aae87f3f89f43522a3df34a6f7aa02ffd841b8a141cc10"
+        "syntaxHash": "ff431f29ff37e185caf57b5f829938dca8d6deb93f7db2bfa16a3df92e68f28d"
       },
       {
         "filePath": "packages/codegen/src/typespec/host.ts",
@@ -80386,7 +80386,7 @@
         "syntaxHash": "e468fae258fff35898aef05fe6a6da6ccde78e05e58af5c1bba938bd1f37adc3"
       }
     ],
-    "digest": "fbe0757f328c9e9df2a53178f9430991b9fad6ed414b7d93b77758a1df8a52e5",
+    "digest": "013639ca932636294d77f0c1e029bfe9336cb9d7578594b0b3afdb418020c450",
     "publicSurfaces": [
       {
         "exportKey": "./guards",
@@ -87893,7 +87893,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "23bd9634532bf3e568cfdcb759608d0c878f61de0482a228eceafdc5926fe68b",
+      "contentHash": "bce4c7224d17e2d31a569c2db698d81192910740b87cc0cd464ae9aae9ebf01a",
       "filePath": "packages/codegen/src/typespec/host.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
